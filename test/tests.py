@@ -5,14 +5,16 @@ import os
 import fiona
 from shapely.geometry import *
 from shapely.wkt import *
-from tilematrix import *
 
+scriptdir = os.path.dirname(os.path.realpath(__file__))
+rootdir = os.path.split(scriptdir)[0]
+sys.path.append(os.path.join(rootdir, 'modules'))
+from tilematrix import *
 
 ROUND = 10
 
 def main(args):
 
-    scriptdir = os.path.dirname(os.path.realpath(__file__))
     testdata_directory = os.path.join(scriptdir, "testdata")
     outdata_directory = os.path.join(testdata_directory, "out")
     wgs84 = TileMatrix("4326")
