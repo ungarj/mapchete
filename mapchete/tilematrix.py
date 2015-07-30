@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import sys
-from shapely.geometry import Polygon, shape
-from itertools import product
+from shapely.geometry import *
+from shapely.validation import *
 from shapely.prepared import prep
+from itertools import product
 
 ROUND = 10
 
@@ -121,7 +122,17 @@ class TileMatrix:
         try:
             assert geometry.is_valid
         except:
-            print "geometry is not valid"
+            print "WARNING: geometry seems not to be valid"
+            print explain_validity(geometry)
+            try:
+                clean = geometry.buffer(0.0)
+                assert clean.is_valid
+                assert clean.area > 0
+                geometry = clean
+                print "... cleaning successful"
+            except:
+                print "... geometry could not be fixed"
+                print explain_validity(clean)
     
         if geometry.almost_equals(geometry.envelope, ROUND):
     
@@ -155,7 +166,6 @@ class TileMatrix:
             bbox_tilelist = self.tiles_from_bbox(geometry, zoom)  
             for tile in bbox_tilelist:
                 col, row = tile
-                print tile
                 geometry = self.tile_bounds(col, row, zoom)
                 if prepared_geometry.intersects(geometry):
                     tilelist.append((col, row))
