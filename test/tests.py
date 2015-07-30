@@ -6,6 +6,7 @@ import fiona
 from shapely.geometry import *
 from shapely.wkt import *
 
+# import local modules independent from script location
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
