@@ -69,7 +69,7 @@ class TileMatrix:
             upper = float(round(self.top-((row)*tile_nssize), ROUND))
             return left, upper
 
-    def tile_bounds(self, col, row, zoom):
+    def tile_bbox(self, col, row, zoom):
         try:
             assert isinstance(zoom, int)
         except:
@@ -172,7 +172,7 @@ class TileMatrix:
             bbox_tilelist = self.tiles_from_bbox(geometry, zoom)  
             for tile in bbox_tilelist:
                 col, row = tile
-                geometry = self.tile_bounds(col, row, zoom)
+                geometry = self.tile_bbox(col, row, zoom)
                 if prepared_geometry.intersects(geometry):
                     tilelist.append((col, row))
     
