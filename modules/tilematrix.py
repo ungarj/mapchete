@@ -19,6 +19,7 @@ class TileMatrix:
                 projections)
             sys.exit(0)
         self.projection = projection
+        self.px_per_tile = 256
         if projection == "4326":
             self.left = float(-180)
             self.top = float(90)
@@ -26,6 +27,7 @@ class TileMatrix:
             self.bottom = float(-90)
             self.wesize = float(round(self.right - self.left, ROUND))
             self.nssize = float(round(self.top - self.bottom, ROUND))
+            self.crs = {'init': u'EPSG:4326'}
 
     def tiles_for_zoom(self, zoom):
         try:
@@ -48,6 +50,10 @@ class TileMatrix:
         tile_wesize = float(round(self.wesize/wetiles, ROUND))
         tile_nssize = float(round(self.nssize/nstiles, ROUND))
         return tile_wesize, tile_nssize
+
+    def pixelsize(self, zoom):
+        pixelsize = float(round(self.tilesize_for_zoom(zoom)[0] / self.px_per_tile, ROUND))
+        return pixelsize
 
     def top_left_tile_coords(self, col, row, zoom):
         try:
