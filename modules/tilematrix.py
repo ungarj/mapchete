@@ -69,7 +69,7 @@ class TileMatrix:
             upper = float(round(self.top-((row)*tile_nssize), ROUND))
             return left, upper
 
-    def tile_bbox(self, col, row, zoom):
+    def tile_bbox(self, col, row, zoom, pixelbuffer=None):
         try:
             assert isinstance(zoom, int)
         except:
@@ -77,11 +77,50 @@ class TileMatrix:
             sys.exit(0)
         tile_wesize, tile_nssize = self.tilesize_for_zoom(zoom)
         ul = self.top_left_tile_coords(col, row, zoom)
-        ur = ul[0] + tile_wesize, ul[1]
-        lr = ul[0] + tile_wesize, ul[1] - tile_nssize
-        ll = ul[0], ul[1] - tile_nssize
-    
+        left = ul[0]
+        bottom = ul[1] - tile_nssize
+        right = ul[0] + tile_wesize
+        top = ul[1]
+
+        if pixelbuffer:
+            assert isinstance(pixelbuffer, int)
+            offset = self.pixelsize(zoom)
+            left -= offset
+            bottom -= offset
+            right += offset
+            top += offset
+
+        ul = left, top
+        ur = right, top
+        lr = right, bottom
+        ll = left, bottom
+
         return Polygon([ul, ur, lr, ll])
+
+
+    def tile_bounds(self, col, row, zoom, pixelbuffer=None):
+        try:
+            assert isinstance(zoom, int)
+        except:
+            print "Zoom (%s) must be an integer." %(zoom)
+            sys.exit(0)
+        tile_wesize, tile_nssize = self.tilesize_for_zoom(zoom)
+        ul = self.top_left_tile_coords(col, row, zoom)
+
+        left = ul[0]
+        bottom = ul[1] - tile_nssize
+        right = ul[0] + tile_wesize
+        top = ul[1]
+
+        if pixelbuffer:
+            assert isinstance(pixelbuffer, int)
+            offset = self.pixelsize(zoom)
+            left -= offset
+            bottom -= offset
+            right += offset
+            top += offset
+
+        return (left, bottom, right, top)
 
 
     def tiles_from_bbox(self, geometry, zoom):

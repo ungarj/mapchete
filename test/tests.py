@@ -27,6 +27,8 @@ def main(args):
         print "tiles per zoomlevel OK"
     except:
         print "tiles per zoomlevel FAILED"
+        raise
+
 
     # top left coordinate
     try:
@@ -35,18 +37,57 @@ def main(args):
         print "top left coordinate OK"
     except:
         print "top left coordinate FAILED"
+        raise
 
 
-    # tile boundaries
+    # tile bounding box
     try:
-        boundaries = wgs84.tile_bounds(3, 3, 5)
+        bbox = wgs84.tile_bbox(3, 3, 5)
         testpolygon = Polygon([[-163.125, 73.125], [-157.5, 73.125],
             [-157.5, 67.5], [-163.125, 67.5], [-163.125, 73.125]])
-        assert boundaries.equals(testpolygon)
-        print "tile boundaries OK"
+        assert bbox.equals(testpolygon)
+        print "tile bounding box OK"
     except:
-        print "tile boundaries FAILED"
+        print "tile bounding box FAILED"
+        raise
+
+
+    # tile bounding box with buffer
+    try:
+        bbox = wgs84.tile_bbox(3, 3, 5, 1)
+        testpolygon = Polygon([[-163.14697265625, 73.14697265625],
+            [-157.47802734375, 73.14697265625],
+            [-157.47802734375, 67.47802734375],
+            [-163.14697265625, 67.47802734375],
+            [-163.14697265625, 73.14697265625]])
+        assert bbox.equals(testpolygon)
+        print "tile bounding box with buffer OK"
+    except:
+        print "tile bounding box with buffer FAILED"
+        raise
     
+
+    # tile bounds
+    try:
+        bounds = wgs84.tile_bounds(3, 3, 5)
+        testbounds = (-163.125, 67.5, -157.5, 73.125)
+        assert bounds == testbounds
+        print "tile bounds OK"
+    except:
+        print "tile bounds FAILED"
+        raise
+
+
+    # tile bounds buffer
+    try:
+        bounds = wgs84.tile_bounds(3, 3, 5, 1)
+        testbounds = (-163.14697265625, 67.47802734375, -157.47802734375, 73.14697265625)
+        assert bounds == testbounds
+        print "tile bounds with buffer OK"
+    except:
+        print "tile bounds wigh buffer FAILED"
+        raise
+
 
     # test bounding box
     bbox_location = os.path.join(testdata_directory, "bbox.geojson")
@@ -67,6 +108,7 @@ def main(args):
             print "bounding box OK"
         except:
             print "bounding box FAILED"
+            raise
     ## write debug output
     schema = {
         'geometry': 'Polygon',
@@ -80,11 +122,12 @@ def main(args):
         for tile in bbox_tiles:
             col, row = tile
             feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bounds(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
             sink.write(feature)
+
 
     # tiles from Point
     point_location = os.path.join(testdata_directory, "point.geojson")
@@ -99,6 +142,7 @@ def main(args):
             print "Point OK"
         except:
             print "Point FAILED"
+            raise
     ## write debug output
     schema = {
         'geometry': 'Polygon',
@@ -111,7 +155,7 @@ def main(args):
     with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
         col, row = point_tile[0]
         feature = {}
-        feature['geometry'] = mapping(wgs84.tile_bounds(col, row, zoom))
+        feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
         feature['properties'] = {}
         feature['properties']['col'] = col
         feature['properties']['row'] = row
@@ -131,6 +175,7 @@ def main(args):
             print "MultiPoint OK"
         except:
             print "MultiPoint FAILED"
+            raise
     ## write debug output
     schema = {
         'geometry': 'Polygon',
@@ -144,7 +189,7 @@ def main(args):
         for tile in multipoint_tiles:
             col, row = tile
             feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bounds(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
@@ -165,6 +210,7 @@ def main(args):
             print "LineString OK"
         except:
             print "LineString FAILED"
+            raise
     ## write debug output
     schema = {
         'geometry': 'Polygon',
@@ -178,7 +224,7 @@ def main(args):
         for tile in linestring_tiles:
             col, row = tile
             feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bounds(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
@@ -204,6 +250,7 @@ def main(args):
             print "MultiLineString OK"
         except:
             print "MultiLineString FAILED"
+            raise
     ## write debug output
     schema = {
         'geometry': 'Polygon',
@@ -217,7 +264,7 @@ def main(args):
         for tile in multilinestring_tiles:
             col, row = tile
             feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bounds(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
@@ -243,6 +290,7 @@ def main(args):
             print "Polygon OK"
         except:
             print "Polygon FAILED"
+            raise
     ## write debug output
     schema = {
         'geometry': 'Polygon',
@@ -256,7 +304,7 @@ def main(args):
         for tile in polygon_tiles:
             col, row = tile
             feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bounds(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
@@ -291,6 +339,7 @@ def main(args):
             print "MultiPolygon OK"
         except:
             print "MultiPolygon FAILED"
+            raise
     ## write debug output
     schema = {
         'geometry': 'Polygon',
@@ -304,11 +353,12 @@ def main(args):
         for tile in multipolygon_tiles:
             col, row = tile
             feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bounds(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
             sink.write(feature)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
