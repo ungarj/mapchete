@@ -16,7 +16,7 @@ rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
 from tilematrix import *
 
-ROUND = 10
+ROUND = 20
 
 def main(args):
 
@@ -24,10 +24,12 @@ def main(args):
     parser.add_argument("zoom", nargs=1, type=int)
     parser.add_argument("coastline", nargs=1, type=str)
     parser.add_argument("output_folder", nargs=1, type=str)
+    parser.add_argument("-d", "--debug", action="store_true")
     parsed = parser.parse_args(args)
     zoom = parsed.zoom[0]
     coastline_path = parsed.coastline[0]
     output_folder = parsed.output_folder[0]
+    debug = parsed.debug
 
     # Initialize Tile Matrix.
     tilematrix = TileMatrix("4326")
@@ -126,22 +128,12 @@ def main(args):
             top,
             resolution=(pixelsize, pixelsize))
 
-        #print aster.index(8.4998611,  41.0001389)
-
-        #print "herbert %s %s" %(aster.index(out_left, out_top)[0], aster.index(out_left, out_bottom)[0])
-
-        # Get pixel coordinates of tile in source dataset.
-        #print (out_left, out_top)
-        #print (out_right, out_bottom)
         # .index --> row, column
         minrow, mincol = aster.index(out_left, out_top)
         maxrow, maxcol = aster.index(out_right, out_bottom)
 
-        #print ((out_top, out_bottom), (out_left, out_right))
-
         rows = (minrow, maxrow)
         cols = (mincol, maxcol)
-        #print "old: %s, %s" %(rows, cols)
         window_offset_row = minrow
         window_offset_col = mincol
 
@@ -186,13 +178,15 @@ def main(args):
                 pass
             window_vector_affine = src_affine.translation(window_offset_col, window_offset_row)
             window_affine = src_affine * window_vector_affine
-            window_meta = src_meta
-            window_meta['transform'] = window_affine
-            window_meta['height'] = window_data.shape[0]
-            window_meta['width'] = window_data.shape[1]
-            window_meta['compress'] = "lzw"
-            with rasterio.open(debug_tile, 'w', **window_meta) as window:
-                window.write_band(1, window_data)
+
+            if debug:
+                window_meta = src_meta
+                window_meta['transform'] = window_affine
+                window_meta['height'] = window_data.shape[0]
+                window_meta['width'] = window_data.shape[1]
+                window_meta['compress'] = "lzw"
+                with rasterio.open(debug_tile, 'w', **window_meta) as window:
+                    window.write_band(1, window_data)
 
             dst_meta = src_meta
             dst_meta['transform'] = dst_affine
