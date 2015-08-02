@@ -29,6 +29,7 @@ def main(args):
     zoom = parsed.zoom[0]
     coastline_path = parsed.coastline[0]
     output_folder = parsed.output_folder[0]
+    global debug
     debug = parsed.debug
 
     # Initialize Tile Matrix.

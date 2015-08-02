@@ -5,6 +5,8 @@ import os
 import fiona
 from shapely.geometry import *
 from shapely.wkt import *
+from shapely.ops import cascaded_union
+import math
 
 # import local modules independent from script location
 scriptdir = os.path.dirname(os.path.realpath(__file__))
@@ -19,6 +21,8 @@ def main(args):
     testdata_directory = os.path.join(scriptdir, "testdata")
     outdata_directory = os.path.join(testdata_directory, "out")
     wgs84 = TileMatrix("4326")
+    wgs84_meta = MetaTileMatrix(wgs84, 23)
+
 
     # tiles per zoomlevel
     try:
@@ -81,7 +85,8 @@ def main(args):
     # tile bounds buffer
     try:
         bounds = wgs84.tile_bounds(3, 3, 5, 1)
-        testbounds = (-163.14697265625, 67.47802734375, -157.47802734375, 73.14697265625)
+        testbounds = (-163.14697265625, 67.47802734375, -157.47802734375,
+            73.14697265625)
         assert bounds == testbounds
         print "tile bounds with buffer OK"
     except:
@@ -358,6 +363,135 @@ def main(args):
             feature['properties']['col'] = col
             feature['properties']['row'] = row
             sink.write(feature)
+
+
+    for zoom in range(22):
+        assert len(wgs84_meta.tiles_for_zoom(zoom)) == 2
+
+        tile_wesize, tile_nssize = wgs84_meta.tilesize_for_zoom(zoom)
+        try:
+            assert (tile_wesize > 0.0) and (tile_wesize <= wgs84_meta.wesize)
+            assert (tile_nssize > 0.0) and (tile_nssize <= wgs84_meta.nssize)
+        except:
+            print "ERROR: metatile size"
+            print zoom
+            print tile_wesize, wgs84_meta.wesize
+            print tile_nssize, wgs84_meta.wesize
+
+
+        for metatiling in range(1,21):
+            wgs84_meta = MetaTileMatrix(wgs84, metatiling)
+            try:
+                assert wgs84.pixelsize(zoom) == wgs84_meta.pixelsize(zoom)
+            except:
+                print "ERROR: metatile pixel size"
+                print zoom, metatiling
+                print wgs84.pixelsize(zoom), wgs84_meta.pixelsize(zoom)
+
+
+#    col, row = 3, 3
+#    zoom = 5
+#    antimeridian_location = os.path.join(testdata_directory,
+#        "antimeridian.geojson")
+#    with fiona.open(antimeridian_location) as antimeridian_file:
+#        geometries = []
+#        for feature in antimeridian_file:
+#            geometries.append(shape(feature["geometry"]))
+#    antimeridian = cascaded_union(geometries)
+#    print "top left tile coordinates:"
+#    print "metatilematrix: %s" %([wgs84_meta.top_left_tile_coords(col, row, zoom)])
+#    print "tile bounding box"
+#    print "metatilematrix: %s" %([mapping(wgs84.tile_bbox(col, row, zoom))])
+#    print "tile bounds"
+#    print "metatilematrix: %s" %([wgs84_meta.tile_bounds(col, row, zoom)])
+#    print "tiles from bbox"
+#    #print "metatilematrix: %s" %([wgs84_meta.tiles_from_bbox(antimeridian, zoom)])
+#    print "tiles from geometry"
+#
+#    ## write debug output
+#    tiled_out = os.path.join(outdata_directory, "tile_antimeridian_tiles.geojson")
+#    schema = {
+#        'geometry': 'Polygon',
+#        'properties': {'col': 'int', 'row': 'int'}
+#    }
+#    try:
+#        os.remove(tiled_out)
+#    except:
+#        pass
+#    tiles = wgs84.tiles_from_geom(antimeridian, zoom)
+#    print "tilematrix: %s" %(len(tiles))
+#    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+#        for tile in tiles:
+#            col, row = tile
+#            feature = {}
+#            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+#            feature['properties'] = {}
+#            feature['properties']['col'] = col
+#            feature['properties']['row'] = row
+#            sink.write(feature)
+
+
+#    ## write debug output
+#    metatiled_out = os.path.join(outdata_directory, "metatile_antimeridian_tiles.geojson")
+#    schema = {
+#        'geometry': 'Polygon',
+#        'properties': {'col': 'int', 'row': 'int'}
+#    }
+#    try:
+#        os.remove(metatiled_out)
+#    except:
+#        pass
+#    metatiles = wgs84_meta.tiles_from_geom(antimeridian, zoom)
+#    print "metatilematrix: %s" %(len(metatiles))
+#    with fiona.open(metatiled_out, 'w', 'GeoJSON', schema) as sink:
+#        for metatile in metatiles:
+#            col, row = metatile
+#            feature = {}
+#            feature['geometry'] = mapping(wgs84_meta.tile_bbox(col, row, zoom))
+#            feature['properties'] = {}
+#            feature['properties']['col'] = col
+#            feature['properties']['row'] = row
+#            sink.write(feature)
+
+    
+    for metatiling in range(1, 21):
+        wgs84_meta = MetaTileMatrix(wgs84, metatiling)
+        for zoom in range(22):
+            tilematrix_tiles = wgs84.tiles_for_zoom(zoom)
+            metatilematrix_tiles = wgs84_meta.tiles_for_zoom(zoom)
+            we_metatiles = metatilematrix_tiles[0]
+            we_control = int(math.ceil(float(tilematrix_tiles[0])/float(metatiling)))
+            ns_metatiles = metatilematrix_tiles[1]
+            ns_control = int(math.ceil(float(tilematrix_tiles[1])/float(metatiling)))
+            try:
+                assert we_metatiles == we_control
+                assert ns_metatiles == ns_control
+            except:
+                print "ERROR: metatile number"
+                print metatiling, zoom
+                print we_metatiles, we_control
+                print ns_metatiles, ns_control
+                raise
+
+
+    for metatiling in range(1, 21):
+        wgs84_meta = MetaTileMatrix(wgs84, metatiling)
+        for zoom in range(22):
+            metatile_size = wgs84_meta.tilesize_for_zoom(zoom)
+            tile_size = wgs84.tilesize_for_zoom(zoom)
+            we_metatile_size = round(metatile_size[0], ROUND)
+            we_control_size = round(tile_size[0] * float(metatiling), ROUND)
+            ns_metatile_size = round(metatile_size[1], ROUND)
+            ns_control_size = round(tile_size[1] * float(metatiling), ROUND)
+            try:
+                assert we_metatile_size == we_control_size
+                assert ns_metatile_size == ns_control_size
+            except:
+                print "ERROR: metatile size and control sizes"
+                print metatiling, zoom
+                print we_metatile_size, we_control_size
+                print ns_metatile_size, ns_control_size
+
 
 
 if __name__ == "__main__":
