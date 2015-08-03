@@ -2,6 +2,7 @@
 
 import sys
 import os
+import argparse
 import fiona
 from shapely.geometry import *
 from shapely.wkt import *
@@ -18,6 +19,12 @@ ROUND = 10
 
 def main(args):
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--debug", action="store_true")
+    parsed = parser.parse_args(args)
+    global debug
+    debug = parsed.debug
+
     testdata_directory = os.path.join(scriptdir, "testdata")
     outdata_directory = os.path.join(testdata_directory, "out")
     wgs84 = TileMatrix("4326")
@@ -26,7 +33,7 @@ def main(args):
 
     # tiles per zoomlevel
     try:
-        tiles = wgs84.tiles_for_zoom(5)
+        tiles = wgs84.tiles_per_zoom(5)
         assert tiles == (64, 32)
         print "tiles per zoomlevel OK"
     except:
@@ -114,24 +121,25 @@ def main(args):
         except:
             print "bounding box FAILED"
             raise
-    ## write debug output
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'col': 'int', 'row': 'int'}
-    }
-    try:
-        os.remove(tiled_out)
-    except:
-        pass
-    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
-        for tile in bbox_tiles:
-            col, row = tile
-            feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
-            feature['properties'] = {}
-            feature['properties']['col'] = col
-            feature['properties']['row'] = row
-            sink.write(feature)
+    if debug:
+        ## write debug output
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out)
+        except:
+            pass
+        with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+            for tile in bbox_tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
 
 
     # tiles from Point
@@ -148,23 +156,24 @@ def main(args):
         except:
             print "Point FAILED"
             raise
-    ## write debug output
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'col': 'int', 'row': 'int'}
-    }
-    try:
-        os.remove(tiled_out)
-    except:
-        pass
-    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
-        col, row = point_tile[0]
-        feature = {}
-        feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
-        feature['properties'] = {}
-        feature['properties']['col'] = col
-        feature['properties']['row'] = row
-        sink.write(feature)
+    if debug:
+        ## write debug output
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out)
+        except:
+            pass
+        with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+            col, row = point_tile[0]
+            feature = {}
+            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+            feature['properties'] = {}
+            feature['properties']['col'] = col
+            feature['properties']['row'] = row
+            sink.write(feature)
 
     # tiles from MultiPoint
     multipoint_location = os.path.join(testdata_directory,
@@ -183,24 +192,25 @@ def main(args):
             print multipoint_tiles
             print testtiles
             raise
-    ## write debug output
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'col': 'int', 'row': 'int'}
-    }
-    try:
-        os.remove(tiled_out)
-    except:
-        pass
-    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
-        for tile in multipoint_tiles:
-            col, row = tile
-            feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
-            feature['properties'] = {}
-            feature['properties']['col'] = col
-            feature['properties']['row'] = row
-            sink.write(feature)
+    if debug:
+        ## write debug output
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out)
+        except:
+            pass
+        with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+            for tile in multipoint_tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
 
     # tiles from LineString
     linestring_location = os.path.join(testdata_directory,
@@ -218,24 +228,25 @@ def main(args):
         except:
             print "LineString FAILED"
             raise
-    ## write debug output
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'col': 'int', 'row': 'int'}
-    }
-    try:
-        os.remove(tiled_out)
-    except:
-        pass
-    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
-        for tile in linestring_tiles:
-            col, row = tile
-            feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
-            feature['properties'] = {}
-            feature['properties']['col'] = col
-            feature['properties']['row'] = row
-            sink.write(feature)
+    if debug:
+        ## write debug output
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out)
+        except:
+            pass
+        with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+            for tile in linestring_tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
 
     # tiles from MultiLineString
     multilinestring_location = os.path.join(testdata_directory,
@@ -258,24 +269,25 @@ def main(args):
         except:
             print "MultiLineString FAILED"
             raise
-    ## write debug output
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'col': 'int', 'row': 'int'}
-    }
-    try:
-        os.remove(tiled_out)
-    except:
-        pass
-    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
-        for tile in multilinestring_tiles:
-            col, row = tile
-            feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
-            feature['properties'] = {}
-            feature['properties']['col'] = col
-            feature['properties']['row'] = row
-            sink.write(feature)
+    if debug:
+        ## write debug output
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out)
+        except:
+            pass
+        with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+            for tile in multilinestring_tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
 
     # tiles from Polygon
     polygon_location = os.path.join(testdata_directory,
@@ -298,24 +310,25 @@ def main(args):
         except:
             print "Polygon FAILED"
             raise
-    ## write debug output
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'col': 'int', 'row': 'int'}
-    }
-    try:
-        os.remove(tiled_out)
-    except:
-        pass
-    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
-        for tile in polygon_tiles:
-            col, row = tile
-            feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
-            feature['properties'] = {}
-            feature['properties']['col'] = col
-            feature['properties']['row'] = row
-            sink.write(feature)
+    if debug:
+        ## write debug output
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out)
+        except:
+            pass
+        with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+            for tile in polygon_tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
 
     # tiles from MultiPolygon
     multipolygon_location = os.path.join(testdata_directory,
@@ -347,96 +360,99 @@ def main(args):
         except:
             print "MultiPolygon FAILED"
             raise
-    ## write debug output
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'col': 'int', 'row': 'int'}
-    }
-    try:
-        os.remove(tiled_out)
-    except:
-        pass
-    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
-        for tile in multipolygon_tiles:
-            col, row = tile
-            feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
-            feature['properties'] = {}
-            feature['properties']['col'] = col
-            feature['properties']['row'] = row
-            sink.write(feature)
+    if debug:
+        ## write debug output
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out)
+        except:
+            pass
+        with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+            for tile in multipolygon_tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
 
 
-#    col, row = 3, 3
-#    zoom = 5
-#    antimeridian_location = os.path.join(testdata_directory,
-#        "antimeridian.geojson")
-#    with fiona.open(antimeridian_location) as antimeridian_file:
-#        geometries = []
-#        for feature in antimeridian_file:
-#            geometries.append(shape(feature["geometry"]))
-#    antimeridian = cascaded_union(geometries)
-#    print "top left tile coordinates:"
-#    print "metatilematrix: %s" %([wgs84_meta.top_left_tile_coords(col, row, zoom)])
-#    print "tile bounding box"
-#    print "metatilematrix: %s" %([mapping(wgs84.tile_bbox(col, row, zoom))])
-#    print "tile bounds"
-#    print "metatilematrix: %s" %([wgs84_meta.tile_bounds(col, row, zoom)])
-#    print "tiles from bbox"
-#    #print "metatilematrix: %s" %([wgs84_meta.tiles_from_bbox(antimeridian, zoom)])
-#    print "tiles from geometry"
-#
-#    ## write debug output
-#    tiled_out = os.path.join(outdata_directory, "tile_antimeridian_tiles.geojson")
-#    schema = {
-#        'geometry': 'Polygon',
-#        'properties': {'col': 'int', 'row': 'int'}
-#    }
-#    try:
-#        os.remove(tiled_out)
-#    except:
-#        pass
-#    tiles = wgs84.tiles_from_geom(antimeridian, zoom)
-#    print "tilematrix: %s" %(len(tiles))
-#    with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
-#        for tile in tiles:
-#            col, row = tile
-#            feature = {}
-#            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
-#            feature['properties'] = {}
-#            feature['properties']['col'] = col
-#            feature['properties']['row'] = row
-#            sink.write(feature)
-
-
-#    ## write debug output
-#    metatiled_out = os.path.join(outdata_directory, "metatile_antimeridian_tiles.geojson")
-#    schema = {
-#        'geometry': 'Polygon',
-#        'properties': {'col': 'int', 'row': 'int'}
-#    }
-#    try:
-#        os.remove(metatiled_out)
-#    except:
-#        pass
-#    metatiles = wgs84_meta.tiles_from_geom(antimeridian, zoom)
-#    print "metatilematrix: %s" %(len(metatiles))
-#    with fiona.open(metatiled_out, 'w', 'GeoJSON', schema) as sink:
-#        for metatile in metatiles:
-#            col, row = metatile
-#            feature = {}
-#            feature['geometry'] = mapping(wgs84_meta.tile_bbox(col, row, zoom))
-#            feature['properties'] = {}
-#            feature['properties']['col'] = col
-#            feature['properties']['row'] = row
-#            sink.write(feature)
+    if debug:
+        # writing output test files
+        col, row = 2, 2
+        zoom = 5
+        metatiling = 2
+        wgs84_meta = MetaTileMatrix(wgs84, metatiling)
+        antimeridian_location = os.path.join(testdata_directory,
+            "antimeridian.geojson")
+        with fiona.open(antimeridian_location) as antimeridian_file:
+            geometries = []
+            for feature in antimeridian_file:
+                geometries.append(shape(feature["geometry"]))
+        antimeridian = cascaded_union(geometries)
+        print "top left tile coordinates:"
+        print "metatilematrix: %s" %([wgs84_meta.top_left_tile_coords(col, row, zoom)])
+        print "tile bounding box"
+        print "metatilematrix: %s" %([mapping(wgs84.tile_bbox(col, row, zoom))])
+        print "tile bounds"
+        print "metatilematrix: %s" %([wgs84_meta.tile_bounds(col, row, zoom)])
+        print "tiles from bbox"
+        #print "metatilematrix: %s" %([wgs84_meta.tiles_from_bbox(antimeridian, zoom)])
+        print "tiles from geometry"
+    
+        ## write debug output
+        tiled_out = os.path.join(outdata_directory, "tile_antimeridian_tiles.geojson")
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out)
+        except:
+            pass
+        tiles = wgs84.tiles_from_geom(antimeridian, zoom)
+        print "tilematrix: %s" %(len(tiles))
+        with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
+            for tile in tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
+        ## write debug output
+        metatiled_out = os.path.join(outdata_directory, "metatile_antimeridian_tiles.geojson")
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(metatiled_out)
+        except:
+            pass
+        metatiles = wgs84_meta.tiles_from_geom(antimeridian, zoom)
+        print "metatilematrix: %s" %(len(metatiles))
+        with fiona.open(metatiled_out, 'w', 'GeoJSON', schema) as sink:
+            for metatile in metatiles:
+                col, row = metatile
+                feature = {}
+                feature['geometry'] = mapping(wgs84_meta.tile_bbox(col, row, zoom))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
 
     
     for metatiling in range(1, 21):
         wgs84_meta = MetaTileMatrix(wgs84, metatiling)
         for zoom in range(22):
-            tilematrix_tiles = wgs84.tiles_for_zoom(zoom)
-            metatilematrix_tiles = wgs84_meta.tiles_for_zoom(zoom)
+            tilematrix_tiles = wgs84.tiles_per_zoom(zoom)
+            metatilematrix_tiles = wgs84_meta.tiles_per_zoom(zoom)
             we_metatiles = metatilematrix_tiles[0]
             we_control = int(math.ceil(float(tilematrix_tiles[0])/float(metatiling)))
             ns_metatiles = metatilematrix_tiles[1]
@@ -456,10 +472,10 @@ def main(args):
         wgs84_meta = MetaTileMatrix(wgs84, metatiling)
         for zoom in range(21):
             # check tuple
-            assert len(wgs84_meta.tiles_for_zoom(zoom)) == 2
+            assert len(wgs84_meta.tiles_per_zoom(zoom)) == 2
 
             # check metatile size
-            metatile_wesize, metatile_nssize = wgs84_meta.tilesize_for_zoom(zoom)
+            metatile_wesize, metatile_nssize = wgs84_meta.tilesize_per_zoom(zoom)
             metatile_wesize = round(metatile_wesize, ROUND)
             metatile_nssize = round(metatile_nssize, ROUND)
             ## assert metatile size equals tilematrix width and height at zoom 0
@@ -486,7 +502,7 @@ def main(args):
                 print metatile_nssize, wgs84_meta.wesize
             ## calculate control size from tiles
 
-            tile_wesize, tile_nssize = wgs84.tilesize_for_zoom(zoom)
+            tile_wesize, tile_nssize = wgs84.tilesize_per_zoom(zoom)
             we_control_size = round(tile_wesize * float(metatiling), ROUND)
             if we_control_size > wgs84.wesize:
                 we_control_size = wgs84.wesize
@@ -509,11 +525,9 @@ def main(args):
             except:
                 print "ERROR: metatile pixel size"
                 print zoom, metatiling
-                print wgs84_meta.tilesize_for_zoom(zoom), float(wgs84_meta.px_per_tile)
-                print round((wgs84_meta.tilesize_for_zoom(zoom)[0] / float(wgs84_meta.px_per_tile)), ROUND)
+                print wgs84_meta.tilesize_per_zoom(zoom), float(wgs84_meta.px_per_tile)
+                print round((wgs84_meta.tilesize_per_zoom(zoom)[0] / float(wgs84_meta.px_per_tile)), ROUND)
                 print round(wgs84.pixelsize(zoom), ROUND), round(wgs84_meta.pixelsize(zoom), ROUND)
-
-
 
 
 if __name__ == "__main__":
