@@ -14,6 +14,7 @@ scriptdir = os.path.dirname(os.path.realpath(__file__))
 rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
 from tilematrix import *
+from tilematrix_io import *
 
 ROUND = 10
 
@@ -30,6 +31,9 @@ def main(args):
     wgs84 = TileMatrix("4326")
     wgs84_meta = MetaTileMatrix(wgs84, 23)
 
+
+    # tilematrix
+    #===========
 
     # tiles per zoomlevel
     try:
@@ -528,6 +532,31 @@ def main(args):
                 print wgs84_meta.tilesize_per_zoom(zoom), float(wgs84_meta.px_per_tile)
                 print round((wgs84_meta.tilesize_per_zoom(zoom)[0] / float(wgs84_meta.px_per_tile)), ROUND)
                 print round(wgs84.pixelsize(zoom), ROUND), round(wgs84_meta.pixelsize(zoom), ROUND)
+
+
+    # tilematrix-io
+    #==============
+
+#    raster_file = "../../terrain/aster.tif"
+#    tileindex = (1077, 268, 10)
+#
+#    out_tile = "scaled.tif"
+#    try:
+#        os.remove(out_tile)
+#    except:
+#        pass
+#    metadata, data = read_raster_window(raster_file, wgs84, tileindex, pixelbuffer=1)
+#    with rasterio.open(out_tile, 'w', **metadata) as destination:
+#        destination.write_band(1, data)
+#
+#    out_tile = "unscaled.tif"
+#    try:
+#        os.remove(out_tile)
+#    except:
+#        pass
+#    metadata, data = read_raster_window(raster_file, wgs84, tileindex, pixelbuffer=1, tilify=False)
+#    with rasterio.open(out_tile, 'w', **metadata) as destination:
+#        destination.write_band(1, data)
 
 
 if __name__ == "__main__":
