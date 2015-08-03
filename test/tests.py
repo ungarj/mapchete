@@ -180,6 +180,8 @@ def main(args):
             print "MultiPoint OK"
         except:
             print "MultiPoint FAILED"
+            print multipoint_tiles
+            print testtiles
             raise
     ## write debug output
     schema = {
@@ -365,30 +367,6 @@ def main(args):
             sink.write(feature)
 
 
-    for zoom in range(22):
-        assert len(wgs84_meta.tiles_for_zoom(zoom)) == 2
-
-        tile_wesize, tile_nssize = wgs84_meta.tilesize_for_zoom(zoom)
-        try:
-            assert (tile_wesize > 0.0) and (tile_wesize <= wgs84_meta.wesize)
-            assert (tile_nssize > 0.0) and (tile_nssize <= wgs84_meta.nssize)
-        except:
-            print "ERROR: metatile size"
-            print zoom
-            print tile_wesize, wgs84_meta.wesize
-            print tile_nssize, wgs84_meta.wesize
-
-
-        for metatiling in range(1,21):
-            wgs84_meta = MetaTileMatrix(wgs84, metatiling)
-            try:
-                assert wgs84.pixelsize(zoom) == wgs84_meta.pixelsize(zoom)
-            except:
-                print "ERROR: metatile pixel size"
-                print zoom, metatiling
-                print wgs84.pixelsize(zoom), wgs84_meta.pixelsize(zoom)
-
-
 #    col, row = 3, 3
 #    zoom = 5
 #    antimeridian_location = os.path.join(testdata_directory,
@@ -476,21 +454,65 @@ def main(args):
 
     for metatiling in range(1, 21):
         wgs84_meta = MetaTileMatrix(wgs84, metatiling)
-        for zoom in range(22):
-            metatile_size = wgs84_meta.tilesize_for_zoom(zoom)
-            tile_size = wgs84.tilesize_for_zoom(zoom)
-            we_metatile_size = round(metatile_size[0], ROUND)
-            we_control_size = round(tile_size[0] * float(metatiling), ROUND)
-            ns_metatile_size = round(metatile_size[1], ROUND)
-            ns_control_size = round(tile_size[1] * float(metatiling), ROUND)
+        for zoom in range(21):
+            # check tuple
+            assert len(wgs84_meta.tiles_for_zoom(zoom)) == 2
+
+            # check metatile size
+            metatile_wesize, metatile_nssize = wgs84_meta.tilesize_for_zoom(zoom)
+            metatile_wesize = round(metatile_wesize, ROUND)
+            metatile_nssize = round(metatile_nssize, ROUND)
+            ## assert metatile size equals tilematrix width and height at zoom 0
+            if zoom == 0:
+                try:
+                    if metatiling == 1:
+                        assert (metatile_wesize * 2) == wgs84.wesize
+                    else:
+                        assert metatile_wesize == wgs84.wesize
+                    assert metatile_nssize == wgs84.nssize
+                except:
+                    print metatiling, zoom
+                    print "ERROR: zoom 0 metatile size not correct"
+                    print metatile_wesize, wgs84.wesize
+                    print metatile_nssize, wgs84.nssize
+            ## assert metatile size within tilematrix bounds
             try:
-                assert we_metatile_size == we_control_size
-                assert ns_metatile_size == ns_control_size
+                assert (metatile_wesize > 0.0) and (metatile_wesize <= wgs84.wesize)
+                assert (metatile_nssize > 0.0) and (metatile_nssize <= wgs84.nssize)
+            except:
+                print "ERROR: metatile size"
+                print zoom
+                print metatile_wesize, wgs84_meta.wesize
+                print metatile_nssize, wgs84_meta.wesize
+            ## calculate control size from tiles
+
+            tile_wesize, tile_nssize = wgs84.tilesize_for_zoom(zoom)
+            we_control_size = round(tile_wesize * float(metatiling), ROUND)
+            if we_control_size > wgs84.wesize:
+                we_control_size = wgs84.wesize
+            ns_control_size = round(tile_nssize * float(metatiling), ROUND)
+
+            if ns_control_size > wgs84.nssize:
+                ns_control_size = wgs84.nssize
+            try:
+                assert metatile_wesize == we_control_size
+                assert metatile_nssize == ns_control_size
             except:
                 print "ERROR: metatile size and control sizes"
                 print metatiling, zoom
-                print we_metatile_size, we_control_size
-                print ns_metatile_size, ns_control_size
+                print metatile_wesize, we_control_size
+                print metatile_nssize, ns_control_size
+
+            # check metatile pixelsize (resolution)
+            try:
+                assert round(wgs84.pixelsize(zoom), ROUND) == round(wgs84_meta.pixelsize(zoom), ROUND)
+            except:
+                print "ERROR: metatile pixel size"
+                print zoom, metatiling
+                print wgs84_meta.tilesize_for_zoom(zoom), float(wgs84_meta.px_per_tile)
+                print round((wgs84_meta.tilesize_for_zoom(zoom)[0] / float(wgs84_meta.px_per_tile)), ROUND)
+                print round(wgs84.pixelsize(zoom), ROUND), round(wgs84_meta.pixelsize(zoom), ROUND)
+
 
 
 
