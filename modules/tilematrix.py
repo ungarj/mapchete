@@ -31,7 +31,7 @@ class TileMatrix(object):
             self.nssize = float(round(self.top - self.bottom, ROUND))
             self.crs = {'init': u'EPSG:4326'}
 
-    def tiles_for_zoom(self, zoom):
+    def tiles_per_zoom(self, zoom):
         # Numbers of tiles at zoom level.
         try:
             assert isinstance(zoom, int)
@@ -43,9 +43,9 @@ class TileMatrix(object):
             nstiles = wetiles/2
         return wetiles, nstiles
 
-    def tilesize_for_zoom(self, zoom):
+    def tilesize_per_zoom(self, zoom):
         # Tile size in coordinates at zoom level.
-        wetiles, nstiles = self.tiles_for_zoom(zoom)
+        wetiles, nstiles = self.tiles_per_zoom(zoom)
         try:
             assert isinstance(zoom, int)
         except:
@@ -56,7 +56,7 @@ class TileMatrix(object):
         return tile_wesize, tile_nssize
 
     def pixelsize(self, zoom):
-        pixelsize = float(round(self.tilesize_for_zoom(zoom)[0] /
+        pixelsize = float(round(self.tilesize_per_zoom(zoom)[0] /
             self.px_per_tile, ROUND))
         return pixelsize
 
@@ -101,7 +101,7 @@ class MetaTileMatrix(TileMatrix):
         self.nssize = tilematrix.nssize
         self.crs = tilematrix.crs
 
-    def tiles_for_zoom(self, zoom):
+    def tiles_per_zoom(self, zoom):
         # Numbers of metatiles at zoom level.
         try:
             assert isinstance(zoom, int)
@@ -109,7 +109,7 @@ class MetaTileMatrix(TileMatrix):
             print "Zoom (%s) must be an integer." %(zoom)
             sys.exit(0)
         if self.projection == "4326":
-            wetiles, nstiles = self.tilematrix.tiles_for_zoom(zoom)
+            wetiles, nstiles = self.tilematrix.tiles_per_zoom(zoom)
             wetiles = math.ceil(wetiles / float(self.metatiles))
             if wetiles < 1:
                 wetiles = 1
@@ -118,14 +118,14 @@ class MetaTileMatrix(TileMatrix):
                 nstiles = 1
         return int(wetiles), int(nstiles)
 
-    def tilesize_for_zoom(self, zoom):
+    def tilesize_per_zoom(self, zoom):
         # Metatile size in coordinates at zoom level.
         try:
             assert isinstance(zoom, int)
         except:
             print "Zoom (%s) must be an integer." %(zoom)
             sys.exit(0)
-        tile_wesize, tile_nssize = self.tilematrix.tilesize_for_zoom(zoom)
+        tile_wesize, tile_nssize = self.tilematrix.tilesize_per_zoom(zoom)
         tile_wesize = tile_wesize * float(self.metatiles)
         if tile_wesize > self.wesize:
             tile_wesize = self.wesize
@@ -139,8 +139,12 @@ class MetaTileMatrix(TileMatrix):
         return round(pixelsize, ROUND)
 
     def top_left_tile_coords(self, col, row, zoom):        
-        left, upper = top_left_tile_coords(self, col, row, zoom)
-        return left, upper
+        try:
+            left, upper = top_left_tile_coords(self, col, row, zoom)
+            return left, upper
+        except:
+            print "ERROR determining tile coordinates."
+            raise
 
     def tile_bounds(self, col, row, zoom, pixelbuffer=None):
         bounds = tile_bounds(self, col, row, zoom, pixelbuffer=pixelbuffer)
@@ -156,7 +160,13 @@ class MetaTileMatrix(TileMatrix):
     
     def tiles_from_geom(self, geometry, zoom):
         # returns tiles intersecting with input geometry    
-        tilelist = tiles_from_bbox(self, geometry, zoom)    
+        tilelist = tiles_from_geom(self, geometry, zoom)    
+        return tilelist
+
+    def tiles_from_tilematrix(self, col, row, zoom):
+        tilematrix = self.tilematrix
+        metatile_bbox = self.tile_bbox(col, row, zoom)
+        tilelist = tilematrix.tiles_from_bbox(metatile_bbox, zoom)
         return tilelist
 
 
@@ -167,7 +177,7 @@ def tile_bounds(tilematrix, col, row, zoom, pixelbuffer=None):
     except:
         print "Zoom (%s) must be an integer." %(zoom)
         sys.exit(0)
-    tile_wesize, tile_nssize = tilematrix.tilesize_for_zoom(zoom)
+    tile_wesize, tile_nssize = tilematrix.tilesize_per_zoom(zoom)
     ul = tilematrix.top_left_tile_coords(col, row, zoom)
     left = ul[0]
     bottom = ul[1] - tile_nssize
@@ -208,10 +218,13 @@ def top_left_tile_coords(tilematrix, col, row, zoom):
     except:
         print "Zoom (%s) must be an integer." %(zoom)
         sys.exit(0)
-    tile_wesize, tile_nssize = tilematrix.tilesize_for_zoom(zoom)
-    if (col+1 > tilematrix.tiles_for_zoom(zoom)[0]) or (row+1 > 
-        tilematrix.tiles_for_zoom(zoom)[1]):
+    tile_wesize, tile_nssize = tilematrix.tilesize_per_zoom(zoom)
+    wetiles, nstiles = tilematrix.tiles_per_zoom(zoom)
+
+    if (col > wetiles) or (row > nstiles):
         print "no tile indices available on this zoom"
+        print zoom, col, row
+        print tilematrix.tiles_per_zoom(zoom)
     else:
         left = float(round(tilematrix.left+((col)*tile_wesize), ROUND))
         upper = float(round(tilematrix.top-((row)*tile_nssize), ROUND))
@@ -224,7 +237,7 @@ def tiles_from_bbox(tilematrix, geometry, zoom):
     except:
         print "Zoom (%s) must be an integer." %(zoom)
         sys.exit(0)
-    tile_wesize, tile_nssize = tilematrix.tilesize_for_zoom(zoom)
+    tile_wesize, tile_nssize = tilematrix.tilesize_per_zoom(zoom)
     tilelist = []
     l, b, r, t = geometry.bounds
     tilelon = tilematrix.left
@@ -280,7 +293,7 @@ def tiles_from_geom(tilematrix, geometry, zoom):
         lon, lat = list(geometry.coords)[0]
         tilelon = tilematrix.left
         tilelat = tilematrix.top
-        tile_wesize, tile_nssize = tilematrix.tilesize_for_zoom(zoom)
+        tile_wesize, tile_nssize = tilematrix.tilesize_per_zoom(zoom)
         col = -1
         row = -1
         while tilelon < lon:
