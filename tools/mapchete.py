@@ -15,6 +15,7 @@ scriptdir = os.path.dirname(os.path.realpath(__file__))
 rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
 from tilematrix import *
+from tilematrix_io import *
 
 ROUND = 20
 
@@ -33,23 +34,17 @@ def main(args):
     debug = parsed.debug
 
     # Initialize Tile Matrix.
-    tilematrix = TileMatrix("4326")
+    wgs84 = TileMatrix("4326")
 
-    input_dem = {}
-    input_dem[0] = "../../../terrain/aster.tif"
+    raster_file = "../../../terrain/01_corsica/aster.tif"
 
     # Read input DEM metadata.
-    with rasterio.open(input_dem[0]) as aster:
+    with rasterio.open(raster_file) as aster:
         tl = [aster.bounds.left, aster.bounds.top]
         tr = [aster.bounds.right, aster.bounds.top]
         br = [aster.bounds.right, aster.bounds.bottom]
         bl = [aster.bounds.left, aster.bounds.bottom]
         aster_envelope = Polygon([tl, tr, br, bl])
-        src_crs = aster.crs
-        src_affine = aster.affine
-        src_meta = aster.meta
-        src_shape = aster.shape
-        src_nodata = int(aster.nodatavals[0])
 
     # TODO: default to union of input DEM bounding boxes; optional command
     # line parameter
@@ -67,13 +62,14 @@ def main(args):
         footprint = cascaded_union(geometries)
 
     # Get tiles to be processed by footprint.
-    tiles = tilematrix.tiles_from_geom(footprint, zoom)
+    tiles = wgs84.tiles_from_geom(footprint, zoom)
     #tiles = [(2150, 541)]
     print "%s tiles to be processed" %(str(len(tiles)))
     ## Write debug output.
     zoomstring = "zoom%s" %(str(zoom))
     tiled_out_filename = zoomstring + ".geojson"
     tiled_out_path = os.path.join(output_folder, tiled_out_filename)
+    print tiled_out_path
     schema = {
         'geometry': 'Polygon',
         'properties': {'col': 'int', 'row': 'int'}
@@ -86,7 +82,7 @@ def main(args):
         for tile in tiles:
             col, row = tile
             feature = {}
-            feature['geometry'] = mapping(tilematrix.tile_bbox(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
@@ -97,154 +93,25 @@ def main(args):
     for tile in tiles:
         col, row = tile
 
-        print zoom, col, row
+        tileindex = zoom, col, row
+        print tileindex
 
-        tile_bbox_shape = shape(tilematrix.tile_bbox(col, row, zoom))
-        left = tile_bbox_shape.bounds[0]
-        bottom = tile_bbox_shape.bounds[1]
-        right = tile_bbox_shape.bounds[2]
-        top = tile_bbox_shape.bounds[3]
-
-        pixelsize = tilematrix.pixelsize(zoom)
-        dst_size = (tilematrix.px_per_tile, tilematrix.px_per_tile)
-        dst_crs = tilematrix.crs
-        dst_data = numpy.zeros(dst_size, numpy.int16)
-
-        out_left, out_bottom, out_right, out_top = transform_bounds(
-            src_crs, dst_crs, left, bottom, right, top, densify_pts=21)
-        
-        nspixels = (out_top - out_bottom) / pixelsize
-        wepixels = (out_right - out_left) / pixelsize
-        width, height = dst_size
-
-        # Get destination affine transformation.
-        dst_affine, dst_width, dst_height = calculate_default_transform(
-            src_crs,
-            dst_crs,
-            width,
-            height,
-            left,
-            bottom,
-            right,
-            top,
-            resolution=(pixelsize, pixelsize))
-
-        # .index --> row, column
-        minrow, mincol = aster.index(out_left, out_top)
-        maxrow, maxcol = aster.index(out_right, out_bottom)
-
-        rows = (minrow, maxrow)
-        cols = (mincol, maxcol)
-        window_offset_row = minrow
-        window_offset_col = mincol
-
-
-        minrow, minrow_offset = clean_pixel_coordinates(minrow, src_shape[0])
-        maxrow, maxrow_offset = clean_pixel_coordinates(maxrow, src_shape[0])
-        mincol, mincol_offset = clean_pixel_coordinates(mincol, src_shape[1])
-        maxcol, maxcol_offset = clean_pixel_coordinates(maxcol, src_shape[1])
-
-        rows = (minrow, maxrow)
-        cols = (mincol, maxcol)
-        #print "new: %s, %s" %(rows, cols)
-
-        with rasterio.open(input_dem[0]) as aster:
-            window_data = aster.read(1, window=(rows, cols))
-            if minrow_offset:
-                nullarray = np.empty((minrow_offset, window_data.shape[1]), dtype="int16")
-                nullarray[:] = src_nodata
-                newarray = np.concatenate((nullarray, window_data), axis=0)
-                window_data = newarray
-            if maxrow_offset:
-                nullarray = np.empty((maxrow_offset, window_data.shape[1]), dtype="int16")
-                nullarray[:] = src_nodata
-                newarray = np.concatenate((window_data, nullarray), axis=0)
-                window_data = newarray
-            if mincol_offset:
-                nullarray = np.empty((window_data.shape[0], mincol_offset), dtype="int16")
-                nullarray[:] = src_nodata
-                newarray = np.concatenate((nullarray, window_data), axis=1)
-                window_data = newarray
-            if maxcol_offset:
-                nullarray = np.empty((window_data.shape[0], maxcol_offset), dtype="int16")
-                nullarray[:] = src_nodata
-                newarray = np.concatenate((nullarray, window_data), axis=1)
-                window_data = newarray
-
-            debug_tile_name = "debug_%s%s.tif" %(col, row)
-            debug_tile = os.path.join(output_folder, debug_tile_name)
-            try:
-                os.remove(debug_tile_name)
-            except:
-                pass
-            window_vector_affine = src_affine.translation(window_offset_col, window_offset_row)
-            window_affine = src_affine * window_vector_affine
-
-            if debug:
-                window_meta = src_meta
-                window_meta['transform'] = window_affine
-                window_meta['height'] = window_data.shape[0]
-                window_meta['width'] = window_data.shape[1]
-                window_meta['compress'] = "lzw"
-                with rasterio.open(debug_tile, 'w', **window_meta) as window:
-                    window.write_band(1, window_data)
-
-            dst_meta = src_meta
-            dst_meta['transform'] = dst_affine
-            dst_meta['height'] = height
-            dst_meta['width'] = width
-            dst_meta['compress'] = "lzw"
-
-            try:
-                reproject(
-                    window_data,
-                    dst_data,
-                    src_transform=window_affine,
-                    src_crs=src_crs,
-                    dst_transform=dst_affine,
-                    dst_crs=dst_crs,
-                    resampling=RESAMPLING.lanczos)
-            except:
-                dst_data = None
-                raise
-            out_tile_folder = os.path.join(output_folder, zoomstring)
-            tile_name = "%s%s.tif" %(col, row)
-            out_tile = os.path.join(out_tile_folder, tile_name)
-            if not os.path.exists(out_tile_folder):
-                os.makedirs(out_tile_folder)
-            try:
-                os.remove(out_tile)
-            except:
-                pass
-            with rasterio.open(out_tile, 'w', **dst_meta) as dst:
-                dst.write_band(1, dst_data)
-
-
-
-    # usage: mapchete.py <process file> --[bbox|geom]
-    
-    # read process.json
-    ## determine input files
-    ## get tiles according to input files bboxes, or
-    ## according to input bbox/geometry
-    ## determine plugin to be used
-    ## determine cores to be used
-
-    # use plugin, tiles and multi parameter to start multiprocessing
-
-
-def clean_pixel_coordinates(coordinate, maximum):
-    # Crops pixel coordinate to 0 or maximum (array.shape) if necessary
-    # and returns an offset if necessary.
-    offset = None
-    if coordinate < 0:
-        offset = -coordinate
-        coordinate = 0
-    if coordinate > maximum:
-        offset = coordinate - maximum
-        coordinate = maximum
-    return coordinate, offset
-
+        out_tile_folder = os.path.join(output_folder, zoomstring)
+        tile_name = "%s%s.tif" %(col, row)
+        out_tile = os.path.join(out_tile_folder, tile_name)
+        if not os.path.exists(out_tile_folder):
+            os.makedirs(out_tile_folder)
+        try:
+            os.remove(out_tile)
+        except:
+            pass
+        metadata, data = read_raster_window(raster_file, wgs84, tileindex,
+            pixelbuffer=0)
+        if isinstance(data, np.ndarray):
+            with rasterio.open(out_tile, 'w', **metadata) as dst:
+                dst.write_band(1, data)
+        else:
+            "empty!"
 
 
 if __name__ == "__main__":
