@@ -31,12 +31,12 @@ def read_raster_window(input_file,
         source_nodata = int(source.nodatavals[0])
 
     # compute target metadata and initiate numpy array
-    tile_geom = tilematrix.tile_bbox(col, row, zoom, pixelbuffer)
+    tile_geom = tilematrix.tile_bbox(zoom, col, row, pixelbuffer)
 
     try:
         assert tile_geom.intersects(source_envelope)
 
-        left, bottom, right, top = tilematrix.tile_bounds(col, row, zoom,
+        left, bottom, right, top = tilematrix.tile_bounds(zoom, col, row,
             pixelbuffer)
         pixelsize = tilematrix.pixelsize(zoom)
         if pixelbuffer:
@@ -63,7 +63,7 @@ def read_raster_window(input_file,
             out_right,
             out_top,
             resolution=(pixelsize, pixelsize))[0]
-    
+
         # open window with rasterio
         with rasterio.open(input_file) as source:
             minrow, mincol = source.index(out_left, out_top)
@@ -76,7 +76,7 @@ def read_raster_window(input_file,
             maxcol, maxcol_offset = clean_pixel_coordinates(maxcol, source_shape[1])
             rows = (minrow, maxrow)
             cols = (mincol, maxcol)
-    
+
             window_data = source.read(1, window=(rows, cols))
             if minrow_offset:
                 nullarray = np.empty((minrow_offset, window_data.shape[1]), dtype="int16")
@@ -98,19 +98,19 @@ def read_raster_window(input_file,
                 nullarray[:] = source_nodata
                 newarray = np.concatenate((window_data, nullarray), axis=1)
                 window_data = newarray
-    
+
             window_vector_affine = source_affine.translation(window_offset_col, window_offset_row)
             window_affine = source_affine * window_vector_affine
-    
+
             window_meta = source_meta
             window_meta['transform'] = window_affine
             window_meta['height'] = window_data.shape[0]
             window_meta['width'] = window_data.shape[1]
             window_meta['compress'] = "lzw"
-    
+
             tile_metadata = window_meta
             tile_data = window_data
-    
+
         # if tilify, reproject/resample
         if tilify:
             destination_meta = source_meta
@@ -142,6 +142,59 @@ def read_raster_window(input_file,
     return tile_metadata, tile_data
 
 
+def write_raster_window(output_file,
+    tilematrix,
+    tileindex,
+    metadata,
+    rasterdata,
+    pixelbuffer=0):
+
+    zoom, col, row = tileindex
+
+    # get write window bounds (i.e. tile bounds plus pixelbuffer) in affine
+    out_left, out_bottom, out_right, out_top = tilematrix.tile_bounds(zoom,
+        col, row, pixelbuffer)
+    out_width = tilematrix.px_per_tile + (pixelbuffer * 2)
+    out_height = tilematrix.px_per_tile + (pixelbuffer * 2)
+    pixelsize = tilematrix.pixelsize(zoom)
+    destination_affine = calculate_default_transform(
+        tilematrix.crs,
+        tilematrix.crs,
+        out_width,
+        out_height,
+        out_left,
+        out_bottom,
+        out_right,
+        out_top,
+        resolution=(pixelsize, pixelsize))[0]
+
+    # convert to pixel coordinates
+    input_left = metadata["transform"][2]
+    input_top = metadata["transform"][5]
+    input_bottom = input_top + metadata["height"] * metadata["transform"][4]
+    input_right = input_left + metadata["width"] * metadata["transform"][0]
+    ul = input_left, input_top
+    ur = input_right, input_top
+    lr = input_right, input_bottom
+    ll = input_left, input_bottom
+    px_left = int(round((out_left - input_left) / pixelsize))
+    px_bottom = int(round((out_bottom - input_top) / -pixelsize))
+    px_right = int(round((input_left - out_right) / -pixelsize))
+    px_top = int(round((input_top - out_top) / pixelsize))
+    window = (px_top, px_bottom), (px_left, px_right)
+
+    # fill with nodata if necessary
+    # TODO
+    dst_data = rasterdata[px_top:px_bottom,px_left:px_right]
+
+    # write to output file
+    dst_metadata = metadata
+    dst_metadata["width"] = out_width
+    dst_metadata["height"] = out_height
+    dst_metadata["transform"] = destination_affine
+    with rasterio.open(output_file, 'w', **dst_metadata) as dst:
+        dst.write_band(1, dst_data)
+
 
 def read_vector_window(input_file,
     tilematrix,
@@ -149,7 +202,7 @@ def read_vector_window(input_file,
     pixelbuffer=None,
     tilify=True):
 
-    col, row, zoom = tileindex
+    zoom, col, row = tileindex
 
     assert (isinstance(tilematrix, TileMatrix) or
         isinstance(tilematrix, MetaTileMatrix))

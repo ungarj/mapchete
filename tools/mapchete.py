@@ -82,7 +82,7 @@ def main(args):
         for tile in tiles:
             col, row = tile
             feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
@@ -105,13 +105,17 @@ def main(args):
             os.remove(out_tile)
         except:
             pass
+
         metadata, data = read_raster_window(raster_file, wgs84, tileindex,
-            pixelbuffer=0)
+            pixelbuffer=5)
         if isinstance(data, np.ndarray):
-            with rasterio.open(out_tile, 'w', **metadata) as dst:
-                dst.write_band(1, data)
+            print "write output"
+            write_raster_window(out_tile, wgs84, tileindex, metadata,
+                data, pixelbuffer=0)
+            #with rasterio.open(out_tile, 'w', **metadata) as dst:
+            #    dst.write_band(1, data)
         else:
-            "empty!"
+            print "empty!"
 
 
 if __name__ == "__main__":

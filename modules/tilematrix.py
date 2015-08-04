@@ -60,16 +60,16 @@ class TileMatrix(object):
             self.px_per_tile, ROUND))
         return pixelsize
 
-    def top_left_tile_coords(self, col, row, zoom):        
-        left, upper = top_left_tile_coords(self, col, row, zoom)
+    def top_left_tile_coords(self, zoom, col, row):        
+        left, upper = top_left_tile_coords(self, zoom, col, row)
         return left, upper
 
-    def tile_bounds(self, col, row, zoom, pixelbuffer=None):
-        bounds = tile_bounds(self, col, row, zoom, pixelbuffer=pixelbuffer)
+    def tile_bounds(self, zoom, col, row, pixelbuffer=None):
+        bounds = tile_bounds(self, zoom, col, row, pixelbuffer=pixelbuffer)
         return bounds
 
-    def tile_bbox(self, col, row, zoom, pixelbuffer=None):
-        bbox = tile_bbox(self, col, row, zoom, pixelbuffer=pixelbuffer)
+    def tile_bbox(self, zoom, col, row, pixelbuffer=None):
+        bbox = tile_bbox(self, zoom, col, row, pixelbuffer=pixelbuffer)
         return bbox
 
     def tiles_from_bbox(self, geometry, zoom):
@@ -138,20 +138,20 @@ class MetaTileMatrix(TileMatrix):
         pixelsize = self.tilematrix.pixelsize(zoom)
         return round(pixelsize, ROUND)
 
-    def top_left_tile_coords(self, col, row, zoom):        
+    def top_left_tile_coords(self, zoom, col, row):        
         try:
-            left, upper = top_left_tile_coords(self, col, row, zoom)
+            left, upper = top_left_tile_coords(self, zoom, col, row)
             return left, upper
         except:
             print "ERROR determining tile coordinates."
             raise
 
-    def tile_bounds(self, col, row, zoom, pixelbuffer=None):
-        bounds = tile_bounds(self, col, row, zoom, pixelbuffer=pixelbuffer)
+    def tile_bounds(self, zoom, col, row, pixelbuffer=None):
+        bounds = tile_bounds(self, zoom, col, row, pixelbuffer=pixelbuffer)
         return bounds
 
-    def tile_bbox(self, col, row, zoom, pixelbuffer=None):
-        bbox = tile_bbox(self, col, row, zoom, pixelbuffer=pixelbuffer)
+    def tile_bbox(self, zoom, col, row, pixelbuffer=None):
+        bbox = tile_bbox(self, zoom, col, row, pixelbuffer=pixelbuffer)
         return bbox
 
     def tiles_from_bbox(self, geometry, zoom):
@@ -163,29 +163,29 @@ class MetaTileMatrix(TileMatrix):
         tilelist = tiles_from_geom(self, geometry, zoom)    
         return tilelist
 
-    def tiles_from_tilematrix(self, col, row, zoom):
+    def tiles_from_tilematrix(self, zoom, col, row):
         tilematrix = self.tilematrix
-        metatile_bbox = self.tile_bbox(col, row, zoom)
+        metatile_bbox = self.tile_bbox(zoom, col, row)
         tilelist = tilematrix.tiles_from_bbox(metatile_bbox, zoom)
         return tilelist
 
 
 # shared methods for TileMatrix and MetaTileMatrix
-def tile_bounds(tilematrix, col, row, zoom, pixelbuffer=None):
+def tile_bounds(tilematrix, zoom, col, row, pixelbuffer=None):
     try:
         assert isinstance(zoom, int)
     except:
         print "Zoom (%s) must be an integer." %(zoom)
         sys.exit(0)
     tile_wesize, tile_nssize = tilematrix.tilesize_per_zoom(zoom)
-    ul = tilematrix.top_left_tile_coords(col, row, zoom)
+    ul = tilematrix.top_left_tile_coords(zoom, col, row)
     left = ul[0]
     bottom = ul[1] - tile_nssize
     right = ul[0] + tile_wesize
     top = ul[1]
     if pixelbuffer:
         assert isinstance(pixelbuffer, int)
-        offset = tilematrix.pixelsize(zoom)
+        offset = tilematrix.pixelsize(zoom) * float(pixelbuffer)
         left -= offset
         bottom -= offset
         right += offset
@@ -197,13 +197,13 @@ def tile_bounds(tilematrix, col, row, zoom, pixelbuffer=None):
     return (left, bottom, right, top)
 
 
-def tile_bbox(tilematrix, col, row, zoom, pixelbuffer=None):
+def tile_bbox(tilematrix, zoom, col, row, pixelbuffer=None):
     try:
         assert isinstance(zoom, int)
     except:
         print "Zoom (%s) must be an integer." %(zoom)
         sys.exit(0)
-    left, bottom, right, top = tilematrix.tile_bounds(col, row, zoom,
+    left, bottom, right, top = tilematrix.tile_bounds(zoom, col, row,
         pixelbuffer=pixelbuffer)
     ul = left, top
     ur = right, top
@@ -212,7 +212,7 @@ def tile_bbox(tilematrix, col, row, zoom, pixelbuffer=None):
     return Polygon([ul, ur, lr, ll])
 
 
-def top_left_tile_coords(tilematrix, col, row, zoom):
+def top_left_tile_coords(tilematrix, zoom, col, row):
     try:
         assert isinstance(zoom, int)
     except:
@@ -310,7 +310,7 @@ def tiles_from_geom(tilematrix, geometry, zoom):
         bbox_tilelist = tilematrix.tiles_from_bbox(geometry, zoom)  
         for tile in bbox_tilelist:
             col, row = tile
-            geometry = tilematrix.tile_bbox(col, row, zoom)
+            geometry = tilematrix.tile_bbox(zoom, col, row)
             if prepared_geometry.intersects(geometry):
                 tilelist.append((col, row))
 

@@ -47,7 +47,7 @@ def main(args):
 
     # top left coordinate
     try:
-        tl = wgs84.top_left_tile_coords(3, 3, 5)
+        tl = wgs84.top_left_tile_coords(5, 3, 3)
         assert tl == (-163.125, 73.125)
         print "top left coordinate OK"
     except:
@@ -57,7 +57,7 @@ def main(args):
 
     # tile bounding box
     try:
-        bbox = wgs84.tile_bbox(3, 3, 5)
+        bbox = wgs84.tile_bbox(5, 3, 3)
         testpolygon = Polygon([[-163.125, 73.125], [-157.5, 73.125],
             [-157.5, 67.5], [-163.125, 67.5], [-163.125, 73.125]])
         assert bbox.equals(testpolygon)
@@ -69,7 +69,7 @@ def main(args):
 
     # tile bounding box with buffer
     try:
-        bbox = wgs84.tile_bbox(3, 3, 5, 1)
+        bbox = wgs84.tile_bbox(5, 3, 3, 1)
         testpolygon = Polygon([[-163.14697265625, 73.14697265625],
             [-157.47802734375, 73.14697265625],
             [-157.47802734375, 67.47802734375],
@@ -84,7 +84,7 @@ def main(args):
 
     # tile bounds
     try:
-        bounds = wgs84.tile_bounds(3, 3, 5)
+        bounds = wgs84.tile_bounds(5, 3, 3)
         testbounds = (-163.125, 67.5, -157.5, 73.125)
         assert bounds == testbounds
         print "tile bounds OK"
@@ -95,7 +95,7 @@ def main(args):
 
     # tile bounds buffer
     try:
-        bounds = wgs84.tile_bounds(3, 3, 5, 1)
+        bounds = wgs84.tile_bounds(5, 3, 3, 1)
         testbounds = (-163.14697265625, 67.47802734375, -157.47802734375,
             73.14697265625)
         assert bounds == testbounds
@@ -139,7 +139,7 @@ def main(args):
             for tile in bbox_tiles:
                 col, row = tile
                 feature = {}
-                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
                 feature['properties'] = {}
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
@@ -173,7 +173,7 @@ def main(args):
         with fiona.open(tiled_out, 'w', 'GeoJSON', schema) as sink:
             col, row = point_tile[0]
             feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+            feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
             feature['properties'] = {}
             feature['properties']['col'] = col
             feature['properties']['row'] = row
@@ -210,7 +210,7 @@ def main(args):
             for tile in multipoint_tiles:
                 col, row = tile
                 feature = {}
-                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
                 feature['properties'] = {}
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
@@ -246,7 +246,7 @@ def main(args):
             for tile in linestring_tiles:
                 col, row = tile
                 feature = {}
-                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
                 feature['properties'] = {}
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
@@ -287,7 +287,7 @@ def main(args):
             for tile in multilinestring_tiles:
                 col, row = tile
                 feature = {}
-                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
                 feature['properties'] = {}
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
@@ -328,7 +328,7 @@ def main(args):
             for tile in polygon_tiles:
                 col, row = tile
                 feature = {}
-                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
                 feature['properties'] = {}
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
@@ -378,7 +378,7 @@ def main(args):
             for tile in multipolygon_tiles:
                 col, row = tile
                 feature = {}
-                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
                 feature['properties'] = {}
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
@@ -399,11 +399,11 @@ def main(args):
                 geometries.append(shape(feature["geometry"]))
         antimeridian = cascaded_union(geometries)
         print "top left tile coordinates:"
-        print "metatilematrix: %s" %([wgs84_meta.top_left_tile_coords(col, row, zoom)])
+        print "metatilematrix: %s" %([wgs84_meta.top_left_tile_coords(zoom, col, row)])
         print "tile bounding box"
-        print "metatilematrix: %s" %([mapping(wgs84.tile_bbox(col, row, zoom))])
+        print "metatilematrix: %s" %([mapping(wgs84.tile_bbox(zoom, col, row))])
         print "tile bounds"
-        print "metatilematrix: %s" %([wgs84_meta.tile_bounds(col, row, zoom)])
+        print "metatilematrix: %s" %([wgs84_meta.tile_bounds(zoom, col, row)])
         print "tiles from bbox"
         #print "metatilematrix: %s" %([wgs84_meta.tiles_from_bbox(antimeridian, zoom)])
         print "tiles from geometry"
@@ -424,7 +424,7 @@ def main(args):
             for tile in tiles:
                 col, row = tile
                 feature = {}
-                feature['geometry'] = mapping(wgs84.tile_bbox(col, row, zoom))
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
                 feature['properties'] = {}
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
@@ -445,7 +445,7 @@ def main(args):
             for metatile in metatiles:
                 col, row = metatile
                 feature = {}
-                feature['geometry'] = mapping(wgs84_meta.tile_bbox(col, row, zoom))
+                feature['geometry'] = mapping(wgs84_meta.tile_bbox(zoom, col, row))
                 feature['properties'] = {}
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
@@ -558,6 +558,9 @@ def main(args):
 #    with rasterio.open(out_tile, 'w', **metadata) as destination:
 #        destination.write_band(1, data)
 
+
+    print wgs84.pixelsize(8)
+    print wgs84.tile_bbox(8, 268, 67, 5)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
