@@ -266,7 +266,7 @@ def tiles_from_bbox(tilematrix, geometry, zoom):
         tilelat -= tile_nssize
         row += 1
         rows.append(row)
-    tilelist = list(product(cols, rows))   
+    tilelist = list(product([zoom], cols, rows))   
     return tilelist
 
 
@@ -279,7 +279,7 @@ def tiles_from_geom(tilematrix, geometry, zoom):
         assert geometry.is_valid
     except:
         print "WARNING: geometry seems not to be valid"
-        print explain_validity(geometry)
+        #print explain_validity(geometry)
         try:
             clean = geometry.buffer(0.0)
             assert clean.is_valid
@@ -288,7 +288,7 @@ def tiles_from_geom(tilematrix, geometry, zoom):
             print "... cleaning successful"
         except:
             print "... geometry could not be fixed"
-            print explain_validity(clean)
+            sys.exit(0)
     
     if geometry.almost_equals(geometry.envelope, ROUND):
         tilelist = tilematrix.tiles_from_bbox(geometry, zoom)
@@ -306,17 +306,17 @@ def tiles_from_geom(tilematrix, geometry, zoom):
         while tilelat > lat:
             tilelat -= tile_nssize
             row += 1
-        tilelist.append((col, row))
+        tilelist.append((zoom, col, row))
 
     elif geometry.geom_type in ("LineString", "MultiLineString", "Polygon",
         "MultiPolygon", "MultiPoint"):
         prepared_geometry = prep(geometry)
         bbox_tilelist = tilematrix.tiles_from_bbox(geometry, zoom)  
         for tile in bbox_tilelist:
-            col, row = tile
+            zoom, col, row = tile
             geometry = tilematrix.tile_bbox(zoom, col, row)
             if prepared_geometry.intersects(geometry):
-                tilelist.append((col, row))
+                tilelist.append((zoom, col, row))
 
     else:
         print "ERROR: no valid geometry"

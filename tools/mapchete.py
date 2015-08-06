@@ -35,7 +35,7 @@ def main(args):
 
     # Initialize Tile Matrix.
     wgs84 = TileMatrix("4326")
-    wgs84_meta = MetaTileMatrix(wgs84, 8)
+    wgs84_meta = MetaTileMatrix(wgs84, 2)
 
     raster_file = "../../../terrain/01_corsica/aster.tif"
 
@@ -60,7 +60,8 @@ def main(args):
             if geometry.intersects(bounding_box):
                 intersect = geometry.intersection(bounding_box)
                 geometries.append(intersect)
-        footprint = prep(cascaded_union(geometries))
+        footprint = cascaded_union(geometries)
+        print "done."
 
     # Get metatiles to be processed by footprint.
     metatiles = wgs84_meta.tiles_from_geom(footprint, zoom)
@@ -70,12 +71,12 @@ def main(args):
 
     if debug:
         ## Write debug output.
+        print "write tiling debug file ..."
         tiled_out_filename = zoomstring + ".geojson"
         tiled_out_path = os.path.join(output_folder, tiled_out_filename)
-        print tiled_out_path
         schema = {
             'geometry': 'Polygon',
-            'properties': {'col': 'int', 'row': 'int'}
+            'properties': {'col': 'int', 'row': 'int', 'metatile': 'str'}
         }
         try:
             os.remove(tiled_out_path)
@@ -83,24 +84,45 @@ def main(args):
             pass
         with fiona.open(tiled_out_path, 'w', 'GeoJSON', schema) as sink:
             for metatile in metatiles:
-                col, row = metatile
+                zoom, col, row = metatile
                 tiles = wgs84_meta.tiles_from_tilematrix(zoom, col, row, footprint)
                 for tile in tiles:
-                    col, row = tile
+                    zoom, col, row = tile
                     feature = {}
                     feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
                     feature['properties'] = {}
                     feature['properties']['col'] = col
                     feature['properties']['row'] = row
+                    feature['properties']['metatile'] = str(metatile)
                     sink.write(feature)
+        print "done."
 
     # Do the processing.
     for metatile in metatiles:
         # resample_dem(metatile, footprint, zoom)
-        col, row = metatile
+        zoom, col, row = metatile
         tiles = wgs84_meta.tiles_from_tilematrix(zoom, col, row, footprint)
+
+        metadata, rasterdata = read_raster_window(raster_file, wgs84_meta, metatile,
+            pixelbuffer=5)
+
+        out_metatile_folder = os.path.join(output_folder+"/metatile", zoomstring)
+        metatile_name = "%s%s.tif" %(col, row)
+        out_metatile = os.path.join(out_metatile_folder, metatile_name)
+        if not os.path.exists(out_metatile_folder):
+            os.makedirs(out_metatile_folder)
+        try:
+            os.remove(out_metatile)
+        except:
+            pass
+
+        write_raster_window(out_metatile, wgs84_meta, metatile, metadata,
+            rasterdata, pixelbuffer=5)
+
+        print tiles
+
         for tile in tiles:
-            col, row = tile
+            zoom, col, row = tile
     
             tileindex = zoom, col, row
             print tileindex
@@ -115,11 +137,9 @@ def main(args):
             except:
                 pass
     
-            metadata, data = read_raster_window(raster_file, wgs84, tileindex,
-                pixelbuffer=5)
-            if isinstance(data, np.ndarray):
+            if isinstance(rasterdata, np.ndarray):
                 write_raster_window(out_tile, wgs84, tileindex, metadata,
-                    data, pixelbuffer=0)
+                    rasterdata, pixelbuffer=0)
             else:
                 print "empty!"
 
