@@ -60,12 +60,12 @@ def main(args):
             if geometry.intersects(bounding_box):
                 intersect = geometry.intersection(bounding_box)
                 geometries.append(intersect)
-        footprint = cascaded_union(geometries)
+        footprint = prep(cascaded_union(geometries))
 
-    # Get tiles to be processed by footprint.
-    tiles = wgs84.tiles_from_geom(footprint, zoom)
+    # Get metatiles to be processed by footprint.
+    metatiles = wgs84_meta.tiles_from_geom(footprint, zoom)
     #tiles = [(2150, 541)]
-    print "%s tiles to be processed" %(str(len(tiles)))
+    #print "%s tiles to be processed" %(str(len(tiles)))
     zoomstring = "zoom%s" %(str(zoom))
 
     if debug:
@@ -82,40 +82,46 @@ def main(args):
         except:
             pass
         with fiona.open(tiled_out_path, 'w', 'GeoJSON', schema) as sink:
-            for tile in tiles:
-                col, row = tile
-                feature = {}
-                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
-                feature['properties'] = {}
-                feature['properties']['col'] = col
-                feature['properties']['row'] = row
-                sink.write(feature)
-
+            for metatile in metatiles:
+                col, row = metatile
+                tiles = wgs84_meta.tiles_from_tilematrix(zoom, col, row, footprint)
+                for tile in tiles:
+                    col, row = tile
+                    feature = {}
+                    feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
+                    feature['properties'] = {}
+                    feature['properties']['col'] = col
+                    feature['properties']['row'] = row
+                    sink.write(feature)
 
     # Do the processing.
-    for tile in tiles:
-        col, row = tile
-
-        tileindex = zoom, col, row
-        print tileindex
-
-        out_tile_folder = os.path.join(output_folder, zoomstring)
-        tile_name = "%s%s.tif" %(col, row)
-        out_tile = os.path.join(out_tile_folder, tile_name)
-        if not os.path.exists(out_tile_folder):
-            os.makedirs(out_tile_folder)
-        try:
-            os.remove(out_tile)
-        except:
-            pass
-
-        metadata, data = read_raster_window(raster_file, wgs84, tileindex,
-            pixelbuffer=5)
-        if isinstance(data, np.ndarray):
-            write_raster_window(out_tile, wgs84, tileindex, metadata,
-                data, pixelbuffer=0)
-        else:
-            print "empty!"
+    for metatile in metatiles:
+        # resample_dem(metatile, footprint, zoom)
+        col, row = metatile
+        tiles = wgs84_meta.tiles_from_tilematrix(zoom, col, row, footprint)
+        for tile in tiles:
+            col, row = tile
+    
+            tileindex = zoom, col, row
+            print tileindex
+    
+            out_tile_folder = os.path.join(output_folder, zoomstring)
+            tile_name = "%s%s.tif" %(col, row)
+            out_tile = os.path.join(out_tile_folder, tile_name)
+            if not os.path.exists(out_tile_folder):
+                os.makedirs(out_tile_folder)
+            try:
+                os.remove(out_tile)
+            except:
+                pass
+    
+            metadata, data = read_raster_window(raster_file, wgs84, tileindex,
+                pixelbuffer=5)
+            if isinstance(data, np.ndarray):
+                write_raster_window(out_tile, wgs84, tileindex, metadata,
+                    data, pixelbuffer=0)
+            else:
+                print "empty!"
 
 
 if __name__ == "__main__":

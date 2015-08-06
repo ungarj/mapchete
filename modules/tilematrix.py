@@ -163,10 +163,14 @@ class MetaTileMatrix(TileMatrix):
         tilelist = tiles_from_geom(self, geometry, zoom)    
         return tilelist
 
-    def tiles_from_tilematrix(self, zoom, col, row):
+    def tiles_from_tilematrix(self, zoom, col, row, geometry=None):
         tilematrix = self.tilematrix
         metatile_bbox = self.tile_bbox(zoom, col, row)
-        tilelist = tilematrix.tiles_from_bbox(metatile_bbox, zoom)
+        if geometry:
+            geom_clipped = geometry.intersection(metatile_bbox)
+            tilelist = tilematrix.tiles_from_geom(geom_clipped, zoom)
+        else:
+            tilelist = tilematrix.tiles_from_bbox(metatile_bbox, zoom)
         return tilelist
 
 
