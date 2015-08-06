@@ -534,6 +534,60 @@ def main(args):
                 print round(wgs84.pixelsize(zoom), ROUND), round(wgs84_meta.pixelsize(zoom), ROUND)
 
 
+    if debug:
+        fiji_borders = os.path.join(testdata_directory, "fiji.geojson")
+        with fiona.open(fiji_borders, "r") as fiji:
+            geometries = []
+            for feature in fiji:
+                geometry = shape(feature['geometry'])
+                geometries.append(geometry)
+        union = cascaded_union(geometries)
+        # tiles
+        fiji_tiles = os.path.join(outdata_directory, "fiji_tiles.geojson")
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(fiji_tiles)
+        except:
+            pass
+        metatiling = 5
+        zoom = 10
+        tiles = wgs84.tiles_from_geom(union, zoom)
+        with fiona.open(fiji_tiles, 'w', 'GeoJSON', schema) as sink:
+            for tile in tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
+    
+        # metatiles
+        fiji_metatiles = os.path.join(outdata_directory, "fiji_metatiles.geojson")
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(fiji_metatiles)
+        except:
+            pass
+        wgs84_meta = MetaTileMatrix(wgs84, metatiling)
+        metatiles = wgs84_meta.tiles_from_geom(union, zoom)
+        with fiona.open(fiji_metatiles, 'w', 'GeoJSON', schema) as sink:
+            for metatile in metatiles:
+                col, row = metatile
+                feature = {}
+                feature['geometry'] = mapping(wgs84_meta.tile_bbox(zoom, col, row))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
+
+
     # tilematrix-io
     #==============
 
@@ -558,9 +612,6 @@ def main(args):
 #    with rasterio.open(out_tile, 'w', **metadata) as destination:
 #        destination.write_band(1, data)
 
-
-    print wgs84.pixelsize(8)
-    print wgs84.tile_bbox(8, 268, 67, 5)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
