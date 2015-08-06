@@ -35,6 +35,7 @@ def main(args):
 
     # Initialize Tile Matrix.
     wgs84 = TileMatrix("4326")
+    wgs84_meta = MetaTileMatrix(wgs84, 8)
 
     raster_file = "../../../terrain/01_corsica/aster.tif"
 
@@ -65,28 +66,30 @@ def main(args):
     tiles = wgs84.tiles_from_geom(footprint, zoom)
     #tiles = [(2150, 541)]
     print "%s tiles to be processed" %(str(len(tiles)))
-    ## Write debug output.
     zoomstring = "zoom%s" %(str(zoom))
-    tiled_out_filename = zoomstring + ".geojson"
-    tiled_out_path = os.path.join(output_folder, tiled_out_filename)
-    print tiled_out_path
-    schema = {
-        'geometry': 'Polygon',
-        'properties': {'col': 'int', 'row': 'int'}
-    }
-    try:
-        os.remove(tiled_out_path)
-    except:
-        pass
-    with fiona.open(tiled_out_path, 'w', 'GeoJSON', schema) as sink:
-        for tile in tiles:
-            col, row = tile
-            feature = {}
-            feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
-            feature['properties'] = {}
-            feature['properties']['col'] = col
-            feature['properties']['row'] = row
-            sink.write(feature)
+
+    if debug:
+        ## Write debug output.
+        tiled_out_filename = zoomstring + ".geojson"
+        tiled_out_path = os.path.join(output_folder, tiled_out_filename)
+        print tiled_out_path
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+        try:
+            os.remove(tiled_out_path)
+        except:
+            pass
+        with fiona.open(tiled_out_path, 'w', 'GeoJSON', schema) as sink:
+            for tile in tiles:
+                col, row = tile
+                feature = {}
+                feature['geometry'] = mapping(wgs84.tile_bbox(zoom, col, row))
+                feature['properties'] = {}
+                feature['properties']['col'] = col
+                feature['properties']['row'] = row
+                sink.write(feature)
 
 
     # Do the processing.
@@ -109,11 +112,8 @@ def main(args):
         metadata, data = read_raster_window(raster_file, wgs84, tileindex,
             pixelbuffer=5)
         if isinstance(data, np.ndarray):
-            print "write output"
             write_raster_window(out_tile, wgs84, tileindex, metadata,
                 data, pixelbuffer=0)
-            #with rasterio.open(out_tile, 'w', **metadata) as dst:
-            #    dst.write_band(1, data)
         else:
             print "empty!"
 
