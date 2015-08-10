@@ -35,7 +35,7 @@ def main(args):
 
     # Initialize Tile Matrix.
     wgs84 = TileMatrix("4326")
-    wgs84_meta = MetaTileMatrix(wgs84, 2)
+    wgs84_meta = MetaTileMatrix(wgs84, 8)
 
     raster_file = "../../../terrain/01_corsica/aster.tif"
 
@@ -119,13 +119,10 @@ def main(args):
         write_raster_window(out_metatile, wgs84_meta, metatile, metadata,
             rasterdata, pixelbuffer=5)
 
-        print tiles
-
         for tile in tiles:
             zoom, col, row = tile
     
             tileindex = zoom, col, row
-            print tileindex
     
             out_tile_folder = os.path.join(output_folder, zoomstring)
             tile_name = "%s%s.tif" %(col, row)

@@ -3,6 +3,7 @@
 import rasterio
 from rasterio.warp import *
 import numpy as np
+from copy import deepcopy
 
 from tilematrix import *
 
@@ -155,9 +156,6 @@ def write_raster_window(output_file,
     out_left, out_bottom, out_right, out_top = tilematrix.tile_bounds(zoom,
         col, row, pixelbuffer)
 
-
-    print zoom, col, row, out_left, out_bottom, out_right, out_top
-
     out_width = tilematrix.px_per_tile + (pixelbuffer * 2)
     out_height = tilematrix.px_per_tile + (pixelbuffer * 2)
     pixelsize = tilematrix.pixelsize(zoom)
@@ -186,23 +184,12 @@ def write_raster_window(output_file,
     px_right = int(round(((out_right - input_left) / pixelsize), 0))
     px_top = int(round(((input_top - out_top) / pixelsize), 0))
     window = (px_top, px_bottom), (px_left, px_right)
-#    if (px_left == 0)  or (px_top == 0):
-#        print metadata
-#        print (out_left - input_left), (input_top - out_top)
-#        print "pixel window:"
-#        print window
-#        print "left, bottom, right, top"
-#        print px_left, px_bottom, px_right, px_top
-#        print "input data polygon"
-#        print Polygon([ul, ur, lr, ll])
-#        print "output tile polygon"
-#        print tilematrix.tile_bbox(zoom, col, row)
 
     # fill with nodata if necessary
     # TODO
+
     dst_data = rasterdata[px_top:px_bottom, px_left:px_right]
 
-    from copy import deepcopy
     # write to output file
     dst_metadata = deepcopy(metadata)
     dst_metadata["width"] = out_width
