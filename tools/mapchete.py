@@ -38,6 +38,7 @@ def main(args):
         help="Metatile size. (default 1)")
     parser.add_argument("--parallel", "-p", nargs=1, type=int, default=[1], # wtf idk
         help="Number of parallel processes. (default 1)")
+    parser.add_argument("--create_vrt", "-vrt", action="store_true")
     parser.add_argument("--debug", "-d", action="store_true")
 
     subparsers = parser.add_subparsers(help='sub-command help')
@@ -58,9 +59,9 @@ def main(args):
     metatiling = parsed.metatiling[0]
     parallel = parsed.parallel[0]
     bounds = parsed.bounds
+    create_vrt = parsed.create_vrt
     global debug
     debug = parsed.debug
-
 
     # Initialize TileMatrix and MetaTileMatrix.
     tilematrix = TileMatrix(epsg)
@@ -95,7 +96,6 @@ def main(args):
     # Get metatiles from metatilematrix and process area.
     metatiles = metatilematrix.tiles_from_geom(process_area, zoom)
 
-
     from functools import partial
     f = partial(worker,
         parsed=parsed,
@@ -110,9 +110,14 @@ def main(args):
     for output in pool.imap_unordered(f, metatiles):
         counter += 1
         pbar.update(counter)
-        
+    pbar.finish()        
 
-    
+    if create_vrt:
+        print "creating VRT ..."
+        target_vrt = os.path.join(output_folder, (str(zoom) + ".vrt"))
+        target_tiffs = (os.path.join(output_folder, str(zoom))) + "/*/*.tif"
+        command = "gdalbuildvrt -overwrite %s %s" %(target_vrt, target_tiffs)
+        os.system(command)
 
 
 def worker(metatile, parsed, metatilematrix):
@@ -121,13 +126,7 @@ def worker(metatile, parsed, metatilematrix):
 
     zoom, col, row = metatile
 
-    # Create output folders if not existing.
-    # OGC Standard:
-    # {TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png
-
     return loaded_plugins[parsed.method].process(metatile, parsed, metatilematrix)
-
-
 
 
     

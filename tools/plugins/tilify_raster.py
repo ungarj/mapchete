@@ -31,18 +31,21 @@ def process(metatile, parsed, metatilematrix):
         zoom, col, row = tile
     
         if isinstance(rasterdata, np.ndarray):
+            # Create output folders if not existing.
+            # OGC Standard:
+            # {TileMatrixSet}/{TileMatrix}/{TileRow}/{TileCol}.png
             basedir = output_folder
             zoomdir = os.path.join(basedir, str(zoom))
             rowdir = os.path.join(zoomdir, str(row))
             out_tile = os.path.join(rowdir, (str(col) + ".tif"))
-            # Creat output folders
+            # Create output folders
             if not os.path.exists(basedir):
                 os.makedirs(basedir)
             if not os.path.exists(zoomdir):
                 os.makedirs(zoomdir)
             if not os.path.exists(rowdir):
                 os.makedirs(rowdir)
-            
+            # Remove existing tile.
             if os.path.exists(out_tile):
                 os.remove(out_tile)
 
@@ -53,5 +56,3 @@ def process(metatile, parsed, metatilematrix):
                 raise
         else:
             pass
-
-    return "herbert"
