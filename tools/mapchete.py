@@ -84,11 +84,12 @@ def main(args):
     if bounds:
         tl = [bounds[0], bounds[3]]
         tr = [bounds[2], bounds[3]]
-        br = [bounds[0], bounds[1]]
+        br = [bounds[2], bounds[1]]
         bl = [bounds[0], bounds[1]]
         bbox = Polygon([tl, tr, br, bl])
         if bbox.intersects(input_envelopes):
             process_area = bbox.intersection(input_envelopes)
+            print process_area
         else:
             print "ERROR: bounds don't intersect with input files."
             sys.exit(0)

@@ -14,7 +14,8 @@ from mapchete_commons import *
 
 def config_subparser(tilify_raster_parser):
 
-    tilify_raster_parser.add_argument("--raster", required=True, nargs=1, type=str, dest="input_files")
+    tilify_raster_parser.add_argument("--raster", required=True, nargs=1,
+        type=str, dest="input_files")
 
 
 def process(metatile, parsed, metatilematrix):
