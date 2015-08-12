@@ -19,17 +19,19 @@ def read_raster_window(input_file,
         isinstance(tilematrix, MetaTileMatrix))
 
     # read source metadata
+    source_envelope = raster_bbox(input_file, tilematrix)
     with rasterio.open(input_file) as source:
-        tl = [source.bounds.left, source.bounds.top]
-        tr = [source.bounds.right, source.bounds.top]
-        br = [source.bounds.right, source.bounds.bottom]
-        bl = [source.bounds.left, source.bounds.bottom]
-        source_envelope = Polygon([tl, tr, br, bl])
         source_crs = source.crs
         source_affine = source.affine
         source_meta = source.meta
         source_shape = source.shape
-        source_nodata = int(source.nodatavals[0])
+        source_dtype = source.dtypes[0]
+
+        # Try to get NODATA value. Set to 0 if not available.
+        try:
+            source_nodata = int(source.nodatavals[0])
+        except:
+            source_nodata = 0
 
     # compute target metadata and initiate numpy array
     tile_geom = tilematrix.tile_bbox(zoom, col, row, pixelbuffer)
@@ -47,12 +49,13 @@ def read_raster_window(input_file,
         destination_shape = (destination_pixel, destination_pixel)
         destination_crs = tilematrix.crs
         width, height = destination_shape
-        destination_data = np.zeros(destination_shape, np.int16)
-    
+        destination_data = np.zeros(destination_shape, dtype=source_dtype)
+
+
         # compute target window
         out_left, out_bottom, out_right, out_top = transform_bounds(
             source_crs, destination_crs, left, bottom, right, top, densify_pts=21)
-    
+
         # compute target affine
         destination_affine = calculate_default_transform(
             source_crs,
@@ -80,22 +83,22 @@ def read_raster_window(input_file,
 
             window_data = source.read(1, window=(rows, cols))
             if minrow_offset:
-                nullarray = np.empty((minrow_offset, window_data.shape[1]), dtype="int16")
+                nullarray = np.empty((minrow_offset, window_data.shape[1]), dtype=source_dtype)
                 nullarray[:] = source_nodata
                 newarray = np.concatenate((nullarray, window_data), axis=0)
                 window_data = newarray
             if maxrow_offset:
-                nullarray = np.empty((maxrow_offset, window_data.shape[1]), dtype="int16")
+                nullarray = np.empty((maxrow_offset, window_data.shape[1]), dtype=source_dtype)
                 nullarray[:] = source_nodata
                 newarray = np.concatenate((window_data, nullarray), axis=0)
                 window_data = newarray
             if mincol_offset:
-                nullarray = np.empty((window_data.shape[0], mincol_offset), dtype="int16")
+                nullarray = np.empty((window_data.shape[0], mincol_offset), dtype=source_dtype)
                 nullarray[:] = source_nodata
                 newarray = np.concatenate((nullarray, window_data), axis=1)
                 window_data = newarray
             if maxcol_offset:
-                nullarray = np.empty((window_data.shape[0], maxcol_offset), dtype="int16")
+                nullarray = np.empty((window_data.shape[0], maxcol_offset), dtype=source_dtype)
                 nullarray[:] = source_nodata
                 newarray = np.concatenate((window_data, nullarray), axis=1)
                 window_data = newarray
@@ -236,3 +239,21 @@ def clean_pixel_coordinates(coordinate, maximum):
         offset = coordinate - maximum
         coordinate = maximum
     return coordinate, offset
+
+
+def raster_bbox(dataset, tilematrix):
+
+    with rasterio.open(dataset) as raster:
+
+        out_left, out_bottom, out_right, out_top = transform_bounds(
+            raster.crs, tilematrix.crs, raster.bounds.left,
+            raster.bounds.bottom, raster.bounds.right, raster.bounds.top,
+            densify_pts=21)
+
+    tl = [out_left, out_top]
+    tr = [out_right, out_top]
+    br = [out_right, out_bottom]
+    bl = [out_left, out_bottom]
+    bbox = Polygon([tl, tr, br, bl])
+
+    return bbox

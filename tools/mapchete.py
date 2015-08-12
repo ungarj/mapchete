@@ -13,6 +13,7 @@ import plugins
 import pkgutil
 from multiprocessing import Pool
 from progressbar import ProgressBar
+import traceback
 
 # import local modules independent from script location
 scriptdir = os.path.dirname(os.path.realpath(__file__))
@@ -71,12 +72,7 @@ def main(args):
     input_files = parsed.input_files
     envelopes = []
     for input_file in input_files:
-        with rasterio.open(input_file) as raster:
-            tl = [raster.bounds.left, raster.bounds.top]
-            tr = [raster.bounds.right, raster.bounds.top]
-            br = [raster.bounds.right, raster.bounds.bottom]
-            bl = [raster.bounds.left, raster.bounds.bottom]
-            envelope = Polygon([tl, tr, br, bl])
+        envelope = raster_bbox(input_file, tilematrix)
         envelopes.append(envelope)
     input_envelopes = cascaded_union(envelopes)
     process_area = input_envelopes
@@ -89,7 +85,6 @@ def main(args):
         bbox = Polygon([tl, tr, br, bl])
         if bbox.intersects(input_envelopes):
             process_area = bbox.intersection(input_envelopes)
-            print process_area
         else:
             print "ERROR: bounds don't intersect with input files."
             sys.exit(0)
@@ -103,15 +98,19 @@ def main(args):
         metatilematrix=metatilematrix
     )
 
-    pool = Pool(parallel)
-
-    total_metatiles = len(metatiles)
-    counter = 0
-    pbar = ProgressBar(maxval=total_metatiles).start()
-    for output in pool.imap_unordered(f, metatiles):
-        counter += 1
-        pbar.update(counter)
-    pbar.finish()        
+    try:
+        pool = Pool(parallel)
+        total_metatiles = len(metatiles)
+        counter = 0
+        pbar = ProgressBar(maxval=total_metatiles).start()
+        for output in pool.imap_unordered(f, metatiles):
+            counter += 1
+            pbar.update(counter)
+        pbar.finish()
+    except Exception as e:
+        print e
+        traceback.print_exc()
+        sys.exit(0)
 
     if create_vrt:
         print "creating VRT ..."
@@ -127,7 +126,12 @@ def worker(metatile, parsed, metatilematrix):
 
     zoom, col, row = metatile
 
-    return loaded_plugins[parsed.method].process(metatile, parsed, metatilematrix)
+    try:
+
+        return loaded_plugins[parsed.method].process(metatile, parsed, metatilematrix)
+
+    except Exception as e:
+        traceback.print_exc()
 
 
     
