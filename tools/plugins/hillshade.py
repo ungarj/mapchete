@@ -12,10 +12,12 @@ from tilematrix_io import *
 from mapchete_commons import *
 
 
-def config_subparser(tilify_raster_parser):
+def config_subparser(hillshade_parser):
 
-    tilify_raster_parser.add_argument("--raster", required=True, nargs=1,
+    hillshade_parser.add_argument("--raster", required=True, nargs=1,
         type=str, dest="input_files")
+    hillshade_parser.add_argument("--azimuth", nargs=1, type=int, default=315)
+    hillshade_parser.add_argument("--altitude", nargs=1, type=int, default=65)
 
 
 def process(metatile, parsed, metatilematrix):
@@ -29,10 +31,12 @@ def process(metatile, parsed, metatilematrix):
     metadata, rasterdata = read_raster_window(raster_file, metatilematrix, metatile,
         pixelbuffer=3)
 
+    hs = hillshade(rasterdata,315, 45)
+
     for tile in tiles:
         zoom, col, row = tile
     
-        if isinstance(rasterdata, np.ndarray):
+        if isinstance(hs, np.ndarray):
             # Create directories.
             extension = metatilematrix.format.extension
 
@@ -42,7 +46,7 @@ def process(metatile, parsed, metatilematrix):
 
             try:
                 write_raster_window(out_tile, tilematrix, tile, metadata,
-                    [rasterdata], pixelbuffer=0)
+                    [hs], pixelbuffer=0)
             except:
                 raise
         else:
