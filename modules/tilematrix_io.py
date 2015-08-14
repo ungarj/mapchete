@@ -150,7 +150,7 @@ def write_raster_window(output_file,
     tilematrix,
     tileindex,
     metadata,
-    rasterdata,
+    bands,
     pixelbuffer=0):
 
     zoom, col, row = tileindex
@@ -191,7 +191,9 @@ def write_raster_window(output_file,
     # fill with nodata if necessary
     # TODO
 
-    dst_data = rasterdata[px_top:px_bottom, px_left:px_right]
+    dst_bands = []
+    for band in bands:
+        dst_bands.append(band[px_top:px_bottom, px_left:px_right])
 
     # write to output file
     dst_metadata = deepcopy(metadata)
@@ -199,7 +201,8 @@ def write_raster_window(output_file,
     dst_metadata["height"] = out_height
     dst_metadata["transform"] = destination_affine
     with rasterio.open(output_file, 'w', **dst_metadata) as dst:
-        dst.write_band(1, dst_data)
+        for band, data in enumerate(dst_bands):
+            dst.write_band((band+1), data)
 
 
 def read_vector_window(input_file,

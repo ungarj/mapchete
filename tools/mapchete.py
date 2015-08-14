@@ -8,6 +8,7 @@ from shapely.geometry import *
 from shapely.ops import cascaded_union
 import rasterio
 from rasterio.warp import *
+from rasterio import profiles
 import numpy
 import plugins
 import pkgutil
@@ -39,6 +40,7 @@ def main(args):
         help="Metatile size. (default 1)")
     parser.add_argument("--parallel", "-p", nargs=1, type=int, default=[1], # wtf idk
         help="Number of parallel processes. (default 1)")
+    parser.add_argument("--format", "-f", nargs=1, type=str, default="GTiff")
     parser.add_argument("--create_vrt", "-vrt", action="store_true")
     parser.add_argument("--debug", "-d", action="store_true")
 
@@ -59,6 +61,7 @@ def main(args):
     output_folder = parsed.output_folder[0]
     metatiling = parsed.metatiling[0]
     parallel = parsed.parallel[0]
+    bounds = parsed.bounds
     bounds = parsed.bounds
     create_vrt = parsed.create_vrt
     global debug
@@ -115,8 +118,8 @@ def main(args):
     if create_vrt:
         print "creating VRT ..."
         target_vrt = os.path.join(output_folder, (str(zoom) + ".vrt"))
-        target_tiffs = (os.path.join(output_folder, str(zoom))) + "/*/*.tif"
-        command = "gdalbuildvrt -overwrite %s %s" %(target_vrt, target_tiffs)
+        target_files = (os.path.join(output_folder, str(zoom))) + "/*/*.png"
+        command = "gdalbuildvrt -overwrite %s %s" %(target_vrt, target_files)
         os.system(command)
 
 

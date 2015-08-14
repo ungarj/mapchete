@@ -3,7 +3,7 @@
 import os
 import sys
 
-def create_and_clean_dirs(tile, parsed):
+def create_and_clean_dirs(tile, parsed, extension):
 
     output_folder = parsed.output_folder[0]
     zoom, col, row = tile
@@ -14,7 +14,7 @@ def create_and_clean_dirs(tile, parsed):
     basedir = output_folder
     zoomdir = os.path.join(basedir, str(zoom))
     rowdir = os.path.join(zoomdir, str(row))
-    out_tile = tile_path(tile, parsed)
+    out_tile = tile_path(tile, parsed, extension)
     # Create output folders
     if not os.path.exists(basedir):
         os.makedirs(basedir)
@@ -27,7 +27,7 @@ def create_and_clean_dirs(tile, parsed):
         os.remove(out_tile)
 
 
-def tile_path(tile, parsed):
+def tile_path(tile, parsed, extension):
 
     output_folder = parsed.output_folder[0]
     zoom, col, row = tile
@@ -35,6 +35,6 @@ def tile_path(tile, parsed):
     basedir = output_folder
     zoomdir = os.path.join(basedir, str(zoom))
     rowdir = os.path.join(zoomdir, str(row))
-    out_tile = os.path.join(rowdir, (str(col) + ".tif"))
+    out_tile = os.path.join(rowdir, (str(col) + extension))
 
     return out_tile
