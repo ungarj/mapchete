@@ -5,6 +5,7 @@ from shapely.geometry import *
 from shapely.validation import *
 from shapely.prepared import prep
 from itertools import product
+from rasterio import profiles
 import math
 
 ROUND = 20
@@ -14,6 +15,7 @@ class TileMatrix(object):
 
     def __init__(self, projection, px_per_tile=256):
         projections = ("4326", "3857")
+
         try:
             assert projection in projections
         except:
@@ -30,6 +32,9 @@ class TileMatrix(object):
             self.wesize = float(round(self.right - self.left, ROUND))
             self.nssize = float(round(self.top - self.bottom, ROUND))
             self.crs = {'init': u'EPSG:4326'}
+
+    def set_format(self, output_format):
+        self.format = OutputFormat(output_format)
 
     def tiles_per_zoom(self, zoom):
         # Numbers of tiles at zoom level.
@@ -89,8 +94,9 @@ class MetaTileMatrix(TileMatrix):
         assert isinstance(metatiles, int)
         assert metatiles > 0
         self.tilematrix = tilematrix
+        self.format = tilematrix.format
         self.metatiles = metatiles
-        self.metatilematrix = TileMatrix(self.tilematrix.projection)
+        self.metatilematrix = TileMatrix(self.tilematrix.projection, self.format)
         self.projection = tilematrix.projection
         self.px_per_tile = tilematrix.px_per_tile * metatiles
         self.left = tilematrix.left
@@ -323,3 +329,39 @@ def tiles_from_geom(tilematrix, geometry, zoom):
         sys.exit(0)
     
     return tilelist
+
+
+class OutputFormat(object):
+
+    def __init__(self, output_format):
+
+        supported_rasterformats = ["GTiff", "PNG"]
+        supported_vectorformats = ["GEOJSON"]
+        supported_formats = supported_rasterformats + supported_vectorformats
+
+        format_extensions = {
+            "GTiff": ".tif",
+            "PNG": ".png",
+            "GEOJSON": ".geojson"
+        }
+    
+        try:
+            assert output_format in supported_formats
+        except:
+            print "ERROR: Output format %s not found. Please use one of %s" %(
+                output_format, supported_formats)
+            sys.exit(0)
+
+        self.name = output_format
+    
+        if output_format in supported_rasterformats:
+            self.format = output_format
+            self.type = "raster"
+        elif output_format in supported_vectorformats:
+            self.format = output_format
+            self.type = "vector"
+    
+        if self.format == "GTiff":
+            self.profile = profiles.DefaultGTiffProfile().defaults
+
+        self.extension = format_extensions[self.name]

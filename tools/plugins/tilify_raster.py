@@ -34,9 +34,11 @@ def process(metatile, parsed, metatilematrix):
     
         if isinstance(rasterdata, np.ndarray):
             # Create directories.
-            create_and_clean_dirs(tile, parsed, ".tif")
+            extension = metatilematrix.format.extension
 
-            out_tile = tile_path(tile, parsed, ".tif")
+            create_and_clean_dirs(tile, parsed, extension)
+
+            out_tile = tile_path(tile, parsed, extension)
 
             try:
                 write_raster_window(out_tile, tilematrix, tile, metadata,

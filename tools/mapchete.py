@@ -62,13 +62,14 @@ def main(args):
     metatiling = parsed.metatiling[0]
     parallel = parsed.parallel[0]
     bounds = parsed.bounds
-    bounds = parsed.bounds
+    output_format = parsed.format
     create_vrt = parsed.create_vrt
     global debug
     debug = parsed.debug
 
     # Initialize TileMatrix and MetaTileMatrix.
     tilematrix = TileMatrix(epsg)
+    tilematrix.set_format(output_format)
     metatilematrix = MetaTileMatrix(tilematrix, metatiling)
 
     # Read input files and get union of envelopes.
@@ -115,10 +116,11 @@ def main(args):
         traceback.print_exc()
         sys.exit(0)
 
-    if create_vrt:
+    if create_vrt and metatilematrix.format.type == "raster":
         print "creating VRT ..."
         target_vrt = os.path.join(output_folder, (str(zoom) + ".vrt"))
-        target_files = (os.path.join(output_folder, str(zoom))) + "/*/*.png"
+        target_files = ((os.path.join(output_folder, str(zoom))) + "/*/*" + \
+            metatilematrix.format.extension)
         command = "gdalbuildvrt -overwrite %s %s" %(target_vrt, target_files)
         os.system(command)
 
