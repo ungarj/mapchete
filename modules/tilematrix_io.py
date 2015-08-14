@@ -197,12 +197,20 @@ def write_raster_window(output_file,
 
     # write to output file
     dst_metadata = deepcopy(metadata)
+    dst_metadata.update(tilematrix.format.profile)
+    if tilematrix.format.name == "PNG":
+        dst_metadata["dtype"] = "uint8"
+    else:
+        dst_metadata["dtype"] = metadata["dtype"]
     dst_metadata["width"] = out_width
     dst_metadata["height"] = out_height
     dst_metadata["transform"] = destination_affine
     with rasterio.open(output_file, 'w', **dst_metadata) as dst:
         for band, data in enumerate(dst_bands):
-            dst.write_band((band+1), data)
+            dst.write_band(
+                (band+1),
+                data.astype(dst_metadata["dtype"])
+            )
 
 
 def read_vector_window(input_file,

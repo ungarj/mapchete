@@ -34,13 +34,14 @@ def main(args):
     parser.add_argument("EPSG", nargs=1, type=int)
     parser.add_argument("zoom", nargs=1, type=int)
     parser.add_argument("output_folder", nargs=1, type=str)
+    parser.add_argument("format", nargs=1, type=str)
+    parser.add_argument("--dtype", nargs=1, type=str, default=None)
     parser.add_argument("--bounds", "-b", nargs=4, type=float,
         help="Only process area within bounds (left, bottom, right, top).")
     parser.add_argument("--metatiling", "-m", nargs=1, type=int, default=1, 
         help="Metatile size. (default 1)")
     parser.add_argument("--parallel", "-p", nargs=1, type=int, default=[1], # wtf idk
         help="Number of parallel processes. (default 1)")
-    parser.add_argument("--format", "-f", nargs=1, type=str, default="GTiff")
     parser.add_argument("--create_vrt", "-vrt", action="store_true")
     parser.add_argument("--debug", "-d", action="store_true")
 
@@ -59,17 +60,18 @@ def main(args):
     epsg = str(parsed.EPSG[0])
     zoom = parsed.zoom[0]
     output_folder = parsed.output_folder[0]
+    output_format = parsed.format[0]
+    dtype = parsed.dtype
     metatiling = parsed.metatiling[0]
     parallel = parsed.parallel[0]
     bounds = parsed.bounds
-    output_format = parsed.format
     create_vrt = parsed.create_vrt
     global debug
     debug = parsed.debug
 
     # Initialize TileMatrix and MetaTileMatrix.
     tilematrix = TileMatrix(epsg)
-    tilematrix.set_format(output_format)
+    tilematrix.set_format(output_format, dtype)
     metatilematrix = MetaTileMatrix(tilematrix, metatiling)
 
     # Read input files and get union of envelopes.

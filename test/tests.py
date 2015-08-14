@@ -29,9 +29,9 @@ def main(args):
     testdata_directory = os.path.join(scriptdir, "testdata")
     outdata_directory = os.path.join(testdata_directory, "out")
     wgs84 = TileMatrix("4326")
-    wgs84.set_format("GTiff")
+    wgs84.set_format("GTiff", dtype="uInt16")
     wgs84_meta = MetaTileMatrix(wgs84, 23)
-    print wgs84_meta.format.type
+    print wgs84_meta.format.profile["dtype"]
 
     # tilematrix
     #===========

@@ -33,8 +33,10 @@ class TileMatrix(object):
             self.nssize = float(round(self.top - self.bottom, ROUND))
             self.crs = {'init': u'EPSG:4326'}
 
-    def set_format(self, output_format):
+    def set_format(self, output_format, dtype=None):
         self.format = OutputFormat(output_format)
+        if dtype:
+            self.format.set_dtype(dtype)
 
     def tiles_per_zoom(self, zoom):
         # Numbers of tiles at zoom level.
@@ -364,4 +366,10 @@ class OutputFormat(object):
         if self.format == "GTiff":
             self.profile = profiles.DefaultGTiffProfile().defaults
 
+        if self.format == "PNG":
+            self.profile = {'dtype': 'uint8', 'nodata': 0}
+
         self.extension = format_extensions[self.name]
+
+    def set_dtype(self, dtype):
+        self.profile["dtype"] = dtype
