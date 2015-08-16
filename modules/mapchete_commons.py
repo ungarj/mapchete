@@ -64,4 +64,4 @@ def hillshade(array, azimuth, angle_altitude):
     shaded = sin(altituderad) * sin(slope)\
      + cos(altituderad) * cos(slope)\
      * cos(azimuthrad - aspect)  
-    return 255*(shaded + 1)/2  
+    return 255*(shaded + 1)/2

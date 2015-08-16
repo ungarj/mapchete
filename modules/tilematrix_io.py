@@ -200,6 +200,8 @@ def write_raster_window(output_file,
     dst_metadata.update(tilematrix.format.profile)
     if tilematrix.format.name == "PNG":
         dst_metadata["dtype"] = "uint8"
+        del dst_metadata["compress"]
+        dst_metadata["driver"] = "PNG"
     else:
         dst_metadata["dtype"] = metadata["dtype"]
     dst_metadata["width"] = out_width
