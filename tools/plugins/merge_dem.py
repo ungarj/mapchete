@@ -9,4 +9,10 @@ def config_subparser(merge_dem_parser):
 def process(metatile, parsed, metatilematrix):
     pass
 
-    
+    # Load and rescale primary DEM.
+
+    # Load coastline if NODATA pixel exists.
+
+    # Check for voids within land mass (using coastline).
+
+    # If voids, load next DEM.
