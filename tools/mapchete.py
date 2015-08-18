@@ -57,6 +57,11 @@ def main(args):
 
     parsed = parser.parse_args(args)
 
+    mapchete(parsed)
+
+
+def mapchete(parsed, tile=None):
+
     epsg = str(parsed.EPSG[0])
     zoom = parsed.zoom[0]
     output_folder = parsed.output_folder[0]
@@ -83,20 +88,25 @@ def main(args):
     input_envelopes = cascaded_union(envelopes)
     process_area = input_envelopes
 
-    if bounds:
-        tl = [bounds[0], bounds[3]]
-        tr = [bounds[2], bounds[3]]
-        br = [bounds[2], bounds[1]]
-        bl = [bounds[0], bounds[1]]
-        bbox = Polygon([tl, tr, br, bl])
-        if bbox.intersects(input_envelopes):
-            process_area = bbox.intersection(input_envelopes)
-        else:
-            print "ERROR: bounds don't intersect with input files."
-            sys.exit(0)
 
-    # Get metatiles from metatilematrix and process area.
-    metatiles = metatilematrix.tiles_from_geom(process_area, zoom)
+    if tile:
+        zoom, row, col = tile
+        bbox = tilematrix.tile_bbox(zoom, col, row)
+        metatiles = metatilematrix.tiles_from_geom(process_area, zoom)
+    else:
+        if bounds:
+            tl = [bounds[0], bounds[3]]
+            tr = [bounds[2], bounds[3]]
+            br = [bounds[2], bounds[1]]
+            bl = [bounds[0], bounds[1]]
+            bbox = Polygon([tl, tr, br, bl])
+            if bbox.intersects(input_envelopes):
+                process_area = bbox.intersection(input_envelopes)
+            else:
+                print "ERROR: bounds don't intersect with input files."
+                sys.exit(0)
+        # Get metatiles from metatilematrix and process area.
+        metatiles = metatilematrix.tiles_from_geom(process_area, zoom)
 
     from functools import partial
     f = partial(worker,
