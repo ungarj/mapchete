@@ -4,10 +4,10 @@ import os
 import sys
 
 
-def create_and_clean_dirs(tile, parsed, extension):
+def create_and_clean_dirs(tile, params, extension):
 
-    output_folder = parsed.output_folder[0]
-    zoom, col, row = tile
+    output_folder = params.output_folder
+    zoom, row, col = tile
 
     # Create output folders if not existing.
     # OGC Standard:
@@ -15,7 +15,7 @@ def create_and_clean_dirs(tile, parsed, extension):
     basedir = output_folder
     zoomdir = os.path.join(basedir, str(zoom))
     rowdir = os.path.join(zoomdir, str(row))
-    out_tile = tile_path(tile, parsed, extension)
+    out_tile = tile_path(tile, params, extension)
     # Create output folders
     if not os.path.exists(basedir):
         os.makedirs(basedir)
@@ -28,10 +28,10 @@ def create_and_clean_dirs(tile, parsed, extension):
         os.remove(out_tile)
 
 
-def tile_path(tile, parsed, extension):
+def tile_path(tile, params, extension):
 
-    output_folder = parsed.output_folder[0]
-    zoom, col, row = tile
+    output_folder = params.output_folder
+    zoom, row, col = tile
 
     basedir = output_folder
     zoomdir = os.path.join(basedir, str(zoom))
@@ -70,6 +70,7 @@ def hillshade(array, azimuth, angle_altitude):
 class MapcheteConfig(object):
 
     def load_from_argparse(self, parsed):
+        self.input_files = parsed.input_files
         self.epsg = str(parsed.EPSG[0])
         self.zoom = parsed.zoom[0]
         self.output_folder = parsed.output_folder[0]
@@ -80,11 +81,19 @@ class MapcheteConfig(object):
         self.bounds = parsed.bounds
         self.create_vrt = parsed.create_vrt
         self.debug = parsed.debug
+        self.method = parsed.method
 
     def load_from_yaml(self, yaml_process):
+        self.input_files = yaml_process["input_files"]
         self.epsg = str(yaml_process["EPSG"])
+        self.zoom = None
         self.output_folder = yaml_process["output_folder"]
         self.profile = yaml_process["profile"]
-        self.metatiling = yaml_process["metatiling"]
-        self.parallel = yaml_process["parallel"]
+        self.dtype = None
+        self.metatiling = int(yaml_process["metatiling"])
+        self.parallel = int(yaml_process["parallel"])
+        self.bounds = None
         self.create_vrt = yaml_process["create_vrt"]
+        self.debug = yaml_process["debug"]
+        self.method = yaml_process["name"]
+

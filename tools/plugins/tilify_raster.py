@@ -18,27 +18,27 @@ def config_subparser(tilify_raster_parser):
         type=str, dest="input_files")
 
 
-def process(metatile, parsed, metatilematrix):
+def process(metatile, params, metatilematrix):
 
-    raster_file = parsed.input_files[0]
-    output_folder = parsed.output_folder[0]
-    zoom, col, row = metatile
+    raster_file = params.input_files[0]
+    output_folder = params.output_folder
+    zoom, row, col = metatile
     tilematrix = metatilematrix.tilematrix
-    tiles = metatilematrix.tiles_from_tilematrix(zoom, col, row)
+    tiles = metatilematrix.tiles_from_tilematrix(zoom, row, col)
 
     metadata, rasterdata = read_raster_window(raster_file, metatilematrix, metatile,
         pixelbuffer=3)
 
     for tile in tiles:
-        zoom, col, row = tile
+        zoom, row, col = tile
     
         if isinstance(rasterdata, np.ndarray):
             # Create directories.
             extension = metatilematrix.format.extension
 
-            create_and_clean_dirs(tile, parsed, extension)
+            create_and_clean_dirs(tile, params, extension)
 
-            out_tile = tile_path(tile, parsed, extension)
+            out_tile = tile_path(tile, params, extension)
 
             try:
                 write_raster_window(out_tile, tilematrix, tile, metadata,

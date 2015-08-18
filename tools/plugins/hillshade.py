@@ -24,9 +24,9 @@ def process(metatile, parsed, metatilematrix):
 
     raster_file = parsed.input_files[0]
     output_folder = parsed.output_folder[0]
-    zoom, col, row = metatile
+    zoom, row, col = metatile
     tilematrix = metatilematrix.tilematrix
-    tiles = metatilematrix.tiles_from_tilematrix(zoom, col, row)
+    tiles = metatilematrix.tiles_from_tilematrix(zoom, row, col)
 
     metadata, rasterdata = read_raster_window(raster_file, metatilematrix, metatile,
         pixelbuffer=3)
@@ -34,7 +34,7 @@ def process(metatile, parsed, metatilematrix):
     hs = hillshade(rasterdata,315, 45)
 
     for tile in tiles:
-        zoom, col, row = tile
+        zoom, row, col = tile
     
         if isinstance(hs, np.ndarray):
             # Create directories.

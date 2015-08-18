@@ -13,7 +13,7 @@ def read_raster_window(input_file,
     pixelbuffer=None,
     tilify=True):
 
-    zoom, col, row = tileindex
+    zoom, row, col = tileindex
 
     assert (isinstance(tilematrix, TileMatrix) or
         isinstance(tilematrix, MetaTileMatrix))
@@ -34,12 +34,12 @@ def read_raster_window(input_file,
             source_nodata = 0
 
     # compute target metadata and initiate numpy array
-    tile_geom = tilematrix.tile_bbox(zoom, col, row, pixelbuffer)
+    tile_geom = tilematrix.tile_bbox(zoom, row, col, pixelbuffer)
 
     try:
         assert tile_geom.intersects(source_envelope)
 
-        left, bottom, right, top = tilematrix.tile_bounds(zoom, col, row,
+        left, bottom, right, top = tilematrix.tile_bounds(zoom, row, col,
             pixelbuffer)
         pixelsize = tilematrix.pixelsize(zoom)
         if pixelbuffer:
@@ -153,7 +153,7 @@ def write_raster_window(output_file,
     bands,
     pixelbuffer=0):
 
-    zoom, col, row = tileindex
+    zoom, row, col = tileindex
 
     # get write window bounds (i.e. tile bounds plus pixelbuffer) in affine
     out_left, out_bottom, out_right, out_top = tilematrix.tile_bounds(zoom,
@@ -221,7 +221,7 @@ def read_vector_window(input_file,
     pixelbuffer=None,
     tilify=True):
 
-    zoom, col, row = tileindex
+    zoom, row, col = tileindex
 
     assert (isinstance(tilematrix, TileMatrix) or
         isinstance(tilematrix, MetaTileMatrix))

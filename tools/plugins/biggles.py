@@ -20,16 +20,16 @@ def config_subparser(hillshade_parser):
     hillshade_parser.add_argument("--altitude", nargs=1, type=int, default=65)
 
 
-def process(metatile, parsed, metatilematrix):
+def process(metatile, params, metatilematrix):
 
     from scipy import ndimage
     from skimage import exposure
 
-    raster_file = parsed.input_files[0]
-    output_folder = parsed.output_folder[0]
-    zoom, col, row = metatile
+    raster_file = params.input_files[0]
+    output_folder = params.output_folder
+    zoom, row, col = metatile
     tilematrix = metatilematrix.tilematrix
-    tiles = metatilematrix.tiles_from_tilematrix(zoom, col, row)
+    tiles = metatilematrix.tiles_from_tilematrix(zoom, row, col)
 
     metadata, rasterdata = read_raster_window(raster_file, metatilematrix, metatile,
         pixelbuffer=20)
@@ -83,8 +83,8 @@ def process(metatile, parsed, metatilematrix):
 #    if isinstance(out, np.ndarray):
 #        extension = metatilematrix.format.extension
 #
-#        create_and_clean_dirs(metatile, parsed, extension)
-#        out_tile = tile_path(metatile, parsed, extension)
+#        create_and_clean_dirs(metatile, params, extension)
+#        out_tile = tile_path(metatile, params, extension)
 #        try:
 #            write_raster_window(out_tile, metatilematrix, metatile, metadata,
 #                [out], pixelbuffer=0)
@@ -92,15 +92,15 @@ def process(metatile, parsed, metatilematrix):
 #            raise
 
     for tile in tiles:
-        zoom, col, row = tile
+        zoom, row, col = tile
 
         if isinstance(out, np.ndarray):
             # Create directories.
             extension = metatilematrix.format.extension
 
-            create_and_clean_dirs(tile, parsed, extension)
+            create_and_clean_dirs(tile, params, extension)
 
-            out_tile = tile_path(tile, parsed, extension)
+            out_tile = tile_path(tile, params, extension)
 
             try:
                 write_raster_window(out_tile, tilematrix, tile, metadata,

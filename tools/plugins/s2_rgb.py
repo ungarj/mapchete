@@ -23,9 +23,9 @@ def process(metatile, parsed, metatilematrix):
     green_file = parsed.input_files[1]
     blue_file = parsed.input_files[2]
 
-    zoom, col, row = metatile
+    zoom, row, col = metatile
     tilematrix = metatilematrix.tilematrix
-    tiles = metatilematrix.tiles_from_tilematrix(zoom, col, row)
+    tiles = metatilematrix.tiles_from_tilematrix(zoom, row, col)
 
     # scale red band
     red_meta, red_data = read_raster_window(red_file, metatilematrix, metatile,
@@ -55,7 +55,7 @@ def process(metatile, parsed, metatilematrix):
     out_bands = [red_data, green_data, blue_data]
 
     for tile in tiles:
-        zoom, col, row = tile
+        zoom, row, col = tile
     
         if isinstance(red_data, np.ndarray):
             # Create directories.

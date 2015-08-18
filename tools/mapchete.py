@@ -22,6 +22,7 @@ rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
 from tilematrix import *
 from tilematrix_io import *
+from mapchete_commons import *
 
 ROUND = 20
 
@@ -57,22 +58,25 @@ def main(args):
 
     parsed = parser.parse_args(args)
 
-    mapchete(parsed)
+    params = MapcheteConfig()
+    params.load_from_argparse(parsed)
+
+    mapchete(params)
 
 
-def mapchete(parsed, tile=None):
+def mapchete(params, tile=None):
 
-    epsg = str(parsed.EPSG[0])
-    zoom = parsed.zoom[0]
-    output_folder = parsed.output_folder[0]
-    output_format = parsed.format[0]
-    dtype = parsed.dtype
-    metatiling = parsed.metatiling[0]
-    parallel = parsed.parallel[0]
-    bounds = parsed.bounds
-    create_vrt = parsed.create_vrt
+    epsg = params.epsg
+    zoom = params.zoom
+    output_folder = params.output_folder
+    output_format = params.profile
+    dtype = params.dtype
+    metatiling = params.metatiling
+    parallel = params.parallel
+    bounds = params.bounds
+    create_vrt = params.create_vrt
     global debug
-    debug = parsed.debug
+    debug = params.debug
 
     # Initialize TileMatrix and MetaTileMatrix.
     tilematrix = TileMatrix(epsg)
@@ -80,7 +84,7 @@ def mapchete(parsed, tile=None):
     metatilematrix = MetaTileMatrix(tilematrix, metatiling)
 
     # Read input files and get union of envelopes.
-    input_files = parsed.input_files
+    input_files = params.input_files
     envelopes = []
     for input_file in input_files:
         envelope = raster_bbox(input_file, tilematrix)
@@ -91,7 +95,7 @@ def mapchete(parsed, tile=None):
 
     if tile:
         zoom, row, col = tile
-        bbox = tilematrix.tile_bbox(zoom, col, row)
+        bbox = tilematrix.tile_bbox(zoom, row, col)
         metatiles = metatilematrix.tiles_from_geom(process_area, zoom)
     else:
         if bounds:
@@ -110,7 +114,7 @@ def mapchete(parsed, tile=None):
 
     from functools import partial
     f = partial(worker,
-        parsed=parsed,
+        params=params,
         metatilematrix=metatilematrix
     )
 
@@ -137,15 +141,15 @@ def mapchete(parsed, tile=None):
         os.system(command)
 
 
-def worker(metatile, parsed, metatilematrix):
+def worker(metatile, params, metatilematrix):
 
-    output_folder = parsed.output_folder[0]
+    output_folder = params.output_folder[0]
 
-    zoom, col, row = metatile
+    zoom, row, col = metatile
 
     try:
 
-        return loaded_plugins[parsed.method].process(metatile, parsed, metatilematrix)
+        return loaded_plugins[params.method].process(metatile, params, metatilematrix)
 
     except Exception as e:
         traceback.print_exc()
