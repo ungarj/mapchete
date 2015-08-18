@@ -15,6 +15,7 @@ rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
 from tilematrix import *
 from tilematrix_io import *
+from mapchete_commons import *
 
 ROUND = 10
 
@@ -612,6 +613,8 @@ def main(args):
 #    metadata, data = read_raster_window(raster_file, wgs84, tileindex, pixelbuffer=1, tilify=False)
 #    with rasterio.open(out_tile, 'w', **metadata) as destination:
 #        destination.write_band(1, data)
+
+    config = MapcheteConfig()
 
 
 if __name__ == "__main__":
