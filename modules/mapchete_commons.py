@@ -65,3 +65,26 @@ def hillshade(array, azimuth, angle_altitude):
      + cos(altituderad) * cos(slope)\
      * cos(azimuthrad - aspect)  
     return 255*(shaded + 1)/2
+
+
+class MapcheteConfig(object):
+
+    def load_from_argparse(self, parsed):
+        self.epsg = str(parsed.EPSG[0])
+        self.zoom = parsed.zoom[0]
+        self.output_folder = parsed.output_folder[0]
+        self.profile = parsed.format[0]
+        self.dtype = parsed.dtype
+        self.metatiling = parsed.metatiling[0]
+        self.parallel = parsed.parallel[0]
+        self.bounds = parsed.bounds
+        self.create_vrt = parsed.create_vrt
+        self.debug = parsed.debug
+
+    def load_from_yaml(self, yaml_process):
+        self.epsg = str(yaml_process["EPSG"])
+        self.output_folder = yaml_process["output_folder"]
+        self.profile = yaml_process["profile"]
+        self.metatiling = yaml_process["metatiling"]
+        self.parallel = yaml_process["parallel"]
+        self.create_vrt = yaml_process["create_vrt"]
