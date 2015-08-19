@@ -1,0 +1,237 @@
+<!doctype html>
+<html>
+<head>
+  <title>OpenLayers Example</title>
+  <link href="styles.css" rel="stylesheet" type="text/css" media="all">
+          <!-- Styles -->
+        <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css" media="screen">
+        <link href="//netdna.bootstrapcdn.com/font-awesome/4.0.2/css/font-awesome.min.css" rel="stylesheet">
+        <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Droid+Sans:400,700">
+        <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Droid+Serif">
+</head>
+
+
+<body>
+              <div id="map">
+                <div id="zoom" class="btn-toolbar-vertical btn-group-sm">
+                    <div class="btn-group-vertical btn-group-sm">
+                        <button type="button" id="zoomIn" class="btn btn-default"><i class="fa fa-fw fa-plus"></i></button>
+                        <button type="button" id="zoomOut" class="btn btn-default"><i class="fa fa-fw fa-minus"></i></button>
+                    </div>
+                    <button type="button" id="expand" class="btn btn-default"><i class="fa fa-fw fa-expand"></i></button>
+                </div>
+                <div id="tools" class="btn-group btn-group-sm">
+                    <div class="btn-group btn-group-sm">
+                      <button type="button" id="layerSwitcher" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><i class="fa fa-globe"></i> Terrain Light<i class="fa fa-caret-down"></i></button>
+                        <ul class="dropdown-menu">
+                            <li><a href="#" class="baseLayer" data-layer="terrain-light"><i class="fa fa-check-square-o" data-layer="terrain-light"></i> Terrain Light</a></li>
+                            <li><a href="#" class="baseLayer" data-layer="terrain"><i class="fa fa-square-o" data-layer="terrain"></i> Terrain</a></li>
+                            <li><a href="#" class="baseLayer" data-layer="osm"><i class="fa fa-square-o" data-layer="osm"></i> OpenStreetMap</a></li>
+                            <li><a href="#" class="baseLayer" data-layer="bluemarble"><i class="fa fa-square-o" data-layer="bluemarble"></i> Blue Marble</a></li>
+                            <li><a href="#" class="baseLayer" data-layer="blackmarble"><i class="fa fa-square-o" data-layer="blackmarble"></i> Black Marble</a></li>
+                        </ul>
+                    </div>
+                    <div class="btn-group btn-group-sm" data-toggle="buttons">
+                        <label class="btn btn-default"><input type="checkbox" id="overlay"><i class="fa fa-road"></i> Overlay</label>
+                    </div>
+                </div>
+            </div>
+  <script defer="defer" type="text/javascript">
+document.addEventListener( "DOMContentLoaded", function() {
+    // some defaults eox::maps
+    eox = {
+        maps: {
+            defaults: {
+                map: {
+                    div: 'map',
+                    layers: [],
+                    zoom: 0,
+                    center: new OpenLayers.LonLat(0,0),
+                    projection: new OpenLayers.Projection('EPSG:4326'),
+                    restrictedExtent: new OpenLayers.Bounds(-720, -85, 720, 90),
+                },
+               layer: {
+                    url: [
+                        '//a.tiles.maps.eox.at/wmts/',
+                        '//b.tiles.maps.eox.at/wmts/',
+                        '//c.tiles.maps.eox.at/wmts/',
+                        '//d.tiles.maps.eox.at/wmts/',
+                        '//e.tiles.maps.eox.at/wmts/',
+                        '//f.tiles.maps.eox.at/wmts/',
+                    ],
+                    matrixSet: 'WGS84',
+                    style: 'default',
+                    requestEncoding: 'REST',
+                    maxResolution: 0.703125,
+                    wrapDateLine: true,
+                    transitionEffect: 'resize',
+                    isBaseLayer: false,
+                },
+            },
+            layers: {
+                base: {
+                    'terrain-light': {
+                        name: 'Terrain Light',
+                        layer: 'terrain-light',
+                        numZoomLevels: 13,
+                        attribution: 'Terrain Light { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors and <a href="#data">others</a>, Rendering &copy; <a href="http://eox.at">EOX</a> }',
+                        overlay: 'overlay'
+                    },
+                    terrain: {
+                        name: 'Terrain',
+                        layer: 'terrain',
+                        numZoomLevels: 13,
+                        attribution: 'Terrain { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors and <a href="#data">others</a>, Rendering &copy; <a href="http://eox.at">EOX</a> }',
+                        overlay: 'overlay'
+                    },
+                    osm: {
+                        name: 'OpenStreetMap',
+                        layer: 'osm',
+                        numZoomLevels: 18,
+                        attribution: 'OpenStreetMap { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Rendering &copy; <a href="https://github.com/mapserver/basemaps">MapServer</a> and <a href="http://eox.at">EOX</a> }',
+                        overlay: false
+                    },
+                    bluemarble: {
+                        name: 'Blue Marble',
+                        layer: 'bluemarble',
+                        numZoomLevels: 9,
+                        attribution: 'Blue Marble { &copy; <a href="http://nasa.gov">NASA</a> }',
+                        overlay: 'overlay_bright'
+                    },
+                    blackmarble: {
+                        name: 'Black Marble',
+                        layer: 'blackmarble',
+                        numZoomLevels: 8,
+                        attribution: 'Black Marble { &copy; <a href="http://nasa.gov">NASA</a> }',
+                        overlay: 'overlay_bright'
+                    },
+                },
+                overlays: {
+                    process_output: {
+                        name: 'Overlay',
+                        layer: 'corsica_hillshade',
+                        url: 'local_wmts',
+                        format: 'image/png',
+                        opacity: 0.3,
+                        numZoomLevels: 13,
+                        attribution: 'Overlay { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Rendering &copy; <a href="http://eox.at">EOX</a> and <a href="https://github.com/mapserver/basemaps">MapServer</a> }'
+                    },
+                    overlay: {
+                        name: 'Overlay',
+                        layer: 'overlay_base',
+                        numZoomLevels: 13,
+                        attribution: 'Overlay { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Rendering &copy; <a href="http://eox.at">EOX</a> and <a href="https://github.com/mapserver/basemaps">MapServer</a> }'
+                    },
+                    overlay_bright: {
+                        name: 'Overlay (Bright)',
+                        layer: 'overlay_base_bright',
+                        numZoomLevels: 13,
+                        visibility: false,
+                        attribution: 'Overlay { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Rendering &copy; <a href="http://eox.at">EOX</a> and <a href="https://github.com/mapserver/basemaps">MapServer</a> }'
+                    },
+                }
+            }
+        }
+    }
+    eox.maps.defaults.base = OpenLayers.Util.applyDefaults({ isBaseLayer: true }, eox.maps.defaults.layer);
+    eox.maps.defaults.overlay = OpenLayers.Util.applyDefaults({ transitionEffect: 'map-resize' }, eox.maps.defaults.layer);
+
+    // define base layers
+    for (base in eox.maps.layers.base) {
+        eox.maps.layers.base[base] = new OpenLayers.Layer.WMTS(OpenLayers.Util.applyDefaults(eox.maps.layers.base[base], eox.maps.defaults.base));
+        eox.maps.defaults.map.layers.push( eox.maps.layers.base[base] )
+    }
+
+    // define overlays
+    for (overlay in eox.maps.layers.overlays) {
+        eox.maps.layers.overlays[overlay] = new OpenLayers.Layer.WMTS(OpenLayers.Util.applyDefaults(eox.maps.layers.overlays[overlay], eox.maps.defaults.overlay));
+        eox.maps.defaults.map.layers.push( eox.maps.layers.overlays[overlay] )
+    }
+}, false );
+      </script>
+
+  <script src="http://openlayers.org/api/OpenLayers.js"></script>
+  <script src="//code.jquery.com/jquery.js" type="text/javascript"></script>
+  <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.2/js/bootstrap.min.js" type="text/javascript"></script>
+
+        <script type="text/javascript">
+        $(function () {
+            // ugly workaround to let the eox_maps.js script run first :(
+            window.setTimeout( function() {
+                // setup the actual map
+                var map = new OpenLayers.Map(OpenLayers.Util.applyDefaults( {
+                    center: new OpenLayers.LonLat(8.4, 40.7),
+                    zoom: 8,
+                    controls: [
+                        new OpenLayers.Control.Navigation(),
+                        new OpenLayers.Control.Zoom( { zoomInId: "zoomIn", zoomOutId: "zoomOut" } ),
+                        new OpenLayers.Control.Attribution( { displayClass: 'olControlAttribution' } ),
+                        //Turned of for the #data link to work in firefox
+                        //new OpenLayers.Control.Permalink( { anchor: true } )
+                    ]
+                }, eox.maps.defaults.map));
+
+                var updateBaseLayer = function() {
+                    layer = map.baseLayer
+                    $('#layerSwitcher').html("<i class='fa fa-globe'></i> " + layer.name + "  <i class='fa fa-caret-down'></i>" );
+                    $('#layerSwitcher + ul li').each( function(i) {
+                        link = $($(this)[0].children[0]);
+                        link[0].children[0].className = (layer.layer == link.data('layer')) ? "fa fa-check-square-o" : "fa fa-square-o"
+                    });
+                }
+
+                // update the button
+                updateBaseLayer();
+
+                // set the overlay state at the beginning
+                if(map.baseLayer.overlay) {
+                    if(eox.maps.layers.overlays.overlay.getVisibility() || eox.maps.layers.overlays.overlay_bright.getVisibility()) {
+                        $('#overlay')[0].checked = true;
+                        $('#overlay')[0].parentNode.className += ' active';
+                    }
+                } else {
+                    $('#overlay').parent().hide();
+                }
+
+                // event handler for the toggling overlay
+                $('#overlay').on('change.overlay', function(e) {
+                    eox.maps.layers.overlays[ map.baseLayer.overlay ].setVisibility(( this.checked ? true : false ));
+                });
+
+                // layer switcher (base layers)
+                $('.baseLayer').on('click.baselayer', function(e) {
+                    if(($('#overlay')[0].checked) && (map.baseLayer.overlay)) {
+                        eox.maps.layers.overlays[ map.baseLayer.overlay ].setVisibility( false );
+                    }
+                    map.setBaseLayer( eox.maps.layers.base[ $(e.target).data('layer') ] );
+                    if(map.baseLayer.overlay) {
+                        $('#overlay').parent().show();
+                        if($('#overlay')[0].checked) {
+                            eox.maps.layers.overlays[ map.baseLayer.overlay ].setVisibility( true );
+                        }
+                    } else {
+                        $('#overlay').parent().hide();
+                    }
+                    updateBaseLayer();
+                });
+
+                // expand / compact the map interface
+                $('#expand').on('click.expand', function(e){
+                    e = $('#map');
+                    if(e.width() == 1000) {
+                        e.css({ 'position': 'fixed', 'z-index': 1111, 'top': 0, 'left': 0, 'height': '100%', 'width': '100%' });
+                        $('body').css('overflow','hidden');
+                        $('#expand i')[0].className = 'fa fa-fw fa-compress';
+                    } else {
+                        e.css({ 'position': 'fixed', 'z-index': 1000, 'top': undefined, 'left': undefined, 'height': '100%', 'width': '1000px' });
+                        $('body').css('overflow','auto');
+                        $('#expand i')[0].className = 'fa fa-fw fa-expand';
+                    }
+                    map.updateSize();
+                });
+            }, 0);
+        });
+        </script>
+
+</body>
+</html>

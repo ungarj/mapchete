@@ -1,0 +1,96 @@
+html, body {
+  font-family: 'Droid Sans', Verdana, Geneva, Lucida, Arial, Helvetica, sans-serif;
+}
+
+body {
+  margin-bottom: 3em;
+}
+
+/*
+ * Typography
+ */
+h1 {
+  padding-top: 2em;
+  padding-bottom: .2em;
+  margin-bottom: .7em;
+  border-bottom: .05em solid #aaa;
+}
+
+/*
+ * EOX Maps Demo
+ */
+.jumbotron {
+  margin-top: 50px;
+  padding: 0;
+}
+#map {
+  height: 100%;
+  width: 50%;
+  font-size: 12px;
+  box-shadow: 0 0 1em 0 rgba(25,25,25,1);
+  -moz-box-shadow: 0 0 1em 0 rgba(25,25,25,1);
+  -webkit-box-shadow: 0 0 1em 0 rgba(25,25,25,1);
+  font-family: 'Droid Sans', Verdana, Geneva, Lucida, Arial, Helvetica, sans-serif;
+  background-color: white;
+}
+
+/*
+ * EOX Zoom Control
+ */
+#zoom {
+  position: absolute;
+  z-index: 1001;
+  top: 1em;
+  left: 1em;
+}
+#zoom .fa-fw {
+  width: 1em;
+}
+/*
+ * EOX Expand / Compact Control
+ */
+#expand {
+  position: absolute;
+  z-index: 1001;
+  bottom: -3em;
+  left: 0;
+}
+
+/*
+ * EOX LayerSwitcher Control
+ */
+#tools {
+  position: absolute;
+  z-index: 1001;
+  top: 1em;
+  right: 1em;
+}
+#tools .dropdown-menu {
+  right: 0;
+  left: auto;
+  font-size: 1em;
+}
+
+/*
+ * OpenLayers Default Zoom Control
+ */
+#map div.olControlZoom {
+  display: none;
+}
+
+/*
+ * OpenLayers Attribution
+ */
+#map div.olControlAttribution {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  color: #333;
+  background-color: #fff;
+  padding: 1px 5px 0 5px;
+  border: 1px solid #ccc;
+  border-radius: 3px 0 0 0;
+  border-width: 1px 0 0 1px;
+  font-size: .85em;
+  line-height: 1.5em;
+}

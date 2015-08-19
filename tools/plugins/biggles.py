@@ -32,10 +32,23 @@ def process(metatile, params, metatilematrix):
     tiles = metatilematrix.tiles_from_tilematrix(zoom, row, col)
 
     metadata, rasterdata = read_raster_window(raster_file, metatilematrix, metatile,
-        pixelbuffer=20)
+        pixelbuffer=10)
 
-    median = ndimage.median_filter(rasterdata, size=5)
-    gauss = ndimage.gaussian_filter(median, 5)
+    median_value = 0
+    gauss_value = 0
+    if zoom > 9:
+        median_value = 5
+        gauss_value = 5
+    if zoom == 9:
+        median_value = 3
+        gauss_value = 3
+    if zoom < 9:
+        median_value = 1
+        gauss_value = 1
+
+
+    median = ndimage.median_filter(rasterdata, size=median_value)
+    gauss = ndimage.gaussian_filter(median, gauss_value)
 
     # hillshade 1
     #hs1 = hillshade(gauss, 315, 45)

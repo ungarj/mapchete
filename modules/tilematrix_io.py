@@ -157,7 +157,7 @@ def write_raster_window(output_file,
 
     # get write window bounds (i.e. tile bounds plus pixelbuffer) in affine
     out_left, out_bottom, out_right, out_top = tilematrix.tile_bounds(zoom,
-        col, row, pixelbuffer)
+        row, col, pixelbuffer)
 
     out_width = tilematrix.px_per_tile + (pixelbuffer * 2)
     out_height = tilematrix.px_per_tile + (pixelbuffer * 2)

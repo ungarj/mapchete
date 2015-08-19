@@ -32,6 +32,7 @@ class TileMatrix(object):
             self.wesize = float(round(self.right - self.left, ROUND))
             self.nssize = float(round(self.top - self.bottom, ROUND))
             self.crs = {'init': u'EPSG:4326'}
+            self.format = None
 
     def set_format(self, output_format, dtype=None):
         self.format = OutputFormat(output_format)
@@ -96,7 +97,10 @@ class MetaTileMatrix(TileMatrix):
         assert isinstance(metatiles, int)
         assert metatiles > 0
         self.tilematrix = tilematrix
-        self.format = tilematrix.format
+        if tilematrix.format:
+            self.format = tilematrix.format
+        else:
+            self.format = None
         self.metatiles = metatiles
         self.metatilematrix = TileMatrix(self.tilematrix.projection, self.format)
         self.projection = tilematrix.projection

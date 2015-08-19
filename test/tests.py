@@ -616,6 +616,20 @@ def main(args):
 
     config = MapcheteConfig()
 
+    wgs84 = TileMatrix("4326")
+    wgs84_meta = MetaTileMatrix(wgs84, 4)
+
+    tile = (11, 574, 2144)
+
+    zoom, row, col = tile
+    tilebbox = wgs84.tile_bbox(zoom, row, col, pixelbuffer=1)
+    metatiles = wgs84_meta.tiles_from_geom(tilebbox, zoom)
+
+    tiles = []
+    for metatile in metatiles:
+        tiles.extend(wgs84_meta.tiles_from_tilematrix(*metatile))
+    print tiles
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

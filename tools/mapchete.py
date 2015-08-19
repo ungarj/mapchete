@@ -64,7 +64,11 @@ def main(args):
     mapchete(params)
 
 
-def mapchete(params, tile=None):
+def mapchete(params, tile=None, metatile=None):
+
+    for loader, module_name, ispkg in pkgutil.iter_modules(plugins.__path__):
+        plugin = loader.find_module(module_name).load_module(module_name)
+        loaded_plugins[module_name] = plugin
 
     epsg = params.epsg
     zoom = params.zoom
@@ -96,7 +100,14 @@ def mapchete(params, tile=None):
     if tile:
         zoom, row, col = tile
         bbox = tilematrix.tile_bbox(zoom, row, col)
-        metatiles = metatilematrix.tiles_from_geom(process_area, zoom)
+        if bbox.intersects(process_area):
+            metatiles = metatilematrix.tiles_from_geom(bbox, zoom)
+        else:
+            return None
+    if metatile:
+        bbox = metatilematrix.tile_bbox(*metatile)
+        if bbox.intersects(process_area):
+            metatiles = [metatile]
     else:
         if bounds:
             tl = [bounds[0], bounds[3]]
@@ -122,15 +133,18 @@ def mapchete(params, tile=None):
         pool = Pool(parallel)
         total_metatiles = len(metatiles)
         counter = 0
-        pbar = ProgressBar(maxval=total_metatiles).start()
+        #pbar = ProgressBar(maxval=total_metatiles).start()
         for output in pool.imap_unordered(f, metatiles):
             counter += 1
-            pbar.update(counter)
-        pbar.finish()
+            #pbar.update(counter)
+        #pbar.finish()
     except Exception as e:
         print e
         traceback.print_exc()
         sys.exit(0)
+    finally:
+        pool.close()
+        pool.join()
 
     if create_vrt and metatilematrix.format.type == "raster":
         print "creating VRT ..."
