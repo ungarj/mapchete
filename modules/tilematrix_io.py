@@ -3,6 +3,7 @@
 import rasterio
 from rasterio.warp import *
 import numpy as np
+import numpy.ma as ma
 from copy import deepcopy
 
 from tilematrix import *
@@ -113,7 +114,7 @@ def read_raster_window(input_file,
             window_meta['compress'] = "lzw"
 
             tile_metadata = window_meta
-            tile_data = window_data
+            tile_data = ma.masked_equal(window_data, source_nodata)
 
         # if tilify, reproject/resample
         if tilify:
@@ -138,9 +139,10 @@ def read_raster_window(input_file,
                 destination_meta = None
                 raise
             tile_metadata = destination_meta
-            tile_data = destination_data
+            tile_data = ma.masked_equal(destination_data, source_nodata)
     except:        
         tile_metadata, tile_data = None, None
+        raise
 
     # return tile metadata and data (numpy)
     return tile_metadata, tile_data
@@ -192,21 +194,25 @@ def write_raster_window(output_file,
     # TODO
 
     dst_bands = []
+
+    if tilematrix.format.name == "PNG_hillshade":
+        zeros = np.zeros(bands[0][px_top:px_bottom, px_left:px_right].shape)
+        for band in range(1,4):
+            dst_bands.append(zeros)
+
     for band in bands:
         dst_bands.append(band[px_top:px_bottom, px_left:px_right])
 
     # write to output file
-    dst_metadata = deepcopy(metadata)
-    dst_metadata.update(tilematrix.format.profile)
-    if tilematrix.format.name == "PNG":
-        dst_metadata["dtype"] = "uint8"
-        del dst_metadata["compress"]
-        dst_metadata["driver"] = "PNG"
-    else:
-        dst_metadata["dtype"] = metadata["dtype"]
+    dst_metadata = deepcopy(tilematrix.format.profile)
+    dst_metadata["crs"] = tilematrix.crs['init']
     dst_metadata["width"] = out_width
     dst_metadata["height"] = out_height
     dst_metadata["transform"] = destination_affine
+    dst_metadata["count"] = len(dst_bands)
+    dst_metadata["dtype"] = dst_bands[0].dtype.name
+    if tilematrix.format.name in ("PNG", "PNG_hillshade"):
+        dst_metadata.update(dtype='uint8')
     with rasterio.open(output_file, 'w', **dst_metadata) as dst:
         for band, data in enumerate(dst_bands):
             dst.write_band(

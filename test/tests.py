@@ -618,6 +618,7 @@ def main(args):
 
     wgs84 = TileMatrix("4326")
     wgs84_meta = MetaTileMatrix(wgs84, 4)
+    wgs84.set_format("GTiff")
 
     tile = (11, 574, 2144)
 
@@ -638,6 +639,9 @@ def main(args):
     print repo.is_dirty()
     #for commit in repo.iter_commits():
     #    print commit
+
+
+    print wgs84.format.profile
 
 if __name__ == "__main__":
     main(sys.argv[1:])

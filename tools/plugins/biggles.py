@@ -34,64 +34,56 @@ def process(metatile, params, metatilematrix):
     metadata, rasterdata = read_raster_window(raster_file, metatilematrix, metatile,
         pixelbuffer=10)
 
+    metadata.update(
+        count=4)
+
     median_value = 0
     gauss_value = 0
     if zoom > 9:
         median_value = 5
         gauss_value = 5
     if zoom == 9:
+        median_value = 4
+        gauss_value = 4
+    if zoom < 9:
         median_value = 3
         gauss_value = 3
-    if zoom < 9:
-        median_value = 1
-        gauss_value = 1
-
 
     median = ndimage.median_filter(rasterdata, size=median_value)
     gauss = ndimage.gaussian_filter(median, gauss_value)
 
+    average = ndimage.generic_filter(gauss, np.average, 10)
+    difference = 10*(gauss - average)
+    gauss = gauss + difference
+
     # hillshade 1
-    #hs1 = hillshade(gauss, 315, 45)
+    hs1 = hillshade(gauss, 315, 45)
     #gauss = ndimage.gaussian_filter(hs1, 0.5)
-    #hs1 = ndimage.median_filter(gauss, size=5)*1.5
+    hs1 = ndimage.median_filter(hs1, size=5)
 
     # hillshade 2
-    hs2 = hillshade(gauss, 285, 45)
+    #hs2 = hillshade(gauss, 285, 45)
     #gauss = ndimage.gaussian_filter(hs2, 0.5)
-    hs2 = ndimage.median_filter(hs2, size=5)
+    #hs2 = ndimage.median_filter(hs2, size=2)
 
     # hillshade 3
-    hs3 = hillshade(gauss, 345, 45)
+    #hs3 = hillshade(gauss, 345, 45)
     #gauss = ndimage.gaussian_filter(hs3, 0.5)
-    hs3 = ndimage.median_filter(hs3, size=5)
+    #hs3 = ndimage.median_filter(hs3, size=2)
 
-    hs = np.minimum(hs2, hs3)
+    #hs = np.minimum(hs2, hs3)
+
+    hs = hs1
 
     gauss = ndimage.gaussian_filter(hs, 0.5)
 
-    hs = gauss
+    out = gauss
 
-    if zoom > 30:
+    out = (out - 255)/-2
 
-        ripple_threshold = 131
-        ripples = hillshade(rasterdata, 315, 90).astype(rasterio.uint8)
-        ripples[ripples == 0] = 255
-        ripples[ripples < ripple_threshold] = 1
-        ripples[ripples >= ripple_threshold] = 255
-    
-        gauss = ndimage.gaussian_filter(ripples, 1)
-    
-        ripples = gauss
-    
-        out = ndimage.gaussian_filter(ripples, 1)
-    
-        out = np.minimum(hs, ripples)
-    
-    else:
+    out[rasterdata.mask] = 0
 
-        out = hs
-
-    
+    #out = ma.array(out, mask=rasterdata.mask)
 
 #    if isinstance(out, np.ndarray):
 #        extension = metatilematrix.format.extension

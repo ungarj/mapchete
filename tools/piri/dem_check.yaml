@@ -1,12 +1,12 @@
 ---
 process:
-    name: biggles
+    name: hillshade
     input_files:
         - /home/ungarj/terrain/out/dem/
     output_folder: /home/ungarj/terrain/out/hillshade/
     profile: PNG_hillshade
     EPSG: 4326
-    metatiling: 1
+    metatiling: 4
     parallel: 3
     debug: True
     create_vrt: False

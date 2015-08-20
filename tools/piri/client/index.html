@@ -24,12 +24,12 @@
                     <div class="btn-group btn-group-sm">
                       <button type="button" id="layerSwitcher" class="btn btn-default dropdown-toggle" data-toggle="dropdown"><i class="fa fa-globe"></i> Terrain Light<i class="fa fa-caret-down"></i></button>
                         <ul class="dropdown-menu">
-                            <li><a href="#" class="baseLayer" data-layer="terrain-light"><i class="fa fa-check-square-o" data-layer="terrain-light"></i> Terrain Light</a></li>
+                            <li><a href="#" class="baseLayer" data-layer="terrain-light"><i class="fa fa-square-o" data-layer="terrain-light"></i> Terrain Light</a></li>
                             <li><a href="#" class="baseLayer" data-layer="terrain"><i class="fa fa-square-o" data-layer="terrain"></i> Terrain</a></li>
                             <li><a href="#" class="baseLayer" data-layer="osm"><i class="fa fa-square-o" data-layer="osm"></i> OpenStreetMap</a></li>
                             <li><a href="#" class="baseLayer" data-layer="bluemarble"><i class="fa fa-square-o" data-layer="bluemarble"></i> Blue Marble</a></li>
                             <li><a href="#" class="baseLayer" data-layer="blackmarble"><i class="fa fa-square-o" data-layer="blackmarble"></i> Black Marble</a></li>
-                            <li><a href="#" class="baseLayer" data-layer="coastline"><i class="fa fa-square-o" data-layer="coastline"></i> OSM Coastline</a></li>
+                            <li><a href="#" class="baseLayer" data-layer="coastline"><i class="fa fa-check-square-o" data-layer="coastline"></i> OSM Coastline</a></li>
                         </ul>
                     </div>
                     <div class="btn-group btn-group-sm" data-toggle="buttons">
@@ -76,7 +76,7 @@ document.addEventListener( "DOMContentLoaded", function() {
                         layer: 'coastline',
                         numZoomLevels: 13,
                         attribution: 'OpenStreetMap { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Rendering &copy; <a href="https://github.com/mapserver/basemaps">MapServer</a> and <a href="http://eox.at">EOX</a> }',
-                        overlay: 'overlay_base'
+                        overlay: 'overlay'
                     },
                     'terrain-light': {
                         name: 'Terrain Light',
@@ -120,7 +120,6 @@ document.addEventListener( "DOMContentLoaded", function() {
                         layer: 'corsica_hillshade',
                         url: 'local_wmts',
                         format: 'image/png',
-                        opacity: 0.3,
                         numZoomLevels: 13,
                         attribution: 'Overlay { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Rendering &copy; <a href="http://eox.at">EOX</a> and <a href="https://github.com/mapserver/basemaps">MapServer</a> }'
                     },
@@ -168,7 +167,7 @@ document.addEventListener( "DOMContentLoaded", function() {
             window.setTimeout( function() {
                 // setup the actual map
                 var map = new OpenLayers.Map(OpenLayers.Util.applyDefaults( {
-                    center: new OpenLayers.LonLat(8.4, 40.7),
+                    center: new OpenLayers.LonLat(12.5, 47),
                     zoom: 8,
                     controls: [
                         new OpenLayers.Control.Navigation(),

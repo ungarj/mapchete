@@ -341,13 +341,14 @@ class OutputFormat(object):
 
     def __init__(self, output_format):
 
-        supported_rasterformats = ["GTiff", "PNG"]
+        supported_rasterformats = ["GTiff", "PNG", "PNG_hillshade"]
         supported_vectorformats = ["GEOJSON"]
         supported_formats = supported_rasterformats + supported_vectorformats
 
         format_extensions = {
             "GTiff": ".tif",
             "PNG": ".png",
+            "PNG_hillshade": ".png",
             "GEOJSON": ".geojson"
         }
     
@@ -366,12 +367,28 @@ class OutputFormat(object):
         elif output_format in supported_vectorformats:
             self.format = output_format
             self.type = "vector"
-    
+
+        # Default driver equals format name .   
+
         if self.format == "GTiff":
             self.profile = profiles.DefaultGTiffProfile().defaults
+            self.profile.update(driver="GTiff")
 
         if self.format == "PNG":
-            self.profile = {'dtype': 'uint8', 'nodata': 0}
+            self.profile = {
+                'dtype': 'uint8',
+                'nodata': 0,
+                'driver': 'PNG'
+            }
+
+        if self.format == "PNG_hillshade":
+            self.profile = {
+                'dtype': 'uint8',
+                'nodata': 0,
+                'driver': 'PNG',
+                'count': 4
+            }
+
 
         self.extension = format_extensions[self.name]
 

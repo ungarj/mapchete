@@ -33,6 +33,8 @@ def process(metatile, parsed, metatilematrix):
 
     hs = hillshade(rasterdata,315, 45)
 
+    hs[rasterdata.mask] = 0 
+
     for tile in tiles:
         zoom, row, col = tile
     
