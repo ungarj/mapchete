@@ -82,6 +82,8 @@ def mapchete(params, tile=None, metatile=None):
     global debug
     debug = params.debug
 
+    print "metatiling", metatiling
+
     # Initialize TileMatrix and MetaTileMatrix.
     tilematrix = TileMatrix(epsg)
     tilematrix.set_format(output_format, dtype)
@@ -102,9 +104,11 @@ def mapchete(params, tile=None, metatile=None):
         bbox = tilematrix.tile_bbox(zoom, row, col)
         if bbox.intersects(process_area):
             metatiles = metatilematrix.tiles_from_geom(bbox, zoom)
+            print bbox
+            #print metatilematrix.tile_bbox(zoom, row, col)
         else:
             return None
-    if metatile:
+    elif metatile:
         bbox = metatilematrix.tile_bbox(*metatile)
         if bbox.intersects(process_area):
             metatiles = [metatile]
@@ -132,12 +136,13 @@ def mapchete(params, tile=None, metatile=None):
     try:
         pool = Pool(parallel)
         total_metatiles = len(metatiles)
+        print "metatiles", total_metatiles
         counter = 0
-        #pbar = ProgressBar(maxval=total_metatiles).start()
+        pbar = ProgressBar(maxval=total_metatiles).start()
         for output in pool.imap_unordered(f, metatiles):
             counter += 1
-            #pbar.update(counter)
-        #pbar.finish()
+            pbar.update(counter)
+        pbar.finish()
     except Exception as e:
         print e
         traceback.print_exc()

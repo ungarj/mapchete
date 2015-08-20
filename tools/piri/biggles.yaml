@@ -6,7 +6,7 @@ process:
     output_folder: /home/ungarj/terrain/out/hillshade/
     profile: PNG
     EPSG: 4326
-    metatiling: 4
+    metatiling: 1
     parallel: 3
     debug: True
     create_vrt: False
@@ -19,7 +19,7 @@ required_process:
    output_folder: /home/ungarj/terrain/out/dem
    profile: GTiff
    EPSG: 4326
-   metatiling: 4
+   metatiling: 1
    parallel: 3
    create_vrt: True
    debug: True

@@ -10,7 +10,7 @@ import yaml
 
 # import local modules independent from script location
 scriptdir = os.path.dirname(os.path.realpath(__file__))
-rootdir = os.path.split(scriptdir)[0]
+rootdir = os.path.split(os.path.split(scriptdir)[0])[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
 from tilematrix import *
 from tilematrix_io import *
@@ -18,7 +18,7 @@ from mapchete_commons import *
 
 # import local modules independent from script location
 scriptdir = os.path.dirname(os.path.realpath(__file__))
-rootdir = os.path.split(scriptdir)[0]
+rootdir = os.path.split(os.path.split(scriptdir)[0])[0]
 sys.path.append(os.path.join(rootdir, 'tools'))
 from mapchete import mapchete
 
@@ -49,6 +49,7 @@ def main(args):
 
 def seed_missing_data(tile):
 
+    '''
     if "required_process" in config.keys():
         # Check if sourcedata exists. Get tile and neighbor tiles by adding
         # a pixelbuffer, loop through tiles and seed missing ones.
@@ -85,10 +86,12 @@ def seed_missing_data(tile):
             if os.path.exists(out_tile):
                 pass
             else:
+                print "seeding DEM", tile
                 params.zoom = zoom
                 mapchete(params, tile)
+    '''
 
-
+    '''
     # Process hillshade
     params = MapcheteConfig()
     params.load_from_yaml(config["process"])
@@ -111,7 +114,7 @@ def seed_missing_data(tile):
             #print "hillshade here"
             pass
         else:
-            #print "seeding hillshade", tile
+            print "seeding hillshade", tile
             params.zoom = zoom
             if os.path.splitext(params.input_files[0])[1] == ".vrt":
                 params.input_files[0] = os.path.split(params.input_files[0])[0]
@@ -121,6 +124,31 @@ def seed_missing_data(tile):
 
     else:
         pass
+    '''
+    params = MapcheteConfig()
+    params.load_from_yaml(config["process"])
+    output_folder = params.output_folder
+    epsg = params.epsg
+    profile = params.profile
+    tilematrix = TileMatrix(epsg)
+    tilematrix.set_format(profile)
+    extension = tilematrix.format.extension
+    zoom, row, col = tile
+    basedir = output_folder
+    zoomdir = os.path.join(basedir, str(zoom))
+    rowdir = os.path.join(zoomdir, str(row))
+    out_tile = tile_path(tile, params, extension)
+    if os.path.exists(out_tile):
+        #print "hillshade here"
+        pass
+    else:
+        print "seeding hillshade", tile
+        params.zoom = zoom
+        if os.path.splitext(params.input_files[0])[1] == ".vrt":
+            params.input_files[0] = os.path.split(params.input_files[0])[0]
+        input_dem = os.path.join(params.input_files[0], (str(zoom) + ".vrt"))
+        params.input_files[0] = input_dem
+        mapchete(params, tile)
 
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -144,8 +172,8 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                     break            
             folders.reverse()
 
-            try:
-                assert len(folders) != 0
+            if valid(folders):
+                
                 # get zoom, row and col
                 zoom = int(folders[-2])
                 row = int(folders[-1])
@@ -156,8 +184,12 @@ class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                     return SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
                 except:
                     raise
-            except:
-                raise
+            else:
+                return None
+
+
+def valid(folders):
+    return len(folders) != 0
 
 
 def run(server_class=BaseHTTPServer.HTTPServer,

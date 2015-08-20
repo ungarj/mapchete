@@ -631,5 +631,13 @@ def main(args):
     print tiles
 
 
+    from git import *
+    repo = Repo(".")
+
+    print repo.commit()
+    print repo.is_dirty()
+    #for commit in repo.iter_commits():
+    #    print commit
+
 if __name__ == "__main__":
     main(sys.argv[1:])

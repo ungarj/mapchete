@@ -29,6 +29,7 @@
                             <li><a href="#" class="baseLayer" data-layer="osm"><i class="fa fa-square-o" data-layer="osm"></i> OpenStreetMap</a></li>
                             <li><a href="#" class="baseLayer" data-layer="bluemarble"><i class="fa fa-square-o" data-layer="bluemarble"></i> Blue Marble</a></li>
                             <li><a href="#" class="baseLayer" data-layer="blackmarble"><i class="fa fa-square-o" data-layer="blackmarble"></i> Black Marble</a></li>
+                            <li><a href="#" class="baseLayer" data-layer="coastline"><i class="fa fa-square-o" data-layer="coastline"></i> OSM Coastline</a></li>
                         </ul>
                     </div>
                     <div class="btn-group btn-group-sm" data-toggle="buttons">
@@ -70,6 +71,13 @@ document.addEventListener( "DOMContentLoaded", function() {
             },
             layers: {
                 base: {
+                    coastline: {
+                        name: 'OSM Coastline',
+                        layer: 'coastline',
+                        numZoomLevels: 13,
+                        attribution: 'OpenStreetMap { Data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Rendering &copy; <a href="https://github.com/mapserver/basemaps">MapServer</a> and <a href="http://eox.at">EOX</a> }',
+                        overlay: 'overlay_base'
+                    },
                     'terrain-light': {
                         name: 'Terrain Light',
                         layer: 'terrain-light',
