@@ -98,3 +98,8 @@ h1 {
   font-size: .85em;
   line-height: 1.5em;
 }
+
+.olImageLoadError {
+    background-image: url('img/nodata.png');
+    background-repeat: no-repeat;
+}
