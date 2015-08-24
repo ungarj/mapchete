@@ -629,19 +629,74 @@ def main(args):
     tiles = []
     for metatile in metatiles:
         tiles.extend(wgs84_meta.tiles_from_tilematrix(*metatile))
-    print tiles
 
 
-    from git import *
-    repo = Repo(".")
-
-    print repo.commit()
-    print repo.is_dirty()
+    #from git import *
+    #repo = Repo(".")
+    #print repo.commit()
+    #print repo.is_dirty()
     #for commit in repo.iter_commits():
     #    print commit
 
 
-    print wgs84.format.profile
+
+    # overwrite check
+    import yaml
+    with open("configs/dem_check.yaml", 'r') as stream:
+        config = yaml.load(stream)
+    params = MapcheteConfig()
+    params.load_from_yaml(config["required_process"])
+    tilematrix = TileMatrix("4326")
+    tilematrix.set_format("GTiff")
+    metatilematrix = MetaTileMatrix(tilematrix, 4)
+
+    tile = (8, 63, 272)
+    bbox = tilematrix.tile_bbox(*tile, pixelbuffer=1)
+
+    print bbox
+
+    # Check if tiles exist.
+    metatiles = metatilematrix.tiles_from_geom(bbox, 8)
+
+    extension = metatilematrix.format.extension
+    tbd_metatiles = []
+    for metatile in metatiles:
+        tiles = metatilematrix.tiles_from_tilematrix(*metatile)
+        process = False
+        for tile in tiles:
+            out_tile = tile_path(tile, params, extension)
+            if not os.path.exists(out_tile):
+                process = True
+        if process == True:
+            print "rendering metatile ", metatile
+            tbd_metatiles.append(metatile)
+
+    print len(tbd_metatiles)
+    tiles = []
+    for tbd_metatile in tbd_metatiles:
+        print tbd_metatile
+        tiles.extend(metatilematrix.tiles_from_tilematrix(*tbd_metatile))
+    print tiles
+
+    schema = {
+            'geometry': 'Polygon',
+            'properties': {'col': 'int', 'row': 'int'}
+        }
+    temp_out = "/home/ungarj/terrain/out/dem/test.geojson"
+    try:
+        os.remove(temp_out)
+    except:
+        pass
+    with fiona.open(temp_out, 'w', 'GeoJSON', schema) as sink:
+        for tile in tiles:
+            zoom, row, col = tile
+            feature = {}
+            feature['geometry'] = mapping(tilematrix.tile_bbox(*tile))
+            feature['properties'] = {}
+            feature['properties']['col'] = col
+            feature['properties']['row'] = row
+            sink.write(feature)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

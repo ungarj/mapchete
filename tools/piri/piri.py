@@ -49,82 +49,8 @@ def main(args):
 
 def seed_missing_data(tile):
 
-    '''
-    if "required_process" in config.keys():
-        # Check if sourcedata exists. Get tile and neighbor tiles by adding
-        # a pixelbuffer, loop through tiles and seed missing ones.
-
-        ## Read input parameters.
-        params = MapcheteConfig()
-        params.load_from_yaml(config["required_process"])
-        epsg = params.epsg
-        profile = params.profile
-        output_folder = params.output_folder
-        metatiling = params.metatiling
-
-        ## Create TileMatrix and MetaTileMatrix.
-        tilematrix = TileMatrix(epsg)
-        tilematrix.set_format(profile)
-        metatilematrix = MetaTileMatrix(tilematrix, metatiling)
-        extension = tilematrix.format.extension
-
-        ## Determine metatiles to be rendered. In order to be sure no errors
-        ## occure at boundaries between a seeded metatile and a not-yet seeded
-        ## metatile, get all eight neighbor metatiles as well.
-        zoom, row, col = tile
-        tilebbox = tilematrix.tile_bbox(zoom, row, col, pixelbuffer=1)
-        metatiles = metatilematrix.tiles_from_geom(tilebbox, zoom)
-        tiles = []
-        for metatile in metatiles:
-            tiles.extend(metatilematrix.tiles_from_tilematrix(*metatile))
-        for tile in tiles:
-            zoom, row, col = tile
-            basedir = output_folder
-            zoomdir = os.path.join(basedir, str(zoom))
-            rowdir = os.path.join(zoomdir, str(row))
-            out_tile = tile_path(tile, params, extension)
-            if os.path.exists(out_tile):
-                pass
-            else:
-                print "seeding DEM", tile
-                params.zoom = zoom
-                mapchete(params, tile)
-    '''
-
-    '''
-    # Process hillshade
-    params = MapcheteConfig()
-    params.load_from_yaml(config["process"])
-    epsg = params.epsg
-    profile = params.profile
-    output_folder = params.output_folder
-    tilematrix = TileMatrix(epsg)
-    tilematrix.set_format(profile)
-    extension = tilematrix.format.extension
     zoom, row, col = tile
-    tilebbox = tilematrix.tile_bbox(zoom, row, col, pixelbuffer=1)
-    tiles = tilematrix.tiles_from_geom(tilebbox, zoom)
-    for tile in tiles:
-        zoom, row, col = tile
-        basedir = output_folder
-        zoomdir = os.path.join(basedir, str(zoom))
-        rowdir = os.path.join(zoomdir, str(row))
-        out_tile = tile_path(tile, params, extension)
-        if os.path.exists(out_tile):
-            #print "hillshade here"
-            pass
-        else:
-            print "seeding hillshade", tile
-            params.zoom = zoom
-            if os.path.splitext(params.input_files[0])[1] == ".vrt":
-                params.input_files[0] = os.path.split(params.input_files[0])[0]
-            input_dem = os.path.join(params.input_files[0], (str(zoom) + ".vrt"))
-            params.input_files[0] = input_dem
-            mapchete(params, tile)
 
-    else:
-        pass
-    '''
     params = MapcheteConfig()
     params.load_from_yaml(config["process"])
     output_folder = params.output_folder
@@ -133,22 +59,62 @@ def seed_missing_data(tile):
     tilematrix = TileMatrix(epsg)
     tilematrix.set_format(profile)
     extension = tilematrix.format.extension
-    zoom, row, col = tile
     basedir = output_folder
     zoomdir = os.path.join(basedir, str(zoom))
     rowdir = os.path.join(zoomdir, str(row))
     out_tile = tile_path(tile, params, extension)
+    # Check if target tile exists.
     if os.path.exists(out_tile):
-        #print "hillshade here"
         pass
     else:
-        print "seeding hillshade", tile
+        if "required_process" in config.keys():
+            # Check if sourcedata exists. Get metatile and neighbor metatiles
+            # by adding a pixelbuffer. Loop through metatiles and check whether
+            # all tiles exist. If not, add them to a TBD list and let mapchete
+            # seed it.
+    
+            ## Read input parameters.
+            req_proc_params = MapcheteConfig()
+            req_proc_params.load_from_yaml(config["required_process"])
+            epsg = req_proc_params.epsg
+            profile = req_proc_params.profile
+            output_folder = req_proc_params.output_folder
+            metatiling = req_proc_params.metatiling
+    
+            ## Create TileMatrix and MetaTileMatrix.
+            req_proc_tilematrix = TileMatrix(epsg)
+            req_proc_tilematrix.set_format(profile)
+            req_proc_metatilematrix = MetaTileMatrix(req_proc_tilematrix, metatiling)
+            extension = req_proc_tilematrix.format.extension
+    
+            ## Determine metatiles to be rendered. In order to be sure no errors
+            ## occure at boundaries between a seeded metatile and a not-yet seeded
+            ## metatile, get all eight neighbor metatiles as well.
+            bbox = req_proc_tilematrix.tile_bbox(*tile, pixelbuffer=1)
+            metatiles = req_proc_metatilematrix.tiles_from_geom(bbox, zoom)
+            tbd_metatiles = []
+            for metatile in metatiles:
+                tiles = req_proc_metatilematrix.tiles_from_tilematrix(*metatile)
+                process = False
+                for tile in tiles:
+                    out_tile = tile_path(tile, req_proc_params, extension)
+                    if not os.path.exists(out_tile):
+                        process = True
+                if process == True:
+                    tbd_metatiles.append(metatile)
+            if len(tbd_metatiles)>0:
+                # Seed required data.
+                print "Seeding required data.", tbd_metatiles
+                req_proc_params.zoom = zoom
+                mapchete(req_proc_params, metatiles=tbd_metatiles)
+
+        print "Seeding hillshade.", tile
         params.zoom = zoom
         if os.path.splitext(params.input_files[0])[1] == ".vrt":
             params.input_files[0] = os.path.split(params.input_files[0])[0]
         input_dem = os.path.join(params.input_files[0], (str(zoom) + ".vrt"))
         params.input_files[0] = input_dem
-        mapchete(params, tile)
+        mapchete(params, tiles=[tile])
 
 
 class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):

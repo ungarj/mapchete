@@ -64,7 +64,7 @@ def main(args):
     mapchete(params)
 
 
-def mapchete(params, tile=None, metatile=None):
+def mapchete(params, tiles=None, metatiles=None):
 
     for loader, module_name, ispkg in pkgutil.iter_modules(plugins.__path__):
         plugin = loader.find_module(module_name).load_module(module_name)
@@ -96,18 +96,24 @@ def mapchete(params, tile=None, metatile=None):
     input_envelopes = cascaded_union(envelopes)
     process_area = input_envelopes
 
+    if tiles:
+        if metatiles:
+            print "Tiles and metatiles provided. In this case, just the tiles \
+               are being considered."
+            metatiles = None
+        out_metatiles = []
+        for tile in tiles:
+            zoom, row, col = tile
+            bbox = tilematrix.tile_bbox(zoom, row, col)
+            if bbox.intersects(process_area):
+                out_metatiles.extend(metatilematrix.tiles_from_geom(bbox, zoom))
 
-    if tile:
-        zoom, row, col = tile
-        bbox = tilematrix.tile_bbox(zoom, row, col)
-        if bbox.intersects(process_area):
-            metatiles = metatilematrix.tiles_from_geom(bbox, zoom)
-        else:
-            return None
-    elif metatile:
-        bbox = metatilematrix.tile_bbox(*metatile)
-        if bbox.intersects(process_area):
-            metatiles = [metatile]
+    elif metatiles:
+        out_metatiles = []
+        for metatile in metatiles:
+            bbox = metatilematrix.tile_bbox(*metatile)
+            if bbox.intersects(process_area):
+                out_metatiles.append(metatile)
     else:
         if bounds:
             tl = [bounds[0], bounds[3]]
@@ -121,7 +127,10 @@ def mapchete(params, tile=None, metatile=None):
                 print "ERROR: bounds don't intersect with input files."
                 sys.exit(0)
         # Get metatiles from metatilematrix and process area.
-        metatiles = metatilematrix.tiles_from_geom(process_area, zoom)
+        out_metatiles = metatilematrix.tiles_from_geom(process_area, zoom)
+
+    if len(out_metatiles) == 0:
+        return None
 
     from functools import partial
     f = partial(worker,
@@ -131,10 +140,10 @@ def mapchete(params, tile=None, metatile=None):
 
     try:
         pool = Pool(parallel)
-        total_metatiles = len(metatiles)
+        total_metatiles = len(out_metatiles)
         counter = 0
         pbar = ProgressBar(maxval=total_metatiles).start()
-        for output in pool.imap_unordered(f, metatiles):
+        for output in pool.imap_unordered(f, out_metatiles):
             counter += 1
             pbar.update(counter)
         pbar.finish()

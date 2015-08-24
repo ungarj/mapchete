@@ -15,7 +15,7 @@ process:
 required_process:
    name: tilify_raster
    input_files:
-       - /home/ungarj/geodata/eudem/eudem_4326_scaled.tif
+       - /home/ungarj/geodata/srtm30/srtm30.vrt
    output_folder: /home/ungarj/terrain/out/dem
    profile: GTiff
    EPSG: 4326
