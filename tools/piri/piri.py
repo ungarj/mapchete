@@ -51,6 +51,9 @@ def seed_missing_data(tile):
 
     zoom, row, col = tile
 
+    if zoom < 7:
+        return None
+
     params = MapcheteConfig()
     params.load_from_yaml(config["process"])
     output_folder = params.output_folder
