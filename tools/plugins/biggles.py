@@ -46,8 +46,8 @@ def process(metatile, params, metatilematrix):
         median_value = 4
         gauss_value = 4
     if zoom < 9:
-        median_value = 3
-        gauss_value = 3
+        median_value = 2
+        gauss_value = 2
 
     median = ndimage.median_filter(rasterdata, size=median_value)
     gauss = ndimage.gaussian_filter(median, gauss_value)
@@ -79,7 +79,7 @@ def process(metatile, params, metatilematrix):
 
     out = gauss
 
-    out = (out - 255)/-2
+    out = -(out - 255)
 
     out[rasterdata.mask] = 0
 

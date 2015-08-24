@@ -58,6 +58,7 @@ def seed_missing_data(tile):
     profile = params.profile
     tilematrix = TileMatrix(epsg)
     tilematrix.set_format(profile)
+    metatilematrix = MetaTileMatrix(tilematrix, params.metatiling)
     extension = tilematrix.format.extension
     basedir = output_folder
     zoomdir = os.path.join(basedir, str(zoom))
@@ -90,15 +91,20 @@ def seed_missing_data(tile):
             ## Determine metatiles to be rendered. In order to be sure no errors
             ## occure at boundaries between a seeded metatile and a not-yet seeded
             ## metatile, get all eight neighbor metatiles as well.
-            bbox = req_proc_tilematrix.tile_bbox(*tile, pixelbuffer=1)
-            metatiles = req_proc_metatilematrix.tiles_from_geom(bbox, zoom)
+            ### Get metatile in which input tile belongs.
+            tile_bbox = tilematrix.tile_bbox(*tile)
+            metatile = metatilematrix.tiles_from_bbox(tile_bbox, zoom)[0]
+            ### Determine metatiles of required data using metatile from input
+            ### tile including a buffer to get neighbor metatiles as well.
+            metatile_bbox = metatilematrix.tile_bbox(*metatile, pixelbuffer=1)
+            metatiles = req_proc_metatilematrix.tiles_from_geom(metatile_bbox, zoom)
             tbd_metatiles = []
             for metatile in metatiles:
                 tiles = req_proc_metatilematrix.tiles_from_tilematrix(*metatile)
                 process = False
-                for tile in tiles:
-                    out_tile = tile_path(tile, req_proc_params, extension)
-                    if not os.path.exists(out_tile):
+                for out_tile in tiles:
+                    out_tile_path = tile_path(out_tile, req_proc_params, extension)
+                    if not os.path.exists(out_tile_path):
                         process = True
                 if process == True:
                     tbd_metatiles.append(metatile)
@@ -109,7 +115,6 @@ def seed_missing_data(tile):
                 mapchete(req_proc_params, metatiles=tbd_metatiles)
 
         print "Seeding hillshade.", tile
-        params.zoom = zoom
         if os.path.splitext(params.input_files[0])[1] == ".vrt":
             params.input_files[0] = os.path.split(params.input_files[0])[0]
         input_dem = os.path.join(params.input_files[0], (str(zoom) + ".vrt"))

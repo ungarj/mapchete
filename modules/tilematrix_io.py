@@ -133,7 +133,7 @@ def read_raster_window(input_file,
                     dst_transform=destination_affine,
                     dst_crs=destination_crs,
                     dst_nodata=source_nodata,
-                    resampling=RESAMPLING.lanczos)
+                    resampling=RESAMPLING.average)
             except:
                 destination_data = None
                 destination_meta = None

@@ -31,7 +31,9 @@ def process(metatile, parsed, metatilematrix):
     metadata, rasterdata = read_raster_window(raster_file, metatilematrix, metatile,
         pixelbuffer=3)
 
-    hs = hillshade(rasterdata,315, 45)
+    hs = hillshade(rasterdata, 315, 45)
+
+    hs = -(hs - 255)
 
     hs[rasterdata.mask] = 0 
 
