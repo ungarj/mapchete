@@ -13,6 +13,11 @@ import math
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
+submodules_folder = os.path.join(rootdir, 'submodules')
+tilematrix_module_directory = os.path.join(submodules_folder, 'tilematrix')
+tilematrix_class_directory = os.path.join(tilematrix_module_directory, 'src')
+sys.path.append(tilematrix_class_directory)
+
 from tilematrix import *
 from tilematrix_io import *
 from mapchete_commons import *
@@ -82,7 +87,7 @@ def main(args):
     except:
         print "tile bounding box with buffer FAILED"
         raise
-    
+
 
     # tile bounds
     try:
@@ -409,7 +414,7 @@ def main(args):
         print "tiles from bbox"
         #print "metatilematrix: %s" %([wgs84_meta.tiles_from_bbox(antimeridian, zoom)])
         print "tiles from geometry"
-    
+
         ## write debug output
         tiled_out = os.path.join(outdata_directory, "tile_antimeridian_tiles.geojson")
         schema = {
@@ -453,7 +458,7 @@ def main(args):
                 feature['properties']['row'] = row
                 sink.write(feature)
 
-    
+
     for metatiling in range(1, 21):
         wgs84_meta = MetaTileMatrix(wgs84, metatiling)
         for zoom in range(22):
@@ -566,7 +571,7 @@ def main(args):
                 feature['properties']['col'] = col
                 feature['properties']['row'] = row
                 sink.write(feature)
-    
+
         # metatiles
         fiji_metatiles = os.path.join(outdata_directory, "fiji_metatiles.geojson")
         schema = {
