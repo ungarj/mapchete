@@ -20,6 +20,11 @@ import traceback
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
+submodules_folder = os.path.join(rootdir, 'submodules')
+tilematrix_module_directory = os.path.join(submodules_folder, 'tilematrix')
+tilematrix_class_directory = os.path.join(tilematrix_module_directory, 'src')
+sys.path.append(tilematrix_class_directory)
+
 from tilematrix import *
 from tilematrix_io import *
 from mapchete_commons import *
@@ -39,7 +44,7 @@ def main(args):
     parser.add_argument("--dtype", nargs=1, type=str, default=None)
     parser.add_argument("--bounds", "-b", nargs=4, type=float,
         help="Only process area within bounds (left, bottom, right, top).")
-    parser.add_argument("--metatiling", "-m", nargs=1, type=int, default=1, 
+    parser.add_argument("--metatiling", "-m", nargs=1, type=int, default=1,
         help="Metatile size. (default 1)")
     parser.add_argument("--parallel", "-p", nargs=1, type=int, default=[1], # wtf idk
         help="Number of parallel processes. (default 1)")
@@ -178,6 +183,6 @@ def worker(metatile, params, metatilematrix):
         traceback.print_exc()
 
 
-    
+
 if __name__ == "__main__":
     main(sys.argv[1:])

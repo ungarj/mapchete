@@ -7,6 +7,11 @@ import sys
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 rootdir = os.path.split(scriptdir)[0]
 sys.path.append(os.path.join(rootdir, 'modules'))
+submodules_folder = os.path.join(rootdir, 'submodules')
+tilematrix_module_directory = os.path.join(submodules_folder, 'tilematrix')
+tilematrix_class_directory = os.path.join(tilematrix_module_directory, 'src')
+sys.path.append(tilematrix_class_directory)
+
 from tilematrix import *
 from tilematrix_io import *
 from mapchete_commons import *
@@ -31,7 +36,7 @@ def process(metatile, params, metatilematrix):
 
     for tile in tiles:
         zoom, row, col = tile
-    
+
         if isinstance(rasterdata, np.ndarray):
             # Create directories.
             extension = metatilematrix.format.extension
