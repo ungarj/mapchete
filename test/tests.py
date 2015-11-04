@@ -36,7 +36,7 @@ def main(args):
     outdata_directory = os.path.join(testdata_directory, "out")
     wgs84 = TileMatrix("4326")
     wgs84.set_format("GTiff", dtype="uInt16")
-    wgs84_meta = MetaTileMatrix(wgs84, 23)
+    wgs84_meta = MetaTileMatrix(wgs84, 16)
     print wgs84_meta.format.profile["dtype"]
 
     # tilematrix
