@@ -3,11 +3,45 @@
 ## examples
 
 ### definition
+
+#### calling script/tool
 ```python
-MapcheteProcess
+
+input_files = {
+   "ASTER": "path/to/aster",
+   "SRTM": "path/to/srtm",
+   "GTOPO": "path/to/gtopo"
+    }
+
+output_gpkg = "path/to/gpkg"
+
+
+merge_dem = MapcheteProcess(
+    input_data = input_files,
+    base_zoom = 12
+    )
+
+for tile in tiles:
+    result = merge_dem.execute(tile)
+    gpkg_save(result, tile)
 ```
 
-### execution
+#### process file
+```python
+from mapchete import MapcheteProcess
+
+MapcheteProcess.init(
+    input_data=[],
+    parameter1=...,
+    parameter2=...,
+    tile=(zoom, col, row),
+    )
+MapcheteProcess.execute()
+```
+
+
+
+<!-- ### execution
 ```python
 # everything
 MapcheteProcess.execute()
@@ -15,7 +49,7 @@ MapcheteProcess.execute()
 MapcheteProcess.execute(bounds=(1, 3, 2, 5))
 MapcheteProcess.execute(tile=(zoom, col, row))
 MapcheteProcess.execute(metatile=(zoom, col, row))
-```
+``` -->
 
 ## responsibilities
 
@@ -26,10 +60,11 @@ MapcheteProcess.execute(metatile=(zoom, col, row))
 
 ### process
 
-#### .__init__()
-* process inputs (e.g. input files)
-* process outputs (format & location)
+#### ```__init__()```
+* input files
+* input parameters
+* output file/directory (format & location)
 
-#### .execute()
+#### ```execute()```
 * processing data
 * return result
