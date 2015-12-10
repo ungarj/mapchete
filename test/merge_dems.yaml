@@ -1,0 +1,17 @@
+# User has to provide:
+#     - input files
+#     - input parameters
+#     - output directory
+#     - output profile
+
+input_files:
+    ASTER: /path/to/aster
+    SRTM30: /path/to/srtm30
+    EUDEM:
+        zoom>10: /path/to/eudem
+
+resampling:
+    zoom>5: bilinear
+    zoom<=5: nearest
+
+generalization: 5
