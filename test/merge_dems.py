@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from src.mapchete import MapcheteProcess
+from mapchete import MapcheteProcess
 
 """
 User has to:
