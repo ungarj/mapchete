@@ -11,10 +11,10 @@ primary_dems:
         zoom>10: /path/to/eudem
 
 secondary_dems:
-        local_DEM1: /path/to/local/dem1
-        local_DEM2: /path/to/local/dem2
-        local_DEM3: /path/to/local/dem3
-        local_DEM4: /path/to/local/dem4
+    local_DEM1: /path/to/local/dem1
+    local_DEM2: /path/to/local/dem2
+    local_DEM3: /path/to/local/dem3
+    local_DEM4: /path/to/local/dem4
 
 base_level: 12
 

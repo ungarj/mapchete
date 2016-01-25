@@ -67,7 +67,6 @@ def element_at_zoom(name, element, zoom):
                     return element
             else:
                 return None
-                raise SyntaxError
         # If element is a string but not a zoom level statement, return element.
         else:
             return element
