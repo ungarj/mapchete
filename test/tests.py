@@ -37,15 +37,33 @@ def main(args):
 
     # Check configuration at zoom level 5
     zoom5 = config.at_zoom(5)
-    assert zoom5['resampling'] == 'nearest'
-    assert zoom5['base_level'] == 12
+    assert zoom5["primary_dems"]["ASTER"] == "/path/to/aster"
+    assert zoom5["primary_dems"]["SRTM30"] == "/path/to/srtm30"
     assert zoom5['primary_dems']['EUDEM'] == {}
+    assert zoom5["secondary_dems"]["local_DEM1"] == "/path/to/local/dem1"
+    assert zoom5["secondary_dems"]["local_DEM2"] == "/path/to/local/dem2"
+    assert zoom5["secondary_dems"]["local_DEM3"] == "/path/to/local/dem3"
+    assert zoom5["secondary_dems"]["local_DEM4"] == "/path/to/local/dem4"
+    assert zoom5["base_level"] == 12
+    assert zoom5["resampling"] == "nearest"
+    assert zoom5["generalization"] == 5
+    assert zoom5["output_file"] == "/path/to/gpkg"
+    assert zoom5["output_profile"] == "EOGeopackage"
 
     # Check configuration at zoom level 11
     zoom11 = config.at_zoom(11)
-    assert zoom11['resampling'] == 'bilinear'
-    assert zoom11['base_level'] == 12
+    assert zoom11["primary_dems"]["ASTER"] == "/path/to/aster"
+    assert zoom11["primary_dems"]["SRTM30"] == "/path/to/srtm30"
     assert zoom11['primary_dems']['EUDEM'] == "/path/to/eudem"
+    assert zoom11["secondary_dems"]["local_DEM1"] == "/path/to/local/dem1"
+    assert zoom11["secondary_dems"]["local_DEM2"] == "/path/to/local/dem2"
+    assert zoom11["secondary_dems"]["local_DEM3"] == "/path/to/local/dem3"
+    assert zoom11["secondary_dems"]["local_DEM4"] == "/path/to/local/dem4"
+    assert zoom11["base_level"] == 12
+    assert zoom11['resampling'] == 'bilinear'
+    assert zoom11["generalization"] == 5
+    assert zoom11["output_file"] == "/path/to/gpkg"
+    assert zoom11["output_profile"] == "EOGeopackage"
 
 
     # process_name = os.path.splitext(os.path.basename(process_file))[0]
