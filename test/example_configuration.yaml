@@ -1,0 +1,23 @@
+# User has to provide:
+#     - input files
+#     - input parameters
+#     - output directory
+#     - output profile
+
+file_group_1:
+    file1: /path/to/group1/file1
+    file2: /path/to/group1/file2
+    file3:
+        zoom>10: /path/to/group1/file3
+
+file_group_2:
+    file1: /path/to/group2/file1
+    file2: /path/to/group2/file2
+    file3: /path/to/group2/file3
+    file4: /path/to/group2/file4
+
+some_integer_parameter: 12
+
+some_string_parameter:
+    zoom<=5: string1
+    zoom>5: string2

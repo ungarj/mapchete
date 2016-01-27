@@ -21,10 +21,10 @@ class Process(MapcheteProcess):
     """
     def __init__(self, config_path):
         MapcheteProcess.__init__(self, config_path)
-        self.identifier = "merge_dems"
-        self.title = "Merge multiple DEMs",
+        self.identifier = "example_process"
+        self.title = "example process file",
         self.version = "dirty pre-alpha",
-        self.abstract = "Merges multiple DEMs into one.",
+        self.abstract = "used for testing",
 
     def execute(self, zoom):
         """

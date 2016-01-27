@@ -30,40 +30,40 @@ def main(args):
     #===================
 
     # Load source process from python file and initialize.
-    process_file = os.path.join(scriptdir, "merge_dems.py")
-    config_yaml = os.path.join(scriptdir, "merge_dems.yaml")
+    process_file = os.path.join(scriptdir, "example_process.py")
+    config_yaml = os.path.join(scriptdir, "example_configuration.yaml")
 
     config = MapcheteConfig(config_yaml)
 
-    # Check configuration at zoom level 5
-    zoom5 = config.at_zoom(5)
-    assert zoom5["primary_dems"]["ASTER"] == "/path/to/aster"
-    assert zoom5["primary_dems"]["SRTM30"] == "/path/to/srtm30"
-    assert zoom5['primary_dems']['EUDEM'] == {}
-    assert zoom5["secondary_dems"]["local_DEM1"] == "/path/to/local/dem1"
-    assert zoom5["secondary_dems"]["local_DEM2"] == "/path/to/local/dem2"
-    assert zoom5["secondary_dems"]["local_DEM3"] == "/path/to/local/dem3"
-    assert zoom5["secondary_dems"]["local_DEM4"] == "/path/to/local/dem4"
-    assert zoom5["base_level"] == 12
-    assert zoom5["resampling"] == "nearest"
-    assert zoom5["generalization"] == 5
-    assert zoom5["output_file"] == "/path/to/gpkg"
-    assert zoom5["output_profile"] == "EOGeopackage"
+    try:
+        # Check configuration at zoom level 5
+        zoom5 = config.at_zoom(5)
+        assert zoom5["file_group_1"]["file1"] == "/path/to/group1/file1"
+        assert zoom5["file_group_1"]["file2"] == "/path/to/group1/file2"
+        assert zoom5['file_group_1']['file3'] == {}
+        assert zoom5["file_group_2"]["file1"] == "/path/to/group2/file1"
+        assert zoom5["file_group_2"]["file2"] == "/path/to/group2/file2"
+        assert zoom5["file_group_2"]["file3"] == "/path/to/group2/file3"
+        assert zoom5["file_group_2"]["file4"] == "/path/to/group2/file4"
+        assert zoom5["some_integer_parameter"] == 12
+        assert zoom5["some_string_parameter"] == "string1"
 
-    # Check configuration at zoom level 11
-    zoom11 = config.at_zoom(11)
-    assert zoom11["primary_dems"]["ASTER"] == "/path/to/aster"
-    assert zoom11["primary_dems"]["SRTM30"] == "/path/to/srtm30"
-    assert zoom11['primary_dems']['EUDEM'] == "/path/to/eudem"
-    assert zoom11["secondary_dems"]["local_DEM1"] == "/path/to/local/dem1"
-    assert zoom11["secondary_dems"]["local_DEM2"] == "/path/to/local/dem2"
-    assert zoom11["secondary_dems"]["local_DEM3"] == "/path/to/local/dem3"
-    assert zoom11["secondary_dems"]["local_DEM4"] == "/path/to/local/dem4"
-    assert zoom11["base_level"] == 12
-    assert zoom11['resampling'] == 'bilinear'
-    assert zoom11["generalization"] == 5
-    assert zoom11["output_file"] == "/path/to/gpkg"
-    assert zoom11["output_profile"] == "EOGeopackage"
+        # Check configuration at zoom level 11
+        zoom11 = config.at_zoom(11)
+        assert zoom11["file_group_1"]["file1"] == "/path/to/group1/file1"
+        assert zoom11["file_group_1"]["file2"] == "/path/to/group1/file2"
+        assert zoom11['file_group_1']['file3'] == "/path/to/group1/file3"
+        assert zoom11["file_group_2"]["file1"] == "/path/to/group2/file1"
+        assert zoom11["file_group_2"]["file2"] == "/path/to/group2/file2"
+        assert zoom11["file_group_2"]["file3"] == "/path/to/group2/file3"
+        assert zoom11["file_group_2"]["file4"] == "/path/to/group2/file4"
+        assert zoom11["some_integer_parameter"] == 12
+        assert zoom11['some_string_parameter'] == "string2"
+    except:
+        print "FAILED: configuration parsing"
+    else:
+        print "OK: configuration parsing"
+
 
 
     # process_name = os.path.splitext(os.path.basename(process_file))[0]
