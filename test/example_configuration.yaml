@@ -4,17 +4,23 @@
 #     - output directory
 #     - output profile
 
-file_group_1:
-    file1: /path/to/group1/file1
-    file2: /path/to/group1/file2
-    file3:
-        zoom>10: /path/to/group1/file3
+# mapchete parameters
+# process_minzoom: 7
+# process_maxzoom: 10
+# process_zoom: 5
+process_bounds: [1, 2, 3, 4]
 
-file_group_2:
-    file1: /path/to/group2/file1
-    file2: /path/to/group2/file2
-    file3: /path/to/group2/file3
-    file4: /path/to/group2/file4
+input_files:
+    file_group_1:
+        file1: /path/to/group1/file1
+        file2: /path/to/group1/file2
+        file3:
+            zoom>10: /path/to/group1/file3
+    file_group_2:
+        file1: /path/to/group2/file1
+        file2: /path/to/group2/file2
+        file3: /path/to/group2/file3
+        file4: /path/to/group2/file4
 
 some_integer_parameter: 12
 

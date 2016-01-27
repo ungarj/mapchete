@@ -38,29 +38,32 @@ def main(args):
     try:
         # Check configuration at zoom level 5
         zoom5 = config.at_zoom(5)
-        assert zoom5["file_group_1"]["file1"] == "/path/to/group1/file1"
-        assert zoom5["file_group_1"]["file2"] == "/path/to/group1/file2"
-        assert zoom5['file_group_1']['file3'] == {}
-        assert zoom5["file_group_2"]["file1"] == "/path/to/group2/file1"
-        assert zoom5["file_group_2"]["file2"] == "/path/to/group2/file2"
-        assert zoom5["file_group_2"]["file3"] == "/path/to/group2/file3"
-        assert zoom5["file_group_2"]["file4"] == "/path/to/group2/file4"
+        input_files = zoom5["input_files"]
+        assert input_files["file_group_1"]["file1"] == "/path/to/group1/file1"
+        assert input_files["file_group_1"]["file2"] == "/path/to/group1/file2"
+        assert input_files["file_group_1"]["file3"] == {}
+        assert input_files["file_group_2"]["file1"] == "/path/to/group2/file1"
+        assert input_files["file_group_2"]["file2"] == "/path/to/group2/file2"
+        assert input_files["file_group_2"]["file3"] == "/path/to/group2/file3"
+        assert input_files["file_group_2"]["file4"] == "/path/to/group2/file4"
         assert zoom5["some_integer_parameter"] == 12
         assert zoom5["some_string_parameter"] == "string1"
 
         # Check configuration at zoom level 11
         zoom11 = config.at_zoom(11)
-        assert zoom11["file_group_1"]["file1"] == "/path/to/group1/file1"
-        assert zoom11["file_group_1"]["file2"] == "/path/to/group1/file2"
-        assert zoom11['file_group_1']['file3'] == "/path/to/group1/file3"
-        assert zoom11["file_group_2"]["file1"] == "/path/to/group2/file1"
-        assert zoom11["file_group_2"]["file2"] == "/path/to/group2/file2"
-        assert zoom11["file_group_2"]["file3"] == "/path/to/group2/file3"
-        assert zoom11["file_group_2"]["file4"] == "/path/to/group2/file4"
+        input_files = zoom11["input_files"]
+        assert input_files["file_group_1"]["file1"] == "/path/to/group1/file1"
+        assert input_files["file_group_1"]["file2"] == "/path/to/group1/file2"
+        assert input_files["file_group_1"]["file3"] == "/path/to/group1/file3"
+        assert input_files["file_group_2"]["file1"] == "/path/to/group2/file1"
+        assert input_files["file_group_2"]["file2"] == "/path/to/group2/file2"
+        assert input_files["file_group_2"]["file3"] == "/path/to/group2/file3"
+        assert input_files["file_group_2"]["file4"] == "/path/to/group2/file4"
         assert zoom11["some_integer_parameter"] == 12
-        assert zoom11['some_string_parameter'] == "string2"
+        assert zoom11["some_string_parameter"] == "string2"
     except:
         print "FAILED: configuration parsing"
+        raise
     else:
         print "OK: configuration parsing"
 

@@ -100,6 +100,26 @@ class MapcheteConfig():
 
         return params
 
+    def is_valid_at_zoom(self, zoom):
+        """
+        Checks if mapchete can run using this configuration. Checks
+        - the provision of mandatory parameters:
+          - input file(s)
+          - output name
+          - output format
+        - if input files exist and can be read via Fiona or rasterio
+        Returns True or False.
+        """
+        # TODO
+        pass
+
+    def explain_validity_at_zoom(self, zoom):
+        """
+        For debugging purposes if is_valid_at_zoom() returns False.
+        """
+        # TODO
+        pass
+
 
 class MapcheteProcess():
     """
