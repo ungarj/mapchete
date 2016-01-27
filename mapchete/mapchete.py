@@ -45,8 +45,8 @@ def element_at_zoom(name, element, zoom):
             return out_elements.itervalues().next()
         return out_elements
 
+    # If element is a zoom level statement, filter element.
     if isinstance(name, str):
-        # If element is a zoom level statement, filter element.
         if name.startswith("zoom"):
             cleaned = name.strip("zoom").strip()
             if cleaned.startswith("<="):
