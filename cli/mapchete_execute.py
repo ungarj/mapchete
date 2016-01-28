@@ -26,29 +26,33 @@ def main(args):
             bounds=parsed.bounds
             )
         tile_pyramid = TilePyramid("4326")
-        for zoom in config["zoom_levels"]:
-            bbox = config["process_bounds"][zoom]
-            print zoom, bbox.wkt
-            print tile_pyramid.tiles_from_geom(bbox, zoom)
     except Exception as e:
         #sys.exit(e)
         raise
 
+    # Determine tiles to be processed, depending on:
+    # - zoom level and
+    # - input files bounds OR user defined bounds
+    work_tiles = []
+    for zoom in config["zoom_levels"]:
+        bbox = config["process_area"][zoom]
+        if not bbox.is_empty:
+            work_tiles.extend(tile_pyramid.tiles_from_geom(bbox, zoom))
 
-    # process_name = os.path.splitext(os.path.basename(process_file))[0]
-    #
-    # # Load source process from python file and initialize.
-    # new_process = imp.load_source(process_name + ".Process", process_file)
-    # user_defined_process = new_process.Process(config_yaml)
-    #
-    # print "processing", user_defined_process.identifier
-    #
-    # # Determine tiles to be processed, depending on:
-    # # - zoom level and
-    # # - input files bounds OR user defined bounds
-    #
-    # for zoom in range(0, 13):
-    #     print zoom, user_defined_process.execute(zoom)
+    print len(work_tiles), "tiles to be processed"
+
+    process_name = os.path.splitext(os.path.basename(parsed.process))[0]
+
+    # Load source process from python file and initialize.
+    new_process = imp.load_source(
+        process_name + "Process",
+        parsed.process
+        )
+    user_defined_process = new_process.Process(parsed.config_yaml)
+
+    print "processing", user_defined_process.identifier
+
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

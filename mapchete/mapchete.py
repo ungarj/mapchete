@@ -318,32 +318,43 @@ def get_clean_configuration(
         bounds = additional_parameters["bounds"]
     #### write bounds for every zoom level
     bounds_per_zoom = {}
-    if bounds:
-        for zoom_level in zoom_levels:
+
+    for zoom_level in zoom_levels:
+        input_files = config.at_zoom(zoom)["input_files"]
+        bboxes = []
+        for input_file, rel_path in input_files.iteritems():
+            if rel_path:
+                config_dir = os.path.dirname(os.path.realpath(config_yaml))
+                abs_path = os.path.join(config_dir, rel_path)
+                with rasterio.open(abs_path, 'r') as raster:
+                    left, bottom, right, top = raster.bounds
+                    ul = left, top
+                    ur = right, top
+                    lr = right, bottom
+                    ll = left, bottom
+                    bboxes.append(Polygon([ul, ur, lr, ll]))
+        files_area = cascaded_union(bboxes)
+        out_area = files_area
+        if bounds:
             left, bottom, right, top = bounds
             ul = left, top
             ur = right, top
             lr = right, bottom
             ll = left, bottom
-            bounds_per_zoom[zoom_level] = Polygon([ul, ur, lr, ll])
-    else:
-        # TODO read all input files and return union of bounding boxes
-        for zoom in zoom_levels:
-            input_files = config.at_zoom(zoom)["input_files"]
-            bboxes = []
-            for input_file, rel_path in input_files.iteritems():
-                if rel_path:
-                    config_dir = os.path.dirname(os.path.realpath(config_yaml))
-                    abs_path = os.path.join(config_dir, rel_path)
-                    with rasterio.open(abs_path, 'r') as raster:
-                        left, bottom, right, top = raster.bounds
-                        ul = left, top
-                        ur = right, top
-                        lr = right, bottom
-                        ll = left, bottom
-                        bboxes.append(Polygon([ul, ur, lr, ll]))
-            bounds_per_zoom[zoom] = cascaded_union(bboxes)
-    out_config["process_bounds"] = bounds_per_zoom
+            user_bbox = Polygon([ul, ur, lr, ll])
+            out_area = files_area.intersection(user_bbox)
+            try:
+                assert out_area.geom_type in [
+                    "Polygon",
+                    "MultiPolygon",
+                    "GeometryCollection"
+                    ]
+            except:
+                # TODO if process area is empty, remove zoom level from zoom
+                # level list
+                out_area = Polygon()
+        bounds_per_zoom[zoom_level] = out_area
+    out_config["process_area"] = bounds_per_zoom
 
     ### output_path
 

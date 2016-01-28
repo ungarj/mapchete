@@ -115,27 +115,31 @@ def main(args):
         config_yaml
         )
     try:
-        test_polygon = Polygon([[1, 4], [3, 4], [3, 2], [1, 2], [1, 4]])
-        assert config["process_bounds"][5].equals(test_polygon)
+        test_polygon = Polygon([
+            [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
+            ])
+        assert config["process_area"][5].equals(test_polygon)
         print "OK: read bounds from config file"
     except:
         print "FAILED: read bounds from config file"
-        print config["process_bounds"][5]
+        print config["process_area"][5]
         raise
     ## override bounds
     config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
     config = get_clean_configuration(
         process_file,
         config_yaml,
-        bounds=[5, 6, 7, 8.0]
+        bounds=[3, 2, 3.5, 1.5]
         )
     try:
-        test_polygon = Polygon([[5, 8], [7, 8], [7, 6], [5, 6], [5, 8]])
-        assert config["process_bounds"][5].equals(test_polygon)
+        test_polygon = Polygon([
+            [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
+            ])
+        assert config["process_area"][5].equals(test_polygon)
         print "OK: override bounds"
     except:
         print "FAILED: override bounds"
-        print config["process_bounds"][5]
+        print config["process_area"][5]
         raise
     ## read bounds from input files
     config_yaml = os.path.join(scriptdir, "testdata/files_bounds.yaml")
@@ -143,16 +147,15 @@ def main(args):
         process_file,
         config_yaml
         )
-
     try:
         test_polygon = Polygon(
         [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
         )
-        assert config["process_bounds"][10].equals(test_polygon)
+        assert config["process_area"][10].equals(test_polygon)
         print "OK: read bounds from input files"
     except:
         print "FAILED: read bounds from input files"
-        print config["process_bounds"][10], test_polygon
+        print config["process_area"][10], test_polygon
         raise
     # process_name = os.path.splitext(os.path.basename(process_file))[0]
     # new_process = imp.load_source(process_name + ".Process", process_file)
