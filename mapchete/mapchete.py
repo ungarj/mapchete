@@ -135,3 +135,127 @@ class MapcheteProcess():
         self.version = ""
         self.abstract = ""
         self.config = MapcheteConfig(config_path)
+
+
+import os
+
+def get_clean_configuration(
+    process_file,
+    config_yaml,
+    zoom=None,
+    bounds=None,
+    output_path=None,
+    output_format=None
+    ):
+    """
+    Reads mapchete configuration file as well as the additional parameters (if
+    available) and merges them into a unambiguous and complete set of
+    configuration parameters.
+    - Additional parameters (e.g. from CLI) always overwrite parameters coming
+      from the mapchete configuration file.
+    - If any parameter is invalid or not available, an exception is thrown.
+    - Configuration parameters are returned as a dictionary.
+    """
+
+    mapchete_files = {
+        "mapchete_process": process_file,
+        "mapchete_config": config_yaml
+        }
+    additional_parameters = {
+       "zoom": zoom,
+       "bounds": bounds,
+       "output_path": output_path,
+       "output_format": output_format
+       }
+
+    out_config = {}
+
+    # Analyze input parameters #
+    ############################
+
+    ## Check mapchete process file
+    assert os.path.isfile(mapchete_files["mapchete_process"])
+    ## Check mapchete config file
+    assert os.path.isfile(mapchete_files["mapchete_config"])
+    ## Read raw configuration.
+    with open(mapchete_files["mapchete_config"], "r") as config_file:
+        raw_config = yaml.load(config_file.read())
+
+    ### zoom level(s)
+    try:
+        config_zoom = raw_config["process_zoom"]
+        zoom = [config_zoom]
+    except:
+        zoom = None
+        try:
+            minzoom = raw_config["process_minzoom"]
+            maxzoom = raw_config["process_maxzoom"]
+            zoom = [minzoom, maxzoom]
+        except:
+            zoom = None
+    #### overwrite zoom if provided in additional_parameters
+    if additional_parameters["zoom"]:
+        zoom = additional_parameters["zoom"]
+    #### if zoom still empty, throw exception
+    if not zoom:
+        raise Exception("No zoom level(s) provided.")
+    if len(zoom) == 1:
+        zoom_levels = zoom
+    elif len(zoom) == 2:
+        for i in zoom:
+            try:
+                assert i>=0
+            except:
+                raise ValueError("Zoom levels must be greater 0.")
+        if zoom[0] < zoom[1]:
+            minzoom = zoom[0]
+            maxzoom = zoom[1]
+        else:
+            minzoom = zoom[1]
+            maxzoom = zoom[0]
+        zoom_levels = range(minzoom, maxzoom+1)
+    else:
+        raise ValueError(
+            "Zoom level parameter requires one or two value(s)."
+            )
+    out_config["zoom_levels"] = zoom_levels
+
+    ### check overall validity of mapchete configuration object at zoom levels
+    config = MapcheteConfig(mapchete_files["mapchete_config"])
+    # TODO in MapcheteConfig
+    # for zoom in zoom_level:
+    #     try:
+    #         # checks if input files are valid etc.
+    #         assert config.is_valid_at_zoom(zoom)
+    #     except:
+    #         raise Exception(config.explain_validity_at_zoom(zoom))
+
+    ### process_bounds
+    try:
+        config_bounds = raw_config["process_bounds"]
+        bounds = config_bounds
+    except:
+        bounds = None
+    #### overwrite if bounds are provided explicitly
+    if additional_parameters["bounds"]:
+        # validate bounds
+        try:
+            assert len(additional_parameters["bounds"]) == 4
+        except:
+            raise ValueError("Invalid number of process bounds.")
+        bounds = additional_parameters["bounds"]
+    #### write bounds for every zoom level
+    if bounds:
+        bounds_per_zoom = {}
+        for zoom_level in zoom_levels:
+            bounds_per_zoom[zoom_level] = bounds
+        out_config["process_bounds"] = bounds_per_zoom
+    else:
+        # TODO read all input files and return union of bounding boxes
+        raise Exception("No process bounds parameters could be found.")
+
+    ### output_path
+
+    ### output_format
+
+    return out_config

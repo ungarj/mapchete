@@ -1,14 +1,8 @@
-# User has to provide:
-#     - input files
-#     - input parameters
-#     - output directory
-#     - output profile
-
 # mapchete parameters
 # process_minzoom: 7
 # process_maxzoom: 10
 # process_zoom: 5
-process_bounds: [1, 2, 3, 4]
+process_bounds: [1.0, 2.0, 3.0, 4.0]
 
 input_files:
     file_group_1:

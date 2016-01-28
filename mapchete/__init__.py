@@ -2,5 +2,6 @@
 
 from .mapchete import (
     MapcheteConfig,
-    MapcheteProcess
+    MapcheteProcess,
+    get_clean_configuration
 )
