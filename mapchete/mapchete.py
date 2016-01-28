@@ -320,7 +320,12 @@ def get_clean_configuration(
     bounds_per_zoom = {}
     if bounds:
         for zoom_level in zoom_levels:
-            bounds_per_zoom[zoom_level] = bounds
+            left, bottom, right, top = bounds
+            ul = left, top
+            ur = right, top
+            lr = right, bottom
+            ll = left, bottom
+            bounds_per_zoom[zoom_level] = Polygon([ul, ur, lr, ll])
     else:
         # TODO read all input files and return union of bounding boxes
         for zoom in zoom_levels:

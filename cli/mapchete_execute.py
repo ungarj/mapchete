@@ -7,6 +7,7 @@ import imp
 import yaml
 
 from mapchete import *
+from tilematrix import TilePyramid
 
 def main(args):
 
@@ -24,7 +25,11 @@ def main(args):
             zoom=parsed.zoom,
             bounds=parsed.bounds
             )
-        print config
+        tile_pyramid = TilePyramid("4326")
+        for zoom in config["zoom_levels"]:
+            bbox = config["process_bounds"][zoom]
+            print zoom, bbox.wkt
+            print tile_pyramid.tiles_from_geom(bbox, zoom)
     except Exception as e:
         #sys.exit(e)
         raise

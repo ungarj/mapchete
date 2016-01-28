@@ -115,10 +115,12 @@ def main(args):
         config_yaml
         )
     try:
-        assert config["process_bounds"][5] == [1.0, 2.0, 3.0, 4.0]
+        test_polygon = Polygon([[1, 4], [3, 4], [3, 2], [1, 2], [1, 4]])
+        assert config["process_bounds"][5].equals(test_polygon)
         print "OK: read bounds from config file"
     except:
         print "FAILED: read bounds from config file"
+        print config["process_bounds"][5]
         raise
     ## override bounds
     config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
@@ -128,10 +130,12 @@ def main(args):
         bounds=[5, 6, 7, 8.0]
         )
     try:
-        assert config["process_bounds"][5] == [5.0, 6.0, 7.0, 8.0]
+        test_polygon = Polygon([[5, 8], [7, 8], [7, 6], [5, 6], [5, 8]])
+        assert config["process_bounds"][5].equals(test_polygon)
         print "OK: override bounds"
     except:
         print "FAILED: override bounds"
+        print config["process_bounds"][5]
         raise
     ## read bounds from input files
     config_yaml = os.path.join(scriptdir, "testdata/files_bounds.yaml")
@@ -139,11 +143,11 @@ def main(args):
         process_file,
         config_yaml
         )
-    test_polygon = Polygon(
-        [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
-        )
 
     try:
+        test_polygon = Polygon(
+        [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
+        )
         assert config["process_bounds"][10].equals(test_polygon)
         print "OK: read bounds from input files"
     except:
