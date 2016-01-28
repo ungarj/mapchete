@@ -174,9 +174,15 @@ def get_clean_configuration(
     ############################
 
     ## Check mapchete process file
-    assert os.path.isfile(mapchete_files["mapchete_process"])
+    try:
+        assert os.path.isfile(mapchete_files["mapchete_process"])
+    except:
+        raise IOError("%s is not available" % mapchete_files["mapchete_process"])
     ## Check mapchete config file
-    assert os.path.isfile(mapchete_files["mapchete_config"])
+    try:
+        assert os.path.isfile(mapchete_files["mapchete_config"])
+    except:
+        raise IOError("%s is not available" % mapchete_files["mapchete_config"])
     ## Read raw configuration.
     with open(mapchete_files["mapchete_config"], "r") as config_file:
         raw_config = yaml.load(config_file.read())

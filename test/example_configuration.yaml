@@ -1,6 +1,6 @@
 # mapchete parameters
-# process_minzoom: 7
-# process_maxzoom: 10
+process_minzoom: 7
+process_maxzoom: 10
 # process_zoom: 5
 process_bounds: [1.0, 2.0, 3.0, 4.0]
 

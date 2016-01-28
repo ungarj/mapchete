@@ -62,12 +62,85 @@ def main(args):
         assert zoom11["some_integer_parameter"] == 12
         assert zoom11["some_string_parameter"] == "string2"
     except:
-        print "FAILED: configuration parsing"
+        print "FAILED: basic configuration parsing"
         raise
     else:
-        print "OK: configuration parsing"
+        print "OK: basic configuration parsing"
 
 
+    # Validate configuration constructor
+    ## basic run through
+    try:
+        config = get_clean_configuration(
+            process_file,
+            config_yaml
+            )
+        print "OK: basic configuraiton constructor run through"
+    except:
+        print "FAILED: basic configuraiton constructor run through"
+        raise
+    ## read zoom level from config file
+    config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
+    config = get_clean_configuration(
+        process_file,
+        config_yaml
+        )
+    try:
+        assert config["zoom_levels"] == [5]
+        print "OK: read zoom level from config file"
+    except:
+        print "FAILED: read zoom level from config file"
+        raise
+    ## read min/max zoom levels from config file
+    config_yaml = os.path.join(scriptdir, "testdata/minmax_zoom.yaml")
+    config = get_clean_configuration(
+        process_file,
+        config_yaml
+        )
+    try:
+        assert config["zoom_levels"] == [7, 8, 9, 10]
+        print "OK: read  min/max zoom levels from config file"
+    except:
+        print "FAILED: read  min/max zoom levels from config file"
+        raise
+    ## zoom levels override
+    config_yaml = os.path.join(scriptdir, "testdata/minmax_zoom.yaml")
+    config = get_clean_configuration(
+        process_file,
+        config_yaml,
+        zoom=[1, 4]
+        )
+    try:
+        assert config["zoom_levels"] == [1, 2, 3, 4]
+        print "OK: zoom levels override"
+    except:
+        print "FAILED: zoom levels override"
+        raise
+    ## read bounds from config file
+    config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
+    config = get_clean_configuration(
+        process_file,
+        config_yaml
+        )
+    try:
+        assert config["process_bounds"][5] == [1.0, 2.0, 3.0, 4.0]
+        print "OK: read bounds from config file"
+    except:
+        print "FAILED: read bounds from config file"
+        raise
+    ## override bounds
+    config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
+    config = get_clean_configuration(
+        process_file,
+        config_yaml,
+        bounds=[5, 6, 7, 8.0]
+        )
+    try:
+        assert config["process_bounds"][5] == [5.0, 6.0, 7.0, 8.0]
+        print "OK: override bounds"
+    except:
+        print "FAILED: override bounds"
+        raise
 
     # process_name = os.path.splitext(os.path.basename(process_file))[0]
     # new_process = imp.load_source(process_name + ".Process", process_file)
