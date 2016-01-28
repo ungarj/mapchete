@@ -39,30 +39,21 @@ def main(args):
         # Check configuration at zoom level 5
         zoom5 = config.at_zoom(5)
         input_files = zoom5["input_files"]
-        assert input_files["file_group_1"]["file1"] == "/path/to/group1/file1"
-        assert input_files["file_group_1"]["file2"] == "/path/to/group1/file2"
-        assert input_files["file_group_1"]["file3"] == {}
-        assert input_files["file_group_2"]["file1"] == "/path/to/group2/file1"
-        assert input_files["file_group_2"]["file2"] == "/path/to/group2/file2"
-        assert input_files["file_group_2"]["file3"] == "/path/to/group2/file3"
-        assert input_files["file_group_2"]["file4"] == "/path/to/group2/file4"
+        assert input_files["file1"] == None
+        assert input_files["file2"] == "testdata/dummy2.tif"
         assert zoom5["some_integer_parameter"] == 12
         assert zoom5["some_string_parameter"] == "string1"
 
         # Check configuration at zoom level 11
         zoom11 = config.at_zoom(11)
         input_files = zoom11["input_files"]
-        assert input_files["file_group_1"]["file1"] == "/path/to/group1/file1"
-        assert input_files["file_group_1"]["file2"] == "/path/to/group1/file2"
-        assert input_files["file_group_1"]["file3"] == "/path/to/group1/file3"
-        assert input_files["file_group_2"]["file1"] == "/path/to/group2/file1"
-        assert input_files["file_group_2"]["file2"] == "/path/to/group2/file2"
-        assert input_files["file_group_2"]["file3"] == "/path/to/group2/file3"
-        assert input_files["file_group_2"]["file4"] == "/path/to/group2/file4"
+        assert input_files["file1"] == "testdata/dummy1.tif"
+        assert input_files["file2"] == "testdata/dummy2.tif"
         assert zoom11["some_integer_parameter"] == 12
         assert zoom11["some_string_parameter"] == "string2"
     except:
         print "FAILED: basic configuration parsing"
+        print input_files
         raise
     else:
         print "OK: basic configuration parsing"
@@ -81,15 +72,16 @@ def main(args):
         raise
     ## read zoom level from config file
     config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
-    config = get_clean_configuration(
-        process_file,
-        config_yaml
-        )
     try:
+        config = get_clean_configuration(
+            process_file,
+            config_yaml
+            )
         assert config["zoom_levels"] == [5]
         print "OK: read zoom level from config file"
     except:
         print "FAILED: read zoom level from config file"
+        print config_yaml
         raise
     ## read min/max zoom levels from config file
     config_yaml = os.path.join(scriptdir, "testdata/minmax_zoom.yaml")
@@ -141,7 +133,23 @@ def main(args):
     except:
         print "FAILED: override bounds"
         raise
+    ## read bounds from input files
+    config_yaml = os.path.join(scriptdir, "testdata/files_bounds.yaml")
+    config = get_clean_configuration(
+        process_file,
+        config_yaml
+        )
+    test_polygon = Polygon(
+        [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
+        )
 
+    try:
+        assert config["process_bounds"][10].equals(test_polygon)
+        print "OK: read bounds from input files"
+    except:
+        print "FAILED: read bounds from input files"
+        print config["process_bounds"][10], test_polygon
+        raise
     # process_name = os.path.splitext(os.path.basename(process_file))[0]
     # new_process = imp.load_source(process_name + ".Process", process_file)
     # user_defined_process = new_process.Process(config_yaml)

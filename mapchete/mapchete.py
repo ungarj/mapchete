@@ -7,6 +7,9 @@ http://pywps.wald.intevation.org/documentation/course/process/index.html
 
 from collections import OrderedDict
 import yaml
+import rasterio
+from shapely.geometry import Polygon
+from shapely.ops import cascaded_union
 
 def strip_zoom(input_string, strip_string):
     """
@@ -39,10 +42,18 @@ def element_at_zoom(name, element, zoom):
         out_elements = {}
         for sub_name, sub_element in sub_elements.iteritems():
             out_element = element_at_zoom(sub_name, sub_element, zoom)
-            if out_element != None:
+            if name == "input_files":
+
                 out_elements[sub_name] = out_element
-        if len(out_elements) == 1:
+            elif out_element != None:
+                out_elements[sub_name] = out_element
+        # If there is only one subelement, collapse unless it is input_files.
+        # In such case, return a dictionary.
+        if len(out_elements) == 1 and name != "input_files":
             return out_elements.itervalues().next()
+        # If subelement is empty, return None
+        if len(out_elements) == 0:
+            return None
         return out_elements
 
     # If element is a zoom level statement, filter element.
@@ -87,6 +98,7 @@ class MapcheteConfig():
                 self.config = yaml.load(config_file.read())
         except:
             raise
+        self.path = config_path
 
     def at_zoom(self, zoom):
         """
@@ -111,14 +123,68 @@ class MapcheteConfig():
         Returns True or False.
         """
         # TODO
-        pass
+        config = self.at_zoom(zoom)
+        try:
+            assert "input_files" in config
+        except:
+            return False
+        try:
+            assert isinstance(config["input_files"], dict)
+        except:
+            return False
+        for input_file, rel_path in config["input_files"].iteritems():
+            if rel_path:
+                config_dir = os.path.dirname(os.path.realpath(self.path))
+                abs_path = os.path.join(config_dir, rel_path)
+                try:
+                    assert os.path.isfile(os.path.join(abs_path))
+                except:
+                    return False
+        try:
+            assert "output_name" in config
+        except:
+            return False
+        try:
+            assert "output_format" in config
+        except:
+            return False
+        return True
+
 
     def explain_validity_at_zoom(self, zoom):
         """
         For debugging purposes if is_valid_at_zoom() returns False.
         """
         # TODO
-        pass
+        config = self.at_zoom(zoom)
+        try:
+            assert "input_files" in config
+        except:
+            return "'input_files' empty for zoom level %s" % zoom
+        try:
+            assert isinstance(config["input_files"], dict)
+        except:
+            return "'input_files' invalid at zoom level %s: '%s'" %(
+                zoom,
+                config["input_files"]
+                )
+        for input_file, rel_path in config["input_files"].iteritems():
+            if rel_path:
+                config_dir = os.path.dirname(os.path.realpath(self.path))
+                abs_path = os.path.join(config_dir, rel_path)
+                try:
+                    assert os.path.isfile(os.path.join(abs_path))
+                except:
+                    return "invalid path '%s'" % abs_path
+        try:
+            assert "output_name" in config
+        except:
+            return "output_name not provided"
+        try:
+            assert "output_format" in config
+        except:
+            return "output_format not provided"
+        return "everything OK"
 
 
 class MapcheteProcess():
@@ -229,12 +295,12 @@ def get_clean_configuration(
     ### check overall validity of mapchete configuration object at zoom levels
     config = MapcheteConfig(mapchete_files["mapchete_config"])
     # TODO in MapcheteConfig
-    # for zoom in zoom_level:
-    #     try:
-    #         # checks if input files are valid etc.
-    #         assert config.is_valid_at_zoom(zoom)
-    #     except:
-    #         raise Exception(config.explain_validity_at_zoom(zoom))
+    for zoom in zoom_levels:
+        try:
+            # checks if input files are valid etc.
+            assert config.is_valid_at_zoom(zoom)
+        except:
+            raise Exception(config.explain_validity_at_zoom(zoom))
 
     ### process_bounds
     try:
@@ -251,14 +317,28 @@ def get_clean_configuration(
             raise ValueError("Invalid number of process bounds.")
         bounds = additional_parameters["bounds"]
     #### write bounds for every zoom level
+    bounds_per_zoom = {}
     if bounds:
-        bounds_per_zoom = {}
         for zoom_level in zoom_levels:
             bounds_per_zoom[zoom_level] = bounds
-        out_config["process_bounds"] = bounds_per_zoom
     else:
         # TODO read all input files and return union of bounding boxes
-        raise Exception("No process bounds parameters could be found.")
+        for zoom in zoom_levels:
+            input_files = config.at_zoom(zoom)["input_files"]
+            bboxes = []
+            for input_file, rel_path in input_files.iteritems():
+                if rel_path:
+                    config_dir = os.path.dirname(os.path.realpath(config_yaml))
+                    abs_path = os.path.join(config_dir, rel_path)
+                    with rasterio.open(abs_path, 'r') as raster:
+                        left, bottom, right, top = raster.bounds
+                        ul = left, top
+                        ur = right, top
+                        lr = right, bottom
+                        ll = left, bottom
+                        bboxes.append(Polygon([ul, ur, lr, ll]))
+            bounds_per_zoom[zoom] = cascaded_union(bboxes)
+    out_config["process_bounds"] = bounds_per_zoom
 
     ### output_path
 

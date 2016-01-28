@@ -1,3 +1,8 @@
 # mapchete parameters
 process_zoom: 5
 process_bounds: [1, 2, 3, 4]
+input_files:
+    file1: dummy1.tif
+
+output_name: test
+output_format: test

@@ -4,20 +4,28 @@ process_maxzoom: 10
 # process_zoom: 5
 process_bounds: [1.0, 2.0, 3.0, 4.0]
 
+# input_files:
+#     file_group_1:
+#         file1: /path/to/group1/file1
+#         file2: /path/to/group1/file2
+#         file3:
+#             zoom>10: /path/to/group1/file3
+#     file_group_2:
+#         file1: /path/to/group2/file1
+#         file2: /path/to/group2/file2
+#         file3: /path/to/group2/file3
+#         file4: /path/to/group2/file4
+
 input_files:
-    file_group_1:
-        file1: /path/to/group1/file1
-        file2: /path/to/group1/file2
-        file3:
-            zoom>10: /path/to/group1/file3
-    file_group_2:
-        file1: /path/to/group2/file1
-        file2: /path/to/group2/file2
-        file3: /path/to/group2/file3
-        file4: /path/to/group2/file4
+    file1:
+        zoom>10: testdata/dummy1.tif
+    file2: testdata/dummy2.tif
 
 some_integer_parameter: 12
 
 some_string_parameter:
     zoom<=5: string1
     zoom>5: string2
+
+output_name: test
+output_format: test
