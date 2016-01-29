@@ -1,5 +1,5 @@
-# mapchete parameters
-## mandatory
+# mandatory parameters
+######################
 process_file: example_process.py
 input_files:
     file1:
@@ -21,7 +21,8 @@ output_srs: 4326
 #         file3: /path/to/group2/file3
 #         file4: /path/to/group2/file4
 
-## optional
+# optional parameters
+#####################
 process_minzoom: 7
 process_maxzoom: 10
 # process_zoom: 5
@@ -29,6 +30,7 @@ process_maxzoom: 10
 metatiling: 1 # can be 1, 2, 4, 8, 16 (default 1)
 
 # free parameters
+#################
 some_integer_parameter: 12
 some_float_parameter: 5.3
 some_string_parameter:

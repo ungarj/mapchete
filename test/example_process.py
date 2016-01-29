@@ -3,9 +3,9 @@
 from mapchete import MapcheteProcess
 
 """
-User has to:
+To initialize, the user has to provide:
  - execute(): implement process
- - config_path: YAML configuration file
+ - mapchete_file: a .mapchete file
 optional:
  - identifier
  - title
@@ -30,5 +30,5 @@ class Process(MapcheteProcess):
         """
         Here, the magic shall happen.
         """
-        print params
+        print tile_pyramid.tile_bounds(*tile)
         return params
