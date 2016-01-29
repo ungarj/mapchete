@@ -60,6 +60,7 @@ def get_clean_configuration(
         assert os.path.isfile(mapchete_process_file)
     except:
         raise IOError("%s is not available" % mapchete_process_file)
+    out_config["process_file"] = mapchete_process_file
     ### zoom level(s)
     try:
         config_zoom = raw_config["process_zoom"]

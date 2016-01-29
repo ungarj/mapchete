@@ -12,16 +12,14 @@ from tilematrix import TilePyramid
 def main(args):
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("process", type=str)
-    parser.add_argument("config_yaml", type=str)
+    parser.add_argument("mapchete_file", type=str)
     parser.add_argument("--zoom", "-z", type=int, nargs='*', )
     parser.add_argument("--bounds", "-b", type=float, nargs='*')
     parsed = parser.parse_args(args)
 
     try:
         config = get_clean_configuration(
-            parsed.process,
-            parsed.config_yaml,
+            parsed.mapchete_file,
             zoom=parsed.zoom,
             bounds=parsed.bounds
             )
@@ -41,14 +39,16 @@ def main(args):
 
     print len(work_tiles), "tiles to be processed"
 
-    process_name = os.path.splitext(os.path.basename(parsed.process))[0]
+    print config
+
+    process_name = os.path.splitext(os.path.basename(config["process_file"]))[0]
 
     # Load source process from python file and initialize.
     new_process = imp.load_source(
         process_name + "Process",
-        parsed.process
+        config["process_file"]
         )
-    user_defined_process = new_process.Process(parsed.config_yaml)
+    user_defined_process = new_process.Process(parsed.mapchete_file)
 
     print "processing", user_defined_process.identifier
 
