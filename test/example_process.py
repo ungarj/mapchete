@@ -26,9 +26,9 @@ class Process(MapcheteProcess):
         self.version = "dirty pre-alpha",
         self.abstract = "used for testing",
 
-    def execute(self, zoom):
+    def execute(self, tile, tile_pyramid, params):
         """
         Here, the magic shall happen.
         """
-        params = self.config.at_zoom(zoom)
+        print params
         return params

@@ -12,6 +12,7 @@ setup(
     license='MIT',
     packages=['mapchete'],
     install_requires=[
+        'progressbar'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

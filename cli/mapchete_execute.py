@@ -5,6 +5,9 @@ import sys
 import argparse
 import imp
 import yaml
+from functools import partial
+from multiprocessing import Pool, cpu_count
+from progressbar import ProgressBar
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -24,7 +27,6 @@ def main(args):
             bounds=parsed.bounds
             )
         base_tile_pyramid = TilePyramid(str(config["output_srs"]))
-        print config["metatiling"]
         tile_pyramid = MetaTilePyramid(base_tile_pyramid, config["metatiling"])
     except Exception as e:
         #sys.exit(e)
@@ -52,50 +54,33 @@ def main(args):
 
     print "processing", user_defined_process.identifier
 
-#     from functools import partial
-#     f = partial(worker,
-#         params=params,
-#         metatilematrix=metatilematrix
-#     )
-#
-#     try:
-#         pool = Pool(parallel)
-#         total_metatiles = len(out_metatiles)
-#         counter = 0
-#         pbar = ProgressBar(maxval=total_metatiles).start()
-#         for output in pool.imap_unordered(f, out_metatiles):
-#             counter += 1
-#             pbar.update(counter)
-#         pbar.finish()
-#     except Exception as e:
-#         print e
-#         traceback.print_exc()
-#         sys.exit(0)
-#     finally:
-#         pool.close()
-#         pool.join()
-#
-#     if create_vrt and metatilematrix.format.type == "raster":
-#         print "creating VRT ..."
-#         target_vrt = os.path.join(output_folder, (str(zoom) + ".vrt"))
-#         target_files = ((os.path.join(output_folder, str(zoom))) + "/*/*" + \
-#             metatilematrix.format.extension)
-#         command = "gdalbuildvrt -overwrite %s %s" %(target_vrt, target_files)
-#         os.system(command)
-#
-#
-# def worker(metatile, params, metatilematrix):
-#
-#     output_folder = params.output_folder[0]
-#
-#     zoom, row, col = metatile
-#
-#     try:
-#
-#         return loaded_plugins[params.method].process(metatile, params, metatilematrix)
-#
-#     except Exception as e:
-#         traceback.print_exc()
+    f = partial(worker,
+        mapchete_process=user_defined_process,
+        tile_pyramid=tile_pyramid,
+        params=config
+    )
+
+    pool = Pool(cpu_count())
+    try:
+        counter = 0
+        pbar = ProgressBar(maxval=len(work_tiles)).start()
+        for output in pool.imap_unordered(f, work_tiles):
+            counter += 1
+            pbar.update(counter)
+        pbar.finish()
+    except:
+        raise
+    finally:
+        pool.close()
+        pool.join()
+
+def worker(tile, mapchete_process, tile_pyramid, params):
+
+    try:
+        return mapchete_process.execute(tile, tile_pyramid, params)
+    except:
+        raise
+
 
 
 if __name__ == "__main__":
