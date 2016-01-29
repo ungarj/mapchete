@@ -30,10 +30,9 @@ def main(args):
     #===================
 
     # Load source process from python file and initialize.
-    process_file = os.path.join(scriptdir, "example_process.py")
-    config_yaml = os.path.join(scriptdir, "example_configuration.yaml")
+    mapchete_file = os.path.join(scriptdir, "example.mapchete")
 
-    config = MapcheteConfig(config_yaml)
+    config = MapcheteConfig(mapchete_file)
 
     try:
         # Check configuration at zoom level 5
@@ -62,33 +61,24 @@ def main(args):
     # Validate configuration constructor
     ## basic run through
     try:
-        config = get_clean_configuration(
-            process_file,
-            config_yaml
-            )
+        config = get_clean_configuration(mapchete_file)
         print "OK: basic configuraiton constructor run through"
     except:
         print "FAILED: basic configuraiton constructor run through"
         raise
     ## read zoom level from config file
-    config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
+    mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
     try:
-        config = get_clean_configuration(
-            process_file,
-            config_yaml
-            )
+        config = get_clean_configuration(mapchete_file)
         assert config["zoom_levels"] == [5]
         print "OK: read zoom level from config file"
     except:
         print "FAILED: read zoom level from config file"
-        print config_yaml
+        print mapchete_file
         raise
     ## read min/max zoom levels from config file
-    config_yaml = os.path.join(scriptdir, "testdata/minmax_zoom.yaml")
-    config = get_clean_configuration(
-        process_file,
-        config_yaml
-        )
+    mapchete_file = os.path.join(scriptdir, "testdata/minmax_zoom.mapchete")
+    config = get_clean_configuration(mapchete_file)
     try:
         assert config["zoom_levels"] == [7, 8, 9, 10]
         print "OK: read  min/max zoom levels from config file"
@@ -96,10 +86,9 @@ def main(args):
         print "FAILED: read  min/max zoom levels from config file"
         raise
     ## zoom levels override
-    config_yaml = os.path.join(scriptdir, "testdata/minmax_zoom.yaml")
+    mapchete_file = os.path.join(scriptdir, "testdata/minmax_zoom.mapchete")
     config = get_clean_configuration(
-        process_file,
-        config_yaml,
+        mapchete_file,
         zoom=[1, 4]
         )
     try:
@@ -109,11 +98,8 @@ def main(args):
         print "FAILED: zoom levels override"
         raise
     ## read bounds from config file
-    config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
-    config = get_clean_configuration(
-        process_file,
-        config_yaml
-        )
+    mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
+    config = get_clean_configuration(mapchete_file)
     try:
         test_polygon = Polygon([
             [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
@@ -125,10 +111,9 @@ def main(args):
         print config["process_area"][5]
         raise
     ## override bounds
-    config_yaml = os.path.join(scriptdir, "testdata/zoom.yaml")
+    mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
     config = get_clean_configuration(
-        process_file,
-        config_yaml,
+        mapchete_file,
         bounds=[3, 2, 3.5, 1.5]
         )
     try:
@@ -142,11 +127,8 @@ def main(args):
         print config["process_area"][5]
         raise
     ## read bounds from input files
-    config_yaml = os.path.join(scriptdir, "testdata/files_bounds.yaml")
-    config = get_clean_configuration(
-        process_file,
-        config_yaml
-        )
+    mapchete_file = os.path.join(scriptdir, "testdata/files_bounds.mapchete")
+    config = get_clean_configuration(mapchete_file)
     try:
         test_polygon = Polygon(
         [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
@@ -159,7 +141,7 @@ def main(args):
         raise
     # process_name = os.path.splitext(os.path.basename(process_file))[0]
     # new_process = imp.load_source(process_name + ".Process", process_file)
-    # user_defined_process = new_process.Process(config_yaml)
+    # user_defined_process = new_process.Process(mapchete_file)
     #
     # print "processing", user_defined_process.identifier
     #

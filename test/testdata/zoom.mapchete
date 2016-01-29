@@ -1,4 +1,5 @@
 # mapchete parameters
+process_file: ../example_process.py
 process_zoom: 5
 process_bounds: [0.5, 1.5, 3.5, 3.5]
 input_files:

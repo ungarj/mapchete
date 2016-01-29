@@ -1,9 +1,14 @@
 # mapchete parameters
-process_minzoom: 7
-process_maxzoom: 10
-# process_zoom: 5
-# process_bounds: [1.0, 2.0, 3.0, 4.0]
+## mandatory
+process_file: example_process.py
+input_files:
+    file1:
+        zoom>=10: testdata/dummy1.tif
+    file2: testdata/dummy2.tif
+output_name: test
+output_format: test
 
+# TODO re-introduce file grouping
 # input_files:
 #     file_group_1:
 #         file1: /path/to/group1/file1
@@ -16,16 +21,17 @@ process_maxzoom: 10
 #         file3: /path/to/group2/file3
 #         file4: /path/to/group2/file4
 
-input_files:
-    file1:
-        zoom>=10: testdata/dummy1.tif
-    file2: testdata/dummy2.tif
+## optional
+process_minzoom: 7
+process_maxzoom: 10
+# process_zoom: 5
+# process_bounds: [1.0, 2.0, 3.0, 4.0]
+metatiling: 1 # can be 1, 2, 4, 8, 16 (default 1)
 
+# free parameters
 some_integer_parameter: 12
-
+some_float_parameter: 5.3
 some_string_parameter:
     zoom<=5: string1
     zoom>5: string2
-
-output_name: test
-output_format: test
+some_bool_parameter: true
