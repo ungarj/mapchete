@@ -7,7 +7,7 @@ import imp
 import yaml
 
 from mapchete import *
-from tilematrix import TilePyramid
+from tilematrix import TilePyramid, MetaTilePyramid
 
 def main(args):
 
@@ -23,7 +23,9 @@ def main(args):
             zoom=parsed.zoom,
             bounds=parsed.bounds
             )
-        tile_pyramid = TilePyramid("4326")
+        base_tile_pyramid = TilePyramid(str(config["output_srs"]))
+        print config["metatiling"]
+        tile_pyramid = MetaTilePyramid(base_tile_pyramid, config["metatiling"])
     except Exception as e:
         #sys.exit(e)
         raise

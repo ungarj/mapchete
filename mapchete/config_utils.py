@@ -82,6 +82,7 @@ def get_clean_configuration(
         assert metatiling in [1, 2, 4, 8, 16]
     except:
         raise Exception("metatiling must be 1, 2, 4, 8 or 16")
+    out_config["metatiling"] = metatiling
 
     ### zoom level(s)
     try:
