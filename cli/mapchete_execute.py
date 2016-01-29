@@ -39,8 +39,6 @@ def main(args):
 
     print len(work_tiles), "tiles to be processed"
 
-    print config
-
     process_name = os.path.splitext(os.path.basename(config["process_file"]))[0]
 
     # Load source process from python file and initialize.

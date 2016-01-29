@@ -10,3 +10,4 @@ input_files:
 
 output_name: test
 output_format: test
+output_srs: 4326

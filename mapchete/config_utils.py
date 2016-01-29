@@ -61,6 +61,28 @@ def get_clean_configuration(
     except:
         raise IOError("%s is not available" % mapchete_process_file)
     out_config["process_file"] = mapchete_process_file
+
+    ## TilePyramid SRS
+    try:
+        output_srs = raw_config["output_srs"]
+    except:
+        raise Exception("'output_srs' parameter is missing")
+    try:
+        assert output_srs in [4326, 3857]
+    except:
+        raise Exception("'output_srs' must be either 4326 or 3857")
+    out_config["output_srs"] = output_srs
+
+    ## metatiling
+    try:
+        metatiling = raw_config["metatiling"]
+    except:
+        metatiling = 1
+    try:
+        assert metatiling in [1, 2, 4, 8, 16]
+    except:
+        raise Exception("metatiling must be 1, 2, 4, 8 or 16")
+
     ### zoom level(s)
     try:
         config_zoom = raw_config["process_zoom"]
