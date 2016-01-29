@@ -7,7 +7,6 @@ input_files:
     file2: testdata/dummy2.tif
 output_name: test
 output_format: test
-
 # TODO re-introduce file grouping
 # input_files:
 #     file_group_1:
