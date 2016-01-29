@@ -41,7 +41,9 @@ def main(args):
         assert input_files["file1"] == None
         assert input_files["file2"] == "testdata/dummy2.tif"
         assert zoom5["some_integer_parameter"] == 12
+        assert zoom5["some_float_parameter"] == 5.3
         assert zoom5["some_string_parameter"] == "string1"
+        assert zoom5["some_bool_parameter"] == True
 
         # Check configuration at zoom level 11
         zoom11 = config.at_zoom(11)
@@ -49,7 +51,9 @@ def main(args):
         assert input_files["file1"] == "testdata/dummy1.tif"
         assert input_files["file2"] == "testdata/dummy2.tif"
         assert zoom11["some_integer_parameter"] == 12
+        assert zoom11["some_float_parameter"] == 5.3
         assert zoom11["some_string_parameter"] == "string2"
+        assert zoom11["some_bool_parameter"] == True
     except:
         print "FAILED: basic configuration parsing"
         print input_files
