@@ -11,6 +11,7 @@ from progressbar import ProgressBar
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
+from tilematrix import *
 
 def main(args):
 
@@ -43,30 +44,31 @@ def main(args):
 
     print len(work_tiles), "tiles to be processed"
 
-    process_name = os.path.splitext(os.path.basename(config["process_file"]))[0]
-
-    # Load source process from python file and initialize.
-    new_process = imp.load_source(
-        process_name + "Process",
-        config["process_file"]
-        )
-    user_defined_process = new_process.Process(parsed.mapchete_file)
-
-    print "processing", user_defined_process.identifier
-
+    # # Prepare input process
+    # process_name = os.path.splitext(os.path.basename(config["process_file"]))[0]
+    # new_process = imp.load_source(
+    #     process_name + "Process",
+    #     config["process_file"]
+    #     )
+    # user_defined_process = new_process.Process(parsed.mapchete_file)
+    # print "processing", user_defined_process.identifier
     f = partial(worker,
-        mapchete_process=user_defined_process,
+        # mapchete_process=user_defined_process,
+        mapchete_file=parsed.mapchete_file,
         tile_pyramid=tile_pyramid,
-        params=config
+        config=config
     )
-
     pool = Pool(cpu_count())
+    log = ""
+
     try:
         counter = 0
         pbar = ProgressBar(maxval=len(work_tiles)).start()
         for output in pool.imap_unordered(f, work_tiles):
             counter += 1
             pbar.update(counter)
+            if output:
+                log += str(output) + "\n"
         pbar.finish()
     except:
         raise
@@ -74,13 +76,26 @@ def main(args):
         pool.close()
         pool.join()
 
-def worker(tile, mapchete_process, tile_pyramid, params):
+    print log
+
+
+def worker(tile, mapchete_file, tile_pyramid, config):
+    # Prepare input process
+    process_name = os.path.splitext(os.path.basename(config["process_file"]))[0]
+    new_process = imp.load_source(
+        process_name + "Process",
+        config["process_file"]
+        )
+    mapchete_process = new_process.Process(tile, tile_pyramid, mapchete_file)
+    # print "processing", user_defined_process.identifier
 
     try:
-        return mapchete_process.execute(tile, tile_pyramid, params)
-    except:
-        raise
-
+        mapchete_process.execute(tile, tile_pyramid, config)
+    except Exception as e:
+        return tile, e
+    finally:
+        mapchete_process = None
+    return tile, "ok"
 
 
 if __name__ == "__main__":
