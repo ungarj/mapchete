@@ -12,7 +12,10 @@ setup(
     license='MIT',
     packages=['mapchete'],
     install_requires=[
-        'progressbar'
+        'tilematrix',
+        'progressbar',
+        'fiona',
+        'pyyaml'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
