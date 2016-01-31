@@ -6,7 +6,6 @@ import rasterio
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 
-# from .mapchete import *
 import mapchete
 
 def get_clean_configuration(
@@ -149,9 +148,11 @@ def get_clean_configuration(
         bounds = additional_parameters["bounds"]
     #### write bounds for every zoom level
     bounds_per_zoom = {}
+    input_files_per_zoom = {}
 
     for zoom_level in zoom_levels:
         input_files = config.at_zoom(zoom)["input_files"]
+        input_files_per_zoom[zoom] = input_files
         bboxes = []
         for input_file, rel_path in input_files.iteritems():
             if rel_path:
@@ -186,6 +187,7 @@ def get_clean_configuration(
                 out_area = Polygon()
         bounds_per_zoom[zoom_level] = out_area
     out_config["process_area"] = bounds_per_zoom
+    out_config["input_files"] = input_files_per_zoom
 
     ### output_path
 
