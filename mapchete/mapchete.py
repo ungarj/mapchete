@@ -100,6 +100,7 @@ class MapcheteConfig():
             raise
         self.path = config_path
 
+
     def at_zoom(self, zoom):
         """
         Returns the configuration parameters at given zoom level.
@@ -192,7 +193,7 @@ class MapcheteProcess():
     Main process class. Needs a Mapchete configuration YAML as input.
     """
 
-    def __init__(self, config_path):
+    def __init__(self, config):
         """
         Process initialization.
         """
@@ -200,4 +201,7 @@ class MapcheteProcess():
         self.title = ""
         self.version = ""
         self.abstract = ""
-        self.config = MapcheteConfig(config_path)
+        self.tile = config["tile"]
+        self.tile_pyramid = config["tile_pyramid"]
+        zoom, row, col = self.tile
+        self.params = config["zoom_levels"][zoom]

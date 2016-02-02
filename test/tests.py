@@ -74,7 +74,7 @@ def main(args):
     mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
     try:
         config = get_clean_configuration(mapchete_file)
-        assert config["zoom_levels"] == [5]
+        assert 5 in config["zoom_levels"]
         print "OK: read zoom level from config file"
     except:
         print "FAILED: read zoom level from config file"
@@ -84,7 +84,8 @@ def main(args):
     mapchete_file = os.path.join(scriptdir, "testdata/minmax_zoom.mapchete")
     config = get_clean_configuration(mapchete_file)
     try:
-        assert config["zoom_levels"] == [7, 8, 9, 10]
+        for zoom in [7, 8, 9, 10]:
+            assert zoom in config["zoom_levels"]
         print "OK: read  min/max zoom levels from config file"
     except:
         print "FAILED: read  min/max zoom levels from config file"
@@ -96,7 +97,8 @@ def main(args):
         zoom=[1, 4]
         )
     try:
-        assert config["zoom_levels"] == [1, 2, 3, 4]
+        for zoom in [1, 2, 3, 4]:
+            assert zoom in config["zoom_levels"]
         print "OK: zoom levels override"
     except:
         print "FAILED: zoom levels override"
@@ -108,11 +110,11 @@ def main(args):
         test_polygon = Polygon([
             [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
             ])
-        assert config["process_area"][5].equals(test_polygon)
+        assert config["zoom_levels"][5]["process_area"].equals(test_polygon)
         print "OK: read bounds from config file"
     except:
         print "FAILED: read bounds from config file"
-        print config["process_area"][5]
+        print config["zoom_levels"][5]["process_area"]
         raise
     ## override bounds
     mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
@@ -124,11 +126,11 @@ def main(args):
         test_polygon = Polygon([
             [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
             ])
-        assert config["process_area"][5].equals(test_polygon)
+        assert config["zoom_levels"][5]["process_area"].equals(test_polygon)
         print "OK: override bounds"
     except:
         print "FAILED: override bounds"
-        print config["process_area"][5]
+        print config["zoom_levels"][5]["process_area"]
         raise
     ## read bounds from input files
     mapchete_file = os.path.join(scriptdir, "testdata/files_bounds.mapchete")
@@ -137,11 +139,11 @@ def main(args):
         test_polygon = Polygon(
         [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
         )
-        assert config["process_area"][10].equals(test_polygon)
+        assert config["zoom_levels"][10]["process_area"].equals(test_polygon)
         print "OK: read bounds from input files"
     except:
         print "FAILED: read bounds from input files"
-        print config["process_area"][10], test_polygon
+        print config["zoom_levels"][10]["process_area"], test_polygon
         raise
     # process_name = os.path.splitext(os.path.basename(process_file))[0]
     # new_process = imp.load_source(process_name + ".Process", process_file)

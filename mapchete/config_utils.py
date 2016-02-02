@@ -26,11 +26,24 @@ def get_clean_configuration(
     """
 
     additional_parameters = {
-       "zoom": zoom,
-       "bounds": bounds,
-       "output_path": output_path,
-       "output_format": output_format
-       }
+        "zoom": zoom,
+        "bounds": bounds,
+        "output_path": output_path,
+        "output_format": output_format
+        }
+
+    reserved_parameters = [
+        "process_file",
+        "input_files",
+        "output_name",
+        "output_format",
+        "output_srs",
+        "process_minzoom",
+        "process_maxzoom",
+        "process_zoom",
+        "process_bounds",
+        "metatiling"
+        ]
 
     out_config = {}
 
@@ -59,7 +72,7 @@ def get_clean_configuration(
         assert os.path.isfile(mapchete_process_file)
     except:
         raise IOError("%s is not available" % mapchete_process_file)
-    out_config["process_file"] = mapchete_process_file
+    # out_config["process_file"] = mapchete_process_file
 
     ## TilePyramid SRS
     try:
@@ -70,7 +83,7 @@ def get_clean_configuration(
         assert output_srs in [4326, 3857]
     except:
         raise Exception("'output_srs' must be either 4326 or 3857")
-    out_config["output_srs"] = output_srs
+    # out_config["output_srs"] = output_srs
 
     ## metatiling
     try:
@@ -81,7 +94,7 @@ def get_clean_configuration(
         assert metatiling in [1, 2, 4, 8, 16]
     except:
         raise Exception("metatiling must be 1, 2, 4, 8 or 16")
-    out_config["metatiling"] = metatiling
+    # out_config["metatiling"] = metatiling
 
     ### zoom level(s)
     try:
@@ -120,7 +133,7 @@ def get_clean_configuration(
         raise ValueError(
             "Zoom level parameter requires one or two value(s)."
             )
-    out_config["zoom_levels"] = zoom_levels
+    # out_config["zoom_levels"] = zoom_levels
 
     ### check overall validity of mapchete configuration object at zoom levels
     config = mapchete.MapcheteConfig(mapchete_file)
@@ -146,14 +159,13 @@ def get_clean_configuration(
         except:
             raise ValueError("Invalid number of process bounds.")
         bounds = additional_parameters["bounds"]
-    #### write bounds for every zoom level
+    #### get input files and combined process area for every zoom level
     bounds_per_zoom = {}
     input_files_per_zoom = {}
-
     for zoom_level in zoom_levels:
-        input_files = config.at_zoom(zoom)["input_files"]
-        input_files_per_zoom[zoom] = input_files
+        input_files = config.at_zoom(zoom_level)["input_files"]
         bboxes = []
+        input_files_per_zoom[zoom_level] = input_files
         for input_file, rel_path in input_files.iteritems():
             if rel_path:
                 config_dir = os.path.dirname(os.path.realpath(mapchete_file))
@@ -184,10 +196,32 @@ def get_clean_configuration(
             except:
                 # TODO if process area is empty, remove zoom level from zoom
                 # level list
-                out_area = Polygon()
+                out_area = None
         bounds_per_zoom[zoom_level] = out_area
-    out_config["process_area"] = bounds_per_zoom
-    out_config["input_files"] = input_files_per_zoom
+
+    out_config["process_file"] = mapchete_process_file
+    out_config["output_name"] = raw_config["output_name"]
+    out_config["output_format"] = raw_config["output_format"]
+    out_config["output_srs"] = output_srs
+    out_config["metatiling"] = metatiling
+    out_config["zoom_levels"] = {}
+    for zoom_level in zoom_levels:
+        if bounds_per_zoom[zoom_level]:
+            zoom_config = {}
+            zoom_config["process_area"] = bounds_per_zoom[zoom_level]
+            zoom_config["input_files"] = input_files_per_zoom[zoom_level]
+            for parameter, value in config.at_zoom(zoom).iteritems():
+                if parameter in reserved_parameters:
+                    pass
+                else:
+                    zoom_config[parameter] = value
+            out_config["zoom_levels"][zoom_level] = zoom_config
+        try:
+            assert zoom_config["input_files"]
+        except:
+            print zoom_level
+            raise
+
 
     ### output_path
 
