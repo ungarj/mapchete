@@ -165,7 +165,7 @@ def get_clean_configuration(
     for zoom_level in zoom_levels:
         input_files = config.at_zoom(zoom_level)["input_files"]
         bboxes = []
-        input_files_per_zoom[zoom_level] = input_files
+        abs_input_files = {}
         for input_file, rel_path in input_files.iteritems():
             if rel_path:
                 config_dir = os.path.dirname(os.path.realpath(mapchete_file))
@@ -177,6 +177,10 @@ def get_clean_configuration(
                     lr = right, bottom
                     ll = left, bottom
                     bboxes.append(Polygon([ul, ur, lr, ll]))
+            else:
+                abs_path = None
+            abs_input_files[input_file] = abs_path
+        input_files_per_zoom[zoom_level] = abs_input_files
         files_area = cascaded_union(bboxes)
         out_area = files_area
         if bounds:
