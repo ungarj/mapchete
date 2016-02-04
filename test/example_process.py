@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from mapchete import MapcheteProcess, read_raster
+import numpy as np
 
 """
 To initialize, the user has to provide:
@@ -34,9 +35,6 @@ class Process(MapcheteProcess):
         # print tile_pyramid.tile_bounds(*tile)
         # time.sleep(0.1)
         """
-        # zoom, col, row = self.tile
-        # if col % 2 == 1:
-        #     raise IOError("some error")
-        print self.tile_pyramid
         input_file = self.params["input_files"]['file2']
-        print read_raster(self, input_file)
+        metadata, data = read_raster(self, input_file)
+        
