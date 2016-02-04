@@ -205,3 +205,4 @@ class MapcheteProcess():
         self.tile_pyramid = config["tile_pyramid"]
         zoom, row, col = self.tile
         self.params = config["zoom_levels"][zoom]
+        self.config = config

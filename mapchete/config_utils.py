@@ -6,6 +6,7 @@ import rasterio
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 
+from tilematrix import raster_bbox
 import mapchete
 
 def get_clean_configuration(
@@ -83,6 +84,7 @@ def get_clean_configuration(
         assert output_srs in [4326, 3857]
     except:
         raise Exception("'output_srs' must be either 4326 or 3857")
+    output_crs = {'init': (u'EPSG:' + str(output_srs))}
     # out_config["output_srs"] = output_srs
 
     ## metatiling
@@ -170,13 +172,15 @@ def get_clean_configuration(
             if rel_path:
                 config_dir = os.path.dirname(os.path.realpath(mapchete_file))
                 abs_path = os.path.join(config_dir, rel_path)
-                with rasterio.open(abs_path, 'r') as raster:
-                    left, bottom, right, top = raster.bounds
-                    ul = left, top
-                    ur = right, top
-                    lr = right, bottom
-                    ll = left, bottom
-                    bboxes.append(Polygon([ul, ur, lr, ll]))
+                # with rasterio.open(abs_path, 'r') as raster:
+                #     left, bottom, right, top = raster.bounds
+                #     ul = left, top
+                #     ur = right, top
+                #     lr = right, bottom
+                #     ll = left, bottom
+                #     bboxes.append(Polygon([ul, ur, lr, ll]))
+                bbox = raster_bbox(abs_path, output_crs)
+                bboxes.append(bbox)
             else:
                 abs_path = None
             abs_input_files[input_file] = abs_path

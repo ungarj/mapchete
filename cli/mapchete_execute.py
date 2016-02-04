@@ -20,15 +20,18 @@ def main(args):
     parser.add_argument("mapchete_file", type=str)
     parser.add_argument("--zoom", "-z", type=int, nargs='*', )
     parser.add_argument("--bounds", "-b", type=float, nargs='*')
+    parser.add_argument("--log", action="store_true")
     parsed = parser.parse_args(args)
 
     try:
+        print "preparing process ..."
         config = get_clean_configuration(
             parsed.mapchete_file,
             zoom=parsed.zoom,
             bounds=parsed.bounds
             )
         base_tile_pyramid = TilePyramid(str(config["output_srs"]))
+        base_tile_pyramid.set_format(config["output_format"])
         tile_pyramid = MetaTilePyramid(base_tile_pyramid, config["metatiling"])
     except Exception as e:
         #sys.exit(e)
@@ -68,7 +71,19 @@ def main(args):
         pool.close()
         pool.join()
 
-    print log
+
+    if config["output_format"] == "GTiff":
+        for zoom in config["zoom_levels"]:
+            out_dir = os.path.join(config["output_name"], str(zoom))
+            out_vrt = os.path.join(config["output_name"], (str(zoom)+".vrt"))
+            command = "gdalbuildvrt -overwrite %s %s" %(
+                out_vrt,
+                str(out_dir + "/*/*.tif")
+            )
+            os.system(command)
+
+    if parsed.log:
+        print log
 
 
 def worker(tile, mapchete_file, tile_pyramid, config):

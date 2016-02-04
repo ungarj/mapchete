@@ -8,5 +8,6 @@ from .config_utils import (
     get_clean_configuration
 )
 from .io_utils import (
-    read_raster
+    read_raster,
+    write_raster
 )

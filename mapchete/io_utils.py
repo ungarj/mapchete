@@ -32,3 +32,35 @@ def read_raster(
         data = None
 
     return metadata, data
+
+def write_raster(
+    process,
+    metadata,
+    bands,
+    pixelbuffer=0
+    ):
+    # return process.config["output_name"]
+
+    # return process.tile_pyramid.format.format
+
+    process.tile_pyramid.format.prepare(
+        process.config["output_name"],
+        process.tile
+    )
+
+    out_file = process.tile_pyramid.format.get_tile_name(
+        process.config["output_name"],
+        process.tile
+    )
+
+    try:
+        write_raster_window(
+            out_file,
+            process.tile_pyramid,
+            process.tile,
+            metadata,
+            bands,
+            pixelbuffer=pixelbuffer
+        )
+    except:
+        raise
