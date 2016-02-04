@@ -2,8 +2,14 @@
 
 import mapchete
 from tilematrix import *
+from rasterio.warp import RESAMPLING
 
-def read_raster(process, input_file):
+def read_raster(
+    process,
+    input_file,
+    pixelbuffer=0,
+    resampling=RESAMPLING.nearest
+    ):
     """
     This is a wrapper around the read_raster_window function of tilematrix.
     Tilematrix itself uses rasterio to read rasterdata.
@@ -12,10 +18,17 @@ def read_raster(process, input_file):
     """
     # print process.tile
     # print process.tile_pyramid
-    # print input_file
     # print process.tile_pyramid.projection
-    metadata, data = read_raster_window(input_file,
-        process.tile_pyramid,
-        process.tile
-        )
-    return metadata
+    if input_file:
+        metadata, data = read_raster_window(
+            input_file,
+            process.tile_pyramid,
+            process.tile,
+            pixelbuffer=pixelbuffer,
+            resampling=resampling
+            )
+    else:
+        metadata = None
+        data = None
+
+    return metadata, data

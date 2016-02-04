@@ -8,6 +8,7 @@ import yaml
 from functools import partial
 from multiprocessing import Pool, cpu_count
 from progressbar import ProgressBar
+import traceback
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -85,10 +86,10 @@ def worker(tile, mapchete_file, tile_pyramid, config):
     try:
         mapchete_process.execute()
     except Exception as e:
-        return tile, e
+        return tile, traceback.print_exc(), e
     finally:
         mapchete_process = None
-    return tile, "ok"
+    return tile, "ok", None
 
 
 if __name__ == "__main__":
