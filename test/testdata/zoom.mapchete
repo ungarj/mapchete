@@ -1,0 +1,10 @@
+# mapchete parameters
+process_file: ../example_process.py
+process_zoom: 5
+process_bounds: [0.5, 1.5, 3.5, 3.5]
+input_files:
+    file1: dummy1.tif
+
+output_name: test
+output_format: test
+output_srs: 4326

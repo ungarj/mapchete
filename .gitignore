@@ -1,2 +1,4 @@
 */*.pyc
-experiments/
+dist/
+build/
+*.egg-info

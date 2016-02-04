@@ -27,16 +27,31 @@ for tile in tiles:
 ```
 
 #### process file
+(inspired by [PyWPS](http://pywps.wald.intevation.org/documentation/process.html))
 ```python
 from mapchete import MapcheteProcess
 
-MapcheteProcess.init(
-    input_data=[],
-    parameter1=...,
-    parameter2=...,
-    tile=(zoom, col, row),
-    )
-MapcheteProcess.execute()
+class Process(MapcheteProcess):
+    """Main process class"""
+    def __init__(self):
+        """Process initialization"""
+        # init process
+        MapcheteProcess.__init__(
+            self,
+            identifier = "merge_dems", # must be same, as filename
+            title="Merge multiple DEMs",
+            version = "0.2",
+            storeSupported = "true",
+            statusSupported = "true",
+            abstract="Create a buffer around an input vector file",
+        )
+
+# MapcheteProcess.init(
+#     input_data=[],
+#     parameter1=...,
+#     parameter2=...,
+#     tile=(zoom, col, row),
+#     )
 ```
 
 
