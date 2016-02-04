@@ -11,6 +11,7 @@ setup(
     url='https://github.com/ungarj/mapchete',
     license='MIT',
     packages=['mapchete'],
+    scripts=['cli/mapchete_execute.py'],
     install_requires=[
         'tilematrix',
         'progressbar',

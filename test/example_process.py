@@ -6,7 +6,7 @@ import numpy as np
 """
 To initialize, the user has to provide:
  - execute(): implement process
- - mapchete_file: a .mapchete file
+ - config: a .mapchete file
 optional:
  - identifier
  - title
@@ -29,9 +29,7 @@ class Process(MapcheteProcess):
 
     def execute(self):
         """
-        Here, the magic shall happen.
-        # print tile_pyramid.tile_bounds(*tile)
-        # time.sleep(0.1)
+        Define here your geo process.
         """
         input_file1 = self.params["input_files"]['file1']
         metadata1, data1 = read_raster(self, input_file1, pixelbuffer=2)
