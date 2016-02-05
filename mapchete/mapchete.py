@@ -9,6 +9,8 @@ from collections import OrderedDict
 import yaml
 import os
 import imp
+from flask import send_file
+import traceback
 
 from .config_utils import get_clean_configuration
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -253,7 +255,19 @@ class MapcheteHost():
         Gets/processes tile and returns as original output format or as PNG for
         viewing.
         """
-        pass
+        zoom, row, col = tile
+        output_path = self.config["output_name"]
+        zoomdir = os.path.join(output_path, str(zoom))
+        rowdir = os.path.join(zoomdir, str(row))
+        image_path = os.path.join(rowdir, str(col)+".png")
+        if os.path.isfile(image_path):
+            return send_file(image_path, mimetype='image/png')
+        else:
+            try:
+                self.save_tile(tile)
+            except:
+                return "error"
+            return send_file(image_path, mimetype='image/png')
 
 
     def save_tile(self, tile, overwrite=True):

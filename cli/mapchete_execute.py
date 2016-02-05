@@ -3,15 +3,12 @@
 import os
 import sys
 import argparse
-import yaml
 from functools import partial
 from multiprocessing import Pool, cpu_count
 from progressbar import ProgressBar
-import traceback
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
-from tilematrix import *
 
 def main(args):
 
@@ -38,8 +35,6 @@ def main(args):
 
     overwrite=True
 
-    # f = partial(process_host.save_tile, overwrite=overwrite)
-
     f = partial(worker,
         process_host=process_host,
         overwrite=overwrite
@@ -61,7 +56,6 @@ def main(args):
     finally:
         pool.close()
         pool.join()
-
 
     if process_host.config["output_format"] in ["GTiff", "PNG"]:
         for zoom in process_host.config["zoom_levels"]:
