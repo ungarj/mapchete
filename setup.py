@@ -11,12 +11,16 @@ setup(
     url='https://github.com/ungarj/mapchete',
     license='MIT',
     packages=['mapchete'],
-    scripts=['cli/mapchete_execute.py'],
+    scripts=[
+        'cli/mapchete_execute.py',
+        'cli/mapchete_serve.py'
+    ],
     install_requires=[
         'tilematrix',
         'progressbar',
         'fiona',
-        'pyyaml'
+        'pyyaml',
+        'flask'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
