@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from .mapchete import (
+    MapcheteHost,
     MapcheteConfig,
     MapcheteProcess
 )

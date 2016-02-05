@@ -8,8 +8,10 @@ http://pywps.wald.intevation.org/documentation/course/process/index.html
 from collections import OrderedDict
 import yaml
 import os
+import imp
 
 from .config_utils import get_clean_configuration
+from tilematrix import TilePyramid, MetaTilePyramid
 
 def _strip_zoom(input_string, strip_string):
     """
@@ -206,3 +208,72 @@ class MapcheteProcess():
         zoom, row, col = self.tile
         self.params = config["zoom_levels"][zoom]
         self.config = config
+
+
+class MapcheteHost():
+    """
+    Class handling MapcheteProcesses and MapcheteConfigs.
+    """
+
+    def __init__(self, mapchete_file, zoom=None, bounds=None):
+        """
+        Initialize with a .mapchete file and optional zoom & bound parameters.
+        """
+        try:
+            self.config = get_clean_configuration(
+                mapchete_file,
+                zoom=zoom,
+                bounds=bounds
+                )
+            base_tile_pyramid = TilePyramid(str(self.config["output_srs"]))
+            base_tile_pyramid.set_format(self.config["output_format"])
+            self.tile_pyramid = MetaTilePyramid(
+                base_tile_pyramid,
+                self.config["metatiling"]
+            )
+            self.format = self.tile_pyramid.format
+        except Exception as e:
+            raise
+
+
+    def get_work_tiles(self):
+        """
+        Determines the tiles affected by zoom levels, bounding box and input
+        data.
+        """
+        work_tiles = []
+        for zoom in self.config["zoom_levels"]:
+            bbox = self.config["zoom_levels"][zoom]["process_area"]
+            work_tiles.extend(self.tile_pyramid.tiles_from_geom(bbox, zoom))
+        return work_tiles
+
+
+    def get_tile(self, tile, as_png=False, overwrite=True):
+        """
+        Gets/processes tile and returns as original output format or as PNG for
+        viewing.
+        """
+        pass
+
+
+    def save_tile(self, tile, overwrite=True):
+        """
+        Processes and saves tile.
+        """
+        process_name = os.path.splitext(
+            os.path.basename(self.config["process_file"])
+        )[0]
+        new_process = imp.load_source(
+            process_name + "Process",
+            self.config["process_file"]
+            )
+        self.config["tile"] = tile
+        self.config["tile_pyramid"] = self.tile_pyramid
+        mapchete_process = new_process.Process(self.config)
+        try:
+            mapchete_process.execute()
+        except Exception as e:
+            return tile, traceback.print_exc(), e
+        finally:
+            mapchete_process = None
+        return tile, "ok", None
