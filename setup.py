@@ -10,11 +10,13 @@ setup(
     author_email='joachim.ungar@gmail.com',
     url='https://github.com/ungarj/mapchete',
     license='MIT',
-    packages=['mapchete'],
+    packages=['mapchete', 'static'],
     scripts=[
         'cli/mapchete_execute.py',
         'cli/mapchete_serve.py'
     ],
+    package_dir={'static': 'static'},
+    package_data={'static':['index.html']},
     install_requires=[
         'tilematrix',
         'progressbar',

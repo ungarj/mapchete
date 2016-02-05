@@ -3,10 +3,12 @@
 import os
 import sys
 import argparse
-from flask import Flask
+from flask import Flask, send_file
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
+
+import pkgutil
 
 process_host = None
 
@@ -31,9 +33,11 @@ def main(args):
 
     app = Flask(__name__)
 
+
     @app.route('/', methods=['GET'])
     def get_tasks():
-        return "herbert"
+        index_html = pkgutil.get_data('static', 'index.html')
+        return index_html
 
     @app.route('/wmts_simple', methods=['GET'])
     def get_getcapabilities():
@@ -43,8 +47,8 @@ def main(args):
     def get_processname(process_id):
         return process_id
 
-    @app.route('/wmts_simple/<string:process_id>/<int:zoom>/<int:row>/<int:col>.png', methods=['GET'])
-    def get_tile(process_id, zoom, row, col):
+    @app.route('/wmts_simple/1.0.0/mapchete/default/WGS84/<int:zoom>/<int:row>/<int:col>.png', methods=['GET'])
+    def get_tile(zoom, row, col):
         # return str(zoom), str(row), str(col)
         tileindex = str(zoom), str(row), str(col)
         tile = (zoom, row, col)

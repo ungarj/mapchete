@@ -265,8 +265,9 @@ class MapcheteHost():
         else:
             try:
                 self.save_tile(tile)
-            except:
-                return "error"
+            except Exception as e:
+                # print e
+                print "tile not available", tile
             return send_file(image_path, mimetype='image/png')
 
 
