@@ -22,7 +22,8 @@ setup(
         'progressbar',
         'fiona',
         'pyyaml',
-        'flask'
+        'flask',
+        'Pillow'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

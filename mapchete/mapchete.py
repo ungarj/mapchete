@@ -11,6 +11,7 @@ import os
 import imp
 from flask import send_file
 import traceback
+from PIL import Image
 
 from .config_utils import get_clean_configuration
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -265,9 +266,11 @@ class MapcheteHost():
         else:
             try:
                 self.save_tile(tile)
-            except Exception as e:
-                # print e
+            except:
                 print "tile not available", tile
+                size = self.tile_pyramid.tile_size
+                empty_image = Image.new('RGBA', (size, size))
+                return empty_image.tobytes()
             return send_file(image_path, mimetype='image/png')
 
 
