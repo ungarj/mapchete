@@ -3,16 +3,12 @@
 import os
 import sys
 import argparse
-import imp
-import yaml
 from functools import partial
 from multiprocessing import Pool, cpu_count
 from progressbar import ProgressBar
-import traceback
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
-from tilematrix import *
 
 def main(args):
 
@@ -25,33 +21,23 @@ def main(args):
 
     try:
         print "preparing process ..."
-        config = get_clean_configuration(
+        process_host = MapcheteHost(
             parsed.mapchete_file,
             zoom=parsed.zoom,
             bounds=parsed.bounds
             )
-        base_tile_pyramid = TilePyramid(str(config["output_srs"]))
-        base_tile_pyramid.set_format(config["output_format"])
-        tile_pyramid = MetaTilePyramid(base_tile_pyramid, config["metatiling"])
     except Exception as e:
-        #sys.exit(e)
         raise
 
-    # Determine tiles to be processed, depending on:
-    # - zoom level and
-    # - input files bounds OR user defined bounds
-    work_tiles = []
-    for zoom in config["zoom_levels"]:
-        bbox = config["zoom_levels"][zoom]["process_area"]
-        work_tiles.extend(tile_pyramid.tiles_from_geom(bbox, zoom))
-
+    work_tiles = process_host.get_work_tiles()
 
     print len(work_tiles), "tiles to be processed"
 
+    overwrite=True
+
     f = partial(worker,
-        mapchete_file=parsed.mapchete_file,
-        tile_pyramid=tile_pyramid,
-        config=config
+        process_host=process_host,
+        overwrite=overwrite
     )
     pool = Pool(cpu_count())
     log = ""
@@ -71,14 +57,19 @@ def main(args):
         pool.close()
         pool.join()
 
-
-    if config["output_format"] == "GTiff":
-        for zoom in config["zoom_levels"]:
-            out_dir = os.path.join(config["output_name"], str(zoom))
-            out_vrt = os.path.join(config["output_name"], (str(zoom)+".vrt"))
+    if process_host.config["output_format"] in ["GTiff", "PNG"]:
+        for zoom in process_host.config["zoom_levels"]:
+            out_dir = os.path.join(
+                process_host.config["output_name"],
+                str(zoom)
+            )
+            out_vrt = os.path.join(
+                process_host.config["output_name"],
+                (str(zoom)+".vrt")
+            )
             command = "gdalbuildvrt -overwrite %s %s" %(
                 out_vrt,
-                str(out_dir + "/*/*.tif")
+                str(out_dir + "/*/*" + process_host.format.extension)
             )
             os.system(command)
 
@@ -86,25 +77,9 @@ def main(args):
         print log
 
 
-def worker(tile, mapchete_file, tile_pyramid, config):
-    # Prepare input process
-    process_name = os.path.splitext(os.path.basename(config["process_file"]))[0]
-    new_process = imp.load_source(
-        process_name + "Process",
-        config["process_file"]
-        )
-    config["tile"] = tile
-    config["tile_pyramid"] = tile_pyramid
-    mapchete_process = new_process.Process(config)
-    # print "processing", user_defined_process.identifier
+def worker(tile, process_host, overwrite):
 
-    try:
-        mapchete_process.execute()
-    except Exception as e:
-        return tile, traceback.print_exc(), e
-    finally:
-        mapchete_process = None
-    return tile, "ok", None
+    process_host.save_tile(tile, overwrite)
 
 
 if __name__ == "__main__":

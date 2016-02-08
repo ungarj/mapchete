@@ -17,18 +17,15 @@
 
 ## Usage
 
-* command line
 ```
-mapchete_execute <process> --bounds --metatiling --multi
+mapchete_execute.py <mapchete_file>
 ```
+Executes a process. Please see the [example configuration](test/example.mapchete) and [example process](test/example.process.py).
 
-* as class in other projects (e.g. [``piri``](https://github.com/ungarj/piri))
-```python
-# TBD
 ```
-
-## Python bindings
-``mapchete`` is intended to be used in python. It borrows some of the concepts such as the [process structure](http://pywps.wald.intevation.org/documentation/pywps-3.2/process/structure.html) developed by the [PyWPS](http://pywps.wald.intevation.org/) project, mainly the process class definition. ``mapchete`` is _not_ a WPS server though.
+mapchete_serve.py <mapchete_file>
+```
+Serves process results as a [WMTS simple](http://docs.opengeospatial.org/is/13-082r2/13-082r2.html) endpoint under ``http://localhost:5000/wmts``. This can be used to view the process results in any client supporting WMTS such as [QGIS](http://qgis.org) or [OpenLayers](http://openlayers.org/).
 
 ## Inspirations
 * [PyWPS](http://pywps.wald.intevation.org/)
