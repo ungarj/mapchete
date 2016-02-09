@@ -3,6 +3,7 @@
 import sys
 import math
 import numpy as np
+from itertools import product
 
 NODATA = -1
 
