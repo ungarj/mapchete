@@ -55,25 +55,31 @@ def hillshade(
         Logic here is borrowed from hillshade.cpp:
           http://www.perrygeo.net/wordpress/?p=7
     """
-    width, height = elevation.shape[0] - 2, elevation.shape[1] - 2
+    window = []
 
-    window = [z * elevation[row:(row + height), col:(col + width)]
-              for (row, col)
-              in product(range(3), range(3))]
+    for row in range(3):
+        for col in range(3):
+            window.append(elevation[row:(row + elevation.shape[0] - 2), col:(col + elevation.shape[1] - 2)])
 
-    x = ((window[0] + window[3] + window[3] + window[6]) \
-       - (window[2] + window[5] + window[5] + window[8])) \
-      / (8.0 * xres);
+    # print >> sys.stderr, 'calculating slope...'
 
-    y = ((window[6] + window[7] + window[7] + window[8]) \
-       - (window[0] + window[1] + window[1] + window[2])) \
-      / (8.0 * yres);
+    x = ((z * window[0] + z * window[3] + z * window[3] + z * window[6]) \
+       - (z * window[2] + z * window[5] + z * window[5] + z * window[8])) \
+      / (8.0 * xres * scale);
 
-    # in radians, from 0 to pi/2
-    slope = pi/2 - np.arctan(np.sqrt(x*x + y*y))
+    y = ((z * window[6] + z * window[7] + z * window[7] + z * window[8]) \
+       - (z * window[0] + z * window[1] + z * window[1] + z * window[2])) \
+      / (8.0 * yres * scale);
 
-    # in radians counterclockwise, from -pi at north back to pi
+    rad2deg = 180.0 / math.pi
+
+    slope = 90.0 - np.arctan(np.sqrt(x*x + y*y)) * rad2deg
+
+    # print >> sys.stderr, 'calculating aspect...'
+
     aspect = np.arctan2(x, y)
+
+    # print >> sys.stderr, 'calculating shade...'
 
     deg2rad = math.pi / 180.0
 
