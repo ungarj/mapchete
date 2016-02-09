@@ -52,7 +52,11 @@ def main(args):
         # return str(zoom), str(row), str(col)
         tileindex = str(zoom), str(row), str(col)
         tile = (zoom, row, col)
-        return process_host.get_tile(tile)
+        try:
+            image = process_host.get_tile(tile)
+            return image
+        except Exception as e:
+            return Exception
         # return str(tileindex)
 
     app.run(debug=True)

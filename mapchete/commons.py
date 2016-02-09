@@ -93,7 +93,6 @@ def hillshade(
         for pane in window:
             shaded[pane == nodata] = NODATA
 
-
     # invert values & return array in original shape
     shaded = -shaded+256
     shaded[shaded<1] = 0
