@@ -57,7 +57,11 @@ def main(args):
         pool.close()
         pool.join()
 
-    if process_host.config["output_format"] in ["GTiff", "PNG"]:
+    if process_host.config["output_format"] in [
+        "GTiff",
+        "PNG",
+        "PNG_hillshade"
+        ]:
         for zoom in process_host.config["zoom_levels"]:
             out_dir = os.path.join(
                 process_host.config["output_name"],
