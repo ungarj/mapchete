@@ -4,6 +4,7 @@ import sys
 import math
 import numpy as np
 from itertools import product
+from math import pi, sin, cos
 
 NODATA = -1
 
