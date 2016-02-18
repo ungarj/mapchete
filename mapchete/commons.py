@@ -59,9 +59,10 @@ def hillshade(
 
     for row in range(3):
         for col in range(3):
-            window.append(elevation[row:(row + elevation.shape[0] - 2), col:(col + elevation.shape[1] - 2)])
-
-    # print >> sys.stderr, 'calculating slope...'
+            window.append(elevation[
+                row:(row + elevation.shape[0] - 2),
+                col:(col + elevation.shape[1] - 2)
+            ])
 
     x = ((z * window[0] + z * window[3] + z * window[3] + z * window[6]) \
        - (z * window[2] + z * window[5] + z * window[5] + z * window[8])) \
@@ -75,11 +76,7 @@ def hillshade(
 
     slope = 90.0 - np.arctan(np.sqrt(x*x + y*y)) * rad2deg
 
-    # print >> sys.stderr, 'calculating aspect...'
-
     aspect = np.arctan2(x, y)
-
-    # print >> sys.stderr, 'calculating shade...'
 
     deg2rad = math.pi / 180.0
 
