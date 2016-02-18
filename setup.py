@@ -10,7 +10,10 @@ setup(
     author_email='joachim.ungar@gmail.com',
     url='https://github.com/ungarj/mapchete',
     license='MIT',
-    packages=['mapchete', 'static'],
+    packages=[
+        'mapchete',
+        'static',
+    ],
     scripts=[
         'cli/mapchete_execute.py',
         'cli/mapchete_serve.py'

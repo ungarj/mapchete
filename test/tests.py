@@ -145,18 +145,6 @@ def main(args):
         print "FAILED: read bounds from input files"
         print config["zoom_levels"][10]["process_area"], test_polygon
         raise
-    # process_name = os.path.splitext(os.path.basename(process_file))[0]
-    # new_process = imp.load_source(process_name + ".Process", process_file)
-    # user_defined_process = new_process.Process(mapchete_file)
-    #
-    # print "processing", user_defined_process.identifier
-    #
-    # # Analyze extent of input files and get tile indices.
-    # zoom = 5
-    # configuration = user_defined_process.execute(zoom)
-    # for zoom in range(0, 13):
-    #     print zoom, user_defined_process.execute(zoom)
-
 
 if __name__ == "__main__":
     main(sys.argv[1:])
