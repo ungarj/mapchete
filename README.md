@@ -23,6 +23,13 @@ mapchete_serve.py <mapchete_file>
 
 Starts a http server on localhost:5000 which hosts a simple OpenLayers page and a WMTS simple endpoint. This is intended to process on-demand and show just the current map extent to facilitate process calibration.
 
+## Planned next
+
+* have a mapchete process as data input option for another process
+* store in GeoPackage, not just single tiles in the filesystem
+* add .SAFE archive (Sentinel-2) as data input option
+* add Spherical Mercator (EPSG:3857) tile pyramid support
+
 
 ## Inspirations
 * [PyWPS](http://pywps.wald.intevation.org/)
