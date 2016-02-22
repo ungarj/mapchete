@@ -6,7 +6,7 @@ import rasterio
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 
-from tilematrix import raster_bbox
+from tilematrix import file_bbox
 import mapchete
 
 def get_clean_configuration(
@@ -172,14 +172,7 @@ def get_clean_configuration(
             if rel_path:
                 config_dir = os.path.dirname(os.path.realpath(mapchete_file))
                 abs_path = os.path.join(config_dir, rel_path)
-                # with rasterio.open(abs_path, 'r') as raster:
-                #     left, bottom, right, top = raster.bounds
-                #     ul = left, top
-                #     ur = right, top
-                #     lr = right, bottom
-                #     ll = left, bottom
-                #     bboxes.append(Polygon([ul, ur, lr, ll]))
-                bbox = raster_bbox(abs_path, output_crs)
+                bbox = file_bbox(abs_path, output_crs)
                 bboxes.append(bbox)
             else:
                 abs_path = None

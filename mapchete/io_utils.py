@@ -1,8 +1,35 @@
 #!/usr/bin/env python
 
+import numpy as np
+
 import mapchete
 from tilematrix import *
 from rasterio.warp import RESAMPLING
+
+def read_vector(
+    process,
+    input_file,
+    pixelbuffer=0,
+    resampling=RESAMPLING.nearest
+    ):
+    """
+    This is a wrapper around the read_vector_window function of tilematrix.
+    Tilematrix itself uses fiona to read vector data.
+    This function returns a list of GeoJSON-like dictionaries containing the
+    clipped vector data and attributes.
+    """
+    if input_file:
+        features = read_vector_window(
+            input_file,
+            process.tile_pyramid,
+            process.tile,
+            pixelbuffer=pixelbuffer
+        )
+    else:
+        features = None
+
+    return features
+
 
 def read_raster(
     process,
@@ -12,13 +39,11 @@ def read_raster(
     ):
     """
     This is a wrapper around the read_raster_window function of tilematrix.
-    Tilematrix itself uses rasterio to read rasterdata.
+    Tilematrix itself uses rasterio to read raster data.
     This function returns a tuple of metadata and a numpy array containing the
     raster data clipped and resampled to the input tile.
     """
-    # print process.tile
-    # print process.tile_pyramid
-    # print process.tile_pyramid.projection
+
     if input_file:
         metadata, data = read_raster_window(
             input_file,
@@ -39,9 +64,34 @@ def write_raster(
     bands,
     pixelbuffer=0
     ):
-    # return process.config["output_name"]
+    try:
+        assert isinstance(bands, tuple)
+    except:
+        raise TypeError("output bands must be stored in a tuple.")
 
-    # return process.tile_pyramid.format.format
+    try:
+        for band in bands:
+            assert (
+                isinstance(
+                    band,
+                    np.ndarray
+                ) or isinstance(
+                    band,
+                    np.ma.core.MaskedArray
+                )
+            )
+    except:
+        raise TypeError(
+            "output bands must be numpy ndarrays, not %s" % type(band)
+            )
+
+    try:
+        for band in bands:
+            assert band.ndim == 2
+    except:
+        raise TypeError(
+            "output bands must be 2-dimensional, not %s" % band.ndim
+            )
 
     process.tile_pyramid.format.prepare(
         process.config["output_name"],

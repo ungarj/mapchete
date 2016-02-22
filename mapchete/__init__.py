@@ -12,9 +12,11 @@ from .config_utils import (
 
 from .io_utils import (
     read_raster,
-    write_raster
+    write_raster,
+    read_vector
 )
 
 from .commons import (
-    hillshade
+    hillshade,
+    get_best_zoom_level
 )
