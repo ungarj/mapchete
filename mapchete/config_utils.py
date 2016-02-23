@@ -38,7 +38,7 @@ def get_clean_configuration(
         "input_files",
         "output_name",
         "output_format",
-        "output_srs",
+        "output_type",
         "process_minzoom",
         "process_maxzoom",
         "process_zoom",
@@ -77,15 +77,20 @@ def get_clean_configuration(
 
     ## TilePyramid SRS
     try:
-        output_srs = raw_config["output_srs"]
+        output_type = raw_config["output_type"]
     except:
-        raise Exception("'output_srs' parameter is missing")
+        raise Exception("'output_type' parameter is missing")
     try:
-        assert output_srs in [4326, 3857]
+        assert output_type in ["geodetic", "mercator"]
     except:
-        raise Exception("'output_srs' must be either 4326 or 3857")
-    output_crs = {'init': (u'EPSG:' + str(output_srs))}
-    # out_config["output_srs"] = output_srs
+        raise Exception("'output_type' must be either geodetic or mercator")
+
+    type_crs = {
+        "geodetic": {'init': (u'EPSG:4326')},
+        "mercator": {'init': (u'EPSG:3857')},
+    }
+    output_crs = type_crs[output_type]
+    # out_config["output_type"] = output_type
 
     ## metatiling
     try:
@@ -203,7 +208,7 @@ def get_clean_configuration(
     out_config["process_file"] = mapchete_process_file
     out_config["output_name"] = raw_config["output_name"]
     out_config["output_format"] = raw_config["output_format"]
-    out_config["output_srs"] = output_srs
+    out_config["output_type"] = output_type
     out_config["metatiling"] = metatiling
     out_config["zoom_levels"] = {}
     for zoom_level in zoom_levels:

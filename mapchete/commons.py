@@ -11,7 +11,7 @@ def get_best_zoom_level(path, srs):
     Determines the best base zoom level for a raster. "Best" means the maximum
     zoom level where no oversampling has to be done.
     """
-    tile_pyramid = TilePyramid("4326")
+    tile_pyramid = TilePyramid("geodetic")
     dst_crs = tile_pyramid.crs
     with rasterio.open(path, "r") as input_raster:
         src_crs = input_raster.crs

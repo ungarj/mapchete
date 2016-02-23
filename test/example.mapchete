@@ -7,7 +7,7 @@ input_files:
     file2: testdata/dummy2.tif
 output_name: test
 output_format: GTiff
-output_srs: 4326
+output_type: geodetic
 # TODO re-introduce file grouping
 # input_files:
 #     file_group_1:

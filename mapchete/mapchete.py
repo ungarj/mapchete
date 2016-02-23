@@ -228,7 +228,7 @@ class MapcheteHost():
                 zoom=zoom,
                 bounds=bounds
                 )
-            base_tile_pyramid = TilePyramid(str(self.config["output_srs"]))
+            base_tile_pyramid = TilePyramid(str(self.config["output_type"]))
             base_tile_pyramid.set_format(self.config["output_format"])
             self.tile_pyramid = MetaTilePyramid(
                 base_tile_pyramid,
