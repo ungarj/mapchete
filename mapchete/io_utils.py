@@ -4,13 +4,11 @@ import numpy as np
 
 import mapchete
 from tilematrix import *
-from rasterio.warp import RESAMPLING
 
 def read_vector(
     process,
     input_file,
-    pixelbuffer=0,
-    resampling=RESAMPLING.nearest
+    pixelbuffer=0
     ):
     """
     This is a wrapper around the read_vector_window function of tilematrix.
@@ -35,7 +33,7 @@ def read_raster(
     process,
     input_file,
     pixelbuffer=0,
-    resampling=RESAMPLING.nearest
+    resampling="nearest"
     ):
     """
     This is a wrapper around the read_raster_window function of tilematrix.
@@ -57,6 +55,7 @@ def read_raster(
         data = None
 
     return metadata, data
+
 
 def write_raster(
     process,
