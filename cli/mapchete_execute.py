@@ -39,7 +39,7 @@ def main(args):
         process_host=process_host,
         overwrite=overwrite
     )
-    pool = Pool(cpu_count())
+    pool = Pool()
     log = ""
 
     try:
@@ -51,6 +51,9 @@ def main(args):
             if output:
                 log += str(output) + "\n"
         pbar.finish()
+    except KeyboardInterrupt:
+        pool.terminate()
+        sys.exit()
     except:
         raise
     finally:
