@@ -182,7 +182,7 @@ def get_clean_configuration(
                 bbox = file_bbox(
                     abs_path,
                     output_crs,
-                    segmentize_maxlen=tile_pyramid.tile_x_size(zoom)*8
+                    segmentize_maxlen=tile_pyramid.tile_x_size(zoom)*16
                     )
                 bboxes.append(bbox)
             else:
