@@ -106,31 +106,15 @@ def main(args):
     ## read bounds from config file
     mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
     config = get_clean_configuration(mapchete_file)
-    test_polygon = Polygon([
-        [3, 1.5],
-        [3, 1.545454545454545],
-        [3, 1.636363636363636],
-        [3, 1.727272727272727],
-        [3, 1.818181818181818],
-        [3, 1.909090909090909],
-        [3, 2],
-        [3.090909090909091, 2],
-        [3.181818181818182, 2],
-        [3.272727272727272, 2],
-        [3.363636363636364, 2],
-        [3.454545454545455, 2],
-        [3.5, 2],
-        [3.5, 1.5],
-        [3, 1.5]
-    ])
     try:
-        assert config["zoom_levels"][5]["process_area"].equals_exact(
-            test_polygon,
-            tolerance=0.001
-            )
+        test_polygon = Polygon([
+            [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
+            ])
+        assert config["zoom_levels"][5]["process_area"].equals(test_polygon)
         print "OK: read bounds from config file"
     except:
         print "FAILED: read bounds from config file"
+        print config["zoom_levels"][5]["process_area"]
         raise
     ## override bounds
     mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
@@ -142,134 +126,24 @@ def main(args):
         test_polygon = Polygon([
             [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
             ])
-        assert config["zoom_levels"][5]["process_area"].difference(
-            test_polygon
-            ).is_empty
+        assert config["zoom_levels"][5]["process_area"].equals(test_polygon)
         print "OK: override bounds"
     except:
         print "FAILED: override bounds"
-        print config["zoom_levels"][5]["process_area"].difference(test_polygon)
+        print config["zoom_levels"][5]["process_area"]
         raise
     ## read bounds from input files
     mapchete_file = os.path.join(scriptdir, "testdata/files_bounds.mapchete")
     config = get_clean_configuration(mapchete_file)
-    test_polygon = Polygon([
-        [3, 2],
-        [3.090909090909091, 2],
-        [3.181818181818182, 2],
-        [3.272727272727272, 2],
-        [3.363636363636364, 2],
-        [3.454545454545455, 2],
-        [3.545454545454545, 2],
-        [3.636363636363636, 2],
-        [3.727272727272728, 2],
-        [3.818181818181818, 2],
-        [3.909090909090909, 2],
-        [4, 2],
-        [4, 1.909090909090909],
-        [4, 1.818181818181818],
-        [4, 1.727272727272727],
-        [4, 1.636363636363636],
-        [4, 1.545454545454545],
-        [4, 1.454545454545455],
-        [4, 1.363636363636364],
-        [4, 1.272727272727273],
-        [4, 1.181818181818182],
-        [4, 1.090909090909091],
-        [4, 1],
-        [3.909090909090909, 1],
-        [3.818181818181818, 1],
-        [3.727272727272728, 1],
-        [3.636363636363636, 1],
-        [3.545454545454545, 1],
-        [3.454545454545455, 1],
-        [3.363636363636364, 1],
-        [3.272727272727272, 1],
-        [3.181818181818182, 1],
-        [3.090909090909091, 1],
-        [3, 1],
-        [2.909090909090909, 1],
-        [2.818181818181818, 1],
-        [2.727272727272728, 1],
-        [2.636363636363636, 1],
-        [2.545454545454545, 1],
-        [2.454545454545455, 1],
-        [2.363636363636364, 1],
-        [2.272727272727272, 1],
-        [2.181818181818182, 1],
-        [2.090909090909091, 1],
-        [2, 1],
-        [2, 1.1],
-        [2, 1.2],
-        [2, 1.3],
-        [2, 1.4],
-        [2, 1.5],
-        [2, 1.6],
-        [2, 1.7],
-        [2, 1.8],
-        [2, 1.9],
-        [2, 2],
-        [2, 2.1],
-        [2, 2.2],
-        [2, 2.3],
-        [2, 2.4],
-        [2, 2.5],
-        [2, 2.6],
-        [2, 2.7],
-        [2, 2.8],
-        [2, 2.9],
-        [2, 3],
-        [2, 3.1],
-        [2, 3.2],
-        [2, 3.3],
-        [2, 3.4],
-        [2, 3.5],
-        [2, 3.6],
-        [2, 3.700000000000001],
-        [2, 3.8],
-        [2, 3.9],
-        [2, 4],
-        [2.090909090909091, 4],
-        [2.181818181818182, 4],
-        [2.272727272727272, 4],
-        [2.363636363636364, 4],
-        [2.454545454545455, 4],
-        [2.545454545454545, 4],
-        [2.636363636363636, 4],
-        [2.727272727272728, 4],
-        [2.818181818181818, 4],
-        [2.909090909090909, 4],
-        [3, 4],
-        [3, 3.9],
-        [3, 3.8],
-        [3, 3.700000000000001],
-        [3, 3.6],
-        [3, 3.5],
-        [3, 3.4],
-        [3, 3.3],
-        [3, 3.2],
-        [3, 3.1],
-        [3, 3],
-        [3, 2.9],
-        [3, 2.8],
-        [3, 2.7],
-        [3, 2.6],
-        [3, 2.5],
-        [3, 2.4],
-        [3, 2.3],
-        [3, 2.2],
-        [3, 2.1],
-        [3, 2]
-    ])
     try:
-        assert config["zoom_levels"][10]["process_area"].equals_exact(
-            test_polygon,
-            tolerance=0.001
-            )
+        test_polygon = Polygon(
+        [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
+        )
+        assert config["zoom_levels"][10]["process_area"].equals(test_polygon)
         print "OK: read bounds from input files"
     except:
         print "FAILED: read bounds from input files"
-        print config["zoom_levels"][10]["process_area"].difference(test_polygon)
+        print config["zoom_levels"][10]["process_area"], test_polygon
         raise
 
 if __name__ == "__main__":

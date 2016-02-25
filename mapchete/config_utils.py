@@ -6,7 +6,7 @@ import rasterio
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 
-from tilematrix import file_bbox
+from tilematrix import file_bbox, TilePyramid, MetaTilePyramid
 import mapchete
 
 def get_clean_configuration(
@@ -86,8 +86,8 @@ def get_clean_configuration(
         raise Exception("'output_type' must be either geodetic or mercator")
 
     type_crs = {
-        "geodetic": {'init': (u'EPSG:4326')},
-        "mercator": {'init': (u'EPSG:3857')},
+        "geodetic": {'init': (u'epsg:4326')},
+        "mercator": {'init': (u'epsg:3857')},
     }
     output_crs = type_crs[output_type]
     # out_config["output_type"] = output_type
@@ -167,6 +167,8 @@ def get_clean_configuration(
             raise ValueError("Invalid number of process bounds.")
         bounds = additional_parameters["bounds"]
     #### get input files and combined process area for every zoom level
+    base_tile_pyramid = TilePyramid(output_type)
+    tile_pyramid = MetaTilePyramid(base_tile_pyramid, metatiling)
     bounds_per_zoom = {}
     input_files_per_zoom = {}
     for zoom_level in zoom_levels:
@@ -177,7 +179,11 @@ def get_clean_configuration(
             if rel_path:
                 config_dir = os.path.dirname(os.path.realpath(mapchete_file))
                 abs_path = os.path.join(config_dir, rel_path)
-                bbox = file_bbox(abs_path, output_crs)
+                bbox = file_bbox(
+                    abs_path,
+                    output_crs,
+                    segmentize_maxlen=tile_pyramid.tile_x_size(zoom)*8
+                    )
                 bboxes.append(bbox)
             else:
                 abs_path = None
