@@ -6,6 +6,7 @@ import argparse
 from functools import partial
 from multiprocessing import Pool, cpu_count
 from progressbar import ProgressBar
+import time
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -40,16 +41,19 @@ def main(args):
         overwrite=overwrite
     )
     pool = Pool()
-    log = ""
+    logs = []
 
     try:
         counter = 0
         pbar = ProgressBar(maxval=len(work_tiles)).start()
-        for output in pool.map_async(f, work_tiles):
-            counter += 1
+        output = pool.map_async(f, work_tiles, callback=logs.extend)
+        pool.close()
+        while (True):
+            if (output.ready()): break
+            counter = len(work_tiles) - output._number_left
             pbar.update(counter)
-            if output:
-                log += str(output) + "\n"
+            # update cycle set to one second
+            time.sleep(1)
         pbar.finish()
     except KeyboardInterrupt:
         pool.terminate()
@@ -81,12 +85,13 @@ def main(args):
             os.system(command)
 
     if parsed.log:
-        print log
+        for row in logs:
+            print row
 
 
 def worker(tile, process_host, overwrite):
 
-    process_host.save_tile(tile, overwrite)
+    return process_host.save_tile(tile, overwrite)
 
 
 if __name__ == "__main__":

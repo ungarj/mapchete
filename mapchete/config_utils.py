@@ -231,8 +231,7 @@ def get_clean_configuration(
         try:
             assert zoom_config["input_files"]
         except:
-            print zoom_level
-            raise
+            raise ValueError("no intersecting input files for this zoom level")
 
 
     ### output_path
