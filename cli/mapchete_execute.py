@@ -45,7 +45,7 @@ def main(args):
     try:
         counter = 0
         pbar = ProgressBar(maxval=len(work_tiles)).start()
-        for output in pool.imap_unordered(f, work_tiles):
+        for output in pool.map_async(f, work_tiles):
             counter += 1
             pbar.update(counter)
             if output:
