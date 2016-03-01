@@ -12,6 +12,7 @@ import imp
 from flask import send_file
 import traceback
 from PIL import Image
+import io
 
 from .config_utils import get_clean_configuration
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -256,31 +257,60 @@ class MapcheteHost():
         Gets/processes tile and returns as original output format or as PNG for
         viewing.
         """
-        # TODO: tile <-> metatile conversion
         # convert WMTS tile ID to metatile ID
-        # metatile_id = process_host.tile_pyramid.tiles_from_tilepyramid(*tile)[0]
-        # check if metatile is available
-        zoom, row, col = tile
+        metatile = self.tile_pyramid.tiles_from_bbox(
+            self.tile_pyramid.tilepyramid.tile_bbox(*tile),
+            tile[0]
+            )[0]
+        # create metatile path
+        zoom, row, col = metatile
         output_path = self.config["output_name"]
         zoomdir = os.path.join(output_path, str(zoom))
         rowdir = os.path.join(zoomdir, str(row))
         image_path = os.path.join(rowdir, str(col)+".png")
+        # if metatiling, prepare pixel bounds of tile
+        if self.tile_pyramid.metatiles > 1:
+            # left, upper, right, and lower pixel coordinate
+            tile_zoom, tile_row, tile_col = tile
+            tile_size = self.tile_pyramid.tilepyramid.tile_size
+            metatiling = self.tile_pyramid.metatiles
+            left = (tile_col % metatiling) * tile_size
+            right = left + tile_size
+            top = (tile_row % metatiling) * tile_size
+            bottom = top + tile_size
+
+        # return image
         if os.path.isfile(image_path):
-            # no metatiling: return full image
-            return send_file(image_path, mimetype='image/png')
-            # metatiling: extract tile from metatile
+            if self.tile_pyramid.metatiles == 1:
+                # no metatiling: return full image
+                return send_file(image_path, mimetype='image/png')
+            else:
+                # metatiling: extract tile from metatile
+                img = Image.open(image_path)
+                cropped = img.crop((left, top, right, bottom))
+                out_img = io.BytesIO()
+                cropped.save(out_img, 'PNG')
+                out_img.seek(0)
+                return send_file(out_img, mimetype='image/png')
         else:
             try:
-                self.save_tile(tile)
+                self.save_tile(metatile)
             except:
                 size = self.tile_pyramid.tilepyramid.tile_size
                 empty_image = Image.new('RGBA', (size, size))
                 return empty_image.tobytes()
 
-            # no metatiling: return full image
-            return send_file(image_path, mimetype='image/png')
-            # metatiling: extract tile from metatile
-
+            if self.tile_pyramid.metatiles == 1:
+                # no metatiling: return full image
+                return send_file(image_path, mimetype='image/png')
+            else:
+                # metatiling: extract tile from metatile
+                img = Image.open(image_path)
+                cropped = img.crop((left, top, right, bottom))
+                out_img = io.BytesIO()
+                cropped.save(out_img, 'PNG')
+                out_img.seek(0)
+                return send_file(out_img, mimetype='image/png')
 
     def save_tile(self, tile, overwrite=True):
         """

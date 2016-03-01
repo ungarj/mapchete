@@ -45,25 +45,23 @@ def main(args):
         index_html = pkgutil.get_data('static', 'index.html')
         return index_html
 
-    @app.route('/wmts_simple', methods=['GET'])
-    def get_getcapabilities():
-        return "getcapabilities"
-
-    @app.route('/wmts_simple/<string:process_id>', methods=['GET'])
-    def get_processname(process_id):
-        return process_id
-
-    @app.route('/wmts_simple/1.0.0/mapchete/default/WGS84/<int:zoom>/<int:row>/<int:col>.png', methods=['GET'])
+    tile_base_url = '/wmts_simple/1.0.0/mapchete/default/WGS84/'
+    @app.route(
+        tile_base_url+'<int:zoom>/<int:row>/<int:col>.png',
+        methods=['GET']
+        )
     def get_tile(zoom, row, col):
-        # return str(zoom), str(row), str(col)
         tileindex = str(zoom), str(row), str(col)
         tile = (zoom, row, col)
         try:
-            metatile_id = process_host.tile_pyramid.tiles_from_tilepyramid(*tile)[0]
+            metatile = process_host.tile_pyramid.tiles_from_bbox(
+                process_host.tile_pyramid.tilepyramid.tile_bbox(*tile),
+                tile[0]
+                )[0]
             with metatile_lock:
-                metatile_event = metatile_cache.get(metatile_id)
+                metatile_event = metatile_cache.get(metatile)
                 if not metatile_event:
-                    metatile_cache[metatile_id] = threading.Event()
+                    metatile_cache[metatile] = threading.Event()
 
             if metatile_event:
                 metatile_event.wait()
@@ -74,8 +72,8 @@ def main(args):
                 raise
             finally:
                 if not metatile_event:
-                    metatile_event = metatile_cache.get(metatile_id)
-                    del metatile_cache[metatile_id]
+                    metatile_event = metatile_cache.get(metatile)
+                    del metatile_cache[metatile]
                     metatile_event.set()
 
             # set no-cache header:
@@ -86,15 +84,6 @@ def main(args):
             return Exception
 
     app.run(threaded=True, debug=True)
-
-
-def nocache(f):
-    def new_func(*args, **kwargs):
-        resp = make_response()
-        resp.cache_control.no_cache = True
-        return resp
-    return update_wrapper(new_func, f)
-
 
 
 if __name__ == '__main__':
