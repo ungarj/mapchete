@@ -294,8 +294,10 @@ class MapcheteHost():
                 return send_file(out_img, mimetype='image/png')
         else:
             try:
-                self.save_tile(metatile)
+                message = self.save_tile(metatile)[2]
             except:
+                raise
+            if message == "empty":
                 size = self.tile_pyramid.tilepyramid.tile_size
                 empty_image = Image.new('RGBA', (size, size))
                 return empty_image.tobytes()
@@ -327,9 +329,13 @@ class MapcheteHost():
         self.config["tile_pyramid"] = self.tile_pyramid
         mapchete_process = new_process.Process(self.config)
         try:
-            mapchete_process.execute()
+            result = mapchete_process.execute()
+            if result == "empty":
+                message = "empty"
+            else:
+                message = None
         except Exception as e:
             return tile, traceback.print_exc(), e
         finally:
             mapchete_process = None
-        return tile, "ok", None
+        return tile, "ok", message
