@@ -268,10 +268,10 @@ class MapcheteHost():
             )[0]
         # create metatile path
         zoom, row, col = metatile
-        output_path = self.config["output_name"]
-        zoomdir = os.path.join(output_path, str(zoom))
-        rowdir = os.path.join(zoomdir, str(row))
-        image_path = os.path.join(rowdir, str(col)+".png")
+        image_path = self.tile_pyramid.format.get_tile_name(
+            self.config["output_name"],
+            metatile
+        )
         # if metatiling, prepare pixel bounds of tile
         if self.tile_pyramid.metatiles > 1:
             # left, upper, right, and lower pixel coordinate

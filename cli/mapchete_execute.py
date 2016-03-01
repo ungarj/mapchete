@@ -18,6 +18,7 @@ def main(args):
     parser.add_argument("--zoom", "-z", type=int, nargs='*', )
     parser.add_argument("--bounds", "-b", type=float, nargs='*')
     parser.add_argument("--log", action="store_true")
+    parser.add_argument("--overwrite", action="store_true")
     parsed = parser.parse_args(args)
 
     try:
@@ -34,7 +35,7 @@ def main(args):
 
     print len(work_tiles), "tiles to be processed"
 
-    overwrite=True
+    overwrite = parsed.overwrite
 
     f = partial(worker,
         process_host=process_host,
@@ -91,7 +92,18 @@ def main(args):
 
 
 def worker(tile, process_host, overwrite):
-
+    """
+    Worker function running the process depending on the overwrite flag and
+    whether the tile exists.
+    """
+    if not overwrite:
+        image_path = process_host.tile_pyramid.format.get_tile_name(
+            process_host.config["output_name"],
+            tile
+        )
+        if os.path.isfile(image_path):
+            print "exists"
+            return tile, "exists", None
     log = process_host.save_tile(tile, overwrite)
     return log
 
