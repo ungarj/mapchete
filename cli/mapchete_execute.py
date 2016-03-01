@@ -44,13 +44,13 @@ def main(args):
     logs = []
 
     try:
-        counter = 0
-        pbar = ProgressBar(maxval=len(work_tiles)).start()
         output = pool.map_async(f, work_tiles, callback=logs.extend)
+        total = output._number_left
+        pbar = ProgressBar(maxval=total).start()
         pool.close()
         while (True):
             if (output.ready()): break
-            counter = len(work_tiles) - output._number_left
+            counter = total - output._number_left
             pbar.update(counter)
             # update cycle set to one second
             time.sleep(1)
@@ -92,7 +92,7 @@ def main(args):
 def worker(tile, process_host, overwrite):
 
     log = process_host.save_tile(tile, overwrite)
-    if log[1] not None:
+    if log[1]:
         return log
 
 
