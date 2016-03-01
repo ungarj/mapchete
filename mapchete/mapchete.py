@@ -257,6 +257,10 @@ class MapcheteHost():
         Gets/processes tile and returns as original output format or as PNG for
         viewing.
         """
+        if tile[0] not in self.config["zoom_levels"]:
+            size = self.tile_pyramid.tilepyramid.tile_size
+            empty_image = Image.new('RGBA', (size, size))
+            return empty_image.tobytes()
         # convert WMTS tile ID to metatile ID
         metatile = self.tile_pyramid.tiles_from_bbox(
             self.tile_pyramid.tilepyramid.tile_bbox(*tile),
@@ -279,8 +283,8 @@ class MapcheteHost():
             top = (tile_row % metatiling) * tile_size
             bottom = top + tile_size
 
-        # return image
         if os.path.isfile(image_path):
+            # return image if it exists
             if self.tile_pyramid.metatiles == 1:
                 # no metatiling: return full image
                 return send_file(image_path, mimetype='image/png')
@@ -293,11 +297,12 @@ class MapcheteHost():
                 out_img.seek(0)
                 return send_file(out_img, mimetype='image/png')
         else:
+            # generate image and return
             try:
-                message = self.save_tile(metatile)[2]
+                messages = self.save_tile(metatile)
             except:
                 raise
-            if message == "empty":
+            if messages[1] == "empty":
                 size = self.tile_pyramid.tilepyramid.tile_size
                 empty_image = Image.new('RGBA', (size, size))
                 return empty_image.tobytes()
@@ -331,11 +336,11 @@ class MapcheteHost():
         try:
             result = mapchete_process.execute()
             if result == "empty":
-                message = "empty"
+                status = "empty"
             else:
-                message = None
-        except Exception as e:
-            raise #Exception(tile, traceback.print_exc(), e)
+                status = "ok"
+        except:
+            raise
         finally:
             mapchete_process = None
-        return tile, "ok", message
+        return tile, status, None

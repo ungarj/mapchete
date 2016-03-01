@@ -8,6 +8,7 @@ from functools import update_wrapper
 import threading
 from PIL import Image
 import io
+import traceback
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -91,7 +92,7 @@ def main(args):
             out_img = io.BytesIO()
             empty_image.save(out_img, 'PNG')
             out_img.seek(0)
-            print e
+            print e, traceback.print_exc()
             return send_file(out_img, mimetype='image/png')
 
     app.run(threaded=True, debug=True)
