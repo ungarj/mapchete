@@ -251,26 +251,35 @@ class MapcheteHost():
         return work_tiles
 
 
-    def get_tile(self, tile, as_png=False, overwrite=True):
+    def get_tile(self, tile, overwrite=True):
         """
         Gets/processes tile and returns as original output format or as PNG for
         viewing.
         """
+        # TODO: tile <-> metatile conversion
+        # convert WMTS tile ID to metatile ID
+        # metatile_id = process_host.tile_pyramid.tiles_from_tilepyramid(*tile)[0]
+        # check if metatile is available
         zoom, row, col = tile
         output_path = self.config["output_name"]
         zoomdir = os.path.join(output_path, str(zoom))
         rowdir = os.path.join(zoomdir, str(row))
         image_path = os.path.join(rowdir, str(col)+".png")
         if os.path.isfile(image_path):
+            # no metatiling: return full image
             return send_file(image_path, mimetype='image/png')
+            # metatiling: extract tile from metatile
         else:
             try:
                 self.save_tile(tile)
             except:
-                size = self.tile_pyramid.tile_size
+                size = self.tile_pyramid.tilepyramid.tile_size
                 empty_image = Image.new('RGBA', (size, size))
                 return empty_image.tobytes()
+
+            # no metatiling: return full image
             return send_file(image_path, mimetype='image/png')
+            # metatiling: extract tile from metatile
 
 
     def save_tile(self, tile, overwrite=True):
