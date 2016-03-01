@@ -6,7 +6,8 @@ import argparse
 from flask import Flask, send_file, make_response
 from functools import update_wrapper
 import threading
-
+from PIL import Image
+import io
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -81,7 +82,17 @@ def main(args):
             resp.cache_control.no_cache = True
             return resp
         except Exception as e:
-            return Exception
+            size = process_host.tile_pyramid.tilepyramid.tile_size
+            empty_image = Image.new('RGBA', (size, size))
+            pixels = empty_image.load()
+            for y in xrange(size):
+                for x in xrange(size):
+                    pixels[x, y] = (255, 0, 0, 128)
+            out_img = io.BytesIO()
+            empty_image.save(out_img, 'PNG')
+            out_img.seek(0)
+            print e
+            return send_file(out_img, mimetype='image/png')
 
     app.run(threaded=True, debug=True)
 
