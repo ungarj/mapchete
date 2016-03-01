@@ -52,6 +52,7 @@ def main(args):
         return process_id
 
     @app.route('/wmts_simple/1.0.0/mapchete/default/WGS84/<int:zoom>/<int:row>/<int:col>.png', methods=['GET'])
+    @nocache
     def get_tile(zoom, row, col):
         # return str(zoom), str(row), str(col)
         tileindex = str(zoom), str(row), str(col)
@@ -79,9 +80,21 @@ def main(args):
             return image
         except Exception as e:
             return Exception
-        # return str(tileindex)
 
     app.run(threaded=True, debug=True)
+
+
+from flask import make_response
+from functools import update_wrapper
+
+def nocache(f):
+    def new_func(*args, **kwargs):
+        resp = make_response(f(*args, **kwargs))
+        resp.cache_control.no_cache = True
+        return resp
+    return update_wrapper(new_func, f)
+
+
 
 if __name__ == '__main__':
     main(sys.argv[1:])
