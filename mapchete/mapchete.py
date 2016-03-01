@@ -335,7 +335,7 @@ class MapcheteHost():
             else:
                 message = None
         except Exception as e:
-            return tile, traceback.print_exc(), e
+            raise #Exception(tile, traceback.print_exc(), e)
         finally:
             mapchete_process = None
         return tile, "ok", message

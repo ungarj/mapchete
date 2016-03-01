@@ -86,16 +86,13 @@ def main(args):
 
     if parsed.log:
         for row in logs:
-            if row[1] != "ok"
-            print row
+            if row[1] != "ok":
+                print row
 
 
 def worker(tile, process_host, overwrite):
 
     log = process_host.save_tile(tile, overwrite)
-    # if log[2] == None:
-    #     pass
-    # else:
     return log
 
 
