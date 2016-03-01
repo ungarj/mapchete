@@ -91,7 +91,9 @@ def main(args):
 
 def worker(tile, process_host, overwrite):
 
-    return process_host.save_tile(tile, overwrite)
+    log = process_host.save_tile(tile, overwrite)
+    if log[1] not None:
+        return log
 
 
 if __name__ == "__main__":

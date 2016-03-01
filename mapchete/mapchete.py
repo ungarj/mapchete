@@ -329,8 +329,7 @@ class MapcheteHost():
         try:
             mapchete_process.execute()
         except Exception as e:
-            print tile, traceback.print_exc(), e
-            raise
+            return tile, traceback.print_exc(), e
         finally:
             mapchete_process = None
         return tile, "ok", None
