@@ -267,7 +267,6 @@ class MapcheteHost():
             try:
                 self.save_tile(tile)
             except:
-                print "tile not available", tile
                 size = self.tile_pyramid.tile_size
                 empty_image = Image.new('RGBA', (size, size))
                 return empty_image.tobytes()
@@ -291,7 +290,8 @@ class MapcheteHost():
         try:
             mapchete_process.execute()
         except Exception as e:
-            return tile, traceback.print_exc(), e
+            print tile, traceback.print_exc(), e
+            raise
         finally:
             mapchete_process = None
         return tile, "ok", None

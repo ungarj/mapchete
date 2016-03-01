@@ -4,6 +4,7 @@ import os
 import sys
 import argparse
 from flask import Flask, send_file
+import threading
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -34,6 +35,9 @@ def main(args):
     app = Flask(__name__)
 
 
+    metatile_cache = {}
+    metatile_lock = threading.Lock()
+
     @app.route('/', methods=['GET'])
     def get_tasks():
         index_html = pkgutil.get_data('static', 'index.html')
@@ -53,13 +57,31 @@ def main(args):
         tileindex = str(zoom), str(row), str(col)
         tile = (zoom, row, col)
         try:
-            image = process_host.get_tile(tile)
+            metatile_id = process_host.tile_pyramid.tiles_from_tilepyramid(*tile)[0]
+            with metatile_lock:
+                metatile_event = metatile_cache.get(metatile_id)
+                if not metatile_event:
+                    metatile_cache[metatile_id] = threading.Event()
+
+            if metatile_event:
+                metatile_event.wait()
+
+            try:
+                image = process_host.get_tile(tile)
+            except:
+                raise
+            finally:
+                if not metatile_event:
+                    metatile_event = metatile_cache.get(metatile_id)
+                    del metatile_cache[metatile_id]
+                    metatile_event.set()
+
             return image
         except Exception as e:
             return Exception
         # return str(tileindex)
 
-    app.run(debug=True)
+    app.run(threaded=True, debug=True)
 
 if __name__ == '__main__':
     main(sys.argv[1:])
