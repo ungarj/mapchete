@@ -9,6 +9,7 @@ import time
 import logging
 import logging.config
 import traceback
+from py_compile import PyCompileError
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -70,7 +71,10 @@ def main(args):
             zoom=parsed.zoom,
             bounds=parsed.bounds
             )
-    except Exception as e:
+    except PyCompileError as e:
+        print e
+        return
+    except:
         raise
 
     work_tiles = process_host.get_work_tiles()

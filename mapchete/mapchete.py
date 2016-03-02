@@ -14,6 +14,7 @@ import traceback
 from PIL import Image
 import io
 from multiprocessing import Manager
+import py_compile
 
 from .config_utils import get_clean_configuration
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -240,6 +241,10 @@ class MapcheteHost():
             )
             self.format = self.tile_pyramid.format
         except Exception as e:
+            raise
+        try:
+            py_compile.compile(self.config["process_file"], doraise=True)
+        except:
             raise
 
 
