@@ -13,6 +13,7 @@ from flask import send_file
 import traceback
 from PIL import Image
 import io
+from multiprocessing import Manager
 
 from .config_utils import get_clean_configuration
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -212,6 +213,8 @@ class MapcheteProcess():
         zoom, row, col = self.tile
         self.params = config["zoom_levels"][zoom]
         self.config = config
+        # manager = Manager()
+        # self.locked_tiles = manager.dict()
 
 
 class MapcheteHost():
@@ -257,6 +260,9 @@ class MapcheteHost():
         Gets/processes tile and returns as original output format or as PNG for
         viewing.
         """
+        # TODO: pixelbuffer value (get neighbor metatiles, create VRT, read from
+        # VRT)
+        # TODO:
         if tile[0] not in self.config["zoom_levels"]:
             size = self.tile_pyramid.tilepyramid.tile_size
             empty_image = Image.new('RGBA', (size, size))
@@ -323,6 +329,12 @@ class MapcheteHost():
         """
         Processes and saves tile.
         """
+        # TODO tile locking
+        # required_tiles = []
+        # for tile in required_tiles:
+        #     if tile not in subprocess_host.locked_tiles:
+        #         subprocess_host.locked_tiles.append
+        #         subprocess_host.get_tile(tile)
         process_name = os.path.splitext(
             os.path.basename(self.config["process_file"])
         )[0]
@@ -335,12 +347,14 @@ class MapcheteHost():
         mapchete_process = new_process.Process(self.config)
         try:
             result = mapchete_process.execute()
-            if result == "empty":
-                status = "empty"
-            else:
-                status = "ok"
         except:
+            return tile, "failed", traceback.print_exc()
             raise
         finally:
             mapchete_process = None
+        if result:
+            if result == "empty":
+                status = "empty"
+        else:
+            status = "ok"
         return tile, status, None
