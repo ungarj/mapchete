@@ -54,6 +54,15 @@ def read_raster(
         metadata = None
         data = None
 
+    # Return None if bands are empty.
+    all_bands_empty = True
+    for band_data in out_data:
+        if not band_data.mask.all():
+            all_bands_empty = False
+    if all_bands_empty:
+        metadata = None
+        data = None
+
     return metadata, data
 
 
