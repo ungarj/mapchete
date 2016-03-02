@@ -145,6 +145,18 @@ def main(args):
         print "FAILED: read bounds from input files"
         print config["zoom_levels"][10]["process_area"], test_polygon
         raise
+    ## read .mapchete files as input files
+    mapchete_file = os.path.join(scriptdir, "testdata/mapchete_input.mapchete")
+    config = get_clean_configuration(mapchete_file)
+    area = config["zoom_levels"][5]["process_area"]
+    testpolygon = "POLYGON ((3 2, 3.5 2, 3.5 1.5, 3 1.5, 3 1, 2 1, 2 4, 3 4, 3 2))"
+    try:
+        assert area.equals(loads(testpolygon))
+        print "OK: read bounding box from .mapchete subfile"
+    except:
+        print "FAILED: read bounding box from .mapchete subfile"
+        raise
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

@@ -24,6 +24,26 @@ def get_clean_configuration(
       from the mapchete configuration file.
     - If any parameter is invalid or not available, an exception is thrown.
     - Configuration parameters are returned as a dictionary.
+    Minimum structure:
+    {
+        'metatiling': metatiling value,
+        'process_file': '<path/to/process_file>',
+        'output_format': 'GTIFF, PNG, ...',
+        'output_type': 'geodetic/mercator',
+        'output_name': '<output/path>',
+        'zoom_levels': {
+            5: {
+                'process_area': <shapely Polygon>,
+                'input_files': {
+                    'file2': 'path/to/file',
+                    'file1': 'path/to/file'
+                },
+            6: {
+                ...
+                }
+            }
+        }
+    }
     """
 
     additional_parameters = {
@@ -171,6 +191,7 @@ def get_clean_configuration(
     tile_pyramid = MetaTilePyramid(base_tile_pyramid, metatiling)
     bounds_per_zoom = {}
     input_files_per_zoom = {}
+    print config["input_files"]
     for zoom_level in zoom_levels:
         input_files = config.at_zoom(zoom_level)["input_files"]
         bboxes = []
@@ -179,11 +200,16 @@ def get_clean_configuration(
             if rel_path:
                 config_dir = os.path.dirname(os.path.realpath(mapchete_file))
                 abs_path = os.path.join(config_dir, rel_path)
-                bbox = file_bbox(
-                    abs_path,
-                    output_crs,
-                    segmentize=tile_pyramid.tile_x_size(zoom)*16
-                    )
+                if os.path.splitext(abs_path)[1] == ".mapchete":
+                    subprocess_config = get_clean_configuration(abs_path)
+                    sub_zooms = subprocess_config["zoom_levels"]
+                    bbox = sub_zooms[zoom_level]["process_area"]
+                else:
+                    bbox = file_bbox(
+                        abs_path,
+                        output_crs,
+                        segmentize=tile_pyramid.tile_x_size(zoom)*16
+                        )
                 bboxes.append(bbox)
             else:
                 abs_path = None
