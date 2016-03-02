@@ -5,11 +5,15 @@ import sys
 import argparse
 from functools import partial
 from multiprocessing import Pool, cpu_count
-from progressbar import ProgressBar
 import time
+import logging
+import logging.config
+import traceback
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
+
+logger = logging.getLogger("mapchete")
 
 def main(args):
 
@@ -21,8 +25,46 @@ def main(args):
     parser.add_argument("--overwrite", action="store_true")
     parsed = parser.parse_args(args)
 
+    log_dir = os.path.dirname(parsed.mapchete_file)
+    log_file = os.path.join(log_dir, "mapchete.log")
+
+    logging.config.dictConfig({
+        'version': 1,
+        'disable_existing_loggers': True,
+        'formatters': {
+            'simple': {
+                'format': '%(levelname)s: %(message)s'
+            },
+            'verbose': {
+                'format': '[%(asctime)s][%(module)s] %(levelname)s: %(message)s'
+            }
+        },
+        'handlers': {
+            'file': {
+                'level': 'DEBUG',
+                'class': 'logging.handlers.WatchedFileHandler',
+                'filename': log_file,
+                'formatter': 'verbose',
+                'filters': [],
+            },
+            'stream': {
+                'level': 'INFO',
+                'class': 'logging.StreamHandler',
+                'formatter': 'simple',
+                'filters': [],
+            }
+        },
+        'loggers': {
+            'mapchete': {
+                'handlers': ['file', 'stream'],
+                'level': 'DEBUG',
+                'propagate': True
+            }
+        }
+    })
+
     try:
-        print "preparing process ..."
+        logger.info("preparing process ...")
         process_host = MapcheteHost(
             parsed.mapchete_file,
             zoom=parsed.zoom,
@@ -33,7 +75,7 @@ def main(args):
 
     work_tiles = process_host.get_work_tiles()
 
-    print len(work_tiles), "tiles to be processed"
+    logger.info("%d tiles to be processed" % len(work_tiles))
 
     overwrite = parsed.overwrite
 
@@ -43,19 +85,9 @@ def main(args):
     )
     pool = Pool()
     logs = []
-
     try:
         output = pool.map_async(f, work_tiles, callback=logs.extend)
-        total = output._number_left
-        pbar = ProgressBar(maxval=total).start()
         pool.close()
-        while (True):
-            if (output.ready()): break
-            counter = total - output._number_left
-            pbar.update(counter)
-            # update cycle set to one second
-            time.sleep(1)
-        pbar.finish()
     except KeyboardInterrupt:
         pool.terminate()
         sys.exit()
@@ -87,7 +119,7 @@ def main(args):
 
     if parsed.log:
         for row in logs:
-            if row[1] != "ok":
+            if row[1] not in ["ok", "exists"]:
                 print row
 
 
@@ -102,10 +134,16 @@ def worker(tile, process_host, overwrite):
             tile
         )
         if os.path.isfile(image_path):
-            print "exists"
+            log_message = (tile, "exists", None)
+            logger.info(log_message)
             return tile, "exists", None
-    log = process_host.save_tile(tile, overwrite)
-    return log
+    try:
+        log_message = process_host.save_tile(tile, overwrite)
+    except Exception as e:
+        log_message = (tile, "failed", traceback.print_exc())
+
+    logger.info(log_message)
+    return log_message
 
 
 if __name__ == "__main__":
