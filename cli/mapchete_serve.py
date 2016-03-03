@@ -15,7 +15,7 @@ from tilematrix import TilePyramid, MetaTilePyramid
 
 import pkgutil
 
-process_host = None
+mapchete = None
 
 def main(args):
 
@@ -28,11 +28,13 @@ def main(args):
 
     try:
         print "preparing process ..."
-        process_host = MapcheteHost(
-            parsed.mapchete_file,
-            zoom=parsed.zoom,
-            bounds=parsed.bounds
+        mapchete = Mapchete(
+            MapcheteConfig(
+                parsed.mapchete_file,
+                zoom=parsed.zoom,
+                bounds=parsed.bounds
             )
+        )
     except Exception as e:
         raise
 
@@ -53,11 +55,10 @@ def main(args):
         methods=['GET']
         )
     def get_tile(zoom, row, col):
-        tileindex = str(zoom), str(row), str(col)
         tile = (zoom, row, col)
         try:
-            metatile = process_host.tile_pyramid.tiles_from_bbox(
-                process_host.tile_pyramid.tilepyramid.tile_bbox(*tile),
+            metatile = mapchete.tile_pyramid.tiles_from_bbox(
+                mapchete.tile_pyramid.tilepyramid.tile_bbox(*tile),
                 tile[0]
                 ).next()
             with metatile_lock:
@@ -69,7 +70,7 @@ def main(args):
                 metatile_event.wait()
 
             try:
-                image = process_host.get_tile(tile)
+                image = mapchete.get(tile)
             except:
                 raise
             finally:
@@ -83,7 +84,7 @@ def main(args):
             resp.cache_control.no_cache = True
             return resp
         except Exception as e:
-            size = process_host.tile_pyramid.tilepyramid.tile_size
+            size = mapchete.tile_pyramid.tilepyramid.tile_size
             empty_image = Image.new('RGBA', (size, size))
             pixels = empty_image.load()
             for y in xrange(size):

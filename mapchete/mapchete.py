@@ -1,251 +1,55 @@
 #!/usr/bin/env python
-"""
-This attempt to generalize geoprocesses is strongly inspired by the structure
-used by PyWPS:
-http://pywps.wald.intevation.org/documentation/course/process/index.html
-"""
 
-from collections import OrderedDict
-import yaml
+import py_compile
 import os
 import imp
-from flask import send_file
 import traceback
+from flask import send_file
 from PIL import Image
 import io
-from multiprocessing import Manager
-import py_compile
 
-from .config_utils import get_clean_configuration
 from tilematrix import TilePyramid, MetaTilePyramid
 
-def _strip_zoom(input_string, strip_string):
+
+class Mapchete(object):
     """
-    Returns zoom level as integer or throws error.
+    Class handling MapcheteProcesses and MapcheteConfigs. Main acces point to
+    get, retrieve tiles or seed entire pyramids.
     """
-    element_zoom = input_string.strip(strip_string)
-    try:
-        return int(element_zoom)
-    except:
-        raise SyntaxError
+    def __repr__(self):
+        return "<objec 'Mapchete'>"
 
-def _element_at_zoom(name, element, zoom):
-    """
-    Returns the element filtered by zoom level.
-    - An input integer or float gets returned as is.
-    - An input string is checked whether it starts with "zoom". Then, the
-      provided zoom level gets parsed and compared with the actual zoom level.
-      If zoom levels match, the element gets returned.
+    def __str__(self):
+        return 'Mapchete: %s' % self.config.mapchete_file
 
-    TODOs/gotchas:
-    - Elements are unordered, which can lead to unexpected results when defining
-      the YAML config.
-    - Provided zoom levels for one element in config file are not allowed to
-      "overlap", i.e. there is not yet a decision mechanism implemented which
-      handles this case.
-    """
-    # If element is a dictionary, analyze subitems.
-    if isinstance(element, dict):
-        sub_elements = element
-        out_elements = {}
-        for sub_name, sub_element in sub_elements.iteritems():
-            out_element = _element_at_zoom(sub_name, sub_element, zoom)
-            if name == "input_files":
-
-                out_elements[sub_name] = out_element
-            elif out_element != None:
-                out_elements[sub_name] = out_element
-        # If there is only one subelement, collapse unless it is input_files.
-        # In such case, return a dictionary.
-        if len(out_elements) == 1 and name != "input_files":
-            return out_elements.itervalues().next()
-        # If subelement is empty, return None
-        if len(out_elements) == 0:
-            return None
-        return out_elements
-
-    # If element is a zoom level statement, filter element.
-    if isinstance(name, str):
-        if name.startswith("zoom"):
-            cleaned = name.strip("zoom").strip()
-            if cleaned.startswith("<="):
-                name_zoom = _strip_zoom(cleaned, "<=")
-                if zoom <= name_zoom:
-                    return element
-            elif cleaned.startswith(">="):
-                name_zoom = _strip_zoom(cleaned, ">=")
-                if zoom >= name_zoom:
-                    return element
-            elif cleaned.startswith("<"):
-                name_zoom = _strip_zoom(cleaned, "<")
-                if zoom < name_zoom:
-                    return element
-            elif cleaned.startswith(">"):
-                name_zoom = _strip_zoom(cleaned, ">")
-                if zoom > name_zoom:
-                    return element
-            else:
-                return None
-        # If element is a string but not a zoom level statement, return element.
-        else:
-            return element
-    else:
-        # If element is a number, return as number.
-        return element
-
-
-class MapcheteConfig():
-    """
-    Creates a configuration object. As model parameters can change per zoom
-    level, the method at_zoom(zoom) returns only the parameters at a given
-    zoom level.
-    """
-    def __init__(self, config_path):
-        try:
-            with open(config_path, "r") as config_file:
-                self.config = yaml.load(config_file.read())
-        except:
-            raise
-        self.path = config_path
-
-
-    def at_zoom(self, zoom):
-        """
-        Returns the configuration parameters at given zoom level.
-        """
-        params = {}
-        for name, element in self.config.iteritems():
-            out_element = _element_at_zoom(name, element, zoom)
-            if out_element != None:
-                params[name] = out_element
-
-        return params
-
-    def is_valid_at_zoom(self, zoom):
-        """
-        Checks if mapchete can run using this configuration. Checks
-        - the provision of mandatory parameters:
-          - input file(s)
-          - output name
-          - output format
-        - if input files exist and can be read via Fiona or rasterio
-        Returns True or False.
-        """
-        # TODO
-        config = self.at_zoom(zoom)
-        try:
-            assert "input_files" in config
-        except:
-            return False
-        try:
-            assert isinstance(config["input_files"], dict)
-        except:
-            return False
-        for input_file, rel_path in config["input_files"].iteritems():
-            if rel_path:
-                config_dir = os.path.dirname(os.path.realpath(self.path))
-                abs_path = os.path.join(config_dir, rel_path)
-                try:
-                    assert os.path.isfile(os.path.join(abs_path))
-                except:
-                    return False
-        try:
-            assert "output_name" in config
-        except:
-            return False
-        try:
-            assert "output_format" in config
-        except:
-            return False
-        return True
-
-
-    def explain_validity_at_zoom(self, zoom):
-        """
-        For debugging purposes if is_valid_at_zoom() returns False.
-        """
-        # TODO
-        config = self.at_zoom(zoom)
-        try:
-            assert "input_files" in config
-        except:
-            return "'input_files' empty for zoom level %s" % zoom
-        try:
-            assert isinstance(config["input_files"], dict)
-        except:
-            return "'input_files' invalid at zoom level %s: '%s'" %(
-                zoom,
-                config["input_files"]
-                )
-        for input_file, rel_path in config["input_files"].iteritems():
-            if rel_path:
-                config_dir = os.path.dirname(os.path.realpath(self.path))
-                abs_path = os.path.join(config_dir, rel_path)
-                try:
-                    assert os.path.isfile(os.path.join(abs_path))
-                except:
-                    return "invalid path '%s'" % abs_path
-        try:
-            assert "output_name" in config
-        except:
-            return "output_name not provided"
-        try:
-            assert "output_format" in config
-        except:
-            return "output_format not provided"
-        return "everything OK"
-
-
-class MapcheteProcess():
-    """
-    Main process class. Needs a Mapchete configuration YAML as input.
-    """
-
-    def __init__(self, config):
-        """
-        Process initialization.
-        """
-        self.identifier = ""
-        self.title = ""
-        self.version = ""
-        self.abstract = ""
-        self.tile = config["tile"]
-        self.tile_pyramid = config["tile_pyramid"]
-        zoom, row, col = self.tile
-        self.params = config["zoom_levels"][zoom]
-        self.config = config
-        # manager = Manager()
-        # self.locked_tiles = manager.dict()
-
-
-class MapcheteHost():
-    """
-    Class handling MapcheteProcesses and MapcheteConfigs.
-    """
-
-    def __init__(self, mapchete_file, zoom=None, bounds=None):
+    def __init__(
+        self,
+        config,
+        ):
         """
         Initialize with a .mapchete file and optional zoom & bound parameters.
         """
         try:
-            self.config = get_clean_configuration(
-                mapchete_file,
-                zoom=zoom,
-                bounds=bounds
-                )
-            base_tile_pyramid = TilePyramid(str(self.config["output_type"]))
-            base_tile_pyramid.set_format(self.config["output_format"])
+            self.config = config
+            base_tile_pyramid = TilePyramid(self.config.output_type)
+            try:
+                base_tile_pyramid.set_format(self.config.output_format)
+            except:
+                raise
             self.tile_pyramid = MetaTilePyramid(
                 base_tile_pyramid,
-                self.config["metatiling"]
+                self.config.metatiling
             )
             self.format = self.tile_pyramid.format
-        except Exception as e:
-            raise
-        try:
-            py_compile.compile(self.config["process_file"], doraise=True)
         except:
             raise
+        try:
+            py_compile.compile(self.config.process_file, doraise=True)
+        except:
+            raise
+        self.process_name = os.path.splitext(
+            os.path.basename(self.config.process_file)
+        )[0]
 
 
     def get_work_tiles(self):
@@ -253,84 +57,14 @@ class MapcheteHost():
         Determines the tiles affected by zoom levels, bounding box and input
         data.
         """
-        for zoom in self.config["zoom_levels"]:
-            bbox = self.config["zoom_levels"][zoom]["process_area"]
+        for zoom in self.config.zoom_levels:
+            bbox = self.config.process_area(5)
 
             for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
                 yield tile
 
 
-    def get_tile(self, tile, overwrite=True):
-        """
-        Gets/processes tile and returns as original output format or as PNG for
-        viewing.
-        """
-        # TODO: pixelbuffer value (get neighbor metatiles, create VRT, read from
-        # VRT)
-        # TODO:
-        if tile[0] not in self.config["zoom_levels"]:
-            size = self.tile_pyramid.tilepyramid.tile_size
-            empty_image = Image.new('RGBA', (size, size))
-            return empty_image.tobytes()
-        # convert WMTS tile ID to metatile ID
-        metatile = self.tile_pyramid.tiles_from_bbox(
-            self.tile_pyramid.tilepyramid.tile_bbox(*tile),
-            tile[0]
-            ).next()
-        # create metatile path
-        zoom, row, col = metatile
-        image_path = self.tile_pyramid.format.get_tile_name(
-            self.config["output_name"],
-            metatile
-        )
-        # if metatiling, prepare pixel bounds of tile
-        if self.tile_pyramid.metatiles > 1:
-            # left, upper, right, and lower pixel coordinate
-            tile_zoom, tile_row, tile_col = tile
-            tile_size = self.tile_pyramid.tilepyramid.tile_size
-            metatiling = self.tile_pyramid.metatiles
-            left = (tile_col % metatiling) * tile_size
-            right = left + tile_size
-            top = (tile_row % metatiling) * tile_size
-            bottom = top + tile_size
-
-        if os.path.isfile(image_path):
-            # return image if it exists
-            if self.tile_pyramid.metatiles == 1:
-                # no metatiling: return full image
-                return send_file(image_path, mimetype='image/png')
-            else:
-                # metatiling: extract tile from metatile
-                img = Image.open(image_path)
-                cropped = img.crop((left, top, right, bottom))
-                out_img = io.BytesIO()
-                cropped.save(out_img, 'PNG')
-                out_img.seek(0)
-                return send_file(out_img, mimetype='image/png')
-        else:
-            # generate image and return
-            try:
-                messages = self.save_tile(metatile)
-            except:
-                raise
-            if messages[1] == "empty":
-                size = self.tile_pyramid.tilepyramid.tile_size
-                empty_image = Image.new('RGBA', (size, size))
-                return empty_image.tobytes()
-
-            if self.tile_pyramid.metatiles == 1:
-                # no metatiling: return full image
-                return send_file(image_path, mimetype='image/png')
-            else:
-                # metatiling: extract tile from metatile
-                img = Image.open(image_path)
-                cropped = img.crop((left, top, right, bottom))
-                out_img = io.BytesIO()
-                cropped.save(out_img, 'PNG')
-                out_img.seek(0)
-                return send_file(out_img, mimetype='image/png')
-
-    def save_tile(self, tile, overwrite=True):
+    def execute(self, tile, overwrite=True):
         """
         Processes and saves tile.
         """
@@ -340,26 +74,153 @@ class MapcheteHost():
         #     if tile not in subprocess_host.locked_tiles:
         #         subprocess_host.locked_tiles.append
         #         subprocess_host.get_tile(tile)
-        process_name = os.path.splitext(
-            os.path.basename(self.config["process_file"])
-        )[0]
+        zoom, row, col = tile
+        if not overwrite and self.exists(tile):
+            return tile, "exists", None
         new_process = imp.load_source(
-            process_name + "Process",
-            self.config["process_file"]
+            self.process_name + "Process",
+            self.config.process_file
             )
-        self.config["tile"] = tile
-        self.config["tile_pyramid"] = self.tile_pyramid
-        mapchete_process = new_process.Process(self.config)
+        tile_process = new_process.Process(
+            config=self.config,
+            tile=tile,
+            tile_pyramid=self.tile_pyramid,
+            params=self.config.at_zoom(zoom)
+            )
         try:
-            result = mapchete_process.execute()
+            result = tile_process.execute()
         except:
             return tile, "failed", traceback.print_exc()
             raise
         finally:
-            mapchete_process = None
+            tile_process = None
         if result:
             if result == "empty":
                 status = "empty"
         else:
             status = "ok"
         return tile, status, None
+
+
+    def get(self, tile, overwrite=True):
+        """
+        Processes if necessary and gets tile.
+        """
+        zoom, row, col = tile
+        # return empty image if nothing to do at zoom level
+        if zoom not in self.config.zoom_levels:
+            return self._empty_image()
+
+        # return/process tile or crop/process metatile
+        if self.config.metatiling > 1:
+            metatile = self.tile_pyramid.tiles_from_bbox(
+                self.tile_pyramid.tilepyramid.tile_bbox(*tile),
+                zoom
+                ).next()
+            # get image path
+            image_path = self.tile_pyramid.format.get_tile_name(
+                self.config.output_name,
+                metatile
+            )
+            # if overwrite is on or metatile doesn't exist, generate
+            if overwrite or not self.exists(metatile):
+                try:
+                    messages = self.execute(metatile)
+                except:
+                    raise
+                # return empty image if process messaged empty
+                if messages[1] == "empty":
+                    return self._empty_image()
+            # return cropped image
+            return send_file(
+                self._cropped_metatile(metatile, tile),
+                mimetype='image/png'
+            )
+
+        # return/process tile with no metatiling
+        else:
+            # get image path
+            image_path = self.tile_pyramid.format.get_tile_name(
+                self.config.output_name,
+                tile
+            )
+            # if overwrite is on or metatile doesn't exist, generate
+            if overwrite or not self.exists(tile):
+                try:
+                    messages = self.execute(tile)
+                except:
+                    raise
+                # return empty image if process messaged empty
+                if messages[1] == "empty":
+                    return self._empty_image()
+            return send_file(image_path, mimetype='image/png')
+
+
+    def exists(self, tile):
+        """
+        Returns True if file exists or False if not.
+        """
+        image_path = self.tile_pyramid.format.get_tile_name(
+            self.config.output_name,
+            tile
+        )
+        return os.path.isfile(image_path)
+
+
+    def _empty_image(self):
+        """
+        Creates transparent PNG
+        """
+        size = self.tile_pyramid.tilepyramid.tile_size
+        empty_image = Image.new('RGBA', (size, size))
+        return empty_image.tobytes()
+
+
+    def _cropped_metatile(self, metatile, tile):
+        """
+        Crops metatile to tile.
+        """
+        tile_zoom, tile_row, tile_col = tile
+        tile_size = self.tile_pyramid.tilepyramid.tile_size
+        metatiling = self.tile_pyramid.metatiles
+        # calculate pixel boundary
+        left = (tile_col % metatiling) * tile_size
+        right = left + tile_size
+        top = (tile_row % metatiling) * tile_size
+        bottom = top + tile_size
+        # open buffer image and crop metatile
+        image_path = self.tile_pyramid.format.get_tile_name(
+            self.config.output_name,
+            metatile
+        )
+        img = Image.open(image_path)
+        cropped = img.crop((left, top, right, bottom))
+        out_img = io.BytesIO()
+        cropped.save(out_img, 'PNG')
+        out_img.seek(0)
+        return out_img
+
+
+class MapcheteProcess():
+    """
+    Main process class. Needs a Mapchete configuration YAML as input.
+    """
+
+    def __init__(
+        self,
+        config=None,
+        tile=None,
+        params=None,
+        tile_pyramid=None
+        ):
+        """
+        Process initialization.
+        """
+        self.identifier = ""
+        self.title = ""
+        self.version = ""
+        self.abstract = ""
+        self.tile = tile
+        self.tile_pyramid = tile_pyramid
+        self.params = params
+        self.config = config
