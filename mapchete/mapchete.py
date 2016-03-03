@@ -276,7 +276,7 @@ class MapcheteHost():
         metatile = self.tile_pyramid.tiles_from_bbox(
             self.tile_pyramid.tilepyramid.tile_bbox(*tile),
             tile[0]
-            )[0]
+            ).next()
         # create metatile path
         zoom, row, col = metatile
         image_path = self.tile_pyramid.format.get_tile_name(

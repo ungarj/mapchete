@@ -26,7 +26,8 @@ setup(
         'fiona',
         'pyyaml',
         'flask',
-        'Pillow'
+        'Pillow',
+        'scipy'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

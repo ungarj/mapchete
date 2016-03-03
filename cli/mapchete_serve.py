@@ -59,7 +59,7 @@ def main(args):
             metatile = process_host.tile_pyramid.tiles_from_bbox(
                 process_host.tile_pyramid.tilepyramid.tile_bbox(*tile),
                 tile[0]
-                )[0]
+                ).next()
             with metatile_lock:
                 metatile_event = metatile_cache.get(metatile)
                 if not metatile_event:
