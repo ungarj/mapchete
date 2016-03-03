@@ -102,12 +102,12 @@ def write_raster(
             )
 
     process.tile_pyramid.format.prepare(
-        process.config["output_name"],
+        process.config.output_name,
         process.tile
     )
 
     out_file = process.tile_pyramid.format.get_tile_name(
-        process.config["output_name"],
+        process.config.output_name,
         process.tile
     )
 
