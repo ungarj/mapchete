@@ -6,5 +6,5 @@ input_files:
     file1: dummy1.tif
 
 output_name: test
-output_format: test
+output_format: GTiff
 output_type: geodetic

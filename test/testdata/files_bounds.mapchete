@@ -9,5 +9,5 @@ input_files:
     file2: dummy2.tif
 
 output_name: test
-output_format: test
+output_format: PNG_hillshade
 output_type: geodetic

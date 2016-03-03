@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
 from .mapchete import (
-    MapcheteHost,
-    MapcheteConfig,
+    Mapchete,
     MapcheteProcess
 )
 
 from .config_utils import (
-    get_clean_configuration
+    MapcheteConfig
 )
 
 from .io_utils import (

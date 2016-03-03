@@ -31,8 +31,16 @@ def main(args):
 
     # Load source process from python file and initialize.
     mapchete_file = os.path.join(scriptdir, "example.mapchete")
+    mapchete = Mapchete(MapcheteConfig(mapchete_file))
 
-    config = MapcheteConfig(mapchete_file)
+    # Validate configuration constructor
+    ## basic run through
+    try:
+        config = mapchete.config
+        print "OK: basic configuraiton constructor run through"
+    except:
+        print "FAILED: basic configuraiton constructor run through"
+        raise
 
     try:
         # Check configuration at zoom level 5
@@ -61,20 +69,11 @@ def main(args):
     else:
         print "OK: basic configuration parsing"
 
-
-    # Validate configuration constructor
-    ## basic run through
-    try:
-        config = get_clean_configuration(mapchete_file)
-        print "OK: basic configuraiton constructor run through"
-    except:
-        print "FAILED: basic configuraiton constructor run through"
-        raise
     ## read zoom level from config file
     mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
+    config = Mapchete(MapcheteConfig(mapchete_file)).config
     try:
-        config = get_clean_configuration(mapchete_file)
-        assert 5 in config["zoom_levels"]
+        assert 5 in config.zoom_levels
         print "OK: read zoom level from config file"
     except:
         print "FAILED: read zoom level from config file"
@@ -82,73 +81,70 @@ def main(args):
         raise
     ## read min/max zoom levels from config file
     mapchete_file = os.path.join(scriptdir, "testdata/minmax_zoom.mapchete")
-    config = get_clean_configuration(mapchete_file)
+    config = Mapchete(MapcheteConfig(mapchete_file)).config
     try:
         for zoom in [7, 8, 9, 10]:
-            assert zoom in config["zoom_levels"]
+            assert zoom in config.zoom_levels
         print "OK: read  min/max zoom levels from config file"
     except:
         print "FAILED: read  min/max zoom levels from config file"
         raise
     ## zoom levels override
     mapchete_file = os.path.join(scriptdir, "testdata/minmax_zoom.mapchete")
-    config = get_clean_configuration(
-        mapchete_file,
-        zoom=[1, 4]
-        )
+    config = Mapchete(MapcheteConfig(mapchete_file, zoom=[1, 4])).config
     try:
         for zoom in [1, 2, 3, 4]:
-            assert zoom in config["zoom_levels"]
+            assert zoom in config.zoom_levels
         print "OK: zoom levels override"
     except:
         print "FAILED: zoom levels override"
         raise
     ## read bounds from config file
     mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
-    config = get_clean_configuration(mapchete_file)
+    config = Mapchete(MapcheteConfig(mapchete_file)).config
     try:
         test_polygon = Polygon([
             [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
             ])
-        assert config["zoom_levels"][5]["process_area"].equals(test_polygon)
+        assert config.process_area(5).equals(test_polygon)
         print "OK: read bounds from config file"
     except:
         print "FAILED: read bounds from config file"
-        print config["zoom_levels"][5]["process_area"]
+        print config.process_area(5), test_polygon
         raise
     ## override bounds
     mapchete_file = os.path.join(scriptdir, "testdata/zoom.mapchete")
-    config = get_clean_configuration(
+    config = Mapchete(MapcheteConfig(
         mapchete_file,
         bounds=[3, 2, 3.5, 1.5]
-        )
+        )).config
     try:
         test_polygon = Polygon([
             [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
             ])
-        assert config["zoom_levels"][5]["process_area"].equals(test_polygon)
+        assert config.process_area(5).equals(test_polygon)
         print "OK: override bounds"
     except:
         print "FAILED: override bounds"
-        print config["zoom_levels"][5]["process_area"]
+        print config.process_area(5)
         raise
     ## read bounds from input files
     mapchete_file = os.path.join(scriptdir, "testdata/files_bounds.mapchete")
-    config = get_clean_configuration(mapchete_file)
+    config = Mapchete(MapcheteConfig(mapchete_file)).config
     try:
         test_polygon = Polygon(
         [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
         )
-        assert config["zoom_levels"][10]["process_area"].equals(test_polygon)
+        assert config.process_area(10).equals(test_polygon)
         print "OK: read bounds from input files"
     except:
         print "FAILED: read bounds from input files"
-        print config["zoom_levels"][10]["process_area"], test_polygon
+        print config.process_area(10), test_polygon
         raise
     ## read .mapchete files as input files
     mapchete_file = os.path.join(scriptdir, "testdata/mapchete_input.mapchete")
-    config = get_clean_configuration(mapchete_file)
-    area = config["zoom_levels"][5]["process_area"]
+    config = Mapchete(MapcheteConfig(mapchete_file)).config
+    area = config.process_area(5)
     testpolygon = "POLYGON ((3 2, 3.5 2, 3.5 1.5, 3 1.5, 3 1, 2 1, 2 4, 3 4, 3 2))"
     try:
         assert area.equals(loads(testpolygon))
