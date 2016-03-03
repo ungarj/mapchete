@@ -44,29 +44,7 @@ class MapcheteConfig():
         self.output_format = self._get_output_format()
         self.metatiling = self._get_metatiling()
         self.process_bounds = self._get_process_bounds(bounds)
-
-
-
-    def _get_process_bounds(self, bounds):
-        """
-        Calculates process bounds.
-        """
-        raw_config = self._raw_config
-        ### process_bounds
-        try:
-            config_bounds = raw_config["process_bounds"]
-            bounds = config_bounds
-        except:
-            bounds = None
-        #### overwrite if bounds are provided explicitly
-        if self._additional_parameters["bounds"]:
-            # validate bounds
-            try:
-                assert len(self._additional_parameters["bounds"]) == 4
-            except:
-                raise ValueError("Invalid number of process bounds.")
-            bounds = self._additional_parameters["bounds"]
-        return bounds
+        self.output_name = self._raw_config["output_name"]
 
 
     def input_files(self, zoom):
@@ -130,6 +108,28 @@ class MapcheteConfig():
                 # level list
                 out_area = None
         return out_area
+
+
+    def _get_process_bounds(self, bounds):
+        """
+        Calculates process bounds.
+        """
+        raw_config = self._raw_config
+        ### process_bounds
+        try:
+            config_bounds = raw_config["process_bounds"]
+            bounds = config_bounds
+        except:
+            bounds = None
+        #### overwrite if bounds are provided explicitly
+        if self._additional_parameters["bounds"]:
+            # validate bounds
+            try:
+                assert len(self._additional_parameters["bounds"]) == 4
+            except:
+                raise ValueError("Invalid number of process bounds.")
+            bounds = self._additional_parameters["bounds"]
+        return bounds
 
 
     def _get_output_format(self):
@@ -203,10 +203,10 @@ class MapcheteConfig():
                 zoom = [minzoom, maxzoom]
             except:
                 zoom = None
-        #### overwrite zoom if provided in additional_parameters
+        # overwrite zoom if provided in additional_parameters
         if self._additional_parameters["zoom"]:
             zoom = self._additional_parameters["zoom"]
-        #### if zoom still empty, throw exception
+        # if zoom still empty, throw exception
         if not zoom:
             raise Exception("No zoom level(s) provided.")
         if len(zoom) == 1:
@@ -230,6 +230,7 @@ class MapcheteConfig():
                 )
         return zoom_levels
 
+
     def _get_process_file(self):
         """
         Gets mapchete process file or raises Exception if it doesn't exist.
@@ -249,6 +250,9 @@ class MapcheteConfig():
             raise IOError("%s is not available" % mapchete_process_file)
         return mapchete_process_file
 
+
+    # configuration parsing functions #
+    ###################################
     def _strip_zoom(self, input_string, strip_string):
         """
         Returns zoom level as integer or throws error.
@@ -265,15 +269,15 @@ class MapcheteConfig():
         Returns the element filtered by zoom level.
         - An input integer or float gets returned as is.
         - An input string is checked whether it starts with "zoom". Then, the
-          provided zoom level gets parsed and compared with the actual zoom level.
-          If zoom levels match, the element gets returned.
+          provided zoom level gets parsed and compared with the actual zoom
+          level. If zoom levels match, the element gets returned.
 
         TODOs/gotchas:
-        - Elements are unordered, which can lead to unexpected results when defining
-          the YAML config.
+        - Elements are unordered, which can lead to unexpected results when
+          defining the YAML config.
         - Provided zoom levels for one element in config file are not allowed to
-          "overlap", i.e. there is not yet a decision mechanism implemented which
-          handles this case.
+          "overlap", i.e. there is not yet a decision mechanism implemented
+          which handles this case.
         """
         # If element is a dictionary, analyze subitems.
         if isinstance(element, dict):
@@ -374,3 +378,38 @@ class MapcheteConfig():
         except:
             return False
         return True
+
+    def explain_validity_at_zoom(self, zoom):
+        """
+        For debugging purposes if is_valid_at_zoom() returns False.
+        """
+        # TODO
+        config = self.at_zoom(zoom)
+        try:
+            assert "input_files" in config
+        except:
+            return "'input_files' empty for zoom level %s" % zoom
+        try:
+            assert isinstance(config["input_files"], dict)
+        except:
+            return "'input_files' invalid at zoom level %s: '%s'" %(
+                zoom,
+                config["input_files"]
+                )
+        for input_file, rel_path in config["input_files"].iteritems():
+            if rel_path:
+                config_dir = os.path.dirname(os.path.realpath(self.path))
+                abs_path = os.path.join(config_dir, rel_path)
+                try:
+                    assert os.path.isfile(os.path.join(abs_path))
+                except:
+                    return "invalid path '%s'" % abs_path
+        try:
+            assert "output_name" in config
+        except:
+            return "output_name not provided"
+        try:
+            assert "output_format" in config
+        except:
+            return "output_format not provided"
+        return "everything OK"
