@@ -253,11 +253,11 @@ class MapcheteHost():
         Determines the tiles affected by zoom levels, bounding box and input
         data.
         """
-        work_tiles = []
         for zoom in self.config["zoom_levels"]:
             bbox = self.config["zoom_levels"][zoom]["process_area"]
-            work_tiles.extend(self.tile_pyramid.tiles_from_geom(bbox, zoom))
-        return work_tiles
+
+            for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
+                yield tile
 
 
     def get_tile(self, tile, overwrite=True):

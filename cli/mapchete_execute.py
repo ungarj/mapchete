@@ -79,8 +79,6 @@ def main(args):
 
     work_tiles = process_host.get_work_tiles()
 
-    logger.info("%d tiles to be processed" % len(work_tiles))
-
     overwrite = parsed.overwrite
 
     f = partial(worker,
@@ -89,6 +87,7 @@ def main(args):
     )
     pool = Pool()
     logs = []
+    logger.info("starting process ...")
     try:
         output = pool.map_async(f, work_tiles, callback=logs.extend)
         pool.close()

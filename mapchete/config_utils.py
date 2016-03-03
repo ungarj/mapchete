@@ -191,7 +191,6 @@ def get_clean_configuration(
     tile_pyramid = MetaTilePyramid(base_tile_pyramid, metatiling)
     bounds_per_zoom = {}
     input_files_per_zoom = {}
-    print config["input_files"]
     for zoom_level in zoom_levels:
         input_files = config.at_zoom(zoom_level)["input_files"]
         bboxes = []
