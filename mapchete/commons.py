@@ -6,42 +6,6 @@ import numpy as np
 from itertools import product
 from math import pi, sin, cos
 
-def get_best_zoom_level(path, srs):
-    """
-    Determines the best base zoom level for a raster. "Best" means the maximum
-    zoom level where no oversampling has to be done.
-    """
-    tile_pyramid = TilePyramid("geodetic")
-    dst_crs = tile_pyramid.crs
-    with rasterio.open(path, "r") as input_raster:
-        src_crs = input_raster.crs
-        src_width = input_raster.width
-        src_height = input_raster.height
-        src_left, src_bottom, src_right, src_top = input_raster.bounds
-
-    xmin, ymin, xmax, ymax = transform_bounds(
-        src_crs,
-        dst_crs,
-        src_left,
-        src_bottom,
-        src_right,
-        src_top
-        )
-
-    x_dif = xmax - xmin
-    y_dif = ymax - ymin
-    size = float(src_width + src_height)
-    avg_resolution = (
-        (x_dif / float(src_width)) * (float(src_width) / size) +
-        (y_dif / float(src_height)) * (float(src_height) / size)
-    )
-
-    for zoom in range(0, 25):
-        if (tile_pyramid.pixel_x_size(zoom) < avg_resolution):
-            return zoom-1
-        else:
-            raise ValueError("no fitting zoom level found")
-
 
 NODATA = -1
 

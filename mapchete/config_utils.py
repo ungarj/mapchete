@@ -206,8 +206,7 @@ def get_clean_configuration(
                 else:
                     bbox = file_bbox(
                         abs_path,
-                        output_crs,
-                        segmentize=tile_pyramid.tile_x_size(zoom)*16
+                        tile_pyramid
                         )
                 bboxes.append(bbox)
             else:

@@ -17,6 +17,5 @@ from .io_utils import (
 )
 
 from .commons import (
-    hillshade,
-    get_best_zoom_level
+    hillshade
 )
