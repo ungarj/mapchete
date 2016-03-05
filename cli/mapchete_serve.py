@@ -15,9 +15,10 @@ from tilematrix import TilePyramid, MetaTilePyramid
 
 import pkgutil
 
-mapchete = None
+def main(args=None):
 
-def main(args):
+    if args is None:
+        args = sys.argv[1:]
 
     parser = argparse.ArgumentParser()
     parser.add_argument("mapchete_file", type=str)
@@ -100,4 +101,4 @@ def main(args):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()

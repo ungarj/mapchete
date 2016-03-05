@@ -16,7 +16,10 @@ from tilematrix import TilePyramid, MetaTilePyramid
 
 logger = logging.getLogger("mapchete")
 
-def main(args):
+def main(args=None):
+
+    if args is None:
+        args = sys.argv[1:]
 
     parser = argparse.ArgumentParser()
     parser.add_argument("mapchete_file", type=str)
@@ -26,43 +29,7 @@ def main(args):
     parser.add_argument("--overwrite", action="store_true")
     parsed = parser.parse_args(args)
 
-    log_dir = os.path.dirname(parsed.mapchete_file)
-    log_file = os.path.join(log_dir, "mapchete.log")
-
-    logging.config.dictConfig({
-        'version': 1,
-        'disable_existing_loggers': True,
-        'formatters': {
-            'simple': {
-                'format': '%(levelname)s: %(message)s'
-            },
-            'verbose': {
-                'format': '[%(asctime)s][%(module)s] %(levelname)s: %(message)s'
-            }
-        },
-        'handlers': {
-            'file': {
-                'level': 'DEBUG',
-                'class': 'logging.handlers.WatchedFileHandler',
-                'filename': log_file,
-                'formatter': 'verbose',
-                'filters': [],
-            },
-            'stream': {
-                'level': 'INFO',
-                'class': 'logging.StreamHandler',
-                'formatter': 'simple',
-                'filters': [],
-            }
-        },
-        'loggers': {
-            'mapchete': {
-                'handlers': ['file', 'stream'],
-                'level': 'DEBUG',
-                'propagate': True
-            }
-        }
-    })
+    logging.config.dictConfig(get_log_config(parsed.mapchete_file))
 
     try:
         logger.info("preparing process ...")
@@ -147,4 +114,4 @@ def worker(tile, mapchete, overwrite):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

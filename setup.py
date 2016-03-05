@@ -14,10 +14,13 @@ setup(
         'mapchete',
         'static',
     ],
-    scripts=[
-        'cli/mapchete_execute.py',
-        'cli/mapchete_serve.py'
-    ],
+    entry_points={
+        'console_scripts': [
+            'mapchete_execute = cli.mapchete_execute:main',
+            'mapchete_serve = cli.mapchete_serve:main',
+            'raster2pyramid = cli.raster2pyramid:main'
+        ],
+    },
     package_dir={'static': 'static'},
     package_data={'static':['index.html']},
     install_requires=[

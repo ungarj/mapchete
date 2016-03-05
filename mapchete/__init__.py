@@ -18,3 +18,9 @@ from .io_utils import (
 from .commons import (
     hillshade
 )
+
+from .pyramids import (
+    MapchetePyramid
+)
+
+from .log_utils import get_log_config
