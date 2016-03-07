@@ -10,6 +10,7 @@ from .config_utils import (
 )
 
 from .io_utils import (
+    rastertile,
     read_raster,
     write_raster,
     read_vector

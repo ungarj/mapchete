@@ -4,7 +4,8 @@ import numpy as np
 import numpy.ma as ma
 import os
 from copy import deepcopy
-from rasterio.warp import calculate_default_transform
+from rasterio.warp import calculate_default_transform, transform_bounds
+import rasterio
 from affine import Affine
 
 import mapchete
@@ -32,6 +33,182 @@ def read_vector(
         features = None
 
     return features
+
+
+class rastertile(object):
+    """
+
+    """
+    def __init__(
+        self,
+        input_file,
+        process=None,
+        pyramid=None,
+        tile=None,
+        pixelbuffer=0,
+        resampling="nearest"
+        ):
+        if pyramid:
+            try:
+                assert (isinstance(pyramid, TilePyramid) or
+                    isinstance(pyramid, MetaTilePyramid))
+            except:
+                raise ValueError("no valid tile pyramid given.")
+
+        try:
+            assert os.path.isfile(input_file)
+        except:
+            raise IOError("input file does not exist: %s" % input_file)
+
+        try:
+            assert pixelbuffer >= 0
+        except:
+            raise ValueError("pixelbuffer must be 0 or greater")
+
+        try:
+            assert isinstance(pixelbuffer, int)
+        except:
+            raise ValueError("pixelbuffer must be an integer")
+
+        try:
+            assert resampling in resampling_methods
+        except:
+            raise ValueError("resampling method %s not found." % resampling)
+
+        if not pyramid or not tile:
+            try:
+                assert process
+            except:
+                raise ValueError("please provide an input process or a tile and\
+                a tile pyramid.")
+        self.input_file = input_file
+        self.tile_pyramid = pyramid
+        self.tile = tile
+        self.pixelbuffer = pixelbuffer
+        self.resampling = resampling
+        self.profile = self._read_metadata()
+        self.affine = self.profile["affine"]
+        self.nodata = self.profile["nodata"]
+        self.indexes = self.profile["count"]
+        self.dtype = self.profile["dtype"]
+        self.crs = self.tile_pyramid.crs
+        self.shape = (self.profile["width"], self.profile["height"])
+
+
+    def __enter__(self):
+        return self
+
+    def __exit__( self, type, value, tb ):
+        # TODO cleanup
+        pass
+
+    def read(self, indexes=None, from_baselevel=False):
+        """
+        Generates numpy arrays from input bands.
+        """
+        if indexes:
+            band_indexes = [indexes]
+        else:
+            band_indexes = range(1, self.indexes+1)
+
+        if from_baselevel:
+            try:
+                assert self.process
+            except:
+                raise ValueError("this function can only be used within a \
+                mapchete process")
+            pass
+        else:
+            pass
+
+        return read_raster_window(
+            self.input_file,
+            self.tile_pyramid,
+            self.tile,
+            indexes=band_indexes,
+            pixelbuffer=self.pixelbuffer,
+            resampling=self.resampling
+        )
+
+
+    def is_empty(self, indexes=None):
+        """
+        Returns true if all items are masked.
+        """
+        src_bbox = file_bbox(self.input_file, self.tile_pyramid)
+        tile_geom = self.tile_pyramid.tile_bbox(
+            *self.tile,
+            pixelbuffer=self.pixelbuffer
+        )
+        if not tile_geom.intersects(src_bbox):
+            return True
+
+        if indexes:
+            band_indexes = [indexes]
+        else:
+            band_indexes = range(1, self.indexes+1)
+
+        # Reproject tile bounds to source file SRS.
+        src_left, src_bottom, src_right, src_top = transform_bounds(
+            self.tile_pyramid.crs,
+            self.crs,
+            *self.tile_pyramid.tile_bounds(
+                *self.tile,
+                pixelbuffer=self.pixelbuffer
+                ),
+            densify_pts=21
+            )
+
+        with rasterio.open(self.input_file, "r") as src:
+
+            minrow, mincol = src.index(src_left, src_top)
+            maxrow, maxcol = src.index(src_right, src_bottom)
+
+            # Calculate new Affine object for read window.
+            window = (minrow, maxrow), (mincol, maxcol)
+            window_vector_affine = src.affine.translation(
+                mincol,
+                minrow
+                )
+            window_affine = src.affine * window_vector_affine
+            # Finally read data per band and store it in tuple.
+            bands = (
+                src.read(index, window=window, masked=True, boundless=True)
+                for index in band_indexes
+                )
+
+            all_bands_empty = True
+            for band in bands:
+                if not band.mask.all():
+                    all_bands_empty = False
+
+            return all_bands_empty
+
+
+    def _read_metadata(self):
+        """
+        Returns a rasterio-like metadata dictionary adapted to tile.
+        """
+        zoom, row, col = self.tile
+        with rasterio.open(self.input_file, "r") as src:
+            out_meta = src.meta
+        # create geotransform
+        px_size = self.tile_pyramid.pixel_x_size(zoom)
+        left, bottom, right, top = self.tile_pyramid.tile_bounds(
+            *self.tile,
+            pixelbuffer=self.pixelbuffer
+            )
+        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
+        out_meta.update(
+            width=self.tile_pyramid.tile_size,
+            height=self.tile_pyramid.tile_size,
+            transform=tile_geotransform,
+            affine=self.tile_pyramid.tile_affine(
+                self.tile,
+                pixelbuffer=self.pixelbuffer
+                )
+        )
+        return out_meta
 
 
 def read_raster(

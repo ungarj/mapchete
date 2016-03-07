@@ -153,6 +153,30 @@ def main(args):
         print "FAILED: read bounding box from .mapchete subfile"
         raise
 
+    from mapchete import rastertile
+    mapchete_file = os.path.join(scriptdir, "testdata/mapchete_input.mapchete")
+    mapchete = Mapchete(MapcheteConfig(mapchete_file))
+    # print mapchete.tile_pyramid.format.profile
+
+    testdata_directory = os.path.join(scriptdir, "testdata")
+    dummy2 = os.path.join(testdata_directory, "dummy2.tif")
+    zoom = 10
+    dummy2_bbox = file_bbox(dummy2, mapchete.tile_pyramid)
+    tiles = mapchete.tile_pyramid.tiles_from_geom(dummy2_bbox, zoom)
+    tile = next(tiles)
+
+    # for tile in tiles:
+    #     with rastertile(
+    #         dummy2,
+    #         pyramid=mapchete.tile_pyramid,
+    #         tile=tile,
+    #         pixelbuffer=2
+    #         ) as testfile:
+    #         if not testfile.is_empty():
+    #
+    #             for band in testfile.read(1):
+    #                 print band.shape
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
