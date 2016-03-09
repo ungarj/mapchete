@@ -19,10 +19,23 @@ Mapchete(mapchete_file, zoom=None, bounds=None)
   * config (link to MapcheteConfig)
 * subprocesses
   * list(Mapchete, ...)
+MapcheteTile:
+  * inherits from tilematrix.Tile
+  * path (if not gpkg)
+  * exists
+  * format
+  * nodata
+  * get(overwrite=True)
+    --> returns file
+  * read(overwrite=True)
+    --> returns data
+  * execute(overwrite=True)
+    --> applies process
+
 * get_work_tiles()
-* get(tile, overwrite=True)
+<!-- * get(tile, overwrite=True)
 * execute(tile, overwrite=True)
-* exists(tile)
+* exists(tile) -->
 * seed()
 
 MapchetePyramid(input_file, pyramid_type, zoom=None, bounds=None, resampling="nearest")

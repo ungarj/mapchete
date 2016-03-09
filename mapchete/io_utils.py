@@ -11,6 +11,7 @@ from affine import Affine
 import mapchete
 from tilematrix import *
 
+
 def read_vector(
     process,
     input_file,
@@ -35,30 +36,52 @@ def read_vector(
     return features
 
 
-class rastertile(object):
+def mc_open(
+    input_file,
+    tile,
+    pixelbuffer=0,
+    resampling="nearest"):
     """
+    Returns either a RasterTile or a VectorTile object.
+    """
+    if isinstance(input_file, dict):
+        raise ValueError("input cannot be dict")
+    # TODO add proper check for input type.
+    if isinstance(input_file, str):
+        pass
+        return RasterFileTile(
+            input_file,
+            tile,
+            pixelbuffer=pixelbuffer,
+            resampling=resampling
+        )
 
+    else:
+        return RasterProcessTile(
+            input_file,
+            tile,
+            pixelbuffer=pixelbuffer,
+            resampling=resampling
+        )
+
+class RasterProcessTile(object):
+    """
+    Class representing a tile (existing or virtual) of a Mapchete process output
+    pyramid.
     """
     def __init__(
         self,
-        input_file,
-        process=None,
-        pyramid=None,
-        tile=None,
+        input_mapchete,
+        tile,
         pixelbuffer=0,
         resampling="nearest"
         ):
-        if pyramid:
-            try:
-                assert (isinstance(pyramid, TilePyramid) or
-                    isinstance(pyramid, MetaTilePyramid))
-            except:
-                raise ValueError("no valid tile pyramid given.")
 
         try:
-            assert os.path.isfile(input_file)
+            assert os.path.isfile(input_mapchete.config.process_file)
         except:
-            raise IOError("input file does not exist: %s" % input_file)
+            raise IOError("input file does not exist: %s" %
+                input_mapchete.config.process_file)
 
         try:
             assert pixelbuffer >= 0
@@ -75,15 +98,17 @@ class rastertile(object):
         except:
             raise ValueError("resampling method %s not found." % resampling)
 
-        if not pyramid or not tile:
-            try:
-                assert process
-            except:
-                raise ValueError("please provide an input process or a tile and\
-                a tile pyramid.")
-        self.input_file = input_file
-        self.tile_pyramid = pyramid
+        # try:
+        #     assert tile.process
+        # except:
+        #     raise ValueError("please provide an input process")
+        try:
+            self.process = tile.process
+        except:
+            self.process = None
+        self.tile_pyramid = tile.tile_pyramid
         self.tile = tile
+        self.input_file = input_mapchete
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
         self.profile = self._read_metadata()
@@ -94,13 +119,31 @@ class rastertile(object):
         self.crs = self.tile_pyramid.crs
         self.shape = (self.profile["width"], self.profile["height"])
 
-
     def __enter__(self):
         return self
 
     def __exit__( self, type, value, tb ):
         # TODO cleanup
         pass
+
+
+    def _read_metadata(self):
+        """
+        Returns a rasterio-like metadata dictionary adapted to tile.
+        """
+        out_meta = self.tile_pyramid.format.profile
+        # create geotransform
+        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
+        left, bottom, right, top = self.tile.bounds(pixelbuffer=self.pixelbuffer)
+        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
+        out_meta.update(
+            width=self.tile.width,
+            height=self.tile.height,
+            transform=tile_geotransform,
+            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
+        )
+        return out_meta
+
 
     def read(self, indexes=None, from_baselevel=False):
         """
@@ -110,6 +153,16 @@ class rastertile(object):
             band_indexes = [indexes]
         else:
             band_indexes = range(1, self.indexes+1)
+
+        nodataval = self.nodata
+        # Quick fix because None nodata is not allowed.
+        if not nodataval:
+            nodataval = 0
+
+        shape = (
+            self.tile_pyramid.tile_size + 2 * self.pixelbuffer,
+            self.tile_pyramid.tile_size + 2 * self.pixelbuffer
+            )
 
         if from_baselevel:
             try:
@@ -121,21 +174,53 @@ class rastertile(object):
         else:
             pass
 
-        return read_raster_window(
-            self.input_file,
-            self.tile_pyramid,
-            self.tile,
-            indexes=band_indexes,
-            pixelbuffer=self.pixelbuffer,
-            resampling=self.resampling
-        )
+        # - get target tile bounds
+        tile_bbox = self.tile_pyramid.tile_bbox(
+            *self.tile,
+            pixelbuffer=self.pixelbuffer
+            )
+
+        # - if target tile bounds don't intersect with respective process_area,
+        #   return empty array using the source process profile.
+        if not tile_bbox.intersects(self.process.process_area):
+            for index in band_indexes:
+                dst_band = np.ma.zeros(shape=(shape), dtype=src.dtypes[index-1])
+                dst_band[:] = nodataval
+                dst_band = ma.masked_equal(dst_band, nodataval)
+                yield dst_band
+
+
+        # - determine affected tiles from source pyramid
+        src_tile_pyramid = self.process.tile_pyramid
+        for index in band_indexes:
+            src_tiles = src_tile_pyramid.tiles_from_geom(
+                tile_bbox,
+                self.tile[0]
+            )
+            for src_tile in src_tiles:
+                self.process.get(src_tile)
+
+        rows = {}
+        for src_zoom, src_row, src_col in sorted(src_tiles, key=lambda x:x[2]):
+            rows.setdefault(src_row, []).append((src_zoom, src_row, src_col))
+
+
+        # - check if tiles are available
+        # - if not, process these tiles
+        # --> use get_tile method
+        # do per band:
+        # - get tiles
+        # - mosaick tiles
+        # - crop to output tile boundary
+        # return
 
 
     def is_empty(self, indexes=None):
         """
         Returns true if all items are masked.
         """
-        src_bbox = file_bbox(self.input_file, self.tile_pyramid)
+        zoom, row, col = self.tile
+        src_bbox = self.input_file.config.process_bounds(zoom)
         tile_geom = self.tile_pyramid.tile_bbox(
             *self.tile,
             pixelbuffer=self.pixelbuffer
@@ -156,6 +241,119 @@ class rastertile(object):
                 *self.tile,
                 pixelbuffer=self.pixelbuffer
                 ),
+            densify_pts=21
+            )
+
+
+class RasterFileTile(object):
+    """
+    Class representing a reprojected and resampled version of an original file
+    to a given tile pyramid tile. Properties and functions are inspired by
+    rasterio's way of handling datasets.
+    """
+
+    def __init__(
+        self,
+        input_file,
+        tile,
+        pixelbuffer=0,
+        resampling="nearest"
+        ):
+        try:
+            assert os.path.isfile(input_file)
+        except:
+            raise IOError("input file does not exist: %s" % input_file)
+
+        try:
+            assert pixelbuffer >= 0
+        except:
+            raise ValueError("pixelbuffer must be 0 or greater")
+
+        try:
+            assert isinstance(pixelbuffer, int)
+        except:
+            raise ValueError("pixelbuffer must be an integer")
+
+        try:
+            assert resampling in resampling_methods
+        except:
+            raise ValueError("resampling method %s not found." % resampling)
+
+        # try:
+        #     assert tile.process
+        # except:
+        #     raise ValueError("please provide an input process or a tile and\
+        #     a tile pyramid.")
+        try:
+            self.process = tile.process
+        except:
+            self.process = None
+        self.tile_pyramid = tile.tile_pyramid
+        self.tile = tile
+        self.input_file = input_file
+        self.pixelbuffer = pixelbuffer
+        self.resampling = resampling
+        self.profile = self._read_metadata()
+        self.affine = self.profile["affine"]
+        self.nodata = self.profile["nodata"]
+        self.indexes = self.profile["count"]
+        self.dtype = self.profile["dtype"]
+        self.crs = self.tile_pyramid.crs
+        self.shape = (self.profile["width"], self.profile["height"])
+
+    def __enter__(self):
+        return self
+
+    def __exit__( self, type, value, tb ):
+        # TODO cleanup
+        pass
+
+    def read(self, indexes=None):
+        """
+        Generates numpy arrays from input bands.
+        """
+        if indexes:
+            band_indexes = [indexes]
+        else:
+            band_indexes = range(1, self.indexes+1)
+
+        # if len(band_indexes) == 1:
+        #     return next(read_raster_window(
+        #         self.input_file,
+        #         self.tile,
+        #         indexes=band_indexes,
+        #         pixelbuffer=self.pixelbuffer,
+        #         resampling=self.resampling
+        #     ))
+        # else:
+        return read_raster_window(
+            self.input_file,
+            self.tile,
+            indexes=band_indexes,
+            pixelbuffer=self.pixelbuffer,
+            resampling=self.resampling
+        )
+
+
+    def is_empty(self, indexes=None):
+        """
+        Returns true if all items are masked.
+        """
+        src_bbox = file_bbox(self.input_file, self.tile_pyramid)
+        tile_geom = self.tile.bbox(pixelbuffer=self.pixelbuffer)
+        if not tile_geom.intersects(src_bbox):
+            return True
+
+        if indexes:
+            band_indexes = [indexes]
+        else:
+            band_indexes = range(1, self.indexes+1)
+
+        # Reproject tile bounds to source file SRS.
+        src_left, src_bottom, src_right, src_top = transform_bounds(
+            self.tile.crs,
+            self.crs,
+            *self.tile.bounds(pixelbuffer=self.pixelbuffer),
             densify_pts=21
             )
 
@@ -181,6 +379,7 @@ class rastertile(object):
             for band in bands:
                 if not band.mask.all():
                     all_bands_empty = False
+                    break
 
             return all_bands_empty
 
@@ -189,13 +388,11 @@ class rastertile(object):
         """
         Returns a rasterio-like metadata dictionary adapted to tile.
         """
-        zoom, row, col = self.tile
         with rasterio.open(self.input_file, "r") as src:
             out_meta = src.meta
         # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(zoom)
-        left, bottom, right, top = self.tile_pyramid.tile_bounds(
-            *self.tile,
+        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
+        left, bottom, right, top = self.tile.bounds(
             pixelbuffer=self.pixelbuffer
             )
         tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
@@ -203,10 +400,7 @@ class rastertile(object):
             width=self.tile_pyramid.tile_size,
             height=self.tile_pyramid.tile_size,
             transform=tile_geotransform,
-            affine=self.tile_pyramid.tile_affine(
-                self.tile,
-                pixelbuffer=self.pixelbuffer
-                )
+            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
         )
         return out_meta
 
@@ -268,6 +462,8 @@ def read_pyramid(
     if not dst_tile_pyramid:
         dst_tile_pyramid = src_tile_pyramid
     tile_bbox = dst_tile_pyramid.tile_bbox(*dst_tile, pixelbuffer=dst_pixelbuffer)
+    dst_tile = Tile(dst_tile_pyramid, zoom, row, col)
+    tile_bbox = dst_tile.bbox
     src_tiles = src_tile_pyramid.tiles_from_geom(tile_bbox, src_zoom)
     rows = {}
     for src_zoom, src_row, src_col in sorted(src_tiles, key=lambda x:x[2]):
@@ -283,21 +479,17 @@ def read_pyramid(
         for band in range(dst_tile_pyramid.format.profile["count"]):
             row_data[band] = ()
         for tile in tiles:
-            print tile
             filename = src_tile_pyramid.format.get_tile_name(
                 src_output_name,
                 tile
             )
-            print "read"
             tile_metadata, tile_data = read_raster(
                 temp,
                 filename,
                 return_empty_mask=True,
                 bands = dst_tile_pyramid.format.profile["count"]
             )
-            # print dst_tile_pyramid.format.profile["count"]
             if not tile_data:
-                print "empty"
                 tile_data = ()
                 size = temp.tile_pyramid.tile_size
                 for i in range(1, dst_tile_pyramid.format.profile["count"]+1):
@@ -311,14 +503,12 @@ def read_pyramid(
                     )
                     tile_data += (out_band,)
                 tile_metadata = None
-            print len(tile_data)
             assert len(tile_data) == 3
             for band in tile_data:
                 assert isinstance(band, np.ndarray)
 
                 assert band.shape == (128, 128)
-                # print "is tile data", (tile_data)
-                print "all masked", (band.all() is np.ma.masked)
+
             # add tile bands to rows data
             for tile_band, tile_banddata in enumerate(tile_data):
                 row_data[tile_band] += (tile_banddata, )
@@ -353,8 +543,6 @@ def read_pyramid(
     assert len(mosaic) == 3
     for band in mosaic:
         assert isinstance(band, np.ndarray)
-        print "mosaic masked", (band.all() is np.ma.masked)
-        print "max", np.amax(band)
         assert band.shape == (256, 256)
 
     dst_left, dst_bottom, dst_right, dst_top = dst_tile_pyramid.tile_bounds(
@@ -430,7 +618,6 @@ def write_raster(
     try:
         write_raster_window(
             out_file,
-            process.tile_pyramid,
             process.tile,
             metadata,
             bands,

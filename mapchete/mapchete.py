@@ -8,13 +8,13 @@ from flask import send_file
 from PIL import Image
 import io
 
-from tilematrix import TilePyramid, MetaTilePyramid
+from tilematrix import TilePyramid, MetaTilePyramid, Tile
 
 
 class Mapchete(object):
     """
     Class handling MapcheteProcesses and MapcheteConfigs. Main acces point to
-    get, retrieve tiles or seed entire pyramids.
+    get, retrieve MapcheteTiles or seed entire pyramids.
     """
     def __repr__(self):
         return "<objec 'Mapchete'>"
@@ -74,9 +74,8 @@ class Mapchete(object):
         #     if tile not in subprocess_host.locked_tiles:
         #         subprocess_host.locked_tiles.append
         #         subprocess_host.get_tile(tile)
-        zoom, row, col = tile
-        if not overwrite and self.exists(tile):
-            return tile, "exists", None
+        if not overwrite and tile.exists():
+            return tile.id, "exists", None
         new_process = imp.load_source(
             self.process_name + "Process",
             self.config.process_file
@@ -84,13 +83,12 @@ class Mapchete(object):
         tile_process = new_process.Process(
             config=self.config,
             tile=tile,
-            tile_pyramid=self.tile_pyramid,
-            params=self.config.at_zoom(zoom)
+            params=self.config.at_zoom(tile.zoom)
             )
         try:
             result = tile_process.execute()
         except:
-            return tile, "failed", traceback.print_exc()
+            return tile.id, "failed", traceback.print_exc()
             raise
         finally:
             tile_process = None
@@ -99,7 +97,7 @@ class Mapchete(object):
                 status = "empty"
         else:
             status = "ok"
-        return tile, status, None
+        return tile.id, status, None
 
 
     def get(self, tile, overwrite=True):
@@ -156,17 +154,6 @@ class Mapchete(object):
             return send_file(image_path, mimetype='image/png')
 
 
-    def exists(self, tile):
-        """
-        Returns True if file exists or False if not.
-        """
-        image_path = self.tile_pyramid.format.get_tile_name(
-            self.config.output_name,
-            tile
-        )
-        return os.path.isfile(image_path)
-
-
     def _empty_image(self):
         """
         Creates transparent PNG
@@ -201,6 +188,28 @@ class Mapchete(object):
         return out_img
 
 
+class MapcheteTile(Tile):
+    """
+    Defines a tile object which stores common tile parameters (see
+    tilematrix.tile) as well as Mapchete functions such as get(), read() or
+    execute().
+    """
+
+    def __init__(self, zoom, row, col):
+        self = self.tile_pyramid.tile(zoom, row, col)
+
+    def exists(self):
+        """
+        Returns True if file exists or False if not.
+        """
+        image_path = self.tile_pyramid.format.get_tile_name(
+            self.config.output_name,
+            tile
+        )
+        return os.path.isfile(image_path)
+
+
+
 class MapcheteProcess():
     """
     Main process class. Needs a Mapchete configuration YAML as input.
@@ -208,10 +217,9 @@ class MapcheteProcess():
 
     def __init__(
         self,
+        tile,
         config=None,
-        tile=None,
-        params=None,
-        tile_pyramid=None
+        params=None
         ):
         """
         Process initialization.
@@ -221,6 +229,6 @@ class MapcheteProcess():
         self.version = ""
         self.abstract = ""
         self.tile = tile
-        self.tile_pyramid = tile_pyramid
+        self.tile_pyramid = tile.tile_pyramid
         self.params = params
         self.config = config
