@@ -25,6 +25,7 @@ MapcheteTile:
   * exists
   * format
   * nodata
+  * process --> MapcheteProcess
   * get(overwrite=True)
     --> returns file
   * read(overwrite=True)

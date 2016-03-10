@@ -88,7 +88,6 @@ def main(args=None):
                 str(out_dir + "/*/*" + mapchete.format.extension)
             )
             os.system(command)
-
     if parsed.log:
         for row in logs:
             if row[1] not in ["ok", "exists"]:
@@ -101,13 +100,13 @@ def worker(tile, mapchete, overwrite):
     whether the tile exists.
     """
     if not overwrite and mapchete.exists(tile):
-        log_message = (tile, "exists", None)
+        log_message = (tile.id, "exists", None)
         logger.info(log_message)
-        return tile, "exists", None
+        return tile.id, "exists", None
     try:
         log_message = mapchete.execute(tile, overwrite=overwrite)
     except Exception as e:
-        log_message = (tile, "failed", traceback.print_exc())
+        log_message = (tile.id, "failed", traceback.print_exc())
 
     logger.info(log_message)
     return log_message

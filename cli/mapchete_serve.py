@@ -55,17 +55,17 @@ def main(args=None):
         tile_base_url+'<int:zoom>/<int:row>/<int:col>.png',
         methods=['GET']
         )
-    def get_tile(zoom, row, col):
-        tile = (zoom, row, col)
+    def get(zoom, row, col):
+        tile = mapchete.tile_pyramid.tilepyramid.tile(zoom, row, col)
         try:
             metatile = mapchete.tile_pyramid.tiles_from_bbox(
-                mapchete.tile_pyramid.tilepyramid.tile_bbox(*tile),
-                tile[0]
+                tile.bbox(),
+                tile.zoom
                 ).next()
             with metatile_lock:
-                metatile_event = metatile_cache.get(metatile)
+                metatile_event = metatile_cache.get(metatile.id)
                 if not metatile_event:
-                    metatile_cache[metatile] = threading.Event()
+                    metatile_cache[metatile.id] = threading.Event()
 
             if metatile_event:
                 metatile_event.wait()
@@ -76,8 +76,8 @@ def main(args=None):
                 raise
             finally:
                 if not metatile_event:
-                    metatile_event = metatile_cache.get(metatile)
-                    del metatile_cache[metatile]
+                    metatile_event = metatile_cache.get(metatile.id)
+                    del metatile_cache[metatile.id]
                     metatile_event.set()
 
             # set no-cache header:

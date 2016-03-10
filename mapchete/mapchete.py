@@ -9,6 +9,7 @@ from PIL import Image
 import io
 
 from tilematrix import TilePyramid, MetaTilePyramid, Tile
+from .io_utils import mc_open
 
 
 class Mapchete(object):
@@ -52,6 +53,13 @@ class Mapchete(object):
         )[0]
 
 
+    def tile(self, tile):
+        """
+        Takes a Tile object and adds process specific metadata.
+        """
+        return MapcheteTile(self, tile)
+
+
     def get_work_tiles(self):
         """
         Determines the tiles affected by zoom levels, bounding box and input
@@ -59,9 +67,8 @@ class Mapchete(object):
         """
         for zoom in self.config.zoom_levels:
             bbox = self.config.process_area(5)
-
             for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
-                yield tile
+                yield self.tile(tile)
 
 
     def execute(self, tile, overwrite=True):
@@ -104,24 +111,19 @@ class Mapchete(object):
         """
         Processes if necessary and gets tile.
         """
-        zoom, row, col = tile
+        tile = self.tile(tile)
         # return empty image if nothing to do at zoom level
-        if zoom not in self.config.zoom_levels:
+        if tile.zoom not in self.config.zoom_levels:
             return self._empty_image()
 
         # return/process tile or crop/process metatile
         if self.config.metatiling > 1:
             metatile = self.tile_pyramid.tiles_from_bbox(
-                self.tile_pyramid.tilepyramid.tile_bbox(*tile),
-                zoom
+                tile.bbox,
+                tile.zoom
                 ).next()
-            # get image path
-            image_path = self.tile_pyramid.format.get_tile_name(
-                self.config.output_name,
-                metatile
-            )
             # if overwrite is on or metatile doesn't exist, generate
-            if overwrite or not self.exists(metatile):
+            if overwrite or not metatile.exists():
                 try:
                     messages = self.execute(metatile)
                 except:
@@ -137,13 +139,8 @@ class Mapchete(object):
 
         # return/process tile with no metatiling
         else:
-            # get image path
-            image_path = self.tile_pyramid.format.get_tile_name(
-                self.config.output_name,
-                tile
-            )
             # if overwrite is on or metatile doesn't exist, generate
-            if overwrite or not self.exists(tile):
+            if overwrite or not tile.exists():
                 try:
                     messages = self.execute(tile)
                 except:
@@ -151,7 +148,45 @@ class Mapchete(object):
                 # return empty image if process messaged empty
                 if messages[1] == "empty":
                     return self._empty_image()
-            return send_file(image_path, mimetype='image/png')
+            return send_file(tile.path, mimetype='image/png')
+
+
+    def read(self, tile, indexes=None, pixelbuffer=0, resampling="nearest"):
+        """
+        Reads source tile to numpy array.
+        """
+        if indexes:
+            if isinstance(indexes, list):
+                band_indexes = indexes
+            else:
+                band_indexes = [indexes]
+        else:
+            band_indexes = range(1, self.tile_pyramid.profile["count"]+1)
+
+        if pixelbuffer > 0:
+            pass
+            # determine tiles.
+            # check if tiles exist
+            # if not, run execute
+            # read per band intersecting tiles
+            # mosaick tiles
+        else:
+            # check if self.exists()
+            if not tile.exists():
+                # if not, self.execute()
+                self.execute(tile)
+            # read per band with rasterio.
+            image_path = self.tile_pyramid.format.get_tile_name(
+                self.config.output_name,
+                tile
+            )
+            return read_raster_window(
+                image_path,
+                tile,
+                indexes=band_indexes,
+                pixelbuffer=pixelbuffer,
+                resampling=resampling
+            )
 
 
     def _empty_image(self):
@@ -167,20 +202,14 @@ class Mapchete(object):
         """
         Crops metatile to tile.
         """
-        tile_zoom, tile_row, tile_col = tile
-        tile_size = self.tile_pyramid.tilepyramid.tile_size
         metatiling = self.tile_pyramid.metatiles
         # calculate pixel boundary
-        left = (tile_col % metatiling) * tile_size
-        right = left + tile_size
-        top = (tile_row % metatiling) * tile_size
-        bottom = top + tile_size
+        left = (tile.col % metatiling) * tile.size
+        right = left + tile.size
+        top = (tile.row % metatiling) * tile.size
+        bottom = top + tile.size
         # open buffer image and crop metatile
-        image_path = self.tile_pyramid.format.get_tile_name(
-            self.config.output_name,
-            metatile
-        )
-        img = Image.open(image_path)
+        img = Image.open(metatile.path)
         cropped = img.crop((left, top, right, bottom))
         out_img = io.BytesIO()
         cropped.save(out_img, 'PNG')
@@ -195,18 +224,69 @@ class MapcheteTile(Tile):
     execute().
     """
 
-    def __init__(self, zoom, row, col):
-        self = self.tile_pyramid.tile(zoom, row, col)
+    def __init__(self, mapchete, tile):
+        self.tile_pyramid = mapchete.tile_pyramid
+        Tile.__init__(self, self.tile_pyramid, tile.zoom, tile.row, tile.col)
+        self.config = mapchete.config
+        self.nodata = self.tile_pyramid.format.profile["nodata"]
+        self.indexes = self.tile_pyramid.format.profile["count"]
+        self.dtype = self.tile_pyramid.format.profile["dtype"]
+        self.path = self.tile_pyramid.format.get_tile_name(
+            self.config.output_name,
+            tile
+        )
+
+
+    def profile(self, pixelbuffer=0):
+        """
+        Returns a pixelbuffer specific metadata set.
+        """
+        out_meta = self.tile_pyramid.format.profile
+        # create geotransform
+        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
+        left, bottom, right, top = self.tile.bounds(pixelbuffer=pixelbuffer)
+        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
+        out_meta.update(
+            width=self.tile.width,
+            height=self.tile.height,
+            transform=tile_geotransform,
+            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
+        )
+        return out_meta
+
 
     def exists(self):
         """
         Returns True if file exists or False if not.
         """
-        image_path = self.tile_pyramid.format.get_tile_name(
-            self.config.output_name,
-            tile
-        )
-        return os.path.isfile(image_path)
+        return os.path.isfile(self.path)
+
+
+    def read(self, indexes=None, pixelbuffer=0):
+        """
+        Reads input as numpy array. Is the equivalent function of
+        read_raster_window in tilematrix.io.
+        """
+        if indexes:
+            if isinstance(indexes, list):
+                band_indexes = indexes
+            else:
+                band_indexes = [indexes]
+        else:
+            band_indexes = src.indexes
+
+        if pixelbuffer > 0:
+            pass
+            # determine tiles.
+            # check if tiles exist
+            # if not, run execute
+            # read per band intersecting tiles
+            # mosaick tiles
+        else:
+            pass
+            # check if self.exists()
+            # if not, self.execute()
+            # read per band with rasterio.
 
 
 
@@ -232,3 +312,15 @@ class MapcheteProcess():
         self.tile_pyramid = tile.tile_pyramid
         self.params = params
         self.config = config
+
+
+    def open(self, input_file, pixelbuffer=0, resampling="nearest"):
+        """
+        Wrapper around mc_open function
+        """
+        return mc_open(
+            input_file,
+            self.tile,
+            pixelbuffer=pixelbuffer,
+            resampling=resampling
+            )

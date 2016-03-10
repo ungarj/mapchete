@@ -48,7 +48,6 @@ def mc_open(
         raise ValueError("input cannot be dict")
     # TODO add proper check for input type.
     if isinstance(input_file, str):
-        pass
         return RasterFileTile(
             input_file,
             tile,
@@ -102,22 +101,22 @@ class RasterProcessTile(object):
         #     assert tile.process
         # except:
         #     raise ValueError("please provide an input process")
-        try:
-            self.process = tile.process
-        except:
-            self.process = None
-        self.tile_pyramid = tile.tile_pyramid
-        self.tile = tile
-        self.input_file = input_mapchete
-        self.pixelbuffer = pixelbuffer
-        self.resampling = resampling
-        self.profile = self._read_metadata()
-        self.affine = self.profile["affine"]
-        self.nodata = self.profile["nodata"]
-        self.indexes = self.profile["count"]
-        self.dtype = self.profile["dtype"]
-        self.crs = self.tile_pyramid.crs
-        self.shape = (self.profile["width"], self.profile["height"])
+        # try:
+        #     self.process = tile.process
+        # except:
+        #     self.process = None
+        # self.tile_pyramid = tile.tile_pyramid
+        # self.tile = tile
+        # self.input_file = input_mapchete
+        # self.pixelbuffer = pixelbuffer
+        # self.resampling = resampling
+        # self.profile = self._read_metadata()
+        # self.affine = self.profile["affine"]
+        # self.nodata = self.profile["nodata"]
+        # self.indexes = self.profile["count"]
+        # self.dtype = self.profile["dtype"]
+        # self.crs = self.tile_pyramid.crs
+        # self.shape = (self.profile["width"], self.profile["height"])
 
     def __enter__(self):
         return self
@@ -154,65 +153,12 @@ class RasterProcessTile(object):
         else:
             band_indexes = range(1, self.indexes+1)
 
-        nodataval = self.nodata
-        # Quick fix because None nodata is not allowed.
-        if not nodataval:
-            nodataval = 0
-
-        shape = (
-            self.tile_pyramid.tile_size + 2 * self.pixelbuffer,
-            self.tile_pyramid.tile_size + 2 * self.pixelbuffer
+        return self.process.read(
+            self.tile,
+            band_indexes,
+            self.pixelbuffer,
+            self.resampling
             )
-
-        if from_baselevel:
-            try:
-                assert self.process
-            except:
-                raise ValueError("this function can only be used within a \
-                mapchete process")
-            pass
-        else:
-            pass
-
-        # - get target tile bounds
-        tile_bbox = self.tile_pyramid.tile_bbox(
-            *self.tile,
-            pixelbuffer=self.pixelbuffer
-            )
-
-        # - if target tile bounds don't intersect with respective process_area,
-        #   return empty array using the source process profile.
-        if not tile_bbox.intersects(self.process.process_area):
-            for index in band_indexes:
-                dst_band = np.ma.zeros(shape=(shape), dtype=src.dtypes[index-1])
-                dst_band[:] = nodataval
-                dst_band = ma.masked_equal(dst_band, nodataval)
-                yield dst_band
-
-
-        # - determine affected tiles from source pyramid
-        src_tile_pyramid = self.process.tile_pyramid
-        for index in band_indexes:
-            src_tiles = src_tile_pyramid.tiles_from_geom(
-                tile_bbox,
-                self.tile[0]
-            )
-            for src_tile in src_tiles:
-                self.process.get(src_tile)
-
-        rows = {}
-        for src_zoom, src_row, src_col in sorted(src_tiles, key=lambda x:x[2]):
-            rows.setdefault(src_row, []).append((src_zoom, src_row, src_col))
-
-
-        # - check if tiles are available
-        # - if not, process these tiles
-        # --> use get_tile method
-        # do per band:
-        # - get tiles
-        # - mosaick tiles
-        # - crop to output tile boundary
-        # return
 
 
     def is_empty(self, indexes=None):
@@ -284,6 +230,7 @@ class RasterFileTile(object):
         # except:
         #     raise ValueError("please provide an input process or a tile and\
         #     a tile pyramid.")
+
         try:
             self.process = tile.process
         except:
