@@ -7,9 +7,13 @@ import traceback
 from flask import send_file
 from PIL import Image
 import io
+import rasterio
+import numpy as np
+import numpy.ma as ma
+import threading
 
-from tilematrix import TilePyramid, MetaTilePyramid, Tile
-from .io_utils import mc_open
+from tilematrix import TilePyramid, MetaTilePyramid, Tile, read_raster_window
+from .io_utils import RasterFileTile, RasterProcessTile, write_raster
 
 
 class Mapchete(object):
@@ -51,7 +55,9 @@ class Mapchete(object):
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file)
         )[0]
-
+        self.tile_cache = {}
+        # self.tile_lock = threading.Lock()
+        # print "tile_lock initialized", self.process_name, self.tile_lock
 
     def tile(self, tile):
         """
@@ -59,28 +65,36 @@ class Mapchete(object):
         """
         return MapcheteTile(self, tile)
 
-
     def get_work_tiles(self):
         """
         Determines the tiles affected by zoom levels, bounding box and input
         data.
         """
         for zoom in self.config.zoom_levels:
-            bbox = self.config.process_area(5)
+            bbox = self.config.process_area(zoom)
             for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
                 yield self.tile(tile)
-
 
     def execute(self, tile, overwrite=True):
         """
         Processes and saves tile.
         """
+        # print "enter execute"
+        # with self.tile_lock:
+        #     tile_event = self.tile_cache.get(tile.id)
+        #     if not tile_event:
+        #         tile_cache[tile.id] = threading.Event()
+        #
+        # if tile_event:
+        #     tile_event.wait()
+
         # TODO tile locking
         # required_tiles = []
         # for tile in required_tiles:
         #     if tile not in subprocess_host.locked_tiles:
         #         subprocess_host.locked_tiles.append
         #         subprocess_host.get_tile(tile)
+
         if not overwrite and tile.exists():
             return tile.id, "exists", None
         new_process = imp.load_source(
@@ -98,6 +112,10 @@ class Mapchete(object):
             return tile.id, "failed", traceback.print_exc()
             raise
         finally:
+            # if not tile_event:
+            #     tile_event = tile_cache.get(tile.id)
+            #     del tile_cache[tile.id]
+            #     tile_event.set()
             tile_process = None
         if result:
             if result == "empty":
@@ -106,28 +124,30 @@ class Mapchete(object):
             status = "ok"
         return tile.id, status, None
 
-
-    def get(self, tile, overwrite=True):
+    def get(self, tile, overwrite=False):
         """
         Processes if necessary and gets tile.
         """
-        tile = self.tile(tile)
         # return empty image if nothing to do at zoom level
         if tile.zoom not in self.config.zoom_levels:
             return self._empty_image()
 
         # return/process tile or crop/process metatile
         if self.config.metatiling > 1:
-            metatile = self.tile_pyramid.tiles_from_bbox(
-                tile.bbox,
-                tile.zoom
+            metatile = MapcheteTile(
+                self,
+                self.tile_pyramid.tiles_from_bbox(
+                    tile.bbox(),
+                    tile.zoom
                 ).next()
+            )
             # if overwrite is on or metatile doesn't exist, generate
             if overwrite or not metatile.exists():
                 try:
                     messages = self.execute(metatile)
                 except:
                     raise
+                print messages
                 # return empty image if process messaged empty
                 if messages[1] == "empty":
                     return self._empty_image()
@@ -150,7 +170,6 @@ class Mapchete(object):
                     return self._empty_image()
             return send_file(tile.path, mimetype='image/png')
 
-
     def read(self, tile, indexes=None, pixelbuffer=0, resampling="nearest"):
         """
         Reads source tile to numpy array.
@@ -163,31 +182,11 @@ class Mapchete(object):
         else:
             band_indexes = range(1, self.tile_pyramid.profile["count"]+1)
 
-        if pixelbuffer > 0:
-            pass
-            # determine tiles.
-            # check if tiles exist
-            # if not, run execute
-            # read per band intersecting tiles
-            # mosaick tiles
-        else:
-            # check if self.exists()
-            if not tile.exists():
-                # if not, self.execute()
-                self.execute(tile)
-            # read per band with rasterio.
-            image_path = self.tile_pyramid.format.get_tile_name(
-                self.config.output_name,
-                tile
+        return tile.read(
+            indexes=band_indexes,
+            pixelbuffer=pixelbuffer,
+            resampling=resampling
             )
-            return read_raster_window(
-                image_path,
-                tile,
-                indexes=band_indexes,
-                pixelbuffer=pixelbuffer,
-                resampling=resampling
-            )
-
 
     def _empty_image(self):
         """
@@ -197,17 +196,16 @@ class Mapchete(object):
         empty_image = Image.new('RGBA', (size, size))
         return empty_image.tobytes()
 
-
     def _cropped_metatile(self, metatile, tile):
         """
         Crops metatile to tile.
         """
         metatiling = self.tile_pyramid.metatiles
         # calculate pixel boundary
-        left = (tile.col % metatiling) * tile.size
-        right = left + tile.size
-        top = (tile.row % metatiling) * tile.size
-        bottom = top + tile.size
+        left = (tile.col % metatiling) * tile.width
+        right = left + tile.width
+        top = (tile.row % metatiling) * tile.height
+        bottom = top + tile.height
         # open buffer image and crop metatile
         img = Image.open(metatile.path)
         cropped = img.crop((left, top, right, bottom))
@@ -223,10 +221,16 @@ class MapcheteTile(Tile):
     tilematrix.tile) as well as Mapchete functions such as get(), read() or
     execute().
     """
-
-    def __init__(self, mapchete, tile):
+    def __init__(
+        self,
+        mapchete,
+        tile,
+        pixelbuffer=0,
+        resampling="nearest"
+        ):
         self.tile_pyramid = mapchete.tile_pyramid
         Tile.__init__(self, self.tile_pyramid, tile.zoom, tile.row, tile.col)
+        self.process = mapchete
         self.config = mapchete.config
         self.nodata = self.tile_pyramid.format.profile["nodata"]
         self.indexes = self.tile_pyramid.format.profile["count"]
@@ -236,24 +240,22 @@ class MapcheteTile(Tile):
             tile
         )
 
-
     def profile(self, pixelbuffer=0):
         """
         Returns a pixelbuffer specific metadata set.
         """
         out_meta = self.tile_pyramid.format.profile
         # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left, bottom, right, top = self.tile.bounds(pixelbuffer=pixelbuffer)
+        px_size = self.tile_pyramid.pixel_x_size(self.zoom)
+        left, bottom, right, top = self.bounds(pixelbuffer=pixelbuffer)
         tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
-            width=self.tile.width,
-            height=self.tile.height,
+            width=self.width,
+            height=self.height,
             transform=tile_geotransform,
-            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
+            affine=self.affine(pixelbuffer=pixelbuffer)
         )
         return out_meta
-
 
     def exists(self):
         """
@@ -261,19 +263,25 @@ class MapcheteTile(Tile):
         """
         return os.path.isfile(self.path)
 
-
-    def read(self, indexes=None, pixelbuffer=0):
+    def read(self, indexes=None, pixelbuffer=0, resampling="nearest"):
         """
         Reads input as numpy array. Is the equivalent function of
         read_raster_window in tilematrix.io.
         """
+        # TODO fix: function does not always seem to return the correct number of
+        # bands.
         if indexes:
             if isinstance(indexes, list):
                 band_indexes = indexes
             else:
                 band_indexes = [indexes]
         else:
-            band_indexes = src.indexes
+            band_indexes = range(1, self.indexes+1)
+
+        if self.is_empty(pixelbuffer=pixelbuffer):
+            out_empty = ()
+            for index in band_indexes:
+                yield self._empty_band(pixelbuffer=pixelbuffer)
 
         if pixelbuffer > 0:
             pass
@@ -283,16 +291,59 @@ class MapcheteTile(Tile):
             # read per band intersecting tiles
             # mosaick tiles
         else:
-            pass
-            # check if self.exists()
-            # if not, self.execute()
-            # read per band with rasterio.
+            # read bare files without buffer
+            log_message = self.process.execute(self, overwrite=False)
+            with rasterio.open(self.path, "r") as src:
+                nodataval = src.nodata
+                # Quick fix because None nodata is not allowed.
+                if not nodataval:
+                    nodataval = 0
+                for index in band_indexes:
+                    out_band = src.read(index, masked=True)
+                    out_band = ma.masked_equal(out_band, nodataval)
+                    yield out_band
 
+    def _empty_band(self, pixelbuffer=0):
+        """
+        Creates empty, masked array.
+        """
+        shape = (
+            self.profile(pixelbuffer)["width"],
+            self.profile(pixelbuffer)["height"]
+        )
+        zeros = np.zeros(
+            shape=(shape),
+            dtype=self.tile_pyramid.format.profile["dtype"]
+        )
+        return ma.masked_array(
+            zeros,
+            mask=True
+        )
+
+    def is_empty(self, pixelbuffer=0):
+        """
+        Returns true if tile bounding box does not intersect with process area.
+        Note: This is just a quick test. It could happen, that a tile can be
+        empty anyway but this cannot be known at this stage.
+        """
+        process_area = self.config.process_area(self.zoom)
+        if self.bbox(pixelbuffer=pixelbuffer).intersects(process_area):
+            return False
+        else:
+            return True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        # TODO cleanup
+        pass
 
 
 class MapcheteProcess():
     """
-    Main process class. Needs a Mapchete configuration YAML as input.
+    Main process class. Visible as "self" from within a user process file.
+    Includes functions reading and writing data.
     """
 
     def __init__(
@@ -313,14 +364,41 @@ class MapcheteProcess():
         self.params = params
         self.config = config
 
-
-    def open(self, input_file, pixelbuffer=0, resampling="nearest"):
+    def open(
+        self,
+        input_file,
+        pixelbuffer=0,
+        resampling="nearest"
+        ):
         """
-        Wrapper around mc_open function
+        Returns either a RasterFileTile or a MapcheteTile object.
         """
-        return mc_open(
-            input_file,
-            self.tile,
-            pixelbuffer=pixelbuffer,
-            resampling=resampling
+        if isinstance(input_file, dict):
+            raise ValueError("input cannot be dict")
+        # TODO add proper check for input type.
+        if isinstance(input_file, str):
+            return RasterFileTile(
+                input_file,
+                self.tile,
+                pixelbuffer=pixelbuffer,
+                resampling=resampling
             )
+        else:
+            return RasterProcessTile(
+                input_file,
+                self.tile,
+                pixelbuffer=pixelbuffer,
+                resampling=resampling
+            )
+
+    def write(
+        self,
+        bands,
+        pixelbuffer=0
+    ):
+        write_raster(
+            self,
+            self.tile.profile(pixelbuffer=pixelbuffer),
+            bands,
+            pixelbuffer=pixelbuffer
+        )

@@ -305,7 +305,7 @@ class MapcheteConfig():
         Gets and checks metatiling value
         """
         try:
-            metatiling = raw_config["metatiling"]
+            metatiling = self._raw_config["metatiling"]
         except:
             metatiling = 1
         try:

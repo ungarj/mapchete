@@ -32,7 +32,7 @@ MapcheteTile:
     --> returns data
   * execute(overwrite=True)
     --> applies process
-
+* read()
 * get_work_tiles()
 <!-- * get(tile, overwrite=True)
 * execute(tile, overwrite=True)
