@@ -157,6 +157,7 @@ class Mapchete(object):
 
         # return/process tile with no metatiling
         else:
+            tile = MapcheteTile(self, tile)
             # if overwrite is on or metatile doesn't exist, generate
             if overwrite or not tile.exists():
                 try:

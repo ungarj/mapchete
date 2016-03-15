@@ -100,10 +100,6 @@ def worker(tile, mapchete, overwrite):
     Worker function running the process depending on the overwrite flag and
     whether the tile exists.
     """
-    if not overwrite and tile.exists():
-        log_message = (tile.id, "exists", None)
-        logger.info(log_message)
-        return tile.id, "exists", None
     try:
         log_message = mapchete.execute(tile, overwrite=overwrite)
     except Exception as e:
