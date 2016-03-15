@@ -76,9 +76,10 @@ def main(args=None):
                 raise
             finally:
                 if not metatile_event:
-                    metatile_event = metatile_cache.get(metatile.id)
-                    del metatile_cache[metatile.id]
-                    metatile_event.set()
+                    with metatile_lock:
+                       metatile_event = metatile_cache.get(metatile.id)
+                       del metatile_cache[metatile.id]
+                       metatile_event.set()
 
             # set no-cache header:
             resp = make_response(image)

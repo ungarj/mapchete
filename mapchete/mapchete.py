@@ -56,7 +56,7 @@ class Mapchete(object):
             os.path.basename(self.config.process_file)
         )[0]
         self.tile_cache = {}
-        # self.tile_lock = threading.Lock()
+        self.tile_lock = threading.Lock()
         # print "tile_lock initialized", self.process_name, self.tile_lock
 
     def tile(self, tile):
@@ -79,43 +79,41 @@ class Mapchete(object):
         """
         Processes and saves tile.
         """
-        # print "enter execute"
-        # with self.tile_lock:
-        #     tile_event = self.tile_cache.get(tile.id)
-        #     if not tile_event:
-        #         tile_cache[tile.id] = threading.Event()
-        #
-        # if tile_event:
-        #     tile_event.wait()
-
         # TODO tile locking
-        # required_tiles = []
-        # for tile in required_tiles:
-        #     if tile not in subprocess_host.locked_tiles:
-        #         subprocess_host.locked_tiles.append
-        #         subprocess_host.get_tile(tile)
+        # print "current cache", self.tile_cache
+        with self.tile_lock:
+            tile_event = self.tile_cache.get(tile.id)
+            if not tile_event:
+                self.tile_cache[tile.id] = threading.Event()
+
+        if tile_event:
+            # print threading.current_thread().ident, "waiting for", tile.id, self.process_name
+            tile_event.wait()
+            # print threading.current_thread().ident, "continue", tile.id, self.process_name
 
         if not overwrite and tile.exists():
+            # print threading.current_thread().ident, "exists", tile.id, self.process_name
             return tile.id, "exists", None
-        new_process = imp.load_source(
-            self.process_name + "Process",
-            self.config.process_file
-            )
-        tile_process = new_process.Process(
-            config=self.config,
-            tile=tile,
-            params=self.config.at_zoom(tile.zoom)
-            )
         try:
+            new_process = imp.load_source(
+                self.process_name + "Process",
+                self.config.process_file
+            )
+            tile_process = new_process.Process(
+                config=self.config,
+                tile=tile,
+                params=self.config.at_zoom(tile.zoom)
+            )
             result = tile_process.execute()
         except:
             return tile.id, "failed", traceback.print_exc()
             raise
         finally:
-            # if not tile_event:
-            #     tile_event = tile_cache.get(tile.id)
-            #     del tile_cache[tile.id]
-            #     tile_event.set()
+            if not tile_event:
+                with self.tile_lock:
+                   tile_event = self.tile_cache.get(tile.id)
+                   del self.tile_cache[tile.id]
+                   tile_event.set()
             tile_process = None
         if result:
             if result == "empty":
