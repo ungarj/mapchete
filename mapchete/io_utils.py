@@ -7,6 +7,7 @@ from copy import deepcopy
 from rasterio.warp import calculate_default_transform, transform_bounds
 import rasterio
 from affine import Affine
+import fiona
 
 import mapchete
 from tilematrix import *
@@ -26,7 +27,6 @@ def read_vector(
     if input_file:
         features = read_vector_window(
             input_file,
-            process.tile_pyramid,
             process.tile,
             pixelbuffer=pixelbuffer
         )
@@ -34,6 +34,112 @@ def read_vector(
         features = None
 
     return features
+
+
+class VectorFileTile(object):
+    """
+    Class representing a reprojected subset of an input vector dataset clipped
+    to the tile boundaries. read() returns a Fiona-like dictionary with a
+    "geometry" and a "properties" field.
+    """
+
+    def __init__(
+        self,
+        input_file,
+        tile,
+        pixelbuffer=0
+        ):
+        try:
+            assert os.path.isfile(input_file)
+        except:
+            raise IOError("input file does not exist: %s" % input_file)
+
+        try:
+            assert pixelbuffer >= 0
+        except:
+            raise ValueError("pixelbuffer must be 0 or greater")
+
+        try:
+            assert isinstance(pixelbuffer, int)
+        except:
+            raise ValueError("pixelbuffer must be an integer")
+
+        try:
+            self.process = tile.process
+        except:
+            self.process = None
+        self.tile_pyramid = tile.tile_pyramid
+        self.tile = tile
+        self.input_file = input_file
+        self.pixelbuffer = pixelbuffer
+        self.crs = self.tile_pyramid.crs
+
+    def __enter__(self):
+        return self
+
+    def __exit__( self, type, value, tb ):
+        # TODO cleanup
+        pass
+
+    def read(self):
+        """
+        This is a wrapper around the read_vector_window function of tilematrix.
+        Tilematrix itself uses fiona to read vector data.
+        This function returns a list of GeoJSON-like dictionaries containing the
+        clipped vector data and attributes.
+        """
+        if self.is_empty():
+            return []
+        else:
+            return read_vector_window(
+                self.input_file,
+                self.tile
+            )
+
+    def is_empty(self, indexes=None):
+        """
+        Returns true if input is empty.
+        """
+        src_bbox = file_bbox(self.input_file, self.tile_pyramid)
+        tile_geom = self.tile.bbox(pixelbuffer=self.pixelbuffer)
+        if not tile_geom.intersects(src_bbox):
+            return True
+
+        # Reproject tile bounds to source file SRS.
+        src_left, src_bottom, src_right, src_top = transform_bounds(
+            self.tile.crs,
+            self.crs,
+            *self.tile.bounds(pixelbuffer=self.pixelbuffer),
+            densify_pts=21
+            )
+
+        with fiona.open(self.input_file, 'r') as vector:
+            for feature in vector.filter(
+                bbox=self.tile.bounds(pixelbuffer=self.pixelbuffer)
+            ):
+                return False
+
+        return True
+
+    def _read_metadata(self):
+        """
+        Returns a rasterio-like metadata dictionary adapted to tile.
+        """
+        with rasterio.open(self.input_file, "r") as src:
+            out_meta = src.meta
+        # create geotransform
+        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
+        left, bottom, right, top = self.tile.bounds(
+            pixelbuffer=self.pixelbuffer
+            )
+        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
+        out_meta.update(
+            width=self.tile_pyramid.tile_size,
+            height=self.tile_pyramid.tile_size,
+            transform=tile_geotransform,
+            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
+        )
+        return out_meta
 
 
 class RasterProcessTile(object):
@@ -355,7 +461,19 @@ def write_raster(
     try:
         assert isinstance(bands, tuple)
     except:
-        raise TypeError("output bands must be stored in a tuple.")
+        try:
+            assert (
+                isinstance(
+                bands,
+                np.ndarray
+                ) or isinstance(
+                bands,
+                np.ma.core.MaskedArray
+                )
+            )
+            bands = (bands, )
+        except:
+            raise TypeError("output bands must be stored in a tuple.")
 
     try:
         for band in bands:

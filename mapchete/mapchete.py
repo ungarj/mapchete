@@ -13,7 +13,12 @@ import numpy.ma as ma
 import threading
 
 from tilematrix import TilePyramid, MetaTilePyramid, Tile, read_raster_window
-from .io_utils import RasterFileTile, RasterProcessTile, write_raster
+from .io_utils import (
+    RasterFileTile,
+    RasterProcessTile,
+    write_raster,
+    VectorFileTile
+    )
 
 
 class Mapchete(object):
@@ -374,18 +379,27 @@ class MapcheteProcess():
         resampling="nearest"
         ):
         """
-        Returns either a RasterFileTile or a MapcheteTile object.
+        Returns either a fiona vector dictionary, a RasterFileTile or a
+        MapcheteTile object.
         """
         if isinstance(input_file, dict):
             raise ValueError("input cannot be dict")
         # TODO add proper check for input type.
         if isinstance(input_file, str):
-            return RasterFileTile(
-                input_file,
-                self.tile,
-                pixelbuffer=pixelbuffer,
-                resampling=resampling
-            )
+            extension = os.path.splitext(input_file)[1][1:]
+            if extension in ["shp", "geojson"]:
+                return VectorFileTile(
+                    input_file,
+                    self.tile,
+                    pixelbuffer=pixelbuffer
+                )
+            else:
+                return RasterFileTile(
+                    input_file,
+                    self.tile,
+                    pixelbuffer=pixelbuffer,
+                    resampling=resampling
+                )
         else:
             return RasterProcessTile(
                 input_file,
