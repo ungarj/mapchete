@@ -45,6 +45,10 @@ class Mapchete(object):
                 base_tile_pyramid,
                 self.config.metatiling
             )
+            self.tile_pyramid.format.profile.update(
+                count=self.config.output_bands,
+                dtype=self.config.output_dtype
+            )
             self.format = self.tile_pyramid.format
         except:
             raise

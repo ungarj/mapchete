@@ -59,6 +59,9 @@ class MapcheteConfig():
         self.input_files = self._get_input_files()
         self.process_bounds = self._get_process_bounds(bounds)
         self.output_name = self._raw_config["output_name"]
+        # TODO add checks & proper dtype
+        self.output_bands = self._raw_config["output_bands"]
+        self.output_dtype = self._raw_config["output_dtype"]
         # Validate configuration
         for zoom in self.zoom_levels:
             try:
