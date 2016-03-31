@@ -381,15 +381,15 @@ class RasterFileTile(object):
         else:
             band_indexes = range(1, self.indexes+1)
 
-        # Reproject tile bounds to source file SRS.
-        src_left, src_bottom, src_right, src_top = transform_bounds(
+        with rasterio.open(self.input_file, "r") as src:
+
+            # Reproject tile bounds to source file SRS.
+            src_left, src_bottom, src_right, src_top = transform_bounds(
             self.tile.crs,
-            self.crs,
+            src.crs,
             *self.tile.bounds(pixelbuffer=self.pixelbuffer),
             densify_pts=21
             )
-
-        with rasterio.open(self.input_file, "r") as src:
 
             minrow, mincol = src.index(src_left, src_top)
             maxrow, maxcol = src.index(src_right, src_bottom)
