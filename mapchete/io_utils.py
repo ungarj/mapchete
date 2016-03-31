@@ -89,6 +89,7 @@ class VectorFileTile(object):
         clipped vector data and attributes.
         """
         if self.is_empty():
+            print "is empty!"
             return []
         else:
             return read_vector_window(
@@ -114,12 +115,13 @@ class VectorFileTile(object):
             )
 
         with fiona.open(self.input_file, 'r') as vector:
-            for feature in vector.filter(
+            features = vector.filter(
                 bbox=self.tile.bounds(pixelbuffer=self.pixelbuffer)
-            ):
+            )
+            if len(list(features))>0:
                 return False
-
-        return True
+            else:
+                return True
 
     def _read_metadata(self):
         """
