@@ -62,6 +62,11 @@ class MapcheteConfig():
         # TODO add checks & proper dtype
         self.output_bands = self._raw_config["output_bands"]
         self.output_dtype = self._raw_config["output_dtype"]
+        if self._raw_config["write_options"]:
+            print "herbert"
+            self.write_options = self._raw_config["write_options"]
+        else:
+            self.write_options = None
         # Validate configuration
         for zoom in self.zoom_levels:
             try:

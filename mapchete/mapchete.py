@@ -54,6 +54,11 @@ class Mapchete(object):
                 count=self.config.output_bands,
                 dtype=self.config.output_dtype
             )
+            if self.config.write_options:
+                for option, param in self.config.write_options.iteritems():
+                    self.tile_pyramid.format.profile.update(
+                        {option: param}
+                    )
             self.format = self.tile_pyramid.format
         except:
             raise
