@@ -181,7 +181,7 @@ class RasterProcessTile(object):
         # except:
         #     raise ValueError("please provide an input process")
         self.process = input_mapchete
-        self.tile_pyramid = tile.tile_pyramid
+        self.tile_pyramid = self.process.tile_pyramid
         self.tile = tile
         self.input_file = input_mapchete
         self.pixelbuffer = pixelbuffer
@@ -229,7 +229,10 @@ class RasterProcessTile(object):
         generate a temporal mosaic using the gdalbuildvrt command.
         """
         if indexes:
-            band_indexes = [indexes]
+            if isinstance(indexes, list):
+                band_indexes = indexes
+            else:
+                band_indexes = [indexes]
         else:
             band_indexes = range(1, self.indexes+1)
 
@@ -276,19 +279,28 @@ class RasterProcessTile(object):
         """
         Returns true if all items are masked.
         """
-        zoom, row, col = self.tile
-        src_bbox = self.input_file.config.process_bounds(zoom)
-        tile_geom = self.tile_pyramid.tile_bbox(
-            *self.tile,
+        src_bbox = self.input_file.config.process_area(self.tile.zoom)
+        tile_geom = self.tile.bbox(
             pixelbuffer=self.pixelbuffer
         )
         if not tile_geom.intersects(src_bbox):
             return True
 
         if indexes:
-            band_indexes = [indexes]
+            if isinstance(indexes, list):
+                band_indexes = indexes
+            else:
+                band_indexes = [indexes]
         else:
             band_indexes = range(1, self.indexes+1)
+
+        all_bands_empty = True
+        for band in self.read(band_indexes):
+            if not band.mask.all():
+                all_bands_empty = False
+                break
+
+        return all_bands_empty
 
 
 class RasterFileTile(object):
@@ -354,7 +366,10 @@ class RasterFileTile(object):
         Generates numpy arrays from input bands.
         """
         if indexes:
-            band_indexes = [indexes]
+            if isinstance(indexes, list):
+                band_indexes = indexes
+            else:
+                band_indexes = [indexes]
         else:
             band_indexes = range(1, self.indexes+1)
 
@@ -377,7 +392,10 @@ class RasterFileTile(object):
             return True
 
         if indexes:
-            band_indexes = [indexes]
+            if isinstance(indexes, list):
+                band_indexes = indexes
+            else:
+                band_indexes = [indexes]
         else:
             band_indexes = range(1, self.indexes+1)
 
