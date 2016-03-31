@@ -3,6 +3,7 @@
 import sys
 import math
 import numpy as np
+import numpy.ma as ma
 from itertools import product
 from math import pi, sin, cos
 
@@ -10,8 +11,9 @@ from math import pi, sin, cos
 NODATA = -1
 
 """
-license for hillshade()
+license for calculate_slope_aspect() and hillshade()
 -----------------------
+Copyright (c) 2011, Michal Migurski, Nelson Minar
 
 All rights reserved.
 
@@ -40,16 +42,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
-def hillshade(
-    elevation,
-    xres,
-    yres,
-    nodata=None,
-    azimuth=315.0,
-    altitude=45.0,
-    z=1.0,
-    scale=1.0
-    ):
+def calculate_slope_aspect(elevation, xres, yres, z=1.0, scale=1.0):
     """ Return a pair of arrays 2 pixels smaller than the input elevation array.
 
         Slope is returned in radians, from 0 for sheer face to pi/2 for
@@ -59,42 +52,62 @@ def hillshade(
         Logic here is borrowed from hillshade.cpp:
           http://www.perrygeo.net/wordpress/?p=7
     """
-    window = []
+    width, height = elevation.shape[0] - 2, elevation.shape[1] - 2
 
-    for row in range(3):
-        for col in range(3):
-            window.append(elevation[
-                row:(row + elevation.shape[0] - 2),
-                col:(col + elevation.shape[1] - 2)
-            ])
+    window = [z * elevation[row:(row + height), col:(col + width)]
+              for (row, col)
+              in product(range(3), range(3))]
 
-    x = ((z * window[0] + z * window[3] + z * window[3] + z * window[6]) \
-       - (z * window[2] + z * window[5] + z * window[5] + z * window[8])) \
+    x = ((window[0] + window[3] + window[3] + window[6]) \
+       - (window[2] + window[5] + window[5] + window[8])) \
       / (8.0 * xres * scale);
 
-    y = ((z * window[6] + z * window[7] + z * window[7] + z * window[8]) \
-       - (z * window[0] + z * window[1] + z * window[1] + z * window[2])) \
+    y = ((window[6] + window[7] + window[7] + window[8]) \
+       - (window[0] + window[1] + window[1] + window[2])) \
       / (8.0 * yres * scale);
 
-    rad2deg = 180.0 / math.pi
+    # in radians, from 0 to pi/2
+    slope = pi/2 - np.arctan(np.sqrt(x*x + y*y))
 
-    slope = 90.0 - np.arctan(np.sqrt(x*x + y*y)) * rad2deg
-
+    # in radians counterclockwise, from -pi at north back to pi
     aspect = np.arctan2(x, y)
+
+    return slope, aspect
+
+
+def hillshade(
+    elevation,
+    self,
+    nodata=None,
+    azimuth=315.0,
+    altitude=45.0,
+    z=1.0,
+    scale=1.0
+    ):
+    """
+    Returns hillshaded numpy array.
+    """
+    xres = self.tile.pixel_x_size
+    yres = -self.tile.pixel_y_size
+
+    slope, aspect = calculate_slope_aspect(
+        elevation,
+        xres,
+        yres,
+        z=z,
+        scale=scale
+        )
 
     deg2rad = math.pi / 180.0
 
-    shaded = np.sin(altitude * deg2rad) * np.sin(slope * deg2rad) \
-           + np.cos(altitude * deg2rad) * np.cos(slope * deg2rad) \
+    shaded = np.sin(altitude * deg2rad) * np.sin(slope) \
+           + np.cos(altitude * deg2rad) * np.cos(slope) \
            * np.cos((azimuth - 90.0) * deg2rad - aspect);
 
-    shaded = shaded * 255
+    shaded = (shaded - 1.0) * -128.0
+    shaded[shaded>254.0] = 255.0
+    shaded[shaded<1.0] = 1.0
+    padded = np.pad(shaded, 1, mode='constant')
+    padded[ma.getmask(elevation)] = 0.0
 
-    if nodata is not None:
-        for pane in window:
-            shaded[pane == nodata] = NODATA
-
-    # invert values & return array in original shape
-    shaded = -shaded+256
-    shaded[shaded<1] = 0
-    return np.pad(shaded, 1, mode='constant')
+    return padded
