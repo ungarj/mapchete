@@ -89,7 +89,6 @@ class VectorFileTile(object):
         clipped vector data and attributes.
         """
         if self.is_empty():
-            print "is empty!"
             return []
         else:
             return read_vector_window(
