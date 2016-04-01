@@ -129,12 +129,16 @@ class Mapchete(object):
                    del self.tile_cache[tile.id]
                    tile_event.set()
             tile_process = None
+        message = None
         if result:
             if result == "empty":
                 status = "empty"
+            else:
+                status = "custom"
+                message = result
         else:
             status = "ok"
-        return tile.id, status, None
+        return tile.id, status, message
 
     def get(self, tile, overwrite=False):
         """
@@ -399,6 +403,8 @@ class MapcheteProcess():
                     pixelbuffer=pixelbuffer
                 )
             else:
+                # if zoom < baselevel, iterate per zoom level until baselevel
+                # and resample tiles using their 4 parents.
                 return RasterFileTile(
                     input_file,
                     self.tile,
