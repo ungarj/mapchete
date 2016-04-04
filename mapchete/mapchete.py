@@ -69,8 +69,8 @@ class Mapchete(object):
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file)
         )[0]
-        self.tile_cache = {}
-        self.tile_lock = threading.Lock()
+        # self.tile_cache = {}
+        # self.tile_lock = threading.Lock()
         # print "tile_lock initialized", self.process_name, self.tile_lock
 
     def tile(self, tile):
@@ -95,14 +95,14 @@ class Mapchete(object):
         """
         # TODO tile locking
         # print "current cache", self.tile_cache
-        with self.tile_lock:
-            tile_event = self.tile_cache.get(tile.id)
-            if not tile_event:
-                self.tile_cache[tile.id] = threading.Event()
-
-        if tile_event:
-            # print threading.current_thread().ident, "waiting for", tile.id, self.process_name
-            tile_event.wait()
+        # with self.tile_lock:
+        #     tile_event = self.tile_cache.get(tile.id)
+        #     if not tile_event:
+        #         self.tile_cache[tile.id] = threading.Event()
+        #
+        # if tile_event:
+        #     # print threading.current_thread().ident, "waiting for", tile.id, self.process_name
+        #     tile_event.wait()
             # print threading.current_thread().ident, "continue", tile.id, self.process_name
 
         if not overwrite and tile.exists():
@@ -123,11 +123,11 @@ class Mapchete(object):
             return tile.id, "failed", traceback.print_exc()
             raise
         finally:
-            if not tile_event:
-                with self.tile_lock:
-                   tile_event = self.tile_cache.get(tile.id)
-                   del self.tile_cache[tile.id]
-                   tile_event.set()
+            # if not tile_event:
+            #     with self.tile_lock:
+            #        tile_event = self.tile_cache.get(tile.id)
+            #        del self.tile_cache[tile.id]
+            #        tile_event.set()
             tile_process = None
         message = None
         if result:

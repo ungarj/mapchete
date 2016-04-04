@@ -5,7 +5,7 @@ import sys
 import argparse
 from functools import partial
 from multiprocessing import cpu_count
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
 import time
 import logging
 import logging.config
@@ -55,7 +55,7 @@ def main(args=None):
         mapchete=mapchete,
         overwrite=overwrite
     )
-    pool = ThreadPool()
+    pool = Pool()
     logs = []
     logger.info("starting process ...")
     try:
