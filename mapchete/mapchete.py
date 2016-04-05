@@ -11,14 +11,25 @@ import rasterio
 import numpy as np
 import numpy.ma as ma
 import threading
+from tempfile import NamedTemporaryFile
+import logging
+import logging.config
 
-from tilematrix import TilePyramid, MetaTilePyramid, Tile, read_raster_window
+from tilematrix import (
+    TilePyramid,
+    MetaTilePyramid,
+    Tile,
+    read_raster_window,
+    write_raster_window
+    )
 from .io_utils import (
     RasterFileTile,
     RasterProcessTile,
     write_raster,
     VectorFileTile
     )
+
+logger = logging.getLogger("mapchete")
 
 
 class Mapchete(object):
@@ -69,9 +80,6 @@ class Mapchete(object):
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file)
         )[0]
-        # self.tile_cache = {}
-        # self.tile_lock = threading.Lock()
-        # print "tile_lock initialized", self.process_name, self.tile_lock
 
     def tile(self, tile):
         """
@@ -84,7 +92,7 @@ class Mapchete(object):
         Determines the tiles affected by zoom levels, bounding box and input
         data.
         """
-        for zoom in self.config.zoom_levels:
+        for zoom in reversed(self.config.zoom_levels):
             bbox = self.config.process_area(zoom)
             for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
                 yield self.tile(tile)
@@ -93,20 +101,8 @@ class Mapchete(object):
         """
         Processes and saves tile.
         """
-        # TODO tile locking
-        # print "current cache", self.tile_cache
-        # with self.tile_lock:
-        #     tile_event = self.tile_cache.get(tile.id)
-        #     if not tile_event:
-        #         self.tile_cache[tile.id] = threading.Event()
-        #
-        # if tile_event:
-        #     # print threading.current_thread().ident, "waiting for", tile.id, self.process_name
-        #     tile_event.wait()
-            # print threading.current_thread().ident, "continue", tile.id, self.process_name
 
         if not overwrite and tile.exists():
-            # print threading.current_thread().ident, "exists", tile.id, self.process_name
             return tile.id, "exists", None
         try:
             new_process = imp.load_source(
@@ -118,27 +114,125 @@ class Mapchete(object):
                 tile=tile,
                 params=self.config.at_zoom(tile.zoom)
             )
-            result = tile_process.execute()
         except:
-            return tile.id, "failed", traceback.print_exc()
             raise
-        finally:
-            # if not tile_event:
-            #     with self.tile_lock:
-            #        tile_event = self.tile_cache.get(tile.id)
-            #        del self.tile_cache[tile.id]
-            #        tile_event.set()
-            tile_process = None
-        message = None
-        if result:
-            if result == "empty":
-                status = "empty"
-            else:
-                status = "custom"
-                message = result
+
+        # if interpolation from baselevel is activated, read from other zooms
+        if self.config.baselevel:
+            if tile.zoom < self.config.baselevel["zoom"]:
+                # determine tiles from next zoom level
+                process_area = self.config.process_area(tile.zoom+1)
+                tile_process_area = process_area.union(tile.bbox())
+                subtiles = list(
+                    MapcheteTile(self, subtile)
+                    for subtile in self.tile_pyramid.tiles_from_geom(
+                        tile_process_area,
+                        tile.zoom+1
+                    )
+                )
+                # check if tiles exist and if not, execute subtiles
+                for subtile in subtiles:
+                    if not overwrite and subtile.exists():
+                        logger.info((subtile.id, "exists", None))
+                    else:
+                        pass
+                        # TODO create option for on demand processing
+                        # try:
+                        #     log_message = self.execute(
+                        #         subtile,
+                        #         overwrite=overwrite
+                        #     )
+                        #     logger.info(log_message)
+                        # except Exception as e:
+                        #     log_message = (
+                        #         subtile.id, "failed", traceback.print_exc())
+                        #     return log_message
+
+                # create temporary VRT and create new tile from resampled
+                # subtiles.
+                subtile_paths = [
+                    subtile.path
+                    for subtile in subtiles
+                    if subtile.exists()
+                ]
+                if len(subtile_paths) == 0:
+                    return tile.id, "empty", None
+                temp_vrt = NamedTemporaryFile()
+                build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
+                    temp_vrt.name,
+                    ' '.join(subtile_paths)
+                    )
+                try:
+                    os.system(build_vrt)
+                    bands = tuple(read_raster_window(
+                        temp_vrt.name,
+                        tile,
+                        resampling=self.config.baselevel["resampling"]
+                    ))
+                    write_raster(
+                        tile_process,
+                        self.tile_pyramid.format.profile,
+                        bands
+                    )
+                    return tile.id, "processed", None
+                except:
+                    return tile.id, "failed", traceback.print_exc()
+                    raise
+
+            if tile.zoom > self.config.baselevel["zoom"]:
+                # determine tiles from previous zoom level
+                process_area = self.config.process_area(tile.zoom-1)
+                supertile =  list(
+                    MapcheteTile(self, supertile)
+                    for supertile in self.tile_pyramid.tiles_from_geom(
+                        tile.bbox(),
+                        tile.zoom-1
+                    )
+                )[0]
+                # check if tiles exist and if not, execute subtiles
+                if not overwrite and supertile.exists():
+                    logger.info((tile.id, "exists", None))
+                else:
+                    pass
+                if not supertile.exists():
+                    # TODO create option for on demand processing
+                    return tile.id, "empty", "source tile does not exist"
+                try:
+                    bands = tuple(read_raster_window(
+                        supertile.path,
+                        tile,
+                        resampling=self.config.baselevel["resampling"]
+                    ))
+                    write_raster(
+                        tile_process,
+                        self.tile_pyramid.format.profile,
+                        bands
+                    )
+                    return tile.id, "processed", None
+                except:
+                    return tile.id, "failed", traceback.print_exc()
+                    raise
+
+        # if no resampling from baselevel is set, process
         else:
-            status = "ok"
-        return tile.id, status, message
+            try:
+                result = tile_process.execute()
+            except:
+                return tile.id, "failed", traceback.print_exc()
+                raise
+            finally:
+                tile_process = None
+            message = None
+
+            if result:
+                if result == "empty":
+                    status = "empty"
+                else:
+                    status = "custom"
+                    message = result
+            else:
+                status = "processed"
+            return tile.id, status, message
 
     def get(self, tile, overwrite=False):
         """

@@ -8,6 +8,7 @@ from rasterio.warp import calculate_default_transform, transform_bounds
 import rasterio
 from affine import Affine
 import fiona
+from tempfile import NamedTemporaryFile
 
 import mapchete
 from tilematrix import *
@@ -173,7 +174,7 @@ class RasterProcessTile(object):
             raise ValueError("pixelbuffer must be an integer")
 
         try:
-            assert resampling in resampling_methods
+            assert resampling in RESAMPLING_METHODS
         except:
             raise ValueError("resampling method %s not found." % resampling)
 
@@ -247,7 +248,7 @@ class RasterProcessTile(object):
         ]
         # TODO flesh out mosaic_tiles() function and reimplement using internal
         # numpy arrays.
-        from tempfile import NamedTemporaryFile
+
         for tile in src_tiles:
             list(tile.read())
         temp_vrt = NamedTemporaryFile()
@@ -334,7 +335,7 @@ class RasterFileTile(object):
             raise ValueError("pixelbuffer must be an integer")
 
         try:
-            assert resampling in resampling_methods
+            assert resampling in RESAMPLING_METHODS
         except:
             raise ValueError("resampling method %s not found." % resampling)
 

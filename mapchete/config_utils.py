@@ -5,7 +5,12 @@ import os
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 
-from tilematrix import TilePyramid, MetaTilePyramid, file_bbox
+from tilematrix import (
+    TilePyramid,
+    MetaTilePyramid,
+    file_bbox,
+    RESAMPLING_METHODS
+    )
 
 from .mapchete import Mapchete
 
@@ -62,6 +67,7 @@ class MapcheteConfig():
         # TODO add checks & proper dtype
         self.output_bands = self._raw_config["output_bands"]
         self.output_dtype = self._raw_config["output_dtype"]
+        self.baselevel = self._get_baselevel()
         try:
             self.write_options = self._raw_config["write_options"]
         except:
@@ -411,6 +417,35 @@ class MapcheteConfig():
         except:
             raise IOError("%s is not available" % mapchete_process_file)
         return mapchete_process_file
+
+
+    def _get_baselevel(self):
+        """
+        If provided, reads baselevel parameter and validates subparameters.
+        """
+        try:
+            baselevel = self._raw_config["baselevel"]
+        except:
+            return None
+
+        try:
+            assert "zoom" in baselevel
+            assert isinstance(baselevel["zoom"], int)
+            assert baselevel["zoom"] > 0
+        except:
+            raise ValueError("no or invalid baselevel zoom parameter given")
+
+        try:
+            baselevel["resampling"]
+        except:
+            baselevel.update(resampling="nearest")
+
+        try:
+            assert baselevel["resampling"] in RESAMPLING_METHODS
+        except:
+            raise ValueError("invalid baselevel resampling method given")
+
+        return baselevel
 
 
     # configuration parsing functions #

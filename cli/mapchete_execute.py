@@ -91,7 +91,7 @@ def main(args=None):
             os.system(command)
     if parsed.log:
         for row in logs:
-            if row[1] not in ["ok", "exists"]:
+            if row[1] not in ["processed", "exists"]:
                 print row
 
 
