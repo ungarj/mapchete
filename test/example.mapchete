@@ -8,6 +8,8 @@ input_files:
 output_name: test
 output_format: GTiff
 output_type: geodetic
+output_dtype: float32
+output_bands: 1
 # TODO re-introduce file grouping
 # input_files:
 #     file_group_1:

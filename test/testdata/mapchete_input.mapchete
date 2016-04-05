@@ -4,6 +4,8 @@ process_zoom: 5
 input_files:
     file1: dummy2.tif
     file2: zoom.mapchete
+output_dtype: float32
+output_bands: 1
 
 output_name: test
 output_format: GTiff
