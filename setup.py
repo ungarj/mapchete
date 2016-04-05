@@ -13,6 +13,7 @@ setup(
     packages=[
         'mapchete',
         'static',
+        'cli'
     ],
     entry_points={
         'console_scripts': [
