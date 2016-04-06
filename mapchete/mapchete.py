@@ -70,6 +70,9 @@ class Mapchete(object):
                     self.tile_pyramid.format.profile.update(
                         {option: param}
                     )
+            self.tile_pyramid.format.profile.update(
+                nodata=self.config.output_nodata
+            )
             self.format = self.tile_pyramid.format
         except:
             raise
@@ -115,7 +118,7 @@ class Mapchete(object):
                 params=self.config.at_zoom(tile.zoom)
             )
         except:
-            raise
+            return tile.id, "failed", traceback.print_exc()
 
         # if interpolation from baselevel is activated, read from other zooms
         if self.config.baselevel:
@@ -133,7 +136,8 @@ class Mapchete(object):
                 # check if tiles exist and if not, execute subtiles
                 for subtile in subtiles:
                     if not overwrite and subtile.exists():
-                        logger.info((subtile.id, "exists", None))
+                        # logger.info((subtile.id, "exists", None))
+                        pass
                     else:
                         pass
                         # TODO create option for on demand processing
@@ -179,7 +183,7 @@ class Mapchete(object):
                     return tile.id, "failed", traceback.print_exc()
                     raise
 
-            if tile.zoom > self.config.baselevel["zoom"]:
+            elif tile.zoom > self.config.baselevel["zoom"]:
                 # determine tiles from previous zoom level
                 process_area = self.config.process_area(tile.zoom-1)
                 supertile =  list(
@@ -191,7 +195,8 @@ class Mapchete(object):
                 )[0]
                 # check if tiles exist and if not, execute subtiles
                 if not overwrite and supertile.exists():
-                    logger.info((tile.id, "exists", None))
+                    # logger.info((tile.id, "exists", None))
+                    pass
                 else:
                     pass
                 if not supertile.exists():
@@ -214,25 +219,24 @@ class Mapchete(object):
                     raise
 
         # if no resampling from baselevel is set, process
-        else:
-            try:
-                result = tile_process.execute()
-            except:
-                return tile.id, "failed", traceback.print_exc()
-                raise
-            finally:
-                tile_process = None
-            message = None
+        try:
+            result = tile_process.execute()
+        except:
+            return tile.id, "failed", traceback.print_exc()
+            raise
+        finally:
+            tile_process = None
+        message = None
 
-            if result:
-                if result == "empty":
-                    status = "empty"
-                else:
-                    status = "custom"
-                    message = result
+        if result:
+            if result == "empty":
+                status = "empty"
             else:
-                status = "processed"
-            return tile.id, status, message
+                status = "custom"
+                message = result
+        else:
+            status = "processed"
+        return tile.id, status, message
 
     def get(self, tile, overwrite=False):
         """

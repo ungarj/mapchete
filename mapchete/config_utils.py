@@ -35,18 +35,27 @@ class MapcheteConfig():
     """
     def __init__(
         self,
-        mapchete_file,
+        config,
         zoom=None,
         bounds=None,
         output_path=None,
         output_format=None
     ):
-        # read from mapchete file
-        try:
-            with open(mapchete_file, "r") as config_file:
-                self._raw_config = yaml.load(config_file.read())
-        except:
-            raise
+        if isinstance(config, dict):
+            self._raw_config = config
+            self.mapchete_file = None
+            self.config_dir = config["config_dir"]
+        else:
+            # read from mapchete file
+            try:
+                with open(config, "r") as config_file:
+                    self._raw_config = yaml.load(config_file.read())
+            except:
+                raise
+            self.config_dir = os.path.dirname(
+                os.path.realpath(self.mapchete_file)
+            )
+            self.mapchete_file = mapchete_file
         # get additional parameters
         self._additional_parameters = _additional_parameters = {
             "zoom": zoom,
@@ -54,7 +63,6 @@ class MapcheteConfig():
             "output_path": output_path,
             "output_format": output_format
         }
-        self.mapchete_file = mapchete_file
         self.process_file = self._get_process_file()
         self.zoom_levels = self._get_zoom_levels()
         self.output_type = self._get_output_type()
@@ -78,6 +86,10 @@ class MapcheteConfig():
                 assert self.is_valid_at_zoom(zoom)
             except:
                 raise ValueError(self.explain_validity_at_zoom(zoom))
+        if "nodataval" in self._raw_config:
+            self.output_nodata = self._raw_config["nodataval"]
+        else:
+            self.output_nodata = None
 
 
     def process_area(self, zoom):
@@ -170,10 +182,7 @@ class MapcheteConfig():
                 if isinstance(rel_path, Mapchete):
                     pass
                 else:
-                    config_dir = os.path.dirname(
-                        os.path.realpath(self.mapchete_file)
-                        )
-                    abs_path = os.path.join(config_dir, rel_path)
+                    abs_path = os.path.join(self.config_dir, rel_path)
                     try:
                         assert os.path.isfile(os.path.join(abs_path))
                     except:
@@ -211,10 +220,7 @@ class MapcheteConfig():
                 if isinstance(rel_path, Mapchete):
                     pass
                 else:
-                    config_dir = os.path.dirname(
-                        os.path.realpath(self.mapchete_file)
-                        )
-                    abs_path = os.path.join(config_dir, rel_path)
+                    abs_path = os.path.join(self.config_dir, rel_path)
                     try:
                         assert os.path.isfile(os.path.join(abs_path))
                     except:
@@ -238,7 +244,7 @@ class MapcheteConfig():
         all_input_files = self._get_all_items(self._raw_config["input_files"])
         abs_paths = {
             input_file: os.path.join(
-                os.path.dirname(os.path.realpath(self.mapchete_file)),
+                self.config_dir,
                 rel_path
             )
             for input_file, rel_path in all_input_files.iteritems()
@@ -377,6 +383,8 @@ class MapcheteConfig():
         # if zoom still empty, throw exception
         if not zoom:
             raise Exception("No zoom level(s) provided.")
+        if isinstance(zoom, int):
+            zoom = [zoom]
         if len(zoom) == 1:
             zoom_levels = zoom
         elif len(zoom) == 2:
@@ -409,8 +417,7 @@ class MapcheteConfig():
         except:
             raise Exception("'process_file' parameter is missing")
         rel_path = mapchete_process_file
-        config_dir = os.path.dirname(os.path.realpath(self.mapchete_file))
-        abs_path = os.path.join(config_dir, rel_path)
+        abs_path = os.path.join(self.config_dir, rel_path)
         mapchete_process_file = abs_path
         try:
             assert os.path.isfile(mapchete_process_file)
