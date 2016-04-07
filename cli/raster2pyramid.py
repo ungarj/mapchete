@@ -62,6 +62,13 @@ def main(args=None):
         ]
     )
     parser.add_argument(
+        "--scale_method",
+        type=str,
+        default="minmax_scale",
+        choices=["dtype_scale", "minmax_scale", "crop"],
+        help="scale method if input bands have more than 8 bit"
+    )
+    parser.add_argument(
         "--zoom",
         "-z",
         type=int,
@@ -83,6 +90,7 @@ def main(args=None):
         parsed.input_raster,
         parsed.output_dir,
         parsed.pyramid_type,
+        scale_method=parsed.scale_method,
         output_format=parsed.output_format,
         resampling=parsed.resampling_method,
         zoom=parsed.zoom,
@@ -95,6 +103,7 @@ def raster2pyramid(
     input_file,
     output_dir,
     output_type,
+    scale_method="minmax_scale",
     output_format="GTiff",
     resampling="nearest",
     zoom=None,
@@ -116,16 +125,45 @@ def raster2pyramid(
         os.path.dirname(os.path.realpath(__file__)),
         "tilify.py"
     )
+
+    # ranges from rasterio
+    # https://github.com/mapbox/rasterio/blob/master/rasterio/dtypes.py#L61
+    dtype_ranges = {
+        'uint8': (0, 255),
+        'uint16': (0, 65535),
+        'int16': (-32768, 32767),
+        'uint32': (0, 4294967295),
+        'int32': (-2147483648, 2147483647),
+        'float32': (-3.4028235e+38, 3.4028235e+38),
+        'float64': (-1.7976931348623157e+308, 1.7976931348623157e+308)
+    }
     with rasterio.open(input_file, "r") as input_raster:
         output_bands = input_raster.count
+        input_dtype = input_raster.dtypes[0]
         output_dtype = input_raster.dtypes[0]
-        if output_format == "PNG":
-            if output_bands > 3:
-                output_bands = 3
-            output_dtype = 'uint8'
         nodataval = input_raster.nodatavals[0]
         if not nodataval:
             nodataval = 0
+        if output_format == "PNG":
+            if output_bands > 3:
+                output_bands = 3
+                output_dtype = 'uint8'
+            scales_minmax = ()
+            if scale_method == "dtype_scale":
+                for index in range(1, output_bands+1):
+                    scales_minmax += (dtype_ranges[input_dtype], )
+            elif scale_method == "minmax_scale":
+                for index in range(1, output_bands+1):
+                    band = input_raster.read(index)
+                    scales_minmax += ((band.min(), band.max()), )
+            elif scale_method == "crop":
+                for index in range(1, output_bands+1):
+                    scales_minmax += ((0, 255), )
+            if input_dtype == "uint8":
+                scale_method = None
+                scales_minmax = ()
+                for index in range(1, output_bands+1):
+                    scales_minmax += ((None, None), )
 
     # Create configuration
     config = {}
@@ -134,6 +172,8 @@ def raster2pyramid(
         output_name=output_dir,
         output_type=output_type,
         output_format=output_format,
+        scale_method=scale_method,
+        scales_minmax=scales_minmax,
         input_files={"raster": input_file},
         config_dir=os.getcwd(),
         output_bands=output_bands,

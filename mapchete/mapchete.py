@@ -168,11 +168,22 @@ class Mapchete(object):
                     )
                 try:
                     os.system(build_vrt)
+                except:
+                    build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
+                        temp_vrt.name,
+                        ' '.join(subtile_paths)
+                        )
+                    os.system(build_vrt)
+                    return tile.id, "failed", "GDAL VRT building"
+                try:
                     bands = tuple(read_raster_window(
                         temp_vrt.name,
                         tile,
                         resampling=self.config.baselevel["resampling"]
                     ))
+                except:
+                    return tile.id, "failed", traceback.print_exc()
+                try:
                     write_raster(
                         tile_process,
                         self.tile_pyramid.format.profile,
@@ -181,7 +192,6 @@ class Mapchete(object):
                     return tile.id, "processed", None
                 except:
                     return tile.id, "failed", traceback.print_exc()
-                    raise
 
             elif tile.zoom > self.config.baselevel["zoom"]:
                 # determine tiles from previous zoom level

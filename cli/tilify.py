@@ -6,6 +6,9 @@ import numpy.ma as ma
 from rasterio.features import rasterize
 from shapely.geometry import shape
 
+def stretch_array(a, min, max):
+    return ((a.astype("float32")-min)/(max-min)*255).astype("uint8")
+
 class Process(MapcheteProcess):
     """
     Main process class which inherits from MapcheteProcess.
@@ -23,6 +26,11 @@ class Process(MapcheteProcess):
         """
         resampling = self.params["resampling"]
         pixelbuffer = self.params["pixelbuffer"]
+        if "scale_method" in self.params:
+            scale_method = self.params["scale_method"]
+        else:
+            scale_method = None
+        scales_minmax = self.params["scales_minmax"]
 
         pixelsize = self.tile.pixel_x_size
         with self.open(
@@ -33,5 +41,19 @@ class Process(MapcheteProcess):
             if raster_file.is_empty():
                 return "empty"
             bands = self.tile.tile_pyramid.format.profile["count"]
-            resampled = tuple(raster_file.read(range(1, bands+1)))
+            resampled = ()
+            for band, scale_minmax in zip(
+                raster_file.read(range(1, bands+1)),
+                scales_minmax
+                ):
+                if scale_method in ["dtype_scale", "minmax_scale"]:
+                    scale_min, scale_max = scale_minmax
+                    resampled += (stretch_array(band, scale_min, scale_max), )
+                elif scale_method == "crop":
+                    scale_min, scale_max = scale_minmax
+                    band[band>scale_max] = scale_max
+                    band[band<=scale_min] = scale_min
+                    resampled += (band, )
+                else:
+                    resampled += (band, )
             self.write(resampled)
