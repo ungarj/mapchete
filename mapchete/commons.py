@@ -111,3 +111,55 @@ def hillshade(
     padded[ma.getmask(elevation)] = 0.0
 
     return padded
+
+
+from rasterio.features import rasterize
+from shapely.geometry import *
+
+def clip_array_with_vector(
+    array,
+    array_affine,
+    vector_list,
+    inverted=False,
+    buffer=buffer
+    ):
+    """
+    Clips input array with a vector list.
+    """
+    union_mask = np.ones(array.shape, dtype=np.uint8)
+    for feature in vector_list:
+
+        geom = shape(feature['geometry'])
+
+        if not isinstance(geom, (Polygon, MultiPolygon, GeometryCollection)):
+            break
+        if isinstance(geom, GeometryCollection):
+            polygons = [
+                subgeom
+                for subgeom in geom
+                if isinstance(subgeom, (Polygon, MultiPolygon))
+            ]
+            if not polygons:
+                break
+            new_geom = MultiPolygon(polygons)
+            geom = new_geom
+
+        buffered = geom.buffer(buffer)
+
+        if inverted:
+            nodata, fill = 1, 0
+        else:
+            nodata, fill = 0, 1
+
+        feature_mask = rasterize(
+            [(buffered, nodata)],
+            out_shape=array.shape,
+            transform=array_affine,
+            fill=fill,
+            all_touched=True,
+            dtype=np.float32
+        )
+        union_mask = np.minimum(union_mask, feature_mask)
+
+    masked_array = np.ma.array(data=array, mask=union_mask.astype(bool))
+    return masked_array

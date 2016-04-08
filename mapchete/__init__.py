@@ -19,7 +19,8 @@ from .io_utils import (
 )
 
 from .commons import (
-    hillshade
+    hillshade,
+    clip_array_with_vector
 )
 
 # from .pyramids import (
