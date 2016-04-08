@@ -13,7 +13,7 @@ import traceback
 from py_compile import PyCompileError
 
 from mapchete import *
-from tilematrix import TilePyramid, MetaTilePyramid
+from tilematrix import Tile, TilePyramid, MetaTilePyramid
 
 logger = logging.getLogger("mapchete")
 
@@ -26,6 +26,7 @@ def main(args=None):
     parser.add_argument("mapchete_file", type=str)
     parser.add_argument("--zoom", "-z", type=int, nargs='*', )
     parser.add_argument("--bounds", "-b", type=float, nargs='*')
+    parser.add_argument("--tile", "-t", type=int, nargs=3, )
     parser.add_argument("--log", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     parsed = parser.parse_args(args)
@@ -47,7 +48,15 @@ def main(args=None):
     except:
         raise
 
-    work_tiles = mapchete.get_work_tiles()
+    if parsed.tile:
+        work_tiles = [mapchete.tile(
+            Tile(
+                mapchete.tile_pyramid,
+                *tuple(parsed.tile)
+            )
+        )]
+    else:
+        work_tiles = mapchete.get_work_tiles()
 
     overwrite = parsed.overwrite
 
