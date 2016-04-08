@@ -50,12 +50,12 @@ class MapcheteConfig():
             try:
                 with open(config, "r") as config_file:
                     self._raw_config = yaml.load(config_file.read())
+                self.mapchete_file = config
             except:
                 raise
             self.config_dir = os.path.dirname(
                 os.path.realpath(self.mapchete_file)
             )
-            self.mapchete_file = mapchete_file
         # get additional parameters
         self._additional_parameters = _additional_parameters = {
             "zoom": zoom,
