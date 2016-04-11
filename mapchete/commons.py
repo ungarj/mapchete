@@ -105,8 +105,7 @@ def hillshade(
            * np.cos((azimuth - 90.0) * deg2rad - aspect);
 
     shaded = (shaded - 1.0) * -128.0
-    shaded[shaded>254.0] = 255.0
-    shaded[shaded<1.0] = 1.0
+    shaded = np.clip(shaded, 0, 255)
     padded = np.pad(shaded, 1, mode='constant')
     padded[ma.getmask(elevation)] = 0.0
 

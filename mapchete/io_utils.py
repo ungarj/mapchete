@@ -249,8 +249,8 @@ class RasterProcessTile(object):
         # TODO flesh out mosaic_tiles() function and reimplement using internal
         # numpy arrays.
 
-        for tile in src_tiles:
-            list(tile.read())
+        # for tile in src_tiles:
+        #     list(tile.read())
         temp_vrt = NamedTemporaryFile()
         tile_paths = [
             tile.path

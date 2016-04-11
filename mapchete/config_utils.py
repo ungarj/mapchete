@@ -507,7 +507,11 @@ class MapcheteConfig():
         if isinstance(name, str):
             if name.startswith("zoom"):
                 cleaned = name.strip("zoom").strip()
-                if cleaned.startswith("<="):
+                if cleaned.startswith("="):
+                    name_zoom = self._strip_zoom(cleaned, "=")
+                    if zoom == name_zoom:
+                        return element
+                elif cleaned.startswith("<="):
                     name_zoom = self._strip_zoom(cleaned, "<=")
                     if zoom <= name_zoom:
                         return element

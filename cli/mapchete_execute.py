@@ -71,7 +71,9 @@ def main(args=None):
         output = pool.map_async(f, work_tiles, callback=logs.extend)
         pool.close()
     except KeyboardInterrupt:
+        logger.info("Caught KeyboardInterrupt, terminating workers")
         pool.terminate()
+        pool.join()
         sys.exit()
     except:
         raise
@@ -83,7 +85,7 @@ def main(args=None):
         "GTiff",
         "PNG",
         "PNG_hillshade"
-        ]:
+        ] and not parsed.tile:
         for zoom in mapchete.config.zoom_levels:
             out_dir = os.path.join(
                 mapchete.config.output_name,

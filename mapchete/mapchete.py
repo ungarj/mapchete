@@ -125,7 +125,7 @@ class Mapchete(object):
             if tile.zoom < self.config.baselevel["zoom"]:
                 # determine tiles from next zoom level
                 process_area = self.config.process_area(tile.zoom+1)
-                tile_process_area = process_area.union(tile.bbox())
+                tile_process_area = process_area.intersection(tile.bbox())
                 subtiles = list(
                     MapcheteTile(self, subtile)
                     for subtile in self.tile_pyramid.tiles_from_geom(
@@ -168,14 +168,16 @@ class Mapchete(object):
                     )
                 try:
                     os.system(build_vrt)
+                    assert os.path.isfile(temp_vrt.name)
                 except:
-                    build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
+                    build_vrt = "gdalbuildvrt %s %s" %(
                         temp_vrt.name,
                         ' '.join(subtile_paths)
                         )
                     os.system(build_vrt)
                     return tile.id, "failed", "GDAL VRT building"
                 try:
+                    assert os.path.isfile(temp_vrt.name)
                     bands = tuple(read_raster_window(
                         temp_vrt.name,
                         tile,
@@ -271,15 +273,16 @@ class Mapchete(object):
                     messages = self.execute(metatile)
                 except:
                     raise
-                print messages
+                logger.info(*messages)
                 # return empty image if process messaged empty
                 if messages[1] == "empty":
                     return self._empty_image()
-            # return cropped image
-            return send_file(
-                self._cropped_metatile(metatile, tile),
-                mimetype='image/png'
-            )
+            else:
+                # return cropped image
+                return send_file(
+                    self._cropped_metatile(metatile, tile),
+                    mimetype='image/png'
+                )
 
         # return/process tile with no metatiling
         else:
@@ -325,6 +328,7 @@ class Mapchete(object):
         """
         Crops metatile to tile.
         """
+        assert metatile.exists()
         metatiling = self.tile_pyramid.metatiles
         # calculate pixel boundary
         left = (tile.col % metatiling) * tile.width
