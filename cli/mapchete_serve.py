@@ -9,11 +9,15 @@ import threading
 from PIL import Image
 import io
 import traceback
+import logging
+import logging.config
 
 from mapchete import *
 from tilematrix import TilePyramid, MetaTilePyramid
 
 import pkgutil
+
+logger = logging.getLogger("mapchete")
 
 def main(args=None):
 
@@ -27,8 +31,10 @@ def main(args=None):
     parser.add_argument("--log", action="store_true")
     parsed = parser.parse_args(args)
 
+    logging.config.dictConfig(get_log_config(parsed.mapchete_file))
+
     try:
-        print "preparing process ..."
+        logger.info("preparing process ...")
         mapchete = Mapchete(
             MapcheteConfig(
                 parsed.mapchete_file,
@@ -68,7 +74,16 @@ def main(args=None):
                     metatile_cache[metatile.id] = threading.Event()
 
             if metatile_event:
+                logger.info("%s waiting for metatile %s" %(
+                    tile.id,
+                    metatile.id
+                    ))
                 metatile_event.wait()
+            else:
+                logger.info("%s getting metatile %s" % (
+                    tile.id,
+                    metatile.id
+                    ))
 
             try:
                 image = mapchete.get(tile)
@@ -77,15 +92,22 @@ def main(args=None):
             finally:
                 if not metatile_event:
                     with metatile_lock:
-                       metatile_event = metatile_cache.get(metatile.id)
-                       del metatile_cache[metatile.id]
-                       metatile_event.set()
+                        metatile_event = metatile_cache.get(metatile.id)
+                        del metatile_cache[metatile.id]
+                        metatile_event.set()
 
-            # set no-cache header:
-            resp = make_response(image)
-            resp.cache_control.no_cache = True
-            return resp
+            if image:
+                resp = make_response(image)
+                # set no-cache header:
+                resp.cache_control.no_cache = True
+                logger.info((tile.id, "ok", "image sent"))
+                return resp
+            else:
+                raise IOError("no image returned")
+
         except Exception as e:
+            error_msg = (tile.id, "failed", e)
+            logger.error(error_msg)
             size = mapchete.tile_pyramid.tilepyramid.tile_size
             empty_image = Image.new('RGBA', (size, size))
             pixels = empty_image.load()
@@ -95,7 +117,6 @@ def main(args=None):
             out_img = io.BytesIO()
             empty_image.save(out_img, 'PNG')
             out_img.seek(0)
-            print e, traceback.print_exc()
             return send_file(out_img, mimetype='image/png')
 
     app.run(threaded=True, debug=True)

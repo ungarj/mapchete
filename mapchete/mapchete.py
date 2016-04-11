@@ -272,17 +272,27 @@ class Mapchete(object):
                 try:
                     messages = self.execute(metatile)
                 except:
+                    logger.error(messages)
                     raise
-                logger.info(*messages)
+                logger.info(messages)
                 # return empty image if process messaged empty
                 if messages[1] == "empty":
                     return self._empty_image()
+                if messages[1] == "failed":
+                    logger.error(messages)
+                    raise IOError(messages)
             else:
                 # return cropped image
-                return send_file(
-                    self._cropped_metatile(metatile, tile),
-                    mimetype='image/png'
-                )
+                assert metatile.exists()
+                try:
+                    logger.info((metatile.id, tile.id, "return cropped metatile"))
+                    return send_file(
+                        self._cropped_metatile(metatile, tile),
+                        mimetype='image/png'
+                    )
+                except Exception as e:
+                    logger.error(tile.id, "failed", e)
+                    raise
 
         # return/process tile with no metatiling
         else:
