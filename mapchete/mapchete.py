@@ -105,6 +105,7 @@ class Mapchete(object):
         Processes and saves tile.
         """
 
+        # Do nothing if tile exists or overwrite is turned off.
         if not overwrite and tile.exists():
             return tile.id, "exists", None
         try:
@@ -120,8 +121,29 @@ class Mapchete(object):
         except:
             return tile.id, "failed", traceback.print_exc()
 
-        # if interpolation from baselevel is activated, read from other zooms
-        if self.config.baselevel:
+        # Generate tile using the user defined process.
+        if not self.config.baselevel or tile.zoom == self.config.baselevel["zoom"]:
+            try:
+                result = tile_process.execute()
+            except:
+                return tile.id, "failed", traceback.print_exc()
+                raise
+            finally:
+                tile_process = None
+
+            message = None            
+            if result:
+                if result == "empty":
+                    status = "empty"
+                else:
+                    status = "custom"
+                    message = result
+            else:
+                status = "processed"
+            return tile.id, status, message
+
+        # If baselevel interpolation is activated, generate from neighbor zooms.
+        else:
             if tile.zoom < self.config.baselevel["zoom"]:
                 # determine tiles from next zoom level
                 process_area = self.config.process_area(tile.zoom+1)
@@ -133,24 +155,8 @@ class Mapchete(object):
                         tile.zoom+1
                     )
                 )
-                # check if tiles exist and if not, execute subtiles
-                for subtile in subtiles:
-                    if not overwrite and subtile.exists():
-                        # logger.info((subtile.id, "exists", None))
-                        pass
-                    else:
-                        pass
-                        # TODO create option for on demand processing
-                        # try:
-                        #     log_message = self.execute(
-                        #         subtile,
-                        #         overwrite=overwrite
-                        #     )
-                        #     logger.info(log_message)
-                        # except Exception as e:
-                        #     log_message = (
-                        #         subtile.id, "failed", traceback.print_exc())
-                        #     return log_message
+                # TODO create option for on demand processing if subtile is not
+                # available.
 
                 # create temporary VRT and create new tile from resampled
                 # subtiles.
@@ -229,26 +235,6 @@ class Mapchete(object):
                 except:
                     return tile.id, "failed", traceback.print_exc()
                     raise
-
-        # if no resampling from baselevel is set, process
-        try:
-            result = tile_process.execute()
-        except:
-            return tile.id, "failed", traceback.print_exc()
-            raise
-        finally:
-            tile_process = None
-        message = None
-
-        if result:
-            if result == "empty":
-                status = "empty"
-            else:
-                status = "custom"
-                message = result
-        else:
-            status = "processed"
-        return tile.id, status, message
 
     def get(self, tile, overwrite=False):
         """
