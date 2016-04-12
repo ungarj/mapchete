@@ -26,6 +26,7 @@ def main(args=None):
 
     parser = argparse.ArgumentParser()
     parser.add_argument("mapchete_file", type=str)
+    parser.add_argument("--port", "-p", type=int, default=5000)
     parser.add_argument("--zoom", "-z", type=int, nargs='*', )
     parser.add_argument("--bounds", "-b", type=float, nargs='*')
     parser.add_argument("--log", action="store_true")
@@ -119,7 +120,7 @@ def main(args=None):
             out_img.seek(0)
             return send_file(out_img, mimetype='image/png')
 
-    app.run(threaded=True, debug=True)
+    app.run(threaded=True, debug=True, port=parsed.port)
 
 
 if __name__ == '__main__':
