@@ -120,7 +120,7 @@ def clip_array_with_vector(
     array_affine,
     vector_list,
     inverted=False,
-    buffer=buffer
+    clip_buffer=0
     ):
     """
     Clips input array with a vector list.
@@ -143,7 +143,7 @@ def clip_array_with_vector(
             new_geom = MultiPolygon(polygons)
             geom = new_geom
 
-        buffered = geom.buffer(buffer)
+        buffered = geom.buffer(clip_buffer)
 
         if inverted:
             nodata, fill = 1, 0
