@@ -73,27 +73,6 @@
             );
             map.addLayer(coastline_WGS84_wmts_layer);
 
-            var overlay_WGS84_wmts_layer = new OpenLayers.Layer.WMTS({
-                name: "EOX::Maps Base Overlay",
-                url: "http://tiles.maps.eox.at/wmts/",
-                layer: 'overlay_base',
-                matrixSet: 'WGS84',
-                format: 'image/png',
-                style: 'default',
-                gutter:0,
-                buffer:0,
-                isBaseLayer:false,
-                // transitionEffect:'resize',
-                resolutions:[0.70312500000000000000,0.35156250000000000000,0.17578125000000000000,0.08789062500000000000,0.04394531250000000000,0.02197265625000000000,0.01098632812500000000,0.00549316406250000000,0.00274658203125000000,0.00137329101562500000,0.00068664550781250000,0.00034332275390625000,0.00017166137695312500,0.00008583068847656250,0.00004291534423828120,0.00002145767211914060,0.00001072883605957030,0.00000536441802978516],
-                zoomOffset:0,
-                units:"dd",
-                maxExtent: new OpenLayers.Bounds(-180.000000,-90.000000,180.000000,90.000000),
-                projection: new OpenLayers.Projection("EPSG:4326".toUpperCase()),
-                sphericalMercator: false
-              }
-            );
-            map.addLayer(overlay_WGS84_wmts_layer);
-
             var mapchete_process_layer = new OpenLayers.Layer.WMTS({
                 name: "Mapchete process",
                 url: "/wmts_simple",
@@ -115,6 +94,27 @@
               }
             );
             map.addLayer(mapchete_process_layer);
+
+            var overlay_WGS84_wmts_layer = new OpenLayers.Layer.WMTS({
+                name: "EOX::Maps Base Overlay",
+                url: "http://tiles.maps.eox.at/wmts/",
+                layer: 'overlay_base',
+                matrixSet: 'WGS84',
+                format: 'image/png',
+                style: 'default',
+                gutter:0,
+                buffer:0,
+                isBaseLayer:false,
+                // transitionEffect:'resize',
+                resolutions:[0.70312500000000000000,0.35156250000000000000,0.17578125000000000000,0.08789062500000000000,0.04394531250000000000,0.02197265625000000000,0.01098632812500000000,0.00549316406250000000,0.00274658203125000000,0.00137329101562500000,0.00068664550781250000,0.00034332275390625000,0.00017166137695312500,0.00008583068847656250,0.00004291534423828120,0.00002145767211914060,0.00001072883605957030,0.00000536441802978516],
+                zoomOffset:0,
+                units:"dd",
+                maxExtent: new OpenLayers.Bounds(-180.000000,-90.000000,180.000000,90.000000),
+                projection: new OpenLayers.Projection("EPSG:4326".toUpperCase()),
+                sphericalMercator: false
+              }
+            );
+            map.addLayer(overlay_WGS84_wmts_layer);
 
             if(!map.getCenter())
                 map.zoomToMaxExtent();
