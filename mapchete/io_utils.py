@@ -312,14 +312,18 @@ class RasterProcessTile(object):
             for tile in src_tiles
             if tile.exists()
             ]
+
         if len(tile_paths) == 0:
             return True
+
         build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
             temp_vrt.name,
             ' '.join(tile_paths)
             )
         try:
             os.system(build_vrt)
+        except:
+            raise IOError((tile.id, "failed", "build temporary VRT failed"))
 
         all_bands_empty = True
         for band in self.read(band_indexes):
