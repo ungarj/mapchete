@@ -94,7 +94,8 @@ class VectorFileTile(object):
         else:
             return read_vector_window(
                 self.input_file,
-                self.tile
+                self.tile,
+                pixelbuffer=self.pixelbuffer
             )
 
     def is_empty(self, indexes=None):
