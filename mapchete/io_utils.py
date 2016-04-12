@@ -257,6 +257,7 @@ class RasterProcessTile(object):
             for tile in src_tiles
             if tile.exists()
             ]
+        assert len(tile_paths) > 0
         build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
             temp_vrt.name,
             ' '.join(tile_paths)
@@ -295,6 +296,30 @@ class RasterProcessTile(object):
                 band_indexes = [indexes]
         else:
             band_indexes = range(1, self.indexes+1)
+
+        dst_tile_bbox = self.tile.bbox(pixelbuffer=self.pixelbuffer)
+        src_tiles = [
+            self.process.tile(tile)
+            for tile in self.process.tile_pyramid.tiles_from_bbox(
+                dst_tile_bbox,
+                self.tile.zoom
+            )
+        ]
+
+        temp_vrt = NamedTemporaryFile()
+        tile_paths = [
+            tile.path
+            for tile in src_tiles
+            if tile.exists()
+            ]
+        if len(tile_paths) == 0:
+            return True
+        build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
+            temp_vrt.name,
+            ' '.join(tile_paths)
+            )
+        try:
+            os.system(build_vrt)
 
         all_bands_empty = True
         for band in self.read(band_indexes):

@@ -131,7 +131,7 @@ class Mapchete(object):
             finally:
                 tile_process = None
 
-            message = None            
+            message = None
             if result:
                 if result == "empty":
                     status = "empty"
