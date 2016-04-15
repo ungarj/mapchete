@@ -56,6 +56,11 @@ class MapcheteConfig():
             self.config_dir = os.path.dirname(
                 os.path.realpath(self.mapchete_file)
             )
+        self.input_config = config
+        try:
+            assert self._assert_mandatory_parameters()
+        except:
+            raise
         # get additional parameters
         self._additional_parameters = _additional_parameters = {
             "zoom": zoom,
@@ -547,3 +552,27 @@ class MapcheteConfig():
             if out_element != None:
                 params[name] = out_element
         return params
+
+
+    def _assert_mandatory_parameters(self):
+        """
+        Asserts all mandatory parameters are provided.
+        """
+        mandatory_parameters = [
+            "process_file",
+            "input_files",
+            "output_name",
+            "output_format",
+            "output_type",
+            "output_dtype",
+            "output_bands"
+        ]
+        diff = set(mandatory_parameters).difference(set(self._raw_config))
+        if len(diff) == 0:
+            return True
+        else:
+            raise ValueError("%s parameters missing in %s" %(
+                diff,
+                self.input_config
+                )
+            )
