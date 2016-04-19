@@ -95,7 +95,7 @@ class Mapchete(object):
         Determines the tiles affected by zoom levels, bounding box and input
         data.
         """
-        if zoom:
+        if zoom or zoom == 0:
             bbox = self.config.process_area(zoom)
             for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
                 yield self.tile(tile)
@@ -109,7 +109,6 @@ class Mapchete(object):
         """
         Processes and saves tile.
         """
-
         # Do nothing if tile exists or overwrite is turned off.
         if not overwrite and tile.exists():
             return tile.id, "exists", None
