@@ -48,6 +48,15 @@ def main(args=None):
     except:
         raise
 
+    overwrite = parsed.overwrite
+    f = partial(worker,
+        mapchete=mapchete,
+        overwrite=overwrite
+    )
+
+    logs = []
+    logger.info("starting process ...")
+
     if parsed.tile:
         work_tiles = [mapchete.tile(
             Tile(
@@ -55,31 +64,38 @@ def main(args=None):
                 *tuple(parsed.tile)
             )
         )]
+        try:
+            pool = Pool()
+            output = pool.map_async(f, work_tiles, callback=logs.extend)
+            pool.close()
+        except KeyboardInterrupt:
+            logger.info("Caught KeyboardInterrupt, terminating workers")
+            pool.terminate()
+            pool.join()
+            sys.exit()
+        except:
+            raise
+        finally:
+            pool.close()
+            pool.join()
     else:
-        work_tiles = mapchete.get_work_tiles()
-
-    overwrite = parsed.overwrite
-
-    f = partial(worker,
-        mapchete=mapchete,
-        overwrite=overwrite
-    )
-    pool = Pool()
-    logs = []
-    logger.info("starting process ...")
-    try:
-        output = pool.map_async(f, work_tiles, callback=logs.extend)
-        pool.close()
-    except KeyboardInterrupt:
-        logger.info("Caught KeyboardInterrupt, terminating workers")
-        pool.terminate()
-        pool.join()
-        sys.exit()
-    except:
-        raise
-    finally:
-        pool.close()
-        pool.join()
+        for zoom in reversed(mapchete.config.zoom_levels):
+            work_tiles = mapchete.get_work_tiles(zoom)
+            try:
+                pool = Pool()
+                output = pool.map_async(f, work_tiles, callback=logs.extend)
+                pool.close()
+            except KeyboardInterrupt:
+                logger.info("Caught KeyboardInterrupt, terminating workers")
+                pool.terminate()
+                pool.join()
+                break
+                sys.exit()
+            except:
+                raise
+            finally:
+                pool.close()
+                pool.join()
 
     if mapchete.config.output_format in [
         "GTiff",

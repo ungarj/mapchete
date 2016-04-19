@@ -90,15 +90,20 @@ class Mapchete(object):
         """
         return MapcheteTile(self, tile)
 
-    def get_work_tiles(self):
+    def get_work_tiles(self, zoom=None):
         """
         Determines the tiles affected by zoom levels, bounding box and input
         data.
         """
-        for zoom in reversed(self.config.zoom_levels):
+        if zoom:
             bbox = self.config.process_area(zoom)
             for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
                 yield self.tile(tile)
+        else:
+            for zoom in reversed(self.config.zoom_levels):
+                bbox = self.config.process_area(zoom)
+                for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
+                    yield self.tile(tile)
 
     def execute(self, tile, overwrite=True):
         """
