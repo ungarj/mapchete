@@ -86,17 +86,14 @@ class VectorFileTile(object):
         """
         This is a wrapper around the read_vector_window function of tilematrix.
         Tilematrix itself uses fiona to read vector data.
-        This function returns a list of GeoJSON-like dictionaries containing the
-        clipped vector data and attributes.
+        This function returns a generator of GeoJSON-like dictionaries
+        containing the clipped vector data and attributes.
         """
-        if self.is_empty():
-            return []
-        else:
-            return read_vector_window(
-                self.input_file,
-                self.tile,
-                pixelbuffer=self.pixelbuffer
-            )
+        return read_vector_window(
+            self.input_file,
+            self.tile,
+            pixelbuffer=self.pixelbuffer
+        )
 
     def is_empty(self, indexes=None):
         """
@@ -119,10 +116,13 @@ class VectorFileTile(object):
             features = vector.filter(
                 bbox=self.tile.bounds(pixelbuffer=self.pixelbuffer)
             )
-            if len(list(features))>0:
-                return False
-            else:
+            try:
+                next(features)
+            except StopIteration:
                 return True
+            except:
+                raise
+            return False
 
     def _read_metadata(self):
         """
@@ -250,15 +250,26 @@ class RasterProcessTile(object):
         # TODO flesh out mosaic_tiles() function and reimplement using internal
         # numpy arrays.
 
-        # for tile in src_tiles:
-        #     list(tile.read())
+        if self.is_empty(indexes):
+            # return emtpy array if no input files are given
+            empty_array =  ma.masked_array(
+                ma.zeros(
+                    self.shape,
+                    dtype=self.dtype
+                ),
+                mask=True
+                )
+            return [
+                empty_array
+                for index in band_indexes
+            ]
+
         temp_vrt = NamedTemporaryFile()
         tile_paths = [
             tile.path
             for tile in src_tiles
             if tile.exists()
             ]
-        assert len(tile_paths) > 0
         build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
             temp_vrt.name,
             ' '.join(tile_paths)
