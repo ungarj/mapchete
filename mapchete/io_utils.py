@@ -216,8 +216,8 @@ class RasterProcessTile(object):
             )
         tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
-            width=self.tile.width,
-            height=self.tile.height,
+            width=self.tile.width+2*self.pixelbuffer,
+            height=self.tile.height+2*self.pixelbuffer,
             transform=tile_geotransform,
             affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
         )
