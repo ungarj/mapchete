@@ -249,8 +249,12 @@ class RasterProcessTile(object):
         ]
         # TODO flesh out mosaic_tiles() function and reimplement using internal
         # numpy arrays.
-
-        if self.is_empty(indexes):
+        tile_paths = [
+            tile.path
+            for tile in src_tiles
+            if tile.exists()
+            ]
+        if len(tile_paths) == 0:
             # return emtpy array if no input files are given
             empty_array =  ma.masked_array(
                 ma.zeros(
@@ -265,11 +269,6 @@ class RasterProcessTile(object):
             ]
 
         temp_vrt = NamedTemporaryFile()
-        tile_paths = [
-            tile.path
-            for tile in src_tiles
-            if tile.exists()
-            ]
         build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
             temp_vrt.name,
             ' '.join(tile_paths)
