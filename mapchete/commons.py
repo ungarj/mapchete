@@ -125,10 +125,12 @@ def clip_array_with_vector(
     """
     Clips input array with a vector list.
     """
-    union_mask = np.ones(array.shape, dtype=np.uint8)
+    union_mask = np.zeros(array.shape, dtype=bool)
     for feature in vector_list:
-        geom = shape(feature['geometry'])
+        geom = shape(feature['geometry']).buffer(clip_buffer)
         if not isinstance(geom, (Polygon, MultiPolygon, GeometryCollection)):
+            break
+        if geom.is_empty:
             break
         if isinstance(geom, GeometryCollection):
             polygons = [
@@ -141,15 +143,14 @@ def clip_array_with_vector(
             new_geom = MultiPolygon(polygons)
             geom = new_geom
         feature_mask = rasterize(
-            [(geom.buffer(clip_buffer), False)],
+            [(geom, True)],
             out_shape=array.shape,
             transform=array_affine,
-            fill=True,
+            fill=False,
             all_touched=True,
             dtype=np.uint8
-        )
+        ).astype(bool)
         union_mask = np.where(feature_mask, feature_mask, union_mask)
-
     if inverted:
         masked_array = ma.masked_array(
             array,
