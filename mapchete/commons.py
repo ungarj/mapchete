@@ -142,14 +142,8 @@ def clip_array_with_vector(
                 break
             new_geom = MultiPolygon(polygons)
             geom = new_geom
-
         buffered = geom.buffer(clip_buffer)
-
-        if inverted:
-            nodata, fill = 1, 0
-        else:
-            nodata, fill = 0, 1
-
+        nodata, fill = 0, 1
         feature_mask = rasterize(
             [(buffered, nodata)],
             out_shape=array.shape,
@@ -160,5 +154,9 @@ def clip_array_with_vector(
         )
         union_mask = np.minimum(union_mask, feature_mask)
 
-    masked_array = np.ma.array(data=array, mask=union_mask.astype(bool))
+    if inverted:
+        masked_array = np.ma.array(data=array, mask=~union_mask.astype(bool))
+    else:
+        masked_array = np.ma.array(data=array, mask=union_mask.astype(bool))
+
     return masked_array
