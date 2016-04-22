@@ -145,8 +145,8 @@ def clip_array_with_vector(
         geom = geom.buffer(clip_buffer)
         feature_mask = rasterize(
             [(geom, False)],
-            out_shape=out_shape,
-            transform=out_affine,
+            out_shape=array.shape,
+            transform=array_affine,
             fill=True,
             all_touched=True,
             dtype=np.bool
