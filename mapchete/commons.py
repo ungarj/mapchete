@@ -149,7 +149,6 @@ def clip_array_with_vector(
             dtype=np.uint8
         )
         union_mask = np.where(feature_mask, feature_mask, union_mask)
-    print union_mask.astype(bool)
 
     if inverted:
         masked_array = ma.masked_array(
