@@ -127,9 +127,7 @@ def clip_array_with_vector(
     """
     union_mask = np.ones(array.shape, dtype=np.uint8)
     for feature in vector_list:
-
         geom = shape(feature['geometry'])
-
         if not isinstance(geom, (Polygon, MultiPolygon, GeometryCollection)):
             break
         if isinstance(geom, GeometryCollection):
@@ -142,20 +140,26 @@ def clip_array_with_vector(
                 break
             new_geom = MultiPolygon(polygons)
             geom = new_geom
-        geom = geom.buffer(clip_buffer)
         feature_mask = rasterize(
-            [(geom, False)],
+            [(geom.buffer(clip_buffer), False)],
             out_shape=array.shape,
             transform=array_affine,
             fill=True,
             all_touched=True,
-            dtype=np.bool
+            dtype=np.uint8
         )
         union_mask = np.where(feature_mask, feature_mask, union_mask)
+    print union_mask.astype(bool)
 
     if inverted:
-        masked_array = np.ma.array(data=array, mask=~union_mask.astype(bool))
+        masked_array = ma.masked_array(
+            array,
+            mask=union_mask.astype(bool)
+        )
     else:
-        masked_array = np.ma.array(data=array, mask=union_mask.astype(bool))
+        masked_array = ma.masked_array(
+            array,
+            mask=~union_mask.astype(bool)
+        )
 
     return masked_array
