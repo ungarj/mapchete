@@ -129,7 +129,7 @@ class VectorFileTile(object):
         Returns a rasterio-like metadata dictionary adapted to tile.
         """
         with rasterio.open(self.input_file, "r") as src:
-            out_meta = src.meta
+            out_meta = deepcopy(src.meta)
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
         left, bottom, right, top = self.tile.bounds(
@@ -481,7 +481,7 @@ class RasterFileTile(object):
         Returns a rasterio-like metadata dictionary adapted to tile.
         """
         with rasterio.open(self.input_file, "r") as src:
-            out_meta = src.meta
+            out_meta = deepcopy(src.meta)
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
         left, bottom, right, top = self.tile.bounds(
