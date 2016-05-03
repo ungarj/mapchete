@@ -32,8 +32,6 @@ def main(args=None):
     parser.add_argument("--log", action="store_true")
     parsed = parser.parse_args(args)
 
-    logging.config.dictConfig(get_log_config(parsed.mapchete_file))
-
     try:
         logger.info("preparing process ...")
         mapchete = Mapchete(
@@ -48,7 +46,7 @@ def main(args=None):
 
     app = Flask(__name__)
 
-
+    logging.config.dictConfig(get_log_config(mapchete))
     metatile_cache = {}
     metatile_lock = threading.Lock()
 

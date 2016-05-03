@@ -58,15 +58,14 @@ def main(args=None):
     if parsed.tile:
         try:
             pool = Pool()
-            output = pool.map_async(
+            output = pool.imap_unordered(
                 f,
                 [mapchete.tile(
                     Tile(
                         mapchete.tile_pyramid,
                         *tuple(parsed.tile)
                     )
-                )],
-                callback=logs.extend
+                )]
             )
         except KeyboardInterrupt:
             logger.info("Caught KeyboardInterrupt, terminating workers")
