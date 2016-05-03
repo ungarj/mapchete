@@ -31,8 +31,6 @@ def main(args=None):
     parser.add_argument("--overwrite", action="store_true")
     parsed = parser.parse_args(args)
 
-    logging.config.dictConfig(get_log_config(parsed.mapchete_file))
-
     try:
         logger.info("preparing process ...")
         mapchete = Mapchete(
@@ -54,25 +52,25 @@ def main(args=None):
         overwrite=overwrite
     )
 
-    logs = []
+    logging.config.dictConfig(get_log_config(mapchete))
     logger.info("starting process ...")
 
     if parsed.tile:
-        work_tiles = [mapchete.tile(
-            Tile(
-                mapchete.tile_pyramid,
-                *tuple(parsed.tile)
-            )
-        )]
         try:
             pool = Pool()
-            output = pool.map_async(f, work_tiles, callback=logs.extend)
-            pool.close()
+            output = pool.map_async(
+                f,
+                [mapchete.tile(
+                    Tile(
+                        mapchete.tile_pyramid,
+                        *tuple(parsed.tile)
+                    )
+                )],
+                callback=logs.extend
+            )
         except KeyboardInterrupt:
             logger.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
-            pool.join()
-            sys.exit()
         except:
             raise
         finally:
@@ -80,17 +78,18 @@ def main(args=None):
             pool.join()
     else:
         for zoom in reversed(mapchete.config.zoom_levels):
-            work_tiles = mapchete.get_work_tiles(zoom)
+            pool = Pool()
             try:
-                pool = Pool()
-                output = pool.map_async(f, work_tiles, callback=logs.extend)
-                pool.close()
+                for output in pool.imap_unordered(
+                    f,
+                    mapchete.get_work_tiles(zoom),
+                    chunksize=8
+                    ):
+                    pass
             except KeyboardInterrupt:
                 logger.info("Caught KeyboardInterrupt, terminating workers")
                 pool.terminate()
-                pool.join()
                 break
-                sys.exit()
             except:
                 raise
             finally:
@@ -116,10 +115,6 @@ def main(args=None):
                 str(out_dir + "/*/*" + mapchete.format.extension)
             )
             os.system(command)
-    if parsed.log:
-        for row in logs:
-            if row[1] not in ["processed", "exists"]:
-                print row
 
 
 def worker(tile, mapchete, overwrite):
@@ -130,9 +125,13 @@ def worker(tile, mapchete, overwrite):
     try:
         log_message = mapchete.execute(tile, overwrite=overwrite)
     except Exception as e:
-        log_message = (tile.id, "failed", traceback.print_exc())
+        log_message = mapchete.process_name, (
+            tile.id,
+            "failed",
+            traceback.print_exc()
+        )
 
-    logger.info(log_message)
+    logger.info((mapchete.process_name, log_message))
     return log_message
 
 

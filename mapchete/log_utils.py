@@ -2,10 +2,11 @@
 
 import os
 
-def get_log_config(mapchete_file):
+def get_log_config(mapchete):
 
-    log_dir = os.path.dirname(mapchete_file)
-    log_file = os.path.join(log_dir, "mapchete.log")
+    log_dir = mapchete.config.config_dir
+    process_name = mapchete.process_name
+    log_file = os.path.join(log_dir, str(process_name + ".log"))
     log_config = {
         'version': 1,
         'disable_existing_loggers': True,
