@@ -2,6 +2,8 @@
 process_file: ../example_process.py
 process_minzoom: 7
 process_maxzoom: 10
+output_dtype: float32
+output_bands: 1
 
 input_files:
     file1:

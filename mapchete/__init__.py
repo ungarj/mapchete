@@ -2,7 +2,8 @@
 
 from .mapchete import (
     Mapchete,
-    MapcheteProcess
+    MapcheteProcess,
+    MapcheteTile
 )
 
 from .config_utils import (
@@ -10,11 +11,20 @@ from .config_utils import (
 )
 
 from .io_utils import (
-    read_raster,
+    RasterFileTile,
+    RasterProcessTile,
+    # read_raster,
     write_raster,
     read_vector
 )
 
 from .commons import (
-    hillshade
+    hillshade,
+    clip_array_with_vector
 )
+
+# from .pyramids import (
+#     MapchetePyramid
+# )
+
+from .log_utils import get_log_config

@@ -5,6 +5,8 @@ process_maxzoom: 10
 process_bounds: [-180, -90, 180, 90]
 input_files:
     file1: dummy1.tif
+output_dtype: float32
+output_bands: 1
 
 output_name: test
 output_format: PNG

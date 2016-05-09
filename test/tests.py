@@ -33,6 +33,9 @@ def main(args):
     mapchete_file = os.path.join(scriptdir, "example.mapchete")
     mapchete = Mapchete(MapcheteConfig(mapchete_file))
 
+    dummy1_abspath = os.path.join(scriptdir, "testdata/dummy1.tif")
+    dummy2_abspath = os.path.join(scriptdir, "testdata/dummy2.tif")
+
     # Validate configuration constructor
     ## basic run through
     try:
@@ -47,7 +50,7 @@ def main(args):
         zoom5 = config.at_zoom(5)
         input_files = zoom5["input_files"]
         assert input_files["file1"] == None
-        assert input_files["file2"] == "testdata/dummy2.tif"
+        assert input_files["file2"] == dummy2_abspath
         assert zoom5["some_integer_parameter"] == 12
         assert zoom5["some_float_parameter"] == 5.3
         assert zoom5["some_string_parameter"] == "string1"
@@ -56,8 +59,8 @@ def main(args):
         # Check configuration at zoom level 11
         zoom11 = config.at_zoom(11)
         input_files = zoom11["input_files"]
-        assert input_files["file1"] == "testdata/dummy1.tif"
-        assert input_files["file2"] == "testdata/dummy2.tif"
+        assert input_files["file1"] == dummy1_abspath
+        assert input_files["file2"] == dummy2_abspath
         assert zoom11["some_integer_parameter"] == 12
         assert zoom11["some_float_parameter"] == 5.3
         assert zoom11["some_string_parameter"] == "string2"
@@ -152,6 +155,37 @@ def main(args):
     except:
         print "FAILED: read bounding box from .mapchete subfile"
         raise
+
+    # mapchete_file = os.path.join(scriptdir, "testdata/mapchete_input.mapchete")
+    # mapchete = Mapchete(MapcheteConfig(mapchete_file))
+    # # print mapchete.tile_pyramid.format.profile
+    #
+    # testdata_directory = os.path.join(scriptdir, "testdata")
+    # dummy2 = os.path.join(testdata_directory, "dummy2.tif")
+    # zoom = 10
+    # dummy2_bbox = file_bbox(dummy2, mapchete.tile_pyramid)
+    # tiles = mapchete.tile_pyramid.tiles_from_geom(dummy2_bbox, zoom)
+    #
+    # for tile in tiles:
+    #     with mapchete.open(
+    #         dummy2,
+    #         tile,
+    #         pixelbuffer=2
+    #         ) as testfile:
+    #         if not testfile.is_empty():
+    #             for band in testfile.read(1):
+    #                 assert band.shape == (260, 260)
+    #
+    #     # hacky.
+    #     mapchete.tile_pyramid.format.profile["count"] = 1
+    #     # print mapchete.tile_pyramid.format.profile
+    #     mapchete_tile = mapchete.tile(tile)
+    #     print mapchete_tile.path
+    #     print mapchete_tile.exists()
+    #     for band in mapchete_tile.read():
+    #         print band
+
+
 
 
 if __name__ == "__main__":

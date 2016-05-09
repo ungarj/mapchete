@@ -5,9 +5,27 @@ import os
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 
-from tilematrix import TilePyramid, MetaTilePyramid, file_bbox
+from tilematrix import (
+    TilePyramid,
+    MetaTilePyramid,
+    file_bbox,
+    RESAMPLING_METHODS
+    )
 
 from .mapchete import Mapchete
+
+_reserved_parameters = [
+    "process_file",
+    "input_files",
+    "output_name",
+    "output_format",
+    "output_type",
+    "process_minzoom",
+    "process_maxzoom",
+    "process_zoom",
+    "process_bounds",
+    "metatiling"
+    ]
 
 class MapcheteConfig():
     """
@@ -17,56 +35,66 @@ class MapcheteConfig():
     """
     def __init__(
         self,
-        mapchete_file,
+        config,
         zoom=None,
         bounds=None,
         output_path=None,
         output_format=None
     ):
-        # read from mapchete file
+        if isinstance(config, dict):
+            self._raw_config = config
+            self.mapchete_file = None
+            self.config_dir = config["config_dir"]
+        else:
+            # read from mapchete file
+            try:
+                with open(config, "r") as config_file:
+                    self._raw_config = yaml.load(config_file.read())
+                self.mapchete_file = config
+            except:
+                raise
+            self.config_dir = os.path.dirname(
+                os.path.realpath(self.mapchete_file)
+            )
+        self.input_config = config
         try:
-            with open(mapchete_file, "r") as config_file:
-                self._raw_config = yaml.load(config_file.read())
+            assert self._assert_mandatory_parameters()
         except:
             raise
         # get additional parameters
-        self._additional_parameters = {
+        self._additional_parameters = _additional_parameters = {
             "zoom": zoom,
             "bounds": bounds,
             "output_path": output_path,
             "output_format": output_format
-            }
-        self.mapchete_file = mapchete_file
+        }
         self.process_file = self._get_process_file()
         self.zoom_levels = self._get_zoom_levels()
         self.output_type = self._get_output_type()
         self.output_crs = self._get_output_crs()
         self.output_format = self._get_output_format()
         self.metatiling = self._get_metatiling()
+        self.input_files = self._get_input_files()
         self.process_bounds = self._get_process_bounds(bounds)
         self.output_name = self._raw_config["output_name"]
-
-
-    def input_files(self, zoom):
-        """
-        Returns validated, absolute paths or Mapchete process objects from input
-        files at zoom.
-        """
-        abs_paths = [
-            os.path.join(
-                os.path.dirname(os.path.realpath(self.mapchete_file)),
-                rel_path
-            )
-            for input_file, rel_path in self.at_zoom(zoom)["input_files"].iteritems()
-            if rel_path
-        ]
-        input_files = []
-        for input_file in abs_paths:
-            if os.path.splitext(input_file)[1] == ".mapchete":
-                input_files.append(Mapchete(MapcheteConfig(input_file)))
-            else:
-                input_files.append(input_file)
-        return input_files
+        # TODO add checks & proper dtype
+        self.output_bands = self._raw_config["output_bands"]
+        self.output_dtype = self._raw_config["output_dtype"]
+        self.baselevel = self._get_baselevel()
+        try:
+            self.write_options = self._raw_config["write_options"]
+        except:
+            self.write_options = None
+        # Validate configuration
+        for zoom in self.zoom_levels:
+            try:
+                assert self.is_valid_at_zoom(zoom)
+            except:
+                raise ValueError(self.explain_validity_at_zoom(zoom))
+        if "nodataval" in self._raw_config:
+            self.output_nodata = self._raw_config["nodataval"]
+        else:
+            self.output_nodata = None
 
 
     def process_area(self, zoom):
@@ -78,12 +106,12 @@ class MapcheteConfig():
             self.metatiling
         )
         bboxes = []
-        for input_file in self.input_files(zoom):
-            if isinstance(input_file, Mapchete):
-                bbox = input_file.config.process_area(zoom)
+        for name, path in self.at_zoom(zoom)["input_files"].iteritems():
+            if isinstance(path, Mapchete):
+                bbox = path.config.process_area(zoom)
             else:
                 bbox = file_bbox(
-                    input_file,
+                    path,
                     tile_pyramid
                     )
             bboxes.append(bbox)
@@ -108,6 +136,157 @@ class MapcheteConfig():
                 # level list
                 out_area = None
         return out_area
+
+
+    def at_zoom(self, zoom):
+        """
+        Returns the processed configuration parameters at given zoom level.
+        """
+        params = {}
+        for name, element in self._raw_config.iteritems():
+            if name not in _reserved_parameters:
+                out_element = self._element_at_zoom(name, element, zoom)
+                if out_element != None:
+                    params[name] = out_element
+        input_files = {}
+        for name, path in self._raw_at_zoom(zoom)["input_files"].iteritems():
+            if path == None:
+                input_files[name] = path
+            else:
+                input_files[name] = self.input_files[name]
+        params.update(
+            input_files=input_files,
+            output_name=self.output_name,
+            output_format=self.output_format
+        )
+        return params
+
+
+    def is_valid_at_zoom(self, zoom):
+        """
+        Checks if mapchete can run using this configuration. Checks
+        - the provision of mandatory parameters:
+          - input file(s)
+          - output name
+          - output format
+        - if input files exist and can be read via Fiona or rasterio
+        Returns True or False.
+        """
+        # TODO
+        config = self.at_zoom(zoom)
+        try:
+            assert "input_files" in config
+        except:
+            return False
+        try:
+            assert isinstance(config["input_files"], dict)
+        except:
+            return False
+        for input_file, rel_path in config["input_files"].iteritems():
+            if rel_path:
+                if isinstance(rel_path, Mapchete):
+                    pass
+                else:
+                    abs_path = os.path.join(self.config_dir, rel_path)
+                    try:
+                        assert os.path.isfile(os.path.join(abs_path))
+                    except:
+                        return False
+        try:
+            assert "output_name" in config
+        except:
+            return False
+        try:
+            assert "output_format" in config
+        except:
+            return False
+        return True
+
+
+    def explain_validity_at_zoom(self, zoom):
+        """
+        For debugging purposes if is_valid_at_zoom() returns False.
+        """
+        # TODO
+        config = self.at_zoom(zoom)
+        try:
+            assert "input_files" in config
+        except:
+            return "'input_files' empty for zoom level %s" % zoom
+        try:
+            assert isinstance(config["input_files"], dict)
+        except:
+            return "'input_files' invalid at zoom level %s: '%s'" %(
+                zoom,
+                config["input_files"]
+                )
+        for input_file, rel_path in config["input_files"].iteritems():
+            if rel_path:
+                if isinstance(rel_path, Mapchete):
+                    pass
+                else:
+                    abs_path = os.path.join(self.config_dir, rel_path)
+                    try:
+                        assert os.path.isfile(os.path.join(abs_path))
+                    except:
+                        return "invalid path '%s'" % abs_path
+        try:
+            assert "output_name" in config
+        except:
+            return "output_name not provided"
+        try:
+            assert "output_format" in config
+        except:
+            return "output_format not provided"
+        return "everything OK"
+
+
+    def _get_input_files(self):
+        """
+        Returns validated, absolute paths or Mapchete process objects from input
+        files at zoom.
+        """
+        all_input_files = self._get_all_items(self._raw_config["input_files"])
+        abs_paths = {
+            input_file: os.path.join(
+                self.config_dir,
+                rel_path
+            )
+            for input_file, rel_path in all_input_files.iteritems()
+            if rel_path
+        }
+        input_files = {}
+        for input_file, abs_path in abs_paths.iteritems():
+            if os.path.splitext(abs_path)[1] == ".mapchete":
+                input_files[input_file] = Mapchete(MapcheteConfig(abs_path))
+            else:
+                input_files[input_file] = abs_path
+        return input_files
+
+
+    def _get_all_items(self, raw_config_elem):
+        """
+        Returns a dictionary of configuration items without zoom filters.
+        """
+        out_elem = {}
+        for name, entry in raw_config_elem.iteritems():
+            if isinstance(entry, dict):
+                out_elem[name] = self._get_final_item(entry)
+            else:
+                out_elem[name] = entry
+        return out_elem
+
+
+    def _get_final_item(self, raw_config_elem):
+        """
+        Returns the last item of a dict tree.
+        """
+        out_elem = {}
+        for name, entry in raw_config_elem.iteritems():
+            if isinstance(entry, dict):
+                return self._get_final_item(entry)
+            else:
+                return entry
 
 
     def _get_process_bounds(self, bounds):
@@ -150,7 +329,7 @@ class MapcheteConfig():
         Gets and checks metatiling value
         """
         try:
-            metatiling = raw_config["metatiling"]
+            metatiling = self._raw_config["metatiling"]
         except:
             metatiling = 1
         try:
@@ -209,6 +388,8 @@ class MapcheteConfig():
         # if zoom still empty, throw exception
         if not zoom:
             raise Exception("No zoom level(s) provided.")
+        if isinstance(zoom, int):
+            zoom = [zoom]
         if len(zoom) == 1:
             zoom_levels = zoom
         elif len(zoom) == 2:
@@ -241,14 +422,42 @@ class MapcheteConfig():
         except:
             raise Exception("'process_file' parameter is missing")
         rel_path = mapchete_process_file
-        config_dir = os.path.dirname(os.path.realpath(self.mapchete_file))
-        abs_path = os.path.join(config_dir, rel_path)
+        abs_path = os.path.join(self.config_dir, rel_path)
         mapchete_process_file = abs_path
         try:
             assert os.path.isfile(mapchete_process_file)
         except:
             raise IOError("%s is not available" % mapchete_process_file)
         return mapchete_process_file
+
+
+    def _get_baselevel(self):
+        """
+        If provided, reads baselevel parameter and validates subparameters.
+        """
+        try:
+            baselevel = self._raw_config["baselevel"]
+        except:
+            return None
+
+        try:
+            assert "zoom" in baselevel
+            assert isinstance(baselevel["zoom"], int)
+            assert baselevel["zoom"] > 0
+        except:
+            raise ValueError("no or invalid baselevel zoom parameter given")
+
+        try:
+            baselevel["resampling"]
+        except:
+            baselevel.update(resampling="nearest")
+
+        try:
+            assert baselevel["resampling"] in RESAMPLING_METHODS
+        except:
+            raise ValueError("invalid baselevel resampling method given")
+
+        return baselevel
 
 
     # configuration parsing functions #
@@ -303,7 +512,11 @@ class MapcheteConfig():
         if isinstance(name, str):
             if name.startswith("zoom"):
                 cleaned = name.strip("zoom").strip()
-                if cleaned.startswith("<="):
+                if cleaned.startswith("="):
+                    name_zoom = self._strip_zoom(cleaned, "=")
+                    if zoom == name_zoom:
+                        return element
+                elif cleaned.startswith("<="):
                     name_zoom = self._strip_zoom(cleaned, "<=")
                     if zoom <= name_zoom:
                         return element
@@ -329,9 +542,9 @@ class MapcheteConfig():
             return element
 
 
-    def at_zoom(self, zoom):
+    def _raw_at_zoom(self, zoom):
         """
-        Returns the configuration parameters at given zoom level.
+        Returns the raw configuration parameters at given zoom level.
         """
         params = {}
         for name, element in self._raw_config.iteritems():
@@ -341,75 +554,25 @@ class MapcheteConfig():
         return params
 
 
-    def is_valid_at_zoom(self, zoom):
+    def _assert_mandatory_parameters(self):
         """
-        Checks if mapchete can run using this configuration. Checks
-        - the provision of mandatory parameters:
-          - input file(s)
-          - output name
-          - output format
-        - if input files exist and can be read via Fiona or rasterio
-        Returns True or False.
+        Asserts all mandatory parameters are provided.
         """
-        # TODO
-        config = self.at_zoom(zoom)
-        try:
-            assert "input_files" in config
-        except:
-            return False
-        try:
-            assert isinstance(config["input_files"], dict)
-        except:
-            return False
-        for input_file, rel_path in config["input_files"].iteritems():
-            if rel_path:
-                config_dir = os.path.dirname(os.path.realpath(self.path))
-                abs_path = os.path.join(config_dir, rel_path)
-                try:
-                    assert os.path.isfile(os.path.join(abs_path))
-                except:
-                    return False
-        try:
-            assert "output_name" in config
-        except:
-            return False
-        try:
-            assert "output_format" in config
-        except:
-            return False
-        return True
-
-    def explain_validity_at_zoom(self, zoom):
-        """
-        For debugging purposes if is_valid_at_zoom() returns False.
-        """
-        # TODO
-        config = self.at_zoom(zoom)
-        try:
-            assert "input_files" in config
-        except:
-            return "'input_files' empty for zoom level %s" % zoom
-        try:
-            assert isinstance(config["input_files"], dict)
-        except:
-            return "'input_files' invalid at zoom level %s: '%s'" %(
-                zoom,
-                config["input_files"]
+        mandatory_parameters = [
+            "process_file",
+            "input_files",
+            "output_name",
+            "output_format",
+            "output_type",
+            "output_dtype",
+            "output_bands"
+        ]
+        diff = set(mandatory_parameters).difference(set(self._raw_config))
+        if len(diff) == 0:
+            return True
+        else:
+            raise ValueError("%s parameters missing in %s" %(
+                diff,
+                self.input_config
                 )
-        for input_file, rel_path in config["input_files"].iteritems():
-            if rel_path:
-                config_dir = os.path.dirname(os.path.realpath(self.path))
-                abs_path = os.path.join(config_dir, rel_path)
-                try:
-                    assert os.path.isfile(os.path.join(abs_path))
-                except:
-                    return "invalid path '%s'" % abs_path
-        try:
-            assert "output_name" in config
-        except:
-            return "output_name not provided"
-        try:
-            assert "output_format" in config
-        except:
-            return "output_format not provided"
-        return "everything OK"
+            )
