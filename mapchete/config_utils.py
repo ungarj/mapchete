@@ -78,8 +78,15 @@ class MapcheteConfig():
         self.process_bounds = self._get_process_bounds(bounds)
         self.output_name = self._raw_config["output_name"]
         # TODO add checks & proper dtype
-        self.output_bands = self._raw_config["output_bands"]
-        self.output_dtype = self._raw_config["output_dtype"]
+        if self.output_format in ["GeoTiff", "PNG", "PNG_hillshade"]:
+            self.output_bands = self._raw_config["output_bands"]
+            self.output_dtype = self._raw_config["output_dtype"]
+        else:
+            self.output_bands = None
+            self.output_dtype = None
+            assert "geometry" in self._raw_config["output_schema"]
+            assert "properties" in self._raw_config["output_schema"]
+            self.output_schema = self._raw_config["output_schema"]
         self.baselevel = self._get_baselevel()
         try:
             self.write_options = self._raw_config["write_options"]
@@ -316,7 +323,7 @@ class MapcheteConfig():
         Validate and return output format
         """
         output_format = self._raw_config["output_format"]
-        allowed = ["GTiff", "PNG", "PNG_hillshade"]
+        allowed = ["GTiff", "PNG", "PNG_hillshade", "GeoJSON"]
         try:
             assert output_format in allowed
         except:
@@ -564,8 +571,6 @@ class MapcheteConfig():
             "output_name",
             "output_format",
             "output_type",
-            "output_dtype",
-            "output_bands"
         ]
         diff = set(mandatory_parameters).difference(set(self._raw_config))
         if len(diff) == 0:

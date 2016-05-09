@@ -78,7 +78,7 @@ class VectorFileTile(object):
     def __enter__(self):
         return self
 
-    def __exit__( self, type, value, tb ):
+    def __exit__(self, type, value, tb):
         # TODO cleanup
         pass
 
@@ -575,6 +575,41 @@ def write_raster(
             process.tile,
             metadata,
             bands,
+            pixelbuffer=pixelbuffer
+        )
+    except:
+        raise
+
+
+def write_vector(
+    process,
+    metadata,
+    data,
+    pixelbuffer=0
+    ):
+    assert isinstance(metadata.schema, dict)
+    assert isinstance(metadata.driver, str)
+    assert isinstance(data, list)
+
+    process.tile_pyramid.format.prepare(
+        process.config.output_name,
+        process.tile
+    )
+
+    out_file = process.tile_pyramid.format.get_tile_name(
+        process.config.output_name,
+        process.tile
+    )
+
+    if os.path.isfile(out_file):
+        os.remove(out_file)
+
+    try:
+        write_vector_window(
+            out_file,
+            process.tile,
+            metadata,
+            data,
             pixelbuffer=pixelbuffer
         )
     except:
