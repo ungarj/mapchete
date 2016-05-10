@@ -9,32 +9,116 @@ import rasterio
 from affine import Affine
 import fiona
 from tempfile import NamedTemporaryFile
+from itertools import chain
 
 import mapchete
 from tilematrix import *
 
 
-def read_vector(
-    process,
-    input_file,
-    pixelbuffer=0
-    ):
+class VectorProcessTile(object):
     """
-    This is a wrapper around the read_vector_window function of tilematrix.
-    Tilematrix itself uses fiona to read vector data.
-    This function returns a list of GeoJSON-like dictionaries containing the
-    clipped vector data and attributes.
+    Class representing a tile (existing or virtual) of target pyramid from a
+    Mapchete process output.
     """
-    if input_file:
-        features = read_vector_window(
-            input_file,
-            process.tile,
-            pixelbuffer=pixelbuffer
-        )
-    else:
-        features = None
+    def __init__(
+        self,
+        input_mapchete,
+        tile,
+        pixelbuffer=0,
+        ):
 
-    return features
+        try:
+            assert os.path.isfile(input_mapchete.config.process_file)
+        except:
+            raise IOError("input file does not exist: %s" %
+                input_mapchete.config.process_file)
+
+        try:
+            assert pixelbuffer >= 0
+        except:
+            raise ValueError("pixelbuffer must be 0 or greater")
+
+        try:
+            assert isinstance(pixelbuffer, int)
+        except:
+            raise ValueError("pixelbuffer must be an integer")
+
+        self.process = input_mapchete
+        self.tile_pyramid = self.process.tile_pyramid
+        self.tile = tile
+        self.input_file = input_mapchete
+        self.pixelbuffer = pixelbuffer
+        self.schema = self.process.tile_pyramid.format.schema
+        self.driver = self.process.tile_pyramid.format.driver
+        self.crs = self.tile_pyramid.crs
+
+    def __enter__(self):
+        return self
+
+    def __exit__( self, type, value, tb ):
+        # TODO cleanup
+        pass
+
+    def read(self, no_neighbors=False, from_baselevel=False):
+        """
+        Returns features of all underlying tiles. If no_neighbors is set True,
+        only the base tile is returned (ATTENTION: won't work if the parent
+        mapchete process has a different metatile setting).
+        """
+
+        if no_neighbors:
+            tile = self.process.tile(self.tile)
+            if tile.exists():
+                return read_vector_window(
+                    tile.path,
+                    tile,
+                    pixelbuffer=self.pixelbuffer
+                )
+            else:
+                return []
+        else:
+            dst_tile_bbox = self.tile.bbox(pixelbuffer=self.pixelbuffer)
+            src_tiles = [
+                self.process.tile(tile)
+                for tile in self.process.tile_pyramid.tiles_from_bbox(
+                    dst_tile_bbox,
+                    self.tile.zoom
+                )
+                ]
+
+            return chain.from_iterable(
+                read_vector_window(
+                    tile.path,
+                    tile,
+                    pixelbuffer=self.pixelbuffer
+                )
+                for tile in src_tiles
+                if tile.exists()
+            )
+
+    def is_empty(self, indexes=None):
+        """
+        Returns true if no tiles are available.
+        """
+        dst_tile_bbox = self.tile.bbox(pixelbuffer=self.pixelbuffer)
+        src_tiles = [
+            self.process.tile(tile)
+            for tile in self.process.tile_pyramid.tiles_from_bbox(
+                dst_tile_bbox,
+                self.tile.zoom
+            )
+        ]
+
+        tile_paths = [
+            tile.path
+            for tile in src_tiles
+            if tile.exists()
+            ]
+
+        if tile_paths:
+            return False
+        else:
+            return True
 
 
 class VectorFileTile(object):
@@ -613,4 +697,29 @@ def write_vector(
             pixelbuffer=pixelbuffer
         )
     except:
+        if os.path.isfile(out_file):
+            os.remove(out_file)
         raise
+
+
+def read_vector(
+    process,
+    input_file,
+    pixelbuffer=0
+    ):
+    """
+    This is a wrapper around the read_vector_window function of tilematrix.
+    Tilematrix itself uses fiona to read vector data.
+    This function returns a list of GeoJSON-like dictionaries containing the
+    clipped vector data and attributes.
+    """
+    if input_file:
+        features = read_vector_window(
+            input_file,
+            process.tile,
+            pixelbuffer=pixelbuffer
+        )
+    else:
+        features = None
+
+    return features

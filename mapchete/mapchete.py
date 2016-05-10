@@ -25,9 +25,10 @@ from tilematrix import (
 from .io_utils import (
     RasterFileTile,
     RasterProcessTile,
+    VectorFileTile,
+    VectorProcessTile,
     write_raster,
-    write_vector,
-    VectorFileTile
+    write_vector
     )
 
 logger = logging.getLogger("mapchete")
@@ -529,12 +530,19 @@ class MapcheteProcess():
                     resampling=resampling
                 )
         else:
-            return RasterProcessTile(
-                input_file,
-                self.tile,
-                pixelbuffer=pixelbuffer,
-                resampling=resampling
-            )
+            if input_file.tile_pyramid.format.datatype == "vector":
+                return VectorProcessTile(
+                    input_file,
+                    self.tile,
+                    pixelbuffer=pixelbuffer
+                )
+            elif input_file.tile_pyramid.format.datatype == "raster":
+                return RasterProcessTile(
+                    input_file,
+                    self.tile,
+                    pixelbuffer=pixelbuffer,
+                    resampling=resampling
+                )
 
     def write(
         self,
