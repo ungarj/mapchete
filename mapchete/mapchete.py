@@ -25,8 +25,10 @@ from tilematrix import (
 from .io_utils import (
     RasterFileTile,
     RasterProcessTile,
+    VectorFileTile,
+    VectorProcessTile,
     write_raster,
-    VectorFileTile
+    write_vector
     )
 
 logger = logging.getLogger("mapchete")
@@ -61,18 +63,21 @@ class Mapchete(object):
                 base_tile_pyramid,
                 self.config.metatiling
             )
-            self.tile_pyramid.format.profile.update(
-                count=self.config.output_bands,
-                dtype=self.config.output_dtype
-            )
-            if self.config.write_options:
-                for option, param in self.config.write_options.iteritems():
-                    self.tile_pyramid.format.profile.update(
-                        {option: param}
-                    )
-            self.tile_pyramid.format.profile.update(
-                nodata=self.config.output_nodata
-            )
+            if self.tile_pyramid.format.datatype == "raster":
+                self.tile_pyramid.format.profile.update(
+                    count=self.config.output_bands,
+                    dtype=self.config.output_dtype
+                )
+                if self.config.write_options:
+                    for option, param in self.config.write_options.iteritems():
+                        self.tile_pyramid.format.profile.update(
+                            {option: param}
+                        )
+                self.tile_pyramid.format.profile.update(
+                    nodata=self.config.output_nodata
+                )
+            elif self.tile_pyramid.format.datatype == "vector":
+                self.tile_pyramid.format.schema = self.config.output_schema
             self.format = self.tile_pyramid.format
         except:
             raise
@@ -361,9 +366,10 @@ class MapcheteTile(Tile):
         Tile.__init__(self, self.tile_pyramid, tile.zoom, tile.row, tile.col)
         self.process = mapchete
         self.config = mapchete.config
-        self.nodata = self.tile_pyramid.format.profile["nodata"]
-        self.indexes = self.tile_pyramid.format.profile["count"]
-        self.dtype = self.tile_pyramid.format.profile["dtype"]
+        if self.tile_pyramid.format.datatype == "raster":
+            self.nodata = self.tile_pyramid.format.profile["nodata"]
+            self.indexes = self.tile_pyramid.format.profile["count"]
+            self.dtype = self.tile_pyramid.format.profile["dtype"]
         self.path = self.tile_pyramid.format.get_tile_name(
             self.config.output_name,
             tile
@@ -371,7 +377,7 @@ class MapcheteTile(Tile):
 
     def profile(self, pixelbuffer=0):
         """
-        Returns a pixelbuffer specific metadata set.
+        Returns a pixelbuffer specific metadata set for a raster tile.
         """
         out_meta = self.tile_pyramid.format.profile
         # create geotransform
@@ -524,21 +530,36 @@ class MapcheteProcess():
                     resampling=resampling
                 )
         else:
-            return RasterProcessTile(
-                input_file,
-                self.tile,
-                pixelbuffer=pixelbuffer,
-                resampling=resampling
-            )
+            if input_file.tile_pyramid.format.datatype == "vector":
+                return VectorProcessTile(
+                    input_file,
+                    self.tile,
+                    pixelbuffer=pixelbuffer
+                )
+            elif input_file.tile_pyramid.format.datatype == "raster":
+                return RasterProcessTile(
+                    input_file,
+                    self.tile,
+                    pixelbuffer=pixelbuffer,
+                    resampling=resampling
+                )
 
     def write(
         self,
-        bands,
+        data,
         pixelbuffer=0
     ):
-        write_raster(
-            self,
-            self.tile.profile(pixelbuffer=pixelbuffer),
-            bands,
-            pixelbuffer=pixelbuffer
-        )
+        if self.tile_pyramid.format.datatype == "vector":
+            write_vector(
+                self,
+                self.tile_pyramid.format,
+                data,
+                pixelbuffer=pixelbuffer
+            )
+        elif self.tile_pyramid.format.datatype == "raster":
+            write_raster(
+                self,
+                self.tile.profile(pixelbuffer=pixelbuffer),
+                data,
+                pixelbuffer=pixelbuffer
+            )
