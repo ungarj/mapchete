@@ -116,7 +116,9 @@ def main(args=None):
             out_img = io.BytesIO()
             empty_image.save(out_img, 'PNG')
             out_img.seek(0)
-            return send_file(out_img, mimetype='image/png')
+            resp = make_response(send_file(out_img, mimetype='image/png'))
+            resp.cache_control.no_cache = True
+            return resp
 
     app.run(threaded=True, debug=True, port=parsed.port)
 

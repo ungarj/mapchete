@@ -276,9 +276,13 @@ class Mapchete(object):
                 if messages[1] == "failed":
                     logger.error(messages)
                     raise IOError(messages)
+                else:
+                    return send_file(
+                        self._cropped_metatile(metatile, tile),
+                        mimetype='image/png'
+                    )
             else:
                 # return cropped image
-                assert metatile.exists()
                 try:
                     logger.info((metatile.id, tile.id, "return cropped metatile"))
                     return send_file(
@@ -302,6 +306,8 @@ class Mapchete(object):
                 if messages[1] == "empty":
                     return self._empty_image()
             return send_file(tile.path, mimetype='image/png')
+
+
 
     def read(self, tile, indexes=None, pixelbuffer=0, resampling="nearest"):
         """
@@ -333,7 +339,6 @@ class Mapchete(object):
         """
         Crops metatile to tile.
         """
-        assert metatile.exists()
         metatiling = self.tile_pyramid.metatiles
         # calculate pixel boundary
         left = (tile.col % metatiling) * tile.width

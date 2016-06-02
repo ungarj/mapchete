@@ -26,6 +26,14 @@
     <script src="http://www.openlayers.org/api/OpenLayers.js"></script>
     <script type="text/javascript">
         var map;
+        function setDomElement(dom_element) {
+ 	        var text = "zoom " + map.getZoom();
+		    if (dom_element.textContent) {
+                dom_element.textContent = text;
+            } else {
+                dom_element.innerText = text;
+            }
+		}
         function init(){
             map = new OpenLayers.Map( 'map', {
                 displayProjection: new OpenLayers.Projection("EPSG:4326")
@@ -120,11 +128,24 @@
                 map.zoomToMaxExtent();
             map.addControl(new OpenLayers.Control.LayerSwitcher());
             map.addControl(new OpenLayers.Control.MousePosition());
+            map.events.register("zoomend", map, function () {
+                selectId = document.getElementById("currentZoom");
+                setDomElement(selectId);
+            });
         }
     </script>
   </head>
 
 <body onload="init()">
+    <div style="
+    position: absolute;
+    margin-top: 25px;
+    margin-left: 46px;
+    font-family: monospace;
+    z-index: 1000;
+    background-color: #fff;
+    padding: 3px;
+    opacity: 0.5;"><span id="currentZoom">zoom 2</span></div>
     <div id="map">
     </div>
 </body>
