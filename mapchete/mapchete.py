@@ -14,6 +14,8 @@ import threading
 from tempfile import NamedTemporaryFile
 import logging
 import logging.config
+from sqlalchemy import create_engine
+import geoalchemy2
 
 from tilematrix import (
     TilePyramid,
@@ -56,7 +58,10 @@ class Mapchete(object):
             self.config = config
             base_tile_pyramid = TilePyramid(self.config.output_type)
             try:
-                base_tile_pyramid.set_format(self.config.output_format)
+                base_tile_pyramid.set_format(
+                    self.config.output_format,
+                    db_params=self.config.db_params,
+                    )
             except:
                 raise
             self.tile_pyramid = MetaTilePyramid(
@@ -88,6 +93,12 @@ class Mapchete(object):
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file)
         )[0]
+        if self.tile_pyramid.format.is_db:
+            try:
+                self._init_db_tables()
+            except:
+                raise
+
 
     def tile(self, tile):
         """
@@ -354,6 +365,58 @@ class Mapchete(object):
         return out_img
 
 
+    def _init_db_tables(self):
+        """
+        Initializes target tables in database.
+        """
+        from sqlalchemy import Column, Integer, String, Float, Table, MetaData
+        from geoalchemy2 import Geometry
+
+        sql_datatypes = {
+            "str": String,
+            "int": Integer,
+            "float": Float
+        }
+
+
+        db_url = 'postgresql://%s:%s@%s:%s/%s' %(
+            self.config.db_params["user"],
+            self.config.db_params["password"],
+            self.config.db_params["host"],
+            self.config.db_params["port"],
+            self.config.db_params["db"]
+        )
+        engine = create_engine(db_url)
+        for zoom in self.config.zoom_levels:
+            config = self.config.at_zoom(zoom)
+            geom_type = config["output_schema"]["geometry"]
+            table = config["output_params"]["table"]
+            schema = config["output_schema"]["properties"]
+
+            column_types = {
+                column: sql_datatypes[schema[column]]
+                for column in schema
+                }
+            column_types.update(
+                zoom = Integer,
+                row = Integer,
+                col = Integer,
+                geom = Geometry(geom_type, srid=4326)
+            )
+
+            metadata = MetaData(bind=engine)
+            target_table = Table(
+                table,
+                metadata,
+                Column('id', Integer, primary_key=True),
+                *(
+                    Column(column, dtype)
+                    for column, dtype in column_types.iteritems()
+                    )
+                )
+            metadata.create_all()
+
+
 class MapcheteTile(Tile):
     """
     Defines a tile object which stores common tile parameters (see
@@ -401,7 +464,45 @@ class MapcheteTile(Tile):
         """
         Returns True if file exists or False if not.
         """
-        return os.path.isfile(self.path)
+        if self.tile_pyramid.format.is_db:
+            config = self.process.config.at_zoom(self.zoom)
+            table = config["output_params"]["table"]
+            # connect to db
+            db_url = 'postgresql://%s:%s@%s:%s/%s' %(
+                config["output_params"]["user"],
+                config["output_params"]["password"],
+                config["output_params"]["host"],
+                config["output_params"]["port"],
+                config["output_params"]["db"]
+            )
+            from sqlalchemy import MetaData, Table
+            from sqlalchemy.orm import sessionmaker
+            from sqlalchemy.pool import NullPool
+            engine = create_engine(db_url, poolclass=NullPool)
+            meta = MetaData()
+            meta.reflect(bind=engine)
+            TargetTable = Table(
+                table,
+                meta,
+                autoload=True,
+                autoload_with=engine
+            )
+            Session = sessionmaker(bind=engine)
+            session = Session()
+            result = session.query(TargetTable).filter_by(
+                zoom=self.zoom,
+                row=self.row,
+                col=self.col
+            ).first()
+            session.close()
+            if result:
+                return True
+            else:
+                return False
+
+            return True
+        else:
+            return os.path.isfile(self.path)
 
     def read(self, indexes=None, pixelbuffer=0, resampling="nearest"):
         """

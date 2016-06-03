@@ -664,7 +664,21 @@ def write_raster(
     except:
         raise
 
+from sqlalchemy import *
+from sqlalchemy.orm import *
+from geoalchemy2 import Geometry
+from geoalchemy2.shape import from_shape
+from sqlalchemy import Column, Integer, String, Float, Table, MetaData
+from sqlalchemy.engine import reflection
+from shapely.geometry import shape
+from shapely.wkt import dumps, loads
+import warnings
 
+from sqlalchemy import and_
+from sqlalchemy.pool import NullPool
+
+# from sqlalchemy import MetaData, Table
+# from sqlalchemy.orm import sessionmaker
 def write_vector(
     process,
     metadata,
@@ -675,31 +689,88 @@ def write_vector(
     assert isinstance(metadata.driver, str)
     assert isinstance(data, list)
 
-    process.tile_pyramid.format.prepare(
-        process.config.output_name,
-        process.tile
-    )
+    if process.tile_pyramid.format.is_db:
 
-    out_file = process.tile_pyramid.format.get_tile_name(
-        process.config.output_name,
-        process.tile
-    )
+        config = process.config.at_zoom(process.tile.zoom)
+        table = config["output_params"]["table"]
 
-    if os.path.isfile(out_file):
-        os.remove(out_file)
-
-    try:
-        write_vector_window(
-            out_file,
-            process.tile,
-            metadata,
-            data,
-            pixelbuffer=pixelbuffer
+        # connect to db
+        db_url = 'postgresql://%s:%s@%s:%s/%s' %(
+            process.config.db_params["user"],
+            process.config.db_params["password"],
+            process.config.db_params["host"],
+            process.config.db_params["port"],
+            process.config.db_params["db"]
         )
-    except:
+        engine = create_engine(db_url, poolclass=NullPool)
+        meta = MetaData()
+        meta.reflect(bind=engine)
+        TargetTable = Table(
+            table,
+            meta,
+            autoload=True,
+            autoload_with=engine
+        )
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        delete_old = TargetTable.delete(and_(
+            TargetTable.c.zoom == process.tile.zoom,
+            TargetTable.c.row == process.tile.row,
+            TargetTable.c.col == process.tile.col)
+            )
+        session.execute(delete_old)
+        for feature in data:
+            try:
+                geom = from_shape(
+                    shape(feature["geometry"]),
+                    srid=process.tile.srid
+                )
+            except:
+                warnings.warn("corrupt geometry")
+                continue
+
+            properties = {}
+            properties.update(
+                zoom=process.tile.zoom,
+                row=process.tile.row,
+                col=process.tile.col,
+                geom=geom
+            )
+            properties.update(feature["properties"])
+
+            insert = TargetTable.insert().values(properties)
+            session.execute(insert)
+
+        session.commit()
+        session.close()
+
+    else:
+        process.tile_pyramid.format.prepare(
+            process.config.output_name,
+            process.tile
+        )
+
+        out_file = process.tile_pyramid.format.get_tile_name(
+            process.config.output_name,
+            process.tile
+        )
+
         if os.path.isfile(out_file):
             os.remove(out_file)
-        raise
+
+        try:
+            write_vector_window(
+                out_file,
+                process.tile,
+                metadata,
+                data,
+                pixelbuffer=pixelbuffer
+            )
+        except:
+            if os.path.isfile(out_file):
+                os.remove(out_file)
+            raise
 
 
 def read_vector(

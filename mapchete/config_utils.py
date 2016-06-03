@@ -81,12 +81,16 @@ class MapcheteConfig():
         if self.output_format in ["GTiff", "PNG", "PNG_hillshade"]:
             self.output_bands = self._raw_config["output_bands"]
             self.output_dtype = self._raw_config["output_dtype"]
+            self.db_params = None
         else:
             self.output_bands = None
             self.output_dtype = None
             assert "geometry" in self._raw_config["output_schema"]
             assert "properties" in self._raw_config["output_schema"]
             self.output_schema = self._raw_config["output_schema"]
+            self.db_params = None
+            if self.output_format == "postgis":
+                self.db_params = self._raw_config["output_params"]
         self.baselevel = self._get_baselevel()
         try:
             self.write_options = self._raw_config["write_options"]
@@ -323,7 +327,7 @@ class MapcheteConfig():
         Validate and return output format
         """
         output_format = self._raw_config["output_format"]
-        allowed = ["GTiff", "PNG", "PNG_hillshade", "GeoJSON"]
+        allowed = ["GTiff", "PNG", "PNG_hillshade", "GeoJSON", "postgis"]
         try:
             assert output_format in allowed
         except:
