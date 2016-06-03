@@ -178,7 +178,12 @@ def extract_contours(
     as GeoJSON-like objects using the source tile bounds as georeference
     """
     levels = _get_contour_values(array.min(), array.max(), interval=interval)
-    contours = plt.contour(array, levels)
+    if not levels:
+        return []
+    try:
+        contours = plt.contour(array, levels)
+    except:
+        raise
     index=0
     out_contours = []
     left, bottom, right, top = tile.bounds(pixelbuffer)
@@ -194,14 +199,15 @@ def extract_contours(
                 )
                 for i in zip(path.vertices[:,1], path.vertices[:,0])
             ]
-            line = LineString(out_coords)
-            out_contours.append({
-                    'properties': {
-                        field: elevation
-                    },
-                    'geometry': mapping(line)
-                }
-            )
+            if len(out_coords)>=2:
+                line = LineString(out_coords)
+                out_contours.append({
+                        'properties': {
+                            field: elevation
+                        },
+                        'geometry': mapping(line)
+                    }
+                )
 
     return out_contours
 
