@@ -29,8 +29,13 @@ def main(args=None):
     parser.add_argument("--tile", "-t", type=int, nargs=3, )
     parser.add_argument("--log", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--multi", "-m", type=int)
+    parser.add_argument("--create_vrt", action="store_true")
     parsed = parser.parse_args(args)
 
+    multi = parsed.multi
+    if not multi:
+        multi = cpu_count()
     try:
         logger.info("preparing process ...")
         mapchete = Mapchete(
@@ -53,11 +58,11 @@ def main(args=None):
     )
 
     logging.config.dictConfig(get_log_config(mapchete))
-    logger.info("starting process ...")
+    logger.info("starting process using %s worker(s)" %(multi))
 
     if parsed.tile:
         try:
-            pool = Pool()
+            pool = Pool(multi)
             output = pool.imap_unordered(
                 f,
                 [mapchete.tile(
@@ -77,12 +82,11 @@ def main(args=None):
             pool.join()
     else:
         for zoom in reversed(mapchete.config.zoom_levels):
-            pool = Pool()
+            pool = Pool(multi)
             try:
                 for output in pool.imap_unordered(
                     f,
-                    mapchete.get_work_tiles(zoom),
-                    chunksize=8
+                    mapchete.get_work_tiles(zoom)
                     ):
                     pass
             except KeyboardInterrupt:
@@ -99,7 +103,7 @@ def main(args=None):
         "GTiff",
         "PNG",
         "PNG_hillshade"
-        ] and not parsed.tile:
+        ] and not parsed.tile and parsed.create_vrt:
         for zoom in mapchete.config.zoom_levels:
             out_dir = os.path.join(
                 mapchete.config.output_name,
