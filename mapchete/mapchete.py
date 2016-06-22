@@ -10,19 +10,16 @@ import io
 import rasterio
 import numpy as np
 import numpy.ma as ma
-import threading
 from tempfile import NamedTemporaryFile
 import logging
 import logging.config
 from sqlalchemy import create_engine
-import geoalchemy2
 
 from tilematrix import (
     TilePyramid,
     MetaTilePyramid,
     Tile,
-    read_raster_window,
-    write_raster_window
+    read_raster_window
     )
 from .io_utils import (
     RasterFileTile,
@@ -49,7 +46,7 @@ class Mapchete(object):
 
     def __init__(
         self,
-        config,
+        config
         ):
         """
         Initialize with a .mapchete file and optional zoom & bound parameters.
@@ -224,7 +221,7 @@ class Mapchete(object):
             elif tile.zoom > self.config.baselevel["zoom"]:
                 # determine tiles from previous zoom level
                 process_area = self.config.process_area(tile.zoom-1)
-                supertile =  list(
+                supertile = list(
                     MapcheteTile(self, supertile)
                     for supertile in self.tile_pyramid.tiles_from_geom(
                         tile.bbox(),
@@ -397,24 +394,33 @@ class Mapchete(object):
                 column: sql_datatypes[schema[column]]
                 for column in schema
                 }
-            column_types.update(
-                zoom = Integer,
-                row = Integer,
-                col = Integer,
-                geom = Geometry(geom_type, srid=4326)
-            )
+            # column_types.update(
+            #     zoom = Integer,
+            #     row = Integer,
+            #     col = Integer,
+            #     geom = Geometry(geom_type, srid=4326)
+            # )
 
             metadata = MetaData(bind=engine)
             target_table = Table(
                 table,
                 metadata,
                 Column('id', Integer, primary_key=True),
+                Column('zoom', Integer, index=True),
+                Column('row', Integer, index=True),
+                Column('col', Integer, index=True),
+                Column('geom', Geometry(
+                    geom_type,
+                    srid=self.tile_pyramid.srid
+                    )
+                ),
                 *(
                     Column(column, dtype)
                     for column, dtype in column_types.iteritems()
                     )
                 )
             metadata.create_all()
+        engine.dispose()
 
 
 class MapcheteTile(Tile):
@@ -495,12 +501,12 @@ class MapcheteTile(Tile):
                 col=self.col
             ).first()
             session.close()
+            engine.dispose()
             if result:
                 return True
             else:
                 return False
 
-            return True
         else:
             return os.path.isfile(self.path)
 
@@ -636,6 +642,7 @@ class MapcheteProcess():
                     resampling=resampling
                 )
         else:
+            # if input is a Mapchete process
             if input_file.tile_pyramid.format.datatype == "vector":
                 return VectorProcessTile(
                     input_file,
@@ -660,7 +667,8 @@ class MapcheteProcess():
                 self,
                 self.tile_pyramid.format,
                 data,
-                pixelbuffer=pixelbuffer
+                pixelbuffer=pixelbuffer,
+                overwrite=self.config.overwrite
             )
         elif self.tile_pyramid.format.datatype == "raster":
             write_raster(

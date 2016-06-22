@@ -39,7 +39,8 @@ class MapcheteConfig():
         zoom=None,
         bounds=None,
         output_path=None,
-        output_format=None
+        output_format=None,
+        overwrite=False
     ):
         if isinstance(config, dict):
             self._raw_config = config
@@ -106,6 +107,7 @@ class MapcheteConfig():
             self.output_nodata = self._raw_config["nodataval"]
         else:
             self.output_nodata = None
+        self.overwrite = overwrite
 
 
     def process_area(self, zoom):

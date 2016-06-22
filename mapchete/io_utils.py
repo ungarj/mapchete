@@ -4,14 +4,23 @@ import numpy as np
 import numpy.ma as ma
 import os
 from copy import deepcopy
-from rasterio.warp import calculate_default_transform, transform_bounds
+from rasterio.warp import transform_bounds
 import rasterio
-from affine import Affine
 import fiona
 from tempfile import NamedTemporaryFile
 from itertools import chain
+from geoalchemy2.shape import from_shape
+from sqlalchemy import (
+    create_engine,
+    Table,
+    MetaData,
+    and_
+    )
+from sqlalchemy.orm import *
+from sqlalchemy.pool import NullPool
+from shapely.geometry import shape
+import warnings
 
-import mapchete
 from tilematrix import *
 
 
@@ -55,7 +64,7 @@ class VectorProcessTile(object):
     def __enter__(self):
         return self
 
-    def __exit__( self, type, value, tb ):
+    def __exit__(self):
         # TODO cleanup
         pass
 
@@ -664,26 +673,12 @@ def write_raster(
     except:
         raise
 
-from sqlalchemy import *
-from sqlalchemy.orm import *
-from geoalchemy2 import Geometry
-from geoalchemy2.shape import from_shape
-from sqlalchemy import Column, Integer, String, Float, Table, MetaData
-from sqlalchemy.engine import reflection
-from shapely.geometry import shape
-from shapely.wkt import dumps, loads
-import warnings
-
-from sqlalchemy import and_
-from sqlalchemy.pool import NullPool
-
-# from sqlalchemy import MetaData, Table
-# from sqlalchemy.orm import sessionmaker
 def write_vector(
     process,
     metadata,
     data,
-    pixelbuffer=0
+    pixelbuffer=0,
+    overwrite=False
     ):
     assert isinstance(metadata.schema, dict)
     assert isinstance(metadata.driver, str)
@@ -714,20 +709,27 @@ def write_vector(
         Session = sessionmaker(bind=engine)
         session = Session()
 
-        delete_old = TargetTable.delete(and_(
-            TargetTable.c.zoom == process.tile.zoom,
-            TargetTable.c.row == process.tile.row,
-            TargetTable.c.col == process.tile.col)
-            )
-        session.execute(delete_old)
+        if overwrite:
+            delete_old = TargetTable.delete(and_(
+                TargetTable.c.zoom == process.tile.zoom,
+                TargetTable.c.row == process.tile.row,
+                TargetTable.c.col == process.tile.col)
+                )
+            session.execute(delete_old)
+
         for feature in data:
             try:
+                raw_geom = feature["geometry"]
                 geom = from_shape(
-                    shape(feature["geometry"]),
+                    shape(feature["geometry"]).intersection(
+                        process.tile.bbox(pixelbuffer=pixelbuffer)
+                    ),
                     srid=process.tile.srid
                 )
-            except:
-                warnings.warn("corrupt geometry")
+                # else:
+                #     continue
+            except Exception as e:
+                warnings.warn("corrupt geometry: %s" %(e))
                 continue
 
             properties = {}
@@ -744,6 +746,7 @@ def write_vector(
 
         session.commit()
         session.close()
+        engine.dispose()
 
     else:
         process.tile_pyramid.format.prepare(

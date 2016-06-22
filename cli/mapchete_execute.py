@@ -32,7 +32,7 @@ def main(args=None):
     parser.add_argument("--multi", "-m", type=int)
     parser.add_argument("--create_vrt", action="store_true")
     parsed = parser.parse_args(args)
-
+    overwrite = parsed.overwrite
     multi = parsed.multi
     if not multi:
         multi = cpu_count()
@@ -42,8 +42,9 @@ def main(args=None):
             MapcheteConfig(
                 parsed.mapchete_file,
                 zoom=parsed.zoom,
-                bounds=parsed.bounds
-            )
+                bounds=parsed.bounds,
+                overwrite=overwrite
+            ),
         )
     except PyCompileError as e:
         print e
@@ -51,7 +52,6 @@ def main(args=None):
     except:
         raise
 
-    overwrite = parsed.overwrite
     f = partial(worker,
         mapchete=mapchete,
         overwrite=overwrite
@@ -86,7 +86,8 @@ def main(args=None):
             try:
                 for output in pool.imap_unordered(
                     f,
-                    mapchete.get_work_tiles(zoom)
+                    mapchete.get_work_tiles(zoom),
+                    chunksize=1
                     ):
                     pass
             except KeyboardInterrupt:
@@ -125,6 +126,7 @@ def worker(tile, mapchete, overwrite):
     Worker function running the process depending on the overwrite flag and
     whether the tile exists.
     """
+    starttime = time.time()
     try:
         log_message = mapchete.execute(tile, overwrite=overwrite)
     except Exception as e:
@@ -133,8 +135,10 @@ def worker(tile, mapchete, overwrite):
             "failed",
             traceback.print_exc()
         )
+    endtime = time.time()
+    elapsed = "%ss" %(round((endtime - starttime), 3))
 
-    logger.info((mapchete.process_name, log_message))
+    logger.info((mapchete.process_name, log_message, elapsed))
     return log_message
 
 
