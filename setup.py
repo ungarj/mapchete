@@ -32,7 +32,8 @@ setup(
         'flask',
         'Pillow',
         'scipy',
-        'psycopg2'
+        'psycopg2',
+        'bloscpack'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

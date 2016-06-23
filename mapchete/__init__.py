@@ -25,4 +25,6 @@ from .commons import (
 
 from .formats import MapcheteOutputFormat
 
+from .numpy_io import write_numpy
+
 from .log_utils import get_log_config

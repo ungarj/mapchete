@@ -53,7 +53,19 @@ formats = {
         "data_type": None,
         "extension": ".gpkg",
         "driver": "gpkg",
-        "profile": None
+        "profile": {
+            "compress": "lz4",
+            "nodata": None
+        }
+    },
+    "NumPy": {
+        "data_type": "raster",
+        "extension": ".numpy",
+        "driver": "numpy",
+        "profile": {
+            "compress": "lz4",
+            "nodata": None
+        }
     }
 }
 
@@ -68,6 +80,7 @@ class MapcheteOutputFormat:
         self.format = output_dict["format"]
 
         if self.format == "GeoPackage":
+            raise NotImplementedError("GeoPackage is not yet supported")
             self.data_type = output_dict["data_type"]
         else:
             self.data_type = formats[self.format]["data_type"]
@@ -104,7 +117,10 @@ class MapcheteOutputFormat:
                 self.profile.update(nodataval=self.nodataval)
             except:
                 pass
-            self.compression = "lzw"
+            if self.format == "NumPy":
+                self.compression = "lz4"
+            else:
+                self.compression = "lzw"
             try:
                 self.compression = output_dict["compression"]
                 self.profile.update(compression=self.compression)

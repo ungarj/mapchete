@@ -34,9 +34,14 @@ from .io_utils import (
     write_vector
     )
 from .formats import MapcheteOutputFormat
+from .numpy_io import read_numpy
 
 logger = logging.getLogger("mapchete")
-
+sql_datatypes = {
+    "str": String,
+    "int": Integer,
+    "float": Float
+}
 
 class Mapchete(object):
     """
@@ -81,10 +86,10 @@ class Mapchete(object):
             os.path.basename(self.config.process_file)
         )[0]
         if self.output.is_db:
-            try:
-                self._init_db_tables()
-            except:
-                raise
+            self._init_db_tables()
+
+        if self.output.format == "GeoPackage":
+            self._init_gpkg()
 
 
     def tile(self, tile):
@@ -356,13 +361,6 @@ class Mapchete(object):
         """
         Initializes target tables in database.
         """
-        sql_datatypes = {
-            "str": String,
-            "int": Integer,
-            "float": Float
-        }
-
-
         db_url = 'postgresql://%s:%s@%s:%s/%s' %(
             self.output.db_params["user"],
             self.output.db_params["password"],
@@ -402,6 +400,14 @@ class Mapchete(object):
                 )
             metadata.create_all()
         engine.dispose()
+
+    def _init_gpkg(self):
+        """
+        Creates .gpkg file and initializes tables.
+        """
+        print self.output.path
+        db_url = ''
+
 
 
 class MapcheteTile(Tile):
@@ -694,3 +700,11 @@ class MapcheteProcess():
                 data,
                 pixelbuffer=pixelbuffer
             )
+
+    def read(self):
+        if self.output.format != "NumPy":
+            raise ValueError(
+                "this function is not available for non-NumPy file formats"
+            )
+        return read_numpy(self.tile.path)
+        print "herbert"

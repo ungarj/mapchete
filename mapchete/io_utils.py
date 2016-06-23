@@ -22,6 +22,7 @@ from shapely.geometry import shape
 import warnings
 
 from tilematrix import *
+from .numpy_io import write_numpy
 
 
 class VectorProcessTile(object):
@@ -492,7 +493,7 @@ class RasterFileTile(object):
     def __enter__(self):
         return self
 
-    def __exit__( self, type, value, tb ):
+    def __exit__(self):
         # TODO cleanup
         pass
 
@@ -654,16 +655,28 @@ def write_raster(
 
     process.tile.prepare_paths()
 
-    try:
-        write_raster_window(
-            process.tile.path,
-            process.tile,
-            metadata,
-            bands,
-            pixelbuffer=pixelbuffer
-        )
-    except:
-        raise
+    if process.output.format == "NumPy":
+        try:
+            write_numpy(
+                process.tile,
+                metadata,
+                bands,
+                pixelbuffer=pixelbuffer
+            )
+        except:
+            raise
+    else:
+        try:
+            write_raster_window(
+                process.tile.path,
+                process.tile,
+                metadata,
+                bands,
+                pixelbuffer=pixelbuffer
+            )
+        except:
+            raise
+
 
 def write_vector(
     process,
