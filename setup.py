@@ -31,7 +31,8 @@ setup(
         'pyyaml',
         'flask',
         'Pillow',
-        'scipy'
+        'scipy',
+        'psycopg2'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

@@ -57,8 +57,8 @@ class VectorProcessTile(object):
         self.tile = tile
         self.input_file = input_mapchete
         self.pixelbuffer = pixelbuffer
-        self.schema = self.process.tile_pyramid.format.schema
-        self.driver = self.process.tile_pyramid.format.driver
+        self.schema = self.process.output.schema
+        self.driver = self.process.output.driver
         self.crs = self.tile_pyramid.crs
 
     def __enter__(self):
@@ -301,7 +301,7 @@ class RasterProcessTile(object):
         """
         Returns a rasterio-like metadata dictionary adapted to tile.
         """
-        out_meta = self.tile_pyramid.format.profile
+        out_meta = self.process.output.profile
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
         left, bottom, right, top = self.tile.bounds(
@@ -652,19 +652,11 @@ def write_raster(
             "output bands must be 2-dimensional, not %s" % band.ndim
             )
 
-    process.tile_pyramid.format.prepare(
-        process.config.output_name,
-        process.tile
-    )
-
-    out_file = process.tile_pyramid.format.get_tile_name(
-        process.config.output_name,
-        process.tile
-    )
+    process.tile.prepare_paths()
 
     try:
         write_raster_window(
-            out_file,
+            process.tile.path,
             process.tile,
             metadata,
             bands,
@@ -680,28 +672,27 @@ def write_vector(
     pixelbuffer=0,
     overwrite=False
     ):
-    assert isinstance(metadata.schema, dict)
-    assert isinstance(metadata.driver, str)
+    assert isinstance(metadata["output"].schema, dict)
+    assert isinstance(metadata["output"].driver, str)
     assert isinstance(data, list)
 
-    if process.tile_pyramid.format.is_db:
+    if process.output.is_db:
 
         config = process.config.at_zoom(process.tile.zoom)
-        table = config["output_params"]["table"]
 
         # connect to db
         db_url = 'postgresql://%s:%s@%s:%s/%s' %(
-            process.config.db_params["user"],
-            process.config.db_params["password"],
-            process.config.db_params["host"],
-            process.config.db_params["port"],
-            process.config.db_params["db"]
+            metadata["output"].db_params["user"],
+            metadata["output"].db_params["password"],
+            metadata["output"].db_params["host"],
+            metadata["output"].db_params["port"],
+            metadata["output"].db_params["db"]
         )
         engine = create_engine(db_url, poolclass=NullPool)
         meta = MetaData()
         meta.reflect(bind=engine)
         TargetTable = Table(
-            table,
+            metadata["output"].db_params["table"],
             meta,
             autoload=True,
             autoload_with=engine
@@ -749,30 +740,22 @@ def write_vector(
         engine.dispose()
 
     else:
-        process.tile_pyramid.format.prepare(
-            process.config.output_name,
-            process.tile
-        )
+        process.tile.prepare_paths()
 
-        out_file = process.tile_pyramid.format.get_tile_name(
-            process.config.output_name,
-            process.tile
-        )
-
-        if os.path.isfile(out_file):
-            os.remove(out_file)
+        if process.tile.exists():
+            os.remove(process.tile.path)
 
         try:
             write_vector_window(
-                out_file,
+                process.tile.path,
                 process.tile,
                 metadata,
                 data,
                 pixelbuffer=pixelbuffer
             )
         except:
-            if os.path.isfile(out_file):
-                os.remove(out_file)
+            if process.tile.exists():
+                os.remove(process.tile.path)
             raise
 
 

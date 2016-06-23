@@ -23,8 +23,6 @@ from .commons import (
     clip_array_with_vector
 )
 
-# from .pyramids import (
-#     MapchetePyramid
-# )
+from .formats import MapcheteOutputFormat
 
 from .log_utils import get_log_config

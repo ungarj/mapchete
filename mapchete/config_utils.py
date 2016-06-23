@@ -13,6 +13,7 @@ from tilematrix import (
     )
 
 from .mapchete import Mapchete
+from .formats import MapcheteOutputFormat
 
 _reserved_parameters = [
     "process_file",
@@ -71,43 +72,22 @@ class MapcheteConfig():
         }
         self.process_file = self._get_process_file()
         self.zoom_levels = self._get_zoom_levels()
-        self.output_type = self._get_output_type()
-        self.output_crs = self._get_output_crs()
-        self.output_format = self._get_output_format()
         self.metatiling = self._get_metatiling()
         self.input_files = self._get_input_files()
         self.process_bounds = self._get_process_bounds(bounds)
-        self.output_name = self._raw_config["output_name"]
-        # TODO add checks & proper dtype
-        if self.output_format in ["GTiff", "PNG", "PNG_hillshade"]:
-            self.output_bands = self._raw_config["output_bands"]
-            self.output_dtype = self._raw_config["output_dtype"]
-            self.db_params = None
-        else:
-            self.output_bands = None
-            self.output_dtype = None
-            assert "geometry" in self._raw_config["output_schema"]
-            assert "properties" in self._raw_config["output_schema"]
-            self.output_schema = self._raw_config["output_schema"]
-            self.db_params = None
-            if self.output_format == "postgis":
-                self.db_params = self._raw_config["output_params"]
         self.baselevel = self._get_baselevel()
-        try:
-            self.write_options = self._raw_config["write_options"]
-        except:
-            self.write_options = None
         # Validate configuration
         for zoom in self.zoom_levels:
             try:
                 assert self.is_valid_at_zoom(zoom)
             except:
+                print self.mapchete_file
                 raise ValueError(self.explain_validity_at_zoom(zoom))
-        if "nodataval" in self._raw_config:
-            self.output_nodata = self._raw_config["nodataval"]
-        else:
-            self.output_nodata = None
+
         self.overwrite = overwrite
+        self.output = MapcheteOutputFormat(
+            self._raw_config["output"]
+        )
 
 
     def process_area(self, zoom):
@@ -115,7 +95,7 @@ class MapcheteConfig():
         Returns area to be processed at zoom.
         """
         tile_pyramid = MetaTilePyramid(
-            TilePyramid(self.output_type),
+            TilePyramid(self.output.type),
             self.metatiling
         )
         bboxes = []
@@ -169,8 +149,7 @@ class MapcheteConfig():
                 input_files[name] = self.input_files[name]
         params.update(
             input_files=input_files,
-            output_name=self.output_name,
-            output_format=self.output_format
+            output = MapcheteOutputFormat(params["output"])
         )
         return params
 
@@ -180,8 +159,6 @@ class MapcheteConfig():
         Checks if mapchete can run using this configuration. Checks
         - the provision of mandatory parameters:
           - input file(s)
-          - output name
-          - output format
         - if input files exist and can be read via Fiona or rasterio
         Returns True or False.
         """
@@ -206,11 +183,7 @@ class MapcheteConfig():
                     except:
                         return False
         try:
-            assert "output_name" in config
-        except:
-            return False
-        try:
-            assert "output_format" in config
+            assert "output" in config
         except:
             return False
         return True
@@ -350,33 +323,6 @@ class MapcheteConfig():
         except:
             raise Exception("metatiling must be 1, 2, 4, 8 or 16")
         return metatiling
-
-
-    def _get_output_crs(self):
-        """
-        Returns CRS dict.
-        """
-        type_crs = {
-            "geodetic": {'init': (u'epsg:4326')},
-            "mercator": {'init': (u'epsg:3857')},
-        }
-        return type_crs[self.output_type]
-
-
-    def _get_output_type(self):
-        """
-        Gets tile pyramid type (either geodetic or mercator).
-        """
-        raw_config = self._raw_config
-        try:
-            output_type = raw_config["output_type"]
-        except:
-            raise Exception("'output_type' parameter is missing")
-        try:
-            assert output_type in ["geodetic", "mercator"]
-        except:
-            raise Exception("'output_type' must be either geodetic or mercator")
-        return output_type
 
 
     def _get_zoom_levels(self):
@@ -574,9 +520,10 @@ class MapcheteConfig():
         mandatory_parameters = [
             "process_file",
             "input_files",
-            "output_name",
-            "output_format",
-            "output_type",
+            "output"
+            # "output_name",
+            # "output_format",
+            # "output_type",
         ]
         diff = set(mandatory_parameters).difference(set(self._raw_config))
         if len(diff) == 0:

@@ -4,9 +4,9 @@ process_zoom: 5
 process_bounds: [0.5, 1.5, 3.5, 3.5]
 input_files:
     file1: dummy1.tif
-output_dtype: float32
-output_bands: 1
-
-output_name: test
-output_format: GTiff
-output_type: geodetic
+output:
+    dtype: float32
+    bands: 1
+    path: test
+    format: GTiff
+    type: geodetic

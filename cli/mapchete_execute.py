@@ -100,7 +100,7 @@ def main(args=None):
                 pool.close()
                 pool.join()
 
-    if mapchete.config.output_format in [
+    if mapchete.output.format in [
         "GTiff",
         "PNG",
         "PNG_hillshade"
