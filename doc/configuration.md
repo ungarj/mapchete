@@ -1,10 +1,28 @@
 # Process configuration file
 
-The idea behind introducing process configuration files is to clearly separate
-the process parameters from the process code itself. This enables using the
-same process code with different settings.
+When running a process, a ``.mapchete`` file has to be provided. It must be written in YAML and contains the path of the Python process file, information required about the output format, the desired tiling scheme, and other relevant configuration parameters.
 
-### Configurable by zoom level
+The idea is to cleanly separate the process parameters from the process code itself. This enables using the same process code with different settings.
+
+## Mandatory parameters
+
+These parameters have to be provided.
+
+* ``process_file``: path to python file
+* ``input_files``: path(s) to input files
+
+## Reserved parameters
+
+These parameters are optional and cannot be used otherwise.
+
+* ``process_minzoom``: minimum zoom level this process is valid
+* ``process_maxzoom``: maximum zoom level this process is valid
+* ``process_zoom``: zoom level this process is valid (should not be used with ``process_minzoom`` and ``process_maxzoom``)
+* ``process_bounds``: process area
+* ``metatiling``: metatiling (default is 1); has to be one of 2, 4, 6, 8 or 16
+
+
+<!-- ### Configurable by zoom level
 A process can be configured to use different parameters in different zoom
 levels. This comes handy when for example processing a hill shade for multiple
 scales (zoom levels) where DEM exaggeration can be adjusted for each scale.
@@ -43,4 +61,4 @@ file and type as well as zoom level(s) and bounds.
 
 * ```process_minzoom: zoom level```, ```process_maxzoom: zoom level```
 
-  Range of zoom levels to be processed.
+  Range of zoom levels to be processed. -->
