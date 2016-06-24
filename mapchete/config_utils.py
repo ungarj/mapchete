@@ -63,7 +63,6 @@ class MapcheteConfig():
             self._raw_config.update(
                 input_files={"file": input_file}
             )
-        print self._raw_config
         self.input_config = config
         try:
             assert self._assert_mandatory_parameters()
@@ -82,6 +81,7 @@ class MapcheteConfig():
         self.input_files = self._get_input_files()
         self.process_bounds = self._get_process_bounds(bounds)
         self.baselevel = self._get_baselevel()
+
         # Validate configuration
         for zoom in self.zoom_levels:
             try:
@@ -108,9 +108,18 @@ class MapcheteConfig():
             if isinstance(path, Mapchete):
                 bbox = path.config.process_area(zoom)
             else:
-                bbox = file_bbox(
-                    path,
-                    tile_pyramid
+                if name == "cli":
+                    bbox = Polygon([
+                        (tile_pyramid.left, tile_pyramid.top),
+                        (tile_pyramid.left, tile_pyramid.bottom),
+                        (tile_pyramid.right, tile_pyramid.bottom),
+                        (tile_pyramid.right, tile_pyramid.top),
+                        (tile_pyramid.left, tile_pyramid.top)
+                    ])
+                else:
+                    bbox = file_bbox(
+                        path,
+                        tile_pyramid
                     )
             bboxes.append(bbox)
         files_area = cascaded_union(bboxes)
@@ -237,7 +246,11 @@ class MapcheteConfig():
         Returns validated, absolute paths or Mapchete process objects from input
         files at zoom.
         """
+        if self._raw_config["input_files"] == "cli":
+            self._raw_config["input_files"] = {"cli": None}
         all_input_files = self._get_all_items(self._raw_config["input_files"])
+        if not all_input_files:
+            raise ValueError("no input files specified.")
         abs_paths = {
             input_file: os.path.join(
                 self.config_dir,

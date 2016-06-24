@@ -97,7 +97,7 @@ def main(args=None):
             for output in pool.imap_unordered(
                 f,
                 work_tiles,
-                chunksize=8
+                chunksize=1
                 ):
                 pass
         except KeyboardInterrupt:
@@ -109,6 +109,7 @@ def main(args=None):
         finally:
             pool.close()
             pool.join()
+        work_tiles = []
 
     if mapchete.output.format in [
         "GTiff",

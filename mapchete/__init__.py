@@ -13,7 +13,7 @@ from .config_utils import (
 from .io_utils import (
     RasterFileTile,
     RasterProcessTile,
-    # read_raster,
+    NumpyTile,
     write_raster,
     read_vector
 )

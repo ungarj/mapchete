@@ -11,23 +11,18 @@ def write_numpy(
         raise NotImplementedError(
             "pixelbuffers on NumPy output not yet supported"
         )
-
-    # data_compressed = blosc.pack_array(
-    #     np.stack(bands),
-    #     cname=tile.output.compression
-    #     )
-    bp.pack_ndarray_file(
-        np.stack(bands),
-        tile.path,
-        # blosc_args={
-        #     'cname': tile.output.compression}
-        )
+    if isinstance(bands, tuple):
+        bp.pack_ndarray_file(
+            np.stack(bands),
+            tile.path
+            )
+    elif isinstance(bands, np.ndarray):
+        bp.pack_ndarray_file(
+            bands,
+            tile.path
+            )
 
 def read_numpy(
     path
     ):
-    data = bp.unpack_ndarray_file(path)
-    return tuple(
-        element
-        for element in data
-    )
+    return bp.unpack_ndarray_file(path)

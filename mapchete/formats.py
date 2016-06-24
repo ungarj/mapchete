@@ -17,7 +17,7 @@ formats = {
     },
     "PNG": {
         "data_type": "raster",
-        "extension": ".tif",
+        "extension": ".png",
         "driver": "PNG",
         "profile": {
             'dtype': 'uint8',
@@ -28,7 +28,7 @@ formats = {
     },
     "PNG_hillshade": {
         "data_type": "raster",
-        "extension": ".tif",
+        "extension": ".png",
         "driver": "PNG",
         "profile": {
             'dtype': 'uint8',
@@ -38,8 +38,8 @@ formats = {
         }
     },
     "GeoJson": {
-        "data_type": "raster",
-        "extension": ".tif",
+        "data_type": "vector",
+        "extension": ".geojson",
         "driver": "GeoJSON",
         "profile": None
     },
@@ -64,6 +64,7 @@ formats = {
         "driver": "numpy",
         "profile": {
             "compress": "lz4",
+            'dtype': 'uint8',
             "nodata": None
         }
     }
@@ -108,15 +109,17 @@ class MapcheteOutputFormat:
             self.binary_type = None
         elif self.data_type == "raster":
             self.schema = None
-            self.dtype = output_dict["dtype"]
             self.bands = output_dict["bands"]
             self.profile.update(count=self.bands)
-            self.nodataval = None
             try:
-                self.nodataval = output_dict["nodataval"]
-                self.profile.update(nodataval=self.nodataval)
+                self.dtype = output_dict["dtype"]
             except:
-                pass
+                self.dtype = formats[self.format]["profile"]["dtype"]
+            try:
+                self.nodataval = output_dict["nodata"]
+            except:
+                self.nodataval = None
+            self.profile.update(nodata=self.nodataval)
             if self.format == "NumPy":
                 self.compression = "lz4"
             else:
@@ -212,13 +215,13 @@ class MapcheteOutputFormat:
                 raise ValueError("output schema required")
         elif formats[p["format"]]["data_type"] == "raster":
             try:
-                assert p["dtype"]
-            except:
-                raise ValueError("dtype required")
-            try:
                 assert p["bands"]
             except:
                 raise ValueError("bands required")
+            # try:
+            #     assert p["dtype"]
+            # except:
+            #     raise ValueError("dtype required")
             if p["format"] == "GeoPackage":
                 try:
                     assert p["binary_type"] in ["numpy"]

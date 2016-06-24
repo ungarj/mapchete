@@ -33,6 +33,7 @@ setup(
         'Pillow',
         'scipy',
         'psycopg2',
+        'blosc',
         'bloscpack'
     ],
     classifiers=[

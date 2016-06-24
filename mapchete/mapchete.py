@@ -30,6 +30,7 @@ from .io_utils import (
     RasterProcessTile,
     VectorFileTile,
     VectorProcessTile,
+    NumpyTile,
     write_raster,
     write_vector
     )
@@ -405,9 +406,7 @@ class Mapchete(object):
         """
         Creates .gpkg file and initializes tables.
         """
-        print self.output.path
-        db_url = ''
-
+        pass
 
 
 class MapcheteTile(Tile):
@@ -673,6 +672,13 @@ class MapcheteProcess():
                     pixelbuffer=pixelbuffer
                 )
             elif input_file.output.data_type == "raster":
+                if input_file.output.format == "NumPy":
+                    return NumpyTile(
+                        input_file,
+                        self.tile,
+                        pixelbuffer=pixelbuffer,
+                        resampling=resampling
+                    )
                 return RasterProcessTile(
                     input_file,
                     self.tile,
@@ -706,5 +712,7 @@ class MapcheteProcess():
             raise ValueError(
                 "this function is not available for non-NumPy file formats"
             )
-        return read_numpy(self.tile.path)
-        print "herbert"
+        if self.tile.exists():
+            return read_numpy(self.tile.path)
+        else:
+            return None
