@@ -31,7 +31,15 @@ def main(args=None):
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--multi", "-m", type=int)
     parser.add_argument("--create_vrt", action="store_true")
+    parser.add_argument("--input_file", type=str)
+
     parsed = parser.parse_args(args)
+
+    input_file = parsed.input_file
+
+    if input_file and not os.path.isfile(input_file):
+        raise IOError("input_file not found")
+
     overwrite = parsed.overwrite
     multi = parsed.multi
     if not multi:
@@ -43,7 +51,8 @@ def main(args=None):
                 parsed.mapchete_file,
                 zoom=parsed.zoom,
                 bounds=parsed.bounds,
-                overwrite=overwrite
+                overwrite=overwrite,
+                input_file=parsed.input_file
             ),
         )
     except PyCompileError as e:

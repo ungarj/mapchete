@@ -41,7 +41,8 @@ class MapcheteConfig():
         bounds=None,
         output_path=None,
         output_format=None,
-        overwrite=False
+        overwrite=False,
+        input_file=None
     ):
         if isinstance(config, dict):
             self._raw_config = config
@@ -58,6 +59,11 @@ class MapcheteConfig():
             self.config_dir = os.path.dirname(
                 os.path.realpath(self.mapchete_file)
             )
+        if input_file:
+            self._raw_config.update(
+                input_files={"file": input_file}
+            )
+        print self._raw_config
         self.input_config = config
         try:
             assert self._assert_mandatory_parameters()
@@ -81,7 +87,6 @@ class MapcheteConfig():
             try:
                 assert self.is_valid_at_zoom(zoom)
             except:
-                print self.mapchete_file
                 raise ValueError(self.explain_validity_at_zoom(zoom))
 
         self.overwrite = overwrite
