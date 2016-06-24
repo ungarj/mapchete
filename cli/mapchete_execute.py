@@ -27,6 +27,7 @@ def main(args=None):
     parser.add_argument("--zoom", "-z", type=int, nargs='*', )
     parser.add_argument("--bounds", "-b", type=float, nargs='*')
     parser.add_argument("--tile", "-t", type=int, nargs=3, )
+    parser.add_argument("--tiles", type=str)
     parser.add_argument("--log", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--multi", "-m", type=int)
@@ -42,6 +43,7 @@ def main(args=None):
 
     overwrite = parsed.overwrite
     multi = parsed.multi
+
     if not multi:
         multi = cpu_count()
     try:
@@ -70,44 +72,38 @@ def main(args=None):
     logger.info("starting process using %s worker(s)" %(multi))
 
     if parsed.tile:
-        try:
-            pool = Pool(multi)
-            output = pool.imap_unordered(
-                f,
-                [mapchete.tile(
-                    Tile(
-                        mapchete.tile_pyramid,
-                        *tuple(parsed.tile)
-                    )
-                )]
+        work_tiles = [mapchete.tile(
+            Tile(
+                mapchete.tile_pyramid,
+                *tuple(parsed.tile)
             )
+        )]
+    elif parsed.tiles:
+        work_tiles = []
+    else:
+        work_tiles = mapchete.get_work_tiles(zoom)
+
+    print reversed(mapchete.config.zoom_levels)
+    return
+
+    for zoom in reversed(mapchete.config.zoom_levels):
+        pool = Pool(multi)
+        try:
+            for output in pool.imap_unordered(
+                f,
+                work_tiles,
+                chunksize=1
+                ):
+                pass
         except KeyboardInterrupt:
             logger.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
+            break
         except:
             raise
         finally:
             pool.close()
             pool.join()
-    else:
-        for zoom in reversed(mapchete.config.zoom_levels):
-            pool = Pool(multi)
-            try:
-                for output in pool.imap_unordered(
-                    f,
-                    mapchete.get_work_tiles(zoom),
-                    chunksize=1
-                    ):
-                    pass
-            except KeyboardInterrupt:
-                logger.info("Caught KeyboardInterrupt, terminating workers")
-                pool.terminate()
-                break
-            except:
-                raise
-            finally:
-                pool.close()
-                pool.join()
 
     if mapchete.output.format in [
         "GTiff",
