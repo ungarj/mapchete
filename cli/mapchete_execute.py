@@ -11,6 +11,8 @@ import logging
 import logging.config
 import traceback
 from py_compile import PyCompileError
+import re
+from datetime import datetime
 
 from mapchete import *
 from tilematrix import Tile, TilePyramid, MetaTilePyramid
@@ -27,7 +29,8 @@ def main(args=None):
     parser.add_argument("--zoom", "-z", type=int, nargs='*', )
     parser.add_argument("--bounds", "-b", type=float, nargs='*')
     parser.add_argument("--tile", "-t", type=int, nargs=3, )
-    parser.add_argument("--tiles", type=str)
+    parser.add_argument("--failed_from_log", type=str)
+    parser.add_argument("--failed_since", type=str)
     parser.add_argument("--log", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--multi", "-m", type=int)
@@ -71,6 +74,7 @@ def main(args=None):
     logging.config.dictConfig(get_log_config(mapchete))
     logger.info("starting process using %s worker(s)" %(multi))
 
+    work_tiles = []
     if parsed.tile:
         work_tiles = [mapchete.tile(
             Tile(
@@ -78,21 +82,22 @@ def main(args=None):
                 *tuple(parsed.tile)
             )
         )]
-    elif parsed.tiles:
-        work_tiles = []
-    else:
-        work_tiles = mapchete.get_work_tiles(zoom)
-
-    print reversed(mapchete.config.zoom_levels)
-    return
+    elif parsed.failed_from_log:
+        work_tiles = read_failed_from_log(
+            parsed.failed_from_log,
+            mapchete,
+            failed_since_str=parsed.failed_since
+        )
 
     for zoom in reversed(mapchete.config.zoom_levels):
+        if not work_tiles:
+            work_tiles = mapchete.get_work_tiles(zoom)
         pool = Pool(multi)
         try:
             for output in pool.imap_unordered(
                 f,
                 work_tiles,
-                chunksize=1
+                chunksize=8
                 ):
                 pass
         except KeyboardInterrupt:
@@ -124,6 +129,42 @@ def main(args=None):
                 str(out_dir + "/*/*" + mapchete.format.extension)
             )
             os.system(command)
+
+
+def read_failed_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
+    """
+    Reads logfile line by line and returns tile indexes filtered by timestamp
+    and failed tiles.
+    """
+    if not os.path.isfile(logfile):
+        raise IOError("input log file not found")
+    try:
+        failed_since = datetime.strptime(failed_since_str, '%Y-%m-%d')
+    except:
+        raise ValueError("bad timestamp given")
+
+    with open(logfile) as logs:
+        for line in logs.readlines():
+            if "failed" in line:
+                t = re.search(
+                    '\[.*[0-9]\]',
+                    line
+                ).group(0).replace('[', '').replace(']', '')
+                timestamp = datetime.strptime(t, '%Y-%m-%d %H:%M:%S,%f')
+                if timestamp > failed_since:
+                    tile = map(
+                        int,
+                        re.search(
+                            '\([0-9].*[0-9]\),',
+                            line
+                        ).group(0).replace('(', '').replace('),', '').split(', ')
+                    )
+                    yield mapchete.tile(
+                        Tile(
+                            mapchete.tile_pyramid,
+                            *tuple(tile)
+                        )
+                    )
 
 
 def worker(tile, mapchete, overwrite):
