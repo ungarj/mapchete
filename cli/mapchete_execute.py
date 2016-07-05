@@ -82,6 +82,7 @@ def main(args=None):
                 *tuple(parsed.tile)
             )
         )]
+        mapchete.config.zoom_levels = [parsed.tile[0]]
     elif parsed.failed_from_log:
         work_tiles = read_failed_from_log(
             parsed.failed_from_log,
