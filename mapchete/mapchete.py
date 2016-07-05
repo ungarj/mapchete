@@ -66,13 +66,6 @@ class Mapchete(object):
             self.config = config
             self.output = self.config.output
             base_tile_pyramid = TilePyramid(self.output.type)
-            # try:
-            #     base_tile_pyramid.set_format(
-            #         self.output.format,
-            #         db_params=self.output.db_params,
-            #         )
-            # except:
-            #     raise
             self.tile_pyramid = MetaTilePyramid(
                 base_tile_pyramid,
                 self.config.metatiling
