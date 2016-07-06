@@ -5,11 +5,13 @@ input_files:
     file1:
         zoom>=10: testdata/dummy1.tif
     file2: testdata/dummy2.tif
-output_name: test
-output_format: GTiff
-output_type: geodetic
-output_dtype: float32
-output_bands: 1
+
+output:
+    path: test
+    format: GTiff
+    type: geodetic
+    dtype: float32
+    bands: 1
 # TODO re-introduce file grouping
 # input_files:
 #     file_group_1:

@@ -10,29 +10,39 @@ import io
 import rasterio
 import numpy as np
 import numpy.ma as ma
-import threading
 from tempfile import NamedTemporaryFile
 import logging
 import logging.config
+from sqlalchemy import create_engine, MetaData, Table
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
+from sqlalchemy import Column, Integer, String, Float, Table, MetaData
+from geoalchemy2 import Geometry
 
 from tilematrix import (
     TilePyramid,
     MetaTilePyramid,
     Tile,
-    read_raster_window,
-    write_raster_window
+    read_raster_window
     )
 from .io_utils import (
     RasterFileTile,
     RasterProcessTile,
     VectorFileTile,
     VectorProcessTile,
+    NumpyTile,
     write_raster,
     write_vector
     )
+from .formats import MapcheteOutputFormat
+from .numpy_io import read_numpy
 
 logger = logging.getLogger("mapchete")
-
+sql_datatypes = {
+    "str": String,
+    "int": Integer,
+    "float": Float
+}
 
 class Mapchete(object):
     """
@@ -47,38 +57,19 @@ class Mapchete(object):
 
     def __init__(
         self,
-        config,
+        config
         ):
         """
         Initialize with a .mapchete file and optional zoom & bound parameters.
         """
         try:
             self.config = config
-            base_tile_pyramid = TilePyramid(self.config.output_type)
-            try:
-                base_tile_pyramid.set_format(self.config.output_format)
-            except:
-                raise
+            self.output = self.config.output
+            base_tile_pyramid = TilePyramid(self.output.type)
             self.tile_pyramid = MetaTilePyramid(
                 base_tile_pyramid,
                 self.config.metatiling
             )
-            if self.tile_pyramid.format.datatype == "raster":
-                self.tile_pyramid.format.profile.update(
-                    count=self.config.output_bands,
-                    dtype=self.config.output_dtype
-                )
-                if self.config.write_options:
-                    for option, param in self.config.write_options.iteritems():
-                        self.tile_pyramid.format.profile.update(
-                            {option: param}
-                        )
-                self.tile_pyramid.format.profile.update(
-                    nodata=self.config.output_nodata
-                )
-            elif self.tile_pyramid.format.datatype == "vector":
-                self.tile_pyramid.format.schema = self.config.output_schema
-            self.format = self.tile_pyramid.format
         except:
             raise
         try:
@@ -88,6 +79,12 @@ class Mapchete(object):
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file)
         )[0]
+        if self.output.is_db:
+            self._init_db_tables()
+
+        if self.output.format == "GeoPackage":
+            self._init_gpkg()
+
 
     def tile(self, tile):
         """
@@ -203,7 +200,7 @@ class Mapchete(object):
                 try:
                     write_raster(
                         tile_process,
-                        self.tile_pyramid.format.profile,
+                        self.output.profile,
                         bands
                     )
                     return tile.id, "processed", None
@@ -213,7 +210,7 @@ class Mapchete(object):
             elif tile.zoom > self.config.baselevel["zoom"]:
                 # determine tiles from previous zoom level
                 process_area = self.config.process_area(tile.zoom-1)
-                supertile =  list(
+                supertile = list(
                     MapcheteTile(self, supertile)
                     for supertile in self.tile_pyramid.tiles_from_geom(
                         tile.bbox(),
@@ -237,7 +234,7 @@ class Mapchete(object):
                     ))
                     write_raster(
                         tile_process,
-                        self.tile_pyramid.format.profile,
+                        self.output.profile,
                         bands
                     )
                     return tile.id, "processed", None
@@ -354,6 +351,57 @@ class Mapchete(object):
         return out_img
 
 
+    def _init_db_tables(self):
+        """
+        Initializes target tables in database.
+        """
+        db_url = 'postgresql://%s:%s@%s:%s/%s' %(
+            self.output.db_params["user"],
+            self.output.db_params["password"],
+            self.output.db_params["host"],
+            self.output.db_params["port"],
+            self.output.db_params["db"]
+        )
+        engine = create_engine(db_url)
+        for zoom in self.config.zoom_levels:
+            config = self.config.at_zoom(zoom)
+            geom_type = config["output"].schema["geometry"]
+            table = config["output"].db_params["table"]
+            schema = config["output"].schema["properties"]
+
+            column_types = {
+                column: sql_datatypes[schema[column]]
+                for column in schema
+                }
+
+            metadata = MetaData(bind=engine)
+            target_table = Table(
+                table,
+                metadata,
+                Column('id', Integer, primary_key=True),
+                Column('zoom', Integer, index=True),
+                Column('row', Integer, index=True),
+                Column('col', Integer, index=True),
+                Column('geom', Geometry(
+                    geom_type,
+                    srid=self.tile_pyramid.srid
+                    )
+                ),
+                *(
+                    Column(column, dtype)
+                    for column, dtype in column_types.iteritems()
+                    )
+                )
+            metadata.create_all()
+        engine.dispose()
+
+    def _init_gpkg(self):
+        """
+        Creates .gpkg file and initializes tables.
+        """
+        pass
+
+
 class MapcheteTile(Tile):
     """
     Defines a tile object which stores common tile parameters (see
@@ -370,21 +418,18 @@ class MapcheteTile(Tile):
         self.tile_pyramid = mapchete.tile_pyramid
         Tile.__init__(self, self.tile_pyramid, tile.zoom, tile.row, tile.col)
         self.process = mapchete
-        self.config = mapchete.config
-        if self.tile_pyramid.format.datatype == "raster":
-            self.nodata = self.tile_pyramid.format.profile["nodata"]
-            self.indexes = self.tile_pyramid.format.profile["count"]
-            self.dtype = self.tile_pyramid.format.profile["dtype"]
-        self.path = self.tile_pyramid.format.get_tile_name(
-            self.config.output_name,
-            tile
-        )
+        self.config = mapchete.config.at_zoom(tile.zoom)
+        self.output = mapchete.output
+        self.nodata = self.output.nodataval
+        self.indexes = self.output.bands
+        self.dtype = self.output.dtype
+        self.path = self._get_path()
 
     def profile(self, pixelbuffer=0):
         """
         Returns a pixelbuffer specific metadata set for a raster tile.
         """
-        out_meta = self.tile_pyramid.format.profile
+        out_meta = self.output.profile
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.zoom)
         left, bottom, right, top = self.bounds(pixelbuffer=pixelbuffer)
@@ -401,7 +446,42 @@ class MapcheteTile(Tile):
         """
         Returns True if file exists or False if not.
         """
-        return os.path.isfile(self.path)
+        if self.output.is_db:
+            # config = self.process.config.at_zoom(self.zoom)
+            table = self.config["output"].db_params["table"]
+            # connect to db
+            db_url = 'postgresql://%s:%s@%s:%s/%s' %(
+                self.config["output"].db_params["user"],
+                self.config["output"].db_params["password"],
+                self.config["output"].db_params["host"],
+                self.config["output"].db_params["port"],
+                self.config["output"].db_params["db"]
+            )
+            engine = create_engine(db_url, poolclass=NullPool)
+            meta = MetaData()
+            meta.reflect(bind=engine)
+            TargetTable = Table(
+                table,
+                meta,
+                autoload=True,
+                autoload_with=engine
+            )
+            Session = sessionmaker(bind=engine)
+            session = Session()
+            result = session.query(TargetTable).filter_by(
+                zoom=self.zoom,
+                row=self.row,
+                col=self.col
+            ).first()
+            session.close()
+            engine.dispose()
+            if result:
+                return True
+            else:
+                return False
+
+        else:
+            return os.path.isfile(self.path)
 
     def read(self, indexes=None, pixelbuffer=0, resampling="nearest"):
         """
@@ -453,7 +533,7 @@ class MapcheteTile(Tile):
         )
         zeros = np.zeros(
             shape=(shape),
-            dtype=self.tile_pyramid.format.profile["dtype"]
+            dtype=self.output.profile["dtype"]
         )
         return ma.masked_array(
             zeros,
@@ -479,6 +559,47 @@ class MapcheteTile(Tile):
         # TODO cleanup
         pass
 
+    def _get_path(self):
+        """
+        Returns full tile path.
+        """
+        if self.output.is_file:
+            zoomdir = os.path.join(self.output.path, str(self.zoom))
+            rowdir = os.path.join(zoomdir, str(self.row))
+            tile_name = os.path.join(
+                rowdir,
+                str(self.col) + self.output.extension
+            )
+            return tile_name
+        else:
+            return None
+
+    def prepare_paths(self):
+        """
+        If format is file based, this function shall create the desired
+        directories.
+        If it is a GeoPackage, it shall initialize the SQLite file.
+        """
+        if self.output.is_file:
+            zoomdir = os.path.join(self.output.path, str(self.zoom))
+            if os.path.exists(zoomdir):
+                pass
+            else:
+                try:
+                    os.makedirs(zoomdir)
+                except:
+                    pass
+            rowdir = os.path.join(zoomdir, str(self.row))
+            if os.path.exists(rowdir):
+                pass
+            else:
+                try:
+                    os.makedirs(rowdir)
+                except:
+                    pass
+        else:
+            pass
+
 
 class MapcheteProcess():
     """
@@ -503,6 +624,7 @@ class MapcheteProcess():
         self.tile_pyramid = tile.tile_pyramid
         self.params = params
         self.config = config
+        self.output = self.tile.output
 
     def open(
         self,
@@ -535,13 +657,21 @@ class MapcheteProcess():
                     resampling=resampling
                 )
         else:
-            if input_file.tile_pyramid.format.datatype == "vector":
+            # if input is a Mapchete process
+            if input_file.output.data_type == "vector":
                 return VectorProcessTile(
                     input_file,
                     self.tile,
                     pixelbuffer=pixelbuffer
                 )
-            elif input_file.tile_pyramid.format.datatype == "raster":
+            elif input_file.output.data_type == "raster":
+                if input_file.output.format == "NumPy":
+                    return NumpyTile(
+                        input_file,
+                        self.tile,
+                        pixelbuffer=pixelbuffer,
+                        resampling=resampling
+                    )
                 return RasterProcessTile(
                     input_file,
                     self.tile,
@@ -554,17 +684,28 @@ class MapcheteProcess():
         data,
         pixelbuffer=0
     ):
-        if self.tile_pyramid.format.datatype == "vector":
+        if self.output.data_type == "vector":
             write_vector(
                 self,
-                self.tile_pyramid.format,
+                self.tile.config,
                 data,
-                pixelbuffer=pixelbuffer
+                pixelbuffer=pixelbuffer,
+                overwrite=self.config.overwrite
             )
-        elif self.tile_pyramid.format.datatype == "raster":
+        elif self.output.data_type == "raster":
             write_raster(
                 self,
                 self.tile.profile(pixelbuffer=pixelbuffer),
                 data,
                 pixelbuffer=pixelbuffer
             )
+
+    def read(self):
+        if self.output.format != "NumPy":
+            raise ValueError(
+                "this function is not available for non-NumPy file formats"
+            )
+        if self.tile.exists():
+            return read_numpy(self.tile.path)
+        else:
+            return None

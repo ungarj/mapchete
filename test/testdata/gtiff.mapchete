@@ -3,11 +3,10 @@ process_file: ../example_process.py
 process_zoom: 5
 input_files:
     file1: dummy2.tif
-    file2: zoom.mapchete
 
 output:
+    type: geodetic
     dtype: float32
     bands: 1
-    path: test
     format: GTiff
-    type: geodetic
+    path: test

@@ -156,34 +156,19 @@ def main(args):
         print "FAILED: read bounding box from .mapchete subfile"
         raise
 
-    # mapchete_file = os.path.join(scriptdir, "testdata/mapchete_input.mapchete")
-    # mapchete = Mapchete(MapcheteConfig(mapchete_file))
-    # # print mapchete.tile_pyramid.format.profile
-    #
-    # testdata_directory = os.path.join(scriptdir, "testdata")
-    # dummy2 = os.path.join(testdata_directory, "dummy2.tif")
-    # zoom = 10
-    # dummy2_bbox = file_bbox(dummy2, mapchete.tile_pyramid)
-    # tiles = mapchete.tile_pyramid.tiles_from_geom(dummy2_bbox, zoom)
-    #
-    # for tile in tiles:
-    #     with mapchete.open(
-    #         dummy2,
-    #         tile,
-    #         pixelbuffer=2
-    #         ) as testfile:
-    #         if not testfile.is_empty():
-    #             for band in testfile.read(1):
-    #                 assert band.shape == (260, 260)
-    #
-    #     # hacky.
-    #     mapchete.tile_pyramid.format.profile["count"] = 1
-    #     # print mapchete.tile_pyramid.format.profile
-    #     mapchete_tile = mapchete.tile(tile)
-    #     print mapchete_tile.path
-    #     print mapchete_tile.exists()
-    #     for band in mapchete_tile.read():
-    #         print band
+
+    from mapchete.formats import MapcheteOutputFormat
+    import yaml
+
+    mapchete_file = os.path.join(scriptdir, "testdata/gtiff.mapchete")
+    with open(mapchete_file, "r") as config_file:
+        raw_config = yaml.load(config_file.read())
+    out_format = MapcheteOutputFormat(raw_config["output"])
+
+
+    mapchete_file = os.path.join(scriptdir, "testdata/numpy.mapchete")
+    mapchete = Mapchete(MapcheteConfig(mapchete_file))
+
 
 
 

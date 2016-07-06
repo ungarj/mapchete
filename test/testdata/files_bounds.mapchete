@@ -2,14 +2,13 @@
 process_file: ../example_process.py
 process_minzoom: 7
 process_maxzoom: 10
-output_dtype: float32
-output_bands: 1
-
 input_files:
     file1:
         zoom>=10: dummy1.tif
     file2: dummy2.tif
-
-output_name: test
-output_format: PNG_hillshade
-output_type: geodetic
+output:
+    dtype: float32
+    bands: 1
+    path: test
+    format: PNG_hillshade
+    type: geodetic
