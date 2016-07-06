@@ -17,7 +17,7 @@ formats = {
     },
     "PNG": {
         "data_type": "raster",
-        "extension": ".tif",
+        "extension": ".png",
         "driver": "PNG",
         "profile": {
             'dtype': 'uint8',
@@ -28,7 +28,7 @@ formats = {
     },
     "PNG_hillshade": {
         "data_type": "raster",
-        "extension": ".tif",
+        "extension": ".png",
         "driver": "PNG",
         "profile": {
             'dtype': 'uint8',
@@ -38,8 +38,8 @@ formats = {
         }
     },
     "GeoJson": {
-        "data_type": "raster",
-        "extension": ".tif",
+        "data_type": "vector",
+        "extension": ".geojson",
         "driver": "GeoJSON",
         "profile": None
     },
@@ -53,7 +53,20 @@ formats = {
         "data_type": None,
         "extension": ".gpkg",
         "driver": "gpkg",
-        "profile": None
+        "profile": {
+            "compress": "lz4",
+            "nodata": None
+        }
+    },
+    "NumPy": {
+        "data_type": "raster",
+        "extension": ".numpy",
+        "driver": "numpy",
+        "profile": {
+            "compress": "lz4",
+            'dtype': 'uint8',
+            "nodata": None
+        }
     }
 }
 
@@ -68,6 +81,7 @@ class MapcheteOutputFormat:
         self.format = output_dict["format"]
 
         if self.format == "GeoPackage":
+            raise NotImplementedError("GeoPackage is not yet supported")
             self.data_type = output_dict["data_type"]
         else:
             self.data_type = formats[self.format]["data_type"]
@@ -95,16 +109,21 @@ class MapcheteOutputFormat:
             self.binary_type = None
         elif self.data_type == "raster":
             self.schema = None
-            self.dtype = output_dict["dtype"]
             self.bands = output_dict["bands"]
             self.profile.update(count=self.bands)
-            self.nodataval = None
             try:
-                self.nodataval = output_dict["nodataval"]
-                self.profile.update(nodataval=self.nodataval)
+                self.dtype = output_dict["dtype"]
             except:
-                pass
-            self.compression = "lzw"
+                self.dtype = formats[self.format]["profile"]["dtype"]
+            try:
+                self.nodataval = output_dict["nodata"]
+            except:
+                self.nodataval = None
+            self.profile.update(nodata=self.nodataval)
+            if self.format == "NumPy":
+                self.compression = "lz4"
+            else:
+                self.compression = "lzw"
             try:
                 self.compression = output_dict["compression"]
                 self.profile.update(compression=self.compression)
@@ -196,13 +215,13 @@ class MapcheteOutputFormat:
                 raise ValueError("output schema required")
         elif formats[p["format"]]["data_type"] == "raster":
             try:
-                assert p["dtype"]
-            except:
-                raise ValueError("dtype required")
-            try:
                 assert p["bands"]
             except:
                 raise ValueError("bands required")
+            # try:
+            #     assert p["dtype"]
+            # except:
+            #     raise ValueError("dtype required")
             if p["format"] == "GeoPackage":
                 try:
                     assert p["binary_type"] in ["numpy"]

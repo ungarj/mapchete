@@ -26,13 +26,16 @@ setup(
     package_data={'static':['index.html']},
     install_requires=[
         'tilematrix',
-        'progressbar',
         'fiona',
         'pyyaml',
         'flask',
         'Pillow',
         'scipy',
-        'psycopg2'
+        'psycopg2',
+        'blosc>=1.3.2',
+        'bloscpack',
+        'rasterio>=0.36.0',
+        'matplotlib'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

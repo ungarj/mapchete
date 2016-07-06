@@ -13,7 +13,7 @@ from .config_utils import (
 from .io_utils import (
     RasterFileTile,
     RasterProcessTile,
-    # read_raster,
+    NumpyTile,
     write_raster,
     read_vector
 )
@@ -24,5 +24,7 @@ from .commons import (
 )
 
 from .formats import MapcheteOutputFormat
+
+from .numpy_io import write_numpy
 
 from .log_utils import get_log_config

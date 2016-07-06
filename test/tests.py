@@ -166,5 +166,12 @@ def main(args):
     out_format = MapcheteOutputFormat(raw_config["output"])
 
 
+    mapchete_file = os.path.join(scriptdir, "testdata/numpy.mapchete")
+    mapchete = Mapchete(MapcheteConfig(mapchete_file))
+
+
+
+
+
 if __name__ == "__main__":
     main(sys.argv[1:])

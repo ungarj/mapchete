@@ -30,13 +30,19 @@ from .io_utils import (
     RasterProcessTile,
     VectorFileTile,
     VectorProcessTile,
+    NumpyTile,
     write_raster,
     write_vector
     )
 from .formats import MapcheteOutputFormat
+from .numpy_io import read_numpy
 
 logger = logging.getLogger("mapchete")
-
+sql_datatypes = {
+    "str": String,
+    "int": Integer,
+    "float": Float
+}
 
 class Mapchete(object):
     """
@@ -60,13 +66,6 @@ class Mapchete(object):
             self.config = config
             self.output = self.config.output
             base_tile_pyramid = TilePyramid(self.output.type)
-            # try:
-            #     base_tile_pyramid.set_format(
-            #         self.output.format,
-            #         db_params=self.output.db_params,
-            #         )
-            # except:
-            #     raise
             self.tile_pyramid = MetaTilePyramid(
                 base_tile_pyramid,
                 self.config.metatiling
@@ -81,10 +80,10 @@ class Mapchete(object):
             os.path.basename(self.config.process_file)
         )[0]
         if self.output.is_db:
-            try:
-                self._init_db_tables()
-            except:
-                raise
+            self._init_db_tables()
+
+        if self.output.format == "GeoPackage":
+            self._init_gpkg()
 
 
     def tile(self, tile):
@@ -356,13 +355,6 @@ class Mapchete(object):
         """
         Initializes target tables in database.
         """
-        sql_datatypes = {
-            "str": String,
-            "int": Integer,
-            "float": Float
-        }
-
-
         db_url = 'postgresql://%s:%s@%s:%s/%s' %(
             self.output.db_params["user"],
             self.output.db_params["password"],
@@ -402,6 +394,12 @@ class Mapchete(object):
                 )
             metadata.create_all()
         engine.dispose()
+
+    def _init_gpkg(self):
+        """
+        Creates .gpkg file and initializes tables.
+        """
+        pass
 
 
 class MapcheteTile(Tile):
@@ -667,6 +665,13 @@ class MapcheteProcess():
                     pixelbuffer=pixelbuffer
                 )
             elif input_file.output.data_type == "raster":
+                if input_file.output.format == "NumPy":
+                    return NumpyTile(
+                        input_file,
+                        self.tile,
+                        pixelbuffer=pixelbuffer,
+                        resampling=resampling
+                    )
                 return RasterProcessTile(
                     input_file,
                     self.tile,
@@ -694,3 +699,13 @@ class MapcheteProcess():
                 data,
                 pixelbuffer=pixelbuffer
             )
+
+    def read(self):
+        if self.output.format != "NumPy":
+            raise ValueError(
+                "this function is not available for non-NumPy file formats"
+            )
+        if self.tile.exists():
+            return read_numpy(self.tile.path)
+        else:
+            return None
