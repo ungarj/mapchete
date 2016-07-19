@@ -1,15 +1,25 @@
 #!/usr/bin/env python
 """
-Makes objects from io module available
+Makes items from io module available
 """
 
-from .io_utils import (
-    RasterFileTile,
-    RasterProcessTile,
-    NumpyTile,
-    write_raster,
-    read_vector
-)
+from .vector_data import VectorProcessTile, VectorFileTile
+
+# from .vector_io import read_vector, write_vector, read_vector_window,
+
+from .raster_data import RasterProcessTile, RasterFileTile
+
+# from .raster_io import read_raster, write_raster
+
+from .numpy_data import NumpyTile
+
+# from .io_utils import (
+#     RasterFileTile,
+#     RasterProcessTile,
+#     NumpyTile,
+#     write_raster,
+#     read_vector
+# )
 
 from .formats import MapcheteOutputFormat
 

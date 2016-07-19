@@ -1,6 +1,12 @@
 #!/usr/bin/env python
+
 import bloscpack as bp
 import numpy as np
+
+def read_numpy(
+    path
+    ):
+    return bp.unpack_ndarray_file(path)
 
 def write_numpy(
     tile,
@@ -21,8 +27,3 @@ def write_numpy(
             bands,
             tile.path
             )
-
-def read_numpy(
-    path
-    ):
-    return bp.unpack_ndarray_file(path)
