@@ -14,8 +14,8 @@ from py_compile import PyCompileError
 import re
 from datetime import datetime
 
-from mapchete import *
-from tilematrix import Tile, TilePyramid, MetaTilePyramid
+from mapchete import Mapchete, MapcheteConfig
+from tilematrix import Tile
 
 logger = logging.getLogger("mapchete")
 
