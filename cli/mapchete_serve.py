@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Command line utility to serve a Mapchete process.
+"""
 
 import os
 import sys
@@ -12,14 +15,18 @@ import traceback
 import logging
 import logging.config
 
-from mapchete import *
+from mapchete.core import Mapchete, MapcheteConfig, get_log_config
 from tilematrix import TilePyramid, MetaTilePyramid
 
 import pkgutil
 
-logger = logging.getLogger("mapchete")
+LOGGER = logging.getLogger("mapchete")
 
 def main(args=None):
+    """
+    Creates the Mapchete host and serves both web page with OpenLayers and the
+    WMTS simple REST endpoint.
+    """
 
     if args is None:
         args = sys.argv[1:]
@@ -33,7 +40,7 @@ def main(args=None):
     parsed = parser.parse_args(args)
 
     try:
-        logger.info("preparing process ...")
+        LOGGER.info("preparing process ...")
         mapchete = Mapchete(
             MapcheteConfig(
                 parsed.mapchete_file,
@@ -41,7 +48,7 @@ def main(args=None):
                 bounds=parsed.bounds
             )
         )
-    except Exception as e:
+    except:
         raise
 
     app = Flask(__name__)
@@ -52,6 +59,9 @@ def main(args=None):
 
     @app.route('/', methods=['GET'])
     def get_tasks():
+        """
+        Renders and hosts the appropriate OpenLayers instance.
+        """
         index_html = pkgutil.get_data('static', 'index.html')
         process_bounds = mapchete.config.process_bounds
         if not process_bounds:
@@ -70,7 +80,7 @@ def main(args=None):
 
 
     tile_base_url = '/wmts_simple/1.0.0/mapchete/default/'
-    if (mapchete.tile_pyramid.srid == 3857):
+    if mapchete.tile_pyramid.srid == 3857:
         tile_base_url += "g/"
     else:
         tile_base_url += "WGS84/"
@@ -91,13 +101,13 @@ def main(args=None):
                     metatile_cache[metatile.id] = threading.Event()
 
             if metatile_event:
-                logger.info("%s waiting for metatile %s" %(
+                LOGGER.info("%s waiting for metatile %s" %(
                     tile.id,
                     metatile.id
                     ))
                 metatile_event.wait()
             else:
-                logger.info("%s getting metatile %s" % (
+                LOGGER.info("%s getting metatile %s" % (
                     tile.id,
                     metatile.id
                     ))
@@ -117,14 +127,14 @@ def main(args=None):
                 resp = make_response(image)
                 # set no-cache header:
                 resp.cache_control.no_cache = True
-                logger.info((tile.id, "ok", "image sent"))
+                LOGGER.info((tile.id, "ok", "image sent"))
                 return resp
             else:
                 raise IOError("no image returned")
 
         except Exception as e:
             error_msg = (tile.id, "failed", e)
-            logger.error(error_msg)
+            LOGGER.error(error_msg)
             size = mapchete.tile_pyramid.tilepyramid.tile_size
             empty_image = Image.new('RGBA', (size, size))
             pixels = empty_image.load()
