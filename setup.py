@@ -32,10 +32,10 @@ setup(
         'Pillow',
         'scipy',
         'psycopg2',
-        'blosc>=1.3.2',
+        # 'blosc>=1.3.2',
+        # 'bloscpack',
         'rasterio>=0.36.0',
-        'matplotlib',
-        'geoalchemy2'
+        'matplotlib'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
