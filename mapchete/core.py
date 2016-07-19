@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Main core handling Mapchete Hosts and Mapchete Processes.
+"""
 
 import py_compile
 import os
@@ -13,10 +16,17 @@ import numpy.ma as ma
 from tempfile import NamedTemporaryFile
 import logging
 import logging.config
-from sqlalchemy import create_engine, MetaData, Table
+from sqlalchemy import (
+    create_engine,
+    MetaData,
+    Column,
+    Integer,
+    String,
+    Float,
+    Table
+    )
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
-from sqlalchemy import Column, Integer, String, Float, Table, MetaData
 from geoalchemy2 import Geometry
 
 from tilematrix import (
@@ -25,20 +35,19 @@ from tilematrix import (
     Tile,
     read_raster_window
     )
-from .io_utils import (
+from .io_utils.io_utils import (
     RasterFileTile,
     RasterProcessTile,
     VectorFileTile,
     VectorProcessTile,
     NumpyTile,
     write_raster,
-    write_vector
+    write_vector,
+    read_numpy
     )
-from .formats import MapcheteOutputFormat
-from .numpy_io import read_numpy
 
-logger = logging.getLogger("mapchete")
-sql_datatypes = {
+LOGGER = logging.getLogger("mapchete")
+SQL_DATATYPES = {
     "str": String,
     "int": Integer,
     "float": Float
@@ -111,7 +120,6 @@ class Mapchete(object):
         """
         Processes and saves tile.
         """
-        print "holla"
         # Do nothing if tile exists or overwrite is turned off.
         if not overwrite and tile.exists():
             return tile.id, "exists", None
@@ -129,12 +137,13 @@ class Mapchete(object):
             return tile.id, "failed", traceback.print_exc()
 
         # Generate tile using the user defined process.
-        if not self.config.baselevel or tile.zoom == self.config.baselevel["zoom"]:
+        if not self.config.baselevel or (
+            tile.zoom == self.config.baselevel["zoom"]
+            ):
             try:
                 result = tile_process.execute()
             except:
                 return tile.id, "failed", traceback.print_exc()
-                raise
             finally:
                 tile_process = None
 
@@ -221,7 +230,7 @@ class Mapchete(object):
                 )[0]
                 # check if tiles exist and if not, execute subtiles
                 if not overwrite and supertile.exists():
-                    # logger.info((tile.id, "exists", None))
+                    # LOGGER.info((tile.id, "exists", None))
                     pass
                 else:
                     pass
@@ -242,7 +251,6 @@ class Mapchete(object):
                     return tile.id, "processed", None
                 except:
                     return tile.id, "failed", traceback.print_exc()
-                    raise
 
     def get(self, tile, overwrite=False):
         """
@@ -266,14 +274,14 @@ class Mapchete(object):
                 try:
                     messages = self.execute(metatile)
                 except:
-                    logger.error(messages)
+                    LOGGER.error(messages)
                     raise
-                logger.info(messages)
+                LOGGER.info(messages)
                 # return empty image if process messaged empty
                 if messages[1] == "empty":
                     return self._empty_image()
                 if messages[1] == "failed":
-                    logger.error(messages)
+                    LOGGER.error(messages)
                     raise IOError(messages)
                 else:
                     return send_file(
@@ -283,13 +291,15 @@ class Mapchete(object):
             else:
                 # return cropped image
                 try:
-                    logger.info((metatile.id, tile.id, "return cropped metatile"))
+                    LOGGER.info(
+                        (metatile.id, tile.id, "return cropped metatile")
+                    )
                     return send_file(
                         self._cropped_metatile(metatile, tile),
                         mimetype='image/png'
                     )
                 except Exception as e:
-                    logger.error(tile.id, "failed", e)
+                    LOGGER.error(tile.id, "failed", e)
                     raise
 
         # return/process tile with no metatiling
@@ -372,7 +382,7 @@ class Mapchete(object):
             schema = config["output"].schema["properties"]
 
             column_types = {
-                column: sql_datatypes[schema[column]]
+                column: SQL_DATATYPES[schema[column]]
                 for column in schema
                 }
 
@@ -490,8 +500,8 @@ class MapcheteTile(Tile):
         Reads input as numpy array. Is the equivalent function of
         read_raster_window in tilematrix.io.
         """
-        # TODO fix: function does not always seem to return the correct number of
-        # bands.
+        # TODO fix: function does not always seem to return the correct number
+        # of bands.
         if indexes:
             if isinstance(indexes, list):
                 band_indexes = indexes

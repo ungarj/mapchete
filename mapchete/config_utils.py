@@ -13,7 +13,7 @@ from tilematrix import (
     )
 
 from .mapchete import Mapchete
-from .formats import MapcheteOutputFormat
+from .io_utils.formats import MapcheteOutputFormat
 
 _reserved_parameters = [
     "process_file",

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from .mapchete import (
+from .core import (
     Mapchete,
     MapcheteProcess,
     MapcheteTile

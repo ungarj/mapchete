@@ -15,7 +15,7 @@ import traceback
 import logging
 import logging.config
 
-from mapchete.core import Mapchete, MapcheteConfig, get_log_config
+from mapchete import Mapchete, MapcheteConfig, get_log_config
 from tilematrix import TilePyramid, MetaTilePyramid
 
 import pkgutil

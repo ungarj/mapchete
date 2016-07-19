@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Makes objects from io module available
+"""
 
 from .io_utils import (
     RasterFileTile,
