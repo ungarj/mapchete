@@ -3,7 +3,7 @@
 import os
 import sys
 import argparse
-from flask import Flask, send_file, make_response
+from flask import Flask, send_file, make_response, render_template_string
 from functools import update_wrapper
 import threading
 from PIL import Image
@@ -53,9 +53,27 @@ def main(args=None):
     @app.route('/', methods=['GET'])
     def get_tasks():
         index_html = pkgutil.get_data('static', 'index.html')
-        return index_html
+        process_bounds = mapchete.config.process_bounds
+        if not process_bounds:
+            process_bounds = (
+                mapchete.tile_pyramid.left,
+                mapchete.tile_pyramid.bottom,
+                mapchete.tile_pyramid.right,
+                mapchete.tile_pyramid.top
+            )
+        return render_template_string(
+            index_html,
+            srid=mapchete.tile_pyramid.srid,
+            process_bounds=str(list(process_bounds)),
+            is_mercator=(mapchete.tile_pyramid.srid == 3857)
+        )
 
-    tile_base_url = '/wmts_simple/1.0.0/mapchete/default/WGS84/'
+
+    tile_base_url = '/wmts_simple/1.0.0/mapchete/default/'
+    if (mapchete.tile_pyramid.srid == 3857):
+        tile_base_url += "g/"
+    else:
+        tile_base_url += "WGS84/"
     @app.route(
         tile_base_url+'<int:zoom>/<int:row>/<int:col>.png',
         methods=['GET']
