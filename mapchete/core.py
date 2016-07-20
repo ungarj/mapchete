@@ -35,7 +35,7 @@ from tilematrix import (
     Tile,
     read_raster_window
     )
-from .io_utils.io_utils import (
+from mapchete.io_utils import (
     RasterFileTile,
     RasterProcessTile,
     VectorFileTile,
@@ -148,7 +148,6 @@ class Mapchete(object):
                 tile_process = None
 
             message = None
-            print result
             if result:
                 if result == "empty":
                     status = "empty"
@@ -648,7 +647,6 @@ class MapcheteProcess():
         Returns either a fiona vector dictionary, a RasterFileTile or a
         MapcheteTile object.
         """
-        print "open!"
         if isinstance(input_file, dict):
             raise ValueError("input cannot be dict")
         # TODO add proper check for input type.
@@ -685,7 +683,6 @@ class MapcheteProcess():
                         pixelbuffer=pixelbuffer,
                         resampling=resampling
                     )
-                print "is RasterProcessTile"
                 return RasterProcessTile(
                     input_file,
                     self.tile,

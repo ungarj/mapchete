@@ -7,7 +7,7 @@ import rasterio
 from rasterio.warp import transform_bounds
 from copy import deepcopy
 
-from .io_funcs import RESAMPLING_METHODS, file_bbox
+from .io_funcs import RESAMPLING_METHODS, file_bbox, _reproject
 from .raster_io import read_raster_window
 
 class RasterProcessTile(object):
@@ -104,7 +104,14 @@ class RasterProcessTile(object):
         else:
             band_indexes = range(1, self.indexes+1)
 
-        dst_tile_bbox = self.tile.bbox(pixelbuffer=self.pixelbuffer)
+        dst_tile_bbox = _reproject(
+            self.tile.bbox(
+                pixelbuffer=self.pixelbuffer
+            ),
+            self.tile.crs,
+            self.input_file.tile_pyramid.crs
+            )
+
         src_tiles = [
             self.process.tile(tile)
             for tile in self.process.tile_pyramid.tiles_from_bbox(
@@ -112,13 +119,13 @@ class RasterProcessTile(object):
                 self.tile.zoom
             )
         ]
-        # TODO flesh out mosaic_tiles() function and reimplement using internal
-        # numpy arrays.
+
         tile_paths = [
             tile.path
             for tile in src_tiles
             if tile.exists()
             ]
+
         if len(tile_paths) == 0:
             # return emtpy array if no input files are given
             empty_array =  masked_array(
@@ -159,10 +166,16 @@ class RasterProcessTile(object):
         Returns true if all items are masked.
         """
         src_bbox = self.input_file.config.process_area(self.tile.zoom)
-        tile_geom = self.tile.bbox(
-            pixelbuffer=self.pixelbuffer
-        )
-        if not tile_geom.intersects(src_bbox):
+        # reproject tile bounding box to source file CRS
+        dst_tile_bbox = _reproject(
+            self.tile.bbox(
+                pixelbuffer=self.pixelbuffer
+            ),
+            self.tile.crs,
+            self.input_file.tile_pyramid.crs
+            )
+
+        if not dst_tile_bbox.intersects(src_bbox):
             return True
 
         if indexes:
@@ -173,7 +186,6 @@ class RasterProcessTile(object):
         else:
             band_indexes = range(1, self.indexes+1)
 
-        dst_tile_bbox = self.tile.bbox(pixelbuffer=self.pixelbuffer)
         src_tiles = [
             self.process.tile(tile)
             for tile in self.process.tile_pyramid.tiles_from_bbox(

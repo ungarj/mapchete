@@ -12,8 +12,9 @@ from tilematrix import (
     RESAMPLING_METHODS
     )
 
-from .mapchete import Mapchete
+from mapchete import Mapchete
 from .io_utils.formats import MapcheteOutputFormat
+from .io_utils.io_funcs import _reproject
 
 _reserved_parameters = [
     "process_file",
@@ -69,7 +70,7 @@ class MapcheteConfig():
         except:
             raise
         # get additional parameters
-        self._additional_parameters = _additional_parameters = {
+        self._additional_parameters = {
             "zoom": zoom,
             "bounds": bounds,
             "output_path": output_path,
@@ -106,7 +107,12 @@ class MapcheteConfig():
         bboxes = []
         for name, path in self.at_zoom(zoom)["input_files"].iteritems():
             if isinstance(path, Mapchete):
-                bbox = path.config.process_area(zoom)
+                src_bbox = path.config.process_area(zoom)
+                bbox = _reproject(
+                    src_bbox,
+                    src_crs=path.tile_pyramid.crs,
+                    dst_crs=tile_pyramid.crs
+                    )
             else:
                 if name == "cli":
                     bbox = Polygon([
@@ -121,6 +127,7 @@ class MapcheteConfig():
                         path,
                         tile_pyramid
                     )
+
             bboxes.append(bbox)
         files_area = cascaded_union(bboxes)
         out_area = files_area
