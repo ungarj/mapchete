@@ -15,6 +15,7 @@ import re
 from datetime import datetime
 
 from mapchete import Mapchete, MapcheteConfig
+from mapchete import get_log_config
 from tilematrix import Tile
 
 logger = logging.getLogger("mapchete")
@@ -90,17 +91,20 @@ def main(args=None):
             failed_since_str=parsed.failed_since
         )
 
+    print mapchete.config.process_area(12)
+
     for zoom in reversed(mapchete.config.zoom_levels):
         if not work_tiles:
             work_tiles = mapchete.get_work_tiles(zoom)
         pool = Pool(multi)
         try:
+            collected_output = []
             for output in pool.imap_unordered(
                 f,
                 work_tiles,
                 chunksize=1
                 ):
-                pass
+                collected_output.append(output)
         except KeyboardInterrupt:
             logger.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
@@ -111,6 +115,8 @@ def main(args=None):
             pool.close()
             pool.join()
         work_tiles = []
+
+    logger.info("%s tile(s) iterated" %(len(collected_output)))
 
     if mapchete.output.format in [
         "GTiff",
