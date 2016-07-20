@@ -32,8 +32,7 @@ from geoalchemy2 import Geometry
 from tilematrix import (
     TilePyramid,
     MetaTilePyramid,
-    Tile,
-    read_raster_window
+    Tile
     )
 from mapchete.io_utils import (
     RasterFileTile,
@@ -41,6 +40,7 @@ from mapchete.io_utils import (
     VectorFileTile,
     VectorProcessTile,
     NumpyTile,
+    read_raster_window,
     write_raster,
     write_vector,
     read_numpy
@@ -162,31 +162,22 @@ class Mapchete(object):
         else:
             if tile.zoom < self.config.baselevel["zoom"]:
                 # determine tiles from next zoom level
-                process_area = self.config.process_area(tile.zoom+1)
-                tile_process_area = process_area.intersection(tile.bbox())
-                subtiles = list(
-                    MapcheteTile(self, subtile)
-                    for subtile in self.tile_pyramid.tiles_from_geom(
-                        tile_process_area,
-                        tile.zoom+1
-                    )
-                )
                 # TODO create option for on demand processing if subtile is not
                 # available.
 
                 # create temporary VRT and create new tile from resampled
                 # subtiles.
-                subtile_paths = [
-                    subtile.path
-                    for subtile in subtiles
-                    if subtile.exists()
+                children_paths = [
+                    child.path
+                    for child in tile.get_children()
+                    if child.exists()
                 ]
-                if len(subtile_paths) == 0:
+                if len(children_paths) == 0:
                     return tile.id, "empty", None
                 temp_vrt = NamedTemporaryFile()
                 build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
                     temp_vrt.name,
-                    ' '.join(subtile_paths)
+                    ' '.join(children_paths)
                     )
                 try:
                     os.system(build_vrt)
@@ -194,7 +185,7 @@ class Mapchete(object):
                 except:
                     build_vrt = "gdalbuildvrt %s %s" %(
                         temp_vrt.name,
-                        ' '.join(subtile_paths)
+                        ' '.join(children_paths)
                         )
                     os.system(build_vrt)
                     return tile.id, "failed", "GDAL VRT building"
@@ -219,26 +210,19 @@ class Mapchete(object):
 
             elif tile.zoom > self.config.baselevel["zoom"]:
                 # determine tiles from previous zoom level
-                process_area = self.config.process_area(tile.zoom-1)
-                supertile = list(
-                    MapcheteTile(self, supertile)
-                    for supertile in self.tile_pyramid.tiles_from_geom(
-                        tile.bbox(),
-                        tile.zoom-1
-                    )
-                )[0]
                 # check if tiles exist and if not, execute subtiles
-                if not overwrite and supertile.exists():
+                parent = tile.get_parent()
+                if not overwrite and parent.exists():
                     # LOGGER.info((tile.id, "exists", None))
                     pass
                 else:
                     pass
-                if not supertile.exists():
+                if not parent.exists():
                     # TODO create option for on demand processing
                     return tile.id, "empty", "source tile does not exist"
                 try:
                     bands = tuple(read_raster_window(
-                        supertile.path,
+                        parent.path,
                         tile,
                         resampling=self.config.baselevel["resampling"]
                     ))
@@ -435,6 +419,31 @@ class MapcheteTile(Tile):
         self.indexes = self.output.bands
         self.dtype = self.output.dtype
         self.path = self._get_path()
+
+    def get_parent(self):
+        """
+        Returns MapcheteTile from previous zoomlevel.
+        """
+        if self.zoom == 0:
+            return None
+        else:
+            return MapcheteTile(
+                self.process,
+                self.tile_pyramid.tile(
+                    self.zoom-1,
+                    int(self.row/2),
+                    int(self.col/2),
+                    )
+                )
+
+    def get_children(self):
+        """
+        Returns MapcheteTiles from next zoomlevel.
+        """
+        return [
+            MapcheteTile(self.process, tile)
+            for tile in self.tile_pyramid.tile(*self.id).get_children()
+            ]
 
     def profile(self, pixelbuffer=0):
         """

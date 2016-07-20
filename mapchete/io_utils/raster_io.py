@@ -34,13 +34,16 @@ def read_raster_window(
         else:
             band_indexes = src.indexes
 
-        # Reproject tile bounds to source file SRS.
-        src_left, src_bottom, src_right, src_top = transform_bounds(
-            tile.crs,
-            src.crs,
-            *tile.bounds(pixelbuffer=pixelbuffer),
-            densify_pts=21
-            )
+        if tile.crs == src.crs:
+            (src_left, src_bottom, src_right, src_top) = tile.bounds()
+        else:
+            # Reproject tile bounds to source file SRS.
+            src_left, src_bottom, src_right, src_top = transform_bounds(
+                tile.crs,
+                src.crs,
+                *tile.bounds(pixelbuffer=pixelbuffer),
+                densify_pts=21
+                )
 
         nodataval = src.nodata
         # Quick fix because None nodata is not allowed.

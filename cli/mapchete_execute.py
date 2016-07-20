@@ -91,14 +91,12 @@ def main(args=None):
             failed_since_str=parsed.failed_since
         )
 
-    print mapchete.config.process_area(12)
-
+    collected_output = []
     for zoom in reversed(mapchete.config.zoom_levels):
         if not work_tiles:
             work_tiles = mapchete.get_work_tiles(zoom)
         pool = Pool(multi)
         try:
-            collected_output = []
             for output in pool.imap_unordered(
                 f,
                 work_tiles,
