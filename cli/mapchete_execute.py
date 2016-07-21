@@ -77,12 +77,17 @@ def main(args=None):
 
     work_tiles = []
     if parsed.tile:
-        work_tiles = [mapchete.tile(
+        tile = mapchete.tile(
             Tile(
                 mapchete.tile_pyramid,
                 *tuple(parsed.tile)
+                )
             )
-        )]
+        try:
+            assert tile.is_valid()
+        except AssertionError:
+            raise ValueError("tile index provided is invalid")
+        work_tiles = [tile]
         mapchete.config.zoom_levels = [parsed.tile[0]]
     elif parsed.failed_from_log:
         work_tiles = read_failed_from_log(

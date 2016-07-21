@@ -5,16 +5,11 @@ import os
 from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 
-from tilematrix import (
-    TilePyramid,
-    MetaTilePyramid,
-    file_bbox,
-    RESAMPLING_METHODS
-    )
+from tilematrix import TilePyramid, MetaTilePyramid
 
 from mapchete import Mapchete
 from .io_utils.formats import MapcheteOutputFormat
-from .io_utils.io_funcs import _reproject
+from .io_utils.io_funcs import _reproject, file_bbox, RESAMPLING_METHODS
 
 _reserved_parameters = [
     "process_file",

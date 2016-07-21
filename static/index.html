@@ -119,6 +119,7 @@
                 map.zoomToMaxExtent();
             map.addControl(new OpenLayers.Control.LayerSwitcher());
             map.addControl(new OpenLayers.Control.MousePosition());
+            map.addControl(new OpenLayers.Control.Permalink({anchor: true}));
             map.events.register("zoomend", map, function () {
                 selectId = document.getElementById("currentZoom");
                 setDomElement(selectId);

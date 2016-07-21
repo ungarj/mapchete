@@ -120,12 +120,7 @@ def file_bbox(
             except:
                 raise
         try:
-            project = partial(
-                pyproj.transform,
-                pyproj.Proj(inp_crs),
-                pyproj.Proj(out_crs)
-            )
-            out_bbox = transform(project, bbox)
+            out_bbox = _reproject(bbox, src_crs=inp_crs, dst_crs=out_crs)
         except:
             raise
     else:
@@ -149,7 +144,8 @@ def _reproject(
     dst_crs=None
     ):
     """
-    Reproject a geometry and returns the reprojected geometry.
+    Reproject a geometry and returns the reprojected geometry. Also, clips
+    geometry if it lies outside the spherical mercator boundary.
     """
     assert src_crs
     assert dst_crs

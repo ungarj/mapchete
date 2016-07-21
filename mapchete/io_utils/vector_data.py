@@ -6,7 +6,7 @@ import fiona
 import rasterio
 from copy import deepcopy
 
-from .io_funcs import file_bbox
+from .io_funcs import file_bbox, _reproject
 from .vector_io import read_vector_window
 
 class VectorProcessTile(object):
@@ -181,17 +181,13 @@ class VectorFileTile(object):
         if not tile_geom.intersects(src_bbox):
             return True
 
-        # Reproject tile bounds to source file SRS.
-        # src_left, src_bottom, src_right, src_top = transform_bounds(
-        #     self.tile.crs,
-        #     self.crs,
-        #     *self.tile.bounds(pixelbuffer=self.pixelbuffer),
-        #     densify_pts=21
-        #     )
-
         with fiona.open(self.input_file, 'r') as vector:
             features = vector.filter(
-                bbox=self.tile.bounds(pixelbuffer=self.pixelbuffer)
+                bbox=_reproject(
+                    self.tile.bbox(pixelbuffer=self.pixelbuffer),
+                    src_crs=self.tile.crs,
+                    dst_crs=vector.crs
+                    ).bounds
             )
             try:
                 next(features)
