@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name='mapchete',
@@ -32,8 +32,8 @@ setup(
         'Pillow',
         'scipy',
         'psycopg2',
-        'blosc>=1.3.2',
-        'bloscpack',
+        # 'blosc>=1.3.2',
+        # 'bloscpack>0.10.0',
         'rasterio>=0.36.0',
         'matplotlib'
     ],

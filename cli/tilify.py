@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 
 from mapchete import MapcheteProcess
-import numpy as np
-import numpy.ma as ma
-from rasterio.features import rasterize
-from shapely.geometry import shape
 
-def stretch_array(a, min, max):
-    return ((a.astype("float32")-min)/(max-min)*255).astype("uint8")
+def stretch_array(a, minval, maxval):
+    return ((a.astype("float32")-minval)/(maxval-minval)*255).astype("uint8")
 
 class Process(MapcheteProcess):
     """
@@ -32,7 +28,6 @@ class Process(MapcheteProcess):
             scale_method = None
         scales_minmax = self.params["scales_minmax"]
 
-        pixelsize = self.tile.pixel_x_size
         with self.open(
             self.params["input_files"]["raster"],
             pixelbuffer=pixelbuffer,
@@ -40,7 +35,7 @@ class Process(MapcheteProcess):
             ) as raster_file:
             if raster_file.is_empty():
                 return "empty"
-            bands = self.tile.tile_pyramid.format.profile["count"]
+            bands = self.config.output.bands
             resampled = ()
             for band, scale_minmax in zip(
                 raster_file.read(range(1, bands+1)),

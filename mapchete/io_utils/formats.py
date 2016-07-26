@@ -218,10 +218,7 @@ class MapcheteOutputFormat:
                 assert p["bands"]
             except:
                 raise ValueError("bands required")
-            # try:
-            #     assert p["dtype"]
-            # except:
-            #     raise ValueError("dtype required")
+
             if p["format"] == "GeoPackage":
                 try:
                     assert p["binary_type"] in ["numpy"]

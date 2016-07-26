@@ -14,8 +14,8 @@ from py_compile import PyCompileError
 import re
 from datetime import datetime
 
-from mapchete import *
-from tilematrix import Tile, TilePyramid, MetaTilePyramid
+from mapchete import Mapchete, MapcheteConfig, get_log_config
+from tilematrix import Tile
 
 logger = logging.getLogger("mapchete")
 
@@ -38,19 +38,15 @@ def main(args=None):
     parser.add_argument("--input_file", type=str)
 
     parsed = parser.parse_args(args)
-
     input_file = parsed.input_file
-
     if input_file and not os.path.isfile(input_file):
         raise IOError("input_file not found")
-
     overwrite = parsed.overwrite
     multi = parsed.multi
 
     if not multi:
         multi = cpu_count()
     try:
-        logger.info("preparing process ...")
         mapchete = Mapchete(
             MapcheteConfig(
                 parsed.mapchete_file,
@@ -76,12 +72,17 @@ def main(args=None):
 
     work_tiles = []
     if parsed.tile:
-        work_tiles = [mapchete.tile(
+        tile = mapchete.tile(
             Tile(
                 mapchete.tile_pyramid,
                 *tuple(parsed.tile)
+                )
             )
-        )]
+        try:
+            assert tile.is_valid()
+        except AssertionError:
+            raise ValueError("tile index provided is invalid")
+        work_tiles = [tile]
         mapchete.config.zoom_levels = [parsed.tile[0]]
     elif parsed.failed_from_log:
         work_tiles = read_failed_from_log(
@@ -90,6 +91,7 @@ def main(args=None):
             failed_since_str=parsed.failed_since
         )
 
+    collected_output = []
     for zoom in reversed(mapchete.config.zoom_levels):
         if not work_tiles:
             work_tiles = mapchete.get_work_tiles(zoom)
@@ -100,7 +102,7 @@ def main(args=None):
                 work_tiles,
                 chunksize=1
                 ):
-                pass
+                collected_output.append(output)
         except KeyboardInterrupt:
             logger.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
@@ -111,6 +113,8 @@ def main(args=None):
             pool.close()
             pool.join()
         work_tiles = []
+
+    logger.info("%s tile(s) iterated" %(len(collected_output)))
 
     if mapchete.output.format in [
         "GTiff",
@@ -159,7 +163,9 @@ def read_failed_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
                         re.search(
                             '\([0-9].*[0-9]\),',
                             line
-                        ).group(0).replace('(', '').replace('),', '').split(', ')
+                        ).group(0).replace('(', '').replace('),', '').split(
+                            ', '
+                        )
                     )
                     yield mapchete.tile(
                         Tile(
