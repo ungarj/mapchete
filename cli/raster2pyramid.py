@@ -4,17 +4,15 @@ import os
 import sys
 import argparse
 from functools import partial
-from multiprocessing import cpu_count
 from multiprocessing.pool import Pool
 import logging
 import logging.config
 import traceback
 from py_compile import PyCompileError
 import rasterio
-import numpy as np
 
-from mapchete import *
-from tilematrix import TilePyramid, MetaTilePyramid, get_best_zoom_level
+from mapchete import Mapchete, MapcheteConfig, get_log_config
+from tilematrix import get_best_zoom_level
 
 logger = logging.getLogger("mapchete")
 
@@ -30,15 +28,15 @@ def main(args=None):
         help="input raster file"
     )
     parser.add_argument(
-        "pyramid_type",
-        type=str,
-        choices=["geodetic", "mercator"],
-        help="pyramid schema to be used"
-    )
-    parser.add_argument(
         "output_dir",
         type=str,
         help="output directory where tiles are stored"
+    )
+    parser.add_argument(
+        "--pyramid_type",
+        type=str,
+        choices=["geodetic", "mercator"],
+        help="pyramid schema to be used"
     )
     parser.add_argument(
         "--output_format",
@@ -113,12 +111,7 @@ def raster2pyramid(
     """
     Creates a tile pyramid out of an input raster dataset.
     """
-
-    # Prepare output directory and logging
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    logging.config.dictConfig(get_log_config(output_dir))
-
+    # print help(logging)
     # Prepare process parameters
     minzoom, maxzoom = _get_zoom(zoom, input_file, output_type)
     process_file = os.path.join(
@@ -148,36 +141,38 @@ def raster2pyramid(
             if output_bands > 3:
                 output_bands = 3
                 output_dtype = 'uint8'
+        scales_minmax = ()
+        if scale_method == "dtype_scale":
+            for index in range(1, output_bands+1):
+                scales_minmax += (dtype_ranges[input_dtype], )
+        elif scale_method == "minmax_scale":
+            for index in range(1, output_bands+1):
+                band = input_raster.read(index)
+                scales_minmax += ((band.min(), band.max()), )
+        elif scale_method == "crop":
+            for index in range(1, output_bands+1):
+                scales_minmax += ((0, 255), )
+        if input_dtype == "uint8":
+            scale_method = None
             scales_minmax = ()
-            if scale_method == "dtype_scale":
-                for index in range(1, output_bands+1):
-                    scales_minmax += (dtype_ranges[input_dtype], )
-            elif scale_method == "minmax_scale":
-                for index in range(1, output_bands+1):
-                    band = input_raster.read(index)
-                    scales_minmax += ((band.min(), band.max()), )
-            elif scale_method == "crop":
-                for index in range(1, output_bands+1):
-                    scales_minmax += ((0, 255), )
-            if input_dtype == "uint8":
-                scale_method = None
-                scales_minmax = ()
-                for index in range(1, output_bands+1):
-                    scales_minmax += ((None, None), )
+            for index in range(1, output_bands+1):
+                scales_minmax += ((None, None), )
 
     # Create configuration
     config = {}
     config.update(
         process_file=process_file,
-        output_name=output_dir,
-        output_type=output_type,
-        output_format=output_format,
+        output={
+            "path": output_dir,
+            "format": output_format,
+            "type": output_type,
+            "bands": output_bands,
+            "dtype": output_dtype
+            },
         scale_method=scale_method,
         scales_minmax=scales_minmax,
         input_files={"raster": input_file},
         config_dir=os.getcwd(),
-        output_bands=output_bands,
-        output_dtype=output_dtype,
         process_minzoom=minzoom,
         process_maxzoom=maxzoom,
         nodataval=nodataval,
@@ -187,23 +182,31 @@ def raster2pyramid(
         baselevel={"zoom": maxzoom, "resampling": resampling}
     )
 
-    for zoom in reversed(range(minzoom, maxzoom+1)):
-        try:
-            mapchete = Mapchete(
-                MapcheteConfig(
-                    config,
-                    zoom=zoom,
-                    bounds=bounds
-                )
+    logger.info("preparing process ...")
+
+    try:
+        mapchete = Mapchete(
+            MapcheteConfig(
+                config,
+                zoom=zoom,
+                bounds=bounds
             )
-        except PyCompileError as e:
-            print e
-            return
-        except:
-            raise
+        )
+    except PyCompileError as e:
+        print e
+        return
+    except:
+        raise
+
+    # Prepare output directory and logging
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    logging.config.dictConfig(get_log_config(mapchete))
+    for zoom in reversed(range(minzoom, maxzoom+1)):
 
         # Determine work tiles and run
-        work_tiles = mapchete.get_work_tiles()
+        work_tiles = mapchete.get_work_tiles(zoom)
 
         f = partial(_worker,
             mapchete=mapchete,
@@ -214,15 +217,14 @@ def raster2pyramid(
             output = pool.map_async(f, work_tiles)
             pool.close()
         except KeyboardInterrupt:
-            pool.close()
+            logger.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
-            sys.exit()
+            break
         except:
-            pool.close()
             raise
         finally:
-            pool.join()
             pool.close()
+            pool.join()
 
 
 def _worker(tile, mapchete, overwrite):
@@ -234,31 +236,30 @@ def _worker(tile, mapchete, overwrite):
         log_message = mapchete.execute(tile, overwrite=overwrite)
     except Exception as e:
         log_message = (tile.id, "failed", traceback.print_exc())
-
     logger.info(log_message)
     return log_message
 
 
 def _get_zoom(zoom, input_raster, pyramid_type):
-        """
-        Determines minimum and maximum zoomlevel.
-        """
-        if not zoom:
-            minzoom = 1
-            maxzoom = get_best_zoom_level(input_raster, pyramid_type)
-        elif len(zoom) == 1:
+    """
+    Determines minimum and maximum zoomlevel.
+    """
+    if not zoom:
+        minzoom = 1
+        maxzoom = get_best_zoom_level(input_raster, pyramid_type)
+    elif len(zoom) == 1:
+        minzoom = zoom[0]
+        maxzoom = zoom[0]
+    elif len(zoom) == 2:
+        if zoom[0] < zoom[1]:
             minzoom = zoom[0]
-            maxzoom = zoom[0]
-        elif len(zoom) == 2:
-            if zoom[0] < zoom[1]:
-                minzoom = zoom[0]
-                maxzoom = zoom[1]
-            else:
-                minzoom = zoom[1]
-                maxzoom = zoom[0]
+            maxzoom = zoom[1]
         else:
-            raise ValueError("invalid number of zoom levels provided")
-        return minzoom, maxzoom
+            minzoom = zoom[1]
+            maxzoom = zoom[0]
+    else:
+        raise ValueError("invalid number of zoom levels provided")
+    return minzoom, maxzoom
 
 if __name__ == "__main__":
     main()

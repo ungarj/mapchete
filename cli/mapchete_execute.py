@@ -14,8 +14,7 @@ from py_compile import PyCompileError
 import re
 from datetime import datetime
 
-from mapchete import Mapchete, MapcheteConfig
-from mapchete import get_log_config
+from mapchete import Mapchete, MapcheteConfig, get_log_config
 from tilematrix import Tile
 
 logger = logging.getLogger("mapchete")
@@ -39,19 +38,15 @@ def main(args=None):
     parser.add_argument("--input_file", type=str)
 
     parsed = parser.parse_args(args)
-
     input_file = parsed.input_file
-
     if input_file and not os.path.isfile(input_file):
         raise IOError("input_file not found")
-
     overwrite = parsed.overwrite
     multi = parsed.multi
 
     if not multi:
         multi = cpu_count()
     try:
-        logger.info("preparing process ...")
         mapchete = Mapchete(
             MapcheteConfig(
                 parsed.mapchete_file,
@@ -168,7 +163,9 @@ def read_failed_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
                         re.search(
                             '\([0-9].*[0-9]\),',
                             line
-                        ).group(0).replace('(', '').replace('),', '').split(', ')
+                        ).group(0).replace('(', '').replace('),', '').split(
+                            ', '
+                        )
                     )
                     yield mapchete.tile(
                         Tile(

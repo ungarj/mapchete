@@ -105,23 +105,6 @@ def write_raster(
             "output bands must be stored in a tuple or a numpy array."
         )
 
-    # try:
-    #     assert isinstance(bands, tuple)
-    # except:
-    #     try:
-    #         assert (
-    #             isinstance(
-    #             bands,
-    #             np.ndarray
-    #             ) or isinstance(
-    #             bands,
-    #             np.ma.core.MaskedArray
-    #             )
-    #         )
-    #         bands = (bands, )
-    #     except:
-    #         raise TypeError("output bands must be stored in a tuple.")
-
     try:
         for band in bands:
             assert (
@@ -225,13 +208,13 @@ def write_raster_window(
     dst_metadata["width"] = dst_width
     dst_metadata["height"] = dst_height
     dst_metadata["affine"] = dst_affine
+    dst_metadata["driver"] = tile.output.format
 
     if tile.output.format in ("PNG", "PNG_hillshade"):
         dst_metadata.update(
             dtype='uint8',
             count=bandcount
         )
-
     assert len(dst_bands) == dst_metadata["count"]
     with rasterio.open(output_file, 'w', **dst_metadata) as dst:
         for band, data in enumerate(dst_bands):
