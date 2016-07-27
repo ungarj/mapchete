@@ -35,7 +35,9 @@ def read_raster_window(
             band_indexes = src.indexes
 
         if tile.crs == src.crs:
-            (src_left, src_bottom, src_right, src_top) = tile.bounds()
+            (src_left, src_bottom, src_right, src_top) = tile.bounds(
+                pixelbuffer=pixelbuffer
+                )
         else:
             # Reproject tile bounds to source file SRS.
             src_left, src_bottom, src_right, src_top = transform_bounds(
