@@ -13,14 +13,8 @@ from .raster_io import read_raster_window, write_raster
 
 from .numpy_data import NumpyTile
 
-# from .io_utils import (
-#     RasterFileTile,
-#     RasterProcessTile,
-#     NumpyTile,
-#     write_raster,
-#     read_vector
-# )
+from .numpy_io import read_numpy, write_numpy
 
 from .formats import MapcheteOutputFormat
 
-from .numpy_io import read_numpy, write_numpy
+from io_funcs import get_best_zoom_level, clean_geometry_type, file_bbox

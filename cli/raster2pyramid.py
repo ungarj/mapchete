@@ -12,7 +12,7 @@ from py_compile import PyCompileError
 import rasterio
 
 from mapchete import Mapchete, MapcheteConfig, get_log_config
-from tilematrix import get_best_zoom_level
+from mapchete.io_utils import get_best_zoom_level
 
 logger = logging.getLogger("mapchete")
 
