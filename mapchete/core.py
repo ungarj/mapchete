@@ -311,7 +311,7 @@ class Mapchete(object):
             else:
                 band_indexes = [indexes]
         else:
-            band_indexes = range(1, self.tile_pyramid.profile["count"]+1)
+            band_indexes = range(1, self.output.profile["count"]+1)
 
         return tile.read(
             indexes=band_indexes,
@@ -370,7 +370,7 @@ class Mapchete(object):
                 }
 
             metadata = MetaData(bind=engine)
-            target_table = Table(
+            Table(
                 table,
                 metadata,
                 Column('id', Integer, primary_key=True),
@@ -452,7 +452,8 @@ class MapcheteTile(Tile):
         out_meta = self.output.profile
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.zoom)
-        left, bottom, right, top = self.bounds(pixelbuffer=pixelbuffer)
+        left = self.bounds(pixelbuffer=pixelbuffer)[0]
+        top = self.bounds(pixelbuffer=pixelbuffer)[3]
         tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
             width=self.width,

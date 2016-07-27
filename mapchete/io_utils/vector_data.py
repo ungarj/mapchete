@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Classes handling vector data.
+"""
 
 import os
 from itertools import chain
@@ -6,7 +9,7 @@ import fiona
 import rasterio
 from copy import deepcopy
 
-from .io_funcs import file_bbox, _reproject
+from .io_funcs import file_bbox, reproject_geometry
 from .vector_io import read_vector_window
 
 class VectorProcessTile(object):
@@ -183,7 +186,7 @@ class VectorFileTile(object):
 
         with fiona.open(self.input_file, 'r') as vector:
             features = vector.filter(
-                bbox=_reproject(
+                bbox=reproject_geometry(
                     self.tile.bbox(pixelbuffer=self.pixelbuffer),
                     src_crs=self.tile.crs,
                     dst_crs=vector.crs
@@ -205,9 +208,8 @@ class VectorFileTile(object):
             out_meta = deepcopy(src.meta)
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left, bottom, right, top = self.tile.bounds(
-            pixelbuffer=self.pixelbuffer
-            )
+        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
+        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
         tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
             width=self.tile_pyramid.tile_size,

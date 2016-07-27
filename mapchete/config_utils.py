@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Main class to verify and handle process configurations
+"""
 
 import yaml
 import os
@@ -6,12 +9,15 @@ from shapely.geometry import Polygon
 from shapely.ops import cascaded_union
 
 from tilematrix import TilePyramid, MetaTilePyramid
-
 from mapchete import Mapchete
-from .io_utils.formats import MapcheteOutputFormat
-from .io_utils.io_funcs import _reproject, file_bbox, RESAMPLING_METHODS
+from mapchete.io_utils import MapcheteOutputFormat
+from mapchete.io_utils.io_funcs import (
+    reproject_geometry,
+    file_bbox,
+    RESAMPLING_METHODS
+    )
 
-_reserved_parameters = [
+_RESERVED_PARAMETERS = [
     "process_file",
     "input_files",
     "output_name",
@@ -24,7 +30,7 @@ _reserved_parameters = [
     "metatiling"
     ]
 
-class MapcheteConfig():
+class MapcheteConfig(object):
     """
     Creates a configuration object. As model parameters can change per zoom
     level, the method at_zoom(zoom) returns only the parameters at a given
@@ -106,7 +112,7 @@ class MapcheteConfig():
                 if path.config.output.crs == self.output.crs:
                     bbox = src_bbox
                 else:
-                    bbox = _reproject(
+                    bbox = reproject_geometry(
                         src_bbox,
                         src_crs=path.tile_pyramid.crs,
                         dst_crs=tile_pyramid.crs
@@ -131,11 +137,13 @@ class MapcheteConfig():
         out_area = files_area
         if self.process_bounds:
             left, bottom, right, top = self.process_bounds
-            ul = left, top
-            ur = right, top
-            lr = right, bottom
-            ll = left, bottom
-            user_bbox = Polygon([ul, ur, lr, ll])
+            upper_left = left, top
+            upper_right = right, top
+            lower_right = right, bottom
+            lower_left = left, bottom
+            user_bbox = Polygon(
+                [upper_left, upper_right, lower_right, lower_left]
+                )
             out_area = files_area.intersection(user_bbox)
             try:
                 assert out_area.geom_type in [
@@ -143,7 +151,7 @@ class MapcheteConfig():
                     "MultiPolygon",
                     "GeometryCollection"
                     ]
-            except:
+            except AssertionError:
                 # TODO if process area is empty, remove zoom level from zoom
                 # level list
                 out_area = None
@@ -156,7 +164,7 @@ class MapcheteConfig():
         """
         params = {}
         for name, element in self._raw_config.iteritems():
-            if name not in _reserved_parameters:
+            if name not in _RESERVED_PARAMETERS:
                 out_element = self._element_at_zoom(name, element, zoom)
                 if out_element != None:
                     params[name] = out_element
@@ -168,7 +176,7 @@ class MapcheteConfig():
                 input_files[name] = self.input_files[name]
         params.update(
             input_files=input_files,
-            output = MapcheteOutputFormat(params["output"])
+            output=MapcheteOutputFormat(params["output"])
         )
         return params
 
@@ -181,17 +189,16 @@ class MapcheteConfig():
         - if input files exist and can be read via Fiona or rasterio
         Returns True or False.
         """
-        # TODO
         config = self.at_zoom(zoom)
         try:
             assert "input_files" in config
-        except:
+        except AssertionError:
             return False
         try:
             assert isinstance(config["input_files"], dict)
-        except:
+        except AssertionError:
             return False
-        for input_file, rel_path in config["input_files"].iteritems():
+        for rel_path in config["input_files"].values():
             if rel_path:
                 if isinstance(rel_path, Mapchete):
                     pass
@@ -199,11 +206,11 @@ class MapcheteConfig():
                     abs_path = os.path.join(self.config_dir, rel_path)
                     try:
                         assert os.path.isfile(os.path.join(abs_path))
-                    except:
+                    except AssertionError:
                         return False
         try:
             assert "output" in config
-        except:
+        except AssertionError:
             return False
         return True
 
@@ -212,20 +219,19 @@ class MapcheteConfig():
         """
         For debugging purposes if is_valid_at_zoom() returns False.
         """
-        # TODO
         config = self.at_zoom(zoom)
         try:
             assert "input_files" in config
-        except:
+        except AssertionError:
             return "'input_files' empty for zoom level %s" % zoom
         try:
             assert isinstance(config["input_files"], dict)
-        except:
+        except AssertionError:
             return "'input_files' invalid at zoom level %s: '%s'" %(
                 zoom,
                 config["input_files"]
                 )
-        for input_file, rel_path in config["input_files"].iteritems():
+        for rel_path in config["input_files"].values():
             if rel_path:
                 if isinstance(rel_path, Mapchete):
                     pass
@@ -233,15 +239,15 @@ class MapcheteConfig():
                     abs_path = os.path.join(self.config_dir, rel_path)
                     try:
                         assert os.path.isfile(os.path.join(abs_path))
-                    except:
+                    except AssertionError:
                         return "invalid path '%s'" % abs_path
         try:
             assert "output_name" in config
-        except:
+        except AssertionError:
             return "output_name not provided"
         try:
             assert "output_format" in config
-        except:
+        except AssertionError:
             return "output_format not provided"
         return "everything OK"
 
@@ -290,8 +296,7 @@ class MapcheteConfig():
         """
         Returns the last item of a dict tree.
         """
-        out_elem = {}
-        for name, entry in raw_config_elem.iteritems():
+        for entry in raw_config_elem.values():
             if isinstance(entry, dict):
                 return self._get_final_item(entry)
             else:
@@ -307,8 +312,8 @@ class MapcheteConfig():
         try:
             config_bounds = raw_config["process_bounds"]
             bounds = config_bounds
-        except:
-            bounds = None
+        except KeyError:
+            bounds = ()
         #### overwrite if bounds are provided explicitly
         if self._additional_parameters["bounds"]:
             # validate bounds
@@ -339,7 +344,7 @@ class MapcheteConfig():
         """
         try:
             metatiling = self._raw_config["metatiling"]
-        except:
+        except KeyError:
             metatiling = 1
         try:
             assert metatiling in [1, 2, 4, 8, 16]
@@ -356,13 +361,13 @@ class MapcheteConfig():
         try:
             config_zoom = raw_config["process_zoom"]
             zoom = [config_zoom]
-        except:
+        except KeyError:
             zoom = None
             try:
                 minzoom = raw_config["process_minzoom"]
                 maxzoom = raw_config["process_maxzoom"]
                 zoom = [minzoom, maxzoom]
-            except:
+            except KeyError:
                 zoom = None
         # overwrite zoom if provided in additional_parameters
         if self._additional_parameters["zoom"]:
@@ -377,7 +382,7 @@ class MapcheteConfig():
         elif len(zoom) == 2:
             for i in zoom:
                 try:
-                    assert i>=0
+                    assert i >= 0
                 except:
                     raise ValueError("Zoom levels must be greater 0.")
             if zoom[0] < zoom[1]:
@@ -419,7 +424,7 @@ class MapcheteConfig():
         """
         try:
             baselevel = self._raw_config["baselevel"]
-        except:
+        except KeyError:
             return None
 
         try:
@@ -431,7 +436,7 @@ class MapcheteConfig():
 
         try:
             baselevel["resampling"]
-        except:
+        except KeyError:
             baselevel.update(resampling="nearest")
 
         try:
@@ -481,8 +486,8 @@ class MapcheteConfig():
                     out_elements[sub_name] = out_element
                 elif out_element != None:
                     out_elements[sub_name] = out_element
-            # If there is only one subelement, collapse unless it is input_files.
-            # In such case, return a dictionary.
+            # If there is only one subelement, collapse unless it is
+            # input_files. In such case, return a dictionary.
             if len(out_elements) == 1 and name != "input_files":
                 return out_elements.itervalues().next()
             # If subelement is empty, return None
@@ -516,7 +521,8 @@ class MapcheteConfig():
                         return element
                 else:
                     return None
-            # If element is a string but not a zoom level statement, return element.
+            # If element is a string but not a zoom level statement, return
+            # element.
             else:
                 return element
         else:

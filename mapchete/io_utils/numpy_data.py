@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+NumPy handling.
+"""
 
 # from numpy import stack, ndarray
 from numpy.ma import MaskedArray
@@ -71,9 +74,8 @@ class NumpyTile(object):
         out_meta = self.process.output.profile
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left, bottom, right, top = self.tile.bounds(
-            pixelbuffer=self.pixelbuffer
-            )
+        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
+        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
         tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
             width=self.tile.width+2*self.pixelbuffer,

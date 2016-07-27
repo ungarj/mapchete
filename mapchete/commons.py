@@ -1,12 +1,23 @@
 #!/usr/bin/env python
+"""
+Common handy functions which can be used in user processes.
+"""
 
-import sys
 import math
 import numpy as np
 import numpy.ma as ma
 from itertools import product
-from math import pi, sin, cos
+from math import pi
 import matplotlib.pyplot as plt
+from rasterio.features import rasterize
+from shapely.geometry import (
+    shape,
+    mapping,
+    LineString,
+    Polygon,
+    MultiPolygon,
+    GeometryCollection
+    )
 
 NODATA = -1
 
@@ -42,7 +53,13 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
-def calculate_slope_aspect(elevation, xres, yres, z=1.0, scale=1.0):
+def calculate_slope_aspect(
+    elevation,
+    xres,
+    yres,
+    z=1.0,
+    scale=1.0
+    ):
     """ Return a pair of arrays 2 pixels smaller than the input elevation array.
 
         Slope is returned in radians, from 0 for sheer face to pi/2 for
@@ -60,11 +77,11 @@ def calculate_slope_aspect(elevation, xres, yres, z=1.0, scale=1.0):
 
     x = ((window[0] + window[3] + window[3] + window[6]) \
        - (window[2] + window[5] + window[5] + window[8])) \
-      / (8.0 * xres * scale);
+      / (8.0 * xres * scale)
 
     y = ((window[6] + window[7] + window[7] + window[8]) \
        - (window[0] + window[1] + window[1] + window[2])) \
-      / (8.0 * yres * scale);
+      / (8.0 * yres * scale)
 
     # in radians, from 0 to pi/2
     slope = pi/2 - np.arctan(np.sqrt(x*x + y*y))
@@ -78,7 +95,6 @@ def calculate_slope_aspect(elevation, xres, yres, z=1.0, scale=1.0):
 def hillshade(
     elevation,
     self,
-    nodata=None,
     azimuth=315.0,
     altitude=45.0,
     z=1.0,
@@ -102,7 +118,7 @@ def hillshade(
 
     shaded = np.sin(altitude * deg2rad) * np.sin(slope) \
            + np.cos(altitude * deg2rad) * np.cos(slope) \
-           * np.cos((azimuth - 90.0) * deg2rad - aspect);
+           * np.cos((azimuth - 90.0) * deg2rad - aspect)
 
     shaded = (shaded - 1.0) * -128.0
     shaded = np.clip(shaded, 0, 255)
@@ -111,9 +127,6 @@ def hillshade(
 
     return padded
 
-
-from rasterio.features import rasterize
-from shapely.geometry import *
 
 def clip_array_with_vector(
     array,
@@ -168,7 +181,6 @@ def clip_array_with_vector(
 def extract_contours(
     array,
     tile,
-    base=0,
     interval=100,
     pixelbuffer=0,
     field='elev'
@@ -184,12 +196,13 @@ def extract_contours(
         contours = plt.contour(array, levels)
     except:
         raise
-    index=0
+    index = 0
     out_contours = []
-    left, bottom, right, top = tile.bounds(pixelbuffer)
+    left = tile.bounds(pixelbuffer)[0]
+    top = tile.bounds(pixelbuffer)[3]
     for level in range(len(contours.collections)):
         elevation = levels[index]
-        index+=1
+        index += 1
         paths = contours.collections[level].get_paths()
         for path in paths:
             out_coords = [
@@ -197,9 +210,9 @@ def extract_contours(
                     left+(i[1]*tile.pixel_x_size),
                     top-(i[0]*tile.pixel_y_size),
                 )
-                for i in zip(path.vertices[:,1], path.vertices[:,0])
+                for i in zip(path.vertices[:, 1], path.vertices[:, 0])
             ]
-            if len(out_coords)>=2:
+            if len(out_coords) >= 2:
                 line = LineString(out_coords)
                 out_contours.append({
                         'properties': {
@@ -220,12 +233,12 @@ def _get_contour_values(min_val, max_val, base=0, interval=100):
     out = []
 
     if min_val < base:
-        while i>=min_val:
-            i-=interval
+        while i >= min_val:
+            i -= interval
 
-    while i<=max_val:
-        if i>=min_val:
+    while i <= max_val:
+        if i >= min_val:
             out.append(i)
-        i+=interval
+        i += interval
 
     return out

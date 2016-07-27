@@ -120,7 +120,11 @@ def file_bbox(
             except:
                 raise
         try:
-            out_bbox = _reproject(bbox, src_crs=inp_crs, dst_crs=out_crs)
+            out_bbox = reproject_geometry(
+                bbox,
+                src_crs=inp_crs,
+                dst_crs=out_crs
+                )
         except:
             raise
     else:
@@ -129,7 +133,7 @@ def file_bbox(
     # Validate and, if necessary, try to fix output geometry.
     try:
         assert out_bbox.is_valid
-    except:
+    except AssertionError:
         cleaned = out_bbox.buffer(0)
         try:
             assert cleaned.is_valid
@@ -138,7 +142,7 @@ def file_bbox(
         out_bbox = cleaned
     return out_bbox
 
-def _reproject(
+def reproject_geometry(
     geometry,
     src_crs=None,
     dst_crs=None

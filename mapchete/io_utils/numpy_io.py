@@ -10,7 +10,6 @@ def read_numpy(
 
 def write_numpy(
     tile,
-    metadata,
     bands,
     pixelbuffer=0):
     if pixelbuffer > 0:

@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Classes handling raster data.
+"""
 
 import os
 from numpy.ma import masked_array, zeros
@@ -7,7 +10,7 @@ import rasterio
 from rasterio.warp import transform_bounds
 from copy import deepcopy
 
-from .io_funcs import RESAMPLING_METHODS, file_bbox, _reproject
+from .io_funcs import RESAMPLING_METHODS, file_bbox, reproject_geometry
 from .raster_io import read_raster_window
 
 class RasterProcessTile(object):
@@ -76,9 +79,8 @@ class RasterProcessTile(object):
         out_meta = self.process.output.profile
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left, bottom, right, top = self.tile.bounds(
-            pixelbuffer=self.pixelbuffer
-            )
+        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
+        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
         tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
             width=self.tile.width+2*self.pixelbuffer,
@@ -104,7 +106,7 @@ class RasterProcessTile(object):
         else:
             band_indexes = range(1, self.indexes+1)
 
-        dst_tile_bbox = _reproject(
+        dst_tile_bbox = reproject_geometry(
             self.tile.bbox(
                 pixelbuffer=self.pixelbuffer
             ),
@@ -128,7 +130,7 @@ class RasterProcessTile(object):
 
         if len(tile_paths) == 0:
             # return emtpy array if no input files are given
-            empty_array =  masked_array(
+            empty_array = masked_array(
                 zeros(
                     self.shape,
                     dtype=self.dtype
@@ -167,7 +169,7 @@ class RasterProcessTile(object):
         """
         src_bbox = self.input_file.config.process_area(self.tile.zoom)
         # reproject tile bounding box to source file CRS
-        dst_tile_bbox = _reproject(
+        dst_tile_bbox = reproject_geometry(
             self.tile.bbox(
                 pixelbuffer=self.pixelbuffer
             ),
@@ -275,7 +277,7 @@ class RasterFileTile(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, t, value, tb):
         # TODO cleanup
         pass
 
@@ -318,25 +320,17 @@ class RasterFileTile(object):
             band_indexes = range(1, self.indexes+1)
 
         with rasterio.open(self.input_file, "r") as src:
-
             # Reproject tile bounds to source file SRS.
             src_left, src_bottom, src_right, src_top = transform_bounds(
-            self.tile.crs,
-            src.crs,
-            *self.tile.bounds(pixelbuffer=self.pixelbuffer),
-            densify_pts=21
-            )
-
+                self.tile.crs,
+                src.crs,
+                *self.tile.bounds(pixelbuffer=self.pixelbuffer),
+                densify_pts=21
+                )
             minrow, mincol = src.index(src_left, src_top)
             maxrow, maxcol = src.index(src_right, src_bottom)
-
-            # Calculate new Affine object for read window.
             window = (minrow, maxrow), (mincol, maxcol)
-            # window_vector_affine = src.affine.translation(
-            #     mincol,
-            #     minrow
-            #     )
-            # window_affine = src.affine * window_vector_affine
+
             # Finally read data per band and store it in tuple.
             bands = (
                 src.read(index, window=window, masked=True, boundless=True)
@@ -360,9 +354,8 @@ class RasterFileTile(object):
             out_meta = deepcopy(src.meta)
         # create geotransform
         px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left, bottom, right, top = self.tile.bounds(
-            pixelbuffer=self.pixelbuffer
-            )
+        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
+        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
         tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
             width=self.tile_pyramid.tile_size,

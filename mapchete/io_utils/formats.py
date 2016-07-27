@@ -1,6 +1,9 @@
 #!/usr/bin/env python
+"""
+Mapchete output format class
+"""
 
-formats = {
+FORMATS = {
     "GTiff": {
         "data_type": "raster",
         "extension": ".tif",
@@ -70,21 +73,20 @@ formats = {
     }
 }
 
-class MapcheteOutputFormat:
+class MapcheteOutputFormat(object):
     """
-
+    Main output format class which is used for Mapchete to determine how to
+    write process results.
     """
 
     def __init__(self, output_dict):
-        params = self._verify_params(output_dict)
         self.type = output_dict["type"]
         self.format = output_dict["format"]
 
         if self.format == "GeoPackage":
             raise NotImplementedError("GeoPackage is not yet supported")
-            self.data_type = output_dict["data_type"]
         else:
-            self.data_type = formats[self.format]["data_type"]
+            self.data_type = FORMATS[self.format]["data_type"]
 
         if self.format == "PostGIS":
             self.path = None
@@ -97,7 +99,7 @@ class MapcheteOutputFormat:
             self.is_db = False
             self.is_file = True
 
-        self.profile = formats[self.format]["profile"]
+        self.profile = FORMATS[self.format]["profile"]
 
         if self.data_type == "vector":
             self.schema = output_dict["schema"]
@@ -113,11 +115,11 @@ class MapcheteOutputFormat:
             self.profile.update(count=self.bands)
             try:
                 self.dtype = output_dict["dtype"]
-            except:
-                self.dtype = formats[self.format]["profile"]["dtype"]
+            except KeyError:
+                self.dtype = FORMATS[self.format]["profile"]["dtype"]
             try:
                 self.nodataval = output_dict["nodata"]
-            except:
+            except KeyError:
                 self.nodataval = None
             self.profile.update(nodata=self.nodataval)
             if self.format == "NumPy":
@@ -127,16 +129,16 @@ class MapcheteOutputFormat:
             try:
                 self.compression = output_dict["compression"]
                 self.profile.update(compression=self.compression)
-            except:
+            except KeyError:
                 pass
             if self.format == "GeoPackage":
                 try:
                     self.binary_type = output_dict["binary_type"]
-                except:
+                except KeyError:
                     self.binary_type = None
 
-        self.extension = formats[self.format]["extension"]
-        self.driver = formats[self.format]["driver"]
+        self.extension = FORMATS[self.format]["extension"]
+        self.driver = FORMATS[self.format]["driver"]
 
         if self.type == "geodetic":
             self.crs = {'init': (u'epsg:4326')}
@@ -147,6 +149,9 @@ class MapcheteOutputFormat:
 
 
     def _verify_params(self, p):
+        """
+        Asserts all parameters are set correctly.
+        """
 
         try:
             assert isinstance(p, dict)
@@ -159,7 +164,7 @@ class MapcheteOutputFormat:
             raise ValueError("tiling schema missing ('geodetic' or 'mercator')")
 
         try:
-            assert p["format"] in formats
+            assert p["format"] in FORMATS
         except:
             raise ValueError("output format parameter missing")
 
@@ -207,13 +212,13 @@ class MapcheteOutputFormat:
             except:
                 raise ValueError("path required")
 
-        if formats[p["format"]]["data_type"] == "vector":
+        if FORMATS[p["format"]]["data_type"] == "vector":
             try:
                 assert p["schema"]
                 assert isinstance(p["schema"], dict)
             except:
                 raise ValueError("output schema required")
-        elif formats[p["format"]]["data_type"] == "raster":
+        elif FORMATS[p["format"]]["data_type"] == "raster":
             try:
                 assert p["bands"]
             except:

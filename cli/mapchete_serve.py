@@ -3,22 +3,17 @@
 Command line utility to serve a Mapchete process.
 """
 
-import os
 import sys
 import argparse
 from flask import Flask, send_file, make_response, render_template_string
-from functools import update_wrapper
 import threading
 from PIL import Image
 import io
-import traceback
 import logging
 import logging.config
+import pkgutil
 
 from mapchete import Mapchete, MapcheteConfig, get_log_config
-from tilematrix import TilePyramid, MetaTilePyramid
-
-import pkgutil
 
 LOGGER = logging.getLogger("mapchete")
 
@@ -58,7 +53,7 @@ def main(args=None):
     metatile_lock = threading.Lock()
 
     @app.route('/', methods=['GET'])
-    def get_tasks():
+    def return_index():
         """
         Renders and hosts the appropriate OpenLayers instance.
         """
@@ -89,6 +84,9 @@ def main(args=None):
         methods=['GET']
         )
     def get(zoom, row, col):
+        """
+        Returns processed, empty or error (in pink color) tile.
+        """
         tile = mapchete.tile_pyramid.tilepyramid.tile(zoom, row, col)
         try:
             metatile = mapchete.tile_pyramid.tiles_from_bbox(
@@ -101,16 +99,16 @@ def main(args=None):
                     metatile_cache[metatile.id] = threading.Event()
 
             if metatile_event:
-                LOGGER.info("%s waiting for metatile %s" %(
+                LOGGER.info("%s waiting for metatile %s",
                     tile.id,
                     metatile.id
-                    ))
+                    )
                 metatile_event.wait()
             else:
-                LOGGER.info("%s getting metatile %s" % (
+                LOGGER.info("%s getting metatile %s",
                     tile.id,
                     metatile.id
-                    ))
+                    )
 
             try:
                 image = mapchete.get(tile)
@@ -132,15 +130,15 @@ def main(args=None):
             else:
                 raise IOError("no image returned")
 
-        except Exception as e:
-            error_msg = (tile.id, "failed", e)
+        except Exception as exception:
+            error_msg = (tile.id, "failed", exception)
             LOGGER.error(error_msg)
             size = mapchete.tile_pyramid.tilepyramid.tile_size
             empty_image = Image.new('RGBA', (size, size))
             pixels = empty_image.load()
-            for y in xrange(size):
-                for x in xrange(size):
-                    pixels[x, y] = (255, 0, 0, 128)
+            for y_idx in xrange(size):
+                for x_idx in xrange(size):
+                    pixels[x_idx, y_idx] = (255, 0, 0, 128)
             out_img = io.BytesIO()
             empty_image.save(out_img, 'PNG')
             out_img.seek(0)

@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Command line utility to execute a Mapchete process.
+"""
 
 import os
 import sys
@@ -114,7 +117,7 @@ def main(args=None):
             pool.join()
         work_tiles = []
 
-    logger.info("%s tile(s) iterated" %(len(collected_output)))
+    logger.info("%s tile(s) iterated", (len(collected_output)))
 
     if mapchete.output.format in [
         "GTiff",
@@ -132,7 +135,7 @@ def main(args=None):
             )
             command = "gdalbuildvrt -overwrite %s %s" %(
                 out_vrt,
-                str(out_dir + "/*/*" + mapchete.format.extension)
+                str(out_dir + "/*/*" + mapchete.config.format.extension)
             )
             os.system(command)
 
@@ -183,7 +186,7 @@ def worker(tile, mapchete, overwrite):
     starttime = time.time()
     try:
         log_message = mapchete.execute(tile, overwrite=overwrite)
-    except Exception as e:
+    except Exception:
         log_message = mapchete.process_name, (
             tile.id,
             "failed",

@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Raster data read and write functions.
+"""
 
 import os
 import rasterio
@@ -99,7 +102,9 @@ def write_raster(
     bands,
     pixelbuffer=0
     ):
-
+    """
+    Function to write arrays to either a NumPy dump or a raster file.
+    """
     try:
         assert isinstance(bands, tuple) or isinstance(bands, np.ndarray)
     except:
@@ -147,7 +152,6 @@ def write_raster(
             write_raster_window(
                 process.tile.path,
                 process.tile,
-                metadata,
                 bands,
                 pixelbuffer=pixelbuffer
             )
@@ -157,7 +161,6 @@ def write_raster(
 def write_raster_window(
     output_file,
     tile,
-    metadata,
     bands,
     pixelbuffer=0):
     """

@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+"""
+Here, logging is configured.
+"""
 
 import os
 

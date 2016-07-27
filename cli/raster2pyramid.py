@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+"""
+Utility to create tile pyramids out of input rasters. Also provides various
+options to rescale data if necessary
+"""
 
 import os
 import sys
@@ -14,9 +18,23 @@ import rasterio
 from mapchete import Mapchete, MapcheteConfig, get_log_config
 from mapchete.io_utils import get_best_zoom_level
 
-logger = logging.getLogger("mapchete")
+LOGGER = logging.getLogger("mapchete")
+# ranges from rasterio
+# https://github.com/mapbox/rasterio/blob/master/rasterio/dtypes.py#L61
+DTYPE_RANGES = {
+    'uint8': (0, 255),
+    'uint16': (0, 65535),
+    'int16': (-32768, 32767),
+    'uint32': (0, 4294967295),
+    'int32': (-2147483648, 2147483647),
+    'float32': (-3.4028235e+38, 3.4028235e+38),
+    'float64': (-1.7976931348623157e+308, 1.7976931348623157e+308)
+}
 
 def main(args=None):
+    """
+    Main entry point to tool.
+    """
 
     if args is None:
         args = sys.argv[1:]
@@ -35,6 +53,7 @@ def main(args=None):
     parser.add_argument(
         "--pyramid_type",
         type=str,
+        default="mercator",
         choices=["geodetic", "mercator"],
         help="pyramid schema to be used"
     )
@@ -84,10 +103,9 @@ def main(args=None):
     parser.add_argument("--overwrite", action="store_true")
     parsed = parser.parse_args(args)
 
-    raster2pyramid(
-        parsed.input_raster,
-        parsed.output_dir,
-        parsed.pyramid_type,
+    options = {}
+    options.update(
+        pyramid_type=parsed.pyramid_type,
         scale_method=parsed.scale_method,
         output_format=parsed.output_format,
         resampling=parsed.resampling_method,
@@ -95,41 +113,36 @@ def main(args=None):
         bounds=parsed.bounds,
         overwrite=parsed.overwrite
     )
+    raster2pyramid(
+        parsed.input_raster,
+        parsed.output_dir,
+        options
+    )
 
 
 def raster2pyramid(
     input_file,
     output_dir,
-    output_type,
-    scale_method="minmax_scale",
-    output_format="GTiff",
-    resampling="nearest",
-    zoom=None,
-    bounds=None,
-    overwrite=False
+    options
     ):
     """
     Creates a tile pyramid out of an input raster dataset.
     """
-    # print help(logging)
+    pyramid_type = options["pyramid_type"]
+    scale_method = options["scale_method"]
+    output_format = options["output_format"]
+    resampling = options["resampling"]
+    zoom = options["zoom"]
+    bounds = options["bounds"]
+    overwrite = options["overwrite"]
+
     # Prepare process parameters
-    minzoom, maxzoom = _get_zoom(zoom, input_file, output_type)
+    minzoom, maxzoom = _get_zoom(zoom, input_file, pyramid_type)
     process_file = os.path.join(
         os.path.dirname(os.path.realpath(__file__)),
         "tilify.py"
     )
 
-    # ranges from rasterio
-    # https://github.com/mapbox/rasterio/blob/master/rasterio/dtypes.py#L61
-    dtype_ranges = {
-        'uint8': (0, 255),
-        'uint16': (0, 65535),
-        'int16': (-32768, 32767),
-        'uint32': (0, 4294967295),
-        'int32': (-2147483648, 2147483647),
-        'float32': (-3.4028235e+38, 3.4028235e+38),
-        'float64': (-1.7976931348623157e+308, 1.7976931348623157e+308)
-    }
     with rasterio.open(input_file, "r") as input_raster:
         output_bands = input_raster.count
         input_dtype = input_raster.dtypes[0]
@@ -144,7 +157,7 @@ def raster2pyramid(
         scales_minmax = ()
         if scale_method == "dtype_scale":
             for index in range(1, output_bands+1):
-                scales_minmax += (dtype_ranges[input_dtype], )
+                scales_minmax += (DTYPE_RANGES[input_dtype], )
         elif scale_method == "minmax_scale":
             for index in range(1, output_bands+1):
                 band = input_raster.read(index)
@@ -165,7 +178,7 @@ def raster2pyramid(
         output={
             "path": output_dir,
             "format": output_format,
-            "type": output_type,
+            "type": pyramid_type,
             "bands": output_bands,
             "dtype": output_dtype
             },
@@ -182,7 +195,7 @@ def raster2pyramid(
         baselevel={"zoom": maxzoom, "resampling": resampling}
     )
 
-    logger.info("preparing process ...")
+    LOGGER.info("preparing process ...")
 
     try:
         mapchete = Mapchete(
@@ -192,8 +205,8 @@ def raster2pyramid(
                 bounds=bounds
             )
         )
-    except PyCompileError as e:
-        print e
+    except PyCompileError as error:
+        print error
         return
     except:
         raise
@@ -203,21 +216,22 @@ def raster2pyramid(
         os.makedirs(output_dir)
 
     logging.config.dictConfig(get_log_config(mapchete))
-    for zoom in reversed(range(minzoom, maxzoom+1)):
 
+    for zoom in reversed(range(minzoom, maxzoom+1)):
         # Determine work tiles and run
         work_tiles = mapchete.get_work_tiles(zoom)
-
-        f = partial(_worker,
+        func = partial(_worker,
             mapchete=mapchete,
             overwrite=overwrite
         )
         pool = Pool()
         try:
-            output = pool.map_async(f, work_tiles)
+            pool.map_async(func, work_tiles)
             pool.close()
         except KeyboardInterrupt:
-            logger.info("Caught KeyboardInterrupt, terminating workers")
+            LOGGER.info(
+                "Caught KeyboardInterrupt, terminating workers"
+                )
             pool.terminate()
             break
         except:
@@ -234,9 +248,9 @@ def _worker(tile, mapchete, overwrite):
     """
     try:
         log_message = mapchete.execute(tile, overwrite=overwrite)
-    except Exception as e:
+    except Exception:
         log_message = (tile.id, "failed", traceback.print_exc())
-    logger.info(log_message)
+    LOGGER.info(log_message)
     return log_message
 
 

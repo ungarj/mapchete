@@ -14,7 +14,7 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker
 import warnings
 
-from .io_funcs import _reproject, clean_geometry_type
+from .io_funcs import reproject_geometry, clean_geometry_type
 
 def read_vector(
     process,
@@ -69,7 +69,7 @@ def read_vector_window(
         # Reproject tile bounding box to source file CRS for filter:
         if vector.crs != tile.crs:
             bbox = tile.bbox(pixelbuffer=pixelbuffer)
-            tile_bbox = _reproject(bbox, src_crs=tile.crs, dst_crs=vector.crs)
+            tile_bbox = reproject_geometry(bbox, src_crs=tile.crs, dst_crs=vector.crs)
 
         for feature in vector.filter(bbox=tile_bbox.bounds):
             feature_geom = shape(feature['geometry'])
@@ -80,7 +80,7 @@ def read_vector_window(
             if geom:
                 # Reproject each feature to tile CRS
                 if vector.crs != tile.crs:
-                    geom = _reproject(
+                    geom = reproject_geometry(
                         geom,
                         src_crs=vector.crs,
                         dst_crs=tile.crs)
