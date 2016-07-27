@@ -103,11 +103,14 @@ class MapcheteConfig():
         for name, path in self.at_zoom(zoom)["input_files"].iteritems():
             if isinstance(path, Mapchete):
                 src_bbox = path.config.process_area(zoom)
-                bbox = _reproject(
-                    src_bbox,
-                    src_crs=path.tile_pyramid.crs,
-                    dst_crs=tile_pyramid.crs
-                    )
+                if path.config.output.crs == self.output.crs:
+                    bbox = src_bbox
+                else:
+                    bbox = _reproject(
+                        src_bbox,
+                        src_crs=path.tile_pyramid.crs,
+                        dst_crs=tile_pyramid.crs
+                        )
             else:
                 if name == "cli":
                     bbox = Polygon([
