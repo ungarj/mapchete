@@ -1,27 +1,16 @@
 #!/usr/bin/env python
 
-import sys
 import os
-import argparse
-import fiona
-from shapely.geometry import *
-from shapely.wkt import *
-from shapely.ops import cascaded_union
-import math
-import imp
+from shapely.geometry import Polygon
+from shapely.wkt import loads
 
-from tilematrix import *
-from mapchete import *
+from tilematrix import TilePyramid
+from mapchete import Mapchete, MapcheteConfig
+from mapchete.io_utils import file_bbox, read_raster_window
 
 ROUND = 10
 
-def main(args):
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--debug", action="store_true")
-    parsed = parser.parse_args(args)
-    global debug
-    debug = parsed.debug
+def main():
 
     scriptdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -157,21 +146,47 @@ def main(args):
         raise
 
 
-    from mapchete.formats import MapcheteOutputFormat
-    import yaml
-
     mapchete_file = os.path.join(scriptdir, "testdata/gtiff.mapchete")
-    with open(mapchete_file, "r") as config_file:
-        raw_config = yaml.load(config_file.read())
-    out_format = MapcheteOutputFormat(raw_config["output"])
-
 
     mapchete_file = os.path.join(scriptdir, "testdata/numpy.mapchete")
     mapchete = Mapchete(MapcheteConfig(mapchete_file))
 
 
+    # test io module
+    testdata_directory = os.path.join(scriptdir, "testdata")
+    outdata_directory = os.path.join(testdata_directory, "out")
 
+    dummy1 = os.path.join(testdata_directory, "dummy1.tif")
+    # dummy1 = os.path.join(testdata_directory, "sentinel2.tif")
+    dummy2 = os.path.join(testdata_directory, "dummy2.tif")
+    zoom = 8
+    tile_pyramid = TilePyramid("geodetic")
+
+    dummy1_bbox = file_bbox(dummy1, tile_pyramid)
+
+    tiles = tile_pyramid.tiles_from_geom(dummy1_bbox, zoom)
+    resampling = "average"
+    pixelbuffer=5
+    for tile in tiles:
+        for band in read_raster_window(
+            dummy1,
+            tile,
+            resampling=resampling,
+            pixelbuffer=pixelbuffer
+            ):
+            try:
+                assert band.shape == (
+                    tile_pyramid.tile_size + 2 * pixelbuffer,
+                    tile_pyramid.tile_size + 2 * pixelbuffer
+                )
+                print "OK: read data size"
+            except:
+                print "FAILED: read data size"
+
+
+        outname = str(tile.zoom) + str(tile.row) + str(tile.col) + ".tif"
+        outfile = os.path.join(outdata_directory, outname)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
