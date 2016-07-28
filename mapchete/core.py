@@ -247,11 +247,13 @@ class Mapchete(object):
         if self.config.metatiling > 1:
             metatile = MapcheteTile(
                 self,
-                self.tile_pyramid.tiles_from_bbox(
-                    tile.bbox(),
-                    tile.zoom
-                ).next()
-            )
+                self.tile_pyramid.tile(
+                    tile.zoom,
+                    int(tile.row/self.config.metatiling),
+                    int(tile.col/self.config.metatiling),
+                    )
+                )
+
             # if overwrite is on or metatile doesn't exist, generate
             if overwrite or not metatile.exists():
                 try:
@@ -331,7 +333,10 @@ class Mapchete(object):
         """
         Crops metatile to tile.
         """
+        print metatile.bbox()
+        print tile.bbox()
         metatiling = self.tile_pyramid.metatiles
+        print metatiling
         # calculate pixel boundary
         left = (tile.col % metatiling) * tile.width
         right = left + tile.width
@@ -339,6 +344,7 @@ class Mapchete(object):
         bottom = top + tile.height
         # open buffer image and crop metatile
         img = Image.open(metatile.path)
+        print (left, top, right, bottom)
         cropped = img.crop((left, top, right, bottom))
         out_img = io.BytesIO()
         cropped.save(out_img, 'PNG')
