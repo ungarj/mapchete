@@ -40,7 +40,7 @@ FORMATS = {
             'count': 4
         }
     },
-    "GeoJson": {
+    "GeoJSON": {
         "data_type": "vector",
         "extension": ".geojson",
         "driver": "GeoJSON",
