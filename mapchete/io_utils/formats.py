@@ -80,6 +80,7 @@ class MapcheteOutputFormat(object):
     """
 
     def __init__(self, output_dict):
+        self._verify_params(output_dict)
         self.type = output_dict["type"]
         self.format = output_dict["format"]
 
@@ -152,7 +153,6 @@ class MapcheteOutputFormat(object):
         """
         Asserts all parameters are set correctly.
         """
-
         try:
             assert isinstance(p, dict)
         except:

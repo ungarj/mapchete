@@ -202,8 +202,8 @@ def write_vector_window(
     with fiona.open(
         output_file,
         'w',
-        schema=metadata.schema,
-        driver=metadata.driver,
+        schema=metadata["output"].schema,
+        driver=metadata["output"].driver,
         crs=tile.crs
         ) as dst:
         for feature in data:
@@ -214,7 +214,7 @@ def write_vector_window(
                     tile.bbox(pixelbuffer)
                 )
                 out_geom = clipped
-                target_type = metadata.schema["geometry"]
+                target_type = metadata["output"].schema["geometry"]
                 if clipped.geom_type != target_type:
                     cleaned = clean_geometry_type(clipped, target_type)
                     out_geom = cleaned

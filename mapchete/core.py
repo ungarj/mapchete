@@ -333,10 +333,7 @@ class Mapchete(object):
         """
         Crops metatile to tile.
         """
-        print metatile.bbox()
-        print tile.bbox()
         metatiling = self.tile_pyramid.metatiles
-        print metatiling
         # calculate pixel boundary
         left = (tile.col % metatiling) * tile.width
         right = left + tile.width
@@ -344,7 +341,6 @@ class Mapchete(object):
         bottom = top + tile.height
         # open buffer image and crop metatile
         img = Image.open(metatile.path)
-        print (left, top, right, bottom)
         cropped = img.crop((left, top, right, bottom))
         out_img = io.BytesIO()
         cropped.save(out_img, 'PNG')
