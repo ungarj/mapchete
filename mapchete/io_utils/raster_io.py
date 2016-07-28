@@ -65,7 +65,6 @@ def read_raster_window(
             minrow
             )
         window_affine = src.affine * window_vector_affine
-
         # Finally read data per band and store it in tuple.
         bands = (
             src.read(index, window=window, masked=True, boundless=True)
@@ -197,6 +196,7 @@ def write_raster_window(
         dst_bands.append(band[px_top:px_bottom, px_left:px_right])
 
     bandcount = tile.output.bands
+
     if tile.output.format == "PNG":
         for band in bands:
             band = np.clip(band, 0, 255)
@@ -204,16 +204,20 @@ def write_raster_window(
             nodata_alpha = np.zeros(bands[0].shape)
             nodata_alpha[:] = 255
             nodata_alpha[bands[0].mask] = 0
-            dst_bands.append(nodata_alpha[px_top:px_bottom, px_left:px_right])
+            # just add alpha band if there is probably no alpha band yet
+            if len(bands) not in [2, 4]:
+                dst_bands.append(nodata_alpha[px_top:px_bottom, px_left:px_right])
             bandcount += 1
 
     dst_metadata = deepcopy(tile.output.profile)
     dst_metadata.pop("transform", None)
-    dst_metadata["crs"] = tile.crs['init']
-    dst_metadata["width"] = dst_width
-    dst_metadata["height"] = dst_height
-    dst_metadata["affine"] = dst_affine
-    dst_metadata["driver"] = tile.output.format
+    dst_metadata.update(
+        crs=tile.crs['init'],
+        width=dst_width,
+        height=dst_height,
+        affine=dst_affine,
+        driver=tile.output.format
+    )
 
     if tile.output.format in ("PNG", "PNG_hillshade"):
         dst_metadata.update(
