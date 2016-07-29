@@ -198,7 +198,6 @@ def write_vector_window(
         assert isinstance(pixelbuffer, int)
     except:
         raise ValueError("pixelbuffer must be an integer")
-
     with fiona.open(
         output_file,
         'w',
@@ -226,3 +225,5 @@ def write_vector_window(
                     dst.write(feature)
             except ValueError:
                 warnings.warn("failed on geometry")
+
+            dst.write(feature)
