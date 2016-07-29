@@ -49,12 +49,19 @@ def read_raster_window(
                 *tile.bounds(pixelbuffer=pixelbuffer),
                 densify_pts=21
                 )
+            # TODO: find better fix to avoid invalid bounds values
+            if float('Inf') in (src_left, src_bottom, src_right, src_top):
+                src_left, src_bottom, src_right, src_top = transform_bounds(
+                    tile.crs,
+                    src.crs,
+                    *tile.bounds(pixelbuffer=0),
+                    densify_pts=21
+                    )
 
         nodataval = src.nodata
         # Quick fix because None nodata is not allowed.
         if not nodataval:
             nodataval = 0
-
         minrow, mincol = src.index(src_left, src_top)
         maxrow, maxcol = src.index(src_right, src_bottom)
 
@@ -222,7 +229,8 @@ def write_raster_window(
     if tile.output.format in ("PNG", "PNG_hillshade"):
         dst_metadata.update(
             dtype='uint8',
-            count=bandcount
+            count=bandcount,
+            driver="PNG"
         )
     assert len(dst_bands) == dst_metadata["count"]
     with rasterio.open(output_file, 'w', **dst_metadata) as dst:
