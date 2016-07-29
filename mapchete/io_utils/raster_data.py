@@ -47,10 +47,6 @@ class RasterProcessTile(object):
         except:
             raise ValueError("resampling method %s not found." % resampling)
 
-        # try:
-        #     assert tile.process
-        # except:
-        #     raise ValueError("please provide an input process")
         self.process = input_mapchete
         self.tile_pyramid = self.process.tile_pyramid
         self.tile = tile
@@ -203,7 +199,7 @@ class RasterProcessTile(object):
             if tile.exists()
             ]
 
-        if len(tile_paths) == 0:
+        if not tile_paths:
             return True
 
         build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
@@ -215,8 +211,16 @@ class RasterProcessTile(object):
         except:
             raise IOError((tile.id, "failed", "build temporary VRT failed"))
 
+        bands = read_raster_window(
+            temp_vrt.name,
+            self.tile,
+            indexes=indexes,
+            pixelbuffer=self.pixelbuffer,
+            resampling=self.resampling
+        )
+
         all_bands_empty = True
-        for band in self.read(band_indexes):
+        for band in bands:
             if not band.mask.all():
                 all_bands_empty = False
                 break
