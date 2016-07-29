@@ -9,7 +9,7 @@ import numpy.ma as ma
 from itertools import product
 from math import pi
 import matplotlib.pyplot as plt
-from rasterio.features import rasterize
+from rasterio.features import rasterize, geometry_mask
 from shapely.geometry import (
     shape,
     mapping,
@@ -131,15 +131,16 @@ def hillshade(
 def clip_array_with_vector(
     array,
     array_affine,
-    vector_list,
+    geometries,
     inverted=False,
     clip_buffer=0
     ):
     """
     Clips input array with a vector list.
     """
-    union_mask = np.zeros(array.shape, dtype=bool)
-    for feature in vector_list:
+
+    buffered_geometries = []
+    for feature in geometries:
         geom = shape(feature['geometry']).buffer(clip_buffer)
         if not isinstance(geom, (Polygon, MultiPolygon, GeometryCollection)):
             break
@@ -155,27 +156,16 @@ def clip_array_with_vector(
                 break
             new_geom = MultiPolygon(polygons)
             geom = new_geom
-        feature_mask = rasterize(
-            [(geom, True)],
-            out_shape=array.shape,
-            transform=array_affine,
-            fill=False,
-            all_touched=True,
-            dtype=np.uint8
-        ).astype(bool)
-        union_mask = np.where(feature_mask, feature_mask, union_mask)
-    if inverted:
-        masked_array = ma.masked_array(
-            array,
-            mask=union_mask.astype(bool)
-        )
-    else:
-        masked_array = ma.masked_array(
-            array,
-            mask=~union_mask.astype(bool)
+        buffered_geometries.append(geom)
+
+    mask = geometry_mask(
+        buffered_geometries,
+        array.shape,
+        array_affine,
+        invert=inverted
         )
 
-    return masked_array
+    return ma.masked_array(array, mask)
 
 
 def extract_contours(
