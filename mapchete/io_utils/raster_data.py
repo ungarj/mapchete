@@ -73,7 +73,7 @@ class RasterProcessTile(object):
         """
         Generates reprojected numpy arrays from input process bands.
         """
-        band_indexes = _get_band_indexes(indexes)
+        band_indexes = _get_band_indexes(self, indexes)
 
         if len(band_indexes) == 1:
             return _bands_from_cache(self, indexes=band_indexes).next()
@@ -84,7 +84,7 @@ class RasterProcessTile(object):
         """
         Returns true if all items are masked.
         """
-        band_indexes = _get_band_indexes(indexes)
+        band_indexes = _get_band_indexes(self, indexes)
         src_bbox = self.input_file.config.process_area(self.tile.zoom)
         dst_tile_bbox = self._reproject_tile_bbox(
             out_crs=self.input_file.tile_pyramid.crs
@@ -222,8 +222,8 @@ class RasterFileTile(object):
     def read(self, indexes=None):
         """
         Generates reprojected numpy arrays from input file bands.
-        """
-        band_indexes = _get_band_indexes(indexes)
+	"""
+        band_indexes = _get_band_indexes(self, indexes)
 
         if len(band_indexes) == 1:
             return _bands_from_cache(self, indexes=band_indexes).next()
@@ -234,7 +234,7 @@ class RasterFileTile(object):
         """
         Returns true if all items are masked.
         """
-        band_indexes = _get_band_indexes(indexes)
+        band_indexes = _get_band_indexes(self, indexes)
         src_bbox = file_bbox(self.input_file, self.tile_pyramid)
         tile_geom = self.tile.bbox(pixelbuffer=self.pixelbuffer)
 
@@ -273,13 +273,13 @@ def _bands_from_cache(self, indexes=None):
     """
     Caches reprojected source data for multiple usage.
     """
-    band_indexes = _get_band_indexes(indexes)
-
+    band_indexes = _get_band_indexes(self, indexes)
     if isinstance(self, RasterProcessTile):
         tile_paths = self._get_src_tile_paths()
-        raster_file = NamedTemporaryFile()
+        temp_vrt = NamedTemporaryFile()
+        raster_file = temp_vrt.name
         build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
-            temp_vrt.name,
+            raster_file,
             ' '.join(tile_paths)
             )
         try:
