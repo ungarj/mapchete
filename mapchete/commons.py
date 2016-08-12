@@ -158,12 +158,19 @@ def clip_array_with_vector(
             geom = new_geom
         buffered_geometries.append(geom)
 
-    mask = geometry_mask(
-        buffered_geometries,
-        array.shape,
-        array_affine,
-        invert=inverted
-        )
+    if buffered_geometries:
+        mask = geometry_mask(
+            buffered_geometries,
+            array.shape,
+            array_affine,
+            invert=inverted
+            )
+    else:
+        if inverted:
+            fill = True
+        else:
+            fill = False
+        mask = np.full(array.shape, fill, dtype=bool)
 
     return ma.masked_array(array, mask)
 
