@@ -10,7 +10,7 @@ import numpy as np
 import numpy.ma as ma
 from copy import deepcopy
 from affine import Affine
-from shapely.geometry import box
+from shapely.geometry import Polygon, MultiPolygon
 from tilematrix import clip_geometry_to_srs_bounds
 
 from .io_funcs import RESAMPLING_METHODS
@@ -49,23 +49,29 @@ def read_raster_window(
             band_indexes = src.indexes
 
     # Check if tile boundaries cross the antimeridian.
-    if pixelbuffer and not tile.bbox(pixelbuffer).within(
-        box(
-            tile.tile_pyramid.left,
-            tile.tile_pyramid.bottom,
-            tile.tile_pyramid.right,
-            tile.tile_pyramid.top
-            )
-        ):
+    touches_left = tile.left-pixelbuffer <= tile.tile_pyramid.left
+    touches_bottom = tile.bottom-pixelbuffer <= tile.tile_pyramid.bottom
+    touches_right = tile.right+pixelbuffer >= tile.tile_pyramid.right
+    touches_top = tile.top+pixelbuffer >= tile.tile_pyramid.top
+    is_on_edge = touches_left or touches_bottom or touches_right or touches_top
+
+    if pixelbuffer and is_on_edge:
         tile_boxes = clip_geometry_to_srs_bounds(
             tile.bbox(pixelbuffer),
             tile.tile_pyramid
             )
+        if isinstance(tile_boxes, MultiPolygon):
+            pass
+        elif isinstance(tile_boxes, Polygon):
+            tile_boxes = [tile_boxes]
+        else:
+            raise TypeError("invalid raster window")
         parts_metadata = {}
         parts_metadata.update(
             left=None,
             both=None,
-            right=None
+            right=None,
+            none=None
         )
         # Prepare top/bottom array extension if necessary.
         touches_top = tile.top+pixelbuffer >= tile.tile_pyramid.top
@@ -112,6 +118,9 @@ def read_raster_window(
                 parts_metadata.update(left=part_metadata)
             elif touches_right:
                 parts_metadata.update(right=part_metadata)
+            else:
+                parts_metadata.update(none=part_metadata)
+
 
         # Finally, stitch numpy arrays together into one.
         for band_idx in band_indexes:
@@ -126,7 +135,7 @@ def read_raster_window(
                     dst_crs=tile.crs,
                     resampling=resampling
                     )
-                for part in ["left", "both", "right"]
+                for part in ["none", "left", "both", "right"]
                 if parts_metadata[part]
                 ],
                 axis=1
@@ -225,6 +234,7 @@ def _get_warped_array(
             dst_nodata=nodataval,
             resampling=RESAMPLING_METHODS[resampling]
         )
+        return ma.masked_equal(dst_band, nodataval)
         dst_band = ma.masked_equal(dst_band, nodataval)
         dst_band = ma.masked_array(
             dst_band,
