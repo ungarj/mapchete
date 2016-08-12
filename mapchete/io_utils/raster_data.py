@@ -122,8 +122,8 @@ class RasterProcessTile(object):
 
         # empty if source band(s) are empty
         all_bands_empty = True
-        for band_index in band_indexes:
-            if not self._bands_from_cache(band_index).mask.all():
+        for band in self._bands_from_cache(band_indexes):
+            if not band.mask.all():
                 all_bands_empty = False
                 break
         return all_bands_empty
@@ -135,8 +135,7 @@ class RasterProcessTile(object):
         band_indexes = self._band_indexes(indexes)
         tile_paths = self._get_src_tile_paths()
         for band_index in band_indexes:
-            if not self._np_band_cache[band_index]:
-                print "not cached"
+            if not band_index in self._np_band_cache:
                 if len(tile_paths) == 0:
                     band = masked_array(
                         zeros(
@@ -158,16 +157,11 @@ class RasterProcessTile(object):
                     band = read_raster_window(
                         temp_vrt.name,
                         self.tile,
-                        indexes=band_indexes,
+                        indexes=band_index,
                         pixelbuffer=self.pixelbuffer,
                         resampling=self.resampling
-                    )
-                self._np_band_cache.update(
-                    band_index=band
-                )
-            else:
-                print "cached"
-
+                    ).next()
+                self._np_band_cache[band_index] = band
             yield self._np_band_cache[band_index]
 
 

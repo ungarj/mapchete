@@ -141,10 +141,10 @@ def read_raster_window(
                 axis=1
             )
             # Extend array to assert it has the expected tile shape.
-            if touches_top:
-                stitched = ma.concatenate([nodata_stripe, stitched], axis=0)
-            if touches_bottom:
-                stitched = ma.concatenate([stitched, nodata_stripe], axis=0)
+            #if touches_top:
+            #    stitched = ma.concatenate([nodata_stripe, stitched], axis=0)
+            #if touches_bottom:
+            #    stitched = ma.concatenate([stitched, nodata_stripe], axis=0)
             assert stitched.shape == tile.shape(pixelbuffer)
 
             yield stitched
