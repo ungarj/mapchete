@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 import rasterio
 from rasterio.warp import transform_bounds
 from copy import deepcopy
+from tilematrix import clip_geometry_to_srs_bounds
 
 from .io_funcs import RESAMPLING_METHODS, file_bbox, reproject_geometry
 from .raster_io import read_raster_window
@@ -94,35 +95,8 @@ class RasterProcessTile(object):
         Note: this is a semi-hacky variation as it uses an os.system call to
         generate a temporal mosaic using the gdalbuildvrt command.
         """
-        if indexes:
-            if isinstance(indexes, list):
-                band_indexes = indexes
-            else:
-                band_indexes = [indexes]
-        else:
-            band_indexes = range(1, self.indexes+1)
-
-        dst_tile_bbox = reproject_geometry(
-            self.tile.bbox(
-                pixelbuffer=self.pixelbuffer
-            ),
-            self.tile.crs,
-            self.input_file.tile_pyramid.crs
-            )
-
-        src_tiles = [
-            self.process.tile(tile)
-            for tile in self.process.tile_pyramid.tiles_from_bbox(
-                dst_tile_bbox,
-                self.tile.zoom
-            )
-        ]
-
-        tile_paths = [
-            tile.path
-            for tile in src_tiles
-            if tile.exists()
-            ]
+        band_indexes = self._band_indexes(indexes)
+        tile_paths = self._get_src_tile_paths()
 
         if len(tile_paths) == 0:
             # return emtpy array if no input files are given
@@ -154,53 +128,34 @@ class RasterProcessTile(object):
             ))
         except:
             raise
-        # finally:
-            # clean up
-            # if os.path.isfile(temp_vrt.name):
-            #     os.remove(temp_vrt.name)
 
     def is_empty(self, indexes=None):
         """
         Returns true if all items are masked.
         """
+        band_indexes = self._band_indexes(indexes)
+
         src_bbox = self.input_file.config.process_area(self.tile.zoom)
+
         # reproject tile bounding box to source file CRS
         dst_tile_bbox = reproject_geometry(
-            self.tile.bbox(
-                pixelbuffer=self.pixelbuffer
-            ),
+            clip_geometry_to_srs_bounds(
+                self.tile.bbox(pixelbuffer=self.pixelbuffer),
+                self.tile.tile_pyramid
+                ),
             self.tile.crs,
             self.input_file.tile_pyramid.crs
             )
 
-        if not dst_tile_bbox.intersects(src_bbox):
+        if not dst_tile_bbox.buffer(0).intersects(src_bbox):
             return True
 
-        if indexes:
-            if isinstance(indexes, list):
-                band_indexes = indexes
-            else:
-                band_indexes = [indexes]
-        else:
-            band_indexes = range(1, self.indexes+1)
-
-        src_tiles = [
-            self.process.tile(tile)
-            for tile in self.process.tile_pyramid.tiles_from_bbox(
-                dst_tile_bbox,
-                self.tile.zoom
-            )
-        ]
-
-        temp_vrt = NamedTemporaryFile()
-        tile_paths = [
-            tile.path
-            for tile in src_tiles
-            if tile.exists()
-            ]
+        tile_paths = self._get_src_tile_paths()
 
         if not tile_paths:
             return True
+
+        temp_vrt = NamedTemporaryFile()
 
         build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
             temp_vrt.name,
@@ -214,7 +169,7 @@ class RasterProcessTile(object):
         bands = read_raster_window(
             temp_vrt.name,
             self.tile,
-            indexes=indexes,
+            indexes=band_indexes,
             pixelbuffer=self.pixelbuffer,
             resampling=self.resampling
         )
@@ -226,6 +181,46 @@ class RasterProcessTile(object):
                 break
 
         return all_bands_empty
+
+    def _get_src_tile_paths(self):
+        """
+        Returns existing tile paths from source process.
+        """
+        dst_tile_bbox = reproject_geometry(
+            clip_geometry_to_srs_bounds(
+                self.tile.bbox(pixelbuffer=self.pixelbuffer),
+                self.tile.tile_pyramid
+                ),
+            self.tile.crs,
+            self.input_file.tile_pyramid.crs
+            )
+
+        src_tiles = [
+            self.process.tile(tile)
+            for tile in self.process.tile_pyramid.tiles_from_geom(
+                dst_tile_bbox,
+                self.tile.zoom
+            )
+        ]
+
+        return [
+            tile.path
+            for tile in src_tiles
+            if tile.exists()
+            ]
+
+    def _band_indexes(self, indexes=None):
+        """
+        Returns valid band indexes.
+        """
+        if indexes:
+            if isinstance(indexes, list):
+                return indexes
+            else:
+                return [indexes]
+        else:
+            return range(1, self.indexes+1)
+
 
 class RasterFileTile(object):
     """
