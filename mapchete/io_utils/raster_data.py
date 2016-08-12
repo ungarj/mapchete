@@ -6,12 +6,14 @@ Classes handling raster data.
 import os
 from numpy.ma import masked_array, zeros
 from tempfile import NamedTemporaryFile
-import rasterio
-from rasterio.warp import transform_bounds
-from copy import deepcopy
 from tilematrix import clip_geometry_to_srs_bounds
 
-from .io_funcs import RESAMPLING_METHODS, file_bbox, reproject_geometry
+from .io_funcs import (
+    RESAMPLING_METHODS,
+    file_bbox,
+    reproject_geometry,
+    _read_metadata
+    )
 from .raster_io import read_raster_window
 
 class RasterProcessTile(object):
@@ -54,7 +56,7 @@ class RasterProcessTile(object):
         self.input_file = input_mapchete
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
-        self.profile = self._read_metadata()
+        self.profile = _read_metadata(self)
         self.affine = self.profile["affine"]
         self.nodata = self.profile["nodata"]
         self.indexes = self.profile["count"]
@@ -106,24 +108,6 @@ class RasterProcessTile(object):
                 all_bands_empty = False
                 break
         return all_bands_empty
-
-    def _read_metadata(self):
-        """
-        Returns a rasterio-like metadata dictionary adapted to tile.
-        """
-        out_meta = self.process.output.profile
-        # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
-        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
-        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
-        out_meta.update(
-            width=self.tile.shape(self.pixelbuffer)[1],
-            height=self.tile.shape(self.pixelbuffer)[0],
-            transform=tile_geotransform,
-            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
-        )
-        return out_meta
 
     def _reproject_tile_bbox(self, out_crs=None):
         """
@@ -204,7 +188,7 @@ class RasterFileTile(object):
         self.input_file = input_file
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
-        self.profile = self._read_metadata()
+        self.profile = _read_metadata(self)
         self.affine = self.profile["affine"]
         self.nodata = self.profile["nodata"]
         self.indexes = self.profile["count"]
@@ -249,25 +233,6 @@ class RasterFileTile(object):
                 all_bands_empty = False
                 break
         return all_bands_empty
-
-    def _read_metadata(self):
-        """
-        Returns a rasterio-like metadata dictionary adapted to tile.
-        """
-        with rasterio.open(self.input_file, "r") as src:
-            out_meta = deepcopy(src.meta)
-        # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
-        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
-        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
-        out_meta.update(
-            width=self.tile.shape(self.pixelbuffer)[1],
-            height=self.tile.shape(self.pixelbuffer)[0],
-            transform=tile_geotransform,
-            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
-        )
-        return out_meta
 
 def _bands_from_cache(self, indexes=None):
     """
