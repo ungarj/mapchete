@@ -125,44 +125,6 @@ class RasterProcessTile(object):
         )
         return out_meta
 
-    def _bands_from_cache(self, indexes=None):
-        """
-        Caches reprojected source data for multiple usage.
-        """
-        if isinstance(self, RasterProcessTile)
-        band_indexes = _get_band_indexes(indexes)
-        tile_paths = self._get_src_tile_paths()
-        for band_index in band_indexes:
-            if not band_index in self._np_band_cache:
-                if len(tile_paths) == 0:
-                    band = masked_array(
-                        zeros(
-                            self.shape,
-                            dtype=self.dtype
-                        ),
-                        mask=True
-                        )
-                else:
-                    temp_vrt = NamedTemporaryFile()
-                    build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
-                        temp_vrt.name,
-                        ' '.join(tile_paths)
-                        )
-                    try:
-                        os.system(build_vrt)
-                    except:
-                        raise IOError("build temporary VRT failed")
-                    band = read_raster_window(
-                        temp_vrt.name,
-                        self.tile,
-                        indexes=band_index,
-                        pixelbuffer=self.pixelbuffer,
-                        resampling=self.resampling
-                    ).next()
-                self._np_band_cache[band_index] = band
-            yield self._np_band_cache[band_index]
-
-
     def _reproject_tile_bbox(self, out_crs=None):
         """
         Returns tile bounding box reprojected to source file CRS. If bounding
@@ -199,7 +161,7 @@ class RasterProcessTile(object):
             if tile.exists()
             ]
 
-    class RasterFileTile(object):
+class RasterFileTile(object):
     """
     Class representing a reprojected and resampled version of an original file
     to a given tile pyramid tile. Properties and functions are inspired by
