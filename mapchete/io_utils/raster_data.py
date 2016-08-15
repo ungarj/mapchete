@@ -206,7 +206,7 @@ class RasterFileTile(object):
     def read(self, indexes=None):
         """
         Generates reprojected numpy arrays from input file bands.
-	"""
+	    """
         band_indexes = _get_band_indexes(self, indexes)
 
         if len(band_indexes) == 1:
@@ -256,7 +256,7 @@ def _bands_from_cache(self, indexes=None):
 
     for band_index in band_indexes:
         if not band_index in self._np_band_cache:
-            if len(tile_paths) == 0:
+            if isinstance(self, RasterProcessTile) and len(tile_paths) == 0:
                 band = masked_array(
                     zeros(
                         self.shape,
