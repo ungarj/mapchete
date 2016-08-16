@@ -4,6 +4,7 @@ Raster data read and write functions.
 """
 
 import os
+import operator
 import rasterio
 from rasterio.warp import transform_bounds, reproject
 import numpy as np
@@ -69,31 +70,18 @@ def read_raster_window(
         parts_metadata = {}
         parts_metadata.update(
             left=None,
-            both=None,
+            middle=None,
             right=None,
             none=None
         )
-        # Prepare top/bottom array extension if necessary.
-        touches_top = tile.top+pixelbuffer >= tile.tile_pyramid.top
-        touches_bottom = tile.bottom-pixelbuffer <= tile.tile_pyramid.bottom
-        if touches_top or touches_bottom:
-            with rasterio.open(input_file, "r") as src:
-                nodataval = src.nodata
-                # Quick fix because None nodata is not allowed.
-                if not nodataval:
-                    nodataval = 0
-                shape = (pixelbuffer, tile.width+2*pixelbuffer)
-                nodata_stripe = ma.masked_all(
-                    shape,
-                    src.dtypes[0]
-                    )
-
         # Split bounding box into multiple parts & request each numpy array
         # separately.
         for polygon in tile_boxes:
             part_metadata = {}
             # Check on which side the antimeridian is touched by the polygon:
-            # left, both, right
+            # "left", "middle", "right"
+            # "none" means, the tile touches the edge just on the top and/or
+            # bottom boundary
             left, bottom, right, top = polygon.bounds
             touches_right = left == tile.tile_pyramid.left
             touches_left = right == tile.tile_pyramid.right
@@ -113,14 +101,13 @@ def read_raster_window(
                 affine=affine
             )
             if touches_both:
-                parts_metadata.update(both=part_metadata)
+                parts_metadata.update(middle=part_metadata)
             elif touches_left:
                 parts_metadata.update(left=part_metadata)
             elif touches_right:
                 parts_metadata.update(right=part_metadata)
             else:
                 parts_metadata.update(none=part_metadata)
-
 
         # Finally, stitch numpy arrays together into one.
         for band_idx in band_indexes:
@@ -135,18 +122,12 @@ def read_raster_window(
                     dst_crs=tile.crs,
                     resampling=resampling
                     )
-                for part in ["none", "left", "both", "right"]
+                for part in ["none", "left", "middle", "right"]
                 if parts_metadata[part]
                 ],
                 axis=1
             )
-            # Extend array to assert it has the expected tile shape.
-            #if touches_top:
-            #    stitched = ma.concatenate([nodata_stripe, stitched], axis=0)
-            #if touches_bottom:
-            #    stitched = ma.concatenate([stitched, nodata_stripe], axis=0)
             assert stitched.shape == tile.shape(pixelbuffer)
-
             yield stitched
 
     else:
@@ -218,6 +199,7 @@ def _get_warped_array(
             masked=True,
             boundless=True
             )
+
         dst_band = ma.zeros(
                 dst_shape,
                 src.dtypes[band_idx-1]
@@ -234,7 +216,6 @@ def _get_warped_array(
             dst_nodata=nodataval,
             resampling=RESAMPLING_METHODS[resampling]
         )
-        return ma.masked_equal(dst_band, nodataval)
         dst_band = ma.masked_equal(dst_band, nodataval)
         dst_band = ma.masked_array(
             dst_band,
@@ -326,20 +307,52 @@ def write_raster_window(
     dst_width, dst_height = tile.shape(pixelbuffer)
     dst_affine = tile.affine(pixelbuffer)
 
-    # determine pixelbuffer from shape and determine pixel window
-    src_pixelbuffer = (bands[0].shape[0] - tile.width) / 2
-    px_top, px_left = src_pixelbuffer, src_pixelbuffer
-    other_bound = src_pixelbuffer + tile.width
-    px_bottom, px_right = other_bound, other_bound
+    # guess target window in source array pixel coordinates
+    touches_left = tile.left-pixelbuffer <= tile.tile_pyramid.left
+    touches_bottom = tile.bottom-pixelbuffer <= tile.tile_pyramid.bottom
+    touches_right = tile.right+pixelbuffer >= tile.tile_pyramid.right
+    touches_top = tile.top+pixelbuffer >= tile.tile_pyramid.top
+    is_on_edge = touches_left or touches_bottom or touches_right or touches_top
+    if is_on_edge:
+        diff_height, diff_width = tuple(
+            map(
+                operator.sub,
+                bands[0].shape,
+                tile.shape(pixelbuffer)
+                )
+            )
+        if touches_left and touches_right:
+            px_left = diff_width/2
+        elif touches_left or touches_right:
+            px_left = diff_width/2
+        else:
+            px_left = diff_width
+        if touches_top:
+            px_top = 0
+        elif touches_bottom:
+            px_top = diff_height
+        else:
+            px_top = diff_height/2
+    else:
+        src_pixelbuffer = (bands[0].shape[0] - tile.width) / 2
+        px_top, px_left = src_pixelbuffer, src_pixelbuffer
+    px_bottom, px_right = tuple(
+        map(
+            operator.add,
+            tile.shape(pixelbuffer),
+            (px_top, px_left)
+            )
+        )
 
     dst_bands = []
-
+    # put data into alpha band and make other bands black
     if tile.output.format == "PNG_hillshade":
         zeros = np.zeros(bands[0][px_top:px_bottom, px_left:px_right].shape)
         for band in range(1, 4):
             band = np.clip(band, 0, 255)
             dst_bands.append(zeros)
 
+    # clip data boundaries
     for band in bands:
         dst_bands.append(band[px_top:px_bottom, px_left:px_right])
 
@@ -354,7 +367,12 @@ def write_raster_window(
             nodata_alpha[bands[0].mask] = 0
             # just add alpha band if there is probably no alpha band yet
             if len(bands) not in [2, 4]:
-                dst_bands.append(nodata_alpha[px_top:px_bottom, px_left:px_right])
+                dst_bands.append(
+                    nodata_alpha[
+                        px_top:px_bottom,
+                        px_left:px_right
+                        ]
+                    )
             bandcount += 1
 
     dst_metadata = deepcopy(tile.output.profile)
