@@ -6,12 +6,14 @@ Classes handling raster data.
 import os
 from numpy.ma import masked_array, zeros
 from tempfile import NamedTemporaryFile
-import rasterio
-from rasterio.warp import transform_bounds
-from copy import deepcopy
 from tilematrix import clip_geometry_to_srs_bounds
 
-from .io_funcs import RESAMPLING_METHODS, file_bbox, reproject_geometry
+from .io_funcs import (
+    RESAMPLING_METHODS,
+    file_bbox,
+    reproject_geometry,
+    _read_metadata
+    )
 from .raster_io import read_raster_window
 
 class RasterProcessTile(object):
@@ -54,145 +56,79 @@ class RasterProcessTile(object):
         self.input_file = input_mapchete
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
-        self.profile = self._read_metadata()
+        self.profile = _read_metadata(self, "RasterProcessTile")
         self.affine = self.profile["affine"]
         self.nodata = self.profile["nodata"]
         self.indexes = self.profile["count"]
         self.dtype = self.profile["dtype"]
         self.crs = self.tile_pyramid.crs
-        self.shape = (self.profile["width"], self.profile["height"])
+        self.shape = (self.profile["height"], self.profile["width"])
+        self._np_band_cache = {}
 
     def __enter__(self):
         return self
 
     def __exit__(self, t, v, tb):
-        # TODO cleanup
-        pass
-
-    def _read_metadata(self):
-        """
-        Returns a rasterio-like metadata dictionary adapted to tile.
-        """
-        out_meta = self.process.output.profile
-        # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
-        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
-        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
-        out_meta.update(
-            width=self.tile.width+2*self.pixelbuffer,
-            height=self.tile.height+2*self.pixelbuffer,
-            transform=tile_geotransform,
-            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
-        )
-        return out_meta
+        self._np_band_cache = None
 
     def read(self, indexes=None):
         """
-        Generates numpy arrays from input process bands.
-        - dst_tile: this tile (self.tile)
-        - src_tile(s): original MapcheteProcess pyramid tile
-        Note: this is a semi-hacky variation as it uses an os.system call to
-        generate a temporal mosaic using the gdalbuildvrt command.
+        Generates reprojected numpy arrays from input process bands.
         """
-        band_indexes = self._band_indexes(indexes)
-        tile_paths = self._get_src_tile_paths()
+        band_indexes = _get_band_indexes(self, indexes)
 
-        if len(tile_paths) == 0:
-            # return emtpy array if no input files are given
-            empty_array = masked_array(
-                zeros(
-                    self.shape,
-                    dtype=self.dtype
-                ),
-                mask=True
-                )
-            return [
-                empty_array
-                for index in band_indexes
-            ]
-
-        temp_vrt = NamedTemporaryFile()
-        build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
-            temp_vrt.name,
-            ' '.join(tile_paths)
-            )
-        try:
-            os.system(build_vrt)
-            return list(read_raster_window(
-                temp_vrt.name,
-                self.tile,
-                indexes=band_indexes,
-                pixelbuffer=self.pixelbuffer,
-                resampling=self.resampling
-            ))
-        except:
-            raise
+        if len(band_indexes) == 1:
+            return _bands_from_cache(self, indexes=band_indexes).next()
+        else:
+            return _bands_from_cache(self, indexes=band_indexes)
 
     def is_empty(self, indexes=None):
         """
         Returns true if all items are masked.
         """
-        band_indexes = self._band_indexes(indexes)
-
+        band_indexes = _get_band_indexes(self, indexes)
         src_bbox = self.input_file.config.process_area(self.tile.zoom)
+        dst_tile_bbox = self._reproject_tile_bbox(
+            out_crs=self.input_file.tile_pyramid.crs
+            )
 
-        # reproject tile bounding box to source file CRS
-        dst_tile_bbox = reproject_geometry(
+        # empty if tile does not intersect with source process area
+        if not dst_tile_bbox.buffer(0).intersects(src_bbox):
+            return True
+
+        # empty if no source tiles are available
+        tile_paths = self._get_src_tile_paths()
+        if not tile_paths:
+            return True
+
+        # empty if source band(s) are empty
+        all_bands_empty = True
+        for band in _bands_from_cache(self, band_indexes):
+            if not band.mask.all():
+                all_bands_empty = False
+                break
+        return all_bands_empty
+
+    def _reproject_tile_bbox(self, out_crs=None):
+        """
+        Returns tile bounding box reprojected to source file CRS. If bounding
+        box overlaps with antimeridian, a MultiPolygon is returned.
+        """
+        return reproject_geometry(
             clip_geometry_to_srs_bounds(
                 self.tile.bbox(pixelbuffer=self.pixelbuffer),
                 self.tile.tile_pyramid
                 ),
             self.tile.crs,
-            self.input_file.tile_pyramid.crs
+            out_crs
             )
-
-        if not dst_tile_bbox.buffer(0).intersects(src_bbox):
-            return True
-
-        tile_paths = self._get_src_tile_paths()
-
-        if not tile_paths:
-            return True
-
-        temp_vrt = NamedTemporaryFile()
-
-        build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
-            temp_vrt.name,
-            ' '.join(tile_paths)
-            )
-        try:
-            os.system(build_vrt)
-        except:
-            raise IOError((tile.id, "failed", "build temporary VRT failed"))
-
-        bands = read_raster_window(
-            temp_vrt.name,
-            self.tile,
-            indexes=band_indexes,
-            pixelbuffer=self.pixelbuffer,
-            resampling=self.resampling
-        )
-
-        all_bands_empty = True
-        for band in bands:
-            if not band.mask.all():
-                all_bands_empty = False
-                break
-
-        return all_bands_empty
 
     def _get_src_tile_paths(self):
         """
         Returns existing tile paths from source process.
         """
-        dst_tile_bbox = reproject_geometry(
-            clip_geometry_to_srs_bounds(
-                self.tile.bbox(pixelbuffer=self.pixelbuffer),
-                self.tile.tile_pyramid
-                ),
-            self.tile.crs,
-            self.input_file.tile_pyramid.crs
+        dst_tile_bbox = self._reproject_tile_bbox(
+            out_crs=self.input_file.tile_pyramid.crs
             )
 
         src_tiles = [
@@ -208,19 +144,6 @@ class RasterProcessTile(object):
             for tile in src_tiles
             if tile.exists()
             ]
-
-    def _band_indexes(self, indexes=None):
-        """
-        Returns valid band indexes.
-        """
-        if indexes:
-            if isinstance(indexes, list):
-                return indexes
-            else:
-                return [indexes]
-        else:
-            return range(1, self.indexes+1)
-
 
 class RasterFileTile(object):
     """
@@ -265,101 +188,101 @@ class RasterFileTile(object):
         self.input_file = input_file
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
-        self.profile = self._read_metadata()
+        self.profile = _read_metadata(self, "RasterFileTile")
         self.affine = self.profile["affine"]
         self.nodata = self.profile["nodata"]
         self.indexes = self.profile["count"]
         self.dtype = self.profile["dtype"]
         self.crs = self.tile_pyramid.crs
-        self.shape = (self.profile["width"], self.profile["height"])
+        self.shape = (self.profile["height"], self.profile["width"])
+        self._np_band_cache = {}
 
     def __enter__(self):
         return self
 
     def __exit__(self, t, value, tb):
-        # TODO cleanup
-        pass
+        self._np_band_cache = None
 
     def read(self, indexes=None):
         """
-        Generates numpy arrays from input bands.
-        """
-        if indexes:
-            if isinstance(indexes, list):
-                band_indexes = indexes
-            else:
-                band_indexes = [indexes]
+        Generates reprojected numpy arrays from input file bands.
+	    """
+        band_indexes = _get_band_indexes(self, indexes)
+
+        if len(band_indexes) == 1:
+            return _bands_from_cache(self, indexes=band_indexes).next()
         else:
-            band_indexes = range(1, self.indexes+1)
-
-        return read_raster_window(
-            self.input_file,
-            self.tile,
-            indexes=band_indexes,
-            pixelbuffer=self.pixelbuffer,
-            resampling=self.resampling
-        )
-
+            return _bands_from_cache(self, indexes=band_indexes)
 
     def is_empty(self, indexes=None):
         """
         Returns true if all items are masked.
         """
+        band_indexes = _get_band_indexes(self, indexes)
         src_bbox = file_bbox(self.input_file, self.tile_pyramid)
         tile_geom = self.tile.bbox(pixelbuffer=self.pixelbuffer)
+
+        # empty if tile does not intersect with file bounding box
         if not tile_geom.intersects(src_bbox):
             return True
 
-        if indexes:
-            if isinstance(indexes, list):
-                band_indexes = indexes
+        # empty if source band(s) are empty
+        all_bands_empty = True
+        for band in _bands_from_cache(self, band_indexes):
+            if not band.mask.all():
+                all_bands_empty = False
+                break
+        return all_bands_empty
+
+def _bands_from_cache(self, indexes=None):
+    """
+    Caches reprojected source data for multiple usage.
+    """
+    band_indexes = _get_band_indexes(self, indexes)
+    if isinstance(self, RasterProcessTile):
+        tile_paths = self._get_src_tile_paths()
+        temp_vrt = NamedTemporaryFile()
+        raster_file = temp_vrt.name
+        build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
+            raster_file,
+            ' '.join(tile_paths)
+            )
+        try:
+            os.system(build_vrt)
+        except:
+            raise IOError("build temporary VRT failed")
+    elif isinstance(self, RasterFileTile):
+        raster_file = self.input_file
+
+    for band_index in band_indexes:
+        if not band_index in self._np_band_cache:
+            if isinstance(self, RasterProcessTile) and len(tile_paths) == 0:
+                band = masked_array(
+                    zeros(
+                        self.shape,
+                        dtype=self.dtype
+                    ),
+                    mask=True
+                    )
             else:
-                band_indexes = [indexes]
+                band = read_raster_window(
+                    temp_vrt.name,
+                    self.tile,
+                    indexes=band_index,
+                    pixelbuffer=self.pixelbuffer,
+                    resampling=self.resampling
+                ).next()
+            self._np_band_cache[band_index] = band
+        yield self._np_band_cache[band_index]
+
+def _get_band_indexes(self, indexes=None):
+    """
+    Returns valid band indexes.
+    """
+    if indexes:
+        if isinstance(indexes, list):
+            return indexes
         else:
-            band_indexes = range(1, self.indexes+1)
-
-        with rasterio.open(self.input_file, "r") as src:
-            # Reproject tile bounds to source file SRS.
-            src_left, src_bottom, src_right, src_top = transform_bounds(
-                self.tile.crs,
-                src.crs,
-                *self.tile.bounds(pixelbuffer=self.pixelbuffer),
-                densify_pts=21
-                )
-            minrow, mincol = src.index(src_left, src_top)
-            maxrow, maxcol = src.index(src_right, src_bottom)
-            window = (minrow, maxrow), (mincol, maxcol)
-
-            # Finally read data per band and store it in tuple.
-            bands = (
-                src.read(index, window=window, masked=True, boundless=True)
-                for index in band_indexes
-                )
-
-            all_bands_empty = True
-            for band in bands:
-                if not band.mask.all():
-                    all_bands_empty = False
-                    break
-
-            return all_bands_empty
-
-
-    def _read_metadata(self):
-        """
-        Returns a rasterio-like metadata dictionary adapted to tile.
-        """
-        with rasterio.open(self.input_file, "r") as src:
-            out_meta = deepcopy(src.meta)
-        # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
-        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
-        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
-        out_meta.update(
-            width=self.tile_pyramid.tile_size,
-            height=self.tile_pyramid.tile_size,
-            transform=tile_geotransform,
-            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
-        )
-        return out_meta
+            return [indexes]
+    else:
+        return range(1, self.indexes+1)

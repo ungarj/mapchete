@@ -6,10 +6,10 @@ Basic read, write and input file functions.
 import os
 import fiona
 from shapely.geometry import (
-    Polygon,
     MultiPoint,
     MultiLineString,
-    MultiPolygon
+    MultiPolygon,
+    box
     )
 from shapely.ops import transform
 from shapely.wkt import loads
@@ -18,8 +18,12 @@ import pyproj
 import ogr
 import rasterio
 from rasterio.warp import Resampling, transform_bounds
+from copy import deepcopy
 
 from tilematrix import TilePyramid
+
+# from .raster_data import RasterProcessTile, RasterFileTile
+# from .numpy_data import NumpyTile
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -83,8 +87,7 @@ def file_bbox(
     """
     out_crs = tile_pyramid.crs
     # Read raster data with rasterio, vector data with fiona.
-    extension = os.path.splitext(input_file)[1][1:]
-    if extension in ["shp", "geojson"]:
+    if os.path.splitext(input_file)[1][1:] in ["shp", "geojson"]:
         is_vector = True
     else:
         is_vector = False
@@ -92,22 +95,18 @@ def file_bbox(
     if is_vector:
         with fiona.open(input_file) as inp:
             inp_crs = inp.crs
-            left, bottom, right, top = inp.bounds
+            bounds = inp.bounds
     else:
         with rasterio.open(input_file) as inp:
             inp_crs = inp.crs
-            left = inp.bounds.left
-            bottom = inp.bounds.bottom
-            right = inp.bounds.right
-            top = inp.bounds.top
+            bounds = (
+                inp.bounds.left,
+                inp.bounds.bottom,
+                inp.bounds.right,
+                inp.bounds.top
+                )
 
-    # Create bounding box polygon.
-    tl = [left, top]
-    tr = [right, top]
-    br = [right, bottom]
-    bl = [left, bottom]
-    bbox = Polygon([tl, tr, br, bl])
-    out_bbox = bbox
+    out_bbox = bbox = box(*bounds)
     # If soucre and target CRSes differ, segmentize and reproject
     if inp_crs != out_crs:
         if not is_vector:
@@ -155,14 +154,7 @@ def reproject_geometry(
     assert dst_crs
 
     # clip input geometry to dst_crs boundaries if necessary
-    l, b, r, t = -180, -85.0511, 180, 85.0511
-    crs_bbox = Polygon((
-       [l, b],
-       [r, b],
-       [r, t],
-       [l, t],
-       [l, b]
-    ))
+    crs_bbox = box(-180, -85.0511, 180, 85.0511)
     crs_bounds = {
         "epsg:3857": crs_bbox,
         "epsg:3785": crs_bbox
@@ -202,31 +194,47 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     """
     tile_pyramid = TilePyramid(tile_pyramid_type)
     dst_crs = tile_pyramid.crs
-    with rasterio.open(input_file, "r") as input_raster:
-        src_crs = input_raster.crs
-        src_width = input_raster.width
-        src_height = input_raster.height
-        src_left, src_bottom, src_right, src_top = input_raster.bounds
+    with rasterio.open(input_file, "r") as src:
+        xmin, ymin, xmax, ymax = transform_bounds(
+            src.crs,
+            dst_crs,
+            *src.bounds
+            )
 
-    xmin, ymin, xmax, ymax = transform_bounds(
-        src_crs,
-        dst_crs,
-        src_left,
-        src_bottom,
-        src_right,
-        src_top
+        x_dif = xmax - xmin
+        y_dif = ymax - ymin
+        size = float(src.width + src.height)
+        avg_resolution = (
+            (x_dif / float(src.width)) * (float(src.width) / size) +
+            (y_dif / float(src.height)) * (float(src.height) / size)
         )
-
-    x_dif = xmax - xmin
-    y_dif = ymax - ymin
-    size = float(src_width + src_height)
-    avg_resolution = (
-        (x_dif / float(src_width)) * (float(src_width) / size) +
-        (y_dif / float(src_height)) * (float(src_height) / size)
-    )
 
     for zoom in range(0, 25):
         if tile_pyramid.pixel_x_size(zoom) <= avg_resolution:
             return zoom-1
 
     raise ValueError("no fitting zoom level found")
+
+def _read_metadata(self, tile_type=None):
+    """
+    Returns a rasterio-like metadata dictionary adapted to tile.
+    """
+    if tile_type in ["RasterProcessTile", "NumpyTile"]:
+        out_meta = self.process.output.profile
+    elif tile_type == "RasterFileTile":
+        with rasterio.open(self.input_file, "r") as src:
+            out_meta = deepcopy(src.meta)
+    else:
+        raise AttributeError("tile_type required")
+    # create geotransform
+    px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
+    left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
+    top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
+    tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
+    out_meta.update(
+        width=self.tile.shape(self.pixelbuffer)[1],
+        height=self.tile.shape(self.pixelbuffer)[0],
+        transform=tile_geotransform,
+        affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
+    )
+    return out_meta

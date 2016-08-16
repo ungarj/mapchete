@@ -48,13 +48,13 @@ def read_raster_window(
         with rasterio.open(input_file, "r") as src:
             band_indexes = src.indexes
 
-    # Check if tile boundaries cross the antimeridian.
+    # Check if potentially tile boundaries exceed tile matrix boundaries on
+    # the antimeridian, the northern or the southern boundary.
     touches_left = tile.left-pixelbuffer <= tile.tile_pyramid.left
     touches_bottom = tile.bottom-pixelbuffer <= tile.tile_pyramid.bottom
     touches_right = tile.right+pixelbuffer >= tile.tile_pyramid.right
     touches_top = tile.top+pixelbuffer >= tile.tile_pyramid.top
     is_on_edge = touches_left or touches_bottom or touches_right or touches_top
-
     if pixelbuffer and is_on_edge:
         tile_boxes = clip_geometry_to_srs_bounds(
             tile.bbox(pixelbuffer),
@@ -141,10 +141,10 @@ def read_raster_window(
                 axis=1
             )
             # Extend array to assert it has the expected tile shape.
-            if touches_top:
-                stitched = ma.concatenate([nodata_stripe, stitched], axis=0)
-            if touches_bottom:
-                stitched = ma.concatenate([stitched, nodata_stripe], axis=0)
+            #if touches_top:
+            #    stitched = ma.concatenate([nodata_stripe, stitched], axis=0)
+            #if touches_bottom:
+            #    stitched = ma.concatenate([stitched, nodata_stripe], axis=0)
             assert stitched.shape == tile.shape(pixelbuffer)
 
             yield stitched
