@@ -9,7 +9,7 @@ import numpy.ma as ma
 from itertools import product
 from math import pi
 import matplotlib.pyplot as plt
-from rasterio.features import rasterize, geometry_mask
+from rasterio.features import geometry_mask
 from shapely.geometry import (
     shape,
     mapping,
@@ -69,7 +69,7 @@ def calculate_slope_aspect(
         Logic here is borrowed from hillshade.cpp:
           http://www.perrygeo.net/wordpress/?p=7
     """
-    width, height = elevation.shape[0] - 2, elevation.shape[1] - 2
+    height, width = elevation.shape[0] - 2, elevation.shape[1] - 2
 
     window = [z * elevation[row:(row + height), col:(col + width)]
               for (row, col)
@@ -126,7 +126,6 @@ def hillshade(
     padded[ma.getmask(elevation)] = 0.0
 
     return padded
-
 
 def clip_array_with_vector(
     array,
@@ -220,7 +219,6 @@ def extract_contours(
                 )
 
     return out_contours
-
 
 def _get_contour_values(min_val, max_val, base=0, interval=100):
     """
