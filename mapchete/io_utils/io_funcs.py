@@ -22,8 +22,8 @@ from copy import deepcopy
 
 from tilematrix import TilePyramid
 
-from .raster_data import RasterProcessTile, RasterFileTile
-from .numpy_data import NumpyTile
+# from .raster_data import RasterProcessTile, RasterFileTile
+# from .numpy_data import NumpyTile
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -215,15 +215,17 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
 
     raise ValueError("no fitting zoom level found")
 
-def _read_metadata(self):
+def _read_metadata(self, tile_type=None):
     """
     Returns a rasterio-like metadata dictionary adapted to tile.
     """
-    if isinstance(self, (RasterProcessTile, NumpyTile)):
+    if tile_type in ["RasterProcessTile", "NumpyTile"]:
         out_meta = self.process.output.profile
-    elif isinstance(self, RasterFileTile):
+    elif tile_type == "RasterFileTile":
         with rasterio.open(self.input_file, "r") as src:
             out_meta = deepcopy(src.meta)
+    else:
+        raise AttributeError("tile_type required")
     # create geotransform
     px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
     left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]

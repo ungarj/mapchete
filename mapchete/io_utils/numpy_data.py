@@ -52,7 +52,7 @@ class NumpyTile(object):
         self.input_file = input_mapchete
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
-        self.profile = _read_metadata(self)
+        self.profile = _read_metadata(self, "NumpyTile")
         self.affine = self.profile["affine"]
         self.nodata = self.profile["nodata"]
         self.indexes = self.profile["count"]

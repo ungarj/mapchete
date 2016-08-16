@@ -56,7 +56,7 @@ class RasterProcessTile(object):
         self.input_file = input_mapchete
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
-        self.profile = _read_metadata(self)
+        self.profile = _read_metadata(self, "RasterProcessTile")
         self.affine = self.profile["affine"]
         self.nodata = self.profile["nodata"]
         self.indexes = self.profile["count"]
@@ -188,7 +188,7 @@ class RasterFileTile(object):
         self.input_file = input_file
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
-        self.profile = _read_metadata(self)
+        self.profile = _read_metadata(self, "RasterFileTile")
         self.affine = self.profile["affine"]
         self.nodata = self.profile["nodata"]
         self.indexes = self.profile["count"]
