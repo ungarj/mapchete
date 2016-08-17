@@ -74,8 +74,6 @@ class MapcheteConfig(object):
         self._additional_parameters = {
             "zoom": zoom,
             "bounds": bounds,
-            "output_path": output_path,
-            "output_format": output_format
         }
         self.process_file = self._get_process_file()
         self.zoom_levels = self._get_zoom_levels()
@@ -95,7 +93,6 @@ class MapcheteConfig(object):
         self.output = MapcheteOutputFormat(
             self._raw_config["output"]
         )
-
 
     def process_area(self, zoom):
         """
