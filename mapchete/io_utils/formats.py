@@ -121,7 +121,6 @@ class MapcheteOutputFormat(object):
                     try:
                         self.profile[param] = output_dict[param]
                     except KeyError:
-                        print param
                         pass
             try:
                 self.dtype = output_dict["dtype"]
