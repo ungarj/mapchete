@@ -266,7 +266,7 @@ def _bands_from_cache(self, indexes=None):
                     )
             else:
                 band = read_raster_window(
-                    temp_vrt.name,
+                    raster_file,
                     self.tile,
                     indexes=band_index,
                     pixelbuffer=self.pixelbuffer,
