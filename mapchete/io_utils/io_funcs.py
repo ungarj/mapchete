@@ -88,11 +88,11 @@ def file_bbox(
     out_crs = tile_pyramid.crs
     # Read raster data with rasterio, vector data with fiona.
     if os.path.splitext(input_file)[1][1:] in ["shp", "geojson"]:
-        is_vector = True
+        is_vector_file = True
     else:
-        is_vector = False
+        is_vector_file = False
 
-    if is_vector:
+    if is_vector_file:
         with fiona.open(input_file) as inp:
             inp_crs = inp.crs
             bounds = inp.bounds
@@ -109,7 +109,7 @@ def file_bbox(
     out_bbox = bbox = box(*bounds)
     # If soucre and target CRSes differ, segmentize and reproject
     if inp_crs != out_crs:
-        if not is_vector:
+        if not is_vector_file:
             segmentize = _get_segmentize_value(input_file, tile_pyramid)
             try:
                 ogr_bbox = ogr.CreateGeometryFromWkb(bbox.wkb)
@@ -166,6 +166,10 @@ def reproject_geometry(
             pyproj.Proj(src_crs)
         )
         src_bbox = transform(project, crs_bounds[dst_crs["init"]])
+        try:
+            assert geometry.is_valid
+        except AssertionError:
+            geometry = geometry.buffer(0)
         geometry = geometry.intersection(src_bbox)
 
     # create reproject function
@@ -174,7 +178,6 @@ def reproject_geometry(
         pyproj.Proj(src_crs),
         pyproj.Proj(dst_crs)
     )
-    # return reprojected geometry
     return transform(project, geometry)
 
 def _get_segmentize_value(input_file, tile_pyramid):
