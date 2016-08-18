@@ -69,6 +69,8 @@ def calculate_slope_aspect(
         Logic here is borrowed from hillshade.cpp:
           http://www.perrygeo.net/wordpress/?p=7
     """
+    z = float(z)
+    scale = float(scale)
     height, width = elevation.shape[0] - 2, elevation.shape[1] - 2
 
     window = [z * elevation[row:(row + height), col:(col + width)]
@@ -103,6 +105,10 @@ def hillshade(
     """
     Returns hillshaded numpy array.
     """
+    azimuth = float(azimuth)
+    altitude = float(altitude)
+    z = float(z)
+    scale = float(scale)
     xres = self.tile.pixel_x_size
     yres = -self.tile.pixel_y_size
 
