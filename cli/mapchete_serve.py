@@ -32,6 +32,7 @@ def main(args=None):
     parser.add_argument("--zoom", "-z", type=int, nargs='*', )
     parser.add_argument("--bounds", "-b", type=float, nargs='*')
     parser.add_argument("--log", action="store_true")
+    parser.add_argument("--overwrite", action="store_true")
     parsed = parser.parse_args(args)
 
     try:
@@ -111,7 +112,7 @@ def main(args=None):
                     )
 
             try:
-                image = mapchete.get(tile)
+                image = mapchete.get(tile, overwrite=parsed.overwrite)
             except:
                 raise
             finally:
@@ -131,6 +132,7 @@ def main(args=None):
                 raise IOError("no image returned")
 
         except Exception as exception:
+            raise
             error_msg = (tile.id, "failed", exception)
             LOGGER.error(error_msg)
             size = mapchete.tile_pyramid.tilepyramid.tile_size
@@ -146,7 +148,12 @@ def main(args=None):
             resp.cache_control.no_cache = True
             return resp
 
-    app.run(threaded=True, debug=True, port=parsed.port)
+    app.run(
+        threaded=True,
+        debug=True,
+        port=parsed.port,
+        extra_files=[parsed.mapchete_file]
+        )
 
 
 if __name__ == '__main__':
