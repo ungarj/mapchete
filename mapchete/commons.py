@@ -166,9 +166,9 @@ def clip_array_with_vector(
             )
     else:
         if inverted:
-            fill = True
-        else:
             fill = False
+        else:
+            fill = True
         mask = np.full(array.shape, fill, dtype=bool)
 
     return ma.masked_array(array, mask)
