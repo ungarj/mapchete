@@ -11,7 +11,6 @@ import numpy as np
 import numpy.ma as ma
 from copy import deepcopy
 from affine import Affine
-from shapely.geometry import Polygon, MultiPolygon
 from tilematrix import clip_geometry_to_srs_bounds
 
 from .io_funcs import RESAMPLING_METHODS
@@ -51,22 +50,18 @@ def read_raster_window(
 
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
-    touches_left = tile.left-pixelbuffer <= tile.tile_pyramid.left
-    touches_bottom = tile.bottom-pixelbuffer <= tile.tile_pyramid.bottom
-    touches_right = tile.right+pixelbuffer >= tile.tile_pyramid.right
-    touches_top = tile.top+pixelbuffer >= tile.tile_pyramid.top
+    tile_left, tile_bottom, tile_right, tile_top = tile.bounds(pixelbuffer)
+    touches_left = tile_left <= tile.tile_pyramid.left
+    touches_bottom = tile_bottom <= tile.tile_pyramid.bottom
+    touches_right = tile_right >= tile.tile_pyramid.right
+    touches_top = tile_top >= tile.tile_pyramid.top
     is_on_edge = touches_left or touches_bottom or touches_right or touches_top
     if pixelbuffer and is_on_edge:
         tile_boxes = clip_geometry_to_srs_bounds(
             tile.bbox(pixelbuffer),
-            tile.tile_pyramid
+            tile.tile_pyramid,
+            multipart=True
             )
-        if isinstance(tile_boxes, MultiPolygon):
-            pass
-        elif isinstance(tile_boxes, Polygon):
-            tile_boxes = [tile_boxes]
-        else:
-            raise TypeError("invalid raster window")
         parts_metadata = {}
         parts_metadata.update(
             left=None,
@@ -174,25 +169,17 @@ def _get_warped_array(
                 )
         if float('Inf') in (src_left, src_bottom, src_right, src_top):
             raise ValueError(
-                "Tile boundaries could not be translated into source file SRS."
+                "Tile boundaries could not be translated into source SRS."
                 )
 
-        nodataval = src.nodata
-        # Quick fix because None nodata is not allowed.
-        if not nodataval:
-            nodataval = 0
-        minrow, mincol = src.index(src_left, src_top)
-        maxrow, maxcol = src.index(src_right, src_bottom)
-
-        # Calculate new Affine object for read window.
-        window = (minrow, maxrow), (mincol, maxcol)
-        window_vector_affine = src.affine.translation(
-            mincol,
-            minrow
+        # read data window
+        window = src.window(
+            src_left,
+            src_bottom,
+            src_right,
+            src_top,
+            boundless=True
             )
-        window_affine = src.affine * window_vector_affine
-
-        # Finally read data.
         src_band = src.read(
             band_idx,
             window=window,
@@ -200,15 +187,22 @@ def _get_warped_array(
             boundless=True
             )
 
+        # prepare reprojected array
+        nodataval = src.nodata
+        # Quick fix because None nodata is not allowed.
+        if not nodataval:
+            nodataval = 0
         dst_band = ma.zeros(
                 dst_shape,
                 src.dtypes[band_idx-1]
             )
         dst_band[:] = nodataval
+
+        # reproject
         reproject(
             src_band,
             dst_band,
-            src_transform=window_affine,
+            src_transform=src.window_transform(window),
             src_crs=src.crs,
             src_nodata=nodataval,
             dst_transform=dst_affine,
@@ -216,12 +210,6 @@ def _get_warped_array(
             dst_nodata=nodataval,
             resampling=RESAMPLING_METHODS[resampling]
         )
-        dst_band = ma.masked_equal(dst_band, nodataval)
-        dst_band = ma.masked_array(
-            dst_band,
-            mask=ma.fix_invalid(dst_band, fill_value=0).mask
-        )
-        dst_band.harden_mask()
         return dst_band
 
 def write_raster(
@@ -312,7 +300,9 @@ def write_raster_window(
         raise ValueError("pixelbuffer must be an integer")
 
     # spatial clip bands
-    clipped_bands = _spatial_clip_bands(bands, tile, pixelbuffer)
+    clipped_bands = _spatial_clip_bands(bands, tile, pixelbuffer=pixelbuffer)
+    for band in clipped_bands:
+        assert band.shape == tile.shape(pixelbuffer)
 
     # adjust band numbers
     dst_bands = _adjust_band_numbers(
@@ -365,10 +355,11 @@ def _spatial_clip_bands(bands, tile, pixelbuffer):
     Returns clipped bands so that bands match desired tile output shape.
     """
     # guess target window in source array pixel coordinates
-    touches_left = tile.left-pixelbuffer <= tile.tile_pyramid.left
-    touches_bottom = tile.bottom-pixelbuffer <= tile.tile_pyramid.bottom
-    touches_right = tile.right+pixelbuffer >= tile.tile_pyramid.right
-    touches_top = tile.top+pixelbuffer >= tile.tile_pyramid.top
+    left, bottom, right, top = tile.bounds(pixelbuffer)
+    touches_left = left <= tile.tile_pyramid.left
+    touches_bottom = bottom <= tile.tile_pyramid.bottom
+    touches_right = right >= tile.tile_pyramid.right
+    touches_top = top >= tile.tile_pyramid.top
     is_on_edge = touches_left or touches_bottom or touches_right or touches_top
     if is_on_edge:
         diff_height, diff_width = tuple(
@@ -378,16 +369,9 @@ def _spatial_clip_bands(bands, tile, pixelbuffer):
                 tile.shape(pixelbuffer)
                 )
             )
-        if touches_left and touches_right:
-            px_left = diff_width/2
-        elif touches_left or touches_right:
-            px_left = diff_width/2
-        else:
-            px_left = diff_width
+        px_left = diff_width/2
         if touches_top:
             px_top = 0
-        elif touches_bottom:
-            px_top = diff_height
         else:
             px_top = diff_height/2
     else:
@@ -400,7 +384,6 @@ def _spatial_clip_bands(bands, tile, pixelbuffer):
             (px_top, px_left)
             )
         )
-
     return [
         band[px_top:px_bottom, px_left:px_right]
         for band in bands
