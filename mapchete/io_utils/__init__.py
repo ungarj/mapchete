@@ -17,9 +17,10 @@ from .numpy_io import read_numpy, write_numpy
 
 from .formats import MapcheteOutputFormat
 
-from io_funcs import (
+from .io_funcs import (
     reproject_geometry,
     get_best_zoom_level,
     clean_geometry_type,
-    file_bbox
+    file_bbox,
+    _read_metadata
     )

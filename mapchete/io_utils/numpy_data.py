@@ -7,7 +7,7 @@ NumPy handling.
 from numpy.ma import MaskedArray
 import os
 
-from .io_funcs import RESAMPLING_METHODS
+from .io_funcs import RESAMPLING_METHODS, _read_metadata
 from .numpy_io import read_numpy
 
 class NumpyTile(object):
@@ -52,7 +52,7 @@ class NumpyTile(object):
         self.input_file = input_mapchete
         self.pixelbuffer = pixelbuffer
         self.resampling = resampling
-        self.profile = self._read_metadata()
+        self.profile = _read_metadata(self, "NumpyTile")
         self.affine = self.profile["affine"]
         self.nodata = self.profile["nodata"]
         self.indexes = self.profile["count"]
@@ -67,24 +67,6 @@ class NumpyTile(object):
         # TODO cleanup
         pass
 
-    def _read_metadata(self):
-        """
-        Returns a rasterio-like metadata dictionary adapted to tile.
-        """
-        out_meta = self.process.output.profile
-        # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
-        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
-        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
-        out_meta.update(
-            width=self.tile.width+2*self.pixelbuffer,
-            height=self.tile.height+2*self.pixelbuffer,
-            transform=tile_geotransform,
-            affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
-        )
-        return out_meta
-
     def read(self):
         """
         Generates numpy arrays from input process bands.
@@ -97,7 +79,7 @@ class NumpyTile(object):
         tile = self.process.tile(self.tile)
 
         if tile.exists():
-            return read_numpy(tile.path)
+            return self._np_cache
         else:
             return "empty"
         #
@@ -132,13 +114,19 @@ class NumpyTile(object):
         else:
             return False
 
-        all_bands_empty = True
-        for band in self.read():
-            if not isinstance(band, MaskedArray):
-                all_bands_empty = False
-                break
-            if not band.mask.all():
-                all_bands_empty = False
-                break
+        if isinstance(self._np_cache, MaskedArray):
+            return self._np_cache.mask.all()
+        else:
+            return True
 
-        return all_bands_empty
+    @property
+    def _np_cache(self):
+        """
+        Caches numpy array.
+        """
+        np_data = read_numpy(self.process.tile(self.tile).path)
+        try:
+            assert isinstance(np_data, np.ndarray)
+        except AssertionError:
+            raise IOError("not a valid numpy tile")
+        return np_data

@@ -3,6 +3,8 @@
 Mapchete output format class
 """
 
+from copy import deepcopy
+
 FORMATS = {
     "GTiff": {
         "data_type": "raster",
@@ -100,7 +102,7 @@ class MapcheteOutputFormat(object):
             self.is_db = False
             self.is_file = True
 
-        self.profile = FORMATS[self.format]["profile"]
+        self.profile = deepcopy(FORMATS[self.format]["profile"])
 
         if self.data_type == "vector":
             self.schema = output_dict["schema"]
@@ -114,8 +116,15 @@ class MapcheteOutputFormat(object):
             self.schema = None
             self.bands = output_dict["bands"]
             self.profile.update(count=self.bands)
+            if self.format == "GTiff":
+                for param in ["compress", "predictor"]:
+                    try:
+                        self.profile[param] = output_dict[param]
+                    except KeyError:
+                        pass
             try:
                 self.dtype = output_dict["dtype"]
+                self.profile["dtype"] = output_dict["dtype"]
             except KeyError:
                 self.dtype = FORMATS[self.format]["profile"]["dtype"]
             try:
