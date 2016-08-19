@@ -41,8 +41,6 @@ class MapcheteConfig(object):
         config,
         zoom=None,
         bounds=None,
-        output_path=None,
-        output_format=None,
         overwrite=False,
         input_file=None
     ):
