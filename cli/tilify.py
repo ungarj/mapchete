@@ -21,7 +21,6 @@ class Process(MapcheteProcess):
         Rescales raster and clips to coasline.
         """
         resampling = self.params["resampling"]
-        pixelbuffer = self.params["pixelbuffer"]
         if "scale_method" in self.params:
             scale_method = self.params["scale_method"]
         else:
@@ -30,15 +29,17 @@ class Process(MapcheteProcess):
 
         with self.open(
             self.params["input_files"]["raster"],
-            pixelbuffer=pixelbuffer,
             resampling=resampling
             ) as raster_file:
             if raster_file.is_empty():
                 return "empty"
-            bands = self.config.output.bands
             resampled = ()
+            if raster_file.indexes == 1:
+                reader = [raster_file.read()]
+            else:
+                reader = raster_file.read()
             for band, scale_minmax in zip(
-                raster_file.read(range(1, bands+1)),
+                reader,
                 scales_minmax
                 ):
                 if scale_method in ["dtype_scale", "minmax_scale"]:
