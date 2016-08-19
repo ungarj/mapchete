@@ -324,7 +324,6 @@ def write_raster_window(
                 (band+1)
             )
 
-
 def _get_metadata(tile, dst_bands, pixelbuffer=0):
     """
     Returns tile metadata dictionary modified for rasterio write.
@@ -348,7 +347,6 @@ def _get_metadata(tile, dst_bands, pixelbuffer=0):
             driver="PNG"
         )
     return dst_metadata
-
 
 def _spatial_clip_bands(bands, tile, pixelbuffer):
     """
@@ -389,7 +387,6 @@ def _spatial_clip_bands(bands, tile, pixelbuffer):
         for band in bands
         ]
 
-
 def _adjust_band_numbers(bands, output_format, bandcount, nodataval=None):
     """
     Adjusts band numbers according to the output format.
@@ -415,12 +412,15 @@ def _adjust_band_numbers(bands, output_format, bandcount, nodataval=None):
         for band in bands:
             dst_bands += (_value_clip_band(band, minval=0, maxval=255), )
         if nodataval:
-            nodata_alpha = np.zeros(bands[0].shape)
-            nodata_alpha[:] = 255
-            nodata_alpha[bands[0].mask] = 0
             # just add alpha band if there is probably no alpha band yet
             if len(bands) not in [2, 4]:
+                nodata_alpha = np.where(
+                    bands[0].mask,
+                    np.zeros(bands[0].shape),
+                    np.full(bands[0].shape, 255)
+                    )
                 dst_bands += (nodata_alpha, )
+            bandcount += 1
 
         assert len(dst_bands) <= 4
 
