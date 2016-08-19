@@ -17,7 +17,7 @@ from functools import partial
 import pyproj
 import ogr
 import rasterio
-from rasterio.warp import Resampling, transform_bounds
+from rasterio.warp import Resampling
 from copy import deepcopy
 
 from tilematrix import TilePyramid
@@ -153,24 +153,27 @@ def reproject_geometry(
     assert src_crs
     assert dst_crs
 
+    # TODO: find a better way; if destination CRS is not global, the below
+    # section produces an emtpy GeometryCollection
     # clip input geometry to dst_crs boundaries if necessary
-    crs_bbox = box(-180, -85.0511, 180, 85.0511)
-    crs_bounds = {
-        "epsg:3857": crs_bbox,
-        "epsg:3785": crs_bbox
-    }
-    if dst_crs["init"] in crs_bounds:
-        project = partial(
-            pyproj.transform,
-            pyproj.Proj({"init": "epsg:4326"}),
-            pyproj.Proj(src_crs)
-        )
-        src_bbox = transform(project, crs_bounds[dst_crs["init"]])
-        try:
-            assert geometry.is_valid
-        except AssertionError:
-            geometry = geometry.buffer(0)
-        geometry = geometry.intersection(src_bbox)
+    # crs_bbox = box(-180, -85.0511, 180, 85.0511)
+    # crs_bounds = {
+    #     "epsg:3857": crs_bbox,
+    #     "epsg:3785": crs_bbox
+    # }
+    # if dst_crs["init"] in crs_bounds:
+    #     project = partial(
+    #         pyproj.transform,
+    #         pyproj.Proj({"init": "epsg:4326"}),
+    #         pyproj.Proj(src_crs)
+    #     )
+    #     # reproject CRS bounds into source CRS
+    #     src_bbox = transform(project, crs_bounds[dst_crs["init"]])
+    #     try:
+    #         assert geometry.is_valid
+    #     except AssertionError:
+    #         geometry = geometry.buffer(0)
+    #     geometry = geometry.intersection(src_bbox)
 
     # create reproject function
     project = partial(
