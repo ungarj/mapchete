@@ -28,6 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from geoalchemy2 import Geometry
+import warnings
 
 from tilematrix import (
     TilePyramid,
@@ -45,6 +46,7 @@ from mapchete.io_utils import (
     write_vector,
     read_numpy
     )
+from mapchete.commons import hillshade, extract_contours, clip_array_with_vector
 
 LOGGER = logging.getLogger("mapchete")
 SQL_DATATYPES = {
@@ -648,6 +650,10 @@ class MapcheteProcess():
         self.params = params
         self.config = config
         self.output = self.tile.output
+        try:
+            self.pixelbuffer = params["pixelbuffer"]
+        except KeyError:
+            self.pixelbuffer = 0
 
     def open(
         self,
@@ -659,6 +665,12 @@ class MapcheteProcess():
         Returns either a fiona vector dictionary, a RasterFileTile or a
         MapcheteTile object.
         """
+        if pixelbuffer:
+            warnings.warn(
+                "pixelbuffer keyword in self.open() will be removed"
+                )
+        if self.pixelbuffer:
+            pixelbuffer = self.pixelbuffer
         if isinstance(input_file, dict):
             raise ValueError("input cannot be dict")
         # TODO add proper check for input type.
@@ -723,12 +735,65 @@ class MapcheteProcess():
                 pixelbuffer=pixelbuffer
             )
 
-    def read(self):
-        if self.output.format != "NumPy":
-            raise ValueError(
-                "this function is not available for non-NumPy file formats"
+    def hillshade(
+        self,
+        elevation,
+        azimuth=315.0,
+        altitude=45.0,
+        z=1.0,
+        scale=1.0
+        ):
+        """
+        Calculates hillshading from elevation data. Returns an array with the
+        same shape as the input array.
+        - elevation: input array
+        - azimuth: horizontal angle of light source (315: North-West)
+        - altitude: vertical angle of light source (90 would result in slope
+                    shading)
+        - z: vertical exaggeration
+        - scale: scale factor of pixel size units versus height units (insert
+                 112000 when having elevation values in meters in a geodetic
+                 projection)
+        """
+        return hillshade(elevation, self, azimuth, altitude, z, scale)
+
+    def contours(
+        self,
+        elevation,
+        interval=100,
+        field='elev'
+        ):
+        """
+        Extracts contour lines from elevation data. Returns contours as GeoJSON-
+        like pairs of properties and geometry.
+        - elevation: input array
+        - interval: elevation value interval
+        - field: output field name containing elevation value
+        """
+        return extract_contours(
+            elevation,
+            self.tile,
+            interval=interval,
+            pixelbuffer=self.pixelbuffer,
+            field=field
             )
-        if self.tile.exists():
-            return read_numpy(self.tile.path)
-        else:
-            return None
+
+    def clip(
+        self,
+        array,
+        geometries,
+        inverted=False,
+        clip_buffer=0
+        ):
+        """
+        Returns input array clipped by geometries.
+        - inverted: bool, invert clipping
+        - clip_buffer: int (in pixels), buffer geometries befor applying clip
+        """
+        return clip_array_with_vector(
+            array,
+            self.tile.affine(self.pixelbuffer),
+            geometries,
+            inverted=inverted,
+            clip_buffer=clip_buffer*self.tile.pixel_x_size
+            )
