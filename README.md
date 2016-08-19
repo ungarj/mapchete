@@ -23,9 +23,8 @@ mapchete_execute [-h] [--zoom [ZOOM [ZOOM ...]]]
 Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple endpoint to **serve a process for quick assessment** (default port 5000). This is intended to process on-demand and show just the current map extent to facilitate process calibration.
 ```shell
 mapchete_serve [-h] [--port PORT] [--zoom [ZOOM [ZOOM ...]]]
-                      [--bounds [BOUNDS [BOUNDS ...]]] [--log]
+                      [--bounds [BOUNDS [BOUNDS ...]]] [--log] [--overwrite]
                       mapchete_file
-
 ```
 
 With both commands you can also limit the processing zoom levels and bounding box with a ``-z``and a ``-b`` parameter respectively. This overrules the zoom level and output bounds settings in the mapchete configuration file.
@@ -72,7 +71,7 @@ pip install gdal==1.11.2 --global-option=build_ext --global-option="-I/usr/inclu
 * on-demand processing if another ``mapchete`` process is used as input
 * store in GeoPackage, not just single tiles in the filesystem
 * add .SAFE archive (Sentinel-2) as data input option
-* add Spherical Mercator (EPSG:3857) tile pyramid support
+* ~~add Spherical Mercator (EPSG:3857) tile pyramid support~~
 
 ## Inspirations
 * [PyWPS](http://pywps.wald.intevation.org/)
