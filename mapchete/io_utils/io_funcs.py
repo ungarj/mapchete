@@ -196,14 +196,9 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     zoom level where no oversampling has to be done.
     """
     tile_pyramid = TilePyramid(tile_pyramid_type)
-    dst_crs = tile_pyramid.crs
+    input_bbox = file_bbox(input_file, tile_pyramid)
+    xmin, ymin, xmax, ymax = input_bbox.bounds
     with rasterio.open(input_file, "r") as src:
-        xmin, ymin, xmax, ymax = transform_bounds(
-            src.crs,
-            dst_crs,
-            *src.bounds
-            )
-
         x_dif = xmax - xmin
         y_dif = ymax - ymin
         size = float(src.width + src.height)
