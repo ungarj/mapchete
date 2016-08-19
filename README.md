@@ -1,16 +1,14 @@
-# mapchete
+# Mapchete
 
-``mapchete`` preprocesses all kinds of input data for web maps using tile pyramids.
+Mapchete applies any user-defined process to geospatial raster or vector data.
 
-## Idea
-
-``mapchete`` simply applies a user-defined geo-process written in Python in small chunks to any kind of input data. It handles all the resampling, reprojection, data cutting & cropping and parallelizing of the geo-process so all you have to do is defining what shall happen with the data within a tile and the tool handles the rest.
-
-Please see the [example configuration](test/example.mapchete) and [example process](test/example_process.py) to catch an idea how it works.
+Single Python scripts easily fail when processing highly detailed, global data. Mapchete cuts and resamples input data into easily digestible chunks and applies any kind of geoprocess written in Python to these tiles. It helps
+1. developing a geoprocess by only processing data on demand during viewing in a browser, and
+2. batch processing large model inputs in parallel on all available CPU cores.
 
 ## Usage
 
-There are two main functions:
+There are three main command line tools:
 
 **Execute a process**. This is intended to batch seed your output pyramid. You can also process a specific tile by providing the tile index (``zoom`` ``row`` ``col``).
 ```shell
@@ -20,7 +18,7 @@ mapchete_execute [-h] [--zoom [ZOOM [ZOOM ...]]]
                         mapchete_file
 ```
 
-Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple endpoint to **serve a process for quick assessment** (default port 5000). This is intended to process on-demand and show just the current map extent to facilitate process calibration.
+Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple endpoint to **serve a process** for quick assessment (default port 5000). This is intended to process on-demand and show just the current map extent to facilitate process calibration.
 ```shell
 mapchete_serve [-h] [--port PORT] [--zoom [ZOOM [ZOOM ...]]]
                       [--bounds [BOUNDS [BOUNDS ...]]] [--log] [--overwrite]
@@ -38,6 +36,13 @@ raster2pyramid [-h] [--output_format {GTiff,PNG}]
                       [--bounds [BOUNDS [BOUNDS ...]]] [--log] [--overwrite]
                       input_raster {geodetic,mercator} output_dir
 ```
+
+## Documentation
+
+Please find a more detailed description here:
+
+* [Writing a Process](docs/processes.md)
+* [Configuring a Process](docs/configuration.md)
 
 ## Installation
 
@@ -68,7 +73,7 @@ pip install gdal==1.11.2 --global-option=build_ext --global-option="-I/usr/inclu
 ## Planned next
 
 * ~~have a mapchete process as data input option for another process~~
-* on-demand processing if another ``mapchete`` process is used as input
+* on-demand processing if another Mapchete process is used as input
 * store in GeoPackage, not just single tiles in the filesystem
 * add .SAFE archive (Sentinel-2) as data input option
 * ~~add Spherical Mercator (EPSG:3857) tile pyramid support~~
