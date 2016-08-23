@@ -13,3 +13,11 @@
 * added ``--tile`` flag in ``mapchete_execute`` for single tile processing
 * added ``--port`` flag in ``mapchete_serve`` to customize port
 * added ``clip_array_with_vector`` function for user-defined processes
+
+# 0.1
+* added vector data read
+* added vector output (PostGIS & GeoJSON)
+* added NumPy tile output
+* added spherical mercator support
+* tile with buffers next to antimeridian get full data
+* combined output_ ... parameters to output object in mapchete config files
