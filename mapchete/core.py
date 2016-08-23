@@ -108,15 +108,19 @@ class Mapchete(object):
         Determines the tiles affected by zoom levels, bounding box and input
         data.
         """
-        if zoom or zoom == 0:
-            bbox = self.config.process_area(zoom)
-            for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
-                yield self.tile(tile)
-        else:
-            for zoom in reversed(self.config.zoom_levels):
+        try:
+            if zoom or zoom == 0:
                 bbox = self.config.process_area(zoom)
                 for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
                     yield self.tile(tile)
+            else:
+                for zoom in reversed(self.config.zoom_levels):
+                    bbox = self.config.process_area(zoom)
+                    for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
+                        yield self.tile(tile)
+        except Exception as e:
+            LOGGER.error("error getting work tiles: %s" % e)
+            raise StopIteration()
 
     def execute(self, tile, overwrite=True):
         """

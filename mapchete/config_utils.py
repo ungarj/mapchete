@@ -5,7 +5,7 @@ Main class to verify and handle process configurations
 
 import yaml
 import os
-from shapely.geometry import Polygon
+from shapely.geometry import box
 from shapely.ops import cascaded_union
 
 from tilematrix import TilePyramid, MetaTilePyramid
@@ -114,13 +114,12 @@ class MapcheteConfig(object):
                         )
             else:
                 if name == "cli":
-                    bbox = Polygon([
-                        (tile_pyramid.left, tile_pyramid.top),
-                        (tile_pyramid.left, tile_pyramid.bottom),
-                        (tile_pyramid.right, tile_pyramid.bottom),
-                        (tile_pyramid.right, tile_pyramid.top),
-                        (tile_pyramid.left, tile_pyramid.top)
-                    ])
+                    bbox = box(
+                        tile_pyramid.left,
+                        tile_pyramid.bottom,
+                        tile_pyramid.right,
+                        tile_pyramid.top
+                        )
                 else:
                     bbox = file_bbox(
                         path,
@@ -131,14 +130,7 @@ class MapcheteConfig(object):
         files_area = cascaded_union(bboxes)
         out_area = files_area
         if self.process_bounds:
-            left, bottom, right, top = self.process_bounds
-            upper_left = left, top
-            upper_right = right, top
-            lower_right = right, bottom
-            lower_left = left, bottom
-            user_bbox = Polygon(
-                [upper_left, upper_right, lower_right, lower_left]
-                )
+            user_bbox = box(*self.process_bounds)
             out_area = files_area.intersection(user_bbox)
             try:
                 assert out_area.geom_type in [

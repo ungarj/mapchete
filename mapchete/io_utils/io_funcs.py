@@ -133,11 +133,11 @@ def file_bbox(
     try:
         assert out_bbox.is_valid
     except AssertionError:
-        cleaned = out_bbox.buffer(0)
         try:
+            cleaned = out_bbox.buffer(0)
             assert cleaned.is_valid
-        except:
-            raise TypeError("invalid geometry")
+        except Exception as e:
+            raise TypeError("invalid file bbox geometry: %s" % e)
         out_bbox = cleaned
     return out_bbox
 
@@ -156,24 +156,24 @@ def reproject_geometry(
     # TODO: find a better way; if destination CRS is not global, the below
     # section produces an emtpy GeometryCollection
     # clip input geometry to dst_crs boundaries if necessary
-    # crs_bbox = box(-180, -85.0511, 180, 85.0511)
-    # crs_bounds = {
-    #     "epsg:3857": crs_bbox,
-    #     "epsg:3785": crs_bbox
-    # }
-    # if dst_crs["init"] in crs_bounds:
-    #     project = partial(
-    #         pyproj.transform,
-    #         pyproj.Proj({"init": "epsg:4326"}),
-    #         pyproj.Proj(src_crs)
-    #     )
-    #     # reproject CRS bounds into source CRS
-    #     src_bbox = transform(project, crs_bounds[dst_crs["init"]])
-    #     try:
-    #         assert geometry.is_valid
-    #     except AssertionError:
-    #         geometry = geometry.buffer(0)
-    #     geometry = geometry.intersection(src_bbox)
+    crs_bbox = box(-180, -85.0511, 180, 85.0511)
+    crs_bounds = {
+        "epsg:3857": crs_bbox,
+        "epsg:3785": crs_bbox
+    }
+    if dst_crs["init"] in crs_bounds:
+        project = partial(
+            pyproj.transform,
+            pyproj.Proj({"init": "epsg:4326"}),
+            pyproj.Proj(src_crs)
+        )
+        # reproject CRS bounds into source CRS
+        src_bbox = transform(project, crs_bounds[dst_crs["init"]])
+        try:
+            assert geometry.is_valid
+        except AssertionError:
+            geometry = geometry.buffer(0)
+        geometry = geometry.intersection(src_bbox)
 
     # create reproject function
     project = partial(
