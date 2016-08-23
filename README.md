@@ -41,8 +41,8 @@ raster2pyramid [-h] [--output_format {GTiff,PNG}]
 
 Please find a more detailed description here:
 
-* [Writing a Process](docs/processes.md)
-* [Configuring a Process](docs/configuration.md)
+* [Writing a Process](doc/processes.md)
+* [Configuring a Process](doc/configuration.md)
 
 ## Installation
 
