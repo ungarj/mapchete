@@ -105,18 +105,20 @@ def main(args=None):
                     metatile.id
                     )
                 metatile_event.wait()
+                try:
+                    image = mapchete.get(tile)
+                except:
+                    raise
             else:
                 LOGGER.info("%s getting metatile %s",
                     tile.id,
                     metatile.id
                     )
-
-            try:
-                image = mapchete.get(tile, overwrite=parsed.overwrite)
-            except:
-                raise
-            finally:
-                if not metatile_event:
+                try:
+                    image = mapchete.get(tile, overwrite=parsed.overwrite)
+                except:
+                    raise
+                finally:
                     with metatile_lock:
                         metatile_event = metatile_cache.get(metatile.id)
                         del metatile_cache[metatile.id]
@@ -132,7 +134,6 @@ def main(args=None):
                 raise IOError("no image returned")
 
         except Exception as exception:
-            raise
             error_msg = (tile.id, "failed", exception)
             LOGGER.error(error_msg)
             size = mapchete.tile_pyramid.tilepyramid.tile_size

@@ -107,6 +107,7 @@ class Mapchete(object):
         """
         Determines the tiles affected by zoom levels, bounding box and input
         data.
+        Returns (yields) valid Tile objects.
         """
         try:
             if zoom or zoom == 0:
@@ -119,12 +120,16 @@ class Mapchete(object):
                     for tile in self.tile_pyramid.tiles_from_geom(bbox, zoom):
                         yield self.tile(tile)
         except Exception as e:
-            LOGGER.error("error getting work tiles: %s" % e)
+            LOGGER.error("error getting work tiles: %s" % traceback.print_exc())
             raise StopIteration()
 
     def execute(self, tile, overwrite=True):
         """
         Processes and saves tile.
+        Returns a tuple of three values:
+        - Tile ID: zoom, row, col
+        - status: "exists", "empty", "failed" or "processed"
+        - error message: optional or None
         """
         # Do nothing if tile exists or overwrite is turned off.
         if not overwrite and tile.exists():
@@ -243,7 +248,8 @@ class Mapchete(object):
 
     def get(self, tile, overwrite=False):
         """
-        Processes if necessary and gets tile.
+        Returns tile as file object (image, for mapchete_serve). Also processes
+        tile if necessary.
         """
         # return empty image if nothing to do at zoom level
         if tile.zoom not in self.config.zoom_levels:
@@ -307,8 +313,6 @@ class Mapchete(object):
                     return self._empty_image()
             return send_file(tile.path, mimetype='image/png')
 
-
-
     def read(self, tile, indexes=None, pixelbuffer=0, resampling="nearest"):
         """
         Reads source tile to numpy array.
@@ -352,7 +356,6 @@ class Mapchete(object):
         cropped.save(out_img, 'PNG')
         out_img.seek(0)
         return out_img
-
 
     def _init_db_tables(self):
         """
@@ -722,7 +725,7 @@ class MapcheteProcess():
         self,
         data,
         pixelbuffer=0
-    ):
+        ):
         if self.output.data_type == "vector":
             write_vector(
                 self,

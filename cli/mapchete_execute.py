@@ -20,7 +20,7 @@ from datetime import datetime
 from mapchete import Mapchete, MapcheteConfig, get_log_config
 from tilematrix import Tile
 
-logger = logging.getLogger("mapchete")
+LOGGER = logging.getLogger("mapchete")
 
 def main(args=None):
 
@@ -71,7 +71,7 @@ def main(args=None):
     )
 
     logging.config.dictConfig(get_log_config(mapchete))
-    logger.info("starting process using %s worker(s)" %(multi))
+    LOGGER.info("starting process using %s worker(s)" %(multi))
 
     work_tiles = []
     if parsed.tile:
@@ -107,7 +107,7 @@ def main(args=None):
                 ):
                 collected_output.append(output)
         except KeyboardInterrupt:
-            logger.info("Caught KeyboardInterrupt, terminating workers")
+            LOGGER.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
             break
         except:
@@ -117,7 +117,7 @@ def main(args=None):
             pool.join()
         work_tiles = []
 
-    logger.info("%s tile(s) iterated", (len(collected_output)))
+    LOGGER.info("%s tile(s) iterated", (len(collected_output)))
 
     if mapchete.output.format in [
         "GTiff",
@@ -195,7 +195,7 @@ def worker(tile, mapchete, overwrite):
     endtime = time.time()
     elapsed = "%ss" %(round((endtime - starttime), 3))
 
-    logger.info((mapchete.process_name, log_message, elapsed))
+    LOGGER.info((mapchete.process_name, log_message, elapsed))
     return log_message
 
 
