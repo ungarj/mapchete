@@ -11,13 +11,12 @@ from shapely.geometry import (
     MultiPolygon,
     box
     )
-from shapely.ops import transform
 from shapely.wkt import loads
-from functools import partial
-import pyproj
 import ogr
+import osr
 import rasterio
 from rasterio.warp import Resampling
+from rasterio.crs import CRS
 from copy import deepcopy
 
 from tilematrix import TilePyramid
@@ -42,7 +41,6 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
     allow_multipart allows multipart geometries (e.g. MultiPolygon for Polygon
     type and so on).
     """
-
     multipart_geoms = {
         "Point": MultiPoint,
         "LineString": MultiLineString,
@@ -51,11 +49,14 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         "MultiLineString": MultiLineString,
         "MultiPolygon": MultiPolygon
     }
-    multipart_geom = multipart_geoms[target_type]
+    try:
+        multipart_geom = multipart_geoms[target_type]
+    except KeyError:
+        raise ValueError("target type is not supported: %s" % target_type)
+    assert geometry.is_valid
 
     if geometry.geom_type == target_type:
         out_geom = geometry
-
     elif geometry.geom_type == "GeometryCollection":
         subgeoms = [
             clean_geometry_type(
@@ -94,7 +95,7 @@ def file_bbox(
 
     if is_vector_file:
         with fiona.open(input_file) as inp:
-            inp_crs = inp.crs
+            inp_crs = CRS(inp.crs)
             bounds = inp.bounds
     else:
         with rasterio.open(input_file) as inp:
@@ -152,36 +153,26 @@ def reproject_geometry(
     """
     assert src_crs
     assert dst_crs
+    assert geometry.is_valid
 
-    # TODO: find a better way; if destination CRS is not global, the below
-    # section produces an emtpy GeometryCollection
-    # clip input geometry to dst_crs boundaries if necessary
-    crs_bbox = box(-180, -85.0511, 180, 85.0511)
-    crs_bounds = {
-        "epsg:3857": crs_bbox,
-        "epsg:3785": crs_bbox
-    }
-    if dst_crs["init"] in crs_bounds:
-        project = partial(
-            pyproj.transform,
-            pyproj.Proj({"init": "epsg:4326"}),
-            pyproj.Proj(src_crs)
-        )
-        # reproject CRS bounds into source CRS
-        src_bbox = transform(project, crs_bounds[dst_crs["init"]])
-        try:
-            assert geometry.is_valid
-        except AssertionError:
-            geometry = geometry.buffer(0)
-        geometry = geometry.intersection(src_bbox)
+    # convert geometry into OGR geometry
+    ogr_geom = ogr.CreateGeometryFromWkb(geometry.wkb)
+    # create CRS transform object
+    src = osr.SpatialReference()
+    src.ImportFromProj4(src_crs.to_string())
+    dst = osr.SpatialReference()
+    dst.ImportFromProj4(dst_crs.to_string())
+    crs_transform = osr.CoordinateTransformation(src, dst)
+    # transform geometry
+    ogr_geom.Transform(crs_transform)
+    out_geom = loads(ogr_geom.ExportToWkt())
 
-    # create reproject function
-    project = partial(
-        pyproj.transform,
-        pyproj.Proj(src_crs),
-        pyproj.Proj(dst_crs)
-    )
-    return transform(project, geometry)
+    try:
+        assert out_geom.is_valid
+    except AssertionError:
+        return ValueError("reprojected geometry is not valid")
+
+    return out_geom
 
 def _get_segmentize_value(input_file, tile_pyramid):
     """

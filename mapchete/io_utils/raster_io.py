@@ -154,7 +154,7 @@ def _get_warped_array(
     assert isinstance(dst_bounds, tuple)
     assert isinstance(dst_shape, tuple)
     assert isinstance(dst_affine, Affine)
-    assert isinstance(dst_crs, dict)
+    assert dst_crs.is_valid
 
     with rasterio.open(input_file, "r") as src:
         if dst_crs == src.crs:
@@ -333,7 +333,7 @@ def _get_metadata(tile, dst_bands, pixelbuffer=0):
     dst_metadata = deepcopy(tile.output.profile)
     dst_metadata.pop("transform", None)
     dst_metadata.update(
-        crs=tile.crs['init'],
+        crs=tile.crs,
         width=dst_width,
         height=dst_height,
         affine=tile.affine(pixelbuffer),

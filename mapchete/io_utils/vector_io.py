@@ -12,6 +12,7 @@ from sqlalchemy import (
     )
 from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker
+from rasterio.crs import CRS
 import warnings
 
 from .io_funcs import reproject_geometry, clean_geometry_type
@@ -65,30 +66,33 @@ def read_vector_window(
 
     with fiona.open(input_file, 'r') as vector:
         tile_bbox = tile.bbox(pixelbuffer=pixelbuffer)
+        vector_crs = CRS(vector.crs)
 
         # Reproject tile bounding box to source file CRS for filter:
-        if vector.crs != tile.crs:
+        if vector_crs != tile.crs:
             bbox = tile.bbox(pixelbuffer=pixelbuffer)
-            tile_bbox = reproject_geometry(bbox, src_crs=tile.crs, dst_crs=vector.crs)
+            tile_bbox = reproject_geometry(bbox, src_crs=tile.crs, dst_crs=vector_crs)
 
         for feature in vector.filter(bbox=tile_bbox.bounds):
             feature_geom = shape(feature['geometry'])
+            if not feature_geom.is_valid:
+                warnings.warn("invalid geometry found in vector input file")
+                continue
             geom = clean_geometry_type(
                 feature_geom.intersection(tile_bbox),
                 feature_geom.geom_type
             )
             if geom:
                 # Reproject each feature to tile CRS
-                if vector.crs != tile.crs:
+                if vector_crs != tile.crs:
                     geom = reproject_geometry(
                         geom,
-                        src_crs=vector.crs,
+                        src_crs=vector_crs,
                         dst_crs=tile.crs)
-                feature = {
+                yield {
                     'properties': feature['properties'],
                     'geometry': mapping(geom)
                 }
-                yield feature
 
 def write_vector(
     process,
@@ -203,7 +207,7 @@ def write_vector_window(
         'w',
         schema=metadata["output"].schema,
         driver=metadata["output"].driver,
-        crs=tile.crs
+        crs=tile.crs.to_dict()
         ) as dst:
         for feature in data:
             # clip with bounding box
