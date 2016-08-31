@@ -103,7 +103,7 @@ def main(args=None):
             for output in pool.imap_unordered(
                 f,
                 work_tiles,
-                chunksize=1
+                chunksize=8
                 ):
                 collected_output.append(output)
         except KeyboardInterrupt:

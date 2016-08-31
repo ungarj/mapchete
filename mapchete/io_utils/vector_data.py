@@ -7,6 +7,7 @@ import os
 from itertools import chain
 import fiona
 import rasterio
+from rasterio.crs import CRS
 from copy import deepcopy
 
 from .io_funcs import file_bbox, reproject_geometry
@@ -189,7 +190,7 @@ class VectorFileTile(object):
                 bbox=reproject_geometry(
                     self.tile.bbox(pixelbuffer=self.pixelbuffer),
                     src_crs=self.tile.crs,
-                    dst_crs=vector.crs
+                    dst_crs=CRS(vector.crs)
                     ).bounds
             )
             try:
