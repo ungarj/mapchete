@@ -81,8 +81,17 @@ def read_vector_window(
         for feature in vector.filter(bbox=tile_bbox.bounds):
             feature_geom = shape(feature['geometry'])
             if not feature_geom.is_valid:
-                warnings.warn("invalid geometry found in vector input file")
-                continue
+                try:
+                    feature_geom = feature_geom.buffer(0)
+                    assert feature_geom.is_valid
+                    warnings.warn(
+                        "fixed invalid vector input geometry"
+                        )
+                except AssertionError:
+                    warnings.warn(
+                        "irreparable geometry found in vector input file"
+                        )
+                    continue
             geom = clean_geometry_type(
                 feature_geom.intersection(tile_bbox),
                 feature_geom.geom_type

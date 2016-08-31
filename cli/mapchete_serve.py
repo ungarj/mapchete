@@ -90,10 +90,13 @@ def main(args=None):
         """
         tile = mapchete.tile_pyramid.tilepyramid.tile(zoom, row, col)
         try:
-            metatile = mapchete.tile_pyramid.tiles_from_bbox(
-                tile.bbox(),
-                tile.zoom
-                ).next()
+            metatile = mapchete.tile(
+                mapchete.tile_pyramid.tile(
+                    tile.zoom,
+                    int(tile.row/mapchete.config.metatiling),
+                    int(tile.col/mapchete.config.metatiling),
+                    )
+                )
             with metatile_lock:
                 metatile_event = metatile_cache.get(metatile.id)
                 if not metatile_event:
