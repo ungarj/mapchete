@@ -170,7 +170,7 @@ def reproject_geometry(
     try:
         assert out_geom.is_valid
     except AssertionError:
-        return ValueError("reprojected geometry is not valid")
+        raise ValueError("reprojected geometry is not valid")
 
     return out_geom
 

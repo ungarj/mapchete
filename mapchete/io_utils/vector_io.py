@@ -69,9 +69,14 @@ def read_vector_window(
         vector_crs = CRS(vector.crs)
 
         # Reproject tile bounding box to source file CRS for filter:
-        if vector_crs != tile.crs:
-            bbox = tile.bbox(pixelbuffer=pixelbuffer)
-            tile_bbox = reproject_geometry(bbox, src_crs=tile.crs, dst_crs=vector_crs)
+        if vector_crs == tile.crs:
+            tile_bbox = tile.bbox(pixelbuffer=pixelbuffer)
+        else:
+            tile_bbox = reproject_geometry(
+                tile.bbox(pixelbuffer=pixelbuffer),
+                src_crs=tile.crs,
+                dst_crs=vector_crs
+                )
 
         for feature in vector.filter(bbox=tile_bbox.bounds):
             feature_geom = shape(feature['geometry'])
@@ -84,11 +89,17 @@ def read_vector_window(
             )
             if geom:
                 # Reproject each feature to tile CRS
-                if vector_crs != tile.crs:
-                    geom = reproject_geometry(
-                        geom,
-                        src_crs=vector_crs,
-                        dst_crs=tile.crs)
+                if vector_crs == tile.crs:
+                    assert geom.is_valid
+                else:
+                    try:
+                        geom = reproject_geometry(
+                            geom,
+                            src_crs=vector_crs,
+                            dst_crs=tile.crs
+                            )
+                    except ValueError:
+                        warnings.warn("feature reprojection failed")
                 yield {
                     'properties': feature['properties'],
                     'geometry': mapping(geom)
@@ -97,13 +108,13 @@ def read_vector_window(
 def write_vector(
     process,
     metadata,
-    data,
+    features,
     pixelbuffer=0,
     overwrite=False
     ):
     assert isinstance(metadata["output"].schema, dict)
     assert isinstance(metadata["output"].driver, str)
-    assert isinstance(data, list)
+    assert isinstance(features, list)
 
     if process.output.is_db:
 
@@ -135,7 +146,7 @@ def write_vector(
                 )
             session.execute(delete_old)
 
-        for feature in data:
+        for feature in features:
             try:
                 geom = from_shape(
                     shape(feature["geometry"]).intersection(
@@ -176,7 +187,7 @@ def write_vector(
                 process.tile.path,
                 process.tile,
                 metadata,
-                data,
+                features,
                 pixelbuffer=pixelbuffer
             )
         except:
@@ -188,7 +199,7 @@ def write_vector_window(
     output_file,
     tile,
     metadata,
-    data,
+    features,
     pixelbuffer=0):
     """
     Writes GeoJSON-like objects to GeoJSON.
@@ -209,7 +220,7 @@ def write_vector_window(
         driver=metadata["output"].driver,
         crs=tile.crs.to_dict()
         ) as dst:
-        for feature in data:
+        for feature in features:
             # clip with bounding box
             try:
                 feature_geom = shape(feature["geometry"])
@@ -228,6 +239,4 @@ def write_vector_window(
                     )
                     dst.write(feature)
             except ValueError:
-                warnings.warn("failed on geometry")
-
-            dst.write(feature)
+                warnings.warn("failed geometry cleaning during writing")
