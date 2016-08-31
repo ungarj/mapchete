@@ -64,16 +64,7 @@ def main(args=None):
         return
     except:
         raise
-
-    f = partial(worker,
-        mapchete=mapchete,
-        overwrite=overwrite
-    )
-
     logging.config.dictConfig(get_log_config(mapchete))
-    LOGGER.info("starting process using %s worker(s)" %(multi))
-
-    work_tiles = []
     if parsed.tile:
         tile = mapchete.tile(
             Tile(
@@ -85,15 +76,29 @@ def main(args=None):
             assert tile.is_valid()
         except AssertionError:
             raise ValueError("tile index provided is invalid")
-        work_tiles = [tile]
         mapchete.config.zoom_levels = [parsed.tile[0]]
-    elif parsed.failed_from_log:
-        work_tiles = read_failed_from_log(
+        try:
+            worker(tile, mapchete, overwrite)
+            LOGGER.info("1 tile iterated")
+        except:
+            raise
+
+        return
+
+
+    work_tiles = []
+    if parsed.failed_from_log:
+        work_tiles = failed_tiles_from_log(
             parsed.failed_from_log,
             mapchete,
             failed_since_str=parsed.failed_since
         )
 
+    LOGGER.info("starting process using %s worker(s)", multi)
+    f = partial(worker,
+        mapchete=mapchete,
+        overwrite=overwrite
+    )
     collected_output = []
     for zoom in reversed(mapchete.config.zoom_levels):
         if not work_tiles:
@@ -140,7 +145,7 @@ def main(args=None):
             os.system(command)
 
 
-def read_failed_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
+def failed_tiles_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
     """
     Reads logfile line by line and returns tile indexes filtered by timestamp
     and failed tiles.
