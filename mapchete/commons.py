@@ -128,10 +128,12 @@ def hillshade(
 
     shaded = (shaded - 1.0) * -128.0
     shaded = np.clip(shaded, 0, 255)
-    padded = np.pad(shaded, 1, mode='constant')
-    padded[ma.getmask(elevation)] = 0.0
 
-    return padded
+    return np.where(
+        elevation.mask,
+        np.zeros(elevation.shape),
+        np.pad(shaded, 1, mode='constant')
+        )
 
 def clip_array_with_vector(
     array,
