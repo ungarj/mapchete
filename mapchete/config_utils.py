@@ -11,11 +11,8 @@ from shapely.ops import cascaded_union
 from tilematrix import TilePyramid, MetaTilePyramid
 from mapchete import Mapchete
 from mapchete.io_utils import MapcheteOutputFormat
-from mapchete.io_utils.io_funcs import (
-    reproject_geometry,
-    file_bbox,
-    RESAMPLING_METHODS
-    )
+from mapchete.io_utils.io_funcs import (reproject_geometry, file_bbox,
+    RESAMPLING_METHODS)
 
 _RESERVED_PARAMETERS = [
     "process_file",

@@ -5,15 +5,12 @@ Basic read, write and input file functions.
 
 import os
 import fiona
-from shapely.geometry import (
-    MultiPoint,
-    MultiLineString,
-    MultiPolygon,
-    box
-    )
+from shapely.geometry import MultiPoint, MultiLineString, MultiPolygon, box
 from shapely.wkt import loads
+from shapely.ops import transform
+from functools import partial
+import pyproj
 import ogr
-import osr
 import rasterio
 from rasterio.warp import Resampling
 from rasterio.crs import CRS
@@ -21,8 +18,7 @@ from copy import deepcopy
 
 from tilematrix import TilePyramid
 
-# from .raster_data import RasterProcessTile, RasterFileTile
-# from .numpy_data import NumpyTile
+ogr.UseExceptions()
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -142,38 +138,6 @@ def file_bbox(
         out_bbox = cleaned
     return out_bbox
 
-def reproject_geometry(
-    geometry,
-    src_crs=None,
-    dst_crs=None
-    ):
-    """
-    Reproject a geometry and returns the reprojected geometry. Also, clips
-    geometry if it lies outside the spherical mercator boundary.
-    """
-    assert src_crs
-    assert dst_crs
-    assert geometry.is_valid
-
-    # convert geometry into OGR geometry
-    ogr_geom = ogr.CreateGeometryFromWkb(geometry.wkb)
-    # create CRS transform object
-    src = osr.SpatialReference()
-    src.ImportFromProj4(src_crs.to_string())
-    dst = osr.SpatialReference()
-    dst.ImportFromProj4(dst_crs.to_string())
-    crs_transform = osr.CoordinateTransformation(src, dst)
-    # transform geometry
-    ogr_geom.Transform(crs_transform)
-    out_geom = loads(ogr_geom.ExportToWkt())
-
-    try:
-        assert out_geom.is_valid
-    except AssertionError:
-        raise ValueError("reprojected geometry is not valid")
-
-    return out_geom
-
 def _get_segmentize_value(input_file, tile_pyramid):
     """
     Returns the recommended segmentize value in input file units.
@@ -183,6 +147,79 @@ def _get_segmentize_value(input_file, tile_pyramid):
 
     return pixelsize * tile_pyramid.tile_size
 
+def reproject_geometry(
+    geometry,
+    src_crs,
+    dst_crs,
+    error_on_clip=False
+    ):
+    """
+    Reproject a geometry and returns the reprojected geometry. Also, clips
+    geometry if it lies outside the destination CRS boundary.
+    - geometry: a shapely geometry
+    - src_crs: rasterio CRS
+    - dst_crs: rasterio CRS
+    - error_on_clip: bool; True will raise a RuntimeError if a geometry is
+        outside of CRS bounds.
+    Supported CRSes for bounds clip:
+    - 4326 (WGS84)
+    - 3857 (Spherical Mercator)
+    - 3035 (ETRS89 / ETRS-LAEA)
+    """
+    assert geometry.is_valid
+    assert src_crs.is_valid
+    assert dst_crs.is_valid
+
+    if src_crs == dst_crs:
+        return geometry
+
+    # check if geometry has to be clipped
+    if dst_crs.is_epsg_code:
+        dst_epsg = int(dst_crs.to_dict()['init'].split(':')[1])
+    if dst_crs.is_epsg_code and dst_epsg in CRS_BOUNDS:
+        wgs84_crs = CRS().from_epsg(4326)
+        # get dst_crs boundaries
+        crs_bbox = box(*CRS_BOUNDS[dst_epsg])
+        geometry_4326 = _reproject_geom(geometry, src_crs, wgs84_crs)
+        # raise optional error if geometry has to be clipped
+        if error_on_clip and not geometry_4326.within(crs_bbox):
+            raise RuntimeError("geometry outside targed CRS bounds")
+        # clip geometry dst_crs boundaries
+        return _reproject_geom(
+            crs_bbox.intersection(geometry_4326),
+            wgs84_crs,
+            dst_crs
+            )
+    else:
+        # try without clipping
+        return _reproject_geom(
+            geometry,
+            src_crs,
+            dst_crs
+            )
+
+def _reproject_geom(
+    geometry,
+    src_crs,
+    dst_crs
+    ):
+    project = partial(
+        pyproj.transform,
+        pyproj.Proj(src_crs),
+        pyproj.Proj(dst_crs)
+    )
+    out_geom = transform(project, geometry)
+    try:
+        assert out_geom.is_valid
+    except:
+        raise RuntimeError("invalid geometry after reprojection")
+    return out_geom
+
+CRS_BOUNDS = {
+    4326: (-180.0000, -90.0000, 180.0000, 90.0000), # http://spatialreference.org/ref/epsg/wgs-84/
+    3857: (-180, -85.0511, 180, 85.0511),
+    3035: (-10.6700, 34.5000, 31.5500, 71.0500) # http://spatialreference.org/ref/epsg/3035/
+    }
 
 def get_best_zoom_level(input_file, tile_pyramid_type):
     """
