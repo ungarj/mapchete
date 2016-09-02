@@ -20,7 +20,8 @@ from .io_funcs import reproject_geometry, clean_geometry_type
 def read_vector(
     process,
     input_file,
-    pixelbuffer=0
+    pixelbuffer=0,
+    validity_check=True
     ):
     """
     This is a wrapper around the read_vector_window function of tilematrix.
@@ -32,7 +33,8 @@ def read_vector(
         features = read_vector_window(
             input_file,
             process.tile,
-            pixelbuffer=pixelbuffer
+            pixelbuffer=pixelbuffer,
+            validity_check=validity_check
         )
     else:
         features = None
@@ -42,7 +44,8 @@ def read_vector(
 def read_vector_window(
     input_file,
     tile,
-    pixelbuffer=0
+    pixelbuffer=0,
+    validity_check=True
     ):
     """
     Reads an input vector dataset with fiona using the tile bounding box as
@@ -75,7 +78,8 @@ def read_vector_window(
             tile_bbox = reproject_geometry(
                 tile.bbox(pixelbuffer=pixelbuffer),
                 src_crs=tile.crs,
-                dst_crs=vector_crs
+                dst_crs=vector_crs,
+                validity_check=validity_check
                 )
 
         for feature in vector.filter(bbox=tile_bbox.bounds):
@@ -105,7 +109,8 @@ def read_vector_window(
                         geom = reproject_geometry(
                             geom,
                             src_crs=vector_crs,
-                            dst_crs=tile.crs
+                            dst_crs=tile.crs,
+                            validity_check=validity_check
                             )
                     except ValueError:
                         warnings.warn("feature reprojection failed")

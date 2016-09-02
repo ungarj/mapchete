@@ -163,7 +163,7 @@ class VectorFileTile(object):
         # TODO cleanup
         pass
 
-    def read(self):
+    def read(self, validity_check=True):
         """
         This is a wrapper around the read_vector_window function of tilematrix.
         Tilematrix itself uses fiona to read vector data.
@@ -173,7 +173,8 @@ class VectorFileTile(object):
         return read_vector_window(
             self.input_file,
             self.tile,
-            pixelbuffer=self.pixelbuffer
+            pixelbuffer=self.pixelbuffer,
+            validity_check=validity_check
         )
 
     def is_empty(self):

@@ -168,7 +168,7 @@ def _get_warped_array(
                 densify_pts=21
                 )
         if float('Inf') in (src_left, src_bottom, src_right, src_top):
-            raise ValueError(
+            raise RuntimeError(
                 "Tile boundaries could not be translated into source SRS."
                 )
 

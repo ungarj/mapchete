@@ -151,7 +151,8 @@ def reproject_geometry(
     geometry,
     src_crs,
     dst_crs,
-    error_on_clip=False
+    error_on_clip=False,
+    validity_check=True
     ):
     """
     Reproject a geometry and returns the reprojected geometry. Also, clips
@@ -161,6 +162,8 @@ def reproject_geometry(
     - dst_crs: rasterio CRS
     - error_on_clip: bool; True will raise a RuntimeError if a geometry is
         outside of CRS bounds.
+    - validity_check: bool; checks if reprojected geometry is valid, otherwise
+        throws RuntimeError.
     Supported CRSes for bounds clip:
     - 4326 (WGS84)
     - 3857 (Spherical Mercator)
@@ -180,7 +183,12 @@ def reproject_geometry(
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
         crs_bbox = box(*CRS_BOUNDS[dst_epsg])
-        geometry_4326 = _reproject_geom(geometry, src_crs, wgs84_crs)
+        geometry_4326 = _reproject_geom(
+            geometry,
+            src_crs,
+            wgs84_crs,
+            validity_check=validity_check
+            )
         # raise optional error if geometry has to be clipped
         if error_on_clip and not geometry_4326.within(crs_bbox):
             raise RuntimeError("geometry outside targed CRS bounds")
@@ -188,7 +196,8 @@ def reproject_geometry(
         return _reproject_geom(
             crs_bbox.intersection(geometry_4326),
             wgs84_crs,
-            dst_crs
+            dst_crs,
+            validity_check=validity_check
             )
     else:
         # try without clipping
@@ -201,7 +210,8 @@ def reproject_geometry(
 def _reproject_geom(
     geometry,
     src_crs,
-    dst_crs
+    dst_crs,
+    validity_check=True
     ):
     project = partial(
         pyproj.transform,
@@ -209,10 +219,11 @@ def _reproject_geom(
         pyproj.Proj(dst_crs)
     )
     out_geom = transform(project, geometry)
-    try:
-        assert out_geom.is_valid
-    except:
-        raise RuntimeError("invalid geometry after reprojection")
+    if validity_check:
+        try:
+            assert out_geom.is_valid
+        except:
+            raise RuntimeError("invalid geometry after reprojection")
     return out_geom
 
 CRS_BOUNDS = {
