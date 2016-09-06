@@ -32,7 +32,7 @@ setup(
         'Pillow',
         'scipy',
         'psycopg2',
-        'blosc==1.2.7',
+        'blosc==1.3.2',
         'bloscpack==0.10.0',
         'rasterio>=0.36.0',
         'matplotlib'
