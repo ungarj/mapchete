@@ -16,6 +16,7 @@ import traceback
 from py_compile import PyCompileError
 import re
 from datetime import datetime
+import warnings
 
 from mapchete import Mapchete, MapcheteConfig, get_log_config
 from tilematrix import Tile
@@ -88,6 +89,7 @@ def main(args=None):
 
     work_tiles = []
     if parsed.failed_from_log:
+        LOGGER.info("parsing log file ...")
         work_tiles = failed_tiles_from_log(
             parsed.failed_from_log,
             mapchete,
@@ -166,15 +168,19 @@ def failed_tiles_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
                 ).group(0).replace('[', '').replace(']', '')
                 timestamp = datetime.strptime(t, '%Y-%m-%d %H:%M:%S,%f')
                 if timestamp > failed_since:
-                    tile = map(
-                        int,
-                        re.search(
-                            '\([0-9].*[0-9]\),',
-                            line
-                        ).group(0).replace('(', '').replace('),', '').split(
-                            ', '
+                    try:
+                        tile = map(
+                            int,
+                            re.search(
+                                '\([0-9].*[0-9]\),',
+                                line
+                            ).group(0).replace('(', '').replace('),', '').split(
+                                ', '
+                            )
                         )
-                    )
+                    except:
+                        warnings.warn("log line could not be parsed")
+                        continue
                     yield mapchete.tile(
                         Tile(
                             mapchete.tile_pyramid,
