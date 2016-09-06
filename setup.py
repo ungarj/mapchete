@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='mapchete',
-    version='0.0.1',
+    version='0.1',
     description='tile-based geodata processing',
     author='Joachim Ungar',
     author_email='joachim.ungar@gmail.com',
@@ -32,8 +32,8 @@ setup(
         'Pillow',
         'scipy',
         'psycopg2',
-        # 'blosc>=1.3.2',
-        # 'bloscpack>0.10.0',
+        'blosc==1.2.7',
+        'bloscpack==0.10.0',
         'rasterio>=0.36.0',
         'matplotlib'
     ],
