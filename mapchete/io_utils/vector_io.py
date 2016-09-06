@@ -2,7 +2,7 @@
 
 import os
 import fiona
-from shapely.geometry import shape, mapping
+from shapely.geometry import shape, mapping, box
 from geoalchemy2.shape import from_shape
 from sqlalchemy import (
     create_engine,
@@ -14,6 +14,8 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import sessionmaker
 from rasterio.crs import CRS
 import warnings
+from itertools import chain
+from tilematrix import clip_geometry_to_srs_bounds
 
 from .io_funcs import reproject_geometry, clean_geometry_type
 
@@ -67,22 +69,65 @@ def read_vector_window(
     except:
         raise ValueError("pixelbuffer must be an integer")
 
-    with fiona.open(input_file, 'r') as vector:
-        tile_bbox = tile.bbox(pixelbuffer=pixelbuffer)
-        vector_crs = CRS(vector.crs)
-
-        # Reproject tile bounding box to source file CRS for filter:
-        if vector_crs == tile.crs:
-            tile_bbox = tile.bbox(pixelbuffer=pixelbuffer)
-        else:
-            tile_bbox = reproject_geometry(
-                tile.bbox(pixelbuffer=pixelbuffer),
-                src_crs=tile.crs,
-                dst_crs=vector_crs,
+    # Check if potentially tile boundaries exceed tile matrix boundaries on
+    # the antimeridian, the northern or the southern boundary.
+    tile_left, tile_bottom, tile_right, tile_top = tile.bounds(pixelbuffer)
+    touches_left = tile_left <= tile.tile_pyramid.left
+    touches_bottom = tile_bottom <= tile.tile_pyramid.bottom
+    touches_right = tile_right >= tile.tile_pyramid.right
+    touches_top = tile_top >= tile.tile_pyramid.top
+    is_on_edge = touches_left or touches_bottom or touches_right or touches_top
+    if pixelbuffer and is_on_edge:
+        tile_boxes = clip_geometry_to_srs_bounds(
+            tile.bbox(pixelbuffer),
+            tile.tile_pyramid,
+            multipart=True
+            )
+        return chain.from_iterable(
+            _get_reprojected_features(
+                input_file=input_file,
+                dst_bounds=bbox.bounds,
+                dst_crs=tile.crs,
                 validity_check=validity_check
                 )
+            for bbox in tile_boxes
+            )
+        for polygon in tile_boxes:
+            print polygon
 
-        for feature in vector.filter(bbox=tile_bbox.bounds):
+    else:
+        return _get_reprojected_features(
+            input_file=input_file,
+            dst_bounds=tile.bounds(pixelbuffer),
+            dst_crs=tile.crs,
+            validity_check=validity_check
+            )
+
+
+def _get_reprojected_features(
+    input_file=None,
+    dst_bounds=None,
+    dst_crs=None,
+    validity_check=None
+    ):
+    assert isinstance(input_file, str)
+    assert isinstance(dst_bounds, tuple)
+    assert isinstance(dst_crs, CRS)
+    assert isinstance(validity_check, bool)
+
+    with fiona.open(input_file, 'r') as vector:
+        vector_crs = CRS(vector.crs)
+        # Reproject tile bounding box to source file CRS for filter:
+        if vector_crs == dst_crs:
+            dst_bbox = box(*dst_bounds)
+        else:
+            dst_bbox = reproject_geometry(
+                box(*dst_bounds),
+                src_crs=dst_crs,
+                dst_crs=vector_crs,
+                validity_check=True
+                )
+        for feature in vector.filter(bbox=dst_bbox.bounds):
             feature_geom = shape(feature['geometry'])
             if not feature_geom.is_valid:
                 try:
@@ -97,19 +142,19 @@ def read_vector_window(
                         )
                     continue
             geom = clean_geometry_type(
-                feature_geom.intersection(tile_bbox),
+                feature_geom.intersection(dst_bbox),
                 feature_geom.geom_type
             )
             if geom:
                 # Reproject each feature to tile CRS
-                if vector_crs == tile.crs:
+                if vector_crs == dst_crs and validity_check:
                     assert geom.is_valid
                 else:
                     try:
                         geom = reproject_geometry(
                             geom,
                             src_crs=vector_crs,
-                            dst_crs=tile.crs,
+                            dst_crs=dst_crs,
                             validity_check=validity_check
                             )
                     except ValueError:
@@ -118,6 +163,7 @@ def read_vector_window(
                     'properties': feature['properties'],
                     'geometry': mapping(geom)
                 }
+
 
 def write_vector(
     process,
