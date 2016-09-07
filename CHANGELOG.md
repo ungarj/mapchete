@@ -21,3 +21,10 @@
 * added spherical mercator support
 * tile with buffers next to antimeridian get full data
 * combined output_ ... parameters to output object in mapchete config files
+
+# 0.2
+* fixed installation bug (io_utils module could not be found)
+* rasterio's CRS() class now handles CRSes
+* fixed tile --> metatile calculations
+* fixed vector file read over antimeridian
+* rewrote reproject_geometry() function
