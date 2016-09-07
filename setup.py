@@ -12,6 +12,7 @@ setup(
     license='MIT',
     packages=[
         'mapchete',
+        'mapchete.io_utils',
         'static',
         'cli'
     ],

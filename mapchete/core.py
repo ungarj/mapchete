@@ -26,7 +26,7 @@ import warnings
 from tilematrix import TilePyramid, MetaTilePyramid, Tile
 from mapchete.io_utils import (RasterFileTile, RasterProcessTile,
     VectorFileTile, VectorProcessTile, NumpyTile, read_raster_window,
-    write_raster, write_vector, read_numpy)
+    write_raster, write_vector)
 from mapchete.commons import hillshade, extract_contours, clip_array_with_vector
 
 LOGGER = logging.getLogger("mapchete")
