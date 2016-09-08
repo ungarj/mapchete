@@ -50,14 +50,19 @@ def main(args=None):
 
     if not multi:
         multi = cpu_count()
+
+    if parsed.tile:
+        zoom = [parsed.tile[0]]
+    else:
+        zoom = parsed.zoom
     try:
         mapchete = Mapchete(
             MapcheteConfig(
                 parsed.mapchete_file,
-                zoom=parsed.zoom,
+                zoom=zoom,
                 bounds=parsed.bounds,
                 overwrite=overwrite,
-                input_file=parsed.input_file
+                single_input_file=parsed.input_file
             ),
         )
     except PyCompileError as e:
@@ -65,6 +70,7 @@ def main(args=None):
         return
     except:
         raise
+
     logging.config.dictConfig(get_log_config(mapchete))
     if parsed.tile:
         tile = mapchete.tile(
@@ -77,7 +83,6 @@ def main(args=None):
             assert tile.is_valid()
         except AssertionError:
             raise ValueError("tile index provided is invalid")
-        mapchete.config.zoom_levels = [parsed.tile[0]]
         try:
             worker(tile, mapchete, overwrite)
             LOGGER.info("1 tile iterated")

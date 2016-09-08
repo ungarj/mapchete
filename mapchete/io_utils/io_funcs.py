@@ -8,6 +8,8 @@ import fiona
 from shapely.geometry import MultiPoint, MultiLineString, MultiPolygon, box
 from shapely.wkt import loads
 from shapely.ops import transform
+from shapely.geos import TopologicalError
+import warnings
 from functools import partial
 import pyproj
 import ogr
@@ -192,9 +194,19 @@ def reproject_geometry(
         # raise optional error if geometry has to be clipped
         if error_on_clip and not geometry_4326.within(crs_bbox):
             raise RuntimeError("geometry outside targed CRS bounds")
+        try:
+            bbox_intersection = crs_bbox.intersection(geometry_4326)
+        except TopologicalError:
+            try:
+                bbox_intersection = crs_bbox.intersection(
+                    geometry_4326.buffer(0)
+                    )
+                warnings.warn("geometry fixed after clipping")
+            except:
+                raise
         # clip geometry dst_crs boundaries
         return _reproject_geom(
-            crs_bbox.intersection(geometry_4326),
+            bbox_intersection,
             wgs84_crs,
             dst_crs,
             validity_check=validity_check

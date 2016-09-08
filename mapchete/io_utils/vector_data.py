@@ -5,9 +5,7 @@ Classes handling vector data.
 
 import os
 from itertools import chain
-import fiona
 import rasterio
-from rasterio.crs import CRS
 from copy import deepcopy
 
 from .io_funcs import file_bbox, reproject_geometry
