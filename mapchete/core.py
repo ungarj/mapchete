@@ -441,17 +441,12 @@ class MapcheteTile(Tile):
         Returns a pixelbuffer specific metadata set for a raster tile.
         """
         out_meta = self.output.profile
-        # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(self.zoom)
-        left = self.bounds(pixelbuffer=pixelbuffer)[0]
-        top = self.bounds(pixelbuffer=pixelbuffer)[3]
-        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
             width=self.width,
             height=self.height,
-            transform=tile_geotransform,
+            transform=None,
             affine=self.affine(pixelbuffer=pixelbuffer)
-        )
+            )
         return out_meta
 
     def exists(self):
@@ -468,7 +463,7 @@ class MapcheteTile(Tile):
                 self.config["output"].db_params["host"],
                 self.config["output"].db_params["port"],
                 self.config["output"].db_params["db"]
-            )
+                )
             engine = create_engine(db_url, poolclass=NullPool)
             meta = MetaData()
             meta.reflect(bind=engine)
@@ -477,14 +472,14 @@ class MapcheteTile(Tile):
                 meta,
                 autoload=True,
                 autoload_with=engine
-            )
+                )
             Session = sessionmaker(bind=engine)
             session = Session()
             result = session.query(TargetTable).filter_by(
                 zoom=self.zoom,
                 row=self.row,
                 col=self.col
-            ).first()
+                ).first()
             session.close()
             engine.dispose()
             if result:

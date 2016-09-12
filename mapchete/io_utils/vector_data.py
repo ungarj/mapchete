@@ -198,15 +198,10 @@ class VectorFileTile(object):
         """
         with rasterio.open(self.input_file, "r") as src:
             out_meta = deepcopy(src.meta)
-        # create geotransform
-        px_size = self.tile_pyramid.pixel_x_size(self.tile.zoom)
-        left = self.tile.bounds(pixelbuffer=self.pixelbuffer)[0]
-        top = self.tile.bounds(pixelbuffer=self.pixelbuffer)[3]
-        tile_geotransform = (left, px_size, 0.0, top, 0.0, -px_size)
         out_meta.update(
             width=self.tile_pyramid.tile_size,
             height=self.tile_pyramid.tile_size,
-            transform=tile_geotransform,
+            transform=None,
             affine=self.tile.affine(pixelbuffer=self.pixelbuffer)
-        )
+            )
         return out_meta
