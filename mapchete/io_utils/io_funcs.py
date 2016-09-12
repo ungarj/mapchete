@@ -98,6 +98,10 @@ def file_bbox(
     else:
         with rasterio.open(input_file) as inp:
             inp_crs = inp.crs
+            try:
+                assert inp_crs.is_valid
+            except AssertionError:
+                raise IOError("CRS could not be read from %s" % input_file)
             bounds = (
                 inp.bounds.left,
                 inp.bounds.bottom,
