@@ -299,10 +299,17 @@ def _at_zoom(mapchete_config, zoom):
             if out_element != None:
                 params[name] = out_element
         if name == "input_files":
+            if element == "from_command_line":
+                element = {"input_file": None}
             input_files = {}
             input_files_areas = []
-            for file_name, file_at_zoom in _element_at_zoom(mapchete_config,
-                name, element, zoom).iteritems():
+            element_zoom = _element_at_zoom(mapchete_config, name,
+                element, zoom)
+            try:
+                assert isinstance(element_zoom, dict)
+            except AssertionError:
+                raise RuntimeError("input_files could not be read from config")
+            for file_name, file_at_zoom in element_zoom.iteritems():
                 prepared_file = _prepared_file(mapchete_config, file_at_zoom)
                 input_files[file_name] = prepared_file["file"]
                 if file_at_zoom:
