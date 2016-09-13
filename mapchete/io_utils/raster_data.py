@@ -8,13 +8,13 @@ from numpy.ma import masked_array, zeros
 from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds
 
-from .io_funcs import (
+from mapchete.io_utils.io_funcs import (
     RESAMPLING_METHODS,
     file_bbox,
     reproject_geometry,
     _read_metadata
     )
-from .raster_io import read_raster_window
+from mapchete.io_utils.raster_io import read_raster_window
 
 class RasterProcessTile(object):
     """
@@ -69,7 +69,7 @@ class RasterProcessTile(object):
         return self
 
     def __exit__(self, t, v, tb):
-        self._np_band_cache = None
+        self._np_band_cache = {}
 
     def read(self, indexes=None):
         """
@@ -201,7 +201,7 @@ class RasterFileTile(object):
         return self
 
     def __exit__(self, t, value, tb):
-        self._np_band_cache = None
+        self._np_band_cache = {}
 
     def read(self, indexes=None):
         """
@@ -234,13 +234,13 @@ class RasterFileTile(object):
                 break
         return all_bands_empty
 
-def _bands_from_cache(self, indexes=None):
+def _bands_from_cache(inp_handler, indexes=None):
     """
     Caches reprojected source data for multiple usage.
     """
-    band_indexes = _get_band_indexes(self, indexes)
-    if isinstance(self, RasterProcessTile):
-        tile_paths = self._get_src_tile_paths()
+    band_indexes = _get_band_indexes(inp_handler, indexes)
+    if isinstance(inp_handler, RasterProcessTile):
+        tile_paths = inp_handler._get_src_tile_paths()
         temp_vrt = NamedTemporaryFile()
         raster_file = temp_vrt.name
         build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
@@ -251,31 +251,32 @@ def _bands_from_cache(self, indexes=None):
             os.system(build_vrt)
         except:
             raise IOError("build temporary VRT failed")
-    elif isinstance(self, RasterFileTile):
-        raster_file = self.input_file
+    elif isinstance(inp_handler, RasterFileTile):
+        raster_file = inp_handler.input_file
 
     for band_index in band_indexes:
-        if not band_index in self._np_band_cache:
-            if isinstance(self, RasterProcessTile) and len(tile_paths) == 0:
+        if not band_index in inp_handler._np_band_cache:
+            if isinstance(inp_handler, RasterProcessTile) and \
+            len(tile_paths) == 0:
                 band = masked_array(
                     zeros(
-                        self.shape,
-                        dtype=self.dtype
+                        inp_handler.shape,
+                        dtype=inp_handler.dtype
                     ),
                     mask=True
                     )
             else:
                 band = read_raster_window(
                     raster_file,
-                    self.tile,
+                    inp_handler.tile,
                     indexes=band_index,
-                    pixelbuffer=self.pixelbuffer,
-                    resampling=self.resampling
+                    pixelbuffer=inp_handler.pixelbuffer,
+                    resampling=inp_handler.resampling
                 ).next()
-            self._np_band_cache[band_index] = band
-        yield self._np_band_cache[band_index]
+            inp_handler._np_band_cache[band_index] = band
+        yield inp_handler._np_band_cache[band_index]
 
-def _get_band_indexes(self, indexes=None):
+def _get_band_indexes(inp_handler, indexes=None):
     """
     Returns valid band indexes.
     """
@@ -285,4 +286,4 @@ def _get_band_indexes(self, indexes=None):
         else:
             return [indexes]
     else:
-        return range(1, self.indexes+1)
+        return range(1, inp_handler.indexes+1)

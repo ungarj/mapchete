@@ -192,7 +192,7 @@ def _get_warped_array(
         # Quick fix because None nodata is not allowed.
         if not nodataval:
             nodataval = 0
-        dst_band = ma.zeros(
+        dst_band = np.zeros(
                 dst_shape,
                 src.dtypes[band_idx-1]
             )
@@ -210,7 +210,10 @@ def _get_warped_array(
             dst_nodata=nodataval,
             resampling=RESAMPLING_METHODS[resampling]
         )
-        return dst_band
+        return ma.MaskedArray(
+            dst_band,
+            mask=dst_band==nodataval
+            )
 
 def write_raster(
     process,
