@@ -43,111 +43,119 @@ class MapcheteCLI(object):
 
     def create(self):
         parser = argparse.ArgumentParser(
-            description="Creates an empty process and configuration file")
-        parser.add_argument("mapchete_file", type=str)
-        parser.add_argument("process_file", type=str)
+            description="Creates an empty process and configuration file",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            usage="mapchete create <mapchete_file> <process_file>")
+        parser.add_argument("mapchete_file", type=str, help="Mapchete file")
+        parser.add_argument("process_file", type=str,
+            help="process (Python) file")
         parser.add_argument("--out_format", "-of", type=str,
-            choices=FORMATS.keys())
-        parser.add_argument("--out_path", "-op", type=str)
-        parser.add_argument("--out_type", "-ot", type=str, choices=TILING_TYPES)
-        parser.add_argument("--force", "-f", action="store_true")
+            choices=FORMATS.keys(), help="process output format")
+        parser.add_argument("--out_path", "-op", type=str,
+            help="path for process output", metavar="<path>")
+        parser.add_argument("--pyramid_type", "-pt", type=str, choices=TILING_TYPES,
+            default="geodetic", help="output pyramid type")
+        parser.add_argument("--force", "-f", action="store_true",
+            help="overwrite if Mapchete and process files already exist")
         args = parser.parse_args(sys.argv[2:])
         create_empty_process(args)
 
     def serve(self):
         parser = argparse.ArgumentParser(
-            description="Serves a process on localhost")
-        parser.add_argument("mapchete_file", type=str)
-        parser.add_argument("--port", "-p", type=int)
-        parser.add_argument("--zoom", "-z", type=int, nargs="*", )
-        parser.add_argument("--bounds", "-b", type=float, nargs="*")
-        parser.add_argument("--log", action="store_true")
-        parser.add_argument("--overwrite", action="store_true")
-        parser.add_argument("--input_file", type=str)
+            description="Serves a process on localhost",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            usage="mapchete serve <mapchete_file>")
+        parser.add_argument("mapchete_file", type=str,
+            help="Mapchete file")
+        parser.add_argument("--port", "-p", type=int,
+            help="port process is hosted on",
+            metavar="<int>")
+        parser.add_argument("--zoom", "-z", type=int, nargs='*',
+            help="either minimum and maximum zoom level or just one zoom level",
+            metavar="<int>")
+        parser.add_argument("--bounds", "-b", type=float, nargs=4,
+            help="left, bottom, right, top bounds in tile pyramid CRS",
+            metavar="<float>")
+        parser.add_argument("--overwrite", "-o", action="store_true",
+            help="overwrite if tile(s) already exist(s)")
+        parser.add_argument("--input_file", "-i", type=str,
+            help="specify an input file via command line (in Mapchete file, \
+set 'input_file' parameter to 'from_command_line')",
+            metavar="<path>")
         args = parser.parse_args(sys.argv[2:])
         serve(args)
 
     def execute(self):
         parser = argparse.ArgumentParser(
-            description="Executes a process")
-        parser.add_argument("mapchete_file", type=str)
-        parser.add_argument("--zoom", "-z", type=int, nargs='*', )
-        parser.add_argument("--bounds", "-b", type=float, nargs='*')
-        parser.add_argument("--tile", "-t", type=int, nargs=3, )
-        parser.add_argument("--failed_from_log", type=str)
-        parser.add_argument("--failed_since", type=str)
-        parser.add_argument("--log", action="store_true")
-        parser.add_argument("--overwrite", action="store_true")
-        parser.add_argument("--multi", "-m", type=int)
-        parser.add_argument("--create_vrt", action="store_true")
-        parser.add_argument("--input_file", type=str)
+            description="Executes a process",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            usage="mapchete execute <mapchete_file>")
+        parser.add_argument("mapchete_file", type=str,
+            help="Mapchete file"
+            )
+        parser.add_argument("--zoom", "-z", type=int, nargs='*',
+            help="either minimum and maximum zoom level or just one zoom level",
+            metavar="<int>")
+        parser.add_argument("--bounds", "-b", type=float, nargs=4,
+            help="left, bottom, right, top bounds in tile pyramid CRS",
+            metavar="<float>")
+        parser.add_argument("--tile", "-t", type=int, nargs=3,
+            help="zoom, row, column of single tile",
+            metavar="<int>")
+        parser.add_argument("--failed_from_log", type=str,
+            help="process failed tiles from log file",
+            metavar="<path>")
+        parser.add_argument("--failed_since", type=str,
+            help="furthermore filter failed tiles by time (e.g. 2016-09-20)",
+            metavar="<date>")
+        parser.add_argument("--overwrite", "-o", action="store_true",
+            help="overwrite if tile(s) already exist(s)")
+        parser.add_argument("--multi", "-m", type=int,
+            help="number of concurrent processes",
+            metavar="<int>")
+        parser.add_argument("--create_vrt", action="store_true",
+            help="if raster output, this option creates a VRT for each zoom \
+                level")
+        parser.add_argument("--input_file", "-i", type=str,
+            help="specify an input file via command line (in apchete file, \
+                set 'input_file' parameter to 'from_command_line')",
+            metavar="<path>")
         args = parser.parse_args(sys.argv[2:])
         execute(args)
 
     def pyramid(self):
         parser = argparse.ArgumentParser(
-            description="Creates a tile pyramid from an input raster dataset")
+            description="Creates a tile pyramid from an input raster dataset",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            usage="mapchete pyramid <raster_file>")
+        parser.add_argument("input_raster", type=str, help="input raster file")
         parser.add_argument(
-            "input_raster",
-            type=str,
-            help="input raster file"
-        )
+            "output_dir", type=str,
+            help="output directory where tiles are stored")
         parser.add_argument(
-            "output_dir",
-            type=str,
-            help="output directory where tiles are stored"
-        )
-        parser.add_argument(
-            "--pyramid_type",
-            type=str,
-            default="mercator",
+            "--pyramid_type", "-pt", type=str, default="mercator",
             choices=["geodetic", "mercator"],
-            help="pyramid schema to be used"
-        )
-        parser.add_argument(
-            "--output_format",
-            type=str,
-            default="GTiff",
-            choices=["GTiff", "PNG"],
-            help="output data type"
-        )
-        parser.add_argument(
-            "--resampling_method",
-            type=str,
-            default="nearest",
-            choices=[
-                "nearest",
-                "bilinear",
-                "cubic",
-                "cubic_spline",
-                "lanczos",
-                "average",
-                "mode"
-            ]
-        )
-        parser.add_argument(
-            "--scale_method",
-            type=str,
-            default="minmax_scale",
-            choices=["dtype_scale", "minmax_scale", "crop"],
-            help="scale method if input bands have more than 8 bit"
-        )
-        parser.add_argument(
-            "--zoom",
-            "-z",
-            type=int,
-            nargs='*'
-        )
-        parser.add_argument(
-            "--bounds",
-            "-b",
-            type=float,
-            nargs='*',
-            help='left bottom right top in pyramid CRS (i.e. either EPSG:4326 \
-            for geodetic or EPSG:3857 for mercator)'
-        )
-        parser.add_argument("--log", action="store_true")
-        parser.add_argument("--overwrite", action="store_true")
+            help="pyramid schema to be used")
+        parser.add_argument("--output_format", "-of", type=str, default="GTiff",
+            choices=["GTiff", "PNG"], help="output data format (GTiff or PNG)",
+            metavar="<str>")
+        parser.add_argument("--resampling_method", "-r", type=str,
+            default="nearest", choices=["nearest", "bilinear", "cubic",
+                "cubic_spline", "lanczos", "average", "mode"],
+                help="resampling method to be used (nearest, bilinear, cubic, \
+                    cubic_spline, lanczos, average or mode)",
+            metavar="<str>")
+        parser.add_argument("--scale_method", "-s", type=str,
+            default="minmax_scale", choices=["dtype_scale", "minmax_scale",
+                "crop"],
+            help="scale method if input bands have more than 8 bit \
+                (dtype_scale, minmax_scale or crop)",
+            metavar="<str>")
+        parser.add_argument("--zoom", "-z", type=int, nargs='*',
+            help="either minimum and maximum zoom level or just one zoom level",
+            metavar="<int>")
+        parser.add_argument("--overwrite", "-o", action="store_true",
+            help="overwrite if tile(s) already exist(s)")
         args = parser.parse_args(sys.argv[2:])
         pyramid(args)
 

@@ -44,7 +44,7 @@ def create_empty_process(args):
     - args.mapchete_file: name of the mapchete process configuration file
     - args.out_format: optional output format
     - args.out_path: optional output path
-    - args.out_type: optional output type
+    - args.pyramid_type: optional output type
     - args.force: if True, it will replace already existing files
     """
     if (os.path.isfile(args.process_file) or \
@@ -69,7 +69,7 @@ def create_empty_process(args):
     output_options = {
         'format': args.out_format,
         'path': out_path,
-        'type': args.out_type
+        'type': args.pyramid_type
         }
     output_options.update(FORMAT_MANDATORY[args.out_format])
 
