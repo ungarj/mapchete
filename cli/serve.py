@@ -4,6 +4,7 @@ Command line utility to serve a Mapchete process.
 """
 
 import sys
+import os
 import argparse
 from flask import Flask, send_file, make_response, render_template_string
 import threading
@@ -25,15 +26,24 @@ def main(args=None):
 
     if args is None:
         args = sys.argv[1:]
+        parser = argparse.ArgumentParser()
+        parser.add_argument("mapchete_file", type=str)
+        parser.add_argument("--port", "-p", type=int, default=5000)
+        parser.add_argument("--zoom", "-z", type=int, nargs='*', )
+        parser.add_argument("--bounds", "-b", type=float, nargs='*')
+        parser.add_argument("--log", action="store_true")
+        parser.add_argument("--overwrite", action="store_true")
+        parser.add_argument("--input_file", type=str)
+        parsed = parser.parse_args(args)
+    elif isinstance(args, argparse.Namespace):
+        parsed = args
+    else:
+        raise RuntimeError("invalid arguments for mapchete serve")
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("mapchete_file", type=str)
-    parser.add_argument("--port", "-p", type=int, default=5000)
-    parser.add_argument("--zoom", "-z", type=int, nargs='*', )
-    parser.add_argument("--bounds", "-b", type=float, nargs='*')
-    parser.add_argument("--log", action="store_true")
-    parser.add_argument("--overwrite", action="store_true")
-    parsed = parser.parse_args(args)
+    try:
+        assert os.path.splitext(parsed.mapchete_file)[1] == ".mapchete"
+    except:
+        raise IOError("must be a valid mapchete file")
 
     try:
         LOGGER.info("preparing process ...")
@@ -41,7 +51,8 @@ def main(args=None):
             MapcheteConfig(
                 parsed.mapchete_file,
                 zoom=parsed.zoom,
-                bounds=parsed.bounds
+                bounds=parsed.bounds,
+                single_input_file=parsed.input_file
             )
         )
     except:

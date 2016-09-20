@@ -1,14 +1,11 @@
 # mandatory parameters
 ######################
 process_file: $process_file
-input_files:
+input_files: file_from_cli
     # raster_file: path/to/raster
     # vector_file: path/to/vector
 
-output:
-    format: $out_format
-    path: $out_path
-    type: $out_type
+$output
 
 # optional parameters
 #####################

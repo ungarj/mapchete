@@ -18,13 +18,15 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'mapchete_execute = cli.mapchete_execute:main',
-            'mapchete_serve = cli.mapchete_serve:main',
-            'raster2pyramid = cli.raster2pyramid:main'
+            'mapchete_execute = cli.execute:main',
+            'mapchete_serve = cli.serve:main',
+            'raster2pyramid = cli.pyramid:main',
+            'mapchete = cli.main:main'
         ],
     },
     package_dir={'static': 'static'},
-    package_data={'static':['index.html']},
+    package_data={'static':['index.html', 'process_template.py',
+        'mapchete_template.mapchete']},
     install_requires=[
         'tilematrix',
         'fiona',
