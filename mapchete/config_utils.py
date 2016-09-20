@@ -71,6 +71,9 @@ class MapcheteConfig(object):
             raise AttributeError(
                 "Configuration has to be a dictionary or a .mapchete file."
                 )
+
+        if self.raw == None:
+            raise IOError("mapchete file is empty")
         # get input_files
         if single_input_file:
             self.raw.update(

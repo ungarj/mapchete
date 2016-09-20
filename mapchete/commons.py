@@ -127,6 +127,7 @@ def hillshade(
            * np.cos((azimuth - 90.0) * deg2rad - aspect)
 
     shaded = (shaded - 1.0) * -128.0
+    shaded = -(shaded-255)
     shaded = np.clip(shaded, 0, 255)
 
     return np.where(

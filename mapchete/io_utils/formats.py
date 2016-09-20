@@ -54,15 +54,15 @@ FORMATS = {
         "driver": "postgis",
         "profile": None
     },
-    "GeoPackage": {
-        "data_type": None,
-        "extension": ".gpkg",
-        "driver": "gpkg",
-        "profile": {
-            "compress": "lz4",
-            "nodata": None
-        }
-    },
+    # "GeoPackage": {
+    #     "data_type": None,
+    #     "extension": ".gpkg",
+    #     "driver": "gpkg",
+    #     "profile": {
+    #         "compress": "lz4",
+    #         "nodata": None
+    #     }
+    # },
     "NumPy": {
         "data_type": "raster",
         "extension": ".numpy",
@@ -74,6 +74,8 @@ FORMATS = {
         }
     }
 }
+
+TILING_TYPES = ["geodetic", "mercator"]
 
 class MapcheteOutputFormat(object):
     """
@@ -168,7 +170,7 @@ class MapcheteOutputFormat(object):
             raise ValueError("no valid output format description given")
 
         try:
-            assert p["type"] in ["geodetic", "mercator"]
+            assert p["type"] in TILING_TYPES
         except:
             raise ValueError("tiling schema missing ('geodetic' or 'mercator')")
 

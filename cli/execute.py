@@ -27,21 +27,24 @@ def main(args=None):
 
     if args is None:
         args = sys.argv[1:]
+        parser = argparse.ArgumentParser()
+        parser.add_argument("mapchete_file", type=str)
+        parser.add_argument("--zoom", "-z", type=int, nargs='*', )
+        parser.add_argument("--bounds", "-b", type=float, nargs='*')
+        parser.add_argument("--tile", "-t", type=int, nargs=3, )
+        parser.add_argument("--failed_from_log", type=str)
+        parser.add_argument("--failed_since", type=str)
+        parser.add_argument("--log", action="store_true")
+        parser.add_argument("--overwrite", action="store_true")
+        parser.add_argument("--multi", "-m", type=int)
+        parser.add_argument("--create_vrt", action="store_true")
+        parser.add_argument("--input_file", type=str)
+        parsed = parser.parse_args(args)
+    elif isinstance(args, argparse.Namespace):
+        parsed = args
+    else:
+        raise RuntimeError("invalid arguments for mapchete execute")
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("mapchete_file", type=str)
-    parser.add_argument("--zoom", "-z", type=int, nargs='*', )
-    parser.add_argument("--bounds", "-b", type=float, nargs='*')
-    parser.add_argument("--tile", "-t", type=int, nargs=3, )
-    parser.add_argument("--failed_from_log", type=str)
-    parser.add_argument("--failed_since", type=str)
-    parser.add_argument("--log", action="store_true")
-    parser.add_argument("--overwrite", action="store_true")
-    parser.add_argument("--multi", "-m", type=int)
-    parser.add_argument("--create_vrt", action="store_true")
-    parser.add_argument("--input_file", type=str)
-
-    parsed = parser.parse_args(args)
     input_file = parsed.input_file
     if input_file and not os.path.isfile(input_file):
         raise IOError("input_file not found")

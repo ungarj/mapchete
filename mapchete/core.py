@@ -646,7 +646,12 @@ class MapcheteProcess():
         """
         Returns either a fiona vector dictionary, a RasterFileTile or a
         MapcheteTile object.
+        - input_file: can either be a file name defined in either the
+            input_files parameter of the mapchete file or a file path.
         """
+        if input_file in self.params["input_files"]:
+            input_file = self.params["input_files"][input_file]
+
         if pixelbuffer:
             warnings.warn(
                 "pixelbuffer keyword in self.open() will be removed"

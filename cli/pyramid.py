@@ -38,70 +38,73 @@ def main(args=None):
 
     if args is None:
         args = sys.argv[1:]
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "input_raster",
-        type=str,
-        help="input raster file"
-    )
-    parser.add_argument(
-        "output_dir",
-        type=str,
-        help="output directory where tiles are stored"
-    )
-    parser.add_argument(
-        "--pyramid_type",
-        type=str,
-        default="mercator",
-        choices=["geodetic", "mercator"],
-        help="pyramid schema to be used"
-    )
-    parser.add_argument(
-        "--output_format",
-        type=str,
-        default="GTiff",
-        choices=["GTiff", "PNG"],
-        help="output data type"
-    )
-    parser.add_argument(
-        "--resampling_method",
-        type=str,
-        default="nearest",
-        choices=[
-            "nearest",
-            "bilinear",
-            "cubic",
-            "cubic_spline",
-            "lanczos",
-            "average",
-            "mode"
-        ]
-    )
-    parser.add_argument(
-        "--scale_method",
-        type=str,
-        default="minmax_scale",
-        choices=["dtype_scale", "minmax_scale", "crop"],
-        help="scale method if input bands have more than 8 bit"
-    )
-    parser.add_argument(
-        "--zoom",
-        "-z",
-        type=int,
-        nargs='*'
-    )
-    parser.add_argument(
-        "--bounds",
-        "-b",
-        type=float,
-        nargs='*',
-        help='left bottom right top in pyramid CRS (i.e. either EPSG:4326 for \
-        geodetic or EPSG:3857 for mercator)'
-    )
-    parser.add_argument("--log", action="store_true")
-    parser.add_argument("--overwrite", action="store_true")
-    parsed = parser.parse_args(args)
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            "input_raster",
+            type=str,
+            help="input raster file"
+        )
+        parser.add_argument(
+            "output_dir",
+            type=str,
+            help="output directory where tiles are stored"
+        )
+        parser.add_argument(
+            "--pyramid_type",
+            type=str,
+            default="mercator",
+            choices=["geodetic", "mercator"],
+            help="pyramid schema to be used"
+        )
+        parser.add_argument(
+            "--output_format",
+            type=str,
+            default="GTiff",
+            choices=["GTiff", "PNG"],
+            help="output data type"
+        )
+        parser.add_argument(
+            "--resampling_method",
+            type=str,
+            default="nearest",
+            choices=[
+                "nearest",
+                "bilinear",
+                "cubic",
+                "cubic_spline",
+                "lanczos",
+                "average",
+                "mode"
+            ]
+        )
+        parser.add_argument(
+            "--scale_method",
+            type=str,
+            default="minmax_scale",
+            choices=["dtype_scale", "minmax_scale", "crop"],
+            help="scale method if input bands have more than 8 bit"
+        )
+        parser.add_argument(
+            "--zoom",
+            "-z",
+            type=int,
+            nargs='*'
+        )
+        parser.add_argument(
+            "--bounds",
+            "-b",
+            type=float,
+            nargs='*',
+            help='left bottom right top in pyramid CRS (i.e. either EPSG:4326 \
+            for geodetic or EPSG:3857 for mercator)'
+        )
+        parser.add_argument("--log", action="store_true")
+        parser.add_argument("--overwrite", action="store_true")
+        parsed = parser.parse_args(args)
+    elif isinstance(args, argparse.Namespace):
+        parsed = args
+    else:
+        raise RuntimeError("invalid arguments for mapchete pyramid")
 
     options = {}
     options.update(
