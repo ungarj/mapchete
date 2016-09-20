@@ -28,3 +28,9 @@
 * fixed tile --> metatile calculations
 * fixed vector file read over antimeridian
 * rewrote reproject_geometry() function
+
+# 0.3
+* added new overall ``mapchete`` command line tool, which will replace ``mapchete_execute``, ``mapchete_serve`` and ``raster2pyramid``
+* added ``mapchete create`` subcommand, which creates a dummy process (.mapchete & .py files)
+* if using an input file from command line, the configuration input_file parameter must now be set to 'from_command_line' instead of 'cli'
+* input files can now be opened directly using their identifier instead of self.params["input_files"]["identifier"]
