@@ -24,7 +24,7 @@ from geoalchemy2 import Geometry
 import warnings
 
 from tilematrix import TilePyramid, MetaTilePyramid, Tile
-from mapchete.io_utils import (RasterFileTile, RasterProcessTile,
+from mapchete.io_utils import (RasterFileTile, RasterProcessTile, Sentinel2Tile,
     VectorFileTile, VectorProcessTile, NumpyTile, read_raster_window,
     write_raster, write_vector)
 from mapchete.commons import hillshade, extract_contours, clip_array_with_vector
@@ -38,7 +38,7 @@ SQL_DATATYPES = {
 
 class Mapchete(object):
     """
-    Class handling MapcheteProcesses and MapcheteConfigs. Main acces point to
+    Class handling MapcheteProcesses and MapcheteConfigs. Main access point to
     get, retrieve MapcheteTiles or seed entire pyramids.
     """
     def __repr__(self):
@@ -668,6 +668,13 @@ class MapcheteProcess():
                     input_file,
                     self.tile,
                     pixelbuffer=pixelbuffer
+                )
+            elif extension == "SAFE":
+                return Sentinel2Tile(
+                    input_file,
+                    self.tile,
+                    pixelbuffer=pixelbuffer,
+                    resampling=resampling
                 )
             else:
                 # if zoom < baselevel, iterate per zoom level until baselevel

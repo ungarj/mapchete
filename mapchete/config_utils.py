@@ -425,11 +425,12 @@ def _prepared_file(mapchete_config, input_file):
         else:
             abs_path = os.path.join(mapchete_config.config_dir, input_file)
             try:
-                assert os.path.isfile(abs_path)
+                # Sentinel-2 datasets can be in directories as well
+                assert os.path.isfile(abs_path) or os.path.isdir(abs_path)
             except AssertionError:
                 raise IOError("no such file", abs_path)
-
-            if os.path.splitext(abs_path)[1] == ".mapchete":
+            extension = os.path.splitext(abs_path)[1]
+            if extension == ".mapchete":
                 mapchete_file = Mapchete(MapcheteConfig(abs_path))
                 prepared = {
                     "file": mapchete_file,

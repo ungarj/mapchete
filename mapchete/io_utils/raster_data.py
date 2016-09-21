@@ -7,6 +7,8 @@ import os
 from numpy.ma import masked_array, zeros
 from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds
+import s2reader
+from s2reader.s2reader import BAND_IDS
 
 from mapchete.io_utils.io_funcs import (
     RESAMPLING_METHODS,
@@ -234,6 +236,135 @@ class RasterFileTile(object):
                 break
         return all_bands_empty
 
+class Sentinel2Tile(object):
+    """
+    Class representing a reprojected and resampled version of an Sentinel-2 file
+    to a given tile pyramid tile. Properties and functions are inspired by
+    rasterio's way of handling datasets.
+    """
+
+    def __init__(
+        self,
+        input_file,
+        tile,
+        pixelbuffer=0,
+        resampling="nearest"
+        ):
+        try:
+            assert os.path.isdir(input_file)
+        except:
+            raise IOError("input file does not exist: %s" % input_file)
+
+        try:
+            assert pixelbuffer >= 0
+        except:
+            raise ValueError("pixelbuffer must be 0 or greater")
+
+        try:
+            assert isinstance(pixelbuffer, int)
+        except:
+            raise ValueError("pixelbuffer must be an integer")
+
+        try:
+            assert resampling in RESAMPLING_METHODS
+        except:
+            raise ValueError("resampling method %s not found." % resampling)
+
+        try:
+            self.process = tile.process
+        except:
+            self.process = None
+        self.tile_pyramid = tile.tile_pyramid
+        self.tile = tile
+        self.input_file = input_file
+        self.pixelbuffer = pixelbuffer
+        self.resampling = resampling
+        self.profile = _read_metadata(self, "Sentinel2Tile")
+        self.affine = self.profile["affine"]
+        self.nodata = self.profile["nodata"]
+        self.indexes = self.profile["count"]
+        self.dtype = self.profile["dtype"]
+        self.crs = self.tile_pyramid.crs
+        self.shape = (self.profile["height"], self.profile["width"])
+        self._np_band_cache = {}
+        self.band_to_id = dict(zip(range(1, 14), BAND_IDS))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, t, value, tb):
+        self._np_band_cache = {}
+
+    def read(self, indexes=None):
+        """
+        Generates reprojected numpy arrays from input file bands.
+	    """
+        band_indexes = _get_band_indexes(self, indexes)
+
+        if len(band_indexes) == 1:
+            return self._bands_from_cache(indexes=band_indexes).next()
+        else:
+            return self._bands_from_cache(indexes=band_indexes)
+
+    def is_empty(self, indexes=None):
+        """
+        Returns true if all items are masked.
+        """
+        band_indexes = _get_band_indexes(self, indexes)
+
+        src_bbox = file_bbox(self.input_file, self.tile_pyramid)
+        tile_geom = self.tile.bbox(pixelbuffer=self.pixelbuffer)
+
+        # empty if tile does not intersect with file bounding box
+        if not tile_geom.intersects(src_bbox):
+            return True
+
+        # empty if source band(s) are empty
+        all_bands_empty = True
+        for band in self._bands_from_cache(band_indexes):
+            if not band.mask.all():
+                all_bands_empty = False
+                break
+        return all_bands_empty
+
+    def _bands_from_cache(self, indexes=None):
+        """
+        Caches reprojected source data for multiple usage.
+        """
+        band_indexes = _get_band_indexes(self, indexes)
+        for band_index in band_indexes:
+            if not band_index in self._np_band_cache:
+                with s2reader.open(self.input_file) as s2dataset:
+                    granule_paths = s2dataset.granule_paths(
+                        self.band_to_id[band_index]
+                        )
+                if len(granule_paths) == 0:
+                    band = masked_array(
+                        zeros(self.shape, dtype=self.dtype),
+                        mask=True
+                        )
+                else:
+                    temp_vrt = NamedTemporaryFile()
+                    raster_file = temp_vrt.name
+                    build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
+                        raster_file,
+                        ' '.join(granule_paths)
+                        )
+                    try:
+                        os.system(build_vrt)
+                    except:
+                        raise IOError("build temporary VRT failed")
+                    band = read_raster_window(
+                        raster_file,
+                        self.tile,
+                        indexes=1,
+                        pixelbuffer=self.pixelbuffer,
+                        resampling=self.resampling
+                    ).next()
+                self._np_band_cache[band_index] = band
+            yield self._np_band_cache[band_index]
+
+
 def _bands_from_cache(inp_handler, indexes=None):
     """
     Caches reprojected source data for multiple usage.
@@ -259,10 +390,7 @@ def _bands_from_cache(inp_handler, indexes=None):
             if isinstance(inp_handler, RasterProcessTile) and \
             len(tile_paths) == 0:
                 band = masked_array(
-                    zeros(
-                        inp_handler.shape,
-                        dtype=inp_handler.dtype
-                    ),
+                    zeros(inp_handler.shape, dtype=inp_handler.dtype),
                     mask=True
                     )
             else:

@@ -38,7 +38,8 @@ setup(
         # 'blosc==1.3.2',
         # 'bloscpack==0.10.0',
         'rasterio>=0.36.0',
-        'matplotlib'
+        'matplotlib',
+        's2reader'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
