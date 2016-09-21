@@ -115,8 +115,7 @@
             var overlay_WGS84_wmts_layer = new OpenLayers.Layer.WMTS(options);
             map.addLayer(overlay_WGS84_wmts_layer);
 
-            if(!map.getCenter())
-                map.zoomToMaxExtent();
+            map.zoomToExtent(new OpenLayers.Bounds({{process_bounds}}));
             map.addControl(new OpenLayers.Control.LayerSwitcher());
             map.addControl(new OpenLayers.Control.MousePosition());
             map.addControl(new OpenLayers.Control.Permalink({anchor: true}));

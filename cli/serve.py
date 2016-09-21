@@ -81,7 +81,7 @@ def main(args=None):
         return render_template_string(
             index_html,
             srid=mapchete.tile_pyramid.srid,
-            process_bounds=str(list(process_bounds)),
+            process_bounds=",".join(map(str, process_bounds)),
             is_mercator=(mapchete.tile_pyramid.srid == 3857)
         )
 
