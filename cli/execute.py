@@ -46,7 +46,9 @@ def main(args=None):
         raise RuntimeError("invalid arguments for mapchete execute")
 
     input_file = parsed.input_file
-    if input_file and not os.path.isfile(input_file):
+    if input_file and not (
+        os.path.isfile(input_file) or os.path.isdir(input_file)
+        ):
         raise IOError("input_file not found")
     overwrite = parsed.overwrite
     multi = parsed.multi
@@ -73,7 +75,6 @@ def main(args=None):
         return
     except:
         raise
-
     logging.config.dictConfig(get_log_config(mapchete))
     if parsed.tile:
         tile = mapchete.tile(
