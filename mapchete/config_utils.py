@@ -7,11 +7,15 @@ import yaml
 import os
 from shapely.geometry import box, MultiPolygon
 import warnings
+from collections import namedtuple
 from tilematrix import TilePyramid, MetaTilePyramid
+from s2reader import SentinelDataSet
+from s2reader.s2reader import BAND_IDS
 from mapchete import Mapchete
 from mapchete.io_utils import MapcheteOutputFormat
 from mapchete.io_utils.io_funcs import (reproject_geometry, file_bbox,
     RESAMPLING_METHODS)
+from mapchete.io_utils.raster_data import Sentinel2Metadata, SentinelGranule
 
 _RESERVED_PARAMETERS = [
     "process_file",
@@ -431,14 +435,19 @@ def _prepared_file(mapchete_config, input_file):
                 raise IOError("no such file", abs_path)
             extension = os.path.splitext(abs_path)[1]
             if extension == ".mapchete":
-                mapchete_file = Mapchete(MapcheteConfig(abs_path))
+                mapchete_process = Mapchete(MapcheteConfig(abs_path))
                 prepared = {
-                    "file": mapchete_file,
+                    "file": mapchete_process,
                     "area": reproject_geometry(
-                        mapchete_file.config.process_area(),
-                        mapchete_file.tile_pyramid.crs,
+                        mapchete_process.config.process_area(),
+                        mapchete_process.tile_pyramid.crs,
                         mapchete_config.tile_pyramid.crs
                         )
+                    }
+            elif extension == ".SAFE":
+                prepared = {
+                    "file": _prepare_sentinel2(SentinelDataSet(input_file)),
+                    "area": file_bbox(abs_path, mapchete_config.tile_pyramid)
                     }
             else:
                 prepared = {
@@ -449,3 +458,29 @@ def _prepared_file(mapchete_config, input_file):
         mapchete_config.prepared_input_files[input_file] = prepared
 
     return mapchete_config.prepared_input_files[input_file]
+
+def _prepare_sentinel2(s2dataset):
+    """
+    SentinelDataSet objects cannot be pickled and therefore have to be converted
+    to a named tuple with all important properties before it can be used with
+    multiprocessing.
+    """
+    return Sentinel2Metadata(
+        **dict(
+            path=s2dataset.path,
+            footprint=s2dataset.footprint,
+            granules=[
+                SentinelGranule(
+                    **dict(
+                        srid=granule.srid,
+                        footprint=granule.footprint,
+                        band_path={
+                            index: granule.band_path(_id)
+                            for index, _id in zip(range(1, 14), BAND_IDS)
+                            }
+                    )
+                )
+                for granule in s2dataset.granules
+            ]
+        )
+    )

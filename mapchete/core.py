@@ -22,11 +22,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from geoalchemy2 import Geometry
 import warnings
-
+from s2reader import SentinelDataSet
 from tilematrix import TilePyramid, MetaTilePyramid, Tile
 from mapchete.io_utils import (RasterFileTile, RasterProcessTile, Sentinel2Tile,
     VectorFileTile, VectorProcessTile, NumpyTile, read_raster_window,
     write_raster, write_vector)
+from mapchete.io_utils.raster_data import Sentinel2Metadata
 from mapchete.commons import hillshade, extract_contours, clip_array_with_vector
 
 LOGGER = logging.getLogger("mapchete")
@@ -660,7 +661,6 @@ class MapcheteProcess():
             pixelbuffer = self.pixelbuffer
         if isinstance(input_file, dict):
             raise ValueError("input cannot be dict")
-        # TODO add proper check for input type.
         if isinstance(input_file, str):
             extension = os.path.splitext(input_file)[1][1:]
             if extension in ["shp", "geojson"]:
@@ -668,13 +668,6 @@ class MapcheteProcess():
                     input_file,
                     self.tile,
                     pixelbuffer=pixelbuffer
-                )
-            elif extension == "SAFE":
-                return Sentinel2Tile(
-                    input_file,
-                    self.tile,
-                    pixelbuffer=pixelbuffer,
-                    resampling=resampling
                 )
             else:
                 # if zoom < baselevel, iterate per zoom level until baselevel
@@ -684,6 +677,13 @@ class MapcheteProcess():
                     self.tile,
                     pixelbuffer=pixelbuffer,
                     resampling=resampling
+                )
+        elif isinstance(input_file, Sentinel2Metadata):
+            return Sentinel2Tile(
+                input_file,
+                self.tile,
+                pixelbuffer=pixelbuffer,
+                resampling=resampling
                 )
         else:
             # if input is a Mapchete process

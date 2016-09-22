@@ -4,12 +4,11 @@ Classes handling raster data.
 """
 
 import os
+import numpy as np
 from numpy.ma import masked_array, zeros
 from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds
-import s2reader
-from s2reader.s2reader import BAND_IDS
-
+from collections import namedtuple
 from mapchete.io_utils.io_funcs import (
     RESAMPLING_METHODS,
     file_bbox,
@@ -251,9 +250,9 @@ class Sentinel2Tile(object):
         resampling="nearest"
         ):
         try:
-            assert os.path.isdir(input_file)
-        except:
-            raise IOError("input file does not exist: %s" % input_file)
+            assert isinstance(input_file, Sentinel2Metadata)
+        except AssertionError:
+            raise ValueError("input must be a Sentinel2Metadata object")
 
         try:
             assert pixelbuffer >= 0
@@ -287,7 +286,7 @@ class Sentinel2Tile(object):
         self.crs = self.tile_pyramid.crs
         self.shape = (self.profile["height"], self.profile["width"])
         self._np_band_cache = {}
-        self.band_to_id = dict(zip(range(1, 14), BAND_IDS))
+        self._band_paths_cache = {}
 
     def __enter__(self):
         return self
@@ -312,7 +311,7 @@ class Sentinel2Tile(object):
         """
         band_indexes = _get_band_indexes(self, indexes)
 
-        src_bbox = file_bbox(self.input_file, self.tile_pyramid)
+        src_bbox = file_bbox(self.input_file.path, self.tile_pyramid)
         tile_geom = self.tile.bbox(pixelbuffer=self.pixelbuffer)
 
         # empty if tile does not intersect with file bounding box
@@ -327,6 +326,22 @@ class Sentinel2Tile(object):
                 break
         return all_bands_empty
 
+    def _get_band_paths(self, band_index=None):
+        """Caches Sentinel Granule paths."""
+        assert isinstance(band_index, int)
+        if not band_index in self._band_paths_cache:
+            # group granule band paths by SRID as gdalbuildvrt cannot
+            # handle multiple images with different SRID:
+            band_paths = {}
+            for granule in self.input_file.granules:
+                if granule.srid not in band_paths:
+                    band_paths[granule.srid] = []
+                band_paths[granule.srid].append(
+                granule.band_path[band_index]
+                    )
+            self._band_paths_cache[band_index] = band_paths
+        return self._band_paths_cache[band_index]
+
     def _bands_from_cache(self, indexes=None):
         """
         Caches reprojected source data for multiple usage.
@@ -334,36 +349,48 @@ class Sentinel2Tile(object):
         band_indexes = _get_band_indexes(self, indexes)
         for band_index in band_indexes:
             if not band_index in self._np_band_cache:
-                with s2reader.open(self.input_file) as s2dataset:
-                    granule_paths = s2dataset.granule_paths(
-                        self.band_to_id[band_index]
-                        )
-                if len(granule_paths) == 0:
+                if len(self._get_band_paths(band_index)) == 0:
                     band = masked_array(
                         zeros(self.shape, dtype=self.dtype),
                         mask=True
                         )
                 else:
-                    temp_vrt = NamedTemporaryFile()
-                    raster_file = temp_vrt.name
-                    build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
-                        raster_file,
-                        ' '.join(granule_paths)
+                    # create VRT for granules sorted by SRID and combine outputs
+                    # to one band:
+                    srid_bands = ()
+                    for paths in self._get_band_paths(band_index).values():
+                        temp_vrt = NamedTemporaryFile()
+                        raster_file = temp_vrt.name
+                        build_vrt = "gdalbuildvrt %s %s > /dev/null" %(
+                            raster_file,
+                            ' '.join(paths)
+                            )
+                        try:
+                            os.system(build_vrt)
+                        except:
+                            raise IOError("build temporary VRT failed")
+                        srid_bands += (read_raster_window(
+                            raster_file,
+                            self.tile,
+                            indexes=1,
+                            pixelbuffer=self.pixelbuffer,
+                            resampling=self.resampling
+                        ).next(), )
+                    band = masked_array(
+                        zeros(self.shape, dtype=self.dtype),
+                        mask=True
                         )
-                    try:
-                        os.system(build_vrt)
-                    except:
-                        raise IOError("build temporary VRT failed")
-                    band = read_raster_window(
-                        raster_file,
-                        self.tile,
-                        indexes=1,
-                        pixelbuffer=self.pixelbuffer,
-                        resampling=self.resampling
-                    ).next()
+                    for srid_band in srid_bands:
+                        band = masked_array(
+                            data=np.where(band.mask, srid_band, band),
+                            mask=np.where(band.mask, srid_band.mask, band.mask)
+                            )
                 self._np_band_cache[band_index] = band
             yield self._np_band_cache[band_index]
 
+# Named tuple types for SentinelDataSet class:
+Sentinel2Metadata = namedtuple("Sentinel2Metadata", "path footprint granules")
+SentinelGranule = namedtuple("SentinelGranule", "srid footprint band_path")
 
 def _bands_from_cache(inp_handler, indexes=None):
     """
