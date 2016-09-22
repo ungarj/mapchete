@@ -14,7 +14,6 @@ from mapchete.io_utils.formats import FORMATS, TILING_TYPES
 
 def main():
     MapcheteCLI()
-    print "files created successfully"
 
 class MapcheteCLI(object):
     """
