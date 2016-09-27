@@ -6,10 +6,10 @@ This is the main entry point from the command line to all mapchete subcommands.
 import sys
 import argparse
 
-from cli.execute import main as execute
-from cli.serve import main as serve
-from cli.pyramid import main as pyramid
-from cli.create import create_empty_process
+from mapchete.cli.execute import main as execute
+from mapchete.cli.serve import main as serve
+from mapchete.cli.pyramid import main as pyramid
+from mapchete.cli.create import create_empty_process
 from mapchete.io_utils.formats import FORMATS, TILING_TYPES
 
 def main():

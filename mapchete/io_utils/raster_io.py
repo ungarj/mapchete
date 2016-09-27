@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-"""
-Raster data read and write functions.
-"""
+"""Raster data read and write functions."""
 
 import os
 import operator
@@ -16,23 +14,27 @@ from tilematrix import clip_geometry_to_srs_bounds
 from .io_funcs import RESAMPLING_METHODS
 from .numpy_io import write_numpy
 
+
 def read_raster_window(
     input_file,
     tile,
     indexes=None,
     pixelbuffer=0,
     resampling="nearest"
-    ):
+):
     """
-    Generates numpy arrays (reprojected and resampled to tile properties) from
-    input raster. If tile boundaries cross the antimeridian, data on the other
-    side of the antimeridian will be read and concatenated to the numpy array
+    Generate NumPy arrays from an input raster.
+
+    NumPy arrays are reprojected and resampled to tile properties from input
+    raster. If tile boundaries cross the antimeridian, data on the other side
+    of the antimeridian will be read and concatenated to the numpy array
     accordingly.
-    input_file: path to a raster file readable by rasterio.
-    tile: a Tile object
-    pixelbuffer: buffer around tile in pixels.
-    indexes: a list of band numbers; None will read all.
-    resampling: one of "nearest", "average", "bilinear" or "lanczos"
+
+    - input_file: path to a raster file readable by rasterio.
+    - tile: a Tile object
+    - pixelbuffer: buffer around tile in pixels.
+    - indexes: a list of band numbers; None will read all.
+    - resampling: one of "nearest", "average", "bilinear" or "lanczos"
     """
     try:
         assert os.path.isfile(input_file)
@@ -106,8 +108,7 @@ def read_raster_window(
 
         # Finally, stitch numpy arrays together into one.
         for band_idx in band_indexes:
-            stitched = ma.concatenate(
-                [
+            stitched = ma.concatenate([
                 _get_warped_array(
                     input_file=input_file,
                     band_idx=band_idx,
@@ -138,6 +139,7 @@ def read_raster_window(
                 resampling=resampling
                 )
 
+
 def _get_warped_array(
     input_file=None,
     band_idx=None,
@@ -145,17 +147,15 @@ def _get_warped_array(
     dst_shape=None,
     dst_affine=None,
     dst_crs=None,
-    resampling="nearest"):
-    """
-    Extracts a numpy array from a raster file.
-    """
+    resampling="nearest"
+):
+    """Extract a numpy array from a raster file."""
     assert isinstance(input_file, str)
     assert isinstance(band_idx, int)
     assert isinstance(dst_bounds, tuple)
     assert isinstance(dst_shape, tuple)
     assert isinstance(dst_affine, Affine)
     assert dst_crs.is_valid
-
     with rasterio.open(input_file, "r") as src:
         if dst_crs == src.crs:
             src_left, src_bottom, src_right, src_top = dst_bounds
@@ -171,8 +171,7 @@ def _get_warped_array(
             raise RuntimeError(
                 "Tile boundaries could not be translated into source SRS."
                 )
-
-        # read data window
+        # Read data window.
         window = src.window(
             src_left,
             src_bottom,
@@ -186,8 +185,7 @@ def _get_warped_array(
             masked=True,
             boundless=True
             )
-
-        # prepare reprojected array
+        # Prepare reprojected array.
         nodataval = src.nodata
         # Quick fix because None nodata is not allowed.
         if not nodataval:
@@ -197,8 +195,7 @@ def _get_warped_array(
                 src.dtypes[band_idx-1]
             )
         dst_band[:] = nodataval
-
-        # reproject
+        # Run rasterio's reproject().
         reproject(
             src_band,
             dst_band,
@@ -212,29 +209,27 @@ def _get_warped_array(
         )
         return ma.MaskedArray(
             dst_band,
-            mask=dst_band==nodataval
+            mask=dst_band == nodataval
             )
+
 
 def write_raster(
     process,
     metadata,
     bands,
     pixelbuffer=0
-    ):
-    """
-    Function to write arrays to either a NumPy dump or a raster file.
-    """
-
-    # NumPy output format requires an array, not a tuple
+):
+    """Write arrays to either a NumPy dump or a raster file."""
+    # NumPy output format requires an array, not a tuple.
     if process.output.format == "NumPy":
-        # make sure it's an (masked) array
+        # Make sure it's an (masked) array.
         try:
             assert isinstance(bands, (np.ndarray, ma.MaskedArray))
         except AssertionError:
             raise TypeError(
                 "for NumPy output, bands must be provided as arrays"
                 )
-        # write
+        # Write NumPy.
         try:
             process.tile.prepare_paths()
             write_numpy(
@@ -245,11 +240,10 @@ def write_raster(
             )
         except:
             raise
-
-    # all other raster outputformats can be fed with a tuple of 2D arrays or a
-    # single 2D array
+    # All other raster output formats can be fed with a tuple of 2D arrays or a
+    # single 2D array.
     else:
-        # make sure it's a tuple or an array
+        # Make sure it's a tuple or an array.
         if isinstance(bands, (np.ndarray, ma.MaskedArray)):
             bands = (bands, )
         elif isinstance(bands, tuple):
@@ -258,21 +252,22 @@ def write_raster(
             raise TypeError(
                 "output bands must be stored in a tuple or a numpy array."
             )
-        # make sure bands are 2D arrays
+        # Make sure bands are 2D arrays.
         for band in bands:
             try:
                 assert isinstance(band, (np.ndarray, ma.MaskedArray))
             except AssertionError:
                 raise TypeError(
-                "output bands must be numpy ndarrays or masked arrays, not %s"
+                    "output bands must be numpy ndarrays or masked arrays, not"
+                    " %s"
                 )
             try:
                 assert band.ndim == 2
             except AssertionError:
                 raise TypeError(
-                "output band dimensionality must be 2D"
+                    "output band dimensionality must be 2D"
                 )
-        # write raster
+        # Write raster.
         try:
             process.tile.prepare_paths()
             write_raster_window(
@@ -284,41 +279,35 @@ def write_raster(
         except:
             raise
 
+
 def write_raster_window(
     output_file,
     tile,
     bands,
-    pixelbuffer=0):
-    """
-    Writes numpy array into a TilePyramid tile.
-    """
+    pixelbuffer=0
+):
+    """Write NumPy array into a TilePyramid tile."""
     try:
         assert pixelbuffer >= 0
     except:
         raise ValueError("pixelbuffer must be 0 or greater")
-
     try:
         assert isinstance(pixelbuffer, int)
     except:
         raise ValueError("pixelbuffer must be an integer")
-
-    # spatial clip bands
+    # Spatial clip bands.
     clipped_bands = _spatial_clip_bands(bands, tile, pixelbuffer=pixelbuffer)
     for band in clipped_bands:
         assert band.shape == tile.shape(pixelbuffer)
-
-    # adjust band numbers
+    # Adjust band numbers.
     dst_bands = _adjust_band_numbers(
-        clipped_bands,
-        tile.output.format,
-        tile.output.bands,
+        clipped_bands, tile.output.format, tile.output.bands,
         nodataval=tile.output.nodataval
         )
-
+    # Get output metadata.
     dst_metadata = _get_metadata(tile, dst_bands, pixelbuffer=pixelbuffer)
-
+    # Check band count and write with rasterio.
     assert len(dst_bands) == dst_metadata["count"]
-
     with rasterio.open(output_file, 'w', **dst_metadata) as dst:
         for band, data in enumerate(dst_bands):
             data = np.ma.filled(data, dst_metadata["nodata"])
@@ -327,11 +316,10 @@ def write_raster_window(
                 (band+1)
             )
 
+
 def _get_metadata(tile, dst_bands, pixelbuffer=0):
-    """
-    Returns tile metadata dictionary modified for rasterio write.
-    """
-    # copy and modify metadata
+    """Return tile metadata dictionary modified for rasterio write."""
+    # Copy and modify metadata.
     dst_width, dst_height = tile.shape(pixelbuffer)
     dst_metadata = deepcopy(tile.output.profile)
     dst_metadata.pop("transform", None)
@@ -342,7 +330,6 @@ def _get_metadata(tile, dst_bands, pixelbuffer=0):
         affine=tile.affine(pixelbuffer),
         driver=tile.output.format
     )
-
     if tile.output.format in ("PNG", "PNG_hillshade"):
         dst_metadata.update(
             dtype='uint8',
@@ -351,11 +338,10 @@ def _get_metadata(tile, dst_bands, pixelbuffer=0):
         )
     return dst_metadata
 
+
 def _spatial_clip_bands(bands, tile, pixelbuffer):
-    """
-    Returns clipped bands so that bands match desired tile output shape.
-    """
-    # guess target window in source array pixel coordinates
+    """Return clipped bands so that bands match desired tile output shape."""
+    # Guess target window in source array pixel coordinates.
     left, bottom, right, top = tile.bounds(pixelbuffer)
     touches_left = left <= tile.tile_pyramid.left
     touches_bottom = bottom <= tile.tile_pyramid.bottom
@@ -390,15 +376,16 @@ def _spatial_clip_bands(bands, tile, pixelbuffer):
         for band in bands
         ]
 
+
 def _adjust_band_numbers(bands, output_format, bandcount, nodataval=None):
     """
-    Adjusts band numbers according to the output format.
+    Adjust band numbers according to the output format.
+
     - PNG_hillshade: takes exactly one input band and writes it into an alpha
         band while having otherwise black bands
     - PNG: Asserts, bands values are 8 bit
     """
     dst_bands = ()
-
     if output_format == "PNG_hillshade":
         try:
             assert len(bands) == 1
@@ -410,12 +397,11 @@ def _adjust_band_numbers(bands, output_format, bandcount, nodataval=None):
         for band in range(1, 4):
             dst_bands += (zeros, )
         dst_bands += (_value_clip_band(bands[0], minval=0, maxval=255), )
-
     elif output_format == "PNG":
         for band in bands:
             dst_bands += (_value_clip_band(band, minval=0, maxval=255), )
         if nodataval:
-            # just add alpha band if there is probably no alpha band yet
+            # Just add alpha band if there is probably no alpha band yet.
             if len(bands) not in [2, 4]:
                 nodata_alpha = np.where(
                     bands[0].mask,
@@ -424,19 +410,13 @@ def _adjust_band_numbers(bands, output_format, bandcount, nodataval=None):
                     )
                 dst_bands += (nodata_alpha, )
             bandcount += 1
-
         assert len(dst_bands) <= 4
-
     else:
         dst_bands = bands
-
     assert len(dst_bands) == bandcount
-
     return dst_bands
 
 
 def _value_clip_band(band, minval=0, maxval=255):
-    """
-    Returns a value clipped version of band.
-    """
+    """Return a value clipped version of band."""
     return np.clip(band, minval, maxval)

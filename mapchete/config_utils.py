@@ -34,12 +34,16 @@ _MANDATORY_PARAMETERS = [
     "output"
 ]
 
+
 class MapcheteConfig(object):
     """
-    Creates a configuration object. As model parameters can change per zoom
+    Process configuration object.
+
+    As model parameters can change per zoom
     level, the method at_zoom(zoom) returns only the parameters at a given
     zoom level.
     """
+
     def __init__(
         self,
         input_config,
@@ -48,7 +52,8 @@ class MapcheteConfig(object):
         overwrite=False,
         input_file=None,
         single_input_file=None
-        ):
+    ):
+        """Initialize configuration."""
         # Remove in further versions.
         if input_file:
             warnings.warn("MapcheteConfig: input_file parameter deprecated")
@@ -76,14 +81,14 @@ class MapcheteConfig(object):
                 "Configuration has to be a dictionary or a .mapchete file."
                 )
 
-        if self.raw == None:
+        if self.raw is None:
             raise IOError("mapchete file is empty")
         # get input_files
         if single_input_file:
             self.raw.update(
                 input_files={"input_file": single_input_file}
             )
-        elif not "input_files" in self.raw:
+        elif "input_files" not in self.raw:
             raise IOError("no input file(s) specified")
         # mandatory parameters
         _validate_mandatory_params(self.raw)
@@ -105,23 +110,17 @@ class MapcheteConfig(object):
 
     @property
     def process_file(self):
-        """
-        Absolute path of process file.
-        """
+        """Absolute path of process file."""
         return _process_file(self)
 
     @property
     def zoom_levels(self):
-        """
-        Process zoom levels.
-        """
+        """Process zoom levels."""
         return _zoom_levels(self, self._additional_parameters["zoom"])
 
     @property
     def metatiling(self):
-        """
-        Process metatile setting.
-        """
+        """Process metatile setting."""
         try:
             metatiling = self.raw["metatiling"]
         except KeyError:
@@ -134,9 +133,7 @@ class MapcheteConfig(object):
 
     @property
     def baselevel(self):
-        """
-        Baselevel setting if available.
-        """
+        """Baselevel setting if available."""
         try:
             baselevel = self.raw["baselevel"]
         except KeyError:
@@ -159,45 +156,36 @@ class MapcheteConfig(object):
 
     @property
     def output(self):
-        """
-        Process output format.
-        """
+        """Process output format."""
         return MapcheteOutputFormat(self.raw["output"])
 
     def at_zoom(self, zoom):
-        """
-        Returns configuration parameters snapshot for zoom as dictionary.
-        """
-        if not zoom in self._at_zoom_cache:
+        """Return configuration parameters snapshot for zoom as dictionary."""
+        if zoom not in self._at_zoom_cache:
             self._at_zoom_cache[zoom] = _at_zoom(self, zoom)
         return self._at_zoom_cache[zoom]
 
     def process_area(self, zoom=None):
-        """
-        Returns process bounding box for zoom level.
-        """
+        """Return process bounding box for zoom level."""
         if zoom:
-            return _process_area(self, self._additional_parameters["bounds"],
-                zoom)
+            return _process_area(
+                self, self._additional_parameters["bounds"], zoom)
         else:
             if not self._global_process_area:
                 self._global_process_area = MultiPolygon([
-                        _process_area(self,
-                            self._additional_parameters["bounds"], zoom)
-                        for zoom in self.zoom_levels
+                        _process_area(
+                            self, self._additional_parameters["bounds"], z)
+                        for z in self.zoom_levels
                     ]).buffer(0)
             return self._global_process_area
 
     def process_bounds(self, zoom=None):
-        """
-        Returns process bounds for zoom level.
-        """
+        """Return process bounds for zoom level."""
         return self.process_area(zoom).bounds
 
+
 def _validate_mandatory_params(config_dict):
-    """
-    Returns True if all mandatory parameters are available.
-    """
+    """Return True if all mandatory parameters are available."""
     missing = []
     for param in _MANDATORY_PARAMETERS:
         try:
@@ -209,10 +197,9 @@ def _validate_mandatory_params(config_dict):
     except AssertionError:
         raise AttributeError("missing mandatory parameters:", missing)
 
+
 def _process_file(mapchete_config):
-    """
-    Absolute path of process file.
-    """
+    """Absolute path of process file."""
     try:
         mapchete_process_file = mapchete_config.raw["process_file"]
     except:
@@ -224,11 +211,10 @@ def _process_file(mapchete_config):
         raise IOError("%s is not available" % abs_path)
     return abs_path
 
+
 def _zoom_levels(mapchete_config, user_zoom):
-    """
-    Process zoom levels.
-    """
-    # read from raw configuration
+    """Process zoom levels."""
+    # Read from raw configuration.
     try:
         config_zoom = mapchete_config.raw["process_zoom"]
         zoom = [config_zoom]
@@ -268,6 +254,7 @@ def _zoom_levels(mapchete_config, user_zoom):
             "Zoom level parameter requires one or two value(s)."
             )
     return zoom_levels
+
 
 def _process_area(mapchete_config, user_bounds, zoom):
     """
@@ -444,7 +431,7 @@ def _prepared_file(mapchete_config, input_file):
                         mapchete_config.tile_pyramid.crs
                         )
                     }
-            elif extension == ".SAFE":
+            elif extension in [".SAFE", ".zip", ".ZIP"]:
                 prepared = {
                     "file": _prepare_sentinel2(SentinelDataSet(input_file)),
                     "area": file_bbox(abs_path, mapchete_config.tile_pyramid)

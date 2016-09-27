@@ -33,8 +33,11 @@ RESAMPLING_METHODS = {
     "mode": Resampling.mode
     }
 
+
 def clean_geometry_type(geometry, target_type, allow_multipart=True):
     """
+    Return geometry of a specific type if possible.
+
     Returns None if input geometry type differs from target type. Filters and
     splits up GeometryCollection into target types.
     allow_multipart allows multipart geometries (e.g. MultiPolygon for Polygon
@@ -78,13 +81,12 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
 
     return out_geom
 
+
 def file_bbox(
     input_file,
     tile_pyramid
-    ):
-    """
-    Returns the bounding box of a raster or vector file in a given CRS.
-    """
+):
+    """Return the bounding box of a raster or vector file in a given CRS."""
     out_crs = tile_pyramid.crs
     # Read raster data with rasterio, vector data with fiona.
     file_ext = os.path.splitext(input_file)[1][1:]
@@ -98,7 +100,7 @@ def file_bbox(
             inp_crs = CRS(inp.crs)
             bounds = inp.bounds
     else:
-        if file_ext == "SAFE":
+        if file_ext in ["SAFE", "zip", "ZIP"]:
             with s2reader.open(input_file) as s2dataset:
                 bounds = s2dataset.footprint.bounds
                 inp_crs = CRS().from_epsg(4326)
@@ -109,7 +111,8 @@ def file_bbox(
                     assert inp_crs.is_valid
                 except AssertionError:
                     raise IOError("CRS could not be read from %s" % input_file)
-                bounds = (inp.bounds.left, inp.bounds.bottom, inp.bounds.right,
+                bounds = (
+                    inp.bounds.left, inp.bounds.bottom, inp.bounds.right,
                     inp.bounds.top)
 
     out_bbox = bbox = box(*bounds)

@@ -69,7 +69,7 @@ def main(args=None):
         """
         Renders and hosts the appropriate OpenLayers instance.
         """
-        index_html = pkgutil.get_data('static', 'index.html')
+        index_html = pkgutil.get_data('mapchete.static', 'index.html')
         process_bounds = mapchete.config.process_bounds()
         if not process_bounds:
             process_bounds = (
