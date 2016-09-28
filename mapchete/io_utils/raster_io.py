@@ -400,7 +400,7 @@ def _adjust_band_numbers(bands, output_format, bandcount, nodataval=None):
     elif output_format == "PNG":
         for band in bands:
             dst_bands += (_value_clip_band(band, minval=0, maxval=255), )
-        if nodataval:
+        if isinstance(nodataval, (float, int)):
             # Just add alpha band if there is probably no alpha band yet.
             if len(bands) not in [2, 4]:
                 nodata_alpha = np.where(
