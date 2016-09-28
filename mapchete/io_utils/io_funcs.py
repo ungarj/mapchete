@@ -102,8 +102,16 @@ def file_bbox(
     else:
         if file_ext in ["SAFE", "zip", "ZIP"]:
             with s2reader.open(input_file) as s2dataset:
-                bounds = s2dataset.footprint.bounds
                 inp_crs = CRS().from_epsg(4326)
+                if inp_crs != out_crs:
+                    bounds = reproject_geometry(
+                        s2dataset.footprint,
+                        src_crs=inp_crs,
+                        dst_crs=out_crs
+                        ).bounds
+                    inp_crs = out_crs
+                else:
+                    bounds = s2dataset.footprint.bounds
         else:
             with rasterio.open(input_file) as inp:
                 inp_crs = inp.crs
