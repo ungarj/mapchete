@@ -13,20 +13,20 @@ setup(
     packages=[
         'mapchete',
         'mapchete.io_utils',
-        'static',
-        'cli'
+        'mapchete.static',
+        'mapchete.cli'
     ],
     entry_points={
         'console_scripts': [
-            'mapchete_execute = cli.execute:main',
-            'mapchete_serve = cli.serve:main',
-            'raster2pyramid = cli.pyramid:main',
-            'mapchete = cli.main:main'
+            'mapchete_execute = mapchete.cli.execute:main',
+            'mapchete_serve = mapchete.cli.serve:main',
+            'raster2pyramid = mapchete.cli.pyramid:main',
+            'mapchete = mapchete.cli.main:main'
         ],
     },
     package_dir={'static': 'static'},
-    package_data={'static':['index.html', 'process_template.py',
-        'mapchete_template.mapchete']},
+    package_data={'static': [
+        'index.html', 'process_template.py', 'mapchete_template.mapchete']},
     install_requires=[
         'tilematrix',
         'fiona',
@@ -38,7 +38,8 @@ setup(
         # 'blosc==1.3.2',
         # 'bloscpack==0.10.0',
         'rasterio>=0.36.0',
-        'matplotlib'
+        'matplotlib',
+        's2reader'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

@@ -58,13 +58,13 @@ def create_empty_process(args):
 
     # copy process file template to target directory
     process_template = pkg_resources.resource_filename(
-        "static", "process_template.py")
+        "mapchete.static", "process_template.py")
     process_file = os.path.join(os.getcwd(), args.process_file)
     copyfile(process_template, process_file)
 
     # modify and copy mapchete file template to target directory
     mapchete_template = pkg_resources.resource_filename(
-        "static", "mapchete_template.mapchete")
+        "mapchete.static", "mapchete_template.mapchete")
 
     output_options = {
         'format': args.out_format,

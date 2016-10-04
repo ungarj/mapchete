@@ -17,6 +17,7 @@ import rasterio
 from rasterio.warp import Resampling
 from rasterio.crs import CRS
 from copy import deepcopy
+import s2reader
 
 from tilematrix import TilePyramid
 
@@ -32,8 +33,11 @@ RESAMPLING_METHODS = {
     "mode": Resampling.mode
     }
 
+
 def clean_geometry_type(geometry, target_type, allow_multipart=True):
     """
+    Return geometry of a specific type if possible.
+
     Returns None if input geometry type differs from target type. Filters and
     splits up GeometryCollection into target types.
     allow_multipart allows multipart geometries (e.g. MultiPolygon for Polygon
@@ -77,16 +81,16 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
 
     return out_geom
 
+
 def file_bbox(
     input_file,
     tile_pyramid
-    ):
-    """
-    Returns the bounding box of a raster or vector file in a given CRS.
-    """
+):
+    """Return the bounding box of a raster or vector file in a given CRS."""
     out_crs = tile_pyramid.crs
     # Read raster data with rasterio, vector data with fiona.
-    if os.path.splitext(input_file)[1][1:] in ["shp", "geojson"]:
+    file_ext = os.path.splitext(input_file)[1][1:]
+    if file_ext in ["shp", "geojson"]:
         is_vector_file = True
     else:
         is_vector_file = False
@@ -96,18 +100,28 @@ def file_bbox(
             inp_crs = CRS(inp.crs)
             bounds = inp.bounds
     else:
-        with rasterio.open(input_file) as inp:
-            inp_crs = inp.crs
-            try:
-                assert inp_crs.is_valid
-            except AssertionError:
-                raise IOError("CRS could not be read from %s" % input_file)
-            bounds = (
-                inp.bounds.left,
-                inp.bounds.bottom,
-                inp.bounds.right,
-                inp.bounds.top
-                )
+        if file_ext in ["SAFE", "zip", "ZIP"]:
+            with s2reader.open(input_file) as s2dataset:
+                inp_crs = CRS().from_epsg(4326)
+                if inp_crs != out_crs:
+                    bounds = reproject_geometry(
+                        s2dataset.footprint,
+                        src_crs=inp_crs,
+                        dst_crs=out_crs
+                        ).bounds
+                    inp_crs = out_crs
+                else:
+                    bounds = s2dataset.footprint.bounds
+        else:
+            with rasterio.open(input_file) as inp:
+                inp_crs = inp.crs
+                try:
+                    assert inp_crs.is_valid
+                except AssertionError:
+                    raise IOError("CRS could not be read from %s" % input_file)
+                bounds = (
+                    inp.bounds.left, inp.bounds.bottom, inp.bounds.right,
+                    inp.bounds.top)
 
     out_bbox = bbox = box(*bounds)
     # If soucre and target CRSes differ, segmentize and reproject
@@ -280,6 +294,14 @@ def _read_metadata(self, tile_type=None):
     elif tile_type == "RasterFileTile":
         with rasterio.open(self.input_file, "r") as src:
             out_meta = deepcopy(src.meta)
+    elif tile_type == "Sentinel2Tile":
+        # set default values for Sentinel-2 files
+        out_meta = {}
+        out_meta.update(
+            nodata=0,
+            count=13,
+            dtype="uint16"
+            )
     else:
         raise AttributeError("tile_type required")
     # create geotransform

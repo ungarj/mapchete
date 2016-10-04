@@ -7,11 +7,15 @@ import yaml
 import os
 from shapely.geometry import box, MultiPolygon
 import warnings
+from collections import namedtuple
 from tilematrix import TilePyramid, MetaTilePyramid
+from s2reader import SentinelDataSet
+from s2reader.s2reader import BAND_IDS
 from mapchete import Mapchete
 from mapchete.io_utils import MapcheteOutputFormat
-from mapchete.io_utils.io_funcs import (reproject_geometry, file_bbox,
-    RESAMPLING_METHODS)
+from mapchete.io_utils.io_funcs import (
+    reproject_geometry, file_bbox, RESAMPLING_METHODS)
+from mapchete.io_utils.raster_data import Sentinel2Metadata, SentinelGranule
 
 _RESERVED_PARAMETERS = [
     "process_file",
@@ -30,12 +34,16 @@ _MANDATORY_PARAMETERS = [
     "output"
 ]
 
+
 class MapcheteConfig(object):
     """
-    Creates a configuration object. As model parameters can change per zoom
+    Process configuration object.
+
+    As model parameters can change per zoom
     level, the method at_zoom(zoom) returns only the parameters at a given
     zoom level.
     """
+
     def __init__(
         self,
         input_config,
@@ -44,7 +52,8 @@ class MapcheteConfig(object):
         overwrite=False,
         input_file=None,
         single_input_file=None
-        ):
+    ):
+        """Initialize configuration."""
         # Remove in further versions.
         if input_file:
             warnings.warn("MapcheteConfig: input_file parameter deprecated")
@@ -72,14 +81,14 @@ class MapcheteConfig(object):
                 "Configuration has to be a dictionary or a .mapchete file."
                 )
 
-        if self.raw == None:
+        if self.raw is None:
             raise IOError("mapchete file is empty")
         # get input_files
         if single_input_file:
             self.raw.update(
                 input_files={"input_file": single_input_file}
             )
-        elif not "input_files" in self.raw:
+        elif "input_files" not in self.raw:
             raise IOError("no input file(s) specified")
         # mandatory parameters
         _validate_mandatory_params(self.raw)
@@ -101,23 +110,17 @@ class MapcheteConfig(object):
 
     @property
     def process_file(self):
-        """
-        Absolute path of process file.
-        """
+        """Absolute path of process file."""
         return _process_file(self)
 
     @property
     def zoom_levels(self):
-        """
-        Process zoom levels.
-        """
+        """Process zoom levels."""
         return _zoom_levels(self, self._additional_parameters["zoom"])
 
     @property
     def metatiling(self):
-        """
-        Process metatile setting.
-        """
+        """Process metatile setting."""
         try:
             metatiling = self.raw["metatiling"]
         except KeyError:
@@ -130,9 +133,7 @@ class MapcheteConfig(object):
 
     @property
     def baselevel(self):
-        """
-        Baselevel setting if available.
-        """
+        """Baselevel setting if available."""
         try:
             baselevel = self.raw["baselevel"]
         except KeyError:
@@ -155,45 +156,36 @@ class MapcheteConfig(object):
 
     @property
     def output(self):
-        """
-        Process output format.
-        """
+        """Process output format."""
         return MapcheteOutputFormat(self.raw["output"])
 
     def at_zoom(self, zoom):
-        """
-        Returns configuration parameters snapshot for zoom as dictionary.
-        """
-        if not zoom in self._at_zoom_cache:
+        """Return configuration parameters snapshot for zoom as dictionary."""
+        if zoom not in self._at_zoom_cache:
             self._at_zoom_cache[zoom] = _at_zoom(self, zoom)
         return self._at_zoom_cache[zoom]
 
     def process_area(self, zoom=None):
-        """
-        Returns process bounding box for zoom level.
-        """
+        """Return process bounding box for zoom level."""
         if zoom:
-            return _process_area(self, self._additional_parameters["bounds"],
-                zoom)
+            return _process_area(
+                self, self._additional_parameters["bounds"], zoom)
         else:
             if not self._global_process_area:
                 self._global_process_area = MultiPolygon([
-                        _process_area(self,
-                            self._additional_parameters["bounds"], zoom)
-                        for zoom in self.zoom_levels
+                        _process_area(
+                            self, self._additional_parameters["bounds"], z)
+                        for z in self.zoom_levels
                     ]).buffer(0)
             return self._global_process_area
 
     def process_bounds(self, zoom=None):
-        """
-        Returns process bounds for zoom level.
-        """
+        """Return process bounds for zoom level."""
         return self.process_area(zoom).bounds
 
+
 def _validate_mandatory_params(config_dict):
-    """
-    Returns True if all mandatory parameters are available.
-    """
+    """Return True if all mandatory parameters are available."""
     missing = []
     for param in _MANDATORY_PARAMETERS:
         try:
@@ -205,10 +197,9 @@ def _validate_mandatory_params(config_dict):
     except AssertionError:
         raise AttributeError("missing mandatory parameters:", missing)
 
+
 def _process_file(mapchete_config):
-    """
-    Absolute path of process file.
-    """
+    """Absolute path of process file."""
     try:
         mapchete_process_file = mapchete_config.raw["process_file"]
     except:
@@ -220,11 +211,10 @@ def _process_file(mapchete_config):
         raise IOError("%s is not available" % abs_path)
     return abs_path
 
+
 def _zoom_levels(mapchete_config, user_zoom):
-    """
-    Process zoom levels.
-    """
-    # read from raw configuration
+    """Process zoom levels."""
+    # Read from raw configuration.
     try:
         config_zoom = mapchete_config.raw["process_zoom"]
         zoom = [config_zoom]
@@ -264,6 +254,7 @@ def _zoom_levels(mapchete_config, user_zoom):
             "Zoom level parameter requires one or two value(s)."
             )
     return zoom_levels
+
 
 def _process_area(mapchete_config, user_bounds, zoom):
     """
@@ -425,19 +416,25 @@ def _prepared_file(mapchete_config, input_file):
         else:
             abs_path = os.path.join(mapchete_config.config_dir, input_file)
             try:
-                assert os.path.isfile(abs_path)
+                # Sentinel-2 datasets can be in directories as well
+                assert os.path.isfile(abs_path) or os.path.isdir(abs_path)
             except AssertionError:
                 raise IOError("no such file", abs_path)
-
-            if os.path.splitext(abs_path)[1] == ".mapchete":
-                mapchete_file = Mapchete(MapcheteConfig(abs_path))
+            extension = os.path.splitext(abs_path)[1]
+            if extension == ".mapchete":
+                mapchete_process = Mapchete(MapcheteConfig(abs_path))
                 prepared = {
-                    "file": mapchete_file,
+                    "file": mapchete_process,
                     "area": reproject_geometry(
-                        mapchete_file.config.process_area(),
-                        mapchete_file.tile_pyramid.crs,
+                        mapchete_process.config.process_area(),
+                        mapchete_process.tile_pyramid.crs,
                         mapchete_config.tile_pyramid.crs
                         )
+                    }
+            elif extension in [".SAFE", ".zip", ".ZIP"]:
+                prepared = {
+                    "file": _prepare_sentinel2(SentinelDataSet(input_file)),
+                    "area": file_bbox(abs_path, mapchete_config.tile_pyramid)
                     }
             else:
                 prepared = {
@@ -448,3 +445,29 @@ def _prepared_file(mapchete_config, input_file):
         mapchete_config.prepared_input_files[input_file] = prepared
 
     return mapchete_config.prepared_input_files[input_file]
+
+def _prepare_sentinel2(s2dataset):
+    """
+    SentinelDataSet objects cannot be pickled and therefore have to be converted
+    to a named tuple with all important properties before it can be used with
+    multiprocessing.
+    """
+    return Sentinel2Metadata(
+        **dict(
+            path=s2dataset.path,
+            footprint=s2dataset.footprint,
+            granules=[
+                SentinelGranule(
+                    **dict(
+                        srid=granule.srid,
+                        footprint=granule.footprint,
+                        band_path={
+                            index: granule.band_path(_id)
+                            for index, _id in zip(range(1, 14), BAND_IDS)
+                            }
+                    )
+                )
+                for granule in s2dataset.granules
+            ]
+        )
+    )

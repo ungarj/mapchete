@@ -6,15 +6,14 @@ This is the main entry point from the command line to all mapchete subcommands.
 import sys
 import argparse
 
-from cli.execute import main as execute
-from cli.serve import main as serve
-from cli.pyramid import main as pyramid
-from cli.create import create_empty_process
+from mapchete.cli.execute import main as execute
+from mapchete.cli.serve import main as serve
+from mapchete.cli.pyramid import main as pyramid
+from mapchete.cli.create import create_empty_process
 from mapchete.io_utils.formats import FORMATS, TILING_TYPES
 
 def main():
     MapcheteCLI()
-    print "files created successfully"
 
 class MapcheteCLI(object):
     """
@@ -45,12 +44,16 @@ class MapcheteCLI(object):
         parser = argparse.ArgumentParser(
             description="Creates an empty process and configuration file",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            usage="mapchete create <mapchete_file> <process_file>")
+            usage=(
+                """mapchete create <mapchete_file> <process_file> """
+                """<output_format>""")
+            )
         parser.add_argument("mapchete_file", type=str, help="Mapchete file")
-        parser.add_argument("process_file", type=str,
-            help="process (Python) file")
-        parser.add_argument("--out_format", "-of", type=str,
-            choices=FORMATS.keys(), help="process output format")
+        parser.add_argument(
+            "process_file", type=str, help="process (Python) file")
+        parser.add_argument(
+            "out_format", type=str, choices=FORMATS.keys(),
+            help="process output format")
         parser.add_argument("--out_path", "-op", type=str,
             help="path for process output", metavar="<path>")
         parser.add_argument("--pyramid_type", "-pt", type=str, choices=TILING_TYPES,
