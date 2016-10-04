@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-"""
-Here, logging is configured.
-"""
+"""Log process status per tile."""
 
 import os
 
-def get_log_config(mapchete):
 
+def get_log_config(mapchete):
+    """Configure logging and return configuration."""
     log_dir = mapchete.config.config_dir
     process_name = mapchete.process_name
     log_file = os.path.join(log_dir, str(process_name + ".log"))
-    log_config = {
+    return {
         'version': 1,
         'disable_existing_loggers': True,
         'formatters': {
@@ -44,4 +43,3 @@ def get_log_config(mapchete):
             }
         }
     }
-    return log_config

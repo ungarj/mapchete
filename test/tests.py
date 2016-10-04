@@ -1,26 +1,28 @@
 #!/usr/bin/env python
+"""Test all mapchete modules."""
 
 import os
 from shapely.geometry import Polygon
 from shapely.wkt import loads
 
 from tilematrix import TilePyramid
-from mapchete import Mapchete, MapcheteConfig
-from mapchete.io_utils import file_bbox, read_raster_window
+from mapchete import Mapchete
+from mapchete.config import MapcheteConfig
+from mapchete.formats.default import raster_file
 
 ROUND = 10
 
-def main():
 
+def main():
+    """Start tests."""
     scriptdir = os.path.dirname(os.path.realpath(__file__))
 
-
-    # YAML configuration
-    #===================
+    """YAML configuration"""
 
     # Load source process from python file and initialize.
     mapchete_file = os.path.join(scriptdir, "example.mapchete")
-    mapchete = Mapchete(MapcheteConfig(mapchete_file))
+    config = MapcheteConfig(mapchete_file)
+    mapchete = Mapchete(config)
 
     dummy1_abspath = os.path.join(scriptdir, "testdata/dummy1.tif")
     dummy2_abspath = os.path.join(scriptdir, "testdata/dummy2.tif")
@@ -38,26 +40,26 @@ def main():
         # Check configuration at zoom level 5
         zoom5 = config.at_zoom(5)
         input_files = zoom5["input_files"]
-        assert input_files["file1"] == None
-        assert input_files["file2"] == dummy2_abspath
+        assert input_files["file1"] is None
+        assert input_files["file2"].file == dummy2_abspath
         assert zoom5["some_integer_parameter"] == 12
         assert zoom5["some_float_parameter"] == 5.3
         assert zoom5["some_string_parameter"] == "string1"
-        assert zoom5["some_bool_parameter"] == True
+        assert zoom5["some_bool_parameter"] is True
 
         # Check configuration at zoom level 11
         zoom11 = config.at_zoom(11)
         input_files = zoom11["input_files"]
-        assert input_files["file1"] == dummy1_abspath
-        assert input_files["file2"] == dummy2_abspath
+        assert input_files["file1"].file == dummy1_abspath
+        assert input_files["file2"].file == dummy2_abspath
         assert zoom11["some_integer_parameter"] == 12
         assert zoom11["some_float_parameter"] == 5.3
         assert zoom11["some_string_parameter"] == "string2"
-        assert zoom11["some_bool_parameter"] == True
+        assert zoom11["some_bool_parameter"] is True
     except:
+        raise
         print "FAILED: basic configuration parsing"
         print input_files
-        raise
     else:
         print "OK: basic configuration parsing"
 
@@ -145,7 +147,6 @@ def main():
         print "FAILED: read bounding box from .mapchete subfile"
         raise
 
-
     mapchete_file = os.path.join(scriptdir, "testdata/gtiff.mapchete")
 
     mapchete_file = os.path.join(scriptdir, "testdata/numpy.mapchete")
@@ -154,11 +155,8 @@ def main():
 
     # test io module
     testdata_directory = os.path.join(scriptdir, "testdata")
-    outdata_directory = os.path.join(testdata_directory, "out")
 
     dummy1 = os.path.join(testdata_directory, "dummy1.tif")
-    # dummy1 = os.path.join(testdata_directory, "sentinel2.tif")
-    dummy2 = os.path.join(testdata_directory, "dummy2.tif")
     zoom = 8
     tile_pyramid = TilePyramid("geodetic")
 
@@ -166,14 +164,14 @@ def main():
 
     tiles = tile_pyramid.tiles_from_geom(dummy1_bbox, zoom)
     resampling = "average"
-    pixelbuffer=5
+    pixelbuffer = 5
     for tile in tiles:
         for band in read_raster_window(
             dummy1,
             tile,
             resampling=resampling,
             pixelbuffer=pixelbuffer
-            ):
+        ):
             try:
                 assert band.shape == (
                     tile_pyramid.tile_size + 2 * pixelbuffer,
@@ -182,10 +180,6 @@ def main():
                 print "OK: read data size"
             except:
                 print "FAILED: read data size"
-
-
-        outname = str(tile.zoom) + str(tile.row) + str(tile.col) + ".tif"
-        outfile = os.path.join(outdata_directory, outname)
 
 
 if __name__ == "__main__":

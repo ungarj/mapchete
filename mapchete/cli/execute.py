@@ -18,13 +18,16 @@ import re
 from datetime import datetime
 import warnings
 
-from mapchete import Mapchete, MapcheteConfig, get_log_config
+from mapchete import Mapchete
+from mapchete.config import MapcheteConfig
+from mapchete.logging import get_log_config
 from tilematrix import Tile
 
 LOGGER = logging.getLogger("mapchete")
 
-def main(args=None):
 
+def main(args=None):
+    """Execute a Mapchete process."""
     if args is None:
         args = sys.argv[1:]
         parser = argparse.ArgumentParser()
@@ -48,14 +51,12 @@ def main(args=None):
     input_file = parsed.input_file
     if input_file and not (
         os.path.isfile(input_file) or os.path.isdir(input_file)
-        ):
+    ):
         raise IOError("input_file not found")
-    overwrite = parsed.overwrite
-    multi = parsed.multi
 
+    multi = parsed.multi
     if not multi:
         multi = cpu_count()
-
     if parsed.tile:
         zoom = [parsed.tile[0]]
     else:
@@ -66,7 +67,7 @@ def main(args=None):
                 parsed.mapchete_file,
                 zoom=zoom,
                 bounds=parsed.bounds,
-                overwrite=overwrite,
+                overwrite=parsed.overwrite,
                 single_input_file=parsed.input_file
             ),
         )
@@ -88,7 +89,7 @@ def main(args=None):
         except AssertionError:
             raise ValueError("tile index provided is invalid")
         try:
-            worker(tile, mapchete, overwrite)
+            worker(tile, mapchete, parsed.overwrite)
             LOGGER.info("1 tile iterated")
         except:
             raise
@@ -108,7 +109,7 @@ def main(args=None):
     LOGGER.info("starting process using %s worker(s)", multi)
     f = partial(worker,
         mapchete=mapchete,
-        overwrite=overwrite
+        overwrite=parsed.overwrite
     )
     collected_output = []
     for zoom in reversed(mapchete.config.zoom_levels):

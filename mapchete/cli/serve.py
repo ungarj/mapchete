@@ -14,16 +14,20 @@ import logging
 import logging.config
 import pkgutil
 
-from mapchete import Mapchete, MapcheteConfig, get_log_config
+from mapchete import Mapchete
+from mapchete.config import MapcheteConfig
+from mapchete.logging import get_log_config
 
 LOGGER = logging.getLogger("mapchete")
 
+
 def main(args=None):
     """
+    Serve a Mapchete process.
+
     Creates the Mapchete host and serves both web page with OpenLayers and the
     WMTS simple REST endpoint.
     """
-
     if args is None:
         args = sys.argv[1:]
         parser = argparse.ArgumentParser()
@@ -66,9 +70,7 @@ def main(args=None):
 
     @app.route('/', methods=['GET'])
     def return_index():
-        """
-        Renders and hosts the appropriate OpenLayers instance.
-        """
+        """Render and hosts the appropriate OpenLayers instance."""
         index_html = pkgutil.get_data('mapchete.static', 'index.html')
         process_bounds = mapchete.config.process_bounds()
         if not process_bounds:
@@ -84,21 +86,17 @@ def main(args=None):
             process_bounds=",".join(map(str, process_bounds)),
             is_mercator=(mapchete.tile_pyramid.srid == 3857)
         )
-
-
     tile_base_url = '/wmts_simple/1.0.0/mapchete/default/'
     if mapchete.tile_pyramid.srid == 3857:
         tile_base_url += "g/"
     else:
         tile_base_url += "WGS84/"
+
     @app.route(
         tile_base_url+'<int:zoom>/<int:row>/<int:col>.png',
-        methods=['GET']
-        )
+        methods=['GET'])
     def get(zoom, row, col):
-        """
-        Returns processed, empty or error (in pink color) tile.
-        """
+        """Return processed, empty or error (in pink color) tile."""
         tile = mapchete.tile_pyramid.tilepyramid.tile(zoom, row, col)
         try:
             metatile = mapchete.tile(
@@ -114,20 +112,16 @@ def main(args=None):
                     metatile_cache[metatile.id] = threading.Event()
 
             if metatile_event:
-                LOGGER.info("%s waiting for metatile %s",
-                    tile.id,
-                    metatile.id
-                    )
+                LOGGER.info(
+                    "%s waiting for metatile %s", tile.id, metatile.id)
                 metatile_event.wait()
                 try:
                     image = mapchete.get(tile)
                 except:
                     raise
             else:
-                LOGGER.info("%s getting metatile %s",
-                    tile.id,
-                    metatile.id
-                    )
+                LOGGER.info(
+                    "%s getting metatile %s", tile.id, metatile.id)
                 try:
                     image = mapchete.get(tile, overwrite=parsed.overwrite)
                 except:

@@ -12,34 +12,33 @@ setup(
     license='MIT',
     packages=[
         'mapchete',
-        'mapchete.io_utils',
-        'mapchete.static',
-        'mapchete.cli'
+        'mapchete.cli',
+        'mapchete.commons',
+        'mapchete.config',
+        'mapchete.formats',
+        'mapchete.io',
+        'mapchete.logging',
+        'mapchete.static'
     ],
     entry_points={
         'console_scripts': [
-            'mapchete_execute = mapchete.cli.execute:main',
-            'mapchete_serve = mapchete.cli.serve:main',
-            'raster2pyramid = mapchete.cli.pyramid:main',
-            'mapchete = mapchete.cli.main:main'
+            'mapchete = mapchete.cli.main:MapcheteCLI'
         ],
     },
     package_dir={'static': 'static'},
     package_data={'static': [
         'index.html', 'process_template.py', 'mapchete_template.mapchete']},
     install_requires=[
-        'tilematrix',
+        'tilematrix>=0.4',
         'fiona',
         'pyyaml',
         'flask',
         'Pillow',
         'scipy',
-        'psycopg2',
-        # 'blosc==1.3.2',
-        # 'bloscpack==0.10.0',
         'rasterio>=0.36.0',
         'matplotlib',
-        's2reader'
+        'gdal',
+        'cached_property'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
