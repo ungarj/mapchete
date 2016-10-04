@@ -13,8 +13,8 @@ from s2reader import SentinelDataSet
 from s2reader.s2reader import BAND_IDS
 from mapchete import Mapchete
 from mapchete.io_utils import MapcheteOutputFormat
-from mapchete.io_utils.io_funcs import (reproject_geometry, file_bbox,
-    RESAMPLING_METHODS)
+from mapchete.io_utils.io_funcs import (
+    reproject_geometry, file_bbox, RESAMPLING_METHODS)
 from mapchete.io_utils.raster_data import Sentinel2Metadata, SentinelGranule
 
 _RESERVED_PARAMETERS = [

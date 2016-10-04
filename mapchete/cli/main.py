@@ -44,12 +44,16 @@ class MapcheteCLI(object):
         parser = argparse.ArgumentParser(
             description="Creates an empty process and configuration file",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            usage="mapchete create <mapchete_file> <process_file>")
+            usage=(
+                """mapchete create <mapchete_file> <process_file> """
+                """<output_format>""")
+            )
         parser.add_argument("mapchete_file", type=str, help="Mapchete file")
-        parser.add_argument("process_file", type=str,
-            help="process (Python) file")
-        parser.add_argument("--out_format", "-of", type=str,
-            choices=FORMATS.keys(), help="process output format")
+        parser.add_argument(
+            "process_file", type=str, help="process (Python) file")
+        parser.add_argument(
+            "out_format", type=str, choices=FORMATS.keys(),
+            help="process output format")
         parser.add_argument("--out_path", "-op", type=str,
             help="path for process output", metavar="<path>")
         parser.add_argument("--pyramid_type", "-pt", type=str, choices=TILING_TYPES,
