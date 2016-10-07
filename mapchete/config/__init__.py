@@ -76,6 +76,12 @@ class MapcheteConfig():
     @cached_property
     def output(self):
         """Output data object of driver."""
+        self.raw["output"].update(
+            pixelbuffer=self.output_pixelbuffer,
+            metatiling=self._output_metatiling,
+            path=os.path.normpath(os.path.join(
+                self.config_dir, self.raw["output"]["path"]))
+        )
         output_params = self.raw["output"]
         try:
             assert output_params["format"] in available_output_formats()
@@ -85,8 +91,7 @@ class MapcheteConfig():
                     output_params["format"], str(available_output_formats())
                 )
             )
-        writer = load_output_writer(
-            output_params["format"], self.output_pyramid)
+        writer = load_output_writer(output_params)
         try:
             assert writer.is_valid_with_config(output_params)
         except AssertionError:
@@ -194,6 +199,20 @@ class MapcheteConfig():
         return self.process_area(zoom).bounds
 
     @cached_property
+    def process_pixelbuffer(self):
+        """Buffer around process tiles."""
+        return self._get_pixelbuffer_value("process_pixelbuffer")
+
+    @cached_property
+    def output_pixelbuffer(self):
+        """Buffer around output tiles."""
+        if "output_pixelbuffer" in self.raw:
+            assert self.raw["output_pixelbuffer"] <= self.process_pixelbuffer
+            return self.raw["output_pixelbuffer"]
+        else:
+            return 0
+
+    @cached_property
     def _process_metatiling(self):
         return self._get_metatile_value("process_metatiling")
 
@@ -235,6 +254,16 @@ class MapcheteConfig():
         except KeyError:
             return 1
 
+    def _get_pixelbuffer_value(self, pixelbuffer_key):
+        try:
+            return self.raw[pixelbuffer_key]
+        except:
+            pass
+        try:
+            return self.raw["pixelbuffer"]
+        except KeyError:
+            return 0
+
 
 def _at_zoom(mapchete_config, zoom):
     """
@@ -264,10 +293,11 @@ def _at_zoom(mapchete_config, zoom):
                 raise RuntimeError("input_files could not be read from config")
             for file_name, file_at_zoom in element_zoom.iteritems():
                 if file_at_zoom:
-                    file_reader = load_input_reader(
-                        input_file=os.path.join(
+                    file_reader = load_input_reader(dict(
+                        path=os.path.join(
                             mapchete_config.config_dir, file_at_zoom),
-                        pyramid=mapchete_config.process_pyramid)
+                        pyramid=mapchete_config.process_pyramid,
+                        pixelbuffer=mapchete_config.process_pixelbuffer))
                     input_files_areas.append(
                         file_reader.bbox(out_crs=mapchete_config.crs))
                     file_at_zoom = file_reader

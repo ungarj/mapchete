@@ -1,15 +1,25 @@
 """PNG process output."""
+
+import os
+
 from mapchete.formats.base import OutputData
 
 
 class OutputData(OutputData):
     """Main output class."""
 
-    def __init__(self, output_pyramid=None):
+    METADATA = {
+        "driver_name": "PNG",
+        "data_type": "raster",
+        "mode": "w"
+    }
+
+    def __init__(self, output_params):
         """Initialize."""
-        self.driver_name = "PNG"
-        self.data_type = "raster"
-        self.mode = "w"
+        super(OutputData, self).__init__(output_params)
+        self.path = output_params["path"]
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
 
     def write(self, process_tile, data, overwrite=False):
         """Write process output into PNGs."""
@@ -24,3 +34,6 @@ class OutputData(OutputData):
         assert "path" in config
         assert isinstance(config["path"], str)
         return True
+
+    def load(self, output_params):
+        """Initialize further properties using configuration."""

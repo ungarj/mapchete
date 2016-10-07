@@ -8,7 +8,6 @@ from shapely.wkt import loads
 from tilematrix import TilePyramid
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.formats.default import raster_file
 
 ROUND = 10
 
@@ -17,8 +16,23 @@ def main():
     """Start tests."""
     scriptdir = os.path.dirname(os.path.realpath(__file__))
 
-    """YAML configuration"""
+    """drivers"""
+    from mapchete.formats import (
+        available_input_formats, available_output_formats, _file_ext_to_driver
+        )
 
+    assert set(['mapchete', 'raster_file']).issubset(
+        set(available_input_formats()))
+    assert set(['GTiff', 'PNG', 'PNG_hillshade']).issubset(
+        set(available_output_formats()))
+    ext_to_driver = _file_ext_to_driver()
+    assert isinstance(ext_to_driver, dict)
+    assert set(['mapchete', 'tif', 'jp2', 'png', 'vrt']).issubset(
+        set(ext_to_driver))
+    for extension, driver in ext_to_driver.iteritems():
+        assert len(driver) == 1
+
+    """config and base module"""
     # Load source process from python file and initialize.
     mapchete_file = os.path.join(scriptdir, "example.mapchete")
     config = MapcheteConfig(mapchete_file)
@@ -41,7 +55,7 @@ def main():
         zoom5 = config.at_zoom(5)
         input_files = zoom5["input_files"]
         assert input_files["file1"] is None
-        assert input_files["file2"].file == dummy2_abspath
+        assert input_files["file2"].path == dummy2_abspath
         assert zoom5["some_integer_parameter"] == 12
         assert zoom5["some_float_parameter"] == 5.3
         assert zoom5["some_string_parameter"] == "string1"
@@ -50,8 +64,8 @@ def main():
         # Check configuration at zoom level 11
         zoom11 = config.at_zoom(11)
         input_files = zoom11["input_files"]
-        assert input_files["file1"].file == dummy1_abspath
-        assert input_files["file2"].file == dummy2_abspath
+        assert input_files["file1"].path == dummy1_abspath
+        assert input_files["file2"].path == dummy2_abspath
         assert zoom11["some_integer_parameter"] == 12
         assert zoom11["some_float_parameter"] == 5.3
         assert zoom11["some_string_parameter"] == "string2"
@@ -147,24 +161,22 @@ def main():
         print "FAILED: read bounding box from .mapchete subfile"
         raise
 
-    mapchete_file = os.path.join(scriptdir, "testdata/gtiff.mapchete")
-
-    mapchete_file = os.path.join(scriptdir, "testdata/numpy.mapchete")
-    mapchete = Mapchete(MapcheteConfig(mapchete_file))
-
-
-    # test io module
+    """io module"""
     testdata_directory = os.path.join(scriptdir, "testdata")
 
     dummy1 = os.path.join(testdata_directory, "dummy1.tif")
     zoom = 8
     tile_pyramid = TilePyramid("geodetic")
 
-    dummy1_bbox = file_bbox(dummy1, tile_pyramid)
+    mapchete_file = os.path.join(scriptdir, "testdata/minmax_zoom.mapchete")
+    mapchete = Mapchete(MapcheteConfig(mapchete_file))
+    raster = mapchete.config.at_zoom(7)["input_files"]["file1"]
+    dummy1_bbox = raster.bbox()
 
     tiles = tile_pyramid.tiles_from_geom(dummy1_bbox, zoom)
     resampling = "average"
     pixelbuffer = 5
+    from mapchete.io.raster import read_raster_window
     for tile in tiles:
         for band in read_raster_window(
             dummy1,
@@ -181,6 +193,24 @@ def main():
             except:
                 print "FAILED: read data size"
 
+    """processing"""
+    tilenum = 0
+    for cleantopo_process in [
+        "testdata/cleantopo_tl.mapchete", "testdata/cleantopo_br.mapchete"
+    ]:
+        mapchete_file = os.path.join(scriptdir, cleantopo_process)
+        mapchete = Mapchete(MapcheteConfig(mapchete_file))
+        from mapchete import BufferedTile
+        import numpy.ma as ma
+        for tile in mapchete.get_process_tiles():
+            output = mapchete.execute(tile)
+            assert isinstance(output, BufferedTile)
+            assert isinstance(output.data, ma.MaskedArray)
+            assert output.data.shape == output.shape()
+            assert not ma.all(output.data.mask)
+            mapchete.write(output)
+            tilenum += 1
+    print "OK: tile properties from %s tiles" % tilenum
 
 if __name__ == "__main__":
     main()

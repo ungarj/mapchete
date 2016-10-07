@@ -5,22 +5,26 @@ When writing a new driver, please inherit from these classes and implement
 the respective interfaces.
 """
 
-from tilematrix import Tile
+from tilematrix import TilePyramid
 
 
-class InputData():
+class InputData(object):
     """Template class handling geographic input data."""
 
-    def __init__(self):
-        """Initialize relevant input information."""
-        print "InputData initialized"
-        self.pixelbuffer = None
-        self.crs = None
-        self.srid = None
-        self.data_type = None  # vector or raster
-        self.file_extensions = []  # provide file extensions if applicable
+    METADATA = {
+        "driver_name": None,
+        "data_type": None,
+        "mode": "r"
+    }
 
-    def open(self):
+    def __init__(self, input_params):
+        """Initialize relevant input information."""
+        self.pyramid = input_params["pyramid"]
+        self.pixelbuffer = input_params["pixelbuffer"]
+        self.crs = self.pyramid.crs
+        self.srid = self.pyramid.srid
+
+    def open(self, tile, **kwargs):
         """Return InputTile class."""
         raise NotImplementedError
 
@@ -33,13 +37,11 @@ class InputData():
         raise NotImplementedError
 
 
-class InputTile(Tile):
+class InputTile(object):
     """Target Tile representation of input data."""
 
-    def __init__(self):
+    def __init__(self, tile, **kwargs):
         """Initialize."""
-        print "InputTile initialized"
-        self.pixelbuffer = None
 
     def read(self):
         """Read reprojected & resampled input data."""
@@ -49,21 +51,43 @@ class InputTile(Tile):
         """Check if there is data within this tile."""
         raise NotImplementedError
 
+    def __enter__(self):
+        """Required for 'with' statement."""
+        return self
 
-class OutputData():
+    def __exit__(self, t, v, tb):
+        """Clean up."""
+        pass
+
+
+class OutputData(object):
     """Template class handling process output data."""
 
-    def __init__(self, output_pyramid):
-        """Initialize."""
-        self.driver_name = None
-        self.data_type = None
-        self.mode = "w"
-        self.output_pyramid = output_pyramid
-        self.pixelbuffer = None
-        self.crs = None
-        self.srid = None
+    METADATA = {
+        "driver_name": None,
+        "data_type": None,
+        "mode": "w"
+    }
 
-    def write(self, process_tile, data, overwrite=False):
+    def __init__(self, output_params):
+        """Initialize."""
+        self.pixelbuffer = output_params["pixelbuffer"]
+        self.pyramid = TilePyramid(
+            output_params["type"], metatiling=output_params["metatiling"])
+        self.crs = self.pyramid.crs
+        self.srid = self.pyramid.srid
+
+    @property
+    def driver_name(self):
+        """Name of driver."""
+        raise NotImplementedError
+
+    @property
+    def data_type(self):
+        """Either 'raster' or 'vector'."""
+        raise NotImplementedError
+
+    def write(self, process_tile, overwrite=False):
         """Write data from one or more process tiles."""
         raise NotImplementedError
 
@@ -76,7 +100,7 @@ class OutputData():
         raise NotImplementedError
 
 
-class OutputTile(Tile):
+class OutputTile(object):
     """Represents output for a tile."""
 
     def __init__(self):

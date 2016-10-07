@@ -1,10 +1,7 @@
 #!/usr/bin/env python
-"""
-Command line utility to execute a Mapchete process.
-"""
+"""Command line utility to execute a Mapchete process."""
 
 import os
-import sys
 import argparse
 from functools import partial
 from multiprocessing import cpu_count
@@ -17,33 +14,18 @@ from py_compile import PyCompileError
 import re
 from datetime import datetime
 import warnings
+from tilematrix import Tile
 
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.logging import get_log_config
-from tilematrix import Tile
 
 LOGGER = logging.getLogger("mapchete")
 
 
 def main(args=None):
     """Execute a Mapchete process."""
-    if args is None:
-        args = sys.argv[1:]
-        parser = argparse.ArgumentParser()
-        parser.add_argument("mapchete_file", type=str)
-        parser.add_argument("--zoom", "-z", type=int, nargs='*', )
-        parser.add_argument("--bounds", "-b", type=float, nargs='*')
-        parser.add_argument("--tile", "-t", type=int, nargs=3, )
-        parser.add_argument("--failed_from_log", type=str)
-        parser.add_argument("--failed_since", type=str)
-        parser.add_argument("--log", action="store_true")
-        parser.add_argument("--overwrite", action="store_true")
-        parser.add_argument("--multi", "-m", type=int)
-        parser.add_argument("--create_vrt", action="store_true")
-        parser.add_argument("--input_file", type=str)
-        parsed = parser.parse_args(args)
-    elif isinstance(args, argparse.Namespace):
+    if isinstance(args, argparse.Namespace):
         parsed = args
     else:
         raise RuntimeError("invalid arguments for mapchete execute")
@@ -61,6 +43,8 @@ def main(args=None):
         zoom = [parsed.tile[0]]
     else:
         zoom = parsed.zoom
+
+    # Initialize process.
     try:
         mapchete = Mapchete(
             MapcheteConfig(
@@ -77,6 +61,7 @@ def main(args=None):
     except:
         raise
     logging.config.dictConfig(get_log_config(mapchete))
+
     if parsed.tile:
         tile = mapchete.tile(
             Tile(
@@ -89,40 +74,35 @@ def main(args=None):
         except AssertionError:
             raise ValueError("tile index provided is invalid")
         try:
-            worker(tile, mapchete, parsed.overwrite)
+            process_output, process_tile = mapchete.execute(
+                tile, mapchete, parsed.overwrite)
             LOGGER.info("1 tile iterated")
         except:
             raise
 
         return
 
-
-    work_tiles = []
+    process_tiles = []
     if parsed.failed_from_log:
         LOGGER.info("parsing log file ...")
-        work_tiles = failed_tiles_from_log(
+        process_tiles = failed_tiles_from_log(
             parsed.failed_from_log,
             mapchete,
             failed_since_str=parsed.failed_since
         )
 
     LOGGER.info("starting process using %s worker(s)", multi)
-    f = partial(worker,
-        mapchete=mapchete,
-        overwrite=parsed.overwrite
-    )
-    collected_output = []
+    f = partial(
+        mapchete.raw_output, overwrite=parsed.overwrite, return_metadata=True)
     for zoom in reversed(mapchete.config.zoom_levels):
-        if not work_tiles:
-            work_tiles = mapchete.get_work_tiles(zoom)
+        if not process_tiles:
+            process_tiles = mapchete.get_process_tiles(zoom)
         pool = Pool(multi)
         try:
-            for output in pool.imap_unordered(
-                f,
-                work_tiles,
-                chunksize=8
-                ):
-                collected_output.append(output)
+            for raw_output in pool.imap_unordered(
+                f, process_tiles, chunksize=8):
+                mapchete.write(raw_output)
+                raise NotImplementedError
         except KeyboardInterrupt:
             LOGGER.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
@@ -132,33 +112,17 @@ def main(args=None):
         finally:
             pool.close()
             pool.join()
-        work_tiles = []
+        process_tiles = []
 
-    LOGGER.info("%s tile(s) iterated", (len(collected_output)))
+    # TODO LOGGER.info("%s tile(s) iterated", (len(collected_output)))
 
-    if mapchete.output.format in [
-        "GTiff",
-        "PNG",
-        "PNG_hillshade"
-        ] and not parsed.tile and parsed.create_vrt:
-        for zoom in mapchete.config.zoom_levels:
-            out_dir = os.path.join(
-                mapchete.config.output_name,
-                str(zoom)
-            )
-            out_vrt = os.path.join(
-                mapchete.config.output_name,
-                (str(zoom)+".vrt")
-            )
-            command = "gdalbuildvrt -overwrite %s %s" %(
-                out_vrt,
-                str(out_dir + "/*/*" + mapchete.config.format.extension)
-            )
-            os.system(command)
+    # TODO VRT creation
 
 
 def failed_tiles_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
     """
+    Get previously failed tiles.
+
     Reads logfile line by line and returns tile indexes filtered by timestamp
     and failed tiles.
     """
@@ -214,7 +178,7 @@ def worker(tile, mapchete, overwrite):
             traceback.print_exc()
         )
     endtime = time.time()
-    elapsed = "%ss" %(round((endtime - starttime), 3))
+    elapsed = "%ss" % (round((endtime - starttime), 3))
 
     LOGGER.info((mapchete.process_name, log_message, elapsed))
     return log_message

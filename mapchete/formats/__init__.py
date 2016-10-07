@@ -9,9 +9,10 @@ _FORMATS_DEFAULT_LOCATION = "mapchete/formats/default/"
 _EXTENSIONS_DEFAULT_LOCATION = "mapchete.formats.extensions"
 
 
-def load_output_writer(driver_name, tiling_type):
+def load_output_writer(output_params):
     """Return output class of driver."""
-    assert isinstance(driver_name, str)
+    assert isinstance(output_params, dict)
+    driver_name = output_params["format"]
     try:
         assert driver_name in available_output_formats()
     except AssertionError:
@@ -19,16 +20,13 @@ def load_output_writer(driver_name, tiling_type):
     return pkgutil.get_loader(
         _FORMATS_DEFAULT_LOCATION+_name_to_default_module(driver_name)
         ).load_module(_name_to_default_module(driver_name)).OutputData(
-        tiling_type)
+        output_params)
 
 
-def load_input_reader(driver_name=None, input_file=None, pyramid=None):
+def load_input_reader(input_params):
     """Return input class of driver."""
-    assert driver_name or input_file
-    if driver_name:
-        assert isinstance(driver_name, str)
-    else:
-        driver_name = driver_from_file(input_file)
+    input_file = input_params["path"]
+    driver_name = driver_from_file(input_file)
     try:
         assert driver_name in available_input_formats()
     except AssertionError:
@@ -39,13 +37,13 @@ def load_input_reader(driver_name=None, input_file=None, pyramid=None):
         return pkgutil.get_loader(
             _FORMATS_DEFAULT_LOCATION+_name_to_default_module(driver_name)
             ).load_module(_name_to_default_module(driver_name)).InputData(
-                input_file=input_file, pyramid=pyramid)
+                input_params)
     except (AttributeError, TypeError):
+        raise
         pass
     for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
         try:
-            input_reader = v.load().InputData(
-                input_file=input_file, pyramid=pyramid)
+            input_reader = v.load().InputData(input_params)
         except:
             raise
         if input_reader.driver_name == driver_name:
@@ -60,15 +58,18 @@ def available_output_formats():
     # Default formats.
     for driver_module in _default_driver_modules():
         try:
-            output_formats.append(pkgutil.get_loader(
-                 _FORMATS_DEFAULT_LOCATION+driver_module
-                 ).load_module(driver_module).OutputData().driver_name)
-        except:
+            loaded_module = pkgutil.get_loader(
+                _FORMATS_DEFAULT_LOCATION+driver_module).load_module(
+                driver_module)
+            output_formats.append(
+                loaded_module.OutputData.METADATA["driver_name"])
+        except AttributeError:
             pass
     # Extensions.
     for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
         try:
-            output_formats.append(v.load().OutputData().driver_name)
+            output_formats.append(
+                v.load().OutputData.METADATA["driver_name"])
         except:
             pass
     return output_formats
@@ -82,13 +83,14 @@ def available_input_formats():
         try:
             input_formats.append(pkgutil.get_loader(
                  _FORMATS_DEFAULT_LOCATION+driver_module
-                 ).load_module(driver_module).InputData().driver_name)
+                 ).load_module(driver_module).InputData.METADATA["driver_name"]
+                 )
         except:
             pass
     # Extensions.
     for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
         try:
-            input_formats.append(v.load().InputData().driver_name)
+            input_formats.append(v.load().InputData.METADATA["driver_name"])
         except:
             pass
     return input_formats
@@ -118,9 +120,9 @@ def _file_ext_to_driver():
         try:
             data_loader = pkgutil.get_loader(
                  _FORMATS_DEFAULT_LOCATION+driver_module
-                 ).load_module(driver_module).InputData()
-            driver_name = data_loader.driver_name
-            for ext in data_loader.file_extensions:
+                 ).load_module(driver_module)
+            driver_name = data_loader.InputData.METADATA["driver_name"]
+            for ext in data_loader.InputData.METADATA["file_extensions"]:
                 if ext in mapping:
                     mapping[ext].append(driver_name)
                 else:
@@ -130,15 +132,14 @@ def _file_ext_to_driver():
     # Extensions.
     for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
         try:
-            data_loader = v.load().InputData()
-            driver_name = data_loader.driver_name
-            for ext in data_loader.file_extensions:
+            data_loader = v.load().InputData.METADATA["driver_name"]
+            driver_name = data_loader.InputData.METADATA["driver_name"]
+            for ext in data_loader.InputData.METADATA["file_extensions"]:
                 if ext in mapping:
                     mapping[ext].append(driver_name)
                 else:
                     mapping[ext] = [driver_name]
         except:
-            raise
             pass
     if not mapping:
         raise RuntimeError("no drivers could be found")
@@ -150,12 +151,12 @@ def _name_to_default_module(driver_name):
         loaded = pkgutil.get_loader(
             _FORMATS_DEFAULT_LOCATION+module).load_module(module)
         try:
-            if loaded.InputData().driver_name == driver_name:
+            if loaded.InputData.METADATA["driver_name"] == driver_name:
                 return module
         except AttributeError:
             pass
         try:
-            if loaded.OutputData().driver_name == driver_name:
+            if loaded.OutputData.METADATA["driver_name"] == driver_name:
                 return module
         except AttributeError:
             pass

@@ -9,5 +9,5 @@ output:
     dtype: integer
     bands: 3
     format: NumPy
-    path: numpy_test
+    path: tmp
     data_type: raster

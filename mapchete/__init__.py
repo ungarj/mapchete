@@ -2,8 +2,19 @@
 
 import os
 import py_compile
+import logging
+import logging.config
+import traceback
+import imp
+import numpy as np
+import numpy.ma as ma
+from collections import namedtuple
+from cached_property import cached_property
+from tilematrix import Tile
 
 import mapchete
+
+LOGGER = logging.getLogger("mapchete")
 
 
 class Mapchete(object):
@@ -25,7 +36,7 @@ class Mapchete(object):
             os.path.basename(self.config.process_file)
         )[0]
 
-    def get_process_tiles(self, zoom):
+    def get_process_tiles(self, zoom=None):
         """
         Return process tiles.
 
@@ -35,52 +46,173 @@ class Mapchete(object):
 
         - zoom: zoom level
         """
-        raise NotImplementedError
+        try:
+            if zoom or zoom == 0:
+                assert isinstance(zoom, int)
+                bbox = self.config.process_area(zoom)
+                for tile in self.config.process_pyramid.tiles_from_geom(
+                    bbox, zoom
+                ):
+                    yield tile
+            else:
+                for zoom in reversed(self.config.zoom_levels):
+                    bbox = self.config.process_area(zoom)
+                    for tile in self.config.process_pyramid.tiles_from_geom(
+                        bbox, zoom
+                    ):
+                        yield tile
+        except Exception:
+            LOGGER.error(
+                "error getting work tiles: %s" % traceback.print_exc())
+            raise
 
     def execute(self, process_tile, overwrite=True):
         """
-        Run the Mapchete process on a given process tile.
+        Run the Mapchete process and write output.
 
+        Execute, write and return process_tile with data.
         - process_tile: Member of the process tile pyramid (not necessarily
             the output pyramid, if output has a different metatiling setting)
         - overwrite: overwrite existing data (default: True)
         """
+        process_tile = BufferedTile(
+            process_tile, pixelbuffer=self.config.output.pixelbuffer)
+        # Do nothing if tile exists or overwrite is turned off.
+        if not overwrite and all(
+            tile.exists() for tile in self.output.tiles(process_tile)
+        ):
+            return (process_tile.id, "exists", None)
+
+        # TODO If baselevel is active and zoom is outside of baselevel,
+        # interpolate.
+
+        # Otherwise, load process source and execute.
+        try:
+            new_process = imp.load_source(
+                self.process_name + "Process", self.config.process_file)
+            tile_process = new_process.Process(
+                config=self.config, tile=process_tile,
+                params=self.config.at_zoom(process_tile.zoom)
+            )
+        except:
+            return process_tile.id, "failed", traceback.print_exc()
+        try:
+            # Actually run process.
+            process_data = tile_process.execute()
+        except:
+            return process_tile.id, "failed", traceback.print_exc()
+        finally:
+            tile_process = None
+        # Analyze proess output.
+        if isinstance(process_data, str):
+            if process_data == "empty":
+                return (process_tile.id, "empty", None)
+            else:
+                return (process_tile.id, "custom", process_data)
+        elif isinstance(
+            process_data, (dict, tuple, np.ndarray, ma.MaskedArray)
+        ):
+            process_tile.data = process_data
+            return process_tile
+        else:
+            raise RuntimeError(
+                "not a valid process output: %s" % type(process_data))
+
+    def read(self, output_tile):
+        """
+        Read from written process output.
+
+        Return output_tile with appended data.
+        - output_tile: Member of the output tile pyramid (not necessarily
+            the process pyramid, if output has a different metatiling setting)
+        """
         raise NotImplementedError
 
-    def view_output(self, output_tile, overwrite=True):
+    def write(self, process_tile, overwrite=True):
         """
-        Run the Mapchete process and return output as a file object.
+        Write data into output format.
 
+        - process_tile: the process_tile with appended data
+        - overwrite: overwrite existing data (default: True)
+        """
+        # Use self.config.output.write() function
+        try:
+            self.config.output.write(process_tile, overwrite=True)
+        except:
+            raise
+
+    def get_view_output(self, output_tile, overwrite=True):
+        """
+        Get output as a file object.
+
+        read() or execute() (and optional write()), convert to view output.
+        Return output_tile with appended output data.
         - output_tile: Member of the output tile pyramid (not necessarily
             the process pyramid, if output has a different metatiling setting)
         - overwrite: overwrite existing data (default: True)
         """
         raise NotImplementedError
 
-    def raw_output(self, output_tile, overwrite=True):
+    def get_raw_output(self, output_tile, overwrite=True):
         """
-        Run the Mapchete process and return output raw data.
+        Get output raw data.
 
+        read() or execute() (and optional write()). Return output_tile with
+        appended output data.
         - output_tile: Member of the output tile pyramid (not necessarily
             the process pyramid, if output has a different metatiling setting)
         - overwrite: overwrite existing data (default: True)
         """
         raise NotImplementedError
 
-    def write(self, data, process_tile, overwrite=True):
-        """
-        Writes data into output format.
 
-        - data:
-            for vector output: a GeoJSON-like iterable with attributes and
-                geometries
-            for raster output: a (masked) NumPy array or a tuple of (masked)
-                NumPy arrays
-        - process_tile: the respective process tile
-        - overwrite: overwrite existing data (default: True)
-        """
-        # use self.config.output.write() function
-        raise NotImplementedError
+class BufferedTile(Tile):
+    """A special tile with fixed pixelbuffer."""
+
+    def __init__(self, tile, pixelbuffer=0):
+        """Initialize."""
+        Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
+        self._tile = tile
+        self.pixelbuffer = pixelbuffer
+        self.data = None
+
+    @cached_property
+    def profile(self):
+        """Return a rasterio profile dictionary."""
+        out_meta = self.output.profile
+        out_meta.update(
+            width=self.width,
+            height=self.height,
+            transform=None,
+            affine=self.affine
+            )
+        return out_meta
+
+    @cached_property
+    def height(self):
+        """Return buffered height."""
+        return self._tile.shape(pixelbuffer=self.pixelbuffer)[0]
+
+    @cached_property
+    def width(self):
+        """Return buffered width."""
+        return self._tile.shape(pixelbuffer=self.pixelbuffer)[1]
+
+    @cached_property
+    def affine(self):
+        """Return buffered Affine."""
+        return self._tile.affine(pixelbuffer=self.pixelbuffer)
+
+    @cached_property
+    def bounds(self):
+        """Return buffered bounds."""
+        return self._tile.bounds(pixelbuffer=self.pixelbuffer)
+
+    @cached_property
+    def bbox(self):
+        """Return buffered bounding box."""
+        return self._tile.bbox(pixelbuffer=self.pixelbuffer)
+
 
 class MapcheteProcess(object):
     """
@@ -91,9 +223,21 @@ class MapcheteProcess(object):
     Mapchete process Python file.
     """
 
-    def __init__(self):
+    def __init__(self, tile, config=None, params=None):
         """Initialize Mapchete process."""
-        raise NotImplementedError
+        self.identifier = ""
+        self.title = ""
+        self.version = ""
+        self.abstract = ""
+        self.tile = tile
+        self.tile_pyramid = tile.tile_pyramid
+        self.params = params
+        self.config = config
+
+    def write(self, data, **kwargs):
+        """Deprecated."""
+        raise DeprecationWarning(
+            "Please return process output data instead of using self.write().")
 
     def open(self, input_file, **kwargs):
         """
@@ -102,7 +246,10 @@ class MapcheteProcess(object):
         - input_file: file path or file name from configuration file
         - **kwargs: driver specific parameters (e.g. resampling)
         """
-        raise NotImplementedError
+        if input_file not in self.params["input_files"]:
+            raise ValueError(
+                "%s not found in config as input file" % input_file)
+        return self.params["input_files"][input_file].open(self.tile, **kwargs)
 
     def hillshade(
         self, elevation, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0
