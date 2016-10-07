@@ -5,8 +5,11 @@ import rasterio
 import numpy as np
 import numpy.ma as ma
 from rasterio.warp import Resampling, transform_bounds, reproject
+from rasterio.windows import from_bounds
 from affine import Affine
 from tilematrix import clip_geometry_to_srs_bounds
+
+from mapchete import BufferedTile
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -102,6 +105,96 @@ def read_raster_window(
                 dst_shape=tile.shape(pixelbuffer),
                 dst_affine=tile.affine(pixelbuffer),
                 dst_crs=tile.crs, resampling=resampling)
+
+
+def write_raster_window(
+    in_tile=None, out_profile=None, out_tile=None, out_path=None
+):
+    """
+    Write a window from a numpy array to an output file.
+
+    - in_tile: BufferedTile with a data attribute holding NumPy data
+    - out_profile: metadata dictionary for rasterio
+    - out_tile: provides output boundaries; if None, in_tile is used
+    - out_path: output path
+    """
+    assert isinstance(in_tile, BufferedTile)
+    assert isinstance(out_profile, dict)
+    if out_tile:
+        assert isinstance(out_tile, BufferedTile)
+    else:
+        out_tile = in_tile
+    assert isinstance(out_path, str)
+    # if isinstance(in_tile.data, (np.ndarray, ma.MaskedArray)):
+    #     in_tile.data = (in_tile.data, )
+    left, bottom, right, top = out_tile.bounds
+    window = from_bounds(
+        left, bottom, right, top, in_tile.affine, height=in_tile.height,
+        width=in_tile.width)
+    minrow = window.row_off
+    maxrow = window.row_off + window.num_rows
+    mincol = window.col_off
+    maxcol = window.col_off + window.num_cols
+    with rasterio.open(out_path, 'w', **out_profile) as dst:
+        for band, data in enumerate(in_tile.data):
+            dst.write(
+                data[minrow:maxrow, mincol:maxcol].astype(out_profile["dtype"]),
+                (band+1)
+            )
+
+
+def create_mosaic(tiles, nodata=0):
+    """
+    Create a mosaic from tiles.
+
+    - tiles: an iterable containing BufferedTiles
+    Returns: (mosaic, affine)
+    """
+    resolution = None
+    dtype = None
+    num_bands = 0
+    m_left, m_bottom, m_right, m_top = None, None, None, None
+    for tile in tiles:
+        if isinstance(tile.data, (np.ndarray, ma.MaskedArray)):
+            tile.data = (tile.data, )
+        num_bands = len(tile.data)
+        if resolution is None:
+            resolution = tile.pixel_x_size
+        if tile.pixel_x_size != resolution:
+            raise RuntimeError("tiles must have same resolution")
+        if dtype is None:
+            dtype = tile.data[0].dtype
+        if tile.data[0].dtype != dtype:
+            raise RuntimeError("all tiles must have the same dtype")
+        left, bottom, right, top = tile.bounds
+        m_left = min([left, m_left]) if m_left else left
+        m_bottom = min([bottom, m_bottom]) if m_bottom else bottom
+        m_right = max([right, m_right]) if m_right else right
+        m_top = max([top, m_top]) if m_top else top
+    height = int(round((m_top - m_bottom) / resolution))
+    width = int(round((m_right - m_left) / resolution))
+    mosaic = tuple(
+        ma.masked_array(
+            data=np.full((height, width), dtype=dtype, fill_value=nodata),
+            mask=np.ones((height, width))
+        )
+        for band in range(num_bands)
+    )
+    mosaic_affine = Affine.translation(m_left, m_top) * Affine.scale(
+        resolution, -resolution)
+    for tile in tiles:
+        t_left, t_bottom, t_right, t_top = tile.bounds
+        window = from_bounds(
+            t_left, t_bottom, t_right, t_top, mosaic_affine, height=height,
+            width=width)
+        minrow = window.row_off
+        maxrow = window.row_off + window.num_rows
+        mincol = window.col_off
+        maxcol = window.col_off + window.num_cols
+        for tile_band, mosaic_band in zip(tile.data, mosaic):
+            mosaic_band[minrow:maxrow, mincol:maxcol] = tile_band
+            mosaic_band.mask[minrow:maxrow, mincol:maxcol] = tile_band.mask
+    return (mosaic, mosaic_affine)
 
 
 def _get_warped_array(

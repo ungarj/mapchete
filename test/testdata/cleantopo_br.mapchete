@@ -12,5 +12,5 @@ output:
     format: GTiff
     path: tmp
 
-pixelbuffer: 10
-metatiling: 2
+pixelbuffer: 20
+metatiling: 8

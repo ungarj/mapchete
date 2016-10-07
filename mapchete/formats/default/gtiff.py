@@ -1,9 +1,12 @@
 """Handles output pyramids using GeoTIFFS."""
 
 import os
+import numpy as np
+import numpy.ma as ma
 
 from mapchete.formats.base import OutputData
 from mapchete import BufferedTile
+from mapchete.io.raster import write_raster_window
 
 
 class OutputData(OutputData):
@@ -21,21 +24,30 @@ class OutputData(OutputData):
         self.path = output_params["path"]
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        self.file_extension = "tif"
+        self.file_extension = ".tif"
+        self.output_params = output_params
 
     def write(self, process_tile, overwrite=False):
         """Write process output into GeoTIFFs."""
+        self.verify_data(process_tile)
         # assert process_tile data complies with output properties like band
         # number, data type.
+        process_tile.data = tuple(
+            band.astype(self.output_params["dtype"])
+            for band in process_tile.data
+        )
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
             out_path = self.get_path(tile)
             if os.path.exists(out_path) and not overwrite:
                 return
+            self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             # write_from_tile(buffered_tile, profile, out_tile, out_path)
-            write_from_numpy(process_tile, self.profile, out_tile, out_path)
+            write_raster_window(
+                in_tile=process_tile, out_profile=self.profile(out_tile),
+                out_tile=out_tile, out_path=out_path)
 
     def is_valid_with_config(self, config):
         """Check if output format is valid with other process parameters."""
@@ -62,3 +74,42 @@ class OutputData(OutputData):
         rowdir = os.path.join(zoomdir, str(tile.row))
         if not os.path.exists(rowdir):
             os.makedirs(rowdir)
+
+    def profile(self, tile):
+        """Create a metadata dictionary for rasterio."""
+        dst_metadata = GTIFF_PROFILE
+        dst_metadata.pop("transform", None)
+        dst_metadata.update(
+            crs=tile.crs, width=tile.width, height=tile.height,
+            affine=tile.affine, driver="GTiff",
+            count=self.output_params["bands"],
+            dtype=self.output_params["dtype"]
+        )
+        return dst_metadata
+
+    def verify_data(self, tile):
+        """Verify array data and move array into tuple if necessary."""
+        if isinstance(tile.data, (np.ndarray, ma.MaskedArray)):
+            tile.data = (tile.data, )
+        if isinstance(tile.data, tuple):
+            for band in tile.data:
+                try:
+                    assert isinstance(band, (np.ndarray, ma.MaskedArray))
+                    assert band.ndim == 2
+                except AssertionError:
+                    raise ValueError("output bands must be 2D NumPy arrays")
+        else:
+            raise ValueError(
+                "output data must be a 2D NumPy array or a tuple containing \
+                2D NumPy arrays.")
+
+
+GTIFF_PROFILE = {
+    "blockysize": 256,
+    "blockxsize": 256,
+    "tiled": True,
+    "dtype": "uint8",
+    "compress": "lzw",
+    "interleave": "band",
+    "nodata": 0
+}
