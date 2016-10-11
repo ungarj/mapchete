@@ -13,5 +13,6 @@ output:
     path: tmp
 
 pixelbuffer: 10
+output_pixelbuffer: 10
 process_metatiling: 2
 # output_metatiling: 1
