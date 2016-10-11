@@ -4,7 +4,6 @@ import os
 import pkgutil
 import pkg_resources
 
-
 _FORMATS_DEFAULT_LOCATION = "mapchete/formats/default/"
 _EXTENSIONS_DEFAULT_LOCATION = "mapchete.formats.extensions"
 

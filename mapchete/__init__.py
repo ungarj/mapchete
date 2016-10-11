@@ -75,8 +75,13 @@ class Mapchete(object):
             the output pyramid, if output has a different metatiling setting)
         - overwrite: overwrite existing data (default: True)
         """
-        process_tile = BufferedTile(
-            process_tile, pixelbuffer=self.config.output.pixelbuffer)
+        if isinstance(process_tile, Tile):
+            process_tile = BufferedTile(
+                process_tile, pixelbuffer=self.config.process_pixelbuffer)
+        elif isinstance(process_tile, BufferedTile):
+            pass
+        else:
+            raise ValueError("invalid process_tile type for execute()")
         # Do nothing if tile exists or overwrite is turned off.
         if not overwrite and all(
             tile.exists() for tile in self.output.tiles(process_tile)
