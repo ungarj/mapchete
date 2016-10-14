@@ -11,7 +11,7 @@ output:
     bands: 1
     format: GTiff
     path: tmp
+    pixelbuffer: 20
 
-process_pixelbuffer: 20
-output_pixelbuffer: 20
+pixelbuffer: 20
 metatiling: 8

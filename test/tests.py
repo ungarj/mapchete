@@ -21,8 +21,7 @@ def main():
 
     """drivers"""
     from mapchete.formats import (
-        available_input_formats, available_output_formats, _file_ext_to_driver
-        )
+        available_input_formats, available_output_formats, _file_ext_to_driver)
 
     assert set(['mapchete', 'raster_file']).issubset(
         set(available_input_formats()))
@@ -39,7 +38,7 @@ def main():
     # Load source process from python file and initialize.
     mapchete_file = os.path.join(scriptdir, "example.mapchete")
     config = MapcheteConfig(mapchete_file)
-    mapchete = Mapchete(config)
+    process = Mapchete(config)
 
     dummy1_abspath = os.path.join(scriptdir, "testdata/dummy1.tif")
     dummy2_abspath = os.path.join(scriptdir, "testdata/dummy2.tif")
@@ -47,7 +46,7 @@ def main():
     # Validate configuration constructor
     ## basic run through
     try:
-        config = mapchete.config
+        config = process.config
         print "OK: basic configuraiton constructor run through"
     except:
         print "FAILED: basic configuraiton constructor run through"
@@ -172,8 +171,8 @@ def main():
     tile_pyramid = TilePyramid("geodetic")
 
     mapchete_file = os.path.join(scriptdir, "testdata/minmax_zoom.mapchete")
-    mapchete = Mapchete(MapcheteConfig(mapchete_file))
-    raster = mapchete.config.at_zoom(7)["input_files"]["file1"]
+    process = Mapchete(MapcheteConfig(mapchete_file))
+    raster = process.config.at_zoom(7)["input_files"]["file1"]
     dummy1_bbox = raster.bbox()
 
     tiles = tile_pyramid.tiles_from_geom(dummy1_bbox, zoom)
@@ -196,74 +195,75 @@ def main():
             except:
                 print "FAILED: read data size"
 
-    # """processing"""
-    # tilenum = 0
-    # out_dir = os.path.join(scriptdir, "testdata/tmp")
-    # import shutil
-    # for cleantopo_process in [
-    #     "testdata/cleantopo_tl.mapchete", "testdata/cleantopo_br.mapchete"
-    # ]:
-    #     try:
-    #         shutil.rmtree(out_dir)
-    #         pass
-    #     except:
-    #         pass
-    #     mapchete_file = os.path.join(scriptdir, cleantopo_process)
-    #     process = Mapchete(MapcheteConfig(mapchete_file))
-    #     for zoom in range(6):
-    #         tiles = []
-    #         for tile in process.get_process_tiles(zoom):
-    #             output = process.execute(tile)
-    #             tiles.append(output)
-    #             assert isinstance(output, BufferedTile)
-    #             assert isinstance(output.data, ma.MaskedArray)
-    #             assert output.data.shape == output.shape()
-    #             assert not ma.all(output.data.mask)
-    #             process.write(output)
-    #             tilenum += 1
-    #         mosaic, mosaic_affine = create_mosaic(tiles)
-    #         try:
-    #             temp_vrt = os.path.join(out_dir, str(zoom)+".vrt")
-    #             gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-    #                 temp_vrt, out_dir, zoom)
-    #             os.system(gdalbuildvrt)
-    #             with rasterio.open(temp_vrt, "r") as testfile:
-    #                 for file_item, mosaic_item in zip(
-    #                     testfile.meta["transform"], mosaic_affine
-    #                 ):
-    #                     try:
-    #                         assert file_item == mosaic_item
-    #                     except AssertionError:
-    #                         raise ValueError(
-    #                             "%s zoom %s: Affine items do not match %s %s" % (
-    #                                 cleantopo_process, zoom, file_item,
-    #                                 mosaic_item
-    #                             )
-    #                         )
-    #                 band = testfile.read(1, masked=True)
-    #                 try:
-    #                     assert band.shape == mosaic[0].shape
-    #                 except AssertionError:
-    #                     raise ValueError(
-    #                         "%s zoom %s: shapes do not match %s %s" % (
-    #                             cleantopo_process, zoom, band.shape,
-    #                             mosaic[0].shape))
-    #                 try:
-    #                     assert ma.allclose(band, mosaic[0])
-    #                     assert ma.allclose(band.mask, mosaic[0].mask)
-    #                 except AssertionError:
-    #                     raise ValueError(
-    #                         "%s zoom %s: mosaic values do not fit" % (
-    #                             cleantopo_process, zoom))
-    #         except:
-    #             raise
-    #         finally:
-    #             try:
-    #                 os.remove(temp_vrt)
-    #                 shutil.rmtree(out_dir)
-    #             except:
-    #                 pass
-    # print "OK: tile properties from %s tiles" % tilenum
+    """processing"""
+    tilenum = 0
+    out_dir = os.path.join(scriptdir, "testdata/tmp")
+    import shutil
+    for cleantopo_process in [
+        "testdata/cleantopo_tl.mapchete", "testdata/cleantopo_br.mapchete"
+    ]:
+        try:
+            shutil.rmtree(out_dir)
+            pass
+        except:
+            pass
+        mapchete_file = os.path.join(scriptdir, cleantopo_process)
+        process = Mapchete(MapcheteConfig(mapchete_file))
+        for zoom in range(6):
+            tiles = []
+            for tile in process.get_process_tiles(zoom):
+                output = process.execute(tile)
+                tiles.append(output)
+                assert isinstance(output, BufferedTile)
+                assert isinstance(output.data, ma.MaskedArray)
+                assert output.data.shape == output.shape()
+                assert not ma.all(output.data.mask)
+                process.write(output)
+                tilenum += 1
+            mosaic, mosaic_affine = create_mosaic(tiles)
+            try:
+                temp_vrt = os.path.join(out_dir, str(zoom)+".vrt")
+                gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
+                    temp_vrt, out_dir, zoom)
+                os.system(gdalbuildvrt)
+                with rasterio.open(temp_vrt, "r") as testfile:
+                    for file_item, mosaic_item in zip(
+                        testfile.meta["transform"], mosaic_affine
+                    ):
+                        try:
+                            assert file_item == mosaic_item
+                        except AssertionError:
+                            raise ValueError(
+                                "%s zoom %s: Affine items do not match %s %s"
+                                % (
+                                    cleantopo_process, zoom, file_item,
+                                    mosaic_item
+                                )
+                            )
+                    band = testfile.read(1, masked=True)
+                    try:
+                        assert band.shape == mosaic[0].shape
+                    except AssertionError:
+                        raise ValueError(
+                            "%s zoom %s: shapes do not match %s %s" % (
+                                cleantopo_process, zoom, band.shape,
+                                mosaic[0].shape))
+                    try:
+                        assert ma.allclose(band, mosaic[0])
+                        assert ma.allclose(band.mask, mosaic[0].mask)
+                    except AssertionError:
+                        raise ValueError(
+                            "%s zoom %s: mosaic values do not fit" % (
+                                cleantopo_process, zoom))
+            except:
+                raise
+            finally:
+                try:
+                    os.remove(temp_vrt)
+                    shutil.rmtree(out_dir)
+                except:
+                    pass
+    print "OK: tile properties from %s tiles" % tilenum
 
     """multiprocessing"""
     from multiprocessing import Pool
@@ -276,31 +276,36 @@ def main():
     assert dumps(process.config.output)
     for tile in process.get_process_tiles():
         assert dumps(tile)
+    out_dir = os.path.join(scriptdir, "testdata/tmp")
     f = partial(worker, process, overwrite=True)
-    for zoom in reversed(process.config.zoom_levels):
-        pool = Pool()
+    try:
+        for zoom in reversed(process.config.zoom_levels):
+            pool = Pool()
+            try:
+                for raw_output in pool.imap_unordered(
+                    f, process.get_process_tiles(zoom), chunksize=8):
+                    process.write(raw_output)
+            except KeyboardInterrupt:
+                pool.terminate()
+                break
+            except:
+                raise
+            finally:
+                pool.close()
+                pool.join()
+        print "OK: multiprocessing"
+    except:
+        print "FAILED: multiprocessing"
+    finally:
         try:
-            # res = pool.apply_async(f, process.get_process_tiles(zoom))
-            # print res.get()
-            print pool.map(f, process.get_process_tiles(zoom))
-            # for raw_output in pool.imap_unordered(
-            #     f, process.get_process_tiles(zoom), chunksize=8):
-            #     print raw_output
-            #     process.write(raw_output)
-        except KeyboardInterrupt:
-            pool.terminate()
-            break
+            shutil.rmtree(out_dir)
         except:
-            raise
-        finally:
-            pool.close()
-            pool.join()
+            pass
 
 
-def worker(process_tile, process, overwrite):
+def worker(process, process_tile, overwrite):
     """Worker processing a tile."""
-    return process_tile.id
-    # return process.execute(process_tile, overwrite)
+    return process.execute(process_tile, overwrite)
 
 if __name__ == "__main__":
     main()

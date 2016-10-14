@@ -69,10 +69,7 @@ class InputData(InputData):
                 raise
             try:
                 return reproject_geometry(
-                    bbox,
-                    src_crs=inp_crs,
-                    dst_crs=out_crs
-                    )
+                    bbox, src_crs=inp_crs, dst_crs=out_crs)
             except:
                 raise
         else:

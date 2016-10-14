@@ -1,4 +1,8 @@
-"""Functions handling output formats."""
+"""
+Functions handling output formats.
+
+This module deserves a cleaner rewrite some day.
+"""
 
 import os
 import pkgutil
@@ -16,10 +20,10 @@ def load_output_writer(output_params):
         assert driver_name in available_output_formats()
     except AssertionError:
         raise KeyError("driver %s not found" % driver_name)
-    return pkgutil.get_loader(
-        _FORMATS_DEFAULT_LOCATION+_name_to_default_module(driver_name)
-        ).load_module(_name_to_default_module(driver_name)).OutputData(
-        output_params)
+    driver = __import__(
+        'mapchete.formats.default.'+_name_to_default_module(driver_name),
+        fromlist=['OutputData'])
+    return getattr(driver, "OutputData")(output_params)
 
 
 def load_input_reader(input_params):
@@ -33,10 +37,10 @@ def load_input_reader(input_params):
             "driver %s not found in %s" % (
                 driver_name, available_input_formats()))
     try:
-        return pkgutil.get_loader(
-            _FORMATS_DEFAULT_LOCATION+_name_to_default_module(driver_name)
-            ).load_module(_name_to_default_module(driver_name)).InputData(
-                input_params)
+        driver = __import__(
+            'mapchete.formats.default.'+_name_to_default_module(driver_name),
+            fromlist=['InputData'])
+        return getattr(driver, "InputData")(input_params)
     except (AttributeError, TypeError):
         raise
         pass

@@ -11,7 +11,28 @@ from mapchete.formats import (
 from mapchete.io.raster import RESAMPLING_METHODS
 
 
-class MapcheteConfig():
+# supported tile pyramid types
+TILING_TYPES = ["geodetic", "mercator"]
+
+# parameters to be provided in the process configuration
+_MANDATORY_PARAMETERS = [
+    "process_file",  # the Python file the process is defined in
+    "input_files",  # input files for process; can also be "from_command_line"
+    "output"  # dictionary configuring the output format
+]
+
+# parameters with special functions which cannot be used for user parameters
+_RESERVED_PARAMETERS = [
+    "process_minzoom",  # minimum zoom where process is valid
+    "process_maxzoom",  # maximum zoom where process is valid
+    "process_zoom",  # single zoom where process is valid
+    "process_bounds",  # process boundaries
+    "metatiling",  # metatile size (for both process and output)
+    "pixelbuffer",  # buffer around each tile in pixels
+]
+
+
+class MapcheteConfig(object):
     """
     Process configuration.
 
@@ -33,55 +54,37 @@ class MapcheteConfig():
         """Initialize configuration."""
         # parse configuration
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
-            input_config)
-
+            input_config, single_input_file=single_input_file)
         # see if configuration is empty
         if self.raw is None:
             raise IOError("mapchete configuration is empty")
-
-        # determine input files
-        if single_input_file:
-            self.raw.update(
-                input_files={"input_file": single_input_file}
-            )
-        elif "input_files" not in self.raw:
-            raise IOError("no input file(s) specified")
-
         # check if mandatory parameters are provided
         for param in _MANDATORY_PARAMETERS:
             try:
                 assert param in self.raw
             except AssertionError:
                 raise ValueError("%s parameter missing" % param)
-
         # set process delimiters
         self._delimiters = dict(zoom=zoom, bounds=bounds)
-
         # helper caches
         self._at_zoom_cache = {}
         self._global_process_area = None
-        self.prepared_input_files = {}
-
+        self._prepared_files = {}
         # other properties
         try:
             assert self.raw["output"]["type"] in TILING_TYPES
         except AssertionError:
             raise ValueError("output type (geodetic or mercator) is missing")
         self.process_pyramid = TilePyramid(
-            self.raw["output"]["type"], metatiling=self._process_metatiling)
+            self.raw["output"]["type"], metatiling=self.metatiling)
         self.output_pyramid = TilePyramid(
-            self.raw["output"]["type"], metatiling=self._output_metatiling)
+            self.raw["output"]["type"],
+            metatiling=self.raw["output"]["metatiling"])
         self.crs = self.process_pyramid.crs
 
-    @cached_property
+    @property
     def output(self):
         """Output data object of driver."""
-        self.raw["output"].update(
-            pixelbuffer=self.output_pixelbuffer,
-            metatiling=self._output_metatiling,
-            path=os.path.normpath(os.path.join(
-                self.config_dir, self.raw["output"]["path"]))
-        )
         output_params = self.raw["output"]
         try:
             assert output_params["format"] in available_output_formats()
@@ -89,8 +92,7 @@ class MapcheteConfig():
             raise ValueError(
                 "format %s not available in %s" % (
                     output_params["format"], str(available_output_formats())
-                )
-            )
+                ))
         writer = load_output_writer(output_params)
         try:
             assert writer.is_valid_with_config(output_params)
@@ -119,11 +121,8 @@ class MapcheteConfig():
         # Read from raw configuration.
         if "process_zoom" in self.raw:
             zoom = [self.raw["process_zoom"]]
-        elif all(
-            k in self.raw for k in ("process_minzoom", "process_maxzoom")
-        ):
-            zoom = [
-                self.raw["process_minzoom"], self.raw["process_maxzoom"]]
+        elif all(k in self.raw for k in ("process_minzoom", "process_maxzoom")):
+            zoom = [self.raw["process_minzoom"], self.raw["process_maxzoom"]]
         else:
             zoom = []
         # overwrite zoom if provided in additional_parameters
@@ -188,8 +187,7 @@ class MapcheteConfig():
         else:
             if not self._global_process_area:
                 self._global_process_area = MultiPolygon([
-                        _process_area(
-                            self, self._delimiters["bounds"], z)
+                        _process_area(self, self._delimiters["bounds"], z)
                         for z in self.zoom_levels
                     ]).buffer(0)
             return self._global_process_area
@@ -199,28 +197,16 @@ class MapcheteConfig():
         return self.process_area(zoom).bounds
 
     @cached_property
-    def process_pixelbuffer(self):
+    def pixelbuffer(self):
         """Buffer around process tiles."""
-        return self._get_pixelbuffer_value("process_pixelbuffer")
+        return self.raw["pixelbuffer"]
 
     @cached_property
-    def output_pixelbuffer(self):
-        """Buffer around output tiles."""
-        if "output_pixelbuffer" in self.raw:
-            assert self.raw["output_pixelbuffer"] <= self.process_pixelbuffer
-            return self.raw["output_pixelbuffer"]
-        else:
-            return 0
+    def metatiling(self):
+        """Process metatile size."""
+        return self.raw["metatiling"]
 
-    @cached_property
-    def _process_metatiling(self):
-        return self._get_metatile_value("process_metatiling")
-
-    @cached_property
-    def _output_metatiling(self):
-        return self._get_metatile_value("output_metatiling")
-
-    def _parse_config(self, input_config):
+    def _parse_config(self, input_config, single_input_file):
         # from configuration dictionary
         if isinstance(input_config, dict):
             raw = input_config
@@ -234,15 +220,49 @@ class MapcheteConfig():
             with open(input_config, "r") as config_file:
                 raw = yaml.load(config_file.read())
             mapchete_file = input_config
-            config_dir = os.path.dirname(
-                os.path.realpath(mapchete_file)
-            )
+            config_dir = os.path.dirname(os.path.realpath(mapchete_file))
         # throw error if unknown object
         else:
             raise AttributeError(
                 "Configuration has to be a dictionary or a .mapchete file."
                 )
+        # pixelbuffer and metatiling
+        raw["pixelbuffer"] = self._set_pixelbuffer(raw)
+        raw["output"]["pixelbuffer"] = self._set_pixelbuffer(raw["output"])
+        raw["metatiling"] = self._set_metatiling(raw)
+        raw["output"]["metatiling"] = self._set_metatiling(
+            raw["output"], default=raw["metatiling"])
+        try:
+            assert raw["metatiling"] >= raw["output"]["metatiling"]
+        except AssertionError:
+            raise ValueError(
+                "Process metatiles cannot be smaller than output metatiles.")
+        # absolute output path
+        raw["output"].update(
+            path=os.path.normpath(os.path.join(
+                config_dir, raw["output"]["path"]))
+        )
+        # determine input files
+        if single_input_file:
+            raw.update(input_files={"input_file": single_input_file})
+        elif "input_files" not in raw:
+            raise IOError("no input file(s) specified")
         return raw, mapchete_file, config_dir
+
+    def _set_pixelbuffer(self, config_dict):
+        if "pixelbuffer" in config_dict:
+            assert isinstance(config_dict["pixelbuffer"], int)
+            assert config_dict["pixelbuffer"] >= 0
+            return config_dict["pixelbuffer"]
+        else:
+            return 0
+
+    def _set_metatiling(self, config_dict, default=1):
+        if "metatiling" in config_dict:
+            assert config_dict["metatiling"] in [1, 2, 4, 8, 16]
+            return config_dict["metatiling"]
+        else:
+            return default
 
     def _get_metatile_value(self, metatile_key):
         try:
@@ -254,18 +274,8 @@ class MapcheteConfig():
         except KeyError:
             return 1
 
-    def _get_pixelbuffer_value(self, pixelbuffer_key):
-        try:
-            return self.raw[pixelbuffer_key]
-        except:
-            pass
-        try:
-            return self.raw["pixelbuffer"]
-        except KeyError:
-            return 0
 
-
-def _at_zoom(mapchete_config, zoom):
+def _at_zoom(config, zoom):
     """
     Return configuration snapshot at zoom level.
 
@@ -274,10 +284,9 @@ def _at_zoom(mapchete_config, zoom):
     """
     params = {}
     input_files = {}
-    for name, element in mapchete_config.raw.iteritems():
+    for name, element in config.raw.iteritems():
         if name not in _RESERVED_PARAMETERS:
-            out_element = _element_at_zoom(
-                mapchete_config, name, element, zoom)
+            out_element = _element_at_zoom(config, name, element, zoom)
             if out_element is not None:
                 params[name] = out_element
         if name == "input_files":
@@ -285,49 +294,52 @@ def _at_zoom(mapchete_config, zoom):
                 element = {"input_file": None}
             input_files = {}
             input_files_areas = []
-            element_zoom = _element_at_zoom(
-                mapchete_config, name, element, zoom)
+            element_zoom = _element_at_zoom(config, name, element, zoom)
             try:
                 assert isinstance(element_zoom, dict)
             except AssertionError:
                 raise RuntimeError("input_files could not be read from config")
             for file_name, file_at_zoom in element_zoom.iteritems():
                 if file_at_zoom:
-                    file_reader = load_input_reader(dict(
-                        path=os.path.join(
-                            mapchete_config.config_dir, file_at_zoom),
-                        pyramid=mapchete_config.process_pyramid,
-                        pixelbuffer=mapchete_config.process_pixelbuffer))
-                    input_files_areas.append(
-                        file_reader.bbox(out_crs=mapchete_config.crs))
-                    file_at_zoom = file_reader
-                input_files[file_name] = file_at_zoom
-                # if file_at_zoom:
-                #     input_files_areas.append(prepared_file["area"])
+                    # prepare input files metadata
+                    if file_name not in config._prepared_files:
+                        # load file reader objects for each file
+                        file_reader = load_input_reader(
+                            dict(
+                                path=os.path.join(
+                                    config.config_dir, file_at_zoom),
+                                pyramid=config.process_pyramid,
+                                pixelbuffer=config.pixelbuffer)
+                            )
+                        # from mapchete.formats.default import raster_file
+                        # file_reader = raster_file.InputData(dict(
+                        #     path=os.path.join(config.config_dir, file_at_zoom),
+                        #     pyramid=config.process_pyramid,
+                        #     pixelbuffer=config.pixelbuffer))
+                        config._prepared_files[file_name] = file_reader
+                    # add file reader and file bounding box
+                    input_files[file_name] = config._prepared_files[file_name]
+                    input_files_areas.append(input_files[file_name].bbox(
+                        out_crs=config.crs))
+                else:
+                    input_files[file_name] = None
             if input_files_areas:
-                process_area = MultiPolygon((
-                    input_files_areas
-                    )).buffer(0)
+                process_area = MultiPolygon((input_files_areas)).buffer(0)
             else:
                 process_area = box(
-                    mapchete_config.process_pyramid.left,
-                    mapchete_config.process_pyramid.bottom,
-                    mapchete_config.process_pyramid.right,
-                    mapchete_config.process_pyramid.top
-                    )
+                    config.process_pyramid.left, config.process_pyramid.bottom,
+                    config.process_pyramid.right, config.process_pyramid.top)
     params.update(
-        input_files=input_files,
-        output=mapchete_config.output,
-        process_area=process_area
-        )
+        input_files=input_files, output=config.output,
+        process_area=process_area)
     return params
 
 
-def _process_area(mapchete_config, user_bounds, zoom):
+def _process_area(config, user_bounds, zoom):
     """Calculate process bounding box."""
     # process_bounds
     try:
-        config_bounds = mapchete_config.raw["process_bounds"]
+        config_bounds = config.raw["process_bounds"]
         bounds = config_bounds
     except KeyError:
         bounds = ()
@@ -340,14 +352,14 @@ def _process_area(mapchete_config, user_bounds, zoom):
             raise ValueError("Invalid number of process bounds.")
         bounds = user_bounds
 
-    input_files_bbox = mapchete_config.at_zoom(zoom)["process_area"]
+    input_files_bbox = config.at_zoom(zoom)["process_area"]
     if bounds:
         return box(*bounds).intersection(input_files_bbox)
     else:
         return input_files_bbox
 
 
-def _element_at_zoom(mapchete_config, name, element, zoom):
+def _element_at_zoom(config, name, element, zoom):
     """
     Return the element filtered by zoom level.
 
@@ -369,7 +381,7 @@ def _element_at_zoom(mapchete_config, name, element, zoom):
         out_elements = {}
         for sub_name, sub_element in sub_elements.iteritems():
             out_element = _element_at_zoom(
-                mapchete_config, sub_name, sub_element, zoom)
+                config, sub_name, sub_element, zoom)
             if name == "input_files":
                 out_elements[sub_name] = out_element
             elif out_element is not None:
@@ -382,7 +394,6 @@ def _element_at_zoom(mapchete_config, name, element, zoom):
         if len(out_elements) == 0:
             return None
         return out_elements
-
     # If element is a zoom level statement, filter element.
     elif isinstance(name, str):
         if name.startswith("zoom"):
@@ -408,8 +419,8 @@ def _element_at_zoom(mapchete_config, name, element, zoom):
         # element.
         else:
             return element
+    # If element is a number, return as number.
     elif isinstance(element, int):
-        # If element is a number, return as number.
         return element
     else:
         raise RuntimeError("error while parsing configuration")
@@ -417,29 +428,8 @@ def _element_at_zoom(mapchete_config, name, element, zoom):
 
 def _strip_zoom(input_string, strip_string):
     """Return zoom level as integer or throws error."""
-    element_zoom = input_string.strip(strip_string)
     try:
+        element_zoom = input_string.strip(strip_string)
         return int(element_zoom)
     except:
         raise SyntaxError("zoom level could not be determined")
-
-
-TILING_TYPES = ["geodetic", "mercator"]
-
-# parameters to be provided in the process configuration
-_MANDATORY_PARAMETERS = [
-    "process_file",  # the Python file the process is defined in
-    "input_files",  # input files for process; can also be "from_command_line"
-    "output"  # dictionary configuring the output format
-]
-
-# parameters with special functions which cannot be used for user parameters
-_RESERVED_PARAMETERS = [
-    "process_minzoom",  # minimum zoom where process is valid
-    "process_maxzoom",  # maximum zoom where process is valid
-    "process_zoom",  # single zoom where process is valid
-    "process_bounds",  # process boundaries
-    "metatiling",  # metatiling setting (for both process and output)
-    "process_metatiling",  # process metatiling setting
-    "output_metatiling"  # output metatiling setting (for web default 1)
-]

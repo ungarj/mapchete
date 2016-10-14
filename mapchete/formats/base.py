@@ -32,7 +32,7 @@ class InputData(object):
         """Return data bounding box."""
         raise NotImplementedError
 
-    def exists():
+    def exists(self):
         """Check if data or file even exists."""
         raise NotImplementedError
 

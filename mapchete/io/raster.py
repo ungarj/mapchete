@@ -125,8 +125,6 @@ def write_raster_window(
     else:
         out_tile = in_tile
     assert isinstance(out_path, str)
-    # if isinstance(in_tile.data, (np.ndarray, ma.MaskedArray)):
-    #     in_tile.data = (in_tile.data, )
     left, bottom, right, top = out_tile.bounds
     window = from_bounds(
         left, bottom, right, top, in_tile.affine, height=in_tile.height,
@@ -135,12 +133,13 @@ def write_raster_window(
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    with rasterio.open(out_path, 'w', **out_profile) as dst:
-        for band, data in enumerate(in_tile.data):
-            dst.write(
-                data[minrow:maxrow, mincol:maxcol].astype(out_profile["dtype"]),
-                (band+1)
-            )
+    window_data = tuple(
+        data[minrow:maxrow, mincol:maxcol] for data in in_tile.data)
+    # write if there is any band with non-masked data
+    if any([band.all() is not ma.masked for band in window_data]):
+        with rasterio.open(out_path, 'w', **out_profile) as dst:
+            for band, data in enumerate(window_data):
+                dst.write(data.astype(out_profile["dtype"]), (band+1))
 
 
 def create_mosaic(tiles, nodata=0):

@@ -27,7 +27,7 @@ class Mapchete(object):
     def __init__(self, config):
         """Initialize Mapchete job."""
         self.config = config
-        self.output = config.output
+        config.output
         try:
             py_compile.compile(self.config.process_file, doraise=True)
         except:
@@ -77,7 +77,7 @@ class Mapchete(object):
         """
         if isinstance(process_tile, Tile):
             process_tile = BufferedTile(
-                process_tile, pixelbuffer=self.config.process_pixelbuffer)
+                process_tile, pixelbuffer=self.config.pixelbuffer)
         elif isinstance(process_tile, BufferedTile):
             pass
         else:
