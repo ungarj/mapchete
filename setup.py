@@ -17,13 +17,20 @@ setup(
         'mapchete.config',
         'mapchete.formats',
         'mapchete.io',
-        'mapchete.logging',
+        'mapchete.log',
         'mapchete.static'
     ],
     entry_points={
         'console_scripts': [
             'mapchete = mapchete.cli.main:MapcheteCLI'
         ],
+        'mapchete.formats.drivers': [
+            'gtiff=mapchete.formats.default.gtiff',
+            'mapchete_input=mapchete.formats.default.mapchete_input',
+            'png_hillshade=mapchete.formats.default.png_hillshade',
+            'png=mapchete.formats.default.png',
+            'raster_file=mapchete.formats.default.raster_file'
+        ]
     },
     package_dir={'static': 'static'},
     package_data={'static': [
@@ -38,7 +45,8 @@ setup(
         'rasterio>=0.36.0',
         'matplotlib',
         'gdal',
-        'cached_property'
+        'cached_property',
+        'pyproj'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

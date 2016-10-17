@@ -8,8 +8,31 @@ import os
 import pkgutil
 import pkg_resources
 
-_FORMATS_DEFAULT_LOCATION = "mapchete/formats/default/"
-_EXTENSIONS_DEFAULT_LOCATION = "mapchete.formats.extensions"
+_DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
+
+
+def available_output_formats():
+    """Return all available output formats."""
+    output_formats = []
+    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+        try:
+            output_formats.append(
+                v.load().OutputData.METADATA["driver_name"])
+        except AttributeError:
+            pass
+    return output_formats
+
+
+def available_input_formats():
+    """Return all available input formats."""
+    input_formats = []
+    # Extensions.
+    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+        try:
+            input_formats.append(v.load().InputData.METADATA["driver_name"])
+        except AttributeError:
+            pass
+    return input_formats
 
 
 def load_output_writer(output_params):
@@ -20,10 +43,15 @@ def load_output_writer(output_params):
         assert driver_name in available_output_formats()
     except AssertionError:
         raise KeyError("driver %s not found" % driver_name)
-    driver = __import__(
-        'mapchete.formats.default.'+_name_to_default_module(driver_name),
-        fromlist=['OutputData'])
-    return getattr(driver, "OutputData")(output_params)
+    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+        try:
+            output_writer = v.load().OutputData(output_params)
+            if output_writer.METADATA["driver_name"] == driver_name:
+                return output_writer
+        except AttributeError:
+            pass
+    raise AttributeError(
+        "no loader for driver '%s' could be found." % driver_name)
 
 
 def load_input_reader(input_params):
@@ -36,67 +64,15 @@ def load_input_reader(input_params):
         raise KeyError(
             "driver %s not found in %s" % (
                 driver_name, available_input_formats()))
-    try:
-        driver = __import__(
-            'mapchete.formats.default.'+_name_to_default_module(driver_name),
-            fromlist=['InputData'])
-        return getattr(driver, "InputData")(input_params)
-    except (AttributeError, TypeError):
-        pass
-    for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
+    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
         try:
             input_reader = v.load().InputData(input_params)
             if input_reader.METADATA["driver_name"] == driver_name:
                 return input_reader
-        except:
+        except AttributeError:
             pass
     raise AttributeError(
         "no loader for driver '%s' could be found." % driver_name)
-
-
-def available_output_formats():
-    """Return all available output formats."""
-    output_formats = []
-    # Default formats.
-    for driver_module in _default_driver_modules():
-        try:
-            loaded_module = pkgutil.get_loader(
-                _FORMATS_DEFAULT_LOCATION+driver_module).load_module(
-                driver_module)
-            output_formats.append(
-                loaded_module.OutputData.METADATA["driver_name"])
-        except AttributeError:
-            pass
-    # Extensions.
-    for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
-        try:
-            output_formats.append(
-                v.load().OutputData.METADATA["driver_name"])
-        except:
-            pass
-    return output_formats
-
-
-def available_input_formats():
-    """Return all available input formats."""
-    input_formats = []
-    # Default formats.
-    for driver_module in _default_driver_modules():
-        try:
-            input_formats.append(pkgutil.get_loader(
-                 _FORMATS_DEFAULT_LOCATION+driver_module
-                 ).load_module(driver_module).InputData.METADATA["driver_name"]
-                 )
-        except:
-            raise
-            pass
-    # Extensions.
-    for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
-        try:
-            input_formats.append(v.load().InputData.METADATA["driver_name"])
-        except:
-            pass
-    return input_formats
 
 
 def driver_from_file(input_file):
@@ -111,29 +87,14 @@ def driver_from_file(input_file):
     try:
         assert len(driver) == 1
         return driver[0]
-    except:
+    except AssertionError:
         raise RuntimeError(
             "error determining read driver from file %s" % input_file)
 
 
 def _file_ext_to_driver():
     mapping = {}
-    # Default formats.
-    for driver_module in _default_driver_modules():
-        try:
-            data_loader = pkgutil.get_loader(
-                 _FORMATS_DEFAULT_LOCATION+driver_module
-                 ).load_module(driver_module)
-            driver_name = data_loader.InputData.METADATA["driver_name"]
-            for ext in data_loader.InputData.METADATA["file_extensions"]:
-                if ext in mapping:
-                    mapping[ext].append(driver_name)
-                else:
-                    mapping[ext] = [driver_name]
-        except AttributeError:
-            pass
-    # Extensions.
-    for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
+    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
         try:
             data_loader = v.load().InputData
             driver_name = data_loader.METADATA["driver_name"]
@@ -142,34 +103,8 @@ def _file_ext_to_driver():
                     mapping[ext].append(driver_name)
                 else:
                     mapping[ext] = [driver_name]
-        except:
+        except AttributeError:
             pass
     if not mapping:
         raise RuntimeError("no drivers could be found")
     return mapping
-
-
-def _name_to_default_module(driver_name):
-    for module in _default_driver_modules():
-        loaded = pkgutil.get_loader(
-            _FORMATS_DEFAULT_LOCATION+module).load_module(module)
-        try:
-            if loaded.InputData.METADATA["driver_name"] == driver_name:
-                return module
-        except AttributeError:
-            pass
-        try:
-            if loaded.OutputData.METADATA["driver_name"] == driver_name:
-                return module
-        except AttributeError:
-            pass
-    return AttributeError
-
-
-def _default_driver_modules():
-    return [
-            modname
-            for importer, modname, ispkg in pkgutil.walk_packages(
-                path=['mapchete/formats/default'], onerror=lambda x: None
-            )
-        ]

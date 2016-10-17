@@ -4,7 +4,6 @@ import os
 import rasterio
 from rasterio.crs import CRS
 import fiona
-import s2reader
 
 from tilematrix import TilePyramid
 
