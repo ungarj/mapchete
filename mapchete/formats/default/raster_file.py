@@ -12,12 +12,12 @@ from shapely.wkt import loads
 from cached_property import cached_property
 from copy import deepcopy
 
-from mapchete.formats.base import InputData, InputTile
+from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry
 from mapchete.io.raster import read_raster_window
 
 
-class InputData(InputData):
+class InputData(base.InputData):
     """Main input class."""
 
     METADATA = {
@@ -76,7 +76,7 @@ class InputData(InputData):
             return out_bbox
 
 
-class InputTile(InputTile):
+class InputTile(base.InputTile):
     """Target Tile representation of input data."""
 
     def __init__(self, tile, raster_file, resampling="nearest"):

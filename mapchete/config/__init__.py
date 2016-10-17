@@ -86,14 +86,16 @@ class MapcheteConfig(object):
     def output(self):
         """Output data object of driver."""
         output_params = self.raw["output"]
-        try:
-            assert output_params["format"] in available_output_formats()
-        except:
-            raise ValueError(
-                "format %s not available in %s" % (
-                    output_params["format"], str(available_output_formats())
-                ))
-        writer = load_output_writer(output_params)
+        # try:
+        #     assert output_params["format"] in available_output_formats()
+        # except:
+        #     raise ValueError(
+        #         "format %s not available in %s" % (
+        #             output_params["format"], str(available_output_formats())
+        #         ))
+        # writer = load_output_writer(output_params)
+        from mapchete.formats.default import gtiff
+        writer = gtiff.OutputData(output_params)
         try:
             assert writer.is_valid_with_config(output_params)
         except AssertionError:

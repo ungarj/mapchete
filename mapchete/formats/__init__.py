@@ -42,17 +42,16 @@ def load_input_reader(input_params):
             fromlist=['InputData'])
         return getattr(driver, "InputData")(input_params)
     except (AttributeError, TypeError):
-        raise
         pass
     for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
         try:
             input_reader = v.load().InputData(input_params)
+            if input_reader.METADATA["driver_name"] == driver_name:
+                return input_reader
         except:
-            raise
-        if input_reader.driver_name == driver_name:
-            return input_reader
+            pass
     raise AttributeError(
-        "no loader for driver %s could be found." % driver_name)
+        "no loader for driver '%s' could be found." % driver_name)
 
 
 def available_output_formats():
@@ -89,6 +88,7 @@ def available_input_formats():
                  ).load_module(driver_module).InputData.METADATA["driver_name"]
                  )
         except:
+            raise
             pass
     # Extensions.
     for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
@@ -135,9 +135,9 @@ def _file_ext_to_driver():
     # Extensions.
     for v in pkg_resources.iter_entry_points(_EXTENSIONS_DEFAULT_LOCATION):
         try:
-            data_loader = v.load().InputData.METADATA["driver_name"]
-            driver_name = data_loader.InputData.METADATA["driver_name"]
-            for ext in data_loader.InputData.METADATA["file_extensions"]:
+            data_loader = v.load().InputData
+            driver_name = data_loader.METADATA["driver_name"]
+            for ext in data_loader.METADATA["file_extensions"]:
                 if ext in mapping:
                     mapping[ext].append(driver_name)
                 else:
