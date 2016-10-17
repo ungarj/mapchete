@@ -17,7 +17,7 @@ import rasterio
 
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.logging import get_log_config
+from mapchete.log import get_log_config
 from mapchete.io import get_best_zoom_level
 
 LOGGER = logging.getLogger("mapchete")

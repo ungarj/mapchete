@@ -18,7 +18,7 @@ from tilematrix import Tile
 
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.logging import get_log_config
+from mapchete.log import get_log_config
 
 LOGGER = logging.getLogger("mapchete")
 

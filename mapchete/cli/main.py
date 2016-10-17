@@ -19,7 +19,8 @@ class MapcheteCLI(object):
     """
     From http://chase-seibert.github.io/blog/2014/03/21/python-multilevel-argparse.html
     """
-    def __init__(self):
+    def __init__(self, args=sys.argv):
+        self.args = args
         """Initialize command line tool."""
         parser = argparse.ArgumentParser(
             description="Mapchete helps developing and running geoprocesses.",
@@ -38,7 +39,7 @@ class MapcheteCLI(object):
         parser.add_argument("command", help="Subcommand to run")
         # parse_args defaults to [1:] for args, but you need to
         # exclude the rest of the args too, or validation will fail
-        args = parser.parse_args(sys.argv[1:2])
+        args = parser.parse_args(self.args[1:2])
         if not hasattr(self, args.command):
             print "Unrecognized command"
             parser.print_help()
@@ -53,7 +54,7 @@ class MapcheteCLI(object):
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             usage=(
                 """mapchete create <mapchete_file> <process_file> """
-                """<output_format>""")
+                """<out_format>""")
             )
         parser.add_argument("mapchete_file", type=str, help="Mapchete file")
         parser.add_argument(
@@ -71,7 +72,7 @@ class MapcheteCLI(object):
         parser.add_argument(
             "--force", "-f", action="store_true",
             help="overwrite if Mapchete and process files already exist")
-        args = parser.parse_args(sys.argv[2:])
+        args = parser.parse_args(self.args[2:])
         create_empty_process(args)
 
     def serve(self):
@@ -101,7 +102,7 @@ class MapcheteCLI(object):
                 """specify an input file via command line (in Mapchete file, """
                 """set 'input_file' parameter to 'from_command_line')"""),
             metavar="<path>")
-        args = parser.parse_args(sys.argv[2:])
+        args = parser.parse_args(self.args[2:])
         serve(args)
 
     def execute(self):
@@ -144,7 +145,7 @@ class MapcheteCLI(object):
             help="specify an input file via command line (in apchete file, \
                 set 'input_file' parameter to 'from_command_line')",
             metavar="<path>")
-        args = parser.parse_args(sys.argv[2:])
+        args = parser.parse_args(self.args[2:])
         execute(args)
 
     def pyramid(self):
@@ -186,7 +187,7 @@ class MapcheteCLI(object):
         parser.add_argument(
             "--overwrite", "-o", action="store_true",
             help="overwrite if tile(s) already exist(s)")
-        args = parser.parse_args(sys.argv[2:])
+        args = parser.parse_args(self.args[2:])
         pyramid(args)
 
 if __name__ == "__main__":

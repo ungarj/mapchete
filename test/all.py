@@ -339,6 +339,33 @@ def main():
         pass
 
 
+    """Command line utilities"""
+    from mapchete.cli.main import MapcheteCLI
+    import argparse
+    import yaml
+
+    temp_mapchete = "temp.mapchete"
+    temp_process = "temp.py"
+    out_format = "GTiff"
+
+    args = [
+        None, 'create', temp_mapchete, temp_process, out_format,
+        "--pyramid_type", "geodetic"]
+    try:
+        cli = MapcheteCLI(args)
+        args = []
+    except:
+        raise
+    finally:
+        try:
+            os.remove(temp_mapchete)
+        except:
+            pass
+        try:
+            os.remove(temp_process)
+        except:
+            pass
+
 
 def worker(process, process_tile, overwrite):
     """Worker processing a tile."""
