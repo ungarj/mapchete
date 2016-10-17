@@ -25,11 +25,13 @@ setup(
             'mapchete = mapchete.cli.main:MapcheteCLI'
         ],
         'mapchete.formats.drivers': [
+            'geojson=mapchete.formats.default.geojson',
             'gtiff=mapchete.formats.default.gtiff',
             'mapchete_input=mapchete.formats.default.mapchete_input',
             'png_hillshade=mapchete.formats.default.png_hillshade',
             'png=mapchete.formats.default.png',
-            'raster_file=mapchete.formats.default.raster_file'
+            'raster_file=mapchete.formats.default.raster_file',
+            'vector_file=mapchete.formats.default.vector_file'
         ]
     },
     package_dir={'static': 'static'},

@@ -2,11 +2,26 @@
 
 import warnings
 import pyproj
+import os
+import fiona
 from functools import partial
 from rasterio.crs import CRS
-from shapely.geometry import box
+from shapely.geometry import (
+    box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon)
 from shapely.geos import TopologicalError
 from shapely.ops import transform
+from tilematrix import clip_geometry_to_srs_bounds
+from itertools import chain
+
+
+CRS_BOUNDS = {
+    # http://spatialreference.org/ref/epsg/wgs-84/
+    4326: (-180.0000, -90.0000, 180.0000, 90.0000),
+    # http://spatialreference.org/ref/epsg/3035/
+    3857: (-180, -85.0511, 180, 85.0511),
+    # unknown source
+    3035: (-10.6700, 34.5000, 31.5500, 71.0500)
+    }
 
 
 def reproject_geometry(
@@ -92,11 +107,148 @@ def _reproject_geom(
             raise RuntimeError("invalid geometry after reprojection")
     return out_geom
 
-CRS_BOUNDS = {
-    # http://spatialreference.org/ref/epsg/wgs-84/
-    4326: (-180.0000, -90.0000, 180.0000, 90.0000),
-    # http://spatialreference.org/ref/epsg/3035/
-    3857: (-180, -85.0511, 180, 85.0511),
-    # unknown source
-    3035: (-10.6700, 34.5000, 31.5500, 71.0500)
+
+def read_vector_window(input_file, tile, validity_check=True):
+    """
+    Reads an input vector dataset with fiona using the tile bounding box as
+    filter and clipping geometry. Returns a list of GeoJSON like features.
+    """
+    try:
+        assert os.path.isfile(input_file)
+    except:
+        raise IOError("input file does not exist: %s" % input_file)
+    # Check if potentially tile boundaries exceed tile matrix boundaries on
+    # the antimeridian, the northern or the southern boundary.
+    tile_left, tile_bottom, tile_right, tile_top = tile.bounds
+    touches_left = tile_left <= tile.tile_pyramid.left
+    touches_bottom = tile_bottom <= tile.tile_pyramid.bottom
+    touches_right = tile_right >= tile.tile_pyramid.right
+    touches_top = tile_top >= tile.tile_pyramid.top
+    is_on_edge = touches_left or touches_bottom or touches_right or touches_top
+    if tile.pixelbuffer and is_on_edge:
+        tile_boxes = clip_geometry_to_srs_bounds(
+            tile.bbox, tile.tile_pyramid, multipart=True)
+        return chain.from_iterable(
+            _get_reprojected_features(
+                input_file=input_file, dst_bounds=bbox.bounds, dst_crs=tile.crs,
+                validity_check=validity_check)
+            for bbox in tile_boxes
+            )
+    else:
+        return _get_reprojected_features(
+            input_file=input_file, dst_bounds=tile.bounds,
+            dst_crs=tile.crs, validity_check=validity_check)
+
+
+def write_vector_window(in_tile, out_schema, out_tile, out_path):
+    """
+    Writes GeoJSON-like objects to GeoJSON.
+    """
+    with fiona.open(
+        out_path, 'w', schema=out_schema, driver="GeoJSON",
+        crs=out_tile.crs.to_dict()
+    ) as dst:
+        for feature in in_tile.data:
+            # clip with output tile
+            try:
+                feature_geom = shape(feature["geometry"])
+                clipped = feature_geom.intersection(out_tile.bbox)
+                out_geom = clipped
+                target_type = out_schema["geometry"]
+                if clipped.geom_type != target_type:
+                    out_geom = clean_geometry_type(clipped, target_type)
+                # write output
+                if out_geom:
+                    feature.update(geometry=mapping(out_geom))
+                    dst.write(feature)
+            except ValueError:
+                warnings.warn("failed geometry cleaning during writing")
+
+
+def _get_reprojected_features(
+    input_file=None, dst_bounds=None, dst_crs=None, validity_check=None
+):
+    assert isinstance(input_file, str)
+    assert isinstance(dst_bounds, tuple)
+    assert isinstance(dst_crs, CRS)
+    assert isinstance(validity_check, bool)
+
+    with fiona.open(input_file, 'r') as vector:
+        vector_crs = CRS(vector.crs)
+        # Reproject tile bounding box to source file CRS for filter:
+        if vector_crs == dst_crs:
+            dst_bbox = box(*dst_bounds)
+        else:
+            dst_bbox = reproject_geometry(
+                box(*dst_bounds), src_crs=dst_crs, dst_crs=vector_crs,
+                validity_check=True)
+        for feature in vector.filter(bbox=dst_bbox.bounds):
+            feature_geom = shape(feature['geometry'])
+            if not feature_geom.is_valid:
+                try:
+                    feature_geom = feature_geom.buffer(0)
+                    assert feature_geom.is_valid
+                    warnings.warn(
+                        "fixed invalid vector input geometry"
+                        )
+                except AssertionError:
+                    warnings.warn(
+                        "irreparable geometry found in vector input file"
+                        )
+                    continue
+            geom = clean_geometry_type(
+                feature_geom.intersection(dst_bbox), feature_geom.geom_type)
+            if geom:
+                # Reproject each feature to tile CRS
+                if vector_crs == dst_crs and validity_check:
+                    assert geom.is_valid
+                else:
+                    try:
+                        geom = reproject_geometry(
+                            geom, src_crs=vector_crs, dst_crs=dst_crs,
+                            validity_check=validity_check)
+                    except ValueError:
+                        warnings.warn("feature reprojection failed")
+                yield {
+                    'properties': feature['properties'],
+                    'geometry': mapping(geom)
+                }
+
+
+def clean_geometry_type(geometry, target_type, allow_multipart=True):
+    """
+    Return geometry of a specific type if possible.
+    Returns None if input geometry type differs from target type. Filters and
+    splits up GeometryCollection into target types.
+    allow_multipart allows multipart geometries (e.g. MultiPolygon for Polygon
+    type and so on).
+    """
+    multipart_geoms = {
+        "Point": MultiPoint,
+        "LineString": MultiLineString,
+        "Polygon": MultiPolygon,
+        "MultiPoint": MultiPoint,
+        "MultiLineString": MultiLineString,
+        "MultiPolygon": MultiPolygon
     }
+    try:
+        multipart_geom = multipart_geoms[target_type]
+    except KeyError:
+        raise ValueError("target type is not supported: %s" % target_type)
+    assert geometry.is_valid
+
+    if geometry.geom_type == target_type:
+        return geometry
+    elif geometry.geom_type == "GeometryCollection":
+        subgeoms = [
+            clean_geometry_type(
+                subgeom, target_type, allow_multipart=allow_multipart)
+            for subgeom in geometry
+        ]
+        return multipart_geom(subgeoms)
+    elif allow_multipart and isinstance(geometry, multipart_geom):
+        return geometry
+    elif multipart_geoms[geometry.geom_type] == multipart_geom:
+        return geometry
+    else:
+        return None

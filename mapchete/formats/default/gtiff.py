@@ -4,12 +4,12 @@ import os
 import numpy as np
 import numpy.ma as ma
 
-from mapchete.formats.base import OutputData
+from mapchete.formats import base
 from mapchete import BufferedTile
 from mapchete.io.raster import write_raster_window
 
 
-class OutputData(OutputData):
+class OutputData(base.OutputData):
     """Main output class."""
 
     METADATA = {

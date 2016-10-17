@@ -81,27 +81,26 @@ class MapcheteConfig(object):
             self.raw["output"]["type"],
             metatiling=self.raw["output"]["metatiling"])
         self.crs = self.process_pyramid.crs
+        self.overwrite = overwrite
 
     @property
     def output(self):
         """Output data object of driver."""
         output_params = self.raw["output"]
-        # try:
-        #     assert output_params["format"] in available_output_formats()
-        # except:
-        #     raise ValueError(
-        #         "format %s not available in %s" % (
-        #             output_params["format"], str(available_output_formats())
-        #         ))
-        # writer = load_output_writer(output_params)
-        from mapchete.formats.default import gtiff
-        writer = gtiff.OutputData(output_params)
+        try:
+            assert output_params["format"] in available_output_formats()
+        except:
+            raise ValueError(
+                "format %s not available in %s" % (
+                    output_params["format"], str(available_output_formats())
+                ))
+        writer = load_output_writer(output_params)
         try:
             assert writer.is_valid_with_config(output_params)
-        except AssertionError:
+        except AssertionError, e:
             raise ValueError(
-                "driver %s not compatible with configuration" %
-                writer.driver_name)
+                "driver %s not compatible with configuration: %s" %
+                (writer.METADATA["driver_name"], e))
         return writer
 
     @cached_property
@@ -175,29 +174,6 @@ class MapcheteConfig(object):
             raise ValueError("invalid baselevel resampling method given")
         return baselevel
 
-    def at_zoom(self, zoom):
-        """Return configuration parameters snapshot for zoom as dictionary."""
-        if zoom not in self._at_zoom_cache:
-            self._at_zoom_cache[zoom] = _at_zoom(self, zoom)
-        return self._at_zoom_cache[zoom]
-
-    def process_area(self, zoom=None):
-        """Return process bounding box for zoom level."""
-        if zoom:
-            return _process_area(
-                self, self._delimiters["bounds"], zoom)
-        else:
-            if not self._global_process_area:
-                self._global_process_area = MultiPolygon([
-                        _process_area(self, self._delimiters["bounds"], z)
-                        for z in self.zoom_levels
-                    ]).buffer(0)
-            return self._global_process_area
-
-    def process_bounds(self, zoom=None):
-        """Return process bounds for zoom level."""
-        return self.process_area(zoom).bounds
-
     @cached_property
     def pixelbuffer(self):
         """Buffer around process tiles."""
@@ -207,6 +183,28 @@ class MapcheteConfig(object):
     def metatiling(self):
         """Process metatile size."""
         return self.raw["metatiling"]
+
+    def at_zoom(self, zoom):
+        """Return configuration parameters snapshot for zoom as dictionary."""
+        if zoom not in self._at_zoom_cache:
+            self._at_zoom_cache[zoom] = self._at_zoom(zoom)
+        return self._at_zoom_cache[zoom]
+
+    def process_area(self, zoom=None):
+        """Return process bounding box for zoom level."""
+        if zoom:
+            return self._process_area(self._delimiters["bounds"], zoom)
+        else:
+            if not self._global_process_area:
+                self._global_process_area = MultiPolygon([
+                        self._process_area(self._delimiters["bounds"], z)
+                        for z in self.zoom_levels
+                    ]).buffer(0)
+            return self._global_process_area
+
+    def process_bounds(self, zoom=None):
+        """Return process bounds for zoom level."""
+        return self.process_area(zoom).bounds
 
     def _parse_config(self, input_config, single_input_file):
         # from configuration dictionary
@@ -277,155 +275,149 @@ class MapcheteConfig(object):
             return 1
 
 
-def _at_zoom(config, zoom):
-    """
-    Return configuration snapshot at zoom level.
+    def _at_zoom(self, zoom):
+        """
+        Return configuration snapshot at zoom level.
 
-    Input files are handled in a special way. They are returned as their
-    respective InputData class.
-    """
-    params = {}
-    input_files = {}
-    for name, element in config.raw.iteritems():
-        if name not in _RESERVED_PARAMETERS:
-            out_element = _element_at_zoom(config, name, element, zoom)
-            if out_element is not None:
-                params[name] = out_element
-        if name == "input_files":
-            if element == "from_command_line":
-                element = {"input_file": None}
-            input_files = {}
-            input_files_areas = []
-            element_zoom = _element_at_zoom(config, name, element, zoom)
-            try:
-                assert isinstance(element_zoom, dict)
-            except AssertionError:
-                raise RuntimeError("input_files could not be read from config")
-            for file_name, file_at_zoom in element_zoom.iteritems():
-                if file_at_zoom:
-                    # prepare input files metadata
-                    if file_name not in config._prepared_files:
-                        # load file reader objects for each file
-                        file_reader = load_input_reader(
-                            dict(
-                                path=os.path.join(
-                                    config.config_dir, file_at_zoom),
-                                pyramid=config.process_pyramid,
-                                pixelbuffer=config.pixelbuffer)
-                            )
-                        # from mapchete.formats.default import raster_file
-                        # file_reader = raster_file.InputData(dict(
-                        #     path=os.path.join(config.config_dir, file_at_zoom),
-                        #     pyramid=config.process_pyramid,
-                        #     pixelbuffer=config.pixelbuffer))
-                        config._prepared_files[file_name] = file_reader
-                    # add file reader and file bounding box
-                    input_files[file_name] = config._prepared_files[file_name]
-                    input_files_areas.append(input_files[file_name].bbox(
-                        out_crs=config.crs))
-                else:
-                    input_files[file_name] = None
-            if input_files_areas:
-                process_area = MultiPolygon((input_files_areas)).buffer(0)
-            else:
-                process_area = box(
-                    config.process_pyramid.left, config.process_pyramid.bottom,
-                    config.process_pyramid.right, config.process_pyramid.top)
-    params.update(
-        input_files=input_files, output=config.output,
-        process_area=process_area)
-    return params
-
-
-def _process_area(config, user_bounds, zoom):
-    """Calculate process bounding box."""
-    # process_bounds
-    try:
-        config_bounds = config.raw["process_bounds"]
-        bounds = config_bounds
-    except KeyError:
-        bounds = ()
-    # overwrite if bounds are provided explicitly
-    if user_bounds:
-        # validate bounds
-        try:
-            assert len(user_bounds) == 4
-        except:
-            raise ValueError("Invalid number of process bounds.")
-        bounds = user_bounds
-
-    input_files_bbox = config.at_zoom(zoom)["process_area"]
-    if bounds:
-        return box(*bounds).intersection(input_files_bbox)
-    else:
-        return input_files_bbox
-
-
-def _element_at_zoom(config, name, element, zoom):
-    """
-    Return the element filtered by zoom level.
-
-    - An input integer or float gets returned as is.
-    - An input string is checked whether it starts with "zoom". Then, the
-      provided zoom level gets parsed and compared with the actual zoom
-      level. If zoom levels match, the element gets returned.
-
-    TODOs/gotchas:
-    - Elements are unordered, which can lead to unexpected results when
-      defining the YAML config.
-    - Provided zoom levels for one element in config file are not allowed to
-      "overlap", i.e. there is not yet a decision mechanism implemented
-      which handles this case.
-    """
-    # If element is a dictionary, analyze subitems.
-    if isinstance(element, dict):
-        sub_elements = element
-        out_elements = {}
-        for sub_name, sub_element in sub_elements.iteritems():
-            out_element = _element_at_zoom(
-                config, sub_name, sub_element, zoom)
+        Input files are handled in a special way. They are returned as their
+        respective InputData class.
+        """
+        params = {}
+        input_files = {}
+        for name, element in self.raw.iteritems():
+            if name not in _RESERVED_PARAMETERS:
+                out_element = self._element_at_zoom(name, element, zoom)
+                if out_element is not None:
+                    params[name] = out_element
             if name == "input_files":
-                out_elements[sub_name] = out_element
-            elif out_element is not None:
-                out_elements[sub_name] = out_element
-        # If there is only one subelement, collapse unless it is
-        # input_files. In such case, return a dictionary.
-        if len(out_elements) == 1 and name != "input_files":
-            return out_elements.itervalues().next()
-        # If subelement is empty, return None
-        if len(out_elements) == 0:
-            return None
-        return out_elements
-    # If element is a zoom level statement, filter element.
-    elif isinstance(name, str):
-        if name.startswith("zoom"):
-            cleaned = name.strip("zoom").strip()
-            if cleaned.startswith("="):
-                if zoom == _strip_zoom(cleaned, "="):
-                    return element
-            elif cleaned.startswith("<="):
-                if zoom <= _strip_zoom(cleaned, "<="):
-                    return element
-            elif cleaned.startswith(">="):
-                if zoom >= _strip_zoom(cleaned, ">="):
-                    return element
-            elif cleaned.startswith("<"):
-                if zoom < _strip_zoom(cleaned, "<"):
-                    return element
-            elif cleaned.startswith(">"):
-                if zoom > _strip_zoom(cleaned, ">"):
-                    return element
-            else:
-                return None
-        # If element is a string but not a zoom level statement, return
-        # element.
+                if element == "from_command_line":
+                    element = {"input_file": None}
+                input_files = {}
+                input_files_areas = []
+                element_zoom = self._element_at_zoom(name, element, zoom)
+                try:
+                    assert isinstance(element_zoom, dict)
+                except AssertionError:
+                    raise RuntimeError(
+                        "input_files could not be read from config")
+                for file_name, file_at_zoom in element_zoom.iteritems():
+                    if file_at_zoom:
+                        # prepare input files metadata
+                        if file_name not in self._prepared_files:
+                            # load file reader objects for each file
+                            file_reader = load_input_reader(
+                                dict(
+                                    path=os.path.join(
+                                        self.config_dir, file_at_zoom),
+                                    pyramid=self.process_pyramid,
+                                    pixelbuffer=self.pixelbuffer)
+                                )
+                            self._prepared_files[file_name] = file_reader
+                        # add file reader and file bounding box
+                        input_files[file_name] = self._prepared_files[file_name]
+                        input_files_areas.append(input_files[file_name].bbox(
+                            out_crs=self.crs))
+                    else:
+                        input_files[file_name] = None
+                if input_files_areas:
+                    process_area = MultiPolygon((input_files_areas)).buffer(0)
+                else:
+                    process_area = box(
+                        self.process_pyramid.left, self.process_pyramid.bottom,
+                        self.process_pyramid.right, self.process_pyramid.top)
+        params.update(
+            input_files=input_files, output=self.output,
+            process_area=process_area)
+        return params
+
+    def _process_area(self, user_bounds, zoom):
+        """Calculate process bounding box."""
+        # process_bounds
+        try:
+            config_bounds = self.raw["process_bounds"]
+            bounds = config_bounds
+        except KeyError:
+            bounds = ()
+        # overwrite if bounds are provided explicitly
+        if user_bounds:
+            # validate bounds
+            try:
+                assert len(user_bounds) == 4
+            except:
+                raise ValueError("Invalid number of process bounds.")
+            bounds = user_bounds
+
+        input_files_bbox = self.at_zoom(zoom)["process_area"]
+        if bounds:
+            return box(*bounds).intersection(input_files_bbox)
         else:
+            return input_files_bbox
+
+    def _element_at_zoom(self, name, element, zoom):
+        """
+        Return the element filtered by zoom level.
+
+        - An input integer or float gets returned as is.
+        - An input string is checked whether it starts with "zoom". Then, the
+          provided zoom level gets parsed and compared with the actual zoom
+          level. If zoom levels match, the element gets returned.
+
+        TODOs/gotchas:
+        - Elements are unordered, which can lead to unexpected results when
+          defining the YAML config.
+        - Provided zoom levels for one element in config file are not allowed to
+          "overlap", i.e. there is not yet a decision mechanism implemented
+          which handles this case.
+        """
+        # If element is a dictionary, analyze subitems.
+        if isinstance(element, dict):
+            sub_elements = element
+            out_elements = {}
+            for sub_name, sub_element in sub_elements.iteritems():
+                out_element = self._element_at_zoom(
+                    sub_name, sub_element, zoom)
+                if name == "input_files":
+                    out_elements[sub_name] = out_element
+                elif out_element is not None:
+                    out_elements[sub_name] = out_element
+            # If there is only one subelement, collapse unless it is
+            # input_files. In such case, return a dictionary.
+            if len(out_elements) == 1 and name != "input_files":
+                return out_elements.itervalues().next()
+            # If subelement is empty, return None
+            if len(out_elements) == 0:
+                return None
+            return out_elements
+        # If element is a zoom level statement, filter element.
+        elif isinstance(name, str):
+            if name.startswith("zoom"):
+                cleaned = name.strip("zoom").strip()
+                if cleaned.startswith("="):
+                    if zoom == _strip_zoom(cleaned, "="):
+                        return element
+                elif cleaned.startswith("<="):
+                    if zoom <= _strip_zoom(cleaned, "<="):
+                        return element
+                elif cleaned.startswith(">="):
+                    if zoom >= _strip_zoom(cleaned, ">="):
+                        return element
+                elif cleaned.startswith("<"):
+                    if zoom < _strip_zoom(cleaned, "<"):
+                        return element
+                elif cleaned.startswith(">"):
+                    if zoom > _strip_zoom(cleaned, ">"):
+                        return element
+                else:
+                    return None
+            # If element is a string but not a zoom level statement, return
+            # element.
+            else:
+                return element
+        # If element is a number, return as number.
+        elif isinstance(element, int):
             return element
-    # If element is a number, return as number.
-    elif isinstance(element, int):
-        return element
-    else:
-        raise RuntimeError("error while parsing configuration")
+        else:
+            raise RuntimeError("error while parsing configuration")
 
 
 def _strip_zoom(input_string, strip_string):

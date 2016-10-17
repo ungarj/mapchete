@@ -6,6 +6,7 @@ import logging
 import logging.config
 import traceback
 import imp
+import types
 import numpy as np
 import numpy.ma as ma
 from collections import namedtuple
@@ -74,6 +75,10 @@ class Mapchete(object):
         - process_tile: Member of the process tile pyramid (not necessarily
             the output pyramid, if output has a different metatiling setting)
         - overwrite: overwrite existing data (default: True)
+
+        Returns a BufferedTile with process output in the data attribute. If
+        there is no process output, data is None and there is information
+        on the process status in the message attribute.
         """
         if isinstance(process_tile, Tile):
             process_tile = BufferedTile(
@@ -100,24 +105,29 @@ class Mapchete(object):
                 params=self.config.at_zoom(process_tile.zoom)
             )
         except:
-            return process_tile.id, "failed", traceback.print_exc()
+            process_tile.message = "failed"
+            process_tile.error = traceback.print_exc()
+            return process_tile
         try:
             # Actually run process.
             process_data = tile_process.execute()
         except:
-            return process_tile.id, "failed", traceback.print_exc()
+            process_tile.message = "failed"
+            process_tile.error = traceback.print_exc()
+            return process_tile
         finally:
             tile_process = None
         # Analyze proess output.
         if isinstance(process_data, str):
-            if process_data == "empty":
-                return (process_tile.id, "empty", None)
-            else:
-                return (process_tile.id, "custom", process_data)
+            process_tile.message = process_data
+            return process_tile
         elif isinstance(
-            process_data, (dict, tuple, np.ndarray, ma.MaskedArray)
+            process_data, (list, tuple, np.ndarray, ma.MaskedArray)
         ):
             process_tile.data = process_data
+            return process_tile
+        elif isinstance(process_data, types.GeneratorType):
+            process_tile.data = list(process_data)
             return process_tile
         else:
             raise RuntimeError(
@@ -180,6 +190,8 @@ class BufferedTile(Tile):
         self._tile = tile
         self.pixelbuffer = pixelbuffer
         self.data = None
+        self.message = None
+        self.error = None
 
     @cached_property
     def profile(self):

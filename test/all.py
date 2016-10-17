@@ -7,6 +7,11 @@ from shapely.wkt import loads
 import numpy.ma as ma
 import rasterio
 from tilematrix import TilePyramid
+from shapely.geometry import shape
+from multiprocessing import Pool
+from functools import partial
+from cPickle import dumps
+import shutil
 
 from mapchete import Mapchete, BufferedTile
 from mapchete.io.raster import create_mosaic
@@ -198,7 +203,6 @@ def main():
     """processing"""
     tilenum = 0
     out_dir = os.path.join(scriptdir, "testdata/tmp")
-    import shutil
     for cleantopo_process in [
         "testdata/cleantopo_tl.mapchete", "testdata/cleantopo_br.mapchete"
     ]:
@@ -266,9 +270,6 @@ def main():
     print "OK: tile properties from %s tiles" % tilenum
 
     """multiprocessing"""
-    from multiprocessing import Pool
-    from functools import partial
-    from cPickle import dumps
     mapchete_file = os.path.join(scriptdir, "testdata/cleantopo_tl.mapchete")
     process = Mapchete(MapcheteConfig(mapchete_file))
     assert dumps(process)
@@ -301,6 +302,42 @@ def main():
             shutil.rmtree(out_dir)
         except:
             pass
+
+
+    """Vector data IO"""
+    mapchete_file = os.path.join(scriptdir, "testdata/geojson.mapchete")
+    process = Mapchete(MapcheteConfig(mapchete_file))
+    out_dir = os.path.join(scriptdir, "testdata/tmp")
+    try:
+        f = partial(worker, process, overwrite=True)
+        pool = Pool()
+        try:
+            for output in pool.imap_unordered(
+                f, process.get_process_tiles(4), chunksize=8):
+                assert isinstance(output, BufferedTile)
+                if output.data:
+                    for feature in output.data:
+                        assert "properties" in feature
+                        assert shape(feature["geometry"]).is_valid
+                else:
+                    assert output.message is not None
+                process.write(output)
+        except KeyboardInterrupt:
+            pool.terminate()
+        except:
+            raise
+        finally:
+            pool.close()
+            pool.join()
+        print "OK: vector file read & write"
+    except:
+        print "ERROR: vector file read & write"
+        raise
+    try:
+        shutil.rmtree(out_dir)
+    except:
+        pass
+
 
 
 def worker(process, process_tile, overwrite):

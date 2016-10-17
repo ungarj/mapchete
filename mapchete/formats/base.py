@@ -77,16 +77,6 @@ class OutputData(object):
         self.crs = self.pyramid.crs
         self.srid = self.pyramid.srid
 
-    @property
-    def driver_name(self):
-        """Name of driver."""
-        raise NotImplementedError
-
-    @property
-    def data_type(self):
-        """Either 'raster' or 'vector'."""
-        raise NotImplementedError
-
     def write(self, process_tile, overwrite=False):
         """Write data from one or more process tiles."""
         raise NotImplementedError
