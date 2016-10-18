@@ -82,6 +82,7 @@ class MapcheteConfig(object):
             metatiling=self.raw["output"]["metatiling"])
         self.crs = self.process_pyramid.crs
         self.overwrite = overwrite
+        self._validate()
 
     @property
     def output(self):
@@ -206,6 +207,11 @@ class MapcheteConfig(object):
         """Return process bounds for zoom level."""
         return self.process_area(zoom).bounds
 
+    def _validate(self):
+        self.process_area()
+        for zoom in self.zoom_levels:
+            self.at_zoom(zoom)
+
     def _parse_config(self, input_config, single_input_file):
         # from configuration dictionary
         if isinstance(input_config, dict):
@@ -273,7 +279,6 @@ class MapcheteConfig(object):
             return self.raw["metatiling"]
         except KeyError:
             return 1
-
 
     def _at_zoom(self, zoom):
         """

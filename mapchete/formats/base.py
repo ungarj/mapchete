@@ -81,6 +81,10 @@ class OutputData(object):
         """Write data from one or more process tiles."""
         raise NotImplementedError
 
+    def tiles_exist(self, process_tile):
+        """Check whether all output tiles of a process tile exist."""
+        raise NotImplementedError
+
     def is_valid_with_config(self, config):
         """Check if output format is valid with other process parameters."""
         raise NotImplementedError

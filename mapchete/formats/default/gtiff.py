@@ -49,6 +49,13 @@ class OutputData(base.OutputData):
                 in_tile=process_tile, out_profile=self.profile(out_tile),
                 out_tile=out_tile, out_path=out_path)
 
+    def tiles_exist(self, process_tile):
+        """Check whether all output tiles of a process tile exist."""
+        return all(
+            os.path.exists(self.get_path(tile))
+            for tile in self.pyramid.intersecting(process_tile)
+        )
+
     def is_valid_with_config(self, config):
         """Check if output format is valid with other process parameters."""
         assert isinstance(config, dict)

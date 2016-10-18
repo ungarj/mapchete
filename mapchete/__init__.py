@@ -88,10 +88,9 @@ class Mapchete(object):
         else:
             raise ValueError("invalid process_tile type for execute()")
         # Do nothing if tile exists or overwrite is turned off.
-        if not overwrite and all(
-            tile.exists() for tile in self.output.tiles(process_tile)
-        ):
-            return (process_tile.id, "exists", None)
+        if not overwrite and self.config.output.tiles_exist(process_tile):
+            process_tile.message = "exists"
+            return process_tile
 
         # TODO If baselevel is active and zoom is outside of baselevel,
         # interpolate.
@@ -105,33 +104,31 @@ class Mapchete(object):
                 params=self.config.at_zoom(process_tile.zoom)
             )
         except:
-            process_tile.message = "failed"
-            process_tile.error = traceback.print_exc()
-            return process_tile
+            raise RuntimeError(
+                "error invoking process: %s" % traceback.print_exc())
         try:
             # Actually run process.
             process_data = tile_process.execute()
         except:
-            process_tile.message = "failed"
-            process_tile.error = traceback.print_exc()
-            return process_tile
+            raise RuntimeError(
+                "error executing process: %s" % traceback.print_exc())
         finally:
             tile_process = None
         # Analyze proess output.
         if isinstance(process_data, str):
             process_tile.message = process_data
-            return process_tile
         elif isinstance(
             process_data, (list, tuple, np.ndarray, ma.MaskedArray)
         ):
             process_tile.data = process_data
-            return process_tile
         elif isinstance(process_data, types.GeneratorType):
             process_tile.data = list(process_data)
-            return process_tile
+        elif process_data is None:
+            raise RuntimeError("process output is empty")
         else:
             raise RuntimeError(
                 "not a valid process output: %s" % type(process_data))
+        return process_tile
 
     def read(self, output_tile):
         """
@@ -150,7 +147,9 @@ class Mapchete(object):
         - process_tile: the process_tile with appended data
         - overwrite: overwrite existing data (default: True)
         """
-        # Use self.config.output.write() function
+        if not process_tile or process_tile.data is None:
+            LOGGER.info((process_tile.id, "empty"))
+            return
         try:
             self.config.output.write(process_tile, overwrite=True)
         except:
@@ -198,11 +197,8 @@ class BufferedTile(Tile):
         """Return a rasterio profile dictionary."""
         out_meta = self.output.profile
         out_meta.update(
-            width=self.width,
-            height=self.height,
-            transform=None,
-            affine=self.affine
-            )
+            width=self.width, height=self.height, transform=None,
+            affine=self.affine)
         return out_meta
 
     @cached_property

@@ -348,21 +348,57 @@ def main():
     temp_process = "temp.py"
     out_format = "GTiff"
 
-    args = [
-        None, 'create', temp_mapchete, temp_process, out_format,
-        "--pyramid_type", "geodetic"]
     try:
-        cli = MapcheteCLI(args)
-        args = []
+        # create from template
+        args = [
+            None, 'create', temp_mapchete, temp_process, out_format,
+            "--pyramid_type", "geodetic"]
+        MapcheteCLI(args)
+        # edit configuration
+        with open(temp_mapchete, "r") as config_file:
+            config = yaml.load(config_file)
+            config["output"].update(
+                bands=1,
+                dtype="uint8",
+                path="."
+            )
+        with open(temp_mapchete, "w") as config_file:
+            config_file.write(yaml.dump(config, default_flow_style=False))
+        # run process for single tile
+        input_file = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
+        args = [
+            None, 'execute', temp_mapchete, '--tile', '6', '62', '124',
+            '--input_file', input_file]
+        try:
+            MapcheteCLI(args)
+        except RuntimeError:
+            pass
+        # run process with multiprocessing
+        input_file = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
+        args = [
+            None, 'execute', temp_mapchete, '--zoom', '6',
+            '--input_file', input_file]
+        MapcheteCLI(args)
+        # run example process with multiprocessing
+        args = [
+            None, 'execute', os.path.join(
+                scriptdir, "testdata/cleantopo_br.mapchete"),
+            '--zoom', '8'
+        ]
+        MapcheteCLI(args)
+        print "OK: run process from gommand line"
     except:
+        print "ERROR: run process from gommand line"
         raise
     finally:
+        delete_files = [temp_mapchete, temp_process, "temp.pyc", "temp.log"]
+        for delete_file in delete_files:
+            try:
+                os.remove(delete_file)
+            except:
+                pass
         try:
-            os.remove(temp_mapchete)
-        except:
-            pass
-        try:
-            os.remove(temp_process)
+            shutil.rmtree(out_dir)
         except:
             pass
 

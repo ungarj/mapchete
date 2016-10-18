@@ -46,13 +46,10 @@ def main(args=None):
 
     # Initialize process.
     try:
-        mapchete = Mapchete(
+        process = Mapchete(
             MapcheteConfig(
-                parsed.mapchete_file,
-                zoom=zoom,
-                bounds=parsed.bounds,
-                overwrite=parsed.overwrite,
-                single_input_file=parsed.input_file
+                parsed.mapchete_file, zoom=zoom, bounds=parsed.bounds,
+                overwrite=parsed.overwrite, single_input_file=parsed.input_file
             ),
         )
     except PyCompileError as e:
@@ -60,22 +57,17 @@ def main(args=None):
         return
     except:
         raise
-    logging.config.dictConfig(get_log_config(mapchete))
+    logging.config.dictConfig(get_log_config(process))
 
     if parsed.tile:
-        tile = mapchete.tile(
-            Tile(
-                mapchete.tile_pyramid,
-                *tuple(parsed.tile)
-                )
-            )
+        tile = process.config.process_pyramid.tile(*tuple(parsed.tile))
         try:
             assert tile.is_valid()
         except AssertionError:
             raise ValueError("tile index provided is invalid")
         try:
-            process_output, process_tile = mapchete.execute(
-                tile, mapchete, parsed.overwrite)
+            output = process.execute(tile, parsed.overwrite)
+            process.write(output)
             LOGGER.info("1 tile iterated")
         except:
             raise
@@ -83,26 +75,27 @@ def main(args=None):
         return
 
     process_tiles = []
+    num_processed = 0
     if parsed.failed_from_log:
         LOGGER.info("parsing log file ...")
         process_tiles = failed_tiles_from_log(
             parsed.failed_from_log,
-            mapchete,
+            process,
             failed_since_str=parsed.failed_since
         )
 
     LOGGER.info("starting process using %s worker(s)", multi)
-    f = partial(
-        mapchete.raw_output, overwrite=parsed.overwrite, return_metadata=True)
-    for zoom in reversed(mapchete.config.zoom_levels):
+    f = partial(worker, process, overwrite=parsed.overwrite)
+    for zoom in reversed(process.config.zoom_levels):
         if not process_tiles:
-            process_tiles = mapchete.get_process_tiles(zoom)
+            process_tiles = process.get_process_tiles(zoom)
         pool = Pool(multi)
         try:
             for raw_output in pool.imap_unordered(
                 f, process_tiles, chunksize=8):
-                mapchete.write(raw_output)
-                raise NotImplementedError
+                if raw_output is not None:
+                    process.write(raw_output)
+                num_processed += 1
         except KeyboardInterrupt:
             LOGGER.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
@@ -112,14 +105,13 @@ def main(args=None):
         finally:
             pool.close()
             pool.join()
-        process_tiles = []
 
-    # TODO LOGGER.info("%s tile(s) iterated", (len(collected_output)))
+    LOGGER.info("%s tile(s) iterated", (str(num_processed)))
 
     # TODO VRT creation
 
 
-def failed_tiles_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
+def failed_tiles_from_log(logfile, process, failed_since_str='1980-01-01'):
     """
     Get previously failed tiles.
 
@@ -155,33 +147,27 @@ def failed_tiles_from_log(logfile, mapchete, failed_since_str='1980-01-01'):
                     except:
                         warnings.warn("log line could not be parsed")
                         continue
-                    yield mapchete.tile(
+                    yield process.tile(
                         Tile(
-                            mapchete.tile_pyramid,
+                            process.tile_pyramid,
                             *tuple(tile)
                         )
                     )
 
 
-def worker(tile, mapchete, overwrite):
-    """
-    Worker function running the process depending on the overwrite flag and
-    whether the tile exists.
-    """
+def worker(process, process_tile, overwrite):
+    """Worker function running the process."""
     starttime = time.time()
     try:
-        log_message = mapchete.execute(tile, overwrite=overwrite)
-    except Exception:
-        log_message = mapchete.process_name, (
-            tile.id,
-            "failed",
-            traceback.print_exc()
-        )
+        output = process.execute(process_tile, overwrite)
+        message = "success"
+    except Exception as e:
+        output = None
+        message = e
     endtime = time.time()
     elapsed = "%ss" % (round((endtime - starttime), 3))
-
-    LOGGER.info((mapchete.process_name, log_message, elapsed))
-    return log_message
+    LOGGER.info((process.process_name, process_tile.id, message, elapsed))
+    return output
 
 
 if __name__ == "__main__":
