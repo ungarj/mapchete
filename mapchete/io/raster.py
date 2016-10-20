@@ -7,9 +7,9 @@ import numpy.ma as ma
 from rasterio.warp import Resampling, transform_bounds, reproject
 from rasterio.windows import from_bounds
 from affine import Affine
-from tilematrix import clip_geometry_to_srs_bounds
+from tilematrix import Tile, clip_geometry_to_srs_bounds
 
-from mapchete import BufferedTile
+from mapchete.tile import BufferedTile
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -125,6 +125,26 @@ def write_raster_window(
     else:
         out_tile = in_tile
     assert isinstance(out_path, str)
+    window_data = extract_data_from_tile(in_tile, out_tile)
+    # write if there is any band with non-masked data
+    if any([band.all() is not ma.masked for band in window_data]):
+        with rasterio.open(out_path, 'w', **out_profile) as dst:
+            for band, data in enumerate(window_data):
+                dst.write(data.astype(out_profile["dtype"]), (band+1))
+
+
+def extract_from_tile(in_tile, out_tile):
+    """Extract raster data window from in_tile."""
+    if isinstance(in_tile, BufferedTile):
+        if isinstance(in_tile.data, (np.ndarray, ma.masked_array)):
+            in_tile.data = (in_tile.data, )
+        elif isinstance(in_tile.data, tuple):
+            pass
+        else:
+            raise TypeError("wrong input data type: %s" % type(in_tile.data))
+    else:
+        raise TypeError("wrong input tile type: %s" % type(in_tile))
+    assert isinstance(out_tile, BufferedTile)
     left, bottom, right, top = out_tile.bounds
     window = from_bounds(
         left, bottom, right, top, in_tile.affine, height=in_tile.height,
@@ -133,13 +153,7 @@ def write_raster_window(
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    window_data = tuple(
-        data[minrow:maxrow, mincol:maxcol] for data in in_tile.data)
-    # write if there is any band with non-masked data
-    if any([band.all() is not ma.masked for band in window_data]):
-        with rasterio.open(out_path, 'w', **out_profile) as dst:
-            for band, data in enumerate(window_data):
-                dst.write(data.astype(out_profile["dtype"]), (band+1))
+    return tuple(data[minrow:maxrow, mincol:maxcol] for data in in_tile.data)
 
 
 def create_mosaic(tiles, nodata=0):

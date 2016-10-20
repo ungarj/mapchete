@@ -92,23 +92,3 @@ class OutputData(object):
     def output_from_process_tile(self, process_tile, for_web=False):
         """Convert process tiles to output tiles."""
         raise NotImplementedError
-
-
-class OutputTile(object):
-    """Represents output for a tile."""
-
-    def __init__(self):
-        """Initialize."""
-        self.pixelbuffer = None
-
-    def exists():
-        """Check if output already exists."""
-        raise NotImplementedError
-
-    def read(self):
-        """Read reprojected & resampled input data."""
-        raise NotImplementedError
-
-    def is_emtpy(self):
-        """Check if there is data within this tile."""
-        raise NotImplementedError

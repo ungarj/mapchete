@@ -34,7 +34,7 @@ def clip_array_with_vector(
                 buffered_geometries, array.shape, array_affine, invert=inverted
             )
         )
-    # if no geometries, return empty array
+    # if no geometries, return unmasked array
     else:
         if inverted:
             fill = False

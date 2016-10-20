@@ -7,13 +7,15 @@ import logging.config
 import traceback
 import imp
 import types
+import time
 import numpy as np
 import numpy.ma as ma
-from collections import namedtuple
-from cached_property import cached_property
-from tilematrix import Tile
+from tilematrix import Tile, TilePyramid
 
-import mapchete
+from mapchete import commons
+from mapchete.config import MapcheteConfig
+from mapchete.tile import BufferedTile
+from mapchete.io import raster
 
 LOGGER = logging.getLogger("mapchete")
 
@@ -27,6 +29,7 @@ class Mapchete(object):
 
     def __init__(self, config):
         """Initialize Mapchete job."""
+        assert isinstance(config, MapcheteConfig)
         self.config = config
         config.output
         try:
@@ -67,14 +70,13 @@ class Mapchete(object):
                 "error getting work tiles: %s" % traceback.print_exc())
             raise
 
-    def execute(self, process_tile, overwrite=True):
+    def execute(self, process_tile):
         """
-        Run the Mapchete process and write output.
+        Run the Mapchete process.
 
         Execute, write and return process_tile with data.
         - process_tile: Member of the process tile pyramid (not necessarily
             the output pyramid, if output has a different metatiling setting)
-        - overwrite: overwrite existing data (default: True)
 
         Returns a BufferedTile with process output in the data attribute. If
         there is no process output, data is None and there is information
@@ -87,10 +89,146 @@ class Mapchete(object):
             pass
         else:
             raise ValueError("invalid process_tile type for execute()")
-        # Do nothing if tile exists or overwrite is turned off.
-        if not overwrite and self.config.output.tiles_exist(process_tile):
-            process_tile.message = "exists"
-            return process_tile
+        starttime = time.time()
+        message = "execute"
+        try:
+            output = self._execute(process_tile)
+            error = "no errors"
+        except Exception as e:
+            output = None
+            error = e
+        endtime = time.time()
+        elapsed = "%ss" % (round((endtime - starttime), 3))
+        LOGGER.info(
+            (self.process_name, process_tile.id, message, error, elapsed))
+        return output
+
+    def read(self, output_tile):
+        """
+        Read from written process output.
+
+        Return output_tile with appended data.
+        - output_tile: Member of the output tile pyramid (not necessarily
+            the process pyramid, if output has a different metatiling setting)
+        """
+        raise NotImplementedError
+
+    def write(self, process_tile, overwrite=False):
+        """
+        Write data into output format.
+
+        - process_tile: the process_tile with appended data
+        - overwrite: overwrite existing data (default: True)
+        """
+        starttime = time.time()
+        if not process_tile or process_tile.data is None:
+            LOGGER.info((process_tile.id, "empty"))
+            return
+        message = "write"
+        try:
+            self.config.output.write(process_tile, overwrite=True)
+            error = "no errors"
+        except Exception as e:
+            raise
+            error = e
+        endtime = time.time()
+        elapsed = "%ss" % (round((endtime - starttime), 3))
+        LOGGER.info(
+            (self.process_name, output_tile.id, message, error, elapsed))
+
+    def get_web_tile_from_output(
+        self, web_tile, output_tile, web_metatiling=1, overwrite=False,
+        no_write=False
+    ):
+        """
+        Get output as a file object.
+
+        read() or execute() (and optional write()), convert to view output.
+        Return output_tile with appended output data.
+        - output_tile: Member of the output tile pyramid (not necessarily
+            the process pyramid, if output has a different metatiling setting)
+        - web_metatiling: metatiling setting for REST endpoint
+        - overwrite: overwrite existing data (default: True)
+        - no_write: override read() and write() and always execute()
+        """
+
+        return
+        assert isinstance(web_tile, Tile)
+        assert isinstance(output_tile, BufferedTile)
+        web_pyramid = TilePyramid(
+            self.config.output_type, metatiling=web_metatiling)
+        web_output_tiles = {}
+        if no_write:
+            process_tile = self.config.process_pyramid.intersecting(
+                    output_tile)[0]
+            LOGGER.info(
+                "output tile %s getting process tile %s" %
+                (output_tile.id, process_tile.id))
+            process_output = self.execute(process_tile)
+            if self.config.output.METADATA["data_type"] == "raster":
+                # get all web tiles
+                # if raster output: use raster clip
+                output_tile.data = raster.extract_from_tile(
+                    process_output, output_tile)
+                for web_tile in web_pyramid.intersecting(output_tile):
+                    web_tile = BufferedTile(web_tile)
+                    # convert with output.for_web(data)
+                    web_output = self.config.output.for_web(
+                        raster.extract_from_tile(
+                            output_tile, web_tile))
+                    # web_output_tiles[web_tile.id] = web_output
+                    web_output_tiles[str(hash(web_tile.id))] = web_output
+                return web_output_tiles
+                # return dictionary with web tile IDs and file objects
+            elif self.config.output.METADATA["data_type"] == "vector":
+                raise NotImplementedError
+            else:
+                raise RuntimeError("output driver invalid")
+        else:
+            # if not overwrite and output_tile exists:
+            #     read() and get all web tiles ...
+            # else:
+            #     execute(), write(), get all web tiles ...
+            raise NotImplementedError
+
+    def get_raw_output(self, output_tile, overwrite=False, no_write=False):
+        """
+        Get output raw data.
+
+        read() or execute() (and optional write()). Return output_tile with
+        appended output data.
+        - output_tile: Member of the output tile pyramid (not necessarily
+            the process pyramid, if output has a different metatiling setting)
+        - overwrite: overwrite existing data (default: True)
+        """
+        if isinstance(output_tile, tuple):
+            output_tile = BufferedTile(
+                self.config.output_pyramid.tile(*output_tile),
+                self.config.raw["output"]["metatiling"])
+        elif isinstance(output_tile, BufferedTile):
+            pass
+        else:
+            raise TypeError("tile id or BufferedTile required")
+        if no_write:
+            process_tile = self.config.process_pyramid.intersecting(
+                    output_tile)[0]
+            LOGGER.info(
+                "output tile %s getting process tile %s" %
+                (output_tile.id, process_tile.id))
+            process_output = self.execute(process_tile)
+            if self.config.output.METADATA["data_type"] == "raster":
+                # get all web tiles
+                # if raster output: use raster clip
+                output_tile.data = raster.extract_from_tile(
+                    process_output, output_tile)
+                return output_tile
+            elif self.config.output.METADATA["data_type"] == "vector":
+                raise NotImplementedError
+            else:
+                raise RuntimeError("output driver invalid")
+
+
+    def _execute(self, process_tile):
 
         # TODO If baselevel is active and zoom is outside of baselevel,
         # interpolate.
@@ -103,19 +241,21 @@ class Mapchete(object):
                 config=self.config, tile=process_tile,
                 params=self.config.at_zoom(process_tile.zoom)
             )
-        except:
+        except Exception as e:
             raise RuntimeError(
-                "error invoking process: %s" % traceback.print_exc())
+                "error invoking process: %s" % e)
         try:
             # Actually run process.
             process_data = tile_process.execute()
-        except:
+        except Exception as e:
+            raise
             raise RuntimeError(
-                "error executing process: %s" % traceback.print_exc())
+                "error executing process: %s" % e)
         finally:
             tile_process = None
         # Analyze proess output.
         if isinstance(process_data, str):
+            process_tile.data = self.config.output.empty(process_tile)
             process_tile.message = process_data
         elif isinstance(
             process_data, (list, tuple, np.ndarray, ma.MaskedArray)
@@ -129,102 +269,6 @@ class Mapchete(object):
             raise RuntimeError(
                 "not a valid process output: %s" % type(process_data))
         return process_tile
-
-    def read(self, output_tile):
-        """
-        Read from written process output.
-
-        Return output_tile with appended data.
-        - output_tile: Member of the output tile pyramid (not necessarily
-            the process pyramid, if output has a different metatiling setting)
-        """
-        raise NotImplementedError
-
-    def write(self, process_tile, overwrite=True):
-        """
-        Write data into output format.
-
-        - process_tile: the process_tile with appended data
-        - overwrite: overwrite existing data (default: True)
-        """
-        if not process_tile or process_tile.data is None:
-            LOGGER.info((process_tile.id, "empty"))
-            return
-        try:
-            self.config.output.write(process_tile, overwrite=True)
-        except:
-            raise
-
-    def get_view_output(self, output_tile, overwrite=True):
-        """
-        Get output as a file object.
-
-        read() or execute() (and optional write()), convert to view output.
-        Return output_tile with appended output data.
-        - output_tile: Member of the output tile pyramid (not necessarily
-            the process pyramid, if output has a different metatiling setting)
-        - overwrite: overwrite existing data (default: True)
-        """
-        raise NotImplementedError
-
-    def get_raw_output(self, output_tile, overwrite=True):
-        """
-        Get output raw data.
-
-        read() or execute() (and optional write()). Return output_tile with
-        appended output data.
-        - output_tile: Member of the output tile pyramid (not necessarily
-            the process pyramid, if output has a different metatiling setting)
-        - overwrite: overwrite existing data (default: True)
-        """
-        raise NotImplementedError
-
-
-class BufferedTile(Tile):
-    """A special tile with fixed pixelbuffer."""
-
-    def __init__(self, tile, pixelbuffer=0):
-        """Initialize."""
-        Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
-        self._tile = tile
-        self.pixelbuffer = pixelbuffer
-        self.data = None
-        self.message = None
-        self.error = None
-
-    @cached_property
-    def profile(self):
-        """Return a rasterio profile dictionary."""
-        out_meta = self.output.profile
-        out_meta.update(
-            width=self.width, height=self.height, transform=None,
-            affine=self.affine)
-        return out_meta
-
-    @cached_property
-    def height(self):
-        """Return buffered height."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer)[0]
-
-    @cached_property
-    def width(self):
-        """Return buffered width."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer)[1]
-
-    @cached_property
-    def affine(self):
-        """Return buffered Affine."""
-        return self._tile.affine(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def bounds(self):
-        """Return buffered bounds."""
-        return self._tile.bounds(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def bbox(self):
-        """Return buffered bounding box."""
-        return self._tile.bbox(pixelbuffer=self.pixelbuffer)
 
 
 class MapcheteProcess(object):
@@ -280,7 +324,7 @@ class MapcheteProcess(object):
                  112000 when having elevation values in meters in a geodetic
                  projection)
         """
-        return mapchete.commons.hillshade(
+        return commons.hillshade(
             elevation, self, azimuth, altitude, z, scale)
 
     def contours(
@@ -294,7 +338,7 @@ class MapcheteProcess(object):
         - interval: elevation value interval
         - field: output field name containing elevation value
         """
-        return mapchete.commons.contours(
+        return commons.contours(
             elevation, self.tile, interval=interval,
             pixelbuffer=self.pixelbuffer, field=field)
 
@@ -307,6 +351,6 @@ class MapcheteProcess(object):
         - inverted: bool, invert clipping
         - clip_buffer: int (in pixels), buffer geometries befor applying clip
         """
-        return mapchete.commons.clip_array_with_vector(
-            array, self.tile.affine(self.pixelbuffer), geometries,
+        return commons.clip_array_with_vector(
+            array, self.tile.affine, geometries,
             inverted=inverted, clip_buffer=clip_buffer*self.tile.pixel_x_size)

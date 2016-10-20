@@ -71,15 +71,15 @@ class MapcheteConfig(object):
         self._global_process_area = None
         self._prepared_files = {}
         # other properties
+        self.output_type = self.raw["output"]["type"]
         try:
             assert self.raw["output"]["type"] in TILING_TYPES
         except AssertionError:
             raise ValueError("output type (geodetic or mercator) is missing")
         self.process_pyramid = TilePyramid(
-            self.raw["output"]["type"], metatiling=self.metatiling)
+            self.output_type, metatiling=self.metatiling)
         self.output_pyramid = TilePyramid(
-            self.raw["output"]["type"],
-            metatiling=self.raw["output"]["metatiling"])
+            self.output_type, metatiling=self.raw["output"]["metatiling"])
         self.crs = self.process_pyramid.crs
         self.overwrite = overwrite
         self._validate()
@@ -249,11 +249,17 @@ class MapcheteConfig(object):
                 config_dir, raw["output"]["path"]))
         )
         # determine input files
-        if single_input_file:
+        if raw["input_files"] == "from_command_line":
+            try:
+                assert single_input_file
+            except AssertionError:
+                raise IOError("please provide an input file via command line")
             raw.update(input_files={"input_file": single_input_file})
-        elif "input_files" not in raw:
+        elif "input_files" not in raw or raw["input_files"] is None:
             raise IOError("no input file(s) specified")
+        # return parsed configuration
         return raw, mapchete_file, config_dir
+
 
     def _set_pixelbuffer(self, config_dict):
         if "pixelbuffer" in config_dict:

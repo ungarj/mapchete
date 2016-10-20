@@ -1,7 +1,7 @@
 """
 Calculate hillshade and slopeshade.
 
-from 
+from
 
 license
 -----------------------
@@ -88,10 +88,11 @@ def hillshade(elevation, self, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0):
     shaded = np.sin(altitude * deg2rad) * np.sin(slope) \
         + np.cos(altitude * deg2rad) * np.cos(slope) \
         * np.cos((azimuth - 90.0) * deg2rad - aspect)
-    shaded = (shaded - 1.0) * -128.0
-    shaded = -(shaded-255)
-    shaded = np.clip(shaded, 0, 255)
+    # shaded now has values between -1.0 and +1.0
+    # stretch to 0 - 255 and invert
+    shaded = (((shaded+1.0)/2)*-255.0).astype("uint8")
+    # add one pixel padding using the edge values
     return np.where(
-        elevation.mask, np.zeros(elevation.shape),
-        np.pad(shaded, 1, mode='constant')
+        elevation.mask, np.ones(elevation.shape),
+        np.pad(shaded, 1, mode='edge')
         )

@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-"""Mapchete command line tool with subcommands."""
+"""
+Mapchete command line tool with subcommands.
+
+Structure inspired by
+http://chase-seibert.github.io/blog/2014/03/21/python-multilevel-argparse.html
+"""
 
 import sys
 import argparse
@@ -12,16 +17,12 @@ from mapchete.cli.create import create_empty_process
 from mapchete.formats import available_output_formats
 
 
-def main():
-    MapcheteCLI()
-
 class MapcheteCLI(object):
-    """
-    From http://chase-seibert.github.io/blog/2014/03/21/python-multilevel-argparse.html
-    """
+    """Entry point to 'mapchete' command."""
+
     def __init__(self, args=sys.argv):
-        self.args = args
         """Initialize command line tool."""
+        self.args = args
         parser = argparse.ArgumentParser(
             description="Mapchete helps developing and running geoprocesses.",
             usage=(
@@ -85,7 +86,11 @@ class MapcheteCLI(object):
             "mapchete_file", type=str, help="Mapchete file")
         parser.add_argument(
             "--port", "-p", type=int, help="port process is hosted on",
-            metavar="<int>")
+            metavar="<int>", default=5000)
+        parser.add_argument(
+            "--internal_cache", "-c", type=int,
+            help="number of web tiles to be cached in RAM",
+            metavar="<int>", default=1024)
         parser.add_argument(
             "--zoom", "-z", type=int, nargs='*',
             help="either minimum and maximum zoom level or just one zoom level",
@@ -189,6 +194,6 @@ class MapcheteCLI(object):
             help="overwrite if tile(s) already exist(s)")
         args = parser.parse_args(self.args[2:])
         pyramid(args)
-
-if __name__ == "__main__":
-    main()
+#
+# if __name__ == "__main__":
+#     MapcheteCLI()

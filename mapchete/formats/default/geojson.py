@@ -3,7 +3,7 @@
 import os
 import types
 
-from mapchete import BufferedTile
+from mapchete.tile import BufferedTile
 from mapchete.formats import base
 from mapchete.io.vector import write_vector_window
 

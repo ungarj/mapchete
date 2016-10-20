@@ -5,7 +5,7 @@ import numpy as np
 import numpy.ma as ma
 
 from mapchete.formats import base
-from mapchete import BufferedTile
+from mapchete.tile import BufferedTile
 from mapchete.io.raster import write_raster_window
 
 

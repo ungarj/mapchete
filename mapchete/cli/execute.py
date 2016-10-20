@@ -9,7 +9,6 @@ from multiprocessing.pool import Pool
 import time
 import logging
 import logging.config
-import traceback
 from py_compile import PyCompileError
 import re
 from datetime import datetime
@@ -66,8 +65,8 @@ def main(args=None):
         except AssertionError:
             raise ValueError("tile index provided is invalid")
         try:
-            output = process.execute(tile, parsed.overwrite)
-            process.write(output)
+            output_tile = execute_worker(process, tile, parsed.overwrite)
+            write_worker(process, output_tile, parsed.overwrite)
             LOGGER.info("1 tile iterated")
         except:
             raise
@@ -85,7 +84,7 @@ def main(args=None):
         )
 
     LOGGER.info("starting process using %s worker(s)", multi)
-    f = partial(worker, process, overwrite=parsed.overwrite)
+    f = partial(execute_worker, process, overwrite=parsed.overwrite)
     for zoom in reversed(process.config.zoom_levels):
         if not process_tiles:
             process_tiles = process.get_process_tiles(zoom)
@@ -155,19 +154,25 @@ def failed_tiles_from_log(logfile, process, failed_since_str='1980-01-01'):
                     )
 
 
-def worker(process, process_tile, overwrite):
+def execute_worker(process, process_tile, overwrite):
     """Worker function running the process."""
+    return process.execute(process_tile)
+
+
+def write_worker(process, output_tile, overwrite):
+    """Worker function writing process outputs."""
     starttime = time.time()
+    message = "write"
     try:
-        output = process.execute(process_tile, overwrite)
-        message = "success"
+        process.write(output_tile, overwrite)
+        error = "no errors"
     except Exception as e:
-        output = None
-        message = e
+        raise
+        error = e
     endtime = time.time()
     elapsed = "%ss" % (round((endtime - starttime), 3))
-    LOGGER.info((process.process_name, process_tile.id, message, elapsed))
-    return output
+    LOGGER.info(
+        (process.process_name, output_tile.id, message, error, elapsed))
 
 
 if __name__ == "__main__":

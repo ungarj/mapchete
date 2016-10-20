@@ -1,22 +1,23 @@
 #!/usr/bin/env python
-"""
-Command line utility to serve a Mapchete process.
-"""
+"""Command line utility to serve a Mapchete process."""
 
-import sys
 import os
 import argparse
-from flask import Flask, send_file, make_response, render_template_string
 import threading
-from PIL import Image
 import io
 import logging
 import logging.config
 import pkgutil
+from PIL import Image, ImageDraw
+from flask import Flask, send_file, make_response, render_template_string
+from cachetools import LRUCache
+from tilematrix import TilePyramid, Tile
 
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.log import get_log_config
+from mapchete.io import raster
+from mapchete.tile import BufferedTile
 
 LOGGER = logging.getLogger("mapchete")
 
@@ -28,18 +29,7 @@ def main(args=None):
     Creates the Mapchete host and serves both web page with OpenLayers and the
     WMTS simple REST endpoint.
     """
-    if args is None:
-        args = sys.argv[1:]
-        parser = argparse.ArgumentParser()
-        parser.add_argument("mapchete_file", type=str)
-        parser.add_argument("--port", "-p", type=int, default=5000)
-        parser.add_argument("--zoom", "-z", type=int, nargs='*', )
-        parser.add_argument("--bounds", "-b", type=float, nargs='*')
-        parser.add_argument("--log", action="store_true")
-        parser.add_argument("--overwrite", action="store_true")
-        parser.add_argument("--input_file", type=str)
-        parsed = parser.parse_args(args)
-    elif isinstance(args, argparse.Namespace):
+    if isinstance(args, argparse.Namespace):
         parsed = args
     else:
         raise RuntimeError("invalid arguments for mapchete serve")
@@ -51,7 +41,7 @@ def main(args=None):
 
     try:
         LOGGER.info("preparing process ...")
-        mapchete = Mapchete(
+        process = Mapchete(
             MapcheteConfig(
                 parsed.mapchete_file,
                 zoom=parsed.zoom,
@@ -63,93 +53,101 @@ def main(args=None):
         raise
 
     app = Flask(__name__)
+    web_pyramid = TilePyramid(process.config.raw["output"]["type"])
 
-    logging.config.dictConfig(get_log_config(mapchete))
-    metatile_cache = {}
-    metatile_lock = threading.Lock()
+    logging.config.dictConfig(get_log_config(process))
+    output_tile_locker = {}
+    output_tile_lock = threading.Lock()
+    output_tile_cache = LRUCache(maxsize=parsed.internal_cache)
 
     @app.route('/', methods=['GET'])
     def return_index():
         """Render and hosts the appropriate OpenLayers instance."""
         index_html = pkgutil.get_data('mapchete.static', 'index.html')
-        process_bounds = mapchete.config.process_bounds()
+        process_bounds = process.config.process_bounds()
         if not process_bounds:
             process_bounds = (
-                mapchete.tile_pyramid.left,
-                mapchete.tile_pyramid.bottom,
-                mapchete.tile_pyramid.right,
-                mapchete.tile_pyramid.top
-            )
+                process.config.process_pyramid.left,
+                process.config.process_pyramid.bottom,
+                process.config.process_pyramid.right,
+                process.config.process_pyramid.top)
         return render_template_string(
-            index_html,
-            srid=mapchete.tile_pyramid.srid,
+            index_html, srid=process.config.process_pyramid.srid,
             process_bounds=",".join(map(str, process_bounds)),
-            is_mercator=(mapchete.tile_pyramid.srid == 3857)
+            is_mercator=(process.config.process_pyramid.srid == 3857)
         )
     tile_base_url = '/wmts_simple/1.0.0/mapchete/default/'
-    if mapchete.tile_pyramid.srid == 3857:
+    if process.config.process_pyramid.srid == 3857:
         tile_base_url += "g/"
     else:
         tile_base_url += "WGS84/"
 
     @app.route(
-        tile_base_url+'<int:zoom>/<int:row>/<int:col>.png',
-        methods=['GET'])
+        tile_base_url+'<int:zoom>/<int:row>/<int:col>.png', methods=['GET'])
     def get(zoom, row, col):
         """Return processed, empty or error (in pink color) tile."""
-        tile = mapchete.tile_pyramid.tilepyramid.tile(zoom, row, col)
+        print output_tile_cache
+        # convert zoom, row, col into tile object using web pyramid
+        web_tile = web_pyramid.tile(zoom, row, col)
+        output_tile_id = process.config.output_pyramid.intersecting(
+            web_tile)[0].id
+        if output_tile_id in output_tile_cache:
+            return _valid_tile_response(
+                web_tile, output_tile_cache[output_tile_id])
         try:
-            metatile = mapchete.tile(
-                mapchete.tile_pyramid.tile(
-                    tile.zoom,
-                    int(tile.row/mapchete.config.metatiling),
-                    int(tile.col/mapchete.config.metatiling),
-                    )
-                )
-            with metatile_lock:
-                metatile_event = metatile_cache.get(metatile.id)
-                if not metatile_event:
-                    metatile_cache[metatile.id] = threading.Event()
-
-            if metatile_event:
+            # get output_tile id and wait if locked
+            with output_tile_lock:
+                output_tile_event = output_tile_locker.get(output_tile_id)
+                # if not locked, lock output_tile id
+                if not output_tile_event:
+                    output_tile_locker[output_tile_id] = threading.Event()
+            if output_tile_event:
+                # wait if output_tile is locked and return web tile when ready
                 LOGGER.info(
-                    "%s waiting for metatile %s", tile.id, metatile.id)
-                metatile_event.wait()
-                try:
-                    image = mapchete.get(tile)
-                except:
-                    raise
+                    "web tile %s waiting for output tile %s" %
+                    (web_tile.id, output_tile_id))
+                output_tile_event.wait()
+                return _valid_tile_response(
+                    web_tile, output_tile_cache[output_tile_id])
             else:
                 LOGGER.info(
-                    "%s getting metatile %s", tile.id, metatile.id)
+                    "web tile %s getting output tile %s" %
+                    (web_tile.id, output_tile_id))
                 try:
-                    image = mapchete.get(tile, overwrite=parsed.overwrite)
+                    output_tile = process.get_raw_output(
+                        output_tile_id, overwrite=parsed.overwrite,
+                        no_write=True)
+                    output_tile_cache[output_tile_id] = output_tile
+                    return _valid_tile_response(
+                        web_tile, output_tile_cache[output_tile_id])
                 except:
                     raise
                 finally:
-                    with metatile_lock:
-                        metatile_event = metatile_cache.get(metatile.id)
-                        del metatile_cache[metatile.id]
-                        metatile_event.set()
+                    with output_tile_lock:
+                        output_tile_event = output_tile_locker.get(
+                            output_tile_id)
+                        del output_tile_locker[output_tile_id]
+                        output_tile_event.set()
+        except Exception as e:
+            raise
+            LOGGER.info(
+                "web tile %s error: %s" %
+                (web_tile.id, e))
+            return _error_tile_response(web_tile)
 
-            if image:
-                resp = make_response(image)
-                # set no-cache header:
-                resp.cache_control.no_cache = True
-                LOGGER.info((tile.id, "ok", "image sent"))
-                return resp
-            else:
-                raise IOError("no image returned")
+    def _valid_tile_response(web_tile, output_tile):
+        data = process.config.output.for_web(
+            _data_window_from_output(web_tile, output_tile))
+        response = make_response(data)
+        response.cache_control.no_write = True
+        return response
 
-        except Exception as exception:
-            error_msg = (tile.id, "failed", exception)
-            LOGGER.error(error_msg)
-            size = mapchete.tile_pyramid.tilepyramid.tile_size
-            empty_image = Image.new('RGBA', (size, size))
-            pixels = empty_image.load()
-            for y_idx in xrange(size):
-                for x_idx in xrange(size):
-                    pixels[x_idx, y_idx] = (255, 0, 0, 128)
+    def _error_tile_response(web_tile):
+        if process.config.output.METADATA["data_type"] == "raster":
+            empty_image = Image.new('RGBA', web_tile.shape())
+            draw = ImageDraw.Draw(empty_image)
+            draw.rectangle([(0, 0), web_tile.shape()], fill=(255, 0, 0, 128))
+            del draw
             out_img = io.BytesIO()
             empty_image.save(out_img, 'PNG')
             out_img.seek(0)
@@ -157,13 +155,24 @@ def main(args=None):
             resp.cache_control.no_cache = True
             return resp
 
+        elif process.config.output.METADATA["data_type"] == "vector":
+            raise NotImplementedError
+
+    def _data_window_from_output(web_tile, output_tile):
+        if isinstance(web_tile, Tile):
+            web_tile = BufferedTile(web_tile)
+        if process.config.output.METADATA["data_type"] == "raster":
+            return raster.extract_from_tile(output_tile, web_tile)
+        elif process.config.output.METADATA["data_type"] == "vector":
+            raise NotImplementedError
+
     app.run(
         threaded=True,
         debug=True,
         port=parsed.port,
         extra_files=[parsed.mapchete_file]
         )
-
+    web_tile_cache.flush_all()
 
 if __name__ == '__main__':
     main()
