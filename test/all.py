@@ -278,7 +278,7 @@ def main():
     for tile in process.get_process_tiles():
         assert dumps(tile)
     out_dir = os.path.join(scriptdir, "testdata/tmp")
-    f = partial(worker, process, overwrite=True)
+    f = partial(worker, process)
     try:
         for zoom in reversed(process.config.zoom_levels):
             pool = Pool()
@@ -296,6 +296,7 @@ def main():
                 pool.join()
         print "OK: multiprocessing"
     except:
+        raise
         print "FAILED: multiprocessing"
     finally:
         try:
@@ -309,7 +310,7 @@ def main():
     process = Mapchete(MapcheteConfig(mapchete_file))
     out_dir = os.path.join(scriptdir, "testdata/tmp")
     try:
-        f = partial(worker, process, overwrite=True)
+        f = partial(worker, process)
         pool = Pool()
         try:
             for output in pool.imap_unordered(
@@ -403,9 +404,9 @@ def main():
             pass
 
 
-def worker(process, process_tile, overwrite):
+def worker(process, process_tile):
     """Worker processing a tile."""
-    return process.execute(process_tile, overwrite)
+    return process.execute(process_tile)
 
 if __name__ == "__main__":
     main()

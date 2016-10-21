@@ -86,7 +86,6 @@ def main(args=None):
         tile_base_url+'<int:zoom>/<int:row>/<int:col>.png', methods=['GET'])
     def get(zoom, row, col):
         """Return processed, empty or error (in pink color) tile."""
-        print output_tile_cache
         # convert zoom, row, col into tile object using web pyramid
         web_tile = web_pyramid.tile(zoom, row, col)
         output_tile_id = process.config.output_pyramid.intersecting(
@@ -129,7 +128,6 @@ def main(args=None):
                         del output_tile_locker[output_tile_id]
                         output_tile_event.set()
         except Exception as e:
-            raise
             LOGGER.info(
                 "web tile %s error: %s" %
                 (web_tile.id, e))

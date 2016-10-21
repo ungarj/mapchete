@@ -90,17 +90,23 @@ class Mapchete(object):
         else:
             raise ValueError("invalid process_tile type for execute()")
         starttime = time.time()
-        message = "execute"
-        try:
-            output = self._execute(process_tile)
-            error = "no errors"
-        except Exception as e:
-            output = None
-            error = e
+        if process_tile.id in self.process_tile_cache:
+            output = self.process_tile_cache[process_tile.id]
+            error = None
+            message = "read from process_tile cache"
+        else:
+            message = "execute"
+            try:
+                output = self._execute(process_tile)
+                error = "no errors"
+            except Exception as e:
+                output = None
+                error = e
         endtime = time.time()
         elapsed = "%ss" % (round((endtime - starttime), 3))
         LOGGER.info(
             (self.process_name, process_tile.id, message, error, elapsed))
+        self.process_tile_cache[process_tile.id] = output
         return output
 
     def read(self, output_tile):
@@ -134,7 +140,7 @@ class Mapchete(object):
         endtime = time.time()
         elapsed = "%ss" % (round((endtime - starttime), 3))
         LOGGER.info(
-            (self.process_name, output_tile.id, message, error, elapsed))
+            (self.process_name, process_tile.id, message, error, elapsed))
 
     def get_web_tile_from_output(
         self, web_tile, output_tile, web_metatiling=1, overwrite=False,
@@ -209,6 +215,8 @@ class Mapchete(object):
             pass
         else:
             raise TypeError("tile id or BufferedTile required")
+        if output_tile.id in self.output_tile_cache:
+            return self.output_tile_cache[output_tile.id]
         if no_write:
             process_tile = self.config.process_pyramid.intersecting(
                     output_tile)[0]
@@ -221,6 +229,7 @@ class Mapchete(object):
                 # if raster output: use raster clip
                 output_tile.data = raster.extract_from_tile(
                     process_output, output_tile)
+                self.output_tile_cache[output_tile.id] = output_tile
                 return output_tile
             elif self.config.output.METADATA["data_type"] == "vector":
                 raise NotImplementedError

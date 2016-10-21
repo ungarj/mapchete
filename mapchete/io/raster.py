@@ -125,7 +125,7 @@ def write_raster_window(
     else:
         out_tile = in_tile
     assert isinstance(out_path, str)
-    window_data = extract_data_from_tile(in_tile, out_tile)
+    window_data = extract_from_tile(in_tile, out_tile)
     # write if there is any band with non-masked data
     if any([band.all() is not ma.masked for band in window_data]):
         with rasterio.open(out_path, 'w', **out_profile) as dst:
