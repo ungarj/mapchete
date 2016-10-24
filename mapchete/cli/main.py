@@ -14,6 +14,7 @@ from mapchete.cli.execute import main as execute
 from mapchete.cli.serve import main as serve
 from mapchete.cli.pyramid import main as pyramid
 from mapchete.cli.create import create_empty_process
+from mapchete.cli.formats import list_formats
 from mapchete.formats import available_output_formats
 
 
@@ -29,13 +30,15 @@ class MapcheteCLI(object):
                 """mapchete <command> [<args>]"""
                 """\n"""
                 """\n    """
-                """create      Creates empty process and configuration files"""
+                """create      Creates empty process and configuration files."""
                 """\n    """
-                """serve       Serves a process on localhost"""
+                """serve       Locally serves a process."""
                 """\n    """
-                """execute     Executes a process"""
+                """execute     Executes a process."""
                 """\n    """
-                """pyramid     Creates a tile pyramid from an input raster"""
+                """pyramid     Creates a tile pyramid from an input raster."""
+                """\n    """
+                """formats     Lists available input and/or output formats."""
             ))
         parser.add_argument("command", help="Subcommand to run")
         # parse_args defaults to [1:] for args, but you need to
@@ -197,6 +200,18 @@ class MapcheteCLI(object):
             help="overwrite if tile(s) already exist(s)")
         args = parser.parse_args(self.args[2:])
         pyramid(args)
-#
-# if __name__ == "__main__":
-#     MapcheteCLI()
+
+    def formats(self):
+        """Parse arguments and run formats command."""
+        parser = argparse.ArgumentParser(
+            description="Lists available input and/or outpup formats",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            usage="mapchete formats")
+        parser.add_argument(
+            "--input_formats", "-i", action="store_true",
+            help="show only input formats")
+        parser.add_argument(
+            "--output_formats", "-o", action="store_true",
+            help="show only output formats")
+        args = parser.parse_args(self.args[2:])
+        list_formats(args)
