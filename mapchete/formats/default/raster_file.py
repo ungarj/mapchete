@@ -5,6 +5,7 @@ Currently limited by extensions .tif, .vrt., .png and .jp2 but could be
 extended easily.
 """
 
+import os
 import rasterio
 import ogr
 from shapely.geometry import box
@@ -74,6 +75,10 @@ class InputData(base.InputData):
                 raise
         else:
             return out_bbox
+
+    def exists(self):
+        """Check whether input file exists."""
+        return os.path.isfile(self.path)
 
 
 class InputTile(base.InputTile):

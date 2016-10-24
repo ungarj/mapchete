@@ -263,7 +263,6 @@ class MapcheteConfig(object):
         # return parsed configuration
         return raw, mapchete_file, config_dir
 
-
     def _set_pixelbuffer(self, config_dict):
         if "pixelbuffer" in config_dict:
             assert isinstance(config_dict["pixelbuffer"], int)
@@ -321,8 +320,8 @@ class MapcheteConfig(object):
                             # load file reader objects for each file
                             file_reader = load_input_reader(
                                 dict(
-                                    path=os.path.join(
-                                        self.config_dir, file_at_zoom),
+                                    path=os.path.normpath(os.path.join(
+                                        self.config_dir, file_at_zoom)),
                                     pyramid=self.process_pyramid,
                                     pixelbuffer=self.pixelbuffer)
                                 )

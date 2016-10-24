@@ -98,7 +98,7 @@ class OutputData(base.OutputData):
         """Verify array data and move array into tuple if necessary."""
         if isinstance(tile.data, (np.ndarray, ma.MaskedArray)):
             tile.data = (tile.data, )
-        if isinstance(tile.data, tuple):
+        if isinstance(tile.data, (tuple, list)):
             for band in tile.data:
                 try:
                     assert isinstance(band, (np.ndarray, ma.MaskedArray))

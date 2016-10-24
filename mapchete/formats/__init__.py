@@ -5,7 +5,6 @@ This module deserves a cleaner rewrite some day.
 """
 
 import os
-import pkgutil
 import pkg_resources
 
 _DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"

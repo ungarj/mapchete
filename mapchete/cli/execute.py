@@ -161,25 +161,19 @@ def process_worker(process, process_tile, overwrite):
             process.process_name, process_tile.id, process_tile.message,
             None, None))
         return process_tile
-    return process.execute(process_tile)
+    try:
+        return process.execute(process_tile)
+    except Exception as e:
+        process_tile.message = "error"
+        process_tile.error = e
+        return process_tile
 
 
 def write_worker(process, process_tile, overwrite):
     """Worker function writing process outputs."""
     if process_tile.message == "exists":
         return
-    starttime = time.time()
-    message = "write"
-    try:
-        process.write(process_tile, overwrite)
-        error = "no errors"
-    except Exception as e:
-        # raise
-        error = e
-    endtime = time.time()
-    elapsed = "%ss" % (round((endtime - starttime), 3))
-    LOGGER.info(
-        (process.process_name, process_tile.id, message, error, elapsed))
+    process.write(process_tile, overwrite)
 
 
 if __name__ == "__main__":

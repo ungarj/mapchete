@@ -10,7 +10,7 @@ class InputData(InputData):
     """Main input class."""
 
     METADATA = {
-        "driver_name": "mapchete",
+        "driver_name": "Mapchete",
         "data_type": None,
         "mode": "r",
         "file_extensions": ["mapchete"]

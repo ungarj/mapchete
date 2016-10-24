@@ -110,7 +110,7 @@ class OutputData(base.OutputData):
             raise ValueError(
                 "process output must be 2D NumPy array, masked array or a tuple"
                 )
-        if isinstance(tile.data, tuple):
+        if isinstance(tile.data, (tuple, list)):
             try:
                 assert len(tile.data) == 1
             except AssertionError:
