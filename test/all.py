@@ -6,14 +6,15 @@ from shapely.geometry import Polygon
 from shapely.wkt import loads
 import numpy.ma as ma
 import rasterio
-from tilematrix import TilePyramid
+# from tilematrix import TilePyramid, Tile
 from shapely.geometry import shape
 from multiprocessing import Pool
 from functools import partial
 from cPickle import dumps
 import shutil
 
-from mapchete import Mapchete, BufferedTile
+from mapchete import Mapchete
+from mapchete.tile import BufferedTile
 from mapchete.io.raster import create_mosaic
 from mapchete.config import MapcheteConfig
 
@@ -170,26 +171,26 @@ def main():
 
     """io module"""
     testdata_directory = os.path.join(scriptdir, "testdata")
+    from mapchete.tile import BufferedTilePyramid
 
     dummy1 = os.path.join(testdata_directory, "dummy1.tif")
     zoom = 8
-    tile_pyramid = TilePyramid("geodetic")
 
     mapchete_file = os.path.join(scriptdir, "testdata/minmax_zoom.mapchete")
     process = Mapchete(MapcheteConfig(mapchete_file))
     raster = process.config.at_zoom(7)["input_files"]["file1"]
     dummy1_bbox = raster.bbox()
 
+    pixelbuffer = 5
+    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     tiles = tile_pyramid.tiles_from_geom(dummy1_bbox, zoom)
     resampling = "average"
-    pixelbuffer = 5
     from mapchete.io.raster import read_raster_window
     for tile in tiles:
         for band in read_raster_window(
             dummy1,
             tile,
             resampling=resampling,
-            pixelbuffer=pixelbuffer
         ):
             try:
                 assert band.shape == (
@@ -220,7 +221,7 @@ def main():
                 tiles.append(output)
                 assert isinstance(output, BufferedTile)
                 assert isinstance(output.data, ma.MaskedArray)
-                assert output.data.shape == output.shape()
+                assert output.data.shape == output.shape
                 assert not ma.all(output.data.mask)
                 process.write(output)
                 tilenum += 1
@@ -348,7 +349,7 @@ def main():
     temp_mapchete = "temp.mapchete"
     temp_process = "temp.py"
     out_format = "GTiff"
-
+    out_dir = os.path.join(scriptdir, "testdata/tmp")
     try:
         # create from template
         args = [
@@ -379,7 +380,10 @@ def main():
         args = [
             None, 'execute', temp_mapchete, '--zoom', '6',
             '--input_file', input_file]
-        MapcheteCLI(args)
+        try:
+            MapcheteCLI(args)
+        except RuntimeError:
+            pass
         # run example process with multiprocessing
         args = [
             None, 'execute', os.path.join(
@@ -387,9 +391,9 @@ def main():
             '--zoom', '8'
         ]
         MapcheteCLI(args)
-        print "OK: run process from gommand line"
+        print "OK: run process from command line"
     except:
-        print "ERROR: run process from gommand line"
+        print "ERROR: run process from command line"
         raise
     finally:
         delete_files = [temp_mapchete, temp_process, "temp.pyc", "temp.log"]

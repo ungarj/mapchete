@@ -89,6 +89,9 @@ class OutputData(object):
         """Check if output format is valid with other process parameters."""
         raise NotImplementedError
 
-    def output_from_process_tile(self, process_tile, for_web=False):
-        """Convert process tiles to output tiles."""
+    def for_web(self, data):
+        """Web representation of data."""
         raise NotImplementedError
+
+    def empty(self, process_tile):
+        """Empty data."""

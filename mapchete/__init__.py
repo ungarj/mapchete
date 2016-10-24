@@ -8,9 +8,10 @@ import traceback
 import imp
 import types
 import time
+import threading
 import numpy as np
 import numpy.ma as ma
-from tilematrix import Tile, TilePyramid
+from cachetools import LRUCache
 
 from mapchete import commons
 from mapchete.config import MapcheteConfig
@@ -27,8 +28,14 @@ class Mapchete(object):
     From here, the process tiles can be determined and executed.
     """
 
-    def __init__(self, config):
-        """Initialize Mapchete job."""
+    def __init__(self, config, with_cache=False):
+        """
+        Initialize Mapchete processing endpoint.
+
+        - config: a valid MapcheteConfig object
+        - with_cache: uses internal locking and caching but won't work with
+            multiprocessing.
+        """
         assert isinstance(config, MapcheteConfig)
         self.config = config
         config.output
@@ -39,6 +46,10 @@ class Mapchete(object):
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file)
         )[0]
+        if with_cache:
+            self.process_tile_cache = LRUCache(maxsize=128)
+            self.current_processes = {}
+            self.process_lock = threading.Lock()
 
     def get_process_tiles(self, zoom=None):
         """
@@ -82,32 +93,24 @@ class Mapchete(object):
         there is no process output, data is None and there is information
         on the process status in the message attribute.
         """
-        if isinstance(process_tile, Tile):
-            process_tile = BufferedTile(
-                process_tile, pixelbuffer=self.config.pixelbuffer)
-        elif isinstance(process_tile, BufferedTile):
-            pass
-        else:
-            raise ValueError("invalid process_tile type for execute()")
+        assert isinstance(process_tile, BufferedTile)
         starttime = time.time()
-        if process_tile.id in self.process_tile_cache:
-            output = self.process_tile_cache[process_tile.id]
-            error = None
-            message = "read from process_tile cache"
-        else:
-            message = "execute"
-            try:
-                output = self._execute(process_tile)
-                error = "no errors"
-            except Exception as e:
-                output = None
-                error = e
+        message = "execute"
+        try:
+            output = self._execute(process_tile)
+            error = "no errors"
+        except Exception as e:
+            raise
+            output = None
+            error = e
         endtime = time.time()
         elapsed = "%ss" % (round((endtime - starttime), 3))
         LOGGER.info(
             (self.process_name, process_tile.id, message, error, elapsed))
-        self.process_tile_cache[process_tile.id] = output
-        return output
+        if output:
+            return output
+        else:
+            raise RuntimeError("process failed: %s" % e)
 
     def read(self, output_tile):
         """
@@ -117,7 +120,7 @@ class Mapchete(object):
         - output_tile: Member of the output tile pyramid (not necessarily
             the process pyramid, if output has a different metatiling setting)
         """
-        raise NotImplementedError
+        return self.config.output.read(output_tile)
 
     def write(self, process_tile, overwrite=False):
         """
@@ -142,100 +145,96 @@ class Mapchete(object):
         LOGGER.info(
             (self.process_name, process_tile.id, message, error, elapsed))
 
-    def get_web_tile_from_output(
-        self, web_tile, output_tile, web_metatiling=1, overwrite=False,
+    def get_raw_output(
+        self, tile, metatiling=1, pixelbuffer=0, overwrite=False,
         no_write=False
     ):
         """
-        Get output as a file object.
-
-        read() or execute() (and optional write()), convert to view output.
-        Return output_tile with appended output data.
-        - output_tile: Member of the output tile pyramid (not necessarily
-            the process pyramid, if output has a different metatiling setting)
-        - web_metatiling: metatiling setting for REST endpoint
-        - overwrite: overwrite existing data (default: True)
-        - no_write: override read() and write() and always execute()
-        """
-
-        return
-        assert isinstance(web_tile, Tile)
-        assert isinstance(output_tile, BufferedTile)
-        web_pyramid = TilePyramid(
-            self.config.output_type, metatiling=web_metatiling)
-        web_output_tiles = {}
-        if no_write:
-            process_tile = self.config.process_pyramid.intersecting(
-                    output_tile)[0]
-            LOGGER.info(
-                "output tile %s getting process tile %s" %
-                (output_tile.id, process_tile.id))
-            process_output = self.execute(process_tile)
-            if self.config.output.METADATA["data_type"] == "raster":
-                # get all web tiles
-                # if raster output: use raster clip
-                output_tile.data = raster.extract_from_tile(
-                    process_output, output_tile)
-                for web_tile in web_pyramid.intersecting(output_tile):
-                    web_tile = BufferedTile(web_tile)
-                    # convert with output.for_web(data)
-                    web_output = self.config.output.for_web(
-                        raster.extract_from_tile(
-                            output_tile, web_tile))
-                    # web_output_tiles[web_tile.id] = web_output
-                    web_output_tiles[str(hash(web_tile.id))] = web_output
-                return web_output_tiles
-                # return dictionary with web tile IDs and file objects
-            elif self.config.output.METADATA["data_type"] == "vector":
-                raise NotImplementedError
-            else:
-                raise RuntimeError("output driver invalid")
-        else:
-            # if not overwrite and output_tile exists:
-            #     read() and get all web tiles ...
-            # else:
-            #     execute(), write(), get all web tiles ...
-            raise NotImplementedError
-
-    def get_raw_output(self, output_tile, overwrite=False, no_write=False):
-        """
         Get output raw data.
 
-        read() or execute() (and optional write()). Return output_tile with
-        appended output data.
-        - output_tile: Member of the output tile pyramid (not necessarily
-            the process pyramid, if output has a different metatiling setting)
-        - overwrite: overwrite existing data (default: True)
+        This function won't work with multiprocessing, as it uses the
+        threading.Lock() class.
+
+        - tile: Either a tuple tile index, Tile or BufferedTile. If a tile
+            index is given, a tile will be generated using the metatiling
+            setting. Tile cannot be bigger than process tile!
+        - metatiling: Tile metatile size. Only relevant if tile index is
+            provided. (default: 1)
+        - pixelbuffer: Tile pixelbuffer. Only relevant if no BufferedTile is
+            provided. Also, cannot be greater than process pixelbuffer.
+            (default: 0)
+        - overwrite: Overwrite existing data. (default: False)
+        - no_write: Override read() and directly read from process. This flag
+            won't work with multiprocessing.
+
+        Returns BufferedTile with appended output data.
         """
-        if isinstance(output_tile, tuple):
-            output_tile = BufferedTile(
-                self.config.output_pyramid.tile(*output_tile),
-                self.config.raw["output"]["metatiling"])
-        elif isinstance(output_tile, BufferedTile):
-            pass
-        else:
-            raise TypeError("tile id or BufferedTile required")
-        if output_tile.id in self.output_tile_cache:
-            return self.output_tile_cache[output_tile.id]
+        assert isinstance(tile, BufferedTile)
+        # Read directly from process.
         if no_write:
-            process_tile = self.config.process_pyramid.intersecting(
-                    output_tile)[0]
-            LOGGER.info(
-                "output tile %s getting process tile %s" %
-                (output_tile.id, process_tile.id))
-            process_output = self.execute(process_tile)
+            # Determine affected process Tile and check whether it is already
+            # cached.
+            process_tile = self.config.process_pyramid.intersecting(tile)[0]
+            return self._execute_using_cache(process_tile)
+
+        process_tile = self.config.process_pyramid.intersecting(tile)[0]
+        output_tiles = self.config.output_pyramid.intersecting(tile)
+
+        # If not overwrite and output exists, read.
+        if not overwrite and self.config.output.tiles_exist(process_tile):
             if self.config.output.METADATA["data_type"] == "raster":
-                # get all web tiles
-                # if raster output: use raster clip
-                output_tile.data = raster.extract_from_tile(
-                    process_output, output_tile)
-                self.output_tile_cache[output_tile.id] = output_tile
-                return output_tile
+                mosaic, affine = raster.create_mosaic(
+                    [self.read(output_tile) for output_tile in output_tiles])
+                tile.data = raster.extract_from_array(mosaic, affine, tile)
+                return tile
             elif self.config.output.METADATA["data_type"] == "vector":
                 raise NotImplementedError
-            else:
-                raise RuntimeError("output driver invalid")
 
+        # If overwrite, process, write and return data.
+        output = self._execute_using_cache(process_tile)
+        self.write(output)
+        return self._extract(output, tile)
+
+    def _execute_using_cache(self, process_tile):
+        # Extract Tile subset from process Tile and return.
+        try:
+            return self.process_tile_cache[process_tile.id]
+        except KeyError:
+            pass
+        # Lock process for Tile or wait.
+        with self.process_lock:
+            process_event = self.current_processes.get(process_tile.id)
+            if not process_event:
+                self.current_processes[process_tile.id] = threading.Event()
+        # Wait and return.
+        if process_event:
+            process_event.wait()
+            return self.process_tile_cache[process_tile.id]
+        else:
+            try:
+                output = self.execute(process_tile)
+                self.process_tile_cache[process_tile.id] = output
+                return self.process_tile_cache[process_tile.id]
+            except:
+                raise
+            finally:
+                with self.process_lock:
+                    process_event = self.current_processes.get(
+                        process_tile.id)
+                    del self.current_processes[process_tile.id]
+                    process_event.set()
+
+    def _extract(self, process_tile, tile):
+        try:
+            process_tile = self.process_tile_cache[process_tile.id]
+        except:
+            pass
+        if self.config.output.METADATA["data_type"] == "raster":
+            tile.data = raster.extract_from_tile(
+                process_tile, tile)
+            return tile
+        elif self.config.output.METADATA["data_type"] == "vector":
+            raise NotImplementedError
 
     def _execute(self, process_tile):
 

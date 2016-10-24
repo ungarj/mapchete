@@ -110,6 +110,18 @@ class OutputData(base.OutputData):
                 "output data must be a 2D NumPy array or a tuple containing \
                 2D NumPy arrays.")
 
+    def empty(self, process_tile):
+        """Empty data."""
+        empty_band = ma.masked_array(
+            data=np.full(
+                process_tile.shape, self.profile["nodata"],
+                dtype=self.profile["dtype"]),
+            mask=np.ones(process_tile.shape)
+        )
+        return (
+            empty_band
+            for band in range(self.profile["count"])
+        )
 
 GTIFF_PROFILE = {
     "blockysize": 256,

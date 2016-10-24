@@ -103,6 +103,9 @@ class MapcheteCLI(object):
             "--overwrite", "-o", action="store_true",
             help="overwrite if tile(s) already exist(s)")
         parser.add_argument(
+            "--no_write", "-w", action="store_true",
+            help="always get output from freshly processed output")
+        parser.add_argument(
             "--input_file", "-i", type=str, help=(
                 """specify an input file via command line (in Mapchete file, """
                 """set 'input_file' parameter to 'from_command_line')"""),

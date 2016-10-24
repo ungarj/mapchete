@@ -65,8 +65,8 @@ def main(args=None):
         except AssertionError:
             raise ValueError("tile index provided is invalid")
         try:
-            output_tile = execute_worker(process, tile, parsed.overwrite)
-            write_worker(process, output_tile, parsed.overwrite)
+            output = process_worker(process, tile, parsed.overwrite)
+            write_worker(process, output, parsed.overwrite)
             LOGGER.info("1 tile iterated")
         except:
             raise
@@ -84,16 +84,15 @@ def main(args=None):
         )
 
     LOGGER.info("starting process using %s worker(s)", multi)
-    f = partial(execute_worker, process, overwrite=parsed.overwrite)
+    f = partial(process_worker, process, overwrite=parsed.overwrite)
     for zoom in reversed(process.config.zoom_levels):
         if not process_tiles:
             process_tiles = process.get_process_tiles(zoom)
         pool = Pool(multi)
         try:
-            for raw_output in pool.imap_unordered(
-                f, process_tiles, chunksize=8):
-                if raw_output is not None:
-                    process.write(raw_output)
+            for output in pool.imap_unordered(
+                f, process_tiles, chunksize=1):
+                write_worker(process, output, parsed.overwrite)
                 num_processed += 1
         except KeyboardInterrupt:
             LOGGER.info("Caught KeyboardInterrupt, terminating workers")
@@ -154,25 +153,33 @@ def failed_tiles_from_log(logfile, process, failed_since_str='1980-01-01'):
                     )
 
 
-def execute_worker(process, process_tile, overwrite):
+def process_worker(process, process_tile, overwrite):
     """Worker function running the process."""
+    if not overwrite and process.config.output.tiles_exist(process_tile):
+        process_tile.message = "exists"
+        LOGGER.info((
+            process.process_name, process_tile.id, process_tile.message,
+            None, None))
+        return process_tile
     return process.execute(process_tile)
 
 
-def write_worker(process, output_tile, overwrite):
+def write_worker(process, process_tile, overwrite):
     """Worker function writing process outputs."""
+    if process_tile.message == "exists":
+        return
     starttime = time.time()
     message = "write"
     try:
-        process.write(output_tile, overwrite)
+        process.write(process_tile, overwrite)
         error = "no errors"
     except Exception as e:
-        raise
+        # raise
         error = e
     endtime = time.time()
     elapsed = "%ss" % (round((endtime - starttime), 3))
     LOGGER.info(
-        (process.process_name, output_tile.id, message, error, elapsed))
+        (process.process_name, process_tile.id, message, error, elapsed))
 
 
 if __name__ == "__main__":

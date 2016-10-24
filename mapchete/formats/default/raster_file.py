@@ -129,9 +129,8 @@ class InputTile(base.InputTile):
             if band_index not in self._np_band_cache:
                 band = read_raster_window(
                     self.raster_file.path,
-                    self.tile.tile_pyramid.tile(*self.tile.id),
+                    self.tile,
                     indexes=band_index,
-                    pixelbuffer=self.tile.pixelbuffer,
                     resampling=self.resampling
                 ).next()
                 self._np_band_cache[band_index] = band

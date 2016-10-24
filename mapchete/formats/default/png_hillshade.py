@@ -2,6 +2,7 @@
 
 import os
 import io
+import rasterio
 import numpy as np
 import numpy.ma as ma
 from PIL import Image
@@ -51,9 +52,18 @@ class OutputData(base.OutputData):
                 in_tile=process_tile, out_profile=self.profile(out_tile),
                 out_tile=out_tile, out_path=out_path)
 
+    def read(self, output_tile):
+        """Read process output tile into numpy array."""
+        try:
+            with rasterio.open(self.get_path(output_tile)) as src:
+                output_tile.data = src.read(2, masked=True)
+                return output_tile
+        except:
+            raise
+
     def tiles_exist(self, process_tile):
         """Check whether all output tiles of a process tile exist."""
-        return all(
+        return any(
             os.path.exists(self.get_path(tile))
             for tile in self.pyramid.intersecting(process_tile)
         )
@@ -104,7 +114,9 @@ class OutputData(base.OutputData):
             try:
                 assert len(tile.data) == 1
             except AssertionError:
-                raise ValueError("only one band allowed for process output")
+                raise ValueError(
+                    "only one band allowed for process output, not %s" %
+                    len(tile.data))
             tile.data = tile.data[0]
         try:
             assert tile.data.ndim == 2
@@ -128,10 +140,7 @@ class OutputData(base.OutputData):
 
     def empty(self, process_tile):
         """Return empty data."""
-        return tuple(
-            ma.zeros(process_tile.shape())
-            for band in range(PNG_PROFILE["count"])
-        )
+        return (ma.zeros(process_tile.shape()), )
 
 
 PNG_PROFILE = {

@@ -9,6 +9,7 @@ from tilematrix import TilePyramid
 from mapchete.formats import (
     load_output_writer, available_output_formats, load_input_reader)
 from mapchete.io.raster import RESAMPLING_METHODS
+from mapchete.tile import BufferedTilePyramid
 
 
 # supported tile pyramid types
@@ -76,10 +77,12 @@ class MapcheteConfig(object):
             assert self.raw["output"]["type"] in TILING_TYPES
         except AssertionError:
             raise ValueError("output type (geodetic or mercator) is missing")
-        self.process_pyramid = TilePyramid(
-            self.output_type, metatiling=self.metatiling)
-        self.output_pyramid = TilePyramid(
-            self.output_type, metatiling=self.raw["output"]["metatiling"])
+        self.process_pyramid = BufferedTilePyramid(
+            self.output_type, metatiling=self.metatiling,
+            pixelbuffer=self.pixelbuffer)
+        self.output_pyramid = BufferedTilePyramid(
+            self.output_type, metatiling=self.raw["output"]["metatiling"],
+            pixelbuffer=self.raw["output"]["pixelbuffer"])
         self.crs = self.process_pyramid.crs
         self.overwrite = overwrite
         self._validate()

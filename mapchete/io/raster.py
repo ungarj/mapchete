@@ -23,7 +23,7 @@ RESAMPLING_METHODS = {
 
 
 def read_raster_window(
-    input_file, tile, indexes=None, pixelbuffer=0, resampling="nearest"
+    input_file, tile, indexes=None, resampling="nearest"
 ):
     """
     Generate NumPy arrays from an input raster.
@@ -35,7 +35,6 @@ def read_raster_window(
 
     - input_file: path to a raster file readable by rasterio.
     - tile: a Tile object
-    - pixelbuffer: buffer around tile in pixels.
     - indexes: a list of band numbers; None will read all.
     - resampling: one of "nearest", "average", "bilinear" or "lanczos"
     """
@@ -46,9 +45,9 @@ def read_raster_window(
     band_indexes = _get_band_indexes(indexes, input_file)
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
-    if pixelbuffer and _is_on_edge(tile, pixelbuffer):
+    if tile.pixelbuffer and _is_on_edge(tile):
         tile_boxes = clip_geometry_to_srs_bounds(
-            tile.bbox(pixelbuffer), tile.tile_pyramid, multipart=True)
+            tile.bbox, tile.tile_pyramid, multipart=True)
         parts_metadata = dict(left=None, middle=None, right=None, none=None)
         # Split bounding box into multiple parts & request each numpy array
         # separately.
@@ -92,7 +91,7 @@ def read_raster_window(
                 ],
                 axis=1
             )
-            assert stitched.shape == tile.shape(pixelbuffer)
+            assert stitched.shape == tile.shape
             yield stitched
 
     # If tile boundaries don't exceed pyramid boundaries, simply read window
@@ -101,9 +100,9 @@ def read_raster_window(
         for band_idx in band_indexes:
             yield _get_warped_array(
                 input_file=input_file, band_idx=band_idx,
-                dst_bounds=tile.bounds(pixelbuffer),
-                dst_shape=tile.shape(pixelbuffer),
-                dst_affine=tile.affine(pixelbuffer),
+                dst_bounds=tile.bounds,
+                dst_shape=tile.shape,
+                dst_affine=tile.affine,
                 dst_crs=tile.crs, resampling=resampling)
 
 
@@ -134,7 +133,7 @@ def write_raster_window(
 
 
 def extract_from_tile(in_tile, out_tile):
-    """Extract raster data window from in_tile."""
+    """Extract raster data window from BufferedTile."""
     if isinstance(in_tile, BufferedTile):
         if isinstance(in_tile.data, (np.ndarray, ma.masked_array)):
             in_tile.data = (in_tile.data, )
@@ -156,6 +155,25 @@ def extract_from_tile(in_tile, out_tile):
     return tuple(data[minrow:maxrow, mincol:maxcol] for data in in_tile.data)
 
 
+def extract_from_array(in_data, in_affine, out_tile):
+    """Extract raster data window from tuple of arrays."""
+    if isinstance(in_data, (np.ndarray, ma.masked_array)):
+        in_data = (in_data, )
+    elif isinstance(in_data, tuple):
+        pass
+    else:
+        raise TypeError("wrong input data type: %s" % type(in_data))
+    left, bottom, right, top = out_tile.bounds
+    window = from_bounds(
+        left, bottom, right, top, in_affine, height=in_data[0].shape[0],
+        width=in_data[0].shape[1])
+    minrow = window.row_off
+    maxrow = window.row_off + window.num_rows
+    mincol = window.col_off
+    maxcol = window.col_off + window.num_cols
+    return tuple(data[minrow:maxrow, mincol:maxcol] for data in in_data)
+
+
 def create_mosaic(tiles, nodata=0):
     """
     Create a mosaic from tiles.
@@ -169,15 +187,19 @@ def create_mosaic(tiles, nodata=0):
     m_left, m_bottom, m_right, m_top = None, None, None, None
     for tile in tiles:
         if isinstance(tile.data, (np.ndarray, ma.MaskedArray)):
-            tile.data = (tile.data, )
-        num_bands = len(tile.data)
+            tile_data = (tile.data, )
+        elif isinstance(tile.data, tuple):
+            tile_data = tile.data
+        else:
+            raise TypeError("tile.data must be an array or a tuple of arrays")
+        num_bands = len(tile_data)
         if resolution is None:
             resolution = tile.pixel_x_size
         if tile.pixel_x_size != resolution:
             raise RuntimeError("tiles must have same resolution")
         if dtype is None:
-            dtype = tile.data[0].dtype
-        if tile.data[0].dtype != dtype:
+            dtype = tile_data[0].dtype
+        if tile_data[0].dtype != dtype:
             raise RuntimeError("all tiles must have the same dtype")
         left, bottom, right, top = tile.bounds
         m_left = min([left, m_left]) if m_left else left
@@ -204,7 +226,7 @@ def create_mosaic(tiles, nodata=0):
         maxrow = window.row_off + window.num_rows
         mincol = window.col_off
         maxcol = window.col_off + window.num_cols
-        for tile_band, mosaic_band in zip(tile.data, mosaic):
+        for tile_band, mosaic_band in zip(tile_data, mosaic):
             mosaic_band[minrow:maxrow, mincol:maxcol] = tile_band
             mosaic_band.mask[minrow:maxrow, mincol:maxcol] = tile_band.mask
     return (mosaic, mosaic_affine)
@@ -257,9 +279,9 @@ def _get_warped_array(
             dst_band, mask=dst_band == nodataval)
 
 
-def _is_on_edge(tile, pixelbuffer):
+def _is_on_edge(tile):
     """Determine whether tile touches or goes over pyramid edge."""
-    tile_left, tile_bottom, tile_right, tile_top = tile.bounds(pixelbuffer)
+    tile_left, tile_bottom, tile_right, tile_top = tile.bounds
     touches_left = tile_left <= tile.tile_pyramid.left
     touches_bottom = tile_bottom <= tile.tile_pyramid.bottom
     touches_right = tile_right >= tile.tile_pyramid.right

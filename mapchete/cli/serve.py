@@ -3,21 +3,17 @@
 
 import os
 import argparse
-import threading
 import io
 import logging
 import logging.config
 import pkgutil
 from PIL import Image, ImageDraw
 from flask import Flask, send_file, make_response, render_template_string
-from cachetools import LRUCache
-from tilematrix import TilePyramid, Tile
 
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.log import get_log_config
-from mapchete.io import raster
-from mapchete.tile import BufferedTile
+from mapchete.tile import BufferedTilePyramid
 
 LOGGER = logging.getLogger("mapchete")
 
@@ -43,22 +39,17 @@ def main(args=None):
         LOGGER.info("preparing process ...")
         process = Mapchete(
             MapcheteConfig(
-                parsed.mapchete_file,
-                zoom=parsed.zoom,
-                bounds=parsed.bounds,
-                single_input_file=parsed.input_file
-            )
+                parsed.mapchete_file, zoom=parsed.zoom, bounds=parsed.bounds,
+                single_input_file=parsed.input_file),
+            with_cache=True
         )
     except:
         raise
 
     app = Flask(__name__)
-    web_pyramid = TilePyramid(process.config.raw["output"]["type"])
+    web_pyramid = BufferedTilePyramid(process.config.raw["output"]["type"])
 
     logging.config.dictConfig(get_log_config(process))
-    output_tile_locker = {}
-    output_tile_lock = threading.Lock()
-    output_tile_cache = LRUCache(maxsize=parsed.internal_cache)
 
     @app.route('/', methods=['GET'])
     def return_index():
@@ -88,54 +79,17 @@ def main(args=None):
         """Return processed, empty or error (in pink color) tile."""
         # convert zoom, row, col into tile object using web pyramid
         web_tile = web_pyramid.tile(zoom, row, col)
-        output_tile_id = process.config.output_pyramid.intersecting(
-            web_tile)[0].id
-        if output_tile_id in output_tile_cache:
-            return _valid_tile_response(
-                web_tile, output_tile_cache[output_tile_id])
         try:
-            # get output_tile id and wait if locked
-            with output_tile_lock:
-                output_tile_event = output_tile_locker.get(output_tile_id)
-                # if not locked, lock output_tile id
-                if not output_tile_event:
-                    output_tile_locker[output_tile_id] = threading.Event()
-            if output_tile_event:
-                # wait if output_tile is locked and return web tile when ready
-                LOGGER.info(
-                    "web tile %s waiting for output tile %s" %
-                    (web_tile.id, output_tile_id))
-                output_tile_event.wait()
-                return _valid_tile_response(
-                    web_tile, output_tile_cache[output_tile_id])
-            else:
-                LOGGER.info(
-                    "web tile %s getting output tile %s" %
-                    (web_tile.id, output_tile_id))
-                try:
-                    output_tile = process.get_raw_output(
-                        output_tile_id, overwrite=parsed.overwrite,
-                        no_write=True)
-                    output_tile_cache[output_tile_id] = output_tile
-                    return _valid_tile_response(
-                        web_tile, output_tile_cache[output_tile_id])
-                except:
-                    raise
-                finally:
-                    with output_tile_lock:
-                        output_tile_event = output_tile_locker.get(
-                            output_tile_id)
-                        del output_tile_locker[output_tile_id]
-                        output_tile_event.set()
+            return _valid_tile_response(
+                process.get_raw_output(web_tile, no_write=parsed.no_write))
         except Exception as e:
             LOGGER.info(
-                "web tile %s error: %s" %
-                (web_tile.id, e))
+                (process.process_name, "web tile", web_tile.id, "error", e))
+            raise
             return _error_tile_response(web_tile)
 
-    def _valid_tile_response(web_tile, output_tile):
-        data = process.config.output.for_web(
-            _data_window_from_output(web_tile, output_tile))
+    def _valid_tile_response(web_tile):
+        data = process.config.output.for_web(web_tile.data)
         response = make_response(data)
         response.cache_control.no_write = True
         return response
@@ -156,21 +110,12 @@ def main(args=None):
         elif process.config.output.METADATA["data_type"] == "vector":
             raise NotImplementedError
 
-    def _data_window_from_output(web_tile, output_tile):
-        if isinstance(web_tile, Tile):
-            web_tile = BufferedTile(web_tile)
-        if process.config.output.METADATA["data_type"] == "raster":
-            return raster.extract_from_tile(output_tile, web_tile)
-        elif process.config.output.METADATA["data_type"] == "vector":
-            raise NotImplementedError
-
     app.run(
         threaded=True,
         debug=True,
         port=parsed.port,
         extra_files=[parsed.mapchete_file]
         )
-    web_tile_cache.flush_all()
 
 if __name__ == '__main__':
     main()
