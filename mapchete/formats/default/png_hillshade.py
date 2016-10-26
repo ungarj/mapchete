@@ -125,9 +125,7 @@ class OutputData(base.OutputData):
 
     def for_web(self, data):
         """Return tiles for web usage (as file object)."""
-        data = data[0]
-        if isinstance(data, ma.masked_array):
-            data[data.mask] = 0
+        ma.set_fill_value(data, 0)
         zeros = np.zeros(data.shape)
         out_rgb = (zeros, zeros, zeros, )
         out_rgb += (data, )

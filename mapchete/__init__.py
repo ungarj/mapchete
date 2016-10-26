@@ -192,7 +192,10 @@ class Mapchete(object):
 
         # If overwrite, process, write and return data.
         output = self._execute_using_cache(process_tile)
-        self.write(output)
+        try:
+            self.write(output)
+        except OSError:
+            pass
         return self._extract(output, tile)
 
     def _execute_using_cache(self, process_tile):

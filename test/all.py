@@ -29,7 +29,7 @@ def main():
     from mapchete.formats import (
         available_input_formats, available_output_formats, _file_ext_to_driver)
 
-    assert set(['mapchete', 'raster_file']).issubset(
+    assert set(['Mapchete', 'raster_file', 'vector_file']).issubset(
         set(available_input_formats()))
     assert set(['GTiff', 'PNG', 'PNG_hillshade']).issubset(
         set(available_output_formats()))

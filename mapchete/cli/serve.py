@@ -79,6 +79,16 @@ def main(args=None):
         """Return processed, empty or error (in pink color) tile."""
         # convert zoom, row, col into tile object using web pyramid
         web_tile = web_pyramid.tile(zoom, row, col)
+        if not parsed.overwrite and (
+            web_pyramid.metatiling == process.config.raw["output"]["metatiling"]
+        ):
+            try:
+                path = process.config.output.get_path(web_tile)
+                response = make_response(send_file(path))
+                response.cache_control.no_write = True
+                return response
+            except:
+                pass
         try:
             return _valid_tile_response(
                 process.get_raw_output(web_tile, no_write=parsed.no_write))
@@ -96,9 +106,9 @@ def main(args=None):
 
     def _error_tile_response(web_tile):
         if process.config.output.METADATA["data_type"] == "raster":
-            empty_image = Image.new('RGBA', web_tile.shape())
+            empty_image = Image.new('RGBA', web_tile.shape)
             draw = ImageDraw.Draw(empty_image)
-            draw.rectangle([(0, 0), web_tile.shape()], fill=(255, 0, 0, 128))
+            draw.rectangle([(0, 0), web_tile.shape], fill=(255, 0, 0, 128))
             del draw
             out_img = io.BytesIO()
             empty_image.save(out_img, 'PNG')

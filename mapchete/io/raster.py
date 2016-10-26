@@ -7,9 +7,11 @@ import numpy.ma as ma
 from rasterio.warp import Resampling, transform_bounds, reproject
 from rasterio.windows import from_bounds
 from affine import Affine
-from tilematrix import Tile, clip_geometry_to_srs_bounds
+from shapely.geometry import box
+from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.tile import BufferedTile
+from mapchete.io.vector import reproject_geometry
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -136,14 +138,15 @@ def extract_from_tile(in_tile, out_tile):
     """Extract raster data window from BufferedTile."""
     if isinstance(in_tile, BufferedTile):
         if isinstance(in_tile.data, (np.ndarray, ma.masked_array)):
-            in_tile.data = (in_tile.data, )
-        elif isinstance(in_tile.data, tuple):
             pass
+        elif isinstance(in_tile.data, tuple):
+            in_tile.data = np.stack(in_tile.data)
         else:
             raise TypeError("wrong input data type: %s" % type(in_tile.data))
     else:
         raise TypeError("wrong input tile type: %s" % type(in_tile))
     assert isinstance(out_tile, BufferedTile)
+    assert len(in_tile.data.shape) == 3
     left, bottom, right, top = out_tile.bounds
     window = from_bounds(
         left, bottom, right, top, in_tile.affine, height=in_tile.height,
@@ -152,7 +155,7 @@ def extract_from_tile(in_tile, out_tile):
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    return tuple(data[minrow:maxrow, mincol:maxcol] for data in in_tile.data)
+    return np.stack(in_tile.data[:, minrow:maxrow, mincol:maxcol])
 
 
 def extract_from_array(in_data, in_affine, out_tile):
@@ -171,7 +174,7 @@ def extract_from_array(in_data, in_affine, out_tile):
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    return tuple(data[minrow:maxrow, mincol:maxcol] for data in in_data)
+    return np.stack(data[minrow:maxrow, mincol:maxcol] for data in in_data)
 
 
 def create_mosaic(tiles, nodata=0):
@@ -187,12 +190,12 @@ def create_mosaic(tiles, nodata=0):
     m_left, m_bottom, m_right, m_top = None, None, None, None
     for tile in tiles:
         if isinstance(tile.data, (np.ndarray, ma.MaskedArray)):
-            tile_data = (tile.data, )
-        elif isinstance(tile.data, tuple):
             tile_data = tile.data
+        elif isinstance(tile.data, tuple):
+            tile_data = np.stack(tile.data)
         else:
             raise TypeError("tile.data must be an array or a tuple of arrays")
-        num_bands = len(tile_data)
+        num_bands = tile_data.shape[0]
         if resolution is None:
             resolution = tile.pixel_x_size
         if tile.pixel_x_size != resolution:
@@ -251,9 +254,17 @@ def _get_warped_array(
             src_left, src_bottom, src_right, src_top = transform_bounds(
                 dst_crs, src.crs, *dst_bounds, densify_pts=21)
         if float('Inf') in (src_left, src_bottom, src_right, src_top):
-            raise RuntimeError(
-                "Tile boundaries could not be translated into source SRS."
-                )
+            try:
+                # file_bbox = reproject_geometry(
+                #     box(*src.bounds), src.crs, dst_crs)
+                # if not box(*dst_bounds).intersects(file_bbox):
+                return ma.masked_array(
+                    data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
+                    mask=ma.ones(dst_shape), fill_value=src.nodata)
+            except:
+                raise RuntimeError(
+                    "Tile bbox could not be translated into source file SRS."
+                    )
         # Read data window.
         window = src.window(
             src_left, src_bottom, src_right, src_top, boundless=True)
