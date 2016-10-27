@@ -93,6 +93,8 @@ class Mapchete(object):
         there is no process output, data is None and there is information
         on the process status in the message attribute.
         """
+        if process_tile.zoom not in self.config.zoom_levels:
+            return self.config.output.empty(process_tile)
         assert isinstance(process_tile, BufferedTile)
         starttime = time.time()
         message = "execute"
@@ -170,6 +172,9 @@ class Mapchete(object):
         Returns BufferedTile with appended output data.
         """
         assert isinstance(tile, BufferedTile)
+        # Return empty data if zoom level is outside of process zoom levels.
+        if tile.zoom not in self.config.zoom_levels:
+            return self.config.output.empty(tile)
         # Read directly from process.
         if no_write:
             # Determine affected process Tile and check whether it is already
