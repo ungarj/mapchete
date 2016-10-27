@@ -49,7 +49,7 @@ def load_output_writer(output_params):
             output_writer = v.load().OutputData(output_params)
             if output_writer.METADATA["driver_name"] == driver_name:
                 return output_writer
-        except:
+        except AttributeError:
             pass
     raise AttributeError(
         "no loader for driver '%s' could be found." % driver_name)
@@ -70,7 +70,7 @@ def load_input_reader(input_params):
             input_reader = v.load().InputData(input_params)
             if input_reader.METADATA["driver_name"] == driver_name:
                 return input_reader
-        except:
+        except AttributeError:
             pass
     raise AttributeError(
         "no loader for driver '%s' could be found." % driver_name)

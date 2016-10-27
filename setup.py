@@ -48,7 +48,8 @@ setup(
         'matplotlib',
         'gdal',
         'cached_property',
-        'pyproj'
+        'pyproj',
+        'cachetools'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
