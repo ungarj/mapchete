@@ -7,11 +7,9 @@ import numpy.ma as ma
 from rasterio.warp import Resampling, transform_bounds, reproject
 from rasterio.windows import from_bounds
 from affine import Affine
-from shapely.geometry import box
 from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.tile import BufferedTile
-from mapchete.io.vector import reproject_geometry
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -43,7 +41,10 @@ def read_raster_window(
     try:
         assert os.path.isfile(input_file)
     except AssertionError:
-        raise IOError("input file not found %s" % input_file)
+        if input_file.split("/")[1] == "vsizip":
+            pass
+        else:
+            raise IOError("input file not found %s" % input_file)
     band_indexes = _get_band_indexes(indexes, input_file)
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
@@ -120,6 +121,7 @@ def write_raster_window(
     - out_path: output path
     """
     assert isinstance(in_tile, BufferedTile)
+    assert isinstance(in_tile.data, (np.ndarray, ma.MaskedArray))
     assert isinstance(out_profile, dict)
     if out_tile:
         assert isinstance(out_tile, BufferedTile)
@@ -128,7 +130,7 @@ def write_raster_window(
     assert isinstance(out_path, str)
     window_data = extract_from_tile(in_tile, out_tile)
     # write if there is any band with non-masked data
-    if any([band.all() is not ma.masked for band in window_data]):
+    if window_data.all() is not ma.masked:
         with rasterio.open(out_path, 'w', **out_profile) as dst:
             for band, data in enumerate(window_data):
                 dst.write(data.astype(out_profile["dtype"]), (band+1))
@@ -137,36 +139,30 @@ def write_raster_window(
 def extract_from_tile(in_tile, out_tile):
     """Extract raster data window from BufferedTile."""
     if isinstance(in_tile, BufferedTile):
-        if isinstance(in_tile.data, (np.ndarray, ma.masked_array)):
+        if isinstance(in_tile.data, (np.ndarray, ma.MaskedArray)):
             pass
         elif isinstance(in_tile.data, tuple):
-            in_tile.data = np.stack(in_tile.data)
+            in_tile.data = ma.MaskedArray(
+                data=np.stack(in_tile.data),
+                mask=np.stack(in_tile.data.mask)
+            )
         else:
             raise TypeError("wrong input data type: %s" % type(in_tile.data))
     else:
         raise TypeError("wrong input tile type: %s" % type(in_tile))
     assert isinstance(out_tile, BufferedTile)
-    assert len(in_tile.data.shape) == 3
-    left, bottom, right, top = out_tile.bounds
-    window = from_bounds(
-        left, bottom, right, top, in_tile.affine, height=in_tile.height,
-        width=in_tile.width)
-    minrow = window.row_off
-    maxrow = window.row_off + window.num_rows
-    mincol = window.col_off
-    maxcol = window.col_off + window.num_cols
-    return ma.masked_array(
-        data=np.stack(in_tile.data[:, minrow:maxrow, mincol:maxcol]),
-        mask=np.stack(in_tile.data.mask[:, minrow:maxrow, mincol:maxcol])
-    )
+    assert in_tile.data.ndim == 3
+    return extract_from_array(in_tile.data, in_tile.affine, out_tile)
 
 
 def extract_from_array(in_data, in_affine, out_tile):
     """Extract raster data window from tuple of arrays."""
-    if isinstance(in_data, (np.ndarray, ma.masked_array)):
-        in_data = (in_data, )
-    elif isinstance(in_data, tuple):
+    if isinstance(in_data, (np.ndarray, ma.MaskedArray)):
         pass
+    elif isinstance(in_data, tuple):
+        in_data = ma.MaskedArray(
+            data=np.stack(in_data),
+            mask=np.stack([band.mask for band in in_data]))
     else:
         raise TypeError("wrong input data type: %s" % type(in_data))
     left, bottom, right, top = out_tile.bounds
@@ -177,7 +173,10 @@ def extract_from_array(in_data, in_affine, out_tile):
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    return np.stack(data[minrow:maxrow, mincol:maxcol] for data in in_data)
+    return ma.MaskedArray(
+        data=in_data[:, minrow:maxrow, mincol:maxcol],
+        mask=in_data.mask[:, minrow:maxrow, mincol:maxcol]
+    )
 
 
 def create_mosaic(tiles, nodata=0):
@@ -215,7 +214,7 @@ def create_mosaic(tiles, nodata=0):
     height = int(round((m_top - m_bottom) / resolution))
     width = int(round((m_right - m_left) / resolution))
     mosaic = tuple(
-        ma.masked_array(
+        ma.MaskedArray(
             data=np.full((height, width), dtype=dtype, fill_value=nodata),
             mask=np.ones((height, width))
         )
@@ -257,17 +256,11 @@ def _get_warped_array(
             src_left, src_bottom, src_right, src_top = transform_bounds(
                 dst_crs, src.crs, *dst_bounds, densify_pts=21)
         if float('Inf') in (src_left, src_bottom, src_right, src_top):
-            try:
-                # file_bbox = reproject_geometry(
-                #     box(*src.bounds), src.crs, dst_crs)
-                # if not box(*dst_bounds).intersects(file_bbox):
-                return ma.masked_array(
-                    data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
-                    mask=ma.ones(dst_shape), fill_value=src.nodata)
-            except:
-                raise RuntimeError(
-                    "Tile bbox could not be translated into source file SRS."
-                    )
+            # Maybe not the best way to deal with it, but if bounding box
+            # cannot be translated, it is assumed that data is emtpy
+            return ma.MaskedArray(
+                data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
+                mask=ma.ones(dst_shape), fill_value=src.nodata)
         # Read data window.
         window = src.window(
             src_left, src_bottom, src_right, src_top, boundless=True)

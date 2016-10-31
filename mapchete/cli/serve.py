@@ -91,7 +91,9 @@ def main(args=None):
                 pass
         try:
             return _valid_tile_response(
-                process.get_raw_output(web_tile, no_write=parsed.no_write))
+                process.get_raw_output(
+                    web_tile, no_write=parsed.no_write,
+                    overwrite=parsed.overwrite))
         except Exception as e:
             LOGGER.info(
                 (process.process_name, "web tile", web_tile.id, "error", e))

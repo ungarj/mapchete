@@ -38,7 +38,13 @@ class OutputData(base.OutputData):
     def write(self, process_tile, overwrite=False):
         """Write process output into PNGs."""
         self.verify_data(process_tile)
-        process_tile.data = self.prepare_data(process_tile.data)
+        r, g, b = self.prepare_data(process_tile.data)
+        # Generate alpha channel out of mask or nodata values.
+        a = np.where(r.mask, 0, 255).astype("uint8")
+        # Create 3D NumPy array with alpha channel.
+        process_tile.data = ma.masked_array(
+            data=np.stack((r, g, b, a)),
+            mask=np.zeros((4, ) + process_tile.shape))
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -55,7 +61,14 @@ class OutputData(base.OutputData):
         """Read process output tile into numpy array."""
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
-                output_tile.data = src.read(masked=True)
+                data = src.read([1, 2, 3])
+                mask = src.read(4)
+                # print mask
+                mask = np.where(src.read(4) == 255, False, True)
+                output_tile.data = ma.MaskedArray(
+                    data=data,
+                    mask=np.stack((mask, mask, mask, ))
+                )
         except:
             output_tile.data = self.empty(output_tile)
         return output_tile
@@ -94,11 +107,8 @@ class OutputData(base.OutputData):
         dst_metadata = PNG_PROFILE
         dst_metadata.pop("transform", None)
         dst_metadata.update(
-            width=tile.width,
-            height=tile.height,
-            affine=tile.affine, driver="PNG",
-            crs=tile.crs
-        )
+            width=tile.width, height=tile.height, affine=tile.affine,
+            driver="PNG", crs=tile.crs)
         return dst_metadata
 
     def verify_data(self, tile):
@@ -125,26 +135,59 @@ class OutputData(base.OutputData):
                 raise ValueError("each output bands must be a 2D NumPy array")
 
     def prepare_data(self, data):
-        """Convert data into correct output."""
+        """
+        Convert data into correct output.
+
+        Returns a 3D masked NumPy array as 8 bit unsigned integer.
+        """
         if isinstance(data, (list, tuple)):
-            data = np.stack(data)
-        if data.shape[0] == 4:
-            return data.astype("uint8")
-        # Convert to 8 bit.
-        r, g, b = data.astype("uint8")
-        # Generate alpha channel out of mask or nodata values.
-        if ma.is_masked(data):
-            a = np.where(data.mask[0], 0, 255).astype("uint8")
-        else:
-            a = np.where(data[0] == self.nodata, 0, 255).astype("uint8")
-        # Create 3D NumPy array.
-        return np.stack((r, g, b, a))
+            out_data = ()
+            out_mask = ()
+            for band in data:
+                if isinstance(band, ma.MaskedArray):
+                    try:
+                        assert band.shape == band.mask.shape
+                        out_data += (band, )
+                        out_mask += (band.mask, )
+                    except:
+                        out_data += (band.data, )
+                        out_mask += (
+                            np.where(band.data == self.nodata, True, False), )
+                elif isinstance(band, np.ndarray):
+                    out_data += (band)
+                    out_mask += (np.where(band == self.nodata, True, False))
+                else:
+                    raise ValueError("input data bands must be NumPy arrays")
+            assert len(out_data) == len(out_mask) == 3
+            return ma.MaskedArray(
+                data=np.stack(out_data).astype("uint8"),
+                mask=np.stack(out_mask))
+        elif isinstance(data, np.ndarray):
+            assert len(data) == 3
+            masked = ma.MaskedArray(
+                data=data.astype("uint8"),
+                mask=np.where(data == self.nodata, True, False))
+            return masked
+        elif isinstance(data, ma.MaskedArray):
+            assert len(data) == 3
+            try:
+                assert data.shape == data.mask.shape
+                return data.astype("uint8")
+            except:
+                return ma.MaskedArray(
+                    data=data.astype("uint8"),
+                    mask=np.where(band.data == self.nodata, True, False))
 
     def for_web(self, data):
         """Return tiles for web usage (as file object)."""
-        reshaped = self.prepare_data(data).transpose(1, 2, 0)
+        # Convert to 8 bit.
+        r, g, b = self.prepare_data(data)
+        # Generate alpha channel out of mask or nodata values.
+        a = np.where(r.mask, 0, 255).astype("uint8")
+        # Create 3D NumPy array with alpha channel.
+        rgba = np.stack((r, g, b, a))
+        reshaped = rgba.transpose(1, 2, 0)
         empty_image = Image.fromarray(reshaped, mode='RGBA')
-        # print list(empty_image.getdata(3))
         out_img = io.BytesIO()
         empty_image.save(out_img, 'PNG')
         out_img.seek(0)

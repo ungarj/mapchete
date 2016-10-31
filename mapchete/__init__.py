@@ -12,6 +12,7 @@ import threading
 import numpy as np
 import numpy.ma as ma
 from cachetools import LRUCache
+from copy import copy
 
 from mapchete import commons
 from mapchete.config import MapcheteConfig
@@ -138,7 +139,7 @@ class Mapchete(object):
             return
         message = "write"
         try:
-            self.config.output.write(process_tile, overwrite=True)
+            self.config.output.write(copy(process_tile), overwrite=True)
             error = "no errors"
         except Exception as e:
             raise
@@ -197,16 +198,12 @@ class Mapchete(object):
                 return tile
             elif self.config.output.METADATA["data_type"] == "vector":
                 raise NotImplementedError
-
         # If overwrite, process, write and return data.
-        output = self._execute_using_cache(process_tile)
-        try:
-            self.write(output)
-        except OSError:
-            pass
-        return self._extract(output, tile)
+        output = self._execute_using_cache(process_tile, overwrite=overwrite)
+        extract = self._extract(output, tile)
+        return extract
 
-    def _execute_using_cache(self, process_tile):
+    def _execute_using_cache(self, process_tile, overwrite=False):
         # Extract Tile subset from process Tile and return.
         try:
             return self.process_tile_cache[process_tile.id]
@@ -228,6 +225,10 @@ class Mapchete(object):
             try:
                 output = self.execute(process_tile)
                 self.process_tile_cache[process_tile.id] = output
+                try:
+                    self.write(output)
+                except OSError:
+                    pass
                 return self.process_tile_cache[process_tile.id]
             except:
                 raise
