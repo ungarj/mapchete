@@ -155,7 +155,10 @@ def extract_from_tile(in_tile, out_tile):
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    return np.stack(in_tile.data[:, minrow:maxrow, mincol:maxcol])
+    return ma.masked_array(
+        data=np.stack(in_tile.data[:, minrow:maxrow, mincol:maxcol]),
+        mask=np.stack(in_tile.data.mask[:, minrow:maxrow, mincol:maxcol])
+    )
 
 
 def extract_from_array(in_data, in_affine, out_tile):

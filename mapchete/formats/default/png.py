@@ -30,7 +30,10 @@ class OutputData(base.OutputData):
             os.makedirs(self.path)
         self.file_extension = ".png"
         self.output_params = output_params
-        self.nodata = output_params["nodata"]
+        try:
+            self.nodata = output_params["nodata"]
+        except KeyError:
+            self.nodata = PNG_PROFILE["nodata"]
 
     def write(self, process_tile, overwrite=False):
         """Write process output into PNGs."""
@@ -126,14 +129,14 @@ class OutputData(base.OutputData):
         if isinstance(data, (list, tuple)):
             data = np.stack(data)
         if data.shape[0] == 4:
-            return data
+            return data.astype("uint8")
         # Convert to 8 bit.
         r, g, b = data.astype("uint8")
         # Generate alpha channel out of mask or nodata values.
-        if ma.is_masked(r):
-            a = r.mask.astype("uint8")*255
+        if ma.is_masked(data):
+            a = np.where(data.mask[0], 0, 255).astype("uint8")
         else:
-            a = np.where(r == self.nodata, 0, 255)
+            a = np.where(data[0] == self.nodata, 0, 255).astype("uint8")
         # Create 3D NumPy array.
         return np.stack((r, g, b, a))
 
@@ -141,6 +144,7 @@ class OutputData(base.OutputData):
         """Return tiles for web usage (as file object)."""
         reshaped = self.prepare_data(data).transpose(1, 2, 0)
         empty_image = Image.fromarray(reshaped, mode='RGBA')
+        # print list(empty_image.getdata(3))
         out_img = io.BytesIO()
         empty_image.save(out_img, 'PNG')
         out_img.seek(0)
@@ -148,13 +152,15 @@ class OutputData(base.OutputData):
 
     def empty(self, process_tile):
         """Return empty data."""
-        return np.stack((
-            ma.zeros(process_tile.shape), ma.zeros(process_tile.shape),
-            ma.zeros(process_tile.shape)))
+        return ma.masked_array(
+            data=ma.zeros((3, ) + process_tile.shape),
+            mask=ma.ones((3, ) + process_tile.shape)
+        )
 
 
 PNG_PROFILE = {
     "dtype": "uint8",
     "driver": "PNG",
-    "count": 4
+    "count": 4,
+    "nodata": 255
 }

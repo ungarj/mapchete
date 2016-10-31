@@ -47,7 +47,7 @@ class Mapchete(object):
             os.path.basename(self.config.process_file)
         )[0]
         if with_cache:
-            self.process_tile_cache = LRUCache(maxsize=128)
+            self.process_tile_cache = LRUCache(maxsize=32)
             self.current_processes = {}
             self.process_lock = threading.Lock()
 
@@ -94,7 +94,8 @@ class Mapchete(object):
         on the process status in the message attribute.
         """
         if process_tile.zoom not in self.config.zoom_levels:
-            return self.config.output.empty(process_tile)
+            process_tile.data = self.config.output.empty(process_tile)
+            return process_tile
         assert isinstance(process_tile, BufferedTile)
         starttime = time.time()
         message = "execute"
@@ -174,13 +175,15 @@ class Mapchete(object):
         assert isinstance(tile, BufferedTile)
         # Return empty data if zoom level is outside of process zoom levels.
         if tile.zoom not in self.config.zoom_levels:
-            return self.config.output.empty(tile)
+            tile.data = self.config.output.empty(tile)
+            return tile
         # Read directly from process.
         if no_write:
             # Determine affected process Tile and check whether it is already
             # cached.
             process_tile = self.config.process_pyramid.intersecting(tile)[0]
-            return self._execute_using_cache(process_tile)
+            output = self._execute_using_cache(process_tile)
+            return self._extract(output, tile)
 
         process_tile = self.config.process_pyramid.intersecting(tile)[0]
         output_tiles = self.config.output_pyramid.intersecting(tile)
@@ -217,7 +220,10 @@ class Mapchete(object):
         # Wait and return.
         if process_event:
             process_event.wait()
-            return self.process_tile_cache[process_tile.id]
+            try:
+                return self.process_tile_cache[process_tile.id]
+            except KeyError:
+                raise RuntimeError("tile not in cache")
         else:
             try:
                 output = self.execute(process_tile)
