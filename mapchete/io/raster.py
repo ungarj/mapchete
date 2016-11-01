@@ -4,12 +4,14 @@ import os
 import rasterio
 import numpy as np
 import numpy.ma as ma
+from shapely.geometry import box
 from rasterio.warp import Resampling, transform_bounds, reproject
 from rasterio.windows import from_bounds
 from affine import Affine
 from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.tile import BufferedTile
+from mapchete.io.vector import reproject_geometry
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -252,6 +254,15 @@ def _get_warped_array(
         if dst_crs == src.crs:
             src_left, src_bottom, src_right, src_top = dst_bounds
         else:
+            # Return empty array if destination bounds don't intersect with
+            # file bounds.
+            file_bbox = box(*src.bounds)
+            tile_bbox = reproject_geometry(
+                box(*dst_bounds), src_crs=dst_crs, dst_crs=src.crs)
+            if not file_bbox.intersects(tile_bbox):
+                return ma.MaskedArray(
+                    data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
+                    mask=ma.ones(dst_shape), fill_value=src.nodata)
             # Reproject tile bounds to source file SRS.
             src_left, src_bottom, src_right, src_top = transform_bounds(
                 dst_crs, src.crs, *dst_bounds, densify_pts=21)
