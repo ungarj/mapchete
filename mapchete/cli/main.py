@@ -18,6 +18,9 @@ from mapchete.cli.formats import list_formats
 from mapchete.formats import available_output_formats
 
 
+def main():
+    MapcheteCLI()
+
 class MapcheteCLI(object):
     """Entry point to 'mapchete' command."""
 
@@ -215,3 +218,7 @@ class MapcheteCLI(object):
             help="show only output formats")
         args = parser.parse_args(self.args[2:])
         list_formats(args)
+
+
+if __name__ == "__main__":
+    main()
