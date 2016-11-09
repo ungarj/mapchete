@@ -59,22 +59,25 @@ class InputTile(base.InputTile):
         """Initialize."""
         self.tile = tile
         self.vector_file = vector_file
+        self._cache = {}
 
     def read(self, validity_check=True):
         """Read reprojected and resampled numpy array for current Tile."""
-        return read_vector_window(
-            self.vector_file.path, self.tile, validity_check=validity_check)
+        return self._read_from_cache(validity_check)
 
     def is_empty(self):
         """Check if there is data within this tile."""
-        src_bbox = self.vector_file.bbox()
-        tile_geom = self.tile.bbox
-        if not tile_geom.intersects(src_bbox):
+        if not self.tile.bbox.intersects(self.vector_file.bbox()):
             return True
-        try:
-            self.read().next()
+        if self.read():
             return False
-        except StopIteration:
+        else:
             return True
-        except:
-            raise
+
+    def _read_from_cache(self, validity_check):
+        checked = "checked" if validity_check else "not_checked"
+        if checked not in self._cache:
+            self._cache[checked] = list(read_vector_window(
+                self.vector_file.path, self.tile,
+                validity_check=validity_check))
+        return self._cache[checked]

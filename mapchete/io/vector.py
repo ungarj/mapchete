@@ -135,34 +135,47 @@ def read_vector_window(input_file, tile, validity_check=True):
             for bbox in tile_boxes
             )
     else:
-        return _get_reprojected_features(
+        features = _get_reprojected_features(
             input_file=input_file, dst_bounds=tile.bounds,
             dst_crs=tile.crs, validity_check=validity_check)
+        return features
 
 
 def write_vector_window(in_tile, out_schema, out_tile, out_path):
-    """
-    Writes GeoJSON-like objects to GeoJSON.
-    """
+    """Write GeoJSON-like objects to GeoJSON."""
+    # Delete existing file.
+    if os.path.isfile(out_path):
+        os.remove(out_path)
+    # Return if tile data is empty
+    if not in_tile.data:
+        return
+    out_features = []
+    for feature in in_tile.data:
+        feature_geom = shape(feature["geometry"])
+        clipped = feature_geom.intersection(out_tile.bbox)
+        out_geom = clipped
+        target_type = out_schema["geometry"]
+        if clipped.geom_type != target_type:
+            try:
+                out_geom = clean_geometry_type(clipped, target_type)
+            except:
+                warnings.warn("failed geometry cleaning during writing")
+                continue
+        if out_geom:
+            out_features.append(dict(
+                geometry=mapping(out_geom),
+                properties=feature["properties"]
+            ))
+    # Return if clipped tile data is empty
+    if not out_features:
+        return
+    # Write data
     with fiona.open(
         out_path, 'w', schema=out_schema, driver="GeoJSON",
         crs=out_tile.crs.to_dict()
     ) as dst:
-        for feature in in_tile.data:
-            # clip with output tile
-            try:
-                feature_geom = shape(feature["geometry"])
-                clipped = feature_geom.intersection(out_tile.bbox)
-                out_geom = clipped
-                target_type = out_schema["geometry"]
-                if clipped.geom_type != target_type:
-                    out_geom = clean_geometry_type(clipped, target_type)
-                # write output
-                if out_geom:
-                    feature.update(geometry=mapping(out_geom))
-                    dst.write(feature)
-            except ValueError:
-                warnings.warn("failed geometry cleaning during writing")
+        for feature in out_features:
+            dst.write(feature)
 
 
 def _get_reprojected_features(

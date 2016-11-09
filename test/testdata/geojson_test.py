@@ -22,9 +22,9 @@ class Process(MapcheteProcess):
         # Reading and writing data works like this:
         with self.open("file1") as vector_file:
             if vector_file.is_empty():
-                return "empty"
                 # This assures a transparent tile instead of a pink error tile
                 # is returned when using mapchete serve.
+                return "empty"
             return [
                 dict(
                     geometry=feature["geometry"],

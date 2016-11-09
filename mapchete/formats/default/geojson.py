@@ -41,11 +41,9 @@ class OutputData(base.OutputData):
                 return
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
-            # write_from_tile(buffered_tile, profile, out_tile, out_path)
             write_vector_window(
                 in_tile=process_tile, out_schema=self.output_params["schema"],
                 out_tile=out_tile, out_path=out_path)
-
 
     def is_valid_with_config(self, config):
         """Check if output format is valid with other process parameters."""
@@ -94,3 +92,7 @@ class OutputData(base.OutputData):
         rowdir = os.path.join(zoomdir, str(tile.row))
         if not os.path.exists(rowdir):
             os.makedirs(rowdir)
+
+    def empty(self, tile):
+        """Return emtpy list."""
+        return []

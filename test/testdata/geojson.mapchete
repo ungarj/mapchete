@@ -1,6 +1,6 @@
 # mapchete parameters
 process_file: geojson_test.py
-process_zoom: 10
+process_zoom: 4
 input_files:
     file1: antimeridian.geojson
 
@@ -15,6 +15,6 @@ output:
             id: int
             area: float
         geometry: Polygon
-    metatiling: 1
+    metatiling: 2
 
 metatiling: 4

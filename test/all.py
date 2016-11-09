@@ -257,6 +257,8 @@ def main():
                         assert ma.allclose(band, mosaic[0])
                         assert ma.allclose(band.mask, mosaic[0].mask)
                     except AssertionError:
+                        print band
+                        print mosaic[0]
                         raise ValueError(
                             "%s zoom %s: mosaic values do not fit" % (
                                 cleantopo_process, zoom))
@@ -315,14 +317,14 @@ def main():
         pool = Pool()
         try:
             for output in pool.imap_unordered(
-                f, process.get_process_tiles(4), chunksize=8):
+                f, process.get_process_tiles(4), chunksize=1):
                 assert isinstance(output, BufferedTile)
                 if output.data:
                     for feature in output.data:
                         assert "properties" in feature
                         assert shape(feature["geometry"]).is_valid
                 else:
-                    assert output.message is not None
+                    assert isinstance(output.data, list)
                 process.write(output)
         except KeyboardInterrupt:
             pool.terminate()
@@ -335,6 +337,20 @@ def main():
     except:
         print "ERROR: vector file read & write"
         raise
+    import fiona
+    out_files = 0
+    for process_tile in process.get_process_tiles(4):
+        for output_tile in process.config.output_pyramid.intersecting(
+            process_tile):
+            out_file = process.config.output.get_path(output_tile)
+            if os.path.isfile(out_file):
+                out_files += 1
+                with fiona.open(out_file, "r") as src:
+                    for feature in src:
+                        assert "properties" in feature
+                        assert shape(feature["geometry"]).is_valid
+                        assert feature["properties"]["area"] > 0.
+    assert out_files > 0
     try:
         shutil.rmtree(out_dir)
     except:
