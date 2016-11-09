@@ -132,7 +132,7 @@ class OutputData(base.OutputData):
             try:
                 assert band.ndim == 2
             except AssertionError:
-                raise ValueError("each output bands must be a 2D NumPy array")
+                raise ValueError("each output band must be a 2D NumPy array")
 
     def prepare_data(self, data):
         """
@@ -162,12 +162,6 @@ class OutputData(base.OutputData):
             return ma.MaskedArray(
                 data=np.stack(out_data).astype("uint8"),
                 mask=np.stack(out_mask))
-        elif isinstance(data, np.ndarray):
-            assert len(data) == 3
-            masked = ma.MaskedArray(
-                data=data.astype("uint8"),
-                mask=np.where(data == self.nodata, True, False))
-            return masked
         elif isinstance(data, ma.MaskedArray):
             assert len(data) == 3
             try:
@@ -177,6 +171,12 @@ class OutputData(base.OutputData):
                 return ma.MaskedArray(
                     data=data.astype("uint8"),
                     mask=np.where(band.data == self.nodata, True, False))
+        elif isinstance(data, np.ndarray):
+            assert len(data) == 3
+            masked = ma.MaskedArray(
+                data=data.astype("uint8"),
+                mask=np.where(data == self.nodata, True, False))
+            return masked
 
     def for_web(self, data):
         """Return tiles for web usage (as file object)."""

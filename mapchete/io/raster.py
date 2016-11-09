@@ -194,7 +194,12 @@ def create_mosaic(tiles, nodata=0):
     m_left, m_bottom, m_right, m_top = None, None, None, None
     for tile in tiles:
         if isinstance(tile.data, (np.ndarray, ma.MaskedArray)):
-            tile_data = tile.data
+            if tile.data.ndim == 2:
+                tile_data = ma.expand_dims(tile.data, axis=0)
+            elif tile.data.ndim == 3:
+                tile_data = tile.data
+            else:
+                raise TypeError("tile.data bands must be 2-dimensional")
         elif isinstance(tile.data, tuple):
             tile_data = np.stack(tile.data)
         else:
@@ -215,13 +220,12 @@ def create_mosaic(tiles, nodata=0):
         m_top = max([top, m_top]) if m_top else top
     height = int(round((m_top - m_bottom) / resolution))
     width = int(round((m_right - m_left) / resolution))
-    mosaic = tuple(
-        ma.MaskedArray(
-            data=np.full((height, width), dtype=dtype, fill_value=nodata),
-            mask=np.ones((height, width))
+
+    mosaic = ma.MaskedArray(
+            data=np.full(
+                (num_bands, height, width), dtype=dtype, fill_value=nodata),
+            mask=np.ones((num_bands, height, width))
         )
-        for band in range(num_bands)
-    )
     mosaic_affine = Affine.translation(m_left, m_top) * Affine.scale(
         resolution, -resolution)
     for tile in tiles:
@@ -233,9 +237,9 @@ def create_mosaic(tiles, nodata=0):
         maxrow = window.row_off + window.num_rows
         mincol = window.col_off
         maxcol = window.col_off + window.num_cols
-        for tile_band, mosaic_band in zip(tile_data, mosaic):
-            mosaic_band[minrow:maxrow, mincol:maxcol] = tile_band
-            mosaic_band.mask[minrow:maxrow, mincol:maxcol] = tile_band.mask
+        mosaic[:, minrow:maxrow, mincol:maxcol] = tile.data
+        mosaic.mask[:, minrow:maxrow, mincol:maxcol] = tile.data.mask
+
     return (mosaic, mosaic_affine)
 
 

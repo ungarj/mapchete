@@ -26,16 +26,16 @@ class OutputData(base.OutputData):
             os.makedirs(self.path)
         self.file_extension = ".tif"
         self.output_params = output_params
+        try:
+            self.nodata = output_params["nodata"]
+        except KeyError:
+            self.nodata = GTIFF_PROFILE["nodata"]
 
     def write(self, process_tile, overwrite=False):
         """Write process output into GeoTIFFs."""
         self.verify_data(process_tile)
-        # assert process_tile data complies with output properties like band
-        # number, data type.
-        process_tile.data = tuple(
-            band.astype(self.output_params["dtype"])
-            for band in process_tile.data
-        )
+        process_tile.data = self.prepare_data(
+            process_tile.data, self.profile(process_tile))
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -96,31 +96,76 @@ class OutputData(base.OutputData):
 
     def verify_data(self, tile):
         """Verify array data and move array into tuple if necessary."""
-        if isinstance(tile.data, (np.ndarray, ma.MaskedArray)):
-            tile.data = (tile.data, )
-        if isinstance(tile.data, (tuple, list)):
-            for band in tile.data:
-                try:
-                    assert isinstance(band, (np.ndarray, ma.MaskedArray))
-                    assert band.ndim == 2
-                except AssertionError:
-                    raise ValueError("output bands must be 2D NumPy arrays")
-        else:
+        try:
+            assert isinstance(
+                tile.data, (np.ndarray, ma.MaskedArray, tuple, list))
+        except AssertionError:
             raise ValueError(
-                "output data must be a 2D NumPy array or a tuple containing \
-                2D NumPy arrays.")
+                "process output must be 2D NumPy array, masked array or a tuple"
+                )
+        try:
+            if isinstance(tile.data, (tuple, list)):
+                for band in tile.data:
+                    assert band.ndim == 2
+            else:
+                assert tile.data.ndim in [2, 3]
+        except AssertionError:
+            raise ValueError(
+                "each output band must be a 2D NumPy array")
+
+
+    def prepare_data(self, data, profile):
+        """
+        Convert data into correct output.
+
+        Returns a 3D masked NumPy array including all bands with the data type
+        specified in the configuration.
+        """
+        if isinstance(data, (list, tuple)):
+            out_data = ()
+            out_mask = ()
+            for band in data:
+                if isinstance(band, ma.MaskedArray):
+                    try:
+                        assert band.shape == band.mask.shape
+                        out_data += (band, )
+                        out_mask += (band.mask, )
+                    except:
+                        out_data += (band.data, )
+                        out_mask += (
+                            np.where(band.data == self.nodata, True, False), )
+                elif isinstance(band, np.ndarray):
+                    out_data += (band)
+                    out_mask += (np.where(band == self.nodata, True, False))
+                else:
+                    raise ValueError("input data bands must be NumPy arrays")
+            assert len(out_data) == len(out_mask)
+            return ma.MaskedArray(
+                data=np.stack(out_data).astype(profile["dtype"]),
+                mask=np.stack(out_mask))
+        elif isinstance(data, np.ndarray) and data.ndim == 2:
+            data = ma.expand_dims(data, axis=0)
+        if isinstance(data, ma.MaskedArray):
+            try:
+                assert data.shape == data.mask.shape
+                return data.astype(profile["dtype"])
+            except:
+                return ma.MaskedArray(
+                    data=data.astype(profile["dtype"]),
+                    mask=np.where(band.data == self.nodata, True, False))
+        elif isinstance(data, np.ndarray):
+            return ma.MaskedArray(
+                data=data.astype(profile["dtype"]),
+                mask=np.where(data == self.nodata, True, False))
+
 
     def empty(self, process_tile):
         """Empty data."""
-        empty_band = ma.masked_array(
+        return ma.masked_array(
             data=np.full(
-                process_tile.shape, self.profile["nodata"],
+                (self.profile["count"], ) + process_tile.shape, self.profile["nodata"],
                 dtype=self.profile["dtype"]),
-            mask=np.ones(process_tile.shape)
-        )
-        return (
-            empty_band
-            for band in range(self.profile["count"])
+            mask=np.ones((self.profile["count"], ) + process_tile.shape)
         )
 
 GTIFF_PROFILE = {

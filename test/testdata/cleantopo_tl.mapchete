@@ -7,7 +7,7 @@ input_files:
 
 output:
     type: geodetic
-    dtype: float32
+    dtype: uint16
     bands: 1
     format: GTiff
     path: tmp
