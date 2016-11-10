@@ -158,7 +158,7 @@ def extract_from_tile(in_tile, out_tile):
 
 
 def extract_from_array(in_data, in_affine, out_tile):
-    """Extract raster data window from tuple of arrays."""
+    """Extract raster data window array."""
     if isinstance(in_data, (np.ndarray, ma.MaskedArray)):
         pass
     elif isinstance(in_data, tuple):
@@ -175,10 +175,33 @@ def extract_from_array(in_data, in_affine, out_tile):
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    return ma.MaskedArray(
-        data=in_data[:, minrow:maxrow, mincol:maxcol],
-        mask=in_data.mask[:, minrow:maxrow, mincol:maxcol]
-    )
+    return in_data[:, minrow:maxrow, mincol:maxcol]
+
+
+def resample_from_array(
+    in_data, in_affine, out_tile, resampling="nearest", nodataval=0
+):
+    """Extract and resample from array to target tile."""
+    if isinstance(in_data, (np.ndarray, ma.MaskedArray)):
+        pass
+    elif isinstance(in_data, tuple):
+        in_data = ma.MaskedArray(
+            data=np.stack(in_data),
+            mask=np.stack([band.mask for band in in_data]))
+    else:
+        raise TypeError("wrong input data type: %s" % type(in_data))
+    if in_data.ndim == 2:
+        in_data = ma.expand_dims(in_data, axis=0)
+    out_shape = (in_data.shape[0], ) + out_tile.shape
+    dst_data = ma.zeros(out_shape, in_data.dtype)
+    reproject(
+        in_data, dst_data, src_transform=in_affine, src_crs=out_tile.crs,
+        src_nodata=nodataval, dst_transform=out_tile.affine,
+        dst_crs=out_tile.crs, dst_nodata=nodataval,
+        resampling=RESAMPLING_METHODS[resampling])
+    return ma.masked_array(
+        data=dst_data,
+        mask=np.where(dst_data == nodataval, True, False))
 
 
 def create_mosaic(tiles, nodata=0):

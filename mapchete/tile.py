@@ -120,3 +120,14 @@ class BufferedTile(Tile):
     def bbox(self):
         """Return buffered bounding box."""
         return self._tile.bbox(pixelbuffer=self.pixelbuffer)
+
+    def get_children(self):
+        """Return tile children."""
+        return [
+            BufferedTile(tile, self.pixelbuffer)
+            for tile in self._tile.get_children()
+        ]
+
+    def get_parent(self):
+        """Return tile children."""
+        return BufferedTile(self._tile.get_parent(), self.pixelbuffer)

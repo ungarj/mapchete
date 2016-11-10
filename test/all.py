@@ -169,6 +169,18 @@ def main():
         print "FAILED: read bounding box from .mapchete subfile"
         raise
 
+    ## read baselevels
+    mapchete_file = os.path.join(scriptdir, "testdata/baselevels.mapchete")
+    config = MapcheteConfig(mapchete_file)
+    try:
+        assert isinstance(config.baselevels, dict)
+        assert set(config.baselevels["zooms"]) == set([12, 13, 14])
+        assert config.baselevels["lower"] == "bilinear"
+        assert config.baselevels["higher"] == "nearest"
+        print "OK: baselevels parsing"
+    except:
+        print "FAILED: baselevels parsing"
+
     """io module"""
     testdata_directory = os.path.join(scriptdir, "testdata")
     from mapchete.tile import BufferedTilePyramid

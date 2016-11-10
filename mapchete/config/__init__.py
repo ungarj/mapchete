@@ -30,6 +30,7 @@ _RESERVED_PARAMETERS = [
     "process_bounds",  # process boundaries
     "metatiling",  # metatile size (for both process and output)
     "pixelbuffer",  # buffer around each tile in pixels
+    "baselevels"  # enable interpolation from other zoom levels
 ]
 
 
@@ -156,27 +157,50 @@ class MapcheteConfig(object):
                 )
 
     @cached_property
-    def baselevel(self):
-        """Baselevel setting if available."""
+    def baselevels(self):
+        """
+        Optional baselevels configuration.
+
+        baselevels:
+            min: <zoom>
+            max: <zoom>
+            lower: <resampling method>
+            higher: <resampling method>
+        """
         try:
-            baselevel = self.raw["baselevel"]
+            baselevels = self.raw["baselevels"]
         except KeyError:
             return {}
         try:
-            assert "zoom" in baselevel
-            assert isinstance(baselevel["zoom"], int)
-            assert baselevel["zoom"] > 0
-        except AssertionError:
-            raise ValueError("no or invalid baselevel zoom parameter given")
+            minmax = {
+                k: v for k, v in baselevels.iteritems() if k in ["min", "max"]}
+            assert minmax
+            for k, v in minmax.iteritems():
+                assert isinstance(v, int)
+        except Exception as e:
+            raise ValueError(
+                "no invalid baselevel zoom parameter given: %s" % e)
         try:
-            baselevel["resampling"]
-        except KeyError:
-            baselevel.update(resampling="nearest")
-        try:
-            assert baselevel["resampling"] in RESAMPLING_METHODS
+            base_min = minmax["min"]
         except:
-            raise ValueError("invalid baselevel resampling method given")
-        return baselevel
+            base_min = min(self.zoom_levels)
+        try:
+            base_max = minmax["max"]
+        except:
+            base_max = max(self.zoom_levels)
+        try:
+            resampling_lower = baselevels["lower"]
+        except:
+            resampling_lower = "nearest"
+        try:
+            resampling_higher = baselevels["higher"]
+        except:
+            resampling_higher = "nearest"
+        return dict(
+            zooms=range(base_min, base_max+1),
+            lower=resampling_lower,
+            higher=resampling_higher,
+        )
 
     @cached_property
     def pixelbuffer(self):

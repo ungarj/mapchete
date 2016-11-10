@@ -6,7 +6,6 @@ import argparse
 from functools import partial
 from multiprocessing import cpu_count
 from multiprocessing.pool import Pool
-import time
 import logging
 import logging.config
 from py_compile import PyCompileError
@@ -38,10 +37,7 @@ def main(args=None):
     multi = parsed.multi
     if not multi:
         multi = cpu_count()
-    if parsed.tile:
-        zoom = [parsed.tile[0]]
-    else:
-        zoom = parsed.zoom
+    zoom = parsed.zoom
 
     # Initialize process.
     try:
@@ -70,7 +66,6 @@ def main(args=None):
             LOGGER.info("1 tile iterated")
         except:
             raise
-
         return
 
     process_tiles = []
@@ -103,6 +98,7 @@ def main(args=None):
         finally:
             pool.close()
             pool.join()
+            process_tiles = None
 
     LOGGER.info("%s tile(s) iterated", (str(num_processed)))
 

@@ -63,7 +63,6 @@ class OutputData(base.OutputData):
             with rasterio.open(self.get_path(output_tile)) as src:
                 data = src.read([1, 2, 3])
                 mask = src.read(4)
-                # print mask
                 mask = np.where(src.read(4) == 255, False, True)
                 output_tile.data = ma.MaskedArray(
                     data=data,
@@ -170,7 +169,7 @@ class OutputData(base.OutputData):
             except:
                 return ma.MaskedArray(
                     data=data.astype("uint8"),
-                    mask=np.where(band.data == self.nodata, True, False))
+                    mask=np.where(data == self.nodata, True, False))
         elif isinstance(data, np.ndarray):
             assert len(data) == 3
             masked = ma.MaskedArray(
@@ -197,7 +196,8 @@ class OutputData(base.OutputData):
         """Return empty data."""
         return ma.masked_array(
             data=ma.zeros((3, ) + process_tile.shape),
-            mask=ma.ones((3, ) + process_tile.shape)
+            mask=ma.ones((3, ) + process_tile.shape),
+            dtype=PNG_PROFILE["dtype"]
         )
 
 

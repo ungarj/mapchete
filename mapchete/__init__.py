@@ -47,7 +47,8 @@ class Mapchete(object):
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file)
         )[0]
-        if with_cache:
+        self.with_cache = with_cache
+        if self.with_cache:
             self.process_tile_cache = LRUCache(maxsize=32)
             self.current_processes = {}
             self.process_lock = threading.Lock()
@@ -82,7 +83,7 @@ class Mapchete(object):
                 "error getting work tiles: %s" % traceback.print_exc())
             raise
 
-    def execute(self, process_tile):
+    def execute(self, process_tile, overwrite=False, no_write=False):
         """
         Run the Mapchete process.
 
@@ -98,22 +99,11 @@ class Mapchete(object):
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
         assert isinstance(process_tile, BufferedTile)
-        starttime = time.time()
-        message = "execute"
         try:
-            output = self._execute(process_tile)
-            error = "no errors"
+            return self._execute(
+                process_tile, overwrite=overwrite, no_write=no_write)
         except Exception as e:
             raise
-            output = None
-            error = e
-        endtime = time.time()
-        elapsed = "%ss" % (round((endtime - starttime), 3))
-        LOGGER.info(
-            (self.process_name, process_tile.id, message, error, elapsed))
-        if output:
-            return output
-        else:
             raise RuntimeError("process failed: %s" % e)
 
     def read(self, output_tile):
@@ -183,12 +173,12 @@ class Mapchete(object):
             # Determine affected process Tile and check whether it is already
             # cached.
             process_tile = self.config.process_pyramid.intersecting(tile)[0]
-            output = self._execute_using_cache(process_tile)
+            output = self._execute_using_cache(
+                process_tile, overwrite=overwrite, no_write=no_write)
             return self._extract(output, tile)
 
         process_tile = self.config.process_pyramid.intersecting(tile)[0]
         output_tiles = self.config.output_pyramid.intersecting(tile)
-
         # If not overwrite and output exists, read.
         if not overwrite and self.config.output.tiles_exist(process_tile):
             if self.config.output.METADATA["data_type"] == "raster":
@@ -199,11 +189,19 @@ class Mapchete(object):
             elif self.config.output.METADATA["data_type"] == "vector":
                 raise NotImplementedError
         # If overwrite, process, write and return data.
-        output = self._execute_using_cache(process_tile, overwrite=overwrite)
+        if self.with_cache:
+            output = self._execute_using_cache(
+                process_tile, overwrite=overwrite, no_write=no_write)
+        else:
+            output = self.execute(
+                process_tile, overwrite=overwrite, no_write=no_write)
+        self.write(output)
         extract = self._extract(output, tile)
         return extract
 
-    def _execute_using_cache(self, process_tile, overwrite=False):
+    def _execute_using_cache(
+        self, process_tile, overwrite=False, no_write=False
+    ):
         # Extract Tile subset from process Tile and return.
         try:
             return self.process_tile_cache[process_tile.id]
@@ -223,12 +221,14 @@ class Mapchete(object):
                 raise RuntimeError("tile not in cache")
         else:
             try:
-                output = self.execute(process_tile)
+                output = self.execute(
+                    process_tile, overwrite=overwrite, no_write=no_write)
                 self.process_tile_cache[process_tile.id] = output
-                try:
-                    self.write(output)
-                except OSError:
-                    pass
+                if not no_write:
+                    try:
+                        self.write(output)
+                    except OSError:
+                        pass
                 return self.process_tile_cache[process_tile.id]
             except:
                 raise
@@ -251,37 +251,83 @@ class Mapchete(object):
         elif self.config.output.METADATA["data_type"] == "vector":
             raise NotImplementedError
 
-    def _execute(self, process_tile):
-
+    def _execute(self, process_tile, overwrite=False, no_write=False):
         # TODO If baselevel is active and zoom is outside of baselevel,
         # interpolate.
-
-        # Otherwise, load process source and execute.
-        try:
-            new_process = imp.load_source(
-                self.process_name + "Process", self.config.process_file)
-            tile_process = new_process.Process(
-                config=self.config, tile=process_tile,
-                params=self.config.at_zoom(process_tile.zoom)
-            )
-        except Exception as e:
-            raise RuntimeError(
-                "error invoking process: %s" % e)
-        try:
-            # Actually run process.
-            process_data = tile_process.execute()
-        except Exception as e:
-            raise
-            raise RuntimeError(
-                "error executing process: %s" % e)
-        finally:
-            tile_process = None
+        if self.config.baselevels and (
+            process_tile.zoom < min(self.config.baselevels["zooms"])):
+            # Get tiles from baselevel.
+            try:
+                starttime = time.time()
+                message = "generate from baselevel"
+                error = "no errors"
+                mosaic, mosaic_affine = raster.create_mosaic([
+                    self.get_raw_output(
+                        base_tile, overwrite=False, no_write=no_write)
+                    for base_tile in process_tile.get_children()
+                ])
+                process_data = raster.resample_from_array(
+                    mosaic, mosaic_affine, process_tile,
+                    self.config.baselevels["lower"],
+                    nodataval=self.config.output.nodata)
+            except Exception as e:
+                raise
+                error = e
+            finally:
+                endtime = time.time()
+                elapsed = "%ss" % (round((endtime - starttime), 3))
+                LOGGER.info((
+                    self.process_name, process_tile.id, message,
+                    error, elapsed))
+        elif self.config.baselevels and (
+            process_tile.zoom > max(self.config.baselevels["zooms"])):
+            parent_tile = self.get_raw_output(
+                process_tile.get_parent(), overwrite=overwrite,
+                no_write=no_write)
+            process_data = raster.resample_from_array(
+                parent_tile.data, parent_tile.affine, process_tile,
+                self.config.baselevels["higher"],
+                nodataval=self.config.output.nodata)
+        else:
+            # Otherwise, load process source and execute.
+            try:
+                new_process = imp.load_source(
+                    self.process_name + "Process", self.config.process_file)
+                tile_process = new_process.Process(
+                    config=self.config, tile=process_tile,
+                    params=self.config.at_zoom(process_tile.zoom)
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    "error invoking process: %s" % e)
+            try:
+                starttime = time.time()
+                message = "execute"
+                error = "no errors"
+                # Actually run process.
+                process_data = tile_process.execute()
+                # Log process time
+            except Exception as e:
+                error = e
+                raise RuntimeError(
+                    "error executing process: %s" % e)
+            finally:
+                endtime = time.time()
+                elapsed = "%ss" % (round((endtime - starttime), 3))
+                LOGGER.info((
+                    self.process_name, process_tile.id, message,
+                    error, elapsed))
+                tile_process = None
         # Analyze proess output.
         if isinstance(process_data, str):
             process_tile.data = self.config.output.empty(process_tile)
             process_tile.message = process_data
         elif isinstance(
-            process_data, (list, tuple, np.ndarray, ma.MaskedArray)
+            process_data, (ma.MaskedArray)
+        ):
+            process_tile.data = process_data.copy()
+        elif isinstance(
+            process_data, (list, tuple, np.ndarray)
         ):
             process_tile.data = process_data
         elif isinstance(process_data, types.GeneratorType):
