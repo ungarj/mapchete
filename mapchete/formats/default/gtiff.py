@@ -161,11 +161,12 @@ class OutputData(base.OutputData):
 
     def empty(self, process_tile):
         """Empty data."""
+        profile = self.profile(process_tile)
         return ma.masked_array(
             data=np.full(
-                (self.profile["count"], ) + process_tile.shape, self.profile["nodata"],
-                dtype=self.profile["dtype"]),
-            mask=np.ones((self.profile["count"], ) + process_tile.shape)
+                (profile["count"], ) + process_tile.shape, profile["nodata"],
+                dtype=profile["dtype"]),
+            mask=True
         )
 
 GTIFF_PROFILE = {
