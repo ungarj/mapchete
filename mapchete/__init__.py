@@ -125,15 +125,16 @@ class Mapchete(object):
         """
         starttime = time.time()
         if not process_tile or process_tile.data is None:
-            LOGGER.info((process_tile.id, "empty"))
-            return
-        message = "write"
-        try:
-            self.config.output.write(copy(process_tile), overwrite=True)
+            message = "nothing written"
             error = "no errors"
-        except Exception as e:
-            raise
-            error = e
+        else:
+            message = "write"
+            try:
+                self.config.output.write(copy(process_tile), overwrite=True)
+                error = "no errors"
+            except Exception as e:
+                raise
+                error = e
         endtime = time.time()
         elapsed = "%ss" % (round((endtime - starttime), 3))
         LOGGER.info(
@@ -364,6 +365,14 @@ class MapcheteProcess(object):
         """Deprecated."""
         raise DeprecationWarning(
             "Please return process output data instead of using self.write().")
+
+    def read(self, **kwargs):
+        """Read existing output data."""
+        existing_tile = self.config.output.open(self.tile, **kwargs)
+        if existing_tile.is_empty():
+            return self.config.output.empty(self.tile)
+        else:
+            return existing_tile.read()
 
     def open(self, input_file, **kwargs):
         """

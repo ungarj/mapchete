@@ -2,11 +2,11 @@
 
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.formats.base import InputData
+from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry
 
 
-class InputData(InputData):
+class InputData(base.InputData):
     """Main input class."""
 
     METADATA = {
@@ -21,11 +21,13 @@ class InputData(InputData):
         super(InputData, self).__init__(input_params)
         self.path = input_params["path"]
         if self.path:
-            self.process = Mapchete(MapcheteConfig(self.path))
+            self.process = Mapchete(MapcheteConfig(self.path, readonly=True))
+        else:
+            raise IOError("no path to .mapchete file provided")
 
-    def open(self):
+    def open(self, tile, **kwargs):
         """Return InputTile."""
-        raise NotImplementedError
+        return self.process.config.output.open(tile, **kwargs)
 
     def bbox(self, out_crs=None):
         """Return data bounding box."""
@@ -33,16 +35,3 @@ class InputData(InputData):
             self.process.config.process_area(),
             src_crs=self.process.config.crs,
             dst_crs=self.pyramid.crs)
-
-
-class InputTile(InputData):
-    """Target Tile representation of input data."""
-
-    def __init__(self):
-        """Initialize."""
-        raise NotImplementedError
-        self.pixelbuffer = None
-
-    def read(self, bands=None):
-        """Read reprojected and resampled numpy array for current Tile."""
-        raise NotImplementedError

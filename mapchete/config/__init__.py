@@ -4,11 +4,9 @@ import os
 import yaml
 from cached_property import cached_property
 from shapely.geometry import box, MultiPolygon
-from tilematrix import TilePyramid
 
 from mapchete.formats import (
     load_output_writer, available_output_formats, load_input_reader)
-from mapchete.io.raster import RESAMPLING_METHODS
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -51,12 +49,13 @@ class MapcheteConfig(object):
 
     def __init__(
         self, input_config, zoom=None, bounds=None, overwrite=False,
-        single_input_file=None
+        single_input_file=None, readonly=False
     ):
         """Initialize configuration."""
         # parse configuration
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
-            input_config, single_input_file=single_input_file)
+            input_config, single_input_file=single_input_file,
+            readonly=readonly)
         # see if configuration is empty
         if self.raw is None:
             raise IOError("mapchete configuration is empty")
@@ -239,7 +238,7 @@ class MapcheteConfig(object):
         for zoom in self.zoom_levels:
             self.at_zoom(zoom)
 
-    def _parse_config(self, input_config, single_input_file):
+    def _parse_config(self, input_config, single_input_file, readonly):
         # from configuration dictionary
         if isinstance(input_config, dict):
             raw = input_config
@@ -277,11 +276,13 @@ class MapcheteConfig(object):
         )
         # determine input files
         if raw["input_files"] == "from_command_line":
-            try:
-                assert single_input_file
-            except AssertionError:
-                raise IOError("please provide an input file via command line")
-            raw.update(input_files={"input_file": single_input_file})
+            if not readonly:
+                try:
+                    assert single_input_file
+                except AssertionError:
+                    raise IOError(
+                        "please provide an input file via command line")
+                raw.update(input_files={"input_file": single_input_file})
         elif "input_files" not in raw or raw["input_files"] is None:
             raise IOError("no input file(s) specified")
         # return parsed configuration
