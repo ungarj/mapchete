@@ -42,9 +42,10 @@ class OutputData(base.OutputData):
         # Generate alpha channel out of mask or nodata values.
         a = np.where(r.mask, 0, 255).astype("uint8")
         # Create 3D NumPy array with alpha channel.
+        stacked = np.stack((r, g, b, a))
         process_tile.data = ma.masked_array(
-            data=np.stack((r, g, b, a)),
-            mask=np.zeros((4, ) + process_tile.shape))
+            data=stacked,
+            mask=np.where(stacked == self.nodata, True, False))
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
