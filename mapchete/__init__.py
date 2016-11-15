@@ -61,7 +61,9 @@ class Mapchete(object):
         process bounds, if provided, are considered process tiles. This is to
         avoid iterating through empty tiles.
 
-        - zoom: zoom level
+        - zoom: Just return tiles of a specific zoom level
+
+        Returns an iterable of BufferedTile objects.
         """
         try:
             if zoom or zoom == 0:
@@ -90,6 +92,9 @@ class Mapchete(object):
         Execute, write and return process_tile with data.
         - process_tile: Member of the process tile pyramid (not necessarily
             the output pyramid, if output has a different metatiling setting)
+        - overwrite: Overwrite existing tiles (default: False)
+        - no_write: Never write, just process and cache tiles in RAM (doesn't
+            work with multiprocessing; default: False)
 
         Returns a BufferedTile with process output in the data attribute. If
         there is no process output, data is None and there is information
@@ -99,20 +104,17 @@ class Mapchete(object):
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
         assert isinstance(process_tile, BufferedTile)
-        try:
-            return self._execute(
-                process_tile, overwrite=overwrite, no_write=no_write)
-        except Exception as e:
-            raise
-            raise RuntimeError("process failed: %s" % e)
+        return self._execute(
+            process_tile, overwrite=overwrite, no_write=no_write)
 
     def read(self, output_tile):
         """
         Read from written process output.
 
-        Return output_tile with appended data.
         - output_tile: Member of the output tile pyramid (not necessarily
             the process pyramid, if output has a different metatiling setting)
+
+        Returns output_tile with appended data.
         """
         return self.config.output.read(output_tile)
 
@@ -158,9 +160,9 @@ class Mapchete(object):
         - pixelbuffer: Tile pixelbuffer. Only relevant if no BufferedTile is
             provided. Also, cannot be greater than process pixelbuffer.
             (default: 0)
-        - overwrite: Overwrite existing data. (default: False)
-        - no_write: Override read() and directly read from process. This flag
-            won't work with multiprocessing.
+        - overwrite: Overwrite existing tiles (default: False)
+        - no_write: Never write, just process and cache tiles in RAM (doesn't
+            work with multiprocessing; default: False)
 
         Returns BufferedTile with appended output data.
         """
@@ -188,7 +190,7 @@ class Mapchete(object):
                 tile.data = raster.extract_from_array(mosaic, affine, tile)
                 return tile
             elif self.config.output.METADATA["data_type"] == "vector":
-                raise NotImplementedError
+                raise NotImplementedError()
         # If overwrite, process, write and return data.
         if self.with_cache:
             output = self._execute_using_cache(
@@ -250,10 +252,10 @@ class Mapchete(object):
                 process_tile, tile)
             return tile
         elif self.config.output.METADATA["data_type"] == "vector":
-            raise NotImplementedError
+            raise NotImplementedError()
 
     def _execute(self, process_tile, overwrite=False, no_write=False):
-        # TODO If baselevel is active and zoom is outside of baselevel,
+        # If baselevel is active and zoom is outside of baselevel,
         # interpolate.
         if self.config.baselevels and (
             process_tile.zoom < min(self.config.baselevels["zooms"])):
@@ -272,8 +274,8 @@ class Mapchete(object):
                     self.config.baselevels["lower"],
                     nodataval=self.config.output.nodata)
             except Exception as e:
-                raise
                 error = e
+                raise
             finally:
                 endtime = time.time()
                 elapsed = "%ss" % (round((endtime - starttime), 3))
@@ -281,16 +283,30 @@ class Mapchete(object):
                     self.process_name, process_tile.id, message,
                     error, elapsed))
         elif self.config.baselevels and (
-            process_tile.zoom > max(self.config.baselevels["zooms"])):
-            parent_tile = self.get_raw_output(
-                process_tile.get_parent(), overwrite=overwrite,
-                no_write=no_write)
-            process_data = raster.resample_from_array(
-                parent_tile.data, parent_tile.affine, process_tile,
-                self.config.baselevels["higher"],
-                nodataval=self.config.output.nodata)
+            process_tile.zoom > max(self.config.baselevels["zooms"])
+        ):
+            try:
+                starttime = time.time()
+                message = "generate from baselevel"
+                error = "no errors"
+                parent_tile = self.get_raw_output(
+                    process_tile.get_parent(), overwrite=overwrite,
+                    no_write=no_write)
+                process_data = raster.resample_from_array(
+                    parent_tile.data, parent_tile.affine, process_tile,
+                    self.config.baselevels["higher"],
+                    nodataval=self.config.output.nodata)
+            except Exception as e:
+                error = e
+                raise
+            finally:
+                endtime = time.time()
+                elapsed = "%ss" % (round((endtime - starttime), 3))
+                LOGGER.info((
+                    self.process_name, process_tile.id, message,
+                    error, elapsed))
+        # Otherwise, load process source and execute.
         else:
-            # Otherwise, load process source and execute.
             try:
                 new_process = imp.load_source(
                     self.process_name + "Process", self.config.process_file)
@@ -309,6 +325,7 @@ class Mapchete(object):
                 process_data = tile_process.execute()
                 # Log process time
             except Exception as e:
+                raise
                 error = e
                 raise RuntimeError(
                     "error executing process: %s" % e)
@@ -318,18 +335,14 @@ class Mapchete(object):
                 LOGGER.info((
                     self.process_name, process_tile.id, message,
                     error, elapsed))
-                tile_process = None
+                del tile_process
         # Analyze proess output.
         if isinstance(process_data, str):
             process_tile.data = self.config.output.empty(process_tile)
             process_tile.message = process_data
-        elif isinstance(
-            process_data, (ma.MaskedArray)
-        ):
+        elif isinstance(process_data, ma.MaskedArray):
             process_tile.data = process_data.copy()
-        elif isinstance(
-            process_data, (list, tuple, np.ndarray)
-        ):
+        elif isinstance(process_data, (list, tuple, np.ndarray)):
             process_tile.data = process_data
         elif isinstance(process_data, types.GeneratorType):
             process_tile.data = list(process_data)
@@ -343,9 +356,8 @@ class Mapchete(object):
 
 class MapcheteProcess(object):
     """
-    Actual process running on a tile.
+    Process class inherited by user process script.
 
-    In fact, it is a Tile.
     Its attributes and methods can be accessed via "self" from within a
     Mapchete process Python file.
     """
@@ -372,7 +384,7 @@ class MapcheteProcess(object):
         if existing_tile.is_empty():
             return self.config.output.empty(self.tile)
         else:
-            return existing_tile.read()
+            return existing_tile.read(**kwargs)
 
     def open(self, input_file, **kwargs):
         """
