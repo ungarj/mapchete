@@ -169,6 +169,43 @@ class OutputData(base.OutputData):
             mask=True
         )
 
+    def open(self, process_tile, kwargs):
+        """Open process output as input for other process."""
+        return InputTile(self.get_path(process_tile), process_tile)
+
+
+class InputTile(base.InputTile):
+    """Target Tile representation of output data."""
+
+    def __init__(self, tile, process):
+        """Initialize."""
+        self.tile = tile
+        self.process = process
+        self.pixelbuffer = None
+
+    def read(self):
+        """Read reprojected and resampled numpy array for current Tile."""
+        raise NotImplementedError()
+
+    def is_empty(self, indexes=None):
+        """Check if there is data within this tile."""
+        band_indexes = self._get_band_indexes(indexes)
+        src_bbox = self.raster_file.bbox()
+        tile_geom = self.tile.bbox
+
+        # empty if tile does not intersect with file bounding box
+        if not tile_geom.intersects(src_bbox):
+            return True
+
+        # empty if source band(s) are empty
+        all_bands_empty = True
+        for band in self._bands_from_cache(band_indexes):
+            if not band.mask.all():
+                all_bands_empty = False
+                break
+        return all_bands_empty
+
+
 GTIFF_PROFILE = {
     "blockysize": 256,
     "blockxsize": 256,
