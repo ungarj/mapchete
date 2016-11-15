@@ -153,7 +153,7 @@ def extract_from_tile(in_tile, out_tile):
     else:
         raise TypeError("wrong input tile type: %s" % type(in_tile))
     assert isinstance(out_tile, BufferedTile)
-    assert in_tile.data.ndim == 3
+    assert in_tile.data.ndim in [3, 4]
     return extract_from_array(in_tile.data, in_tile.affine, out_tile)
 
 
@@ -175,7 +175,7 @@ def extract_from_array(in_data, in_affine, out_tile):
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    return in_data[:, minrow:maxrow, mincol:maxcol]
+    return in_data[..., minrow:maxrow, mincol:maxcol]
 
 
 def resample_from_array(
@@ -227,6 +227,8 @@ def create_mosaic(tiles, nodata=0):
             tile_data = np.stack(tile.data)
         else:
             raise TypeError("tile.data must be an array or a tuple of arrays")
+        if isinstance(tile.data, (np.ndarray)):
+            tile.data = ma.masked_where(tile.data == nodata, tile.data)
         num_bands = tile_data.shape[0]
         if resolution is None:
             resolution = tile.pixel_x_size
