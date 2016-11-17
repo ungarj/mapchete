@@ -72,6 +72,7 @@ class MapcheteConfig(object):
         self._global_process_area = None
         self._prepared_files = {}
         # other properties
+        self._readonly = readonly
         self.output_type = self.raw["output"]["type"]
         try:
             assert self.raw["output"]["type"] in TILING_TYPES
@@ -339,7 +340,7 @@ class MapcheteConfig(object):
                     raise RuntimeError(
                         "input_files could not be read from config")
                 for file_name, file_at_zoom in element_zoom.iteritems():
-                    if file_at_zoom:
+                    if file_at_zoom and not self._readonly:
                         # prepare input files metadata
                         if file_name not in self._prepared_files:
                             # load file reader objects for each file
