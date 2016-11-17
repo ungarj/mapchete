@@ -22,7 +22,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'mapchete = mapchete.cli.main:MapcheteCLI'
+            'mapchete = mapchete.cli.main:main'
         ],
         'mapchete.formats.drivers': [
             'geojson=mapchete.formats.default.geojson',
