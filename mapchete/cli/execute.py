@@ -39,12 +39,14 @@ def main(args=None):
         multi = cpu_count()
     zoom = parsed.zoom
 
+    mode = "overwrite" if parsed.overwrite else "continue"
+
     # Initialize process.
     try:
         process = Mapchete(
             MapcheteConfig(
                 parsed.mapchete_file, zoom=zoom, bounds=parsed.bounds,
-                overwrite=parsed.overwrite, single_input_file=parsed.input_file
+                mode=mode, single_input_file=parsed.input_file
             ),
         )
     except PyCompileError as e:
@@ -61,8 +63,8 @@ def main(args=None):
         except AssertionError:
             raise ValueError("tile index provided is invalid")
         try:
-            output = process_worker(process, tile, parsed.overwrite)
-            write_worker(process, output, parsed.overwrite)
+            output = process_worker(process, tile)
+            write_worker(process, output)
             LOGGER.info("1 tile iterated")
         except:
             raise
@@ -79,7 +81,7 @@ def main(args=None):
         )
 
     LOGGER.info("starting process using %s worker(s)", multi)
-    f = partial(process_worker, process, overwrite=parsed.overwrite)
+    f = partial(process_worker, process)
     for zoom in reversed(process.config.zoom_levels):
         if not process_tiles:
             process_tiles = process.get_process_tiles(zoom)
@@ -87,7 +89,7 @@ def main(args=None):
         try:
             for output in pool.imap_unordered(
                 f, process_tiles, chunksize=1):
-                write_worker(process, output, parsed.overwrite)
+                write_worker(process, output)
                 num_processed += 1
         except KeyboardInterrupt:
             LOGGER.info("Caught KeyboardInterrupt, terminating workers")
@@ -149,27 +151,31 @@ def failed_tiles_from_log(logfile, process, failed_since_str='1980-01-01'):
                     )
 
 
-def process_worker(process, process_tile, overwrite):
+def process_worker(process, process_tile):
     """Worker function running the process."""
-    if not overwrite and process.config.output.tiles_exist(process_tile):
+    # Skip execution if overwrite is disabled and tile exists
+    if process.config.mode == "continue" and (
+        process.config.output.tiles_exist(process_tile)
+    ):
         process_tile.message = "exists"
         LOGGER.info((
             process.process_name, process_tile.id, process_tile.message,
             None, None))
         return process_tile
-    try:
-        return process.execute(process_tile)
-    except Exception as e:
-        process_tile.message = "error"
-        process_tile.error = e
-        return process_tile
+    else:
+        try:
+            return process.execute(process_tile)
+        except Exception as e:
+            process_tile.message = "error"
+            process_tile.error = e
+            return process_tile
 
 
-def write_worker(process, process_tile, overwrite):
+def write_worker(process, process_tile):
     """Worker function writing process outputs."""
     if process_tile.message == "exists":
         return
-    process.write(process_tile, overwrite)
+    process.write(process_tile)
 
 
 if __name__ == "__main__":

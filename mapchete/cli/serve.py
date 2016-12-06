@@ -34,15 +34,22 @@ def main(args=None):
         assert os.path.splitext(parsed.mapchete_file)[1] == ".mapchete"
     except:
         raise IOError("must be a valid mapchete file")
-
+    if parsed.memory:
+        mode = "memory"
+    elif parsed.readonly:
+        mode = "readonly"
+    elif parsed.overwrite:
+        mode = "overwrite"
+    else:
+        mode = "continue"
     try:
         LOGGER.info("preparing process ...")
         process = Mapchete(
             MapcheteConfig(
                 parsed.mapchete_file, zoom=parsed.zoom, bounds=parsed.bounds,
-                single_input_file=parsed.input_file),
+                single_input_file=parsed.input_file, mode=mode),
             with_cache=True
-        )
+            )
     except:
         raise
 
@@ -79,7 +86,7 @@ def main(args=None):
         """Return processed, empty or error (in pink color) tile."""
         # convert zoom, row, col into tile object using web pyramid
         web_tile = web_pyramid.tile(zoom, row, col)
-        if not parsed.overwrite and (
+        if process.config.mode != "overwrite" and (
             web_pyramid.metatiling == process.config.raw["output"]["metatiling"]
         ):
             try:
@@ -90,10 +97,7 @@ def main(args=None):
             except:
                 pass
         try:
-            return _valid_tile_response(
-                process.get_raw_output(
-                    web_tile, no_write=parsed.no_write,
-                    overwrite=parsed.overwrite))
+            return _valid_tile_response(process.get_raw_output(web_tile))
         except Exception as e:
             LOGGER.info(
                 (process.process_name, "web tile", web_tile.id, "error", e))

@@ -43,19 +43,28 @@ class MapcheteConfig(object):
     - input_config: a Mapchete configuration file or a configuration dictionary
     - zoom: process zoom level or a pair of minimum and maximum zoom level
     - bounds: left, bottom, right, top process boundaries in output pyramid
-    - overwrite: overwrite existing output data (default: False)
     - single_input_file: single input file if supported by process
+    - mode: specify process mode, one of:
+        - memory: Generate process output on demand without reading
+            pre-existing data or writing new data.
+        - readonly: Just read data without processing new data.
+        - continue (default): Don't overwrite existing output.
+        - overwrite: Overwrite existing output.
     """
 
     def __init__(
-        self, input_config, zoom=None, bounds=None, overwrite=False,
-        single_input_file=None, readonly=False
+        self, input_config, zoom=None, bounds=None, single_input_file=None,
+        mode="continue"
     ):
         """Initialize configuration."""
+        try:
+            assert mode in ["memory", "readonly", "continue", "overwrite"]
+        except:
+            raise AttributeError("invalid process mode")
+        self.mode = mode
         # parse configuration
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
-            input_config, single_input_file=single_input_file,
-            readonly=readonly)
+            input_config, single_input_file=single_input_file)
         # see if configuration is empty
         if self.raw is None:
             raise IOError("mapchete configuration is empty")
@@ -72,7 +81,6 @@ class MapcheteConfig(object):
         self._global_process_area = None
         self._prepared_files = {}
         # other properties
-        self._readonly = readonly
         self.output_type = self.raw["output"]["type"]
         try:
             assert self.raw["output"]["type"] in TILING_TYPES
@@ -85,7 +93,6 @@ class MapcheteConfig(object):
             self.output_type, metatiling=self.raw["output"]["metatiling"],
             pixelbuffer=self.raw["output"]["pixelbuffer"])
         self.crs = self.process_pyramid.crs
-        self.overwrite = overwrite
         self._validate()
 
     @property
@@ -127,7 +134,9 @@ class MapcheteConfig(object):
         # Read from raw configuration.
         if "process_zoom" in self.raw:
             zoom = [self.raw["process_zoom"]]
-        elif all(k in self.raw for k in ("process_minzoom", "process_maxzoom")):
+        elif all(
+            k in self.raw for k in ("process_minzoom", "process_maxzoom")
+        ):
             zoom = [self.raw["process_minzoom"], self.raw["process_maxzoom"]]
         else:
             zoom = []
@@ -239,7 +248,7 @@ class MapcheteConfig(object):
         for zoom in self.zoom_levels:
             self.at_zoom(zoom)
 
-    def _parse_config(self, input_config, single_input_file, readonly):
+    def _parse_config(self, input_config, single_input_file):
         # from configuration dictionary
         if isinstance(input_config, dict):
             raw = input_config
@@ -277,7 +286,7 @@ class MapcheteConfig(object):
         )
         # determine input files
         if raw["input_files"] == "from_command_line":
-            if not readonly:
+            if self.mode in ["memory", "continue", "overwrite"]:
                 try:
                     assert single_input_file
                 except AssertionError:
@@ -340,7 +349,7 @@ class MapcheteConfig(object):
                     raise RuntimeError(
                         "input_files could not be read from config")
                 for file_name, file_at_zoom in element_zoom.iteritems():
-                    if file_at_zoom and not self._readonly:
+                    if file_at_zoom:  # and self.mode != "readonly":
                         # prepare input files metadata
                         if file_name not in self._prepared_files:
                             # load file reader objects for each file

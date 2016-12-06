@@ -34,8 +34,7 @@ class Mapchete(object):
         Initialize Mapchete processing endpoint.
 
         - config: a valid MapcheteConfig object
-        - with_cache: uses internal locking and caching but won't work with
-            multiprocessing.
+        - with_cache: cache processed output data in memory
         """
         assert isinstance(config, MapcheteConfig)
         self.config = config
@@ -47,7 +46,10 @@ class Mapchete(object):
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file)
         )[0]
-        self.with_cache = with_cache
+        if self.config.mode == "memory":
+            self.with_cache = True
+        else:
+            self.with_cache = with_cache
         if self.with_cache:
             self.process_tile_cache = LRUCache(maxsize=32)
             self.current_processes = {}
@@ -85,7 +87,7 @@ class Mapchete(object):
                 "error getting work tiles: %s" % traceback.print_exc())
             raise
 
-    def execute(self, process_tile, overwrite=False, no_write=False):
+    def execute(self, process_tile):
         """
         Run the Mapchete process.
 
@@ -100,12 +102,12 @@ class Mapchete(object):
         there is no process output, data is None and there is information
         on the process status in the message attribute.
         """
+        assert self.config.mode in ["memory", "continue", "overwrite"]
         if process_tile.zoom not in self.config.zoom_levels:
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
         assert isinstance(process_tile, BufferedTile)
-        return self._execute(
-            process_tile, overwrite=overwrite, no_write=no_write)
+        return self._execute(process_tile)
 
     def read(self, output_tile):
         """
@@ -116,15 +118,17 @@ class Mapchete(object):
 
         Returns output_tile with appended data.
         """
+        assert self.config.mode in ["readonly", "continue", "overwrite"]
         return self.config.output.read(output_tile)
 
-    def write(self, process_tile, overwrite=False):
+    def write(self, process_tile):
         """
         Write data into output format.
 
         - process_tile: the process_tile with appended data
         - overwrite: overwrite existing data (default: True)
         """
+        assert self.config.mode in ["continue", "overwrite"]
         starttime = time.time()
         if not process_tile or process_tile.data is None:
             message = "nothing written"
@@ -142,10 +146,7 @@ class Mapchete(object):
         LOGGER.info(
             (self.process_name, process_tile.id, message, error, elapsed))
 
-    def get_raw_output(
-        self, tile, metatiling=1, pixelbuffer=0, overwrite=False,
-        no_write=False
-    ):
+    def get_raw_output(self, tile, metatiling=1, pixelbuffer=0):
         """
         Get output raw data.
 
@@ -171,40 +172,54 @@ class Mapchete(object):
         if tile.zoom not in self.config.zoom_levels:
             tile.data = self.config.output.empty(tile)
             return tile
-        # Read directly from process.
-        if no_write:
+        if self.config.mode == "memory":
             # Determine affected process Tile and check whether it is already
             # cached.
             process_tile = self.config.process_pyramid.intersecting(tile)[0]
-            output = self._execute_using_cache(
-                process_tile, overwrite=overwrite, no_write=no_write)
+            output = self._execute_using_cache(process_tile)
             return self._extract(output, tile)
 
+        # TODO: cases where tile intersects with multiple process tiles
         process_tile = self.config.process_pyramid.intersecting(tile)[0]
         output_tiles = self.config.output_pyramid.intersecting(tile)
-        # If not overwrite and output exists, read.
-        if not overwrite and self.config.output.tiles_exist(process_tile):
-            if self.config.output.METADATA["data_type"] == "raster":
-                mosaic, affine = raster.create_mosaic(
-                    [self.read(output_tile) for output_tile in output_tiles])
-                tile.data = raster.extract_from_array(mosaic, affine, tile)
-                return tile
-            elif self.config.output.METADATA["data_type"] == "vector":
-                raise NotImplementedError()
-        # If overwrite, process, write and return data.
-        if self.with_cache:
-            output = self._execute_using_cache(
-                process_tile, overwrite=overwrite, no_write=no_write)
-        else:
-            output = self.execute(
-                process_tile, overwrite=overwrite, no_write=no_write)
-        self.write(output)
-        extract = self._extract(output, tile)
-        return extract
 
-    def _execute_using_cache(
-        self, process_tile, overwrite=False, no_write=False
-    ):
+        if self.config.mode == "readonly":
+            if self.config.output.tiles_exist(process_tile):
+                return self._read_existing_output(tile, output_tiles)
+            else:
+                tile.data = self.config.output.empty(tile)
+                return tile
+
+        if self.config.mode == "continue":
+            if self.config.output.tiles_exist(process_tile):
+                return self._read_existing_output(tile, output_tiles)
+            else:
+                return self._process_and_overwrite_output(tile, process_tile)
+
+        if self.config.mode == "overwrite":
+            return self._process_and_overwrite_output(tile, process_tile)
+
+    def _process_and_overwrite_output(self, tile, process_tile):
+        if self.with_cache:
+            output = self._execute_using_cache(process_tile)
+        else:
+            output = self.execute(process_tile)
+            self.write(output)
+            extract = self._extract(output, tile)
+            return extract
+
+    def _read_existing_output(self, tile, output_tiles):
+        if self.config.output.METADATA["data_type"] == "raster":
+            mosaic, affine = raster.create_mosaic(
+                [self.read(output_tile) for output_tile in output_tiles])
+            tile.data = raster.extract_from_array(mosaic, affine, tile)
+            return tile
+        elif self.config.output.METADATA["data_type"] == "vector":
+            raise NotImplementedError()
+
+    def _execute_using_cache(self, process_tile):
+        assert self.with_cache
+        assert self.config.mode in ["memory", "continue", "overwrite"]
         # Extract Tile subset from process Tile and return.
         try:
             return self.process_tile_cache[process_tile.id]
@@ -224,10 +239,9 @@ class Mapchete(object):
                 raise RuntimeError("tile not in cache")
         else:
             try:
-                output = self.execute(
-                    process_tile, overwrite=overwrite, no_write=no_write)
+                output = self.execute(process_tile)
                 self.process_tile_cache[process_tile.id] = output
-                if not no_write:
+                if self.config.mode in ["continue", "overwrite"]:
                     try:
                         self.write(output)
                     except OSError:
@@ -254,57 +268,16 @@ class Mapchete(object):
         elif self.config.output.METADATA["data_type"] == "vector":
             raise NotImplementedError()
 
-    def _execute(self, process_tile, overwrite=False, no_write=False):
+    def _execute(self, process_tile):
         # If baselevel is active and zoom is outside of baselevel,
-        # interpolate.
-        if self.config.baselevels and (
-            process_tile.zoom < min(self.config.baselevels["zooms"])):
-            # Get tiles from baselevel.
-            try:
-                starttime = time.time()
-                message = "generate from baselevel"
-                error = "no errors"
-                mosaic, mosaic_affine = raster.create_mosaic([
-                    self.get_raw_output(
-                        base_tile, overwrite=False, no_write=no_write)
-                    for base_tile in process_tile.get_children()
-                ])
-                process_data = raster.resample_from_array(
-                    mosaic, mosaic_affine, process_tile,
-                    self.config.baselevels["lower"],
-                    nodataval=self.config.output.nodata)
-            except Exception as e:
-                error = e
-                raise
-            finally:
-                endtime = time.time()
-                elapsed = "%ss" % (round((endtime - starttime), 3))
-                LOGGER.info((
-                    self.process_name, process_tile.id, message,
-                    error, elapsed))
-        elif self.config.baselevels and (
-            process_tile.zoom > max(self.config.baselevels["zooms"])
-        ):
-            try:
-                starttime = time.time()
-                message = "generate from baselevel"
-                error = "no errors"
-                parent_tile = self.get_raw_output(
-                    process_tile.get_parent(), overwrite=overwrite,
-                    no_write=no_write)
-                process_data = raster.resample_from_array(
-                    parent_tile.data, parent_tile.affine, process_tile,
-                    self.config.baselevels["higher"],
-                    nodataval=self.config.output.nodata)
-            except Exception as e:
-                error = e
-                raise
-            finally:
-                endtime = time.time()
-                elapsed = "%ss" % (round((endtime - starttime), 3))
-                LOGGER.info((
-                    self.process_name, process_tile.id, message,
-                    error, elapsed))
+        # interpolate from other zoom levels.
+        if self.config.baselevels:
+            if process_tile.zoom < min(self.config.baselevels["zooms"]):
+                process_data = self._interpolate_from_baselevel(
+                    process_tile, "lower")
+            elif process_tile.zoom > max(self.config.baselevels["zooms"]):
+                process_data = self._interpolate_from_baselevel(
+                    process_tile, "higher")
         # Otherwise, load process source and execute.
         else:
             try:
@@ -337,6 +310,9 @@ class Mapchete(object):
                     error, elapsed))
                 del tile_process
         # Analyze proess output.
+        return self._streamline_output(process_data, process_tile)
+
+    def _streamline_output(self, process_data, process_tile):
         if isinstance(process_data, str):
             process_tile.data = self.config.output.empty(process_tile)
             process_tile.message = process_data
@@ -352,6 +328,37 @@ class Mapchete(object):
             raise RuntimeError(
                 "not a valid process output: %s" % type(process_data))
         return process_tile
+
+    def _interpolate_from_baselevel(self, process_tile, baselevel):
+        try:
+            starttime = time.time()
+            message = "generate from baselevel"
+            error = "no errors"
+            if baselevel == "lower":
+                parent_tile = self.get_raw_output(process_tile.get_parent())
+                process_data = raster.resample_from_array(
+                    parent_tile.data, parent_tile.affine, process_tile,
+                    self.config.baselevels["higher"],
+                    nodataval=self.config.output.nodata)
+            elif baselevel == "higher":
+                mosaic, mosaic_affine = raster.create_mosaic([
+                    self.get_raw_output(base_tile)
+                    for base_tile in process_tile.get_children()
+                ])
+                process_data = raster.resample_from_array(
+                    mosaic, mosaic_affine, process_tile,
+                    self.config.baselevels["lower"],
+                    nodataval=self.config.output.nodata)
+        except Exception as e:
+            error = e
+            raise
+        finally:
+            endtime = time.time()
+            elapsed = "%ss" % (round((endtime - starttime), 3))
+            LOGGER.info((
+                self.process_name, process_tile.id, message,
+                error, elapsed))
+        return process_data
 
 
 class MapcheteProcess(object):
@@ -393,6 +400,11 @@ class MapcheteProcess(object):
         - input_file: file path or file name from configuration file
         - **kwargs: driver specific parameters (e.g. resampling)
         """
+        if not isinstance(input_file, str):
+            try:
+                return input_file.open(self.tile, **kwargs)
+            except:
+                raise IOError("please specify correct input_file name")
         if input_file not in self.params["input_files"]:
             raise ValueError(
                 "%s not found in config as input file" % input_file)

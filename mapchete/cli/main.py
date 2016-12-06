@@ -105,11 +105,15 @@ class MapcheteCLI(object):
             "--bounds", "-b", type=float, nargs=4,
             help="left, bottom, right, top bounds in tile pyramid CRS",
             metavar="<float>")
-        parser.add_argument(
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument(
             "--overwrite", "-o", action="store_true",
             help="overwrite if tile(s) already exist(s)")
-        parser.add_argument(
-            "--no_write", "-w", action="store_true",
+        mode.add_argument(
+            "--readonly", "-ro", action="store_true",
+            help="just read process output without writing")
+        mode.add_argument(
+            "--memory", "-mo", action="store_true",
             help="always get output from freshly processed output")
         parser.add_argument(
             "--input_file", "-i", type=str, help=(
