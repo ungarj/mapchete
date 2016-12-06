@@ -168,14 +168,22 @@ def extract_from_array(in_data, in_affine, out_tile):
     else:
         raise TypeError("wrong input data type: %s" % type(in_data))
     left, bottom, right, top = out_tile.bounds
-    window = from_bounds(
-        left, bottom, right, top, in_affine, height=in_data[0].shape[0],
-        width=in_data[0].shape[1])
+    if in_data.ndim == 2:
+        window = from_bounds(
+            left, bottom, right, top, in_affine, height=in_data.shape[0],
+            width=in_data.shape[1])
+    else:
+        window = from_bounds(
+            left, bottom, right, top, in_affine, height=in_data[0].shape[0],
+            width=in_data[0].shape[1])
     minrow = window.row_off
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    return in_data[..., minrow:maxrow, mincol:maxcol]
+    if in_data.ndim == 2:
+        return in_data[minrow:maxrow, mincol:maxcol]
+    else:
+        return in_data[..., minrow:maxrow, mincol:maxcol]
 
 
 def resample_from_array(
@@ -211,6 +219,12 @@ def create_mosaic(tiles, nodata=0):
     - tiles: an iterable containing BufferedTiles
     Returns: (mosaic, affine)
     """
+    tiles_list = list(tiles)
+    tiles = tiles_list
+    if not tiles:
+        raise RuntimeError("no tiles provided for mosaic")
+    elif len(tiles) == 1:
+        return tiles[0].data, tiles[0].affine
     resolution = None
     dtype = None
     num_bands = 0

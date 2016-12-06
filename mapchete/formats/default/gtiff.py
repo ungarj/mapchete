@@ -3,10 +3,13 @@
 import os
 import numpy as np
 import numpy.ma as ma
+import rasterio
+from rasterio.warp import reproject
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window
+from mapchete.io.raster import (
+    write_raster_window, create_mosaic, RESAMPLING_METHODS)
 
 
 class OutputData(base.OutputData):
@@ -30,6 +33,15 @@ class OutputData(base.OutputData):
             self.nodata = output_params["nodata"]
         except KeyError:
             self.nodata = GTIFF_PROFILE["nodata"]
+
+    def read(self, output_tile):
+        """Read process output."""
+        if self.tiles_exist(output_tile):
+            with rasterio.open(self.get_path(output_tile), "r") as src:
+                output_tile.data = src.read(masked=True)
+        else:
+            output_tile.data = self.empty(output_tile)
+        return output_tile
 
     def write(self, process_tile, overwrite=False):
         """Write process output into GeoTIFFs."""
@@ -158,7 +170,6 @@ class OutputData(base.OutputData):
                 data=data.astype(profile["dtype"]),
                 mask=np.where(data == self.nodata, True, False))
 
-
     def empty(self, process_tile):
         """Empty data."""
         profile = self.profile(process_tile)
@@ -169,28 +180,38 @@ class OutputData(base.OutputData):
             mask=True
         )
 
-    def open(self, process_tile, kwargs):
+    def open(self, tile, process, **kwargs):
         """Open process output as input for other process."""
-        return InputTile(self.get_path(process_tile), process_tile)
+        try:
+            resampling = kwargs["resampling"]
+        except KeyError:
+            resampling = None
+        return InputTile(tile, process, resampling)
 
 
 class InputTile(base.InputTile):
     """Target Tile representation of output data."""
 
-    def __init__(self, tile, process):
+    def __init__(self, tile, process, resampling):
         """Initialize."""
         self.tile = tile
         self.process = process
         self.pixelbuffer = None
+        self.resampling = resampling
+        self._np_cache = None
 
-    def read(self):
+    def read(self, indexes=None):
         """Read reprojected and resampled numpy array for current Tile."""
-        raise NotImplementedError()
+        band_indexes = self._get_band_indexes(indexes)
+        if len(band_indexes) == 1:
+            return self._from_cache(indexes=band_indexes).next()
+        else:
+            return self._from_cache(indexes=band_indexes)
 
     def is_empty(self, indexes=None):
         """Check if there is data within this tile."""
         band_indexes = self._get_band_indexes(indexes)
-        src_bbox = self.raster_file.bbox()
+        src_bbox = self.process.config.process_area()
         tile_geom = self.tile.bbox
 
         # empty if tile does not intersect with file bounding box
@@ -199,11 +220,30 @@ class InputTile(base.InputTile):
 
         # empty if source band(s) are empty
         all_bands_empty = True
-        for band in self._bands_from_cache(band_indexes):
+        for band in self._from_cache(band_indexes):
             if not band.mask.all():
                 all_bands_empty = False
                 break
         return all_bands_empty
+
+    def _get_band_indexes(self, indexes=None):
+        """Return valid band indexes."""
+        if indexes:
+            if isinstance(indexes, list):
+                return indexes
+            else:
+                return [indexes]
+        else:
+            return range(
+                1, self.process.config.output.profile(self.tile)["count"] + 1)
+
+    def _from_cache(self, indexes=None):
+        """Cache reprojected source data for multiple usage."""
+        for band_index in indexes:
+            if self._np_cache is None:
+                tile = self.process.get_raw_output(self.tile)
+                self._np_cache = tile.data
+            yield self._np_cache[band_index-1]
 
 
 GTIFF_PROFILE = {

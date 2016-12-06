@@ -166,6 +166,8 @@ def main():
         assert area.equals(loads(testpolygon))
         print "OK: read bounding box from .mapchete subfile"
     except:
+        print area
+        print testpolygon
         print "FAILED: read bounding box from .mapchete subfile"
         raise
 
@@ -259,18 +261,18 @@ def main():
                             )
                     band = testfile.read(1, masked=True)
                     try:
-                        assert band.shape == mosaic[0].shape
+                        assert band.shape == mosaic.shape
                     except AssertionError:
                         raise ValueError(
                             "%s zoom %s: shapes do not match %s %s" % (
                                 cleantopo_process, zoom, band.shape,
-                                mosaic[0].shape))
+                                mosaic.shape))
                     try:
-                        assert ma.allclose(band, mosaic[0])
-                        assert ma.allclose(band.mask, mosaic[0].mask)
+                        assert ma.allclose(band, mosaic)
+                        assert ma.allclose(band.mask, mosaic.mask)
                     except AssertionError:
                         print band
-                        print mosaic[0]
+                        print mosaic
                         raise ValueError(
                             "%s zoom %s: mosaic values do not fit" % (
                                 cleantopo_process, zoom))

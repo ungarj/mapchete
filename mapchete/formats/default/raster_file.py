@@ -8,7 +8,6 @@ extended easily.
 import os
 import rasterio
 import ogr
-import numpy as np
 from shapely.geometry import box
 from shapely.wkt import loads
 from cached_property import cached_property

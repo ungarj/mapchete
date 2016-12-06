@@ -21,13 +21,13 @@ class InputData(base.InputData):
         super(InputData, self).__init__(input_params)
         self.path = input_params["path"]
         if self.path:
-            self.process = Mapchete(MapcheteConfig(self.path, readonly=True))
+            self.process = Mapchete(MapcheteConfig(self.path, mode="readonly"))
         else:
             raise IOError("no path to .mapchete file provided")
 
     def open(self, tile, **kwargs):
         """Return InputTile."""
-        return self.process.config.output.open(tile, **kwargs)
+        return self.process.config.output.open(tile, self.process, **kwargs)
 
     def bbox(self, out_crs=None):
         """Return data bounding box."""

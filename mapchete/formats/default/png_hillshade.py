@@ -30,16 +30,29 @@ class OutputData(base.OutputData):
             os.makedirs(self.path)
         self.file_extension = ".png"
         self.output_params = output_params
+        try:
+            self.old_band_num = output_params["old_band_num"]
+            PNG_PROFILE.update(count=4)
+        except KeyError:
+            self.old_band_num = False
 
     def write(self, process_tile, overwrite=False):
         """Write process output into GeoTIFFs."""
         self.verify_data(process_tile)
         # assert process_tile data complies with output properties like band
         # number, data type.
-        process_tile.data = (
-            np.zeros(process_tile.shape()),
-            process_tile.data.astype(PNG_PROFILE["dtype"])
-        )
+        if self.old_band_num:
+            process_tile.data = (
+                np.zeros(process_tile.shape()),
+                np.zeros(process_tile.shape()),
+                np.zeros(process_tile.shape()),
+                process_tile.data.astype(PNG_PROFILE["dtype"])
+            )
+        else:
+            process_tile.data = (
+                np.zeros(process_tile.shape()),
+                process_tile.data.astype(PNG_PROFILE["dtype"])
+            )
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -55,8 +68,12 @@ class OutputData(base.OutputData):
     def read(self, output_tile):
         """Read process output tile into numpy array."""
         try:
+            if self.old_band_num:
+                band_num = 4
+            else:
+                band_num = 2
             with rasterio.open(self.get_path(output_tile)) as src:
-                output_tile.data = src.read(2, masked=True)
+                output_tile.data = src.read(band_num, masked=True)
                 return output_tile
         except:
             raise
