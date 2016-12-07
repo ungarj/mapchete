@@ -13,6 +13,7 @@ import numpy as np
 import numpy.ma as ma
 from cachetools import LRUCache
 from copy import copy
+from itertools import chain
 
 from mapchete import commons
 from mapchete.config import MapcheteConfig
@@ -213,9 +214,10 @@ class Mapchete(object):
             mosaic, affine = raster.create_mosaic(
                 [self.read(output_tile) for output_tile in output_tiles])
             tile.data = raster.extract_from_array(mosaic, affine, tile)
-            return tile
         elif self.config.output.METADATA["data_type"] == "vector":
-            raise NotImplementedError()
+            tile.data = list(chain.from_iterable([
+                self.read(output_tile).data for output_tile in output_tiles]))
+        return tile
 
     def _execute_using_cache(self, process_tile):
         assert self.with_cache
@@ -401,10 +403,7 @@ class MapcheteProcess(object):
         - **kwargs: driver specific parameters (e.g. resampling)
         """
         if not isinstance(input_file, str):
-            try:
-                return input_file.open(self.tile, **kwargs)
-            except:
-                raise IOError("please specify correct input_file name")
+            return input_file.open(self.tile, **kwargs)
         if input_file not in self.params["input_files"]:
             raise ValueError(
                 "%s not found in config as input file" % input_file)

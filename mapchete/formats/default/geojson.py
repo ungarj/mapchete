@@ -2,6 +2,8 @@
 
 import os
 import types
+import fiona
+from copy import copy
 
 from mapchete.tile import BufferedTile
 from mapchete.formats import base
@@ -26,6 +28,15 @@ class OutputData(base.OutputData):
         self.file_extension = ".geojson"
         self.output_params = output_params
 
+    def read(self, output_tile):
+        """Read process output."""
+        if self.tiles_exist(output_tile):
+            with fiona.open(self.get_path(output_tile), "r") as src:
+                output_tile.data = list(src)
+        else:
+            output_tile.data = self.empty(output_tile)
+        return output_tile
+
     def write(self, process_tile, overwrite=False):
         """Write process output into GeoTIFFs."""
         if process_tile.data is None:
@@ -44,6 +55,13 @@ class OutputData(base.OutputData):
             write_vector_window(
                 in_tile=process_tile, out_schema=self.output_params["schema"],
                 out_tile=out_tile, out_path=out_path)
+
+    def tiles_exist(self, process_tile):
+        """Check whether all output tiles of a process tile exist."""
+        return all(
+            os.path.exists(self.get_path(tile))
+            for tile in self.pyramid.intersecting(process_tile)
+        )
 
     def is_valid_with_config(self, config):
         """Check if output format is valid with other process parameters."""
@@ -96,3 +114,42 @@ class OutputData(base.OutputData):
     def empty(self, tile):
         """Return emtpy list."""
         return []
+
+    def open(self, tile, process):
+        """Open process output as input for other process."""
+        return InputTile(tile, process)
+
+
+class InputTile(base.InputTile):
+    """Target Tile representation of output data."""
+
+    def __init__(self, tile, process):
+        """Initialize."""
+        self.tile = tile
+        self.process = process
+        self._cache = {}
+
+    def read(self, validity_check=True, no_neighbors=False):
+        """
+        Read data from process output.
+
+        validity_check: run geometry validity check (default: True)
+
+        Returns a GeoJSON-like list of features.
+        """
+        if no_neighbors:
+            raise NotImplementedError()
+        return self._from_cache(validity_check=validity_check)
+
+    def is_empty(self, validity_check=True):
+        """Return true if no tiles are available."""
+        if self._from_cache(validity_check=validity_check) == []:
+            return False
+        else:
+            return True
+
+    def _from_cache(self, validity_check=True):
+        if validity_check not in self._cache:
+            self._cache[validity_check] = self.process.get_raw_output(
+                self.tile).data
+        return self._cache[validity_check]

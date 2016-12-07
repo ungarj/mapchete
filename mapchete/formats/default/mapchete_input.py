@@ -27,7 +27,12 @@ class InputData(base.InputData):
 
     def open(self, tile, **kwargs):
         """Return InputTile."""
-        return self.process.config.output.open(tile, self.process, **kwargs)
+        try:
+            return self.process.config.output.open(
+                tile, self.process, **kwargs)
+        except:
+            raise NotImplementedError(
+                "output driver from input mapchete does not support reading")
 
     def bbox(self, out_crs=None):
         """Return data bounding box."""
