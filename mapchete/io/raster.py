@@ -93,9 +93,7 @@ def read_raster_window(
                         dst_crs=tile.crs, resampling=resampling)
                     for part in ["none", "left", "middle", "right"]
                     if parts_metadata[part]
-                ],
-                axis=1
-            )
+                ], axis=1)
             assert stitched.shape == tile.shape
             yield stitched
 
@@ -153,7 +151,7 @@ def extract_from_tile(in_tile, out_tile):
     else:
         raise TypeError("wrong input tile type: %s" % type(in_tile))
     assert isinstance(out_tile, BufferedTile)
-    assert in_tile.data.ndim in [3, 4]
+    assert in_tile.data.ndim in [2, 3, 4]
     return extract_from_array(in_tile.data, in_tile.affine, out_tile)
 
 

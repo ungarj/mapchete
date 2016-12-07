@@ -142,7 +142,8 @@ class OutputData(base.OutputData):
 
     def for_web(self, data):
         """Return tiles for web usage (as file object)."""
-        ma.set_fill_value(data, 0)
+        if isinstance(data, ma.MaskedArray):
+            data = np.where(data.mask, 0, data).astype("uint8")
         zeros = np.zeros(data.shape)
         out_rgb = (zeros, zeros, zeros, )
         out_rgb += (data, )
@@ -155,7 +156,7 @@ class OutputData(base.OutputData):
 
     def empty(self, process_tile):
         """Return empty data."""
-        return (ma.zeros(process_tile.shape()), )
+        return ma.zeros(process_tile.shape)
 
 
 PNG_PROFILE = {
