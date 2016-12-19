@@ -349,7 +349,7 @@ class MapcheteConfig(object):
                     raise RuntimeError(
                         "input_files could not be read from config")
                 for file_name, file_at_zoom in element_zoom.iteritems():
-                    if file_at_zoom:  # and self.mode != "readonly":
+                    if file_at_zoom and file_at_zoom != "none":
                         # prepare input files metadata
                         if file_name not in self._prepared_files:
                             # load file reader objects for each file
