@@ -41,24 +41,22 @@ class OutputData(base.OutputData):
         self.verify_data(process_tile)
         # assert process_tile data complies with output properties like band
         # number, data type.
+        data = process_tile.data
+        if isinstance(data, ma.MaskedArray):
+            data = np.where(data.mask, 0, data).astype("uint8")
         if self.old_band_num:
-            process_tile.data = (
-                np.zeros(process_tile.shape()),
-                np.zeros(process_tile.shape()),
-                np.zeros(process_tile.shape()),
-                process_tile.data.astype(PNG_PROFILE["dtype"])
+            process_tile.data = np.stack((
+                np.zeros(process_tile.shape), np.zeros(process_tile.shape),
+                np.zeros(process_tile.shape), data)
             )
         else:
-            process_tile.data = (
-                np.zeros(process_tile.shape()),
-                process_tile.data.astype(PNG_PROFILE["dtype"])
-            )
+            process_tile.data = np.stack((np.zeros(process_tile.shape), data))
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
             out_path = self.get_path(tile)
-            if os.path.exists(out_path) and not overwrite:
-                return
+            # if os.path.exists(out_path) and not overwrite:
+            #     return
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
@@ -145,8 +143,7 @@ class OutputData(base.OutputData):
         if isinstance(data, ma.MaskedArray):
             data = np.where(data.mask, 0, data).astype("uint8")
         zeros = np.zeros(data.shape)
-        out_rgb = (zeros, zeros, zeros, )
-        out_rgb += (data, )
+        out_rgb = (zeros, zeros, zeros, data)
         reshaped = np.stack(out_rgb).transpose(1, 2, 0).astype("uint8")
         empty_image = Image.fromarray(reshaped, mode='RGBA')
         out_img = io.BytesIO()

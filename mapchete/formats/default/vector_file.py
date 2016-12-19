@@ -43,8 +43,9 @@ class InputData(base.InputData):
             try:
                 assert inp_crs.is_valid
             except AssertionError:
+                print inp.crs
                 raise IOError("CRS could not be read from %s" % self.path)
-            bbox = bbox = box(*inp.bounds)
+            bbox = box(*inp.bounds)
         # If soucre and target CRSes differ, segmentize and reproject
         if inp_crs != out_crs:
             return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)

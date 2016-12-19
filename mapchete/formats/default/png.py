@@ -38,7 +38,15 @@ class OutputData(base.OutputData):
     def write(self, process_tile, overwrite=False):
         """Write process output into PNGs."""
         self.verify_data(process_tile)
-        r, g, b = self.prepare_data(process_tile.data)
+        data = self.prepare_data(process_tile.data)
+        if len(data) == 1:
+            r = data[0]
+            g = data[0]
+            b = data[0]
+        elif len(data) == 3:
+            r, g, b = data
+        else:
+            raise TypeError("invalid number of bands: %s" % len(data))
         # Generate alpha channel out of mask or nodata values.
         a = np.where(r.mask, 0, 255).astype("uint8")
         # Create 3D NumPy array with alpha channel.
@@ -50,8 +58,6 @@ class OutputData(base.OutputData):
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
             out_path = self.get_path(tile)
-            if os.path.exists(out_path) and not overwrite:
-                return
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
@@ -63,7 +69,6 @@ class OutputData(base.OutputData):
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
                 data = src.read([1, 2, 3])
-                mask = src.read(4)
                 mask = np.where(src.read(4) == 255, False, True)
                 output_tile.data = ma.MaskedArray(
                     data=data,
@@ -163,25 +168,37 @@ class OutputData(base.OutputData):
                 data=np.stack(out_data).astype("uint8"),
                 mask=np.stack(out_mask))
         elif isinstance(data, ma.MaskedArray):
-            assert len(data) == 3
+            if data.ndim == 2:
+                data = data[np.newaxis, :]
+            assert len(data) <= 3
             try:
                 assert data.shape == data.mask.shape
                 return data.astype("uint8")
             except:
                 return ma.MaskedArray(
                     data=data.astype("uint8"),
-                    mask=np.where(data == self.nodata, True, False))
+                    mask=np.where(data == self.nodata, True, False),
+                    fill_value=self.nodata)
         elif isinstance(data, np.ndarray):
-            assert len(data) == 3
-            masked = ma.MaskedArray(
+            if data.ndim == 2:
+                data = data[np.newaxis, :]
+            assert len(data) <= 3
+            return ma.MaskedArray(
                 data=data.astype("uint8"),
-                mask=np.where(data == self.nodata, True, False))
-            return masked
+                mask=np.where(data == self.nodata, True, False),
+                fill_value=self.nodata)
 
     def for_web(self, data):
         """Return tiles for web usage (as file object)."""
-        # Convert to 8 bit.
-        r, g, b = self.prepare_data(data)
+        data = self.prepare_data(data)
+        if len(data) == 1:
+            r = data[0]
+            g = data[0]
+            b = data[0]
+        elif len(data) == 3:
+            r, g, b = data
+        else:
+            raise TypeError("invalid number of bands: %s" % len(data))
         # Generate alpha channel out of mask or nodata values.
         a = np.where(r.mask, 0, 255).astype("uint8")
         # Create 3D NumPy array with alpha channel.
@@ -206,5 +223,5 @@ PNG_PROFILE = {
     "dtype": "uint8",
     "driver": "PNG",
     "count": 4,
-    "nodata": 255
+    "nodata": 0
 }

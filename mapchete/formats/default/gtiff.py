@@ -16,7 +16,7 @@ class OutputData(base.OutputData):
     METADATA = {
         "driver_name": "GTiff",
         "data_type": "raster",
-        "mode": "w"
+        "mode": "rw"
     }
 
     def __init__(self, output_params):
@@ -242,6 +242,14 @@ class InputTile(base.InputTile):
                 tile = self.process.get_raw_output(self.tile)
                 self._np_cache = tile.data
             yield self._np_cache[band_index-1]
+
+    def __enter__(self):
+        """Enable context manager."""
+        return self
+
+    def __exit__(self, t, v, tb):
+        """Clear cache on close."""
+        del self._np_band_cache
 
 
 GTIFF_PROFILE = {

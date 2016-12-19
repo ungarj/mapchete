@@ -3,7 +3,6 @@
 import os
 import types
 import fiona
-from copy import copy
 
 from mapchete.tile import BufferedTile
 from mapchete.formats import base
@@ -16,7 +15,7 @@ class OutputData(base.OutputData):
     METADATA = {
         "driver_name": "GeoJSON",
         "data_type": "vector",
-        "mode": "w"
+        "mode": "rw"
     }
 
     def __init__(self, output_params):
@@ -153,3 +152,11 @@ class InputTile(base.InputTile):
             self._cache[validity_check] = self.process.get_raw_output(
                 self.tile).data
         return self._cache[validity_check]
+
+    def __enter__(self):
+        """Enable context manager."""
+        return self
+
+    def __exit__(self, t, v, tb):
+        """Clear cache on close."""
+        del self._cache
