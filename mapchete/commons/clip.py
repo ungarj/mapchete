@@ -29,11 +29,18 @@ def clip_array_with_vector(
         buffered_geometries.append(geom)
     # mask raster by buffered geometries
     if buffered_geometries:
-        return ma.masked_array(
-            array, mask=geometry_mask(
-                buffered_geometries, array.shape, array_affine, invert=inverted
+        if array.ndim == 2:
+            return ma.masked_array(
+                array, geometry_mask(
+                    buffered_geometries, array.shape, array_affine,
+                    invert=inverted))
+        elif array.ndim == 3:
+            mask = geometry_mask(
+                buffered_geometries, (array.shape[1], array.shape[2]),
+                array_affine, invert=inverted)
+            return ma.masked_array(
+                array, np.stack((mask for band in array))
             )
-        )
     # if no geometries, return unmasked array
     else:
         if inverted:
