@@ -86,16 +86,18 @@ def main(args=None):
         """Return processed, empty or error (in pink color) tile."""
         # convert zoom, row, col into tile object using web pyramid
         web_tile = web_pyramid.tile(zoom, row, col)
-        if process.config.mode != "overwrite" and (
-            web_pyramid.metatiling == process.config.raw["output"]["metatiling"]
-        ):
-            try:
-                path = process.config.output.get_path(web_tile)
-                response = make_response(send_file(path))
-                response.cache_control.no_write = True
-                return response
-            except:
-                pass
+        if process.config.mode in ["continue", "readonly"]:
+            if web_pyramid.metatiling == process.config.raw[
+                "output"]["metatiling"]:
+                try:
+                    path = process.config.output.get_path(web_tile)
+                    response = make_response(send_file(path))
+                    response.cache_control.no_write = True
+                    return response
+                except:
+                    pass
+            # else:
+            #     raise TypeError("wrong metatiling")
         try:
             return _valid_tile_response(process.get_raw_output(web_tile))
         except Exception as e:
