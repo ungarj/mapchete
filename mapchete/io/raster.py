@@ -193,21 +193,23 @@ def resample_from_array(
     elif isinstance(in_data, tuple):
         in_data = ma.MaskedArray(
             data=np.stack(in_data),
-            mask=np.stack([band.mask for band in in_data]))
+            mask=np.stack([band.mask for band in in_data]),
+            fill_value=nodataval)
     else:
         raise TypeError("wrong input data type: %s" % type(in_data))
     if in_data.ndim == 2:
         in_data = ma.expand_dims(in_data, axis=0)
+    if in_data.fill_value != nodataval:
+        ma.set_fill_value(in_data, nodataval)
     out_shape = (in_data.shape[0], ) + out_tile.shape
-    dst_data = ma.zeros(out_shape, in_data.dtype)
+    dst_data = np.ones(out_shape, in_data.dtype)
+    in_data = ma.masked_array(
+        data=in_data.filled(), mask=in_data.mask, fill_value=nodataval)
     reproject(
         in_data, dst_data, src_transform=in_affine, src_crs=out_tile.crs,
-        src_nodata=nodataval, dst_transform=out_tile.affine,
-        dst_crs=out_tile.crs, dst_nodata=nodataval,
+        dst_transform=out_tile.affine, dst_crs=out_tile.crs,
         resampling=RESAMPLING_METHODS[resampling])
-    return ma.masked_array(
-        data=dst_data,
-        mask=np.where(dst_data == nodataval, True, False))
+    return dst_data
 
 
 def create_mosaic(tiles, nodata=0):
