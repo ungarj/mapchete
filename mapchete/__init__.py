@@ -137,8 +137,13 @@ class Mapchete(object):
         else:
             message = "write"
             try:
-                self.config.output.write(copy(process_tile), overwrite=True)
-                error = "no errors"
+                if self.config.mode == "continue" and (
+                    self.config.output.tiles_exist(process_tile)
+                ):
+                    error = "exists, not overwritten"
+                else:
+                    self.config.output.write(copy(process_tile))
+                    error = "no errors"
             except Exception as e:
                 raise
                 error = e
@@ -147,7 +152,9 @@ class Mapchete(object):
         LOGGER.info(
             (self.process_name, process_tile.id, message, error, elapsed))
 
-    def get_raw_output(self, tile, metatiling=1, pixelbuffer=0):
+    def get_raw_output(
+        self, tile, metatiling=1, pixelbuffer=0, _baselevel_readonly=False
+    ):
         """
         Get output raw data.
 
@@ -184,20 +191,20 @@ class Mapchete(object):
         process_tile = self.config.process_pyramid.intersecting(tile)[0]
         output_tiles = self.config.output_pyramid.intersecting(tile)
 
-        if self.config.mode == "readonly":
+        if self.config.mode == "readonly" or _baselevel_readonly:
             if self.config.output.tiles_exist(process_tile):
                 return self._read_existing_output(tile, output_tiles)
             else:
                 tile.data = self.config.output.empty(tile)
                 return tile
 
-        if self.config.mode == "continue":
+        if self.config.mode == "continue" and not _baselevel_readonly:
             if self.config.output.tiles_exist(process_tile):
                 return self._read_existing_output(tile, output_tiles)
             else:
                 return self._process_and_overwrite_output(tile, process_tile)
 
-        if self.config.mode == "overwrite":
+        if self.config.mode == "overwrite" and not _baselevel_readonly:
             return self._process_and_overwrite_output(tile, process_tile)
 
     def _process_and_overwrite_output(self, tile, process_tile):
@@ -205,9 +212,9 @@ class Mapchete(object):
             output = self._execute_using_cache(process_tile)
         else:
             output = self.execute(process_tile)
-            self.write(output)
-            extract = self._extract(output, tile)
-            return extract
+        self.write(output)
+        extract = self._extract(output, tile)
+        return extract
 
     def _read_existing_output(self, tile, output_tiles):
         if self.config.output.METADATA["data_type"] == "raster":
@@ -222,6 +229,7 @@ class Mapchete(object):
     def _execute_using_cache(self, process_tile):
         assert self.with_cache
         assert self.config.mode in ["memory", "continue", "overwrite"]
+
         # Extract Tile subset from process Tile and return.
         try:
             return self.process_tile_cache[process_tile.id]
@@ -277,40 +285,43 @@ class Mapchete(object):
             if process_tile.zoom < min(self.config.baselevels["zooms"]):
                 process_data = self._interpolate_from_baselevel(
                     process_tile, "lower")
+                # Analyze proess output.
+                return self._streamline_output(process_data, process_tile)
             elif process_tile.zoom > max(self.config.baselevels["zooms"]):
                 process_data = self._interpolate_from_baselevel(
                     process_tile, "higher")
+                # Analyze proess output.
+                return self._streamline_output(process_data, process_tile)
         # Otherwise, load process source and execute.
-        else:
-            try:
-                new_process = imp.load_source(
-                    self.process_name + "Process", self.config.process_file)
-                tile_process = new_process.Process(
-                    config=self.config, tile=process_tile,
-                    params=self.config.at_zoom(process_tile.zoom)
-                )
-            except Exception as e:
-                raise RuntimeError(
-                    "error invoking process: %s" % e)
-            try:
-                starttime = time.time()
-                message = "execute"
-                error = "no errors"
-                # Actually run process.
-                process_data = tile_process.execute()
-                # Log process time
-            except Exception as e:
-                raise
-                error = e
-                raise RuntimeError(
-                    "error executing process: %s" % e)
-            finally:
-                endtime = time.time()
-                elapsed = "%ss" % (round((endtime - starttime), 3))
-                LOGGER.info((
-                    self.process_name, process_tile.id, message,
-                    error, elapsed))
-                del tile_process
+        try:
+            new_process = imp.load_source(
+                self.process_name + "Process", self.config.process_file)
+            tile_process = new_process.Process(
+                config=self.config, tile=process_tile,
+                params=self.config.at_zoom(process_tile.zoom)
+            )
+        except Exception as e:
+            raise RuntimeError(
+                "error invoking process: %s" % e)
+        try:
+            starttime = time.time()
+            message = "execute"
+            error = "no errors"
+            # Actually run process.
+            process_data = tile_process.execute()
+            # Log process time
+        except Exception as e:
+            raise
+            error = e
+            raise RuntimeError(
+                "error executing process: %s" % e)
+        finally:
+            endtime = time.time()
+            elapsed = "%ss" % (round((endtime - starttime), 3))
+            LOGGER.info((
+                self.process_name, process_tile.id, message,
+                error, elapsed))
+            del tile_process
         # Analyze proess output.
         return self._streamline_output(process_data, process_tile)
 
@@ -336,15 +347,16 @@ class Mapchete(object):
             starttime = time.time()
             message = "generate from baselevel"
             error = "no errors"
-            if baselevel == "lower":
-                parent_tile = self.get_raw_output(process_tile.get_parent())
+            if baselevel == "higher":
+                parent_tile = self.get_raw_output(
+                    process_tile.get_parent(), _baselevel_readonly=True)
                 process_data = raster.resample_from_array(
                     parent_tile.data, parent_tile.affine, process_tile,
                     self.config.baselevels["higher"],
                     nodataval=self.config.output.nodata)
-            elif baselevel == "higher":
+            elif baselevel == "lower":
                 mosaic, mosaic_affine = raster.create_mosaic([
-                    self.get_raw_output(base_tile)
+                    self.get_raw_output(base_tile, _baselevel_readonly=True)
                     for base_tile in process_tile.get_children()
                 ])
                 process_data = raster.resample_from_array(
@@ -389,11 +401,11 @@ class MapcheteProcess(object):
 
     def read(self, **kwargs):
         """Read existing output data."""
-        existing_tile = self.config.output.open(self.tile, **kwargs)
-        if existing_tile.is_empty():
-            return self.config.output.empty(self.tile)
-        else:
-            return existing_tile.read(**kwargs)
+        with self.config.output.open(self.tile, **kwargs) as existing_tile:
+            if existing_tile.is_empty():
+                return self.config.output.empty(self.tile)
+            else:
+                return existing_tile.read(**kwargs)
 
     def open(self, input_file, **kwargs):
         """
