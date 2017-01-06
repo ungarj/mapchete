@@ -45,7 +45,7 @@ def main(args=None):
     try:
         process = Mapchete(
             MapcheteConfig(
-                parsed.mapchete_file, zoom=zoom, bounds=parsed.bounds,
+                parsed.mapchete_file, bounds=parsed.bounds,
                 mode=mode, single_input_file=parsed.input_file
             ),
         )
@@ -55,6 +55,13 @@ def main(args=None):
     except:
         raise
     logging.config.dictConfig(get_log_config(process))
+
+    if zoom is None:
+        zoom_levels = reversed(process.config.zoom_levels)
+    elif len(zoom) == 2:
+        zoom_levels = reversed(range(min(zoom), max(zoom)+1))
+    elif len(zoom) == 1:
+        zoom_levels = zoom
 
     if parsed.tile:
         tile = process.config.process_pyramid.tile(*tuple(parsed.tile))
@@ -82,7 +89,8 @@ def main(args=None):
 
     LOGGER.info("starting process using %s worker(s)", multi)
     f = partial(process_worker, process)
-    for zoom in reversed(process.config.zoom_levels):
+
+    for zoom in zoom_levels:
         if not process_tiles:
             process_tiles = process.get_process_tiles(zoom)
         pool = Pool(multi)
