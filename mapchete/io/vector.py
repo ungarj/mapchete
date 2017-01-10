@@ -201,9 +201,7 @@ def _get_reprojected_features(
                 try:
                     feature_geom = feature_geom.buffer(0)
                     assert feature_geom.is_valid
-                    warnings.warn(
-                        "fixed invalid vector input geometry"
-                        )
+                    # warnings.warn("fixed invalid vector input geometry")
                 except AssertionError:
                     warnings.warn(
                         "irreparable geometry found in vector input file"
