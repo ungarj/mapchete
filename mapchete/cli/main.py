@@ -163,6 +163,9 @@ class MapcheteCLI(object):
             help="specify an input file via command line (in apchete file, \
                 set 'input_file' parameter to 'from_command_line')",
             metavar="<path>")
+        parser.add_argument(
+            "--quiet", "-q", action="store_true",
+            help="suppress log output")
         args = parser.parse_args(self.args[2:])
         execute(args)
 

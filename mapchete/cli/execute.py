@@ -56,6 +56,9 @@ def main(args=None):
         raise
     logging.config.dictConfig(get_log_config(process))
 
+    if parsed.quiet:
+        LOGGER.setLevel(logging.WARNING)
+
     if zoom is None:
         zoom_levels = reversed(process.config.zoom_levels)
     elif len(zoom) == 2:
