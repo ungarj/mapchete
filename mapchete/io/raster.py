@@ -253,13 +253,12 @@ def create_mosaic(tiles, nodata=0):
         if tile_data[0].dtype != dtype:
             raise RuntimeError("all tiles must have the same dtype")
         left, bottom, right, top = tile.bounds
-        m_left = min([left, m_left]) if m_left else left
-        m_bottom = min([bottom, m_bottom]) if m_bottom else bottom
-        m_right = max([right, m_right]) if m_right else right
-        m_top = max([top, m_top]) if m_top else top
+        m_left = min([left, m_left]) if m_left is not None else left
+        m_bottom = min([bottom, m_bottom]) if m_bottom is not None else bottom
+        m_right = max([right, m_right]) if m_right is not None else right
+        m_top = max([top, m_top]) if m_top is not None else top
     height = int(round((m_top - m_bottom) / resolution))
     width = int(round((m_right - m_left) / resolution))
-
     mosaic = ma.MaskedArray(
             data=np.full(
                 (num_bands, height, width), dtype=dtype, fill_value=nodata),
@@ -278,7 +277,6 @@ def create_mosaic(tiles, nodata=0):
         maxcol = window.col_off + window.num_cols
         mosaic[:, minrow:maxrow, mincol:maxcol] = tile.data
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = tile.data.mask
-
     return (mosaic, mosaic_affine)
 
 
