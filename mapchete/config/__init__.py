@@ -353,10 +353,14 @@ class MapcheteConfig(object):
                         # prepare input files metadata
                         if file_name not in self._prepared_files:
                             # load file reader objects for each file
+                            if file_at_zoom.startswith("s3://"):
+                                path = file_at_zoom
+                            else:
+                                path = os.path.normpath(os.path.join(
+                                    self.config_dir, file_at_zoom))
                             file_reader = load_input_reader(
                                 dict(
-                                    path=os.path.normpath(os.path.join(
-                                        self.config_dir, file_at_zoom)),
+                                    path=path,
                                     pyramid=self.process_pyramid,
                                     pixelbuffer=self.pixelbuffer)
                                 )
