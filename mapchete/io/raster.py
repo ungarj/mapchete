@@ -43,7 +43,9 @@ def read_raster_window(
     try:
         assert os.path.isfile(input_file)
     except AssertionError:
-        if input_file.split("/")[1] == "vsizip":
+        if input_file.split("/")[1] == "vsizip" or (
+            input_file.startswith("s3://")
+        ):
             pass
         else:
             raise IOError("input file not found %s" % input_file)
