@@ -6,7 +6,7 @@ extended easily.
 """
 
 import fiona
-from shapely.geometry import box
+from shapely.geometry import box, Polygon
 from rasterio.crs import CRS
 
 from mapchete.formats import base
@@ -46,6 +46,9 @@ class InputData(base.InputData):
                 print inp.crs
                 raise IOError("CRS could not be read from %s" % self.path)
             bbox = box(*inp.bounds)
+        # Check if file bounding box is empty.
+        if len(set(inp.bounds)) == 1:
+            return Polygon()
         # If soucre and target CRSes differ, segmentize and reproject
         if inp_crs != out_crs:
             return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
