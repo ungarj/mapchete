@@ -103,7 +103,7 @@ class OutputData(base.OutputData):
             dtype=self.output_params["dtype"]
         )
         try:
-            dst_metadata.update(compression=self.output_params["compression"])
+            dst_metadata.update(compress=self.output_params["compression"])
         except KeyError:
             pass
         return dst_metadata
