@@ -102,6 +102,10 @@ class OutputData(base.OutputData):
             count=self.output_params["bands"],
             dtype=self.output_params["dtype"]
         )
+        try:
+            dst_metadata.update(compression=self.output_params["compression"])
+        except KeyError:
+            pass
         return dst_metadata
 
     def verify_data(self, tile):
