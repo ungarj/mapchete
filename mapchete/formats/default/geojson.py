@@ -22,8 +22,6 @@ class OutputData(base.OutputData):
         """Initialize."""
         super(OutputData, self).__init__(output_params)
         self.path = output_params["path"]
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
         self.file_extension = ".geojson"
         self.output_params = output_params
 
@@ -38,6 +36,8 @@ class OutputData(base.OutputData):
 
     def write(self, process_tile, overwrite=False):
         """Write process output into GeoTIFFs."""
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
         if process_tile.data is None:
             return
         assert isinstance(process_tile.data, (list, types.GeneratorType))

@@ -23,8 +23,6 @@ class OutputData(base.OutputData):
         """Initialize."""
         super(OutputData, self).__init__(output_params)
         self.path = output_params["path"]
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
         self.file_extension = ".tif"
         self.output_params = output_params
         try:
@@ -43,6 +41,8 @@ class OutputData(base.OutputData):
 
     def write(self, process_tile, overwrite=False):
         """Write process output into GeoTIFFs."""
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
         self.verify_data(process_tile)
         process_tile.data = self.prepare_data(
             process_tile.data, self.profile(process_tile))
