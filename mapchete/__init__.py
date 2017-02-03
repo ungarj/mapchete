@@ -1,4 +1,4 @@
-"""Mapchete."""
+"""Main module managing processes."""
 
 import os
 import py_compile
@@ -45,8 +45,7 @@ class Mapchete(object):
         except:
             raise
         self.process_name = os.path.splitext(
-            os.path.basename(self.config.process_file)
-        )[0]
+            os.path.basename(self.config.process_file))[0]
         if self.config.mode == "memory":
             self.with_cache = True
         else:
@@ -132,7 +131,7 @@ class Mapchete(object):
         assert self.config.mode in ["continue", "overwrite"]
         starttime = time.time()
         if not process_tile or process_tile.data is None:
-            message = "nothing written"
+            message = "data empty, nothing written"
             error = "no errors"
         else:
             message = "write"
@@ -461,6 +460,8 @@ class MapcheteProcess(object):
         """
         Return input array clipped by geometries.
 
+        - array: source array
+        - geometries: geometries used to clip source array
         - inverted: bool, invert clipping
         - clip_buffer: int (in pixels), buffer geometries befor applying clip
         """

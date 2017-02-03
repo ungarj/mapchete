@@ -33,7 +33,7 @@ class OutputData(base.OutputData):
         except KeyError:
             self.nodata = PNG_PROFILE["nodata"]
 
-    def write(self, process_tile, overwrite=False):
+    def write(self, process_tile):
         """Write process output into PNGs."""
         if not os.path.exists(self.path):
             os.makedirs(self.path)

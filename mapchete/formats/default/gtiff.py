@@ -39,7 +39,7 @@ class OutputData(base.OutputData):
             output_tile.data = self.empty(output_tile)
         return output_tile
 
-    def write(self, process_tile, overwrite=False):
+    def write(self, process_tile):
         """Write process output into GeoTIFFs."""
         if not os.path.exists(self.path):
             os.makedirs(self.path)
@@ -50,8 +50,6 @@ class OutputData(base.OutputData):
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
             out_path = self.get_path(tile)
-            if os.path.exists(out_path) and not overwrite:
-                return
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             # write_from_tile(buffered_tile, profile, out_tile, out_path)
