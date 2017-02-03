@@ -135,7 +135,8 @@ def write_raster_window(
     if window_data.all() is not ma.masked:
         with rasterio.open(out_path, 'w', **out_profile) as dst:
             for band, data in enumerate(window_data):
-                dst.write(data.astype(out_profile["dtype"]), (band+1))
+                data.set_fill_value(out_profile["nodata"])
+                dst.write(data.filled().astype(out_profile["dtype"]), (band+1))
 
 
 def extract_from_tile(in_tile, out_tile):
