@@ -1,7 +1,8 @@
 """
 Calculate hillshade and slopeshade.
 
-from
+Original code is from:
+https://github.com/migurski/DEM-Tools/blob/master/Hillup/data/__init__.py#L288-L318
 
 license
 -----------------------

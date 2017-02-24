@@ -6,7 +6,6 @@ from shapely.geometry import Polygon
 from shapely.wkt import loads
 import numpy.ma as ma
 import rasterio
-# from tilematrix import TilePyramid, Tile
 from shapely.geometry import shape
 from multiprocessing import Pool
 from functools import partial
