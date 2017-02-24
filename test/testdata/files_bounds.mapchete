@@ -9,6 +9,6 @@ input_files:
 output:
     dtype: float32
     bands: 1
-    path: test
+    path: tmp
     format: PNG_hillshade
     type: geodetic

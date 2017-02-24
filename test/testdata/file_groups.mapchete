@@ -1,0 +1,23 @@
+# mapchete parameters
+process_file: ../example_process.py
+process_minzoom: 0
+process_maxzoom: 5
+input_files:
+    group1:
+        file1: cleantopo_tl.tif
+        file2: cleantopo_br.tif
+    group2:
+        file1: dummy1.tif
+        file2: dummy2.tif
+
+output:
+    type: geodetic
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp
+    pixelbuffer: 10
+    # metatiling: 1
+
+pixelbuffer: 10
+metatiling: 8

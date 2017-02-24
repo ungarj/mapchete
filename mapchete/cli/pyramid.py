@@ -15,8 +15,10 @@ import traceback
 from py_compile import PyCompileError
 import rasterio
 
-from mapchete import Mapchete, MapcheteConfig, get_log_config
-from mapchete.io_utils import get_best_zoom_level
+from mapchete import Mapchete
+from mapchete.config import MapcheteConfig
+from mapchete.log import get_log_config
+from mapchete.io import get_best_zoom_level
 
 LOGGER = logging.getLogger("mapchete")
 # ranges from rasterio
@@ -31,73 +33,38 @@ DTYPE_RANGES = {
     'float64': (-1.7976931348623157e+308, 1.7976931348623157e+308)
 }
 
-def main(args=None):
-    """
-    Main entry point to tool.
-    """
 
+def main(args=None):
+    """Create tile pyramid out of input raster."""
     if args is None:
         args = sys.argv[1:]
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            "input_raster",
-            type=str,
-            help="input raster file"
-        )
+            "input_raster", type=str, help="input raster file")
         parser.add_argument(
-            "output_dir",
-            type=str,
-            help="output directory where tiles are stored"
-        )
+            "output_dir", type=str,
+            help="output directory where tiles are stored")
         parser.add_argument(
-            "--pyramid_type",
-            type=str,
-            default="mercator",
-            choices=["geodetic", "mercator"],
-            help="pyramid schema to be used"
-        )
+            "--pyramid_type", type=str, default="mercator",
+            choices=["geodetic", "mercator"], help="pyramid schema to be used")
         parser.add_argument(
-            "--output_format",
-            type=str,
-            default="GTiff",
-            choices=["GTiff", "PNG"],
-            help="output data type"
-        )
+            "--output_format", type=str, default="GTiff",
+            choices=["GTiff", "PNG"], help="output data type")
         parser.add_argument(
-            "--resampling_method",
-            type=str,
-            default="nearest",
+            "--resampling_method", type=str, default="nearest",
             choices=[
-                "nearest",
-                "bilinear",
-                "cubic",
-                "cubic_spline",
-                "lanczos",
-                "average",
-                "mode"
-            ]
-        )
+                "nearest", "bilinear", "cubic", "cubic_spline", "lanczos",
+                "average", "mode"])
         parser.add_argument(
-            "--scale_method",
-            type=str,
-            default="minmax_scale",
+            "--scale_method", type=str, default="minmax_scale",
             choices=["dtype_scale", "minmax_scale", "crop"],
-            help="scale method if input bands have more than 8 bit"
-        )
+            help="scale method if input bands have more than 8 bit" )
         parser.add_argument(
-            "--zoom",
-            "-z",
-            type=int,
-            nargs='*'
-        )
+            "--zoom", "-z", type=int, nargs='*')
         parser.add_argument(
-            "--bounds",
-            "-b",
-            type=float,
-            nargs='*',
+            "--bounds", "-b", type=float, nargs=4,
             help='left bottom right top in pyramid CRS (i.e. either EPSG:4326 \
-            for geodetic or EPSG:3857 for mercator)'
-        )
+            for geodetic or EPSG:3857 for mercator)')
         parser.add_argument("--log", action="store_true")
         parser.add_argument("--overwrite", action="store_true")
         parsed = parser.parse_args(args)
@@ -108,29 +75,19 @@ def main(args=None):
 
     options = {}
     options.update(
-        pyramid_type=parsed.pyramid_type,
-        scale_method=parsed.scale_method,
-        output_format=parsed.output_format,
-        resampling=parsed.resampling_method,
-        zoom=parsed.zoom,
-        bounds=parsed.bounds,
-        overwrite=parsed.overwrite
-    )
+        pyramid_type=parsed.pyramid_type, scale_method=parsed.scale_method,
+        output_format=parsed.output_format, resampling=parsed.resampling_method,
+        zoom=parsed.zoom, bounds=parsed.bounds, overwrite=parsed.overwrite)
     raster2pyramid(
-        parsed.input_raster,
-        parsed.output_dir,
-        options
-    )
+        parsed.input_raster, parsed.output_dir, options)
 
 
 def raster2pyramid(
     input_file,
     output_dir,
     options
-    ):
-    """
-    Creates a tile pyramid out of an input raster dataset.
-    """
+):
+    """Create a tile pyramid out of an input raster dataset."""
     pyramid_type = options["pyramid_type"]
     scale_method = options["scale_method"]
     output_format = options["output_format"]
@@ -142,9 +99,7 @@ def raster2pyramid(
     # Prepare process parameters
     minzoom, maxzoom = _get_zoom(zoom, input_file, pyramid_type)
     process_file = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        "tilify.py"
-    )
+        os.path.dirname(os.path.realpath(__file__)), "tilify.py")
 
     with rasterio.open(input_file, "r") as input_raster:
         output_bands = input_raster.count
@@ -175,8 +130,7 @@ def raster2pyramid(
                 scales_minmax += ((None, None), )
 
     # Create configuration
-    config = {}
-    config.update(
+    config = dict(
         process_file=process_file,
         output={
             "path": output_dir,
@@ -199,7 +153,6 @@ def raster2pyramid(
     )
 
     LOGGER.info("preparing process ...")
-
     try:
         mapchete = Mapchete(
             MapcheteConfig(
@@ -223,18 +176,15 @@ def raster2pyramid(
     for zoom in reversed(range(minzoom, maxzoom+1)):
         # Determine work tiles and run
         work_tiles = mapchete.get_work_tiles(zoom)
-        func = partial(_worker,
-            mapchete=mapchete,
-            overwrite=overwrite
-        )
+        func = partial(
+            _worker, mapchete=mapchete, overwrite=overwrite)
         pool = Pool()
         try:
             pool.map_async(func, work_tiles)
             pool.close()
         except KeyboardInterrupt:
             LOGGER.info(
-                "Caught KeyboardInterrupt, terminating workers"
-                )
+                "Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
             break
         except:
@@ -246,8 +196,9 @@ def raster2pyramid(
 
 def _worker(tile, mapchete, overwrite):
     """
-    Worker function running the process depending on the overwrite flag and
-    whether the tile exists.
+    Worker function running the process.
+
+    Depends on the overwrite flag and whether the tile exists.
     """
     try:
         log_message = mapchete.execute(tile, overwrite=overwrite)
@@ -258,9 +209,7 @@ def _worker(tile, mapchete, overwrite):
 
 
 def _get_zoom(zoom, input_raster, pyramid_type):
-    """
-    Determines minimum and maximum zoomlevel.
-    """
+    """Determine minimum and maximum zoomlevel."""
     if not zoom:
         minzoom = 1
         maxzoom = get_best_zoom_level(input_raster, pyramid_type)

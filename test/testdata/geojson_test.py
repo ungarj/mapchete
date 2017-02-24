@@ -2,6 +2,7 @@
 """Example process file."""
 
 from mapchete import MapcheteProcess
+from shapely.geometry import shape
 
 
 class Process(MapcheteProcess):
@@ -19,10 +20,19 @@ class Process(MapcheteProcess):
     def execute(self):
         """User defined process."""
         # Reading and writing data works like this:
-        with self.open("file1", resampling="bilinear") as raster_file:
-            if raster_file.is_empty():
-                return "empty"
+        with self.open("file1") as vector_file:
+            if vector_file.is_empty():
                 # This assures a transparent tile instead of a pink error tile
                 # is returned when using mapchete serve.
-            dem = raster_file.read()
-        return dem
+                return "empty"
+            return [
+                dict(
+                    geometry=feature["geometry"],
+                    properties=dict(
+                        name=feature["properties"]["NAME_0"],
+                        id=feature["properties"]["ID_0"],
+                        area=shape(feature["geometry"]).area
+                    )
+                )
+                for feature in vector_file.read()
+            ]

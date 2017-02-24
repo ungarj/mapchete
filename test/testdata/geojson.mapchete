@@ -1,0 +1,20 @@
+# mapchete parameters
+process_file: geojson_test.py
+process_zoom: 4
+input_files:
+    file1: antimeridian.geojson
+
+output:
+    type: geodetic
+    format: GeoJSON
+    path: tmp
+    data_type: vector
+    schema:
+        properties:
+            name: str
+            id: int
+            area: float
+        geometry: Polygon
+    metatiling: 2
+
+metatiling: 4

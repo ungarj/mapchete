@@ -1,0 +1,97 @@
+"""
+Main base classes for input and output formats.
+
+When writing a new driver, please inherit from these classes and implement
+the respective interfaces.
+"""
+
+from tilematrix import TilePyramid
+
+
+class InputData(object):
+    """Template class handling geographic input data."""
+
+    METADATA = {
+        "driver_name": None,
+        "data_type": None,
+        "mode": "r"
+    }
+
+    def __init__(self, input_params):
+        """Initialize relevant input information."""
+        self.pyramid = input_params["pyramid"]
+        self.pixelbuffer = input_params["pixelbuffer"]
+        self.crs = self.pyramid.crs
+        self.srid = self.pyramid.srid
+
+    def open(self, tile, **kwargs):
+        """Return InputTile class."""
+        raise NotImplementedError
+
+    def bbox(self, out_crs=None):
+        """Return data bounding box."""
+        raise NotImplementedError
+
+    def exists(self):
+        """Check if data or file even exists."""
+        raise NotImplementedError
+
+
+class InputTile(object):
+    """Target Tile representation of input data."""
+
+    def __init__(self, tile, **kwargs):
+        """Initialize."""
+
+    def read(self):
+        """Read reprojected & resampled input data."""
+        raise NotImplementedError
+
+    def is_emtpy(self):
+        """Check if there is data within this tile."""
+        raise NotImplementedError
+
+    def __enter__(self):
+        """Required for 'with' statement."""
+        return self
+
+    def __exit__(self, t, v, tb):
+        """Clean up."""
+        pass
+
+
+class OutputData(object):
+    """Template class handling process output data."""
+
+    METADATA = {
+        "driver_name": None,
+        "data_type": None,
+        "mode": "w"
+    }
+
+    def __init__(self, output_params):
+        """Initialize."""
+        self.pixelbuffer = output_params["pixelbuffer"]
+        self.pyramid = TilePyramid(
+            output_params["type"], metatiling=output_params["metatiling"])
+        self.crs = self.pyramid.crs
+        self.srid = self.pyramid.srid
+
+    def write(self, process_tile, overwrite=False):
+        """Write data from one or more process tiles."""
+        raise NotImplementedError
+
+    def tiles_exist(self, process_tile):
+        """Check whether all output tiles of a process tile exist."""
+        raise NotImplementedError
+
+    def is_valid_with_config(self, config):
+        """Check if output format is valid with other process parameters."""
+        raise NotImplementedError
+
+    def for_web(self, data):
+        """Web representation of data."""
+        raise NotImplementedError
+
+    def empty(self, process_tile):
+        """Empty data."""
