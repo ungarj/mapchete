@@ -18,7 +18,10 @@ Manually install the latest development version
 Dependencies
 ------------
 
-In case there are problems installing GDAL/OGR for ``virtualenv``, try the following (from [here](https://gist.github.com/cspanring/5680334); works on Ubuntu 14.04):
+In case there are problems installing GDAL/OGR for ``virtualenv``, try the
+following (from here_) commands for Ubuntu:
+
+.. _here: https://gist.github.com/cspanring/5680334
 
 .. code-block:: shell
 
@@ -26,7 +29,8 @@ In case there are problems installing GDAL/OGR for ``virtualenv``, try the follo
     sudo apt-get update
     sudo apt-get install libgdal-dev
 
-and run ``pip`` while also providing your GDAL version installed and the locations of the headers:
+and run ``pip`` while also providing your GDAL version installed and the
+locations of the headers:
 
 .. code-block:: shell
 

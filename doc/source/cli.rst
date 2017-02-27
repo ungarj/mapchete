@@ -2,14 +2,16 @@
 Command Line Tools
 ==================
 
-Mapchete offers various useful subcommands: ``create``, ``execute``, ``serve`` and ``pyramid``.
+Mapchete offers various useful subcommands: ``create``, ``execute``, ``serve``
+ and ``pyramid``.
 
 Create an empty process
 =======================
 
 ``mapchete create <mapchete_file> <process_file>``
 
-This subcommand will generate an empty ``.mapchete`` and a dummy ``.py`` process file.
+This subcommand will generate an empty ``.mapchete`` and a dummy ``.py`` process
+file.
 
 .. code-block:: shell
 
@@ -23,14 +25,15 @@ This subcommand will generate an empty ``.mapchete`` and a dummy ``.py`` process
 
     optional arguments:
       -h, --help            show this help message and exit
-      --out_format {GTiff,GeoJSON,PostGIS,NumPy,PNG_hillshade,PNG}, -of {GTiff,GeoJSON,PostGIS,NumPy,PNG_hillshade,PNG}
+      --out_format {GTiff,GeoJSON,PostGIS,NumPy,PNG_hillshade,PNG}, -of {GTiff,
+                            GeoJSON, PostGIS, NumPy, PNG_hillshade, PNG}
                             process output format (default: None)
       --out_path <path>, -op <path>
                             path for process output (default: None)
       --pyramid_type {geodetic,mercator}, -pt {geodetic,mercator}
                             output pyramid type (default: geodetic)
-      --force, -f           overwrite if Mapchete and process files already exist
-                            (default: False)
+      --force, -f           overwrite if Mapchete and process files already
+                            exist (default: False)
 
 
 Execute a process
@@ -38,7 +41,8 @@ Execute a process
 
 ``mapchete execute <mapchete_file>``
 
-This is intended to batch seed your output pyramid. You can also process a specific tile by providing the tile index (``zoom`` ``row`` ``col``).
+This is intended to batch seed your output pyramid. You can also process a
+specific tile by providing the tile index (``zoom`` ``row`` ``col``).
 
 .. code-block:: shell
 
@@ -52,8 +56,8 @@ This is intended to batch seed your output pyramid. You can also process a speci
     optional arguments:
       -h, --help            show this help message and exit
       --zoom [<int> [<int> ...]], -z [<int> [<int> ...]]
-                            either minimum and maximum zoom level or just one zoom
-                            level (default: None)
+                            either minimum and maximum zoom level or just one
+                            zoom level (default: None)
       --bounds <float> <float> <float> <float>, -b <float> <float> <float> <float>
                             left, bottom, right, top bounds in tile pyramid CRS
                             (default: None)
@@ -79,9 +83,13 @@ Serve a process
 
 ``mapchete serve <mapchete_file>``
 
-Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple endpoint to **serve a process** for quick assessment (default port 5000). This is intended to process on-demand and show just the current map extent to facilitate process calibration.
+Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple
+endpoint to **serve a process** for quick assessment (default port 5000). This
+is intended to process on-demand and show just the current map extent to
+facilitate process calibration.
 
 .. code-block:: shell
+
     usage: mapchete serve <mapchete_file>
 
     Serves a process on localhost
@@ -105,9 +113,13 @@ Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple
                             file, set 'input_file' parameter to
                             'from_command_line') (default: None)
 
-With both commands you can also limit the processing zoom levels and bounding box with a ``-z``and a ``-b`` parameter respectively. This overrules the zoom level and output bounds settings in the mapchete configuration file.
+With both commands you can also limit the processing zoom levels and bounding
+box with a ``-z``and a ``-b`` parameter respectively. This overrules the zoom
+level and output bounds settings in the mapchete configuration file.
 
-In addition, there is the possibility to **create a tile pyramid** out of a raster file. It can either take the original data types and create the output tiles as GeoTIFFS, or scale the data to 8 bits and create PNGs.
+In addition, there is the possibility to **create a tile pyramid** out of a
+raster file. It can either take the original data types and create the output
+tiles as GeoTIFFS, or scale the data to 8 bits and create PNGs.
 
 Build a tile pyramid out of a raster
 ============================================

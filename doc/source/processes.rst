@@ -19,18 +19,19 @@ process output in a browser or batch process a larger area.
 
 .. code-block:: shell
 
-    mapchete_serve my_process.mapchete
+    mapchete serve my_process.mapchete
 
 Starts a local web server on port 5000 with a simple OpenLayers interface.
 
 .. code-block:: shell
 
-    mapchete_execute my_process.mapchete --zoom 5 10
+    mapchete execute my_process.mapchete --zoom 5 10
 
 Executes your process on zoom level 5 to 10.
 
 To access the process parameters, use the dictionary stored in ``self.params``.
-To read and write data, use the ``self.open(input_file)`` and ``self.write(array)`` functions.
+To read and write data, use the ``self.open(input_file)`` and
+``self.write(array)`` functions.
 
 
 ---------
@@ -45,7 +46,8 @@ Open and read data
 
     self.open(input_file, resampling="nearest")
 
-* ``input_file``: Input file from ``self.params``. Can be a raster or vector file or the configuration file from another Mapchete process.
+* ``input_file``: Input file from ``self.params``. Can be a raster or vector
+  file or the configuration file from another Mapchete process.
 * ``resampling``: Resampling method to be used when reading the data.
 
 Opens a reader object, depending on the data source (raster, vector, Mapchete
@@ -59,7 +61,8 @@ The data reader object
 
     .is_empty(indexes=None)
 
-* ``indexes``: A list of bands, a single band index or ``None`` to check all bands.
+* ``indexes``: A list of bands, a single band index or ``None`` to check all
+  bands.
 
 Returns ``bool`` indicating whether data within this tile is available or not.
 
@@ -67,7 +70,8 @@ Returns ``bool`` indicating whether data within this tile is available or not.
 
     .read(indexes=None)
 
-* ``indexes``: A list of bands, a single band index or ``None`` to read all bands.
+* ``indexes``: A list of bands, a single band index or ``None`` to read all
+  bands.
 
 For raster files it either returns a ``generator`` of masked ``numpy arrays``
 for multiple bands, or a masked ``numpy array`` of reprojected and resampled
@@ -83,14 +87,19 @@ above is returned.
 Modify data
 ===========
 
-After reading the data you can do whatever you want. For vector data, [shapely](https://github.com/Toblerity/Shapely) provides a rich selection of
-functions to deal with geometries, for raster data,
-[NumPy](http://www.numpy.org/), [SciPy](http://scipy.org/) or [Pillow](http://pillow.readthedocs.io/en/3.3.x/) are excellent packages for
-image processing and so on.
+After reading the data you can do whatever you want. For vector data, shapely_
+provides a rich selection of functions to deal with geometries, for raster data,
+NumPy_, SciPy_ or Pillow_ are excellent packages for image processing and other
+desired tasks.
 
 Mapchete also comes with some [common purpose functions](common_functions.md)
 which allow clipping, calculating a hillshade or extract contour lines from an
 elevation model.
+
+.. _shapely: https://github.com/Toblerity/Shapely
+.. _NumPy: http://www.numpy.org/
+.. _SciPy: http://scipy.org/
+.. _Pillow: http://pillow.readthedocs.io/en/3.3.x/
 
 
 Write data
@@ -100,12 +109,15 @@ Write data
 
     self.write(output_data)
 
-* ``output_data``: For raster data either a single or a * ``tuple`` of ``numpy array(s)``. For vector data, a ``GeoJSON``-like ``iterator`` of properties-geometry pairs. The write options are specified in the process configuration.
+* ``output_data``: For raster data either a single or a * ``tuple`` of
+  ``numpy array(s)``. For vector data, a ``GeoJSON``-like ``iterator`` of
+  properties-geometry pairs. The write options are specified in the process
+  configuration.
 
 
----------------------
-Process file template
----------------------
+-------
+Example
+-------
 
 The process file should look like this:
 
@@ -130,8 +142,6 @@ The process file should look like this:
 
         def execute(self):
             """User defined process."""
-
-            # insert magic here
 
             # Reading and writing data works like this:
             with self.open(
