@@ -8,7 +8,27 @@ from rasterio.features import geometry_mask
 def clip_array_with_vector(
     array, array_affine, geometries, inverted=False, clip_buffer=0
 ):
-    """Clip input array with a vector list."""
+    """
+    Clip input array with a vector list.
+
+    Parameters
+    ----------
+    array : array
+        input raster data
+    array_affine : Affine
+        Affine object describing the raster's geolocation
+    geometries : iterable
+        iterable of dictionaries, where every entry has a 'geometry' and
+        'properties' key.
+    inverted : bool
+        invert clip (default: False)
+    clip_buffer : integer
+        buffer (in pixels) geometries before clipping
+
+    Returns
+    -------
+    clipped array : array
+    """
     buffered_geometries = []
     # buffer input geometries and clean up
     for feature in geometries:

@@ -1,4 +1,9 @@
-"""Handles output pyramids using GeoTIFFS."""
+"""
+Handles writing process output into a pyramid of GeoJSON files.
+
+This output format is restricted to the geodetic (WGS84) projection because it
+is the only projection the GeoJSON spec supports.
+"""
 
 import os
 import types
@@ -10,7 +15,31 @@ from mapchete.io.vector import write_vector_window
 
 
 class OutputData(base.OutputData):
-    """Main output class."""
+    """
+    Output class for GeoJSON.
+
+    Parameters
+    ----------
+    output_params : dictionary
+        output parameters from Mapchete file
+
+    Attributes
+    ----------
+    path : string
+        path to output directory
+    file_extension : string
+        file extension for output files (.geojson)
+    output_params : dictionary
+        output parameters from Mapchete file
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    srid : string
+        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
+    """
 
     METADATA = {
         "driver_name": "GeoJSON",
@@ -26,7 +55,18 @@ class OutputData(base.OutputData):
         self.output_params = output_params
 
     def read(self, output_tile):
-        """Read process output."""
+        """
+        Read existing process output.
+
+        Parameters
+        ----------
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        process output : list
+        """
         if self.tiles_exist(output_tile):
             with fiona.open(self.get_path(output_tile), "r") as src:
                 output_tile.data = list(src)
@@ -35,7 +75,14 @@ class OutputData(base.OutputData):
         return output_tile
 
     def write(self, process_tile):
-        """Write process output into GeoTIFFs."""
+        """
+        Write data from process tiles into GeoJSON file(s).
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        """
         if not os.path.exists(self.path):
             os.makedirs(self.path)
         if process_tile.data is None:
@@ -54,14 +101,36 @@ class OutputData(base.OutputData):
                 out_tile=out_tile, out_path=out_path)
 
     def tiles_exist(self, process_tile):
-        """Check whether all output tiles of a process tile exist."""
+        """
+        Check whether all output tiles of a process tile exist.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        exists : bool
+        """
         return all(
             os.path.exists(self.get_path(tile))
             for tile in self.pyramid.intersecting(process_tile)
         )
 
     def is_valid_with_config(self, config):
-        """Check if output format is valid with other process parameters."""
+        """
+        Check if output format is valid with other process parameters.
+
+        Parameters
+        ----------
+        config : dictionary
+            output configuration parameters
+
+        Returns
+        -------
+        is_valid : bool
+        """
         assert isinstance(config, dict)
         try:
             assert "schema" in config
@@ -94,13 +163,31 @@ class OutputData(base.OutputData):
         return True
 
     def get_path(self, tile):
-        """Determine target file path."""
+        """
+        Determine target file path.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        path : string
+        """
         zoomdir = os.path.join(self.path, str(tile.zoom))
         rowdir = os.path.join(zoomdir, str(tile.row))
         return os.path.join(rowdir, str(tile.col) + self.file_extension)
 
     def prepare_path(self, tile):
-        """Create directory and subdirectory if necessary."""
+        """
+        Create directory and subdirectory if necessary.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+        """
         zoomdir = os.path.join(self.path, str(tile.zoom))
         if not os.path.exists(zoomdir):
             os.makedirs(zoomdir)
@@ -109,16 +196,46 @@ class OutputData(base.OutputData):
             os.makedirs(rowdir)
 
     def empty(self, tile):
-        """Return emtpy list."""
+        """
+        Return empty data.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        empty data : list
+        """
         return []
 
     def open(self, tile, process):
-        """Open process output as input for other process."""
+        """
+        Open process output as input for other process.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+        process : ``MapcheteProcess``
+        """
         return InputTile(tile, process)
 
 
 class InputTile(base.InputTile):
-    """Target Tile representation of output data."""
+    """
+    Target Tile representation of input data.
+
+    Parameters
+    ----------
+    tile : ``Tile``
+    process : ``MapcheteProcess``
+
+    Attributes
+    ----------
+    tile : ``Tile``
+    process : ``MapcheteProcess``
+    """
 
     def __init__(self, tile, process):
         """Initialize."""
@@ -130,16 +247,31 @@ class InputTile(base.InputTile):
         """
         Read data from process output.
 
-        validity_check: run geometry validity check (default: True)
+        Parameters
+        ----------
+        validity_check : bool
+            run geometry validity check (default: True)
+        no_neighbors : bool
+            don't include neighbor tiles if there is a pixelbuffer (default:
+            False)
 
-        Returns a GeoJSON-like list of features.
+        Returns
+        -------
+        features : list
+            GeoJSON-like list of features
         """
         if no_neighbors:
             raise NotImplementedError()
         return self._from_cache(validity_check=validity_check)
 
     def is_empty(self, validity_check=True):
-        """Return true if no tiles are available."""
+        """
+        Check if there is data within this tile.
+
+        Returns
+        -------
+        is empty : bool
+        """
         if self._from_cache(validity_check=validity_check) == []:
             return False
         else:

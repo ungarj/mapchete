@@ -4,7 +4,27 @@ from cached_property import cached_property
 
 
 class BufferedTilePyramid(TilePyramid):
-    """A special tile pyramid with fixed pixelbuffer and metatiling."""
+    """
+    A special tile pyramid with fixed pixelbuffer and metatiling.
+
+    Parameters
+    ----------
+    pyramid_type : string
+        pyramid projection type (``geodetic`` or ``mercator``)
+    metatiling : integer
+        metatile size (default: 1)
+    pixelbuffer : integer
+        buffer around tiles in pixel (default: 0)
+
+    Attributes
+    ----------
+    tile_pyramid : ``TilePyramid``
+        underlying ``TilePyramid``
+    metatiling : integer
+        metatile size
+    pixelbuffer : integer
+        tile buffer size in pixels
+    """
 
     def __init__(self, pyramid_type, metatiling=1, pixelbuffer=0):
         """Initialize."""
@@ -15,11 +35,20 @@ class BufferedTilePyramid(TilePyramid):
 
     def tile(self, zoom, row, col):
         """
-        Return BufferedTile object of this BufferedTilePyramid.
+        Return ``BufferedTile`` object of this ``BufferedTilePyramid``.
 
-        - zoom: zoom level
-        - row: tile matrix row
-        - col: tile matrix column
+        Parameters
+        ----------
+        zoom : integer
+            zoom level
+        row : integer
+            tile matrix row
+        col : integer
+            tile matrix column
+
+        Returns
+        -------
+        buffered tile : ``BufferedTile``
         """
         tile = self.tile_pyramid.tile(zoom, row, col)
         return BufferedTile(tile, pixelbuffer=self.pixelbuffer)
@@ -30,9 +59,18 @@ class BufferedTilePyramid(TilePyramid):
 
         Bounds values will be cleaned if they cross the antimeridian or are
         outside of the Northern or Southern tile pyramid bounds.
-        - bounds: tuple of (left, bottom, right, top) bounding values in tile
-            pyramid CRS
-        - zoom: zoom level
+
+        Parameters
+        ----------
+        bounds : tuple
+            (left, bottom, right, top) bounding values in tile pyramid CRS
+        zoom : integer
+            zoom level
+
+        Yields
+        ------
+        intersecting tiles : generator
+            generates ``BufferedTiles``
         """
         for tile in self.tile_pyramid.tiles_from_bounds(bounds, zoom):
             yield self.tile(*tile.id)
@@ -41,8 +79,16 @@ class BufferedTilePyramid(TilePyramid):
         """
         All metatiles intersecting with given bounding box.
 
-        - geometry: shapely geometry
-        - zoom: zoom level
+        Parameters
+        ----------
+        geometry : ``shapely.geometry``
+        zoom : integer
+            zoom level
+
+        Yields
+        ------
+        intersecting tiles : generator
+            generates ``BufferedTiles``
         """
         for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom):
             yield self.tile(*tile.id)
@@ -51,8 +97,15 @@ class BufferedTilePyramid(TilePyramid):
         """
         Return all tiles intersecting with input geometry.
 
-        - geometry: shapely geometry
-        - zoom: zoom level
+        Parameters
+        ----------
+        geometry : ``shapely.geometry``
+        zoom : integer
+            zoom level
+
+        Yields
+        ------
+        intersecting tiles : ``BufferedTile``
         """
         for tile in self.tile_pyramid.tiles_from_geom(geometry, zoom):
             yield self.tile(*tile.id)
@@ -61,7 +114,10 @@ class BufferedTilePyramid(TilePyramid):
         """
         Return all BufferedTiles intersecting with tile.
 
-        - tile: a BufferedTile
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            another tile
         """
         return [
             self.tile(*intersecting_tile.id)
@@ -70,7 +126,40 @@ class BufferedTilePyramid(TilePyramid):
 
 
 class BufferedTile(Tile):
-    """A special tile with fixed pixelbuffer."""
+    """
+    A special tile with fixed pixelbuffer.
+
+    Parameters
+    ----------
+    tile : ``Tile``
+    pixelbuffer : integer
+        tile buffer in pixels
+
+    Attributes
+    ----------
+    height : integer
+        tile height in pixels
+    width : integer
+        tile width in pixels
+    shape : tuple
+        tile width and height in pixels
+    affine : ``Affine``
+        ``Affine`` object describing tile extent and pixel size
+    bounds : tuple
+        left, bottom, right, top values of tile boundaries
+    bbox : ``shapely.geometry``
+        tile bounding box as shapely geometry
+    pixelbuffer : integer
+        pixelbuffer used to create tile
+    data : array or list
+        raster or vector data
+    message : string
+        a place for status messages
+    error : string
+        a place for error messages
+    profile : dictionary
+        rasterio metadata profile
+    """
 
     def __init__(self, tile, pixelbuffer=0):
         """Initialize."""
@@ -122,12 +211,25 @@ class BufferedTile(Tile):
         return self._tile.bbox(pixelbuffer=self.pixelbuffer)
 
     def get_children(self):
-        """Return tile children."""
+        """
+        Get tile children (intersecting tiles in next zoom level).
+
+        Returns
+        -------
+        children : list
+            a list of ``BufferedTiles``
+        """
         return [
             BufferedTile(tile, self.pixelbuffer)
             for tile in self._tile.get_children()
         ]
 
     def get_parent(self):
-        """Return tile children."""
+        """
+        Get tile parent (intersecting tile in previous zoom level).
+
+        Returns
+        -------
+        parent : ``BufferedTile``
+        """
         return BufferedTile(self._tile.get_parent(), self.pixelbuffer)

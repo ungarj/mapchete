@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Create dummy Mapchete and python process files."""
+
 import os
 from string import Template
 import pkg_resources
@@ -35,17 +37,22 @@ FORMAT_MANDATORY = {
         }
     }
 
+
 def create_empty_process(args):
     """
-    Creates an empty mapchete file as well as an empty process file in a given
-    directory. This facilitates starting a new process.
-    args should be an argparse Namespace object with:
-    - args.process_file: name of the python file
-    - args.mapchete_file: name of the mapchete process configuration file
-    - args.out_format: optional output format
-    - args.out_path: optional output path
-    - args.pyramid_type: optional output type
-    - args.force: if True, it will replace already existing files
+    Create an empty Mapchete and process file in a given directory.
+
+    ``Namespace`` object should have the following attributes:
+        * process_file : name of the python file
+        * mapchete_file : name of the mapchete process configuration file
+        * out_format : optional output format
+        * out_path : optional output path
+        * pyramid_type : optional output type
+        * force : if True, it will replace already existing files
+
+    Parameters
+    ----------
+    args : argparse.Namespace
     """
     if os.path.isfile(args.process_file) or os.path.isfile(args.mapchete_file):
         try:

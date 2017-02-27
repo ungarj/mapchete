@@ -1,8 +1,7 @@
 """
-Raster file input which can be read by rasterio.
+Vector file input which can be read by fiona.
 
-Currently limited by extensions .tif, .vrt., .png and .jp2 but could be
-extended easily.
+Currently limited by extensions .shp and .geojson but could be extended easily.
 """
 
 import fiona
@@ -14,7 +13,27 @@ from mapchete.io.vector import reproject_geometry, read_vector_window
 
 
 class InputData(base.InputData):
-    """Main input class."""
+    """
+    Main input class.
+
+    Parameters
+    ----------
+    input_params : dictionary
+        driver specific parameters
+
+    Attributes
+    ----------
+    path : string
+        path to input file
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    srid : string
+        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
+    """
 
     METADATA = {
         "driver_name": "vector_file",
@@ -29,11 +48,34 @@ class InputData(base.InputData):
         self.path = input_params["path"]
 
     def open(self, tile, **kwargs):
-        """Return InputTile."""
+        """
+        Return InputTile object.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+
+        Returns
+        -------
+        input tile : ``InputTile``
+            tile view of input data
+        """
         return InputTile(tile, self, **kwargs)
 
     def bbox(self, out_crs=None):
-        """Return data bounding box."""
+        """
+        Return data bounding box.
+
+        Parameters
+        ----------
+        out_crs : ``rasterio.crs.CRS``
+            rasterio CRS object (default: CRS of process pyramid)
+
+        Returns
+        -------
+        bounding box : geometry
+            Shapely geometry object
+        """
         assert self.path
         assert self.pyramid
         if out_crs is None:
@@ -57,7 +99,21 @@ class InputData(base.InputData):
 
 
 class InputTile(base.InputTile):
-    """Target Tile representation of input data."""
+    """
+    Target Tile representation of input data.
+
+    Parameters
+    ----------
+    tile : ``Tile``
+    kwargs : keyword arguments
+        driver specific parameters
+
+    Attributes
+    ----------
+    tile : tile : ``Tile``
+    vector_file : string
+        path to input vector file
+    """
 
     def __init__(self, tile, vector_file):
         """Initialize."""
@@ -66,11 +122,29 @@ class InputTile(base.InputTile):
         self._cache = {}
 
     def read(self, validity_check=True):
-        """Read reprojected and resampled numpy array for current Tile."""
+        """
+        Read reprojected & resampled input data.
+
+        Parameters
+        ----------
+        validity_check : bool
+            also run checks if reprojected geometry is valid, otherwise throw
+            RuntimeError (default: True)
+
+        Returns
+        -------
+        data : list
+        """
         return self._read_from_cache(validity_check)
 
     def is_empty(self):
-        """Check if there is data within this tile."""
+        """
+        Check if there is data within this tile.
+
+        Returns
+        -------
+        is empty : bool
+        """
         if not self.tile.bbox.intersects(self.vector_file.bbox()):
             return True
         if self.read():

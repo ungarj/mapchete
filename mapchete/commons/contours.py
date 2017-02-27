@@ -8,8 +8,21 @@ def extract_contours(array, tile, interval=100, pixelbuffer=0, field='elev'):
     """
     Extract contour lines from an array.
 
-    Extract in a given interval and return them as GeoJSON-like objects using
-    the source tile bounds as georeference.
+    Parameters
+    ----------
+    array : array
+        input elevation data
+    tile : Tile
+        tile covering the array
+    interval : integer
+        elevation value interval when drawing contour lines
+    field : string
+        output field name containing elevation value
+
+    Returns
+    -------
+    contours : iterable
+        contours as GeoJSON-like pairs of properties and geometry
     """
     if pixelbuffer:
         warnings.warn("pixelbuffer in contours() function is deprecated")

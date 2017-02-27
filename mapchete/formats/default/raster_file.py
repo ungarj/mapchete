@@ -19,7 +19,29 @@ from mapchete.io.raster import read_raster_window
 
 
 class InputData(base.InputData):
-    """Main input class."""
+    """
+    Main input class.
+
+    Parameters
+    ----------
+    input_params : dictionary
+        driver specific parameters
+
+    Attributes
+    ----------
+    path : string
+        path to input file
+    profile : dictionary
+        rasterio metadata dictionary
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    srid : string
+        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
+    """
 
     METADATA = {
         "driver_name": "raster_file",
@@ -35,16 +57,39 @@ class InputData(base.InputData):
 
     @cached_property
     def profile(self):
-        """Read raster metadata."""
+        """Return raster metadata."""
         with rasterio.open(self.path, "r") as src:
             return deepcopy(src.meta)
 
     def open(self, tile, **kwargs):
-        """Return InputTile."""
+        """
+        Return InputTile object.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+
+        Returns
+        -------
+        input tile : ``InputTile``
+            tile view of input data
+        """
         return InputTile(tile, self, **kwargs)
 
     def bbox(self, out_crs=None):
-        """Return data bounding box."""
+        """
+        Return data bounding box.
+
+        Parameters
+        ----------
+        out_crs : ``rasterio.crs.CRS``
+            rasterio CRS object (default: CRS of process pyramid)
+
+        Returns
+        -------
+        bounding box : geometry
+            Shapely geometry object
+        """
         assert self.path
         assert self.pyramid
         if out_crs is None:
@@ -77,12 +122,34 @@ class InputData(base.InputData):
             return out_bbox
 
     def exists(self):
-        """Check whether input file exists."""
+        """
+        Check if data or file even exists.
+
+        Returns
+        -------
+        file exists : bool
+        """
         return os.path.isfile(self.path)
 
 
 class InputTile(base.InputTile):
-    """Target Tile representation of input data."""
+    """
+    Target Tile representation of input data.
+
+    Parameters
+    ----------
+    tile : ``Tile``
+    kwargs : keyword arguments
+        driver specific parameters
+
+    Attributes
+    ----------
+    tile : tile : ``Tile``
+    raster_file : string
+        path to input raster file
+    resampling : string
+        resampling method passed on to rasterio
+    """
 
     def __init__(self, tile, raster_file, resampling="nearest"):
         """Initialize."""
@@ -92,7 +159,13 @@ class InputTile(base.InputTile):
         self.resampling = resampling
 
     def read(self, indexes=None):
-        """Read reprojected and resampled numpy array for current Tile."""
+        """
+        Read reprojected & resampled input data.
+
+        Returns
+        -------
+        data : array
+        """
         band_indexes = self._get_band_indexes(indexes)
         if len(band_indexes) == 1:
             return self._bands_from_cache(indexes=band_indexes).next()
@@ -100,7 +173,13 @@ class InputTile(base.InputTile):
             return self._bands_from_cache(indexes=band_indexes)
 
     def is_empty(self, indexes=None):
-        """Check if there is data within this tile."""
+        """
+        Check if there is data within this tile.
+
+        Returns
+        -------
+        is empty : bool
+        """
         band_indexes = self._get_band_indexes(indexes)
         src_bbox = self.raster_file.bbox()
         tile_geom = self.tile.bbox

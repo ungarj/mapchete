@@ -28,14 +28,40 @@ class Mapchete(object):
     Main entry point to every processing job.
 
     From here, the process tiles can be determined and executed.
+
+    Parameters
+    ----------
+    config : MapcheteConfig
+        Mapchete process configuration
+    with_cache : bool
+        cache processed output data in memory (default: False)
+
+    Attributes
+    ----------
+    config : MapcheteConfig
+        Mapchete process configuration
+    process_name : string
+        process name
+    with_cache : bool
+        process output data cached in memory
+    process_tile_cache : LRUCache
+        cache object storing the output data (only if with_cache = True)
+    current_processed : dict
+        process tiles currently processed (only if with_cache = True)
+    process_lock : Lock
+        lock object (only if with_cache = True)
     """
 
     def __init__(self, config, with_cache=False):
         """
         Initialize Mapchete processing endpoint.
 
-        - config: a valid MapcheteConfig object
-        - with_cache: cache processed output data in memory
+        Parameters
+        ----------
+        config : MapcheteConfig
+            Mapchete process configuration
+        with_cache : bool
+            cache processed output data in memory (default: False)
         """
         assert isinstance(config, MapcheteConfig)
         self.config = config
@@ -63,9 +89,16 @@ class Mapchete(object):
         process bounds, if provided, are considered process tiles. This is to
         avoid iterating through empty tiles.
 
-        - zoom: Just return tiles of a specific zoom level
+        Parameters
+        ----------
+        zoom : integer
+            zoom level process tiles should be returned from; if none is given,
+            return all process tiles
 
-        Returns an iterable of BufferedTile objects.
+        Returns
+        -------
+        generator
+            iterable of BufferedTile objects
         """
         try:
             if zoom or zoom == 0:
@@ -92,15 +125,24 @@ class Mapchete(object):
         Run the Mapchete process.
 
         Execute, write and return process_tile with data.
-        - process_tile: Member of the process tile pyramid (not necessarily
-            the output pyramid, if output has a different metatiling setting)
-        - overwrite: Overwrite existing tiles (default: False)
-        - no_write: Never write, just process and cache tiles in RAM (doesn't
-            work with multiprocessing; default: False)
 
-        Returns a BufferedTile with process output in the data attribute. If
-        there is no process output, data is None and there is information
-        on the process status in the message attribute.
+        Parameters
+        ----------
+        process_tile : Tile
+            Member of the process tile pyramid (not necessarily the output
+            pyramid, if output has a different metatiling setting)
+        overwrite : bool
+            Overwrite existing tiles (default: False)
+        no_write : bool
+            Never write, just process and cache tiles in RAM (doesn't work with
+            multiprocessing; default: False)
+
+        Returns
+        -------
+        BufferedTile
+            Process output is stored in the ``data`` attribute. If
+            there is no process output, data is ``None`` and there is
+            information on the process status in the message attribute.
         """
         assert self.config.mode in ["memory", "continue", "overwrite"]
         if process_tile.zoom not in self.config.zoom_levels:
@@ -113,10 +155,16 @@ class Mapchete(object):
         """
         Read from written process output.
 
-        - output_tile: Member of the output tile pyramid (not necessarily
-            the process pyramid, if output has a different metatiling setting)
+        Parameters
+        ----------
+        output_tile : BufferedTile
+            Member of the output tile pyramid (not necessarily the process
+            pyramid, if output has a different metatiling setting)
 
-        Returns output_tile with appended data.
+        Returns
+        -------
+        BufferedTile
+            Tile with appended data.
         """
         assert self.config.mode in ["readonly", "continue", "overwrite"]
         return self.config.output.read(output_tile)
@@ -125,8 +173,12 @@ class Mapchete(object):
         """
         Write data into output format.
 
-        - process_tile: the process_tile with appended data
-        - overwrite: overwrite existing data (default: True)
+        Parameters
+        ----------
+        process_tile : BufferedTile
+            process tile with appended data
+        overwrite : bool
+            overwrite existing data (default: True)
         """
         assert self.config.mode in ["continue", "overwrite"]
         starttime = time.time()
@@ -158,21 +210,29 @@ class Mapchete(object):
         Get output raw data.
 
         This function won't work with multiprocessing, as it uses the
-        threading.Lock() class.
+        ``threading.Lock()`` class.
 
-        - tile: Either a tuple tile index, Tile or BufferedTile. If a tile
-            index is given, a tile will be generated using the metatiling
-            setting. Tile cannot be bigger than process tile!
-        - metatiling: Tile metatile size. Only relevant if tile index is
-            provided. (default: 1)
-        - pixelbuffer: Tile pixelbuffer. Only relevant if no BufferedTile is
-            provided. Also, cannot be greater than process pixelbuffer.
-            (default: 0)
-        - overwrite: Overwrite existing tiles (default: False)
-        - no_write: Never write, just process and cache tiles in RAM (doesn't
-            work with multiprocessing; default: False)
+        Parameters
+        ----------
+        tile : tuple, Tile or BufferedTile
+            If a tile index is given, a tile will be generated using the
+            metatiling setting. Tile cannot be bigger than process tile!
+        metatiling : integer
+            Tile metatile size. Only relevant if tile index is provided.
+            (default: 1)
+        pixelbuffer : integer
+            Tile pixelbuffer. Only relevant if no BufferedTile is provided.
+            Also, cannot be greater than process pixelbuffer. (default: 0)
+        overwrite : bool
+            Overwrite existing tiles (default: False)
+        no_write : bool
+            Never write, just process and cache tiles in RAM (doesn't work with
+            multiprocessing; default: False)
 
-        Returns BufferedTile with appended output data.
+        Returns
+        -------
+        BufferedTile
+            output data stored in ``data`` attribute
         """
         assert isinstance(tile, BufferedTile)
         # Return empty data if zoom level is outside of process zoom levels.
@@ -380,6 +440,34 @@ class MapcheteProcess(object):
 
     Its attributes and methods can be accessed via "self" from within a
     Mapchete process Python file.
+
+    Parameters
+    ----------
+    tile : BufferedTile
+        Tile process should be run on
+    config : MapcheteConfig
+        process configuration
+    params : dictionary
+        process parameters
+
+    Attributes
+    ----------
+    identifier : string
+        process identifier
+    title : string
+        process title
+    version : string
+        process version string
+    abstract : string
+        short text describing process purpose
+    tile : BufferedTile
+        Tile process should be run on
+    tile_pyramid : TilePyramid
+        process tile pyramid
+    params : dictionary
+        process parameters
+    config : MapcheteConfig
+        process configuration
     """
 
     def __init__(self, tile, config=None, params=None):
@@ -399,7 +487,13 @@ class MapcheteProcess(object):
             "Please return process output data instead of using self.write().")
 
     def read(self, **kwargs):
-        """Read existing output data."""
+        """
+        Read existing output data from a previous run.
+
+        Returns
+        -------
+        process output : NumPy array (raster) or feature iterator (vector)
+        """
         with self.config.output.open(self.tile, **kwargs) as existing_tile:
             if existing_tile.is_empty():
                 return self.config.output.empty(self.tile)
@@ -408,10 +502,18 @@ class MapcheteProcess(object):
 
     def open(self, input_file, **kwargs):
         """
-        Return appropriate InputTile object.
+        Open input data.
 
-        - input_file: file path or file name from configuration file
-        - **kwargs: driver specific parameters (e.g. resampling)
+        Parameters
+        ----------
+        input_file : string
+            file identifier from configuration file or file path
+        kwargs : driver specific parameters (e.g. resampling)
+
+        Returns
+        -------
+        tiled input data : InputTile
+            reprojected input data within tile
         """
         if not isinstance(input_file, str):
             return input_file.open(self.tile, **kwargs)
@@ -426,15 +528,23 @@ class MapcheteProcess(object):
         """
         Calculate hillshading from elevation data.
 
-        Returns an array with the same shape as the input array.
-        - elevation: input array
-        - azimuth: horizontal angle of light source (315: North-West)
-        - altitude: vertical angle of light source (90 would result in slope
-                    shading)
-        - z: vertical exaggeration
-        - scale: scale factor of pixel size units versus height units (insert
-                 112000 when having elevation values in meters in a geodetic
-                 projection)
+        Parameters
+        ----------
+        elevation : array
+            input elevation data
+        azimuth : float
+            horizontal angle of light source (315: North-West)
+        altitude : float
+            vertical angle of light source (90 would result in slope shading)
+        z : float
+            vertical exaggeration factor
+        scale : float
+            scale factor of pixel size units versus height units (insert 112000
+            when having elevation values in meters in a geodetic projection)
+
+        Returns
+        -------
+        hillshade : array
         """
         return commons.hillshade(
             elevation, self, azimuth, altitude, z, scale)
@@ -445,10 +555,19 @@ class MapcheteProcess(object):
         """
         Extract contour lines from elevation data.
 
-        Returns contours as GeoJSON-like pairs of properties and geometry.
-        - elevation: input array
-        - interval: elevation value interval
-        - field: output field name containing elevation value
+        Parameters
+        ----------
+        elevation : array
+            input elevation data
+        interval : integer
+            elevation value interval when drawing contour lines
+        field : string
+            output field name containing elevation value
+
+        Returns
+        -------
+        contours : iterable
+            contours as GeoJSON-like pairs of properties and geometry
         """
         return commons.contours(
             elevation, self.tile, interval=interval,
@@ -458,12 +577,22 @@ class MapcheteProcess(object):
         self, array, geometries, inverted=False, clip_buffer=0
     ):
         """
-        Return input array clipped by geometries.
+        Clip array by geometry.
 
-        - array: source array
-        - geometries: geometries used to clip source array
-        - inverted: bool, invert clipping
-        - clip_buffer: int (in pixels), buffer geometries befor applying clip
+        Parameters
+        ----------
+        array : array
+            raster data to be clipped
+        geometries : iterable
+            geometries used to clip source array
+        inverted : bool
+            invert clipping (default: False)
+        clip_buffer : int
+            buffer (in pixels) geometries before applying clip
+
+        Returns
+        -------
+        clipped array : array
         """
         return commons.clip_array_with_vector(
             array, self.tile.affine, geometries,

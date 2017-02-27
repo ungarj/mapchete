@@ -1,17 +1,24 @@
 """Functions for reading and writing data."""
 
-import os
 import rasterio
-from rasterio.crs import CRS
-import fiona
-
 from tilematrix import TilePyramid
 
 
 def get_best_zoom_level(input_file, tile_pyramid_type):
-    """Determine the best base zoom level for a raster.
+    """
+    Determine the best base zoom level for a raster.
 
     "Best" means the maximum zoom level where no oversampling has to be done.
+
+    Parameters
+    ----------
+    input_file : path to raster file
+    tile_pyramid_type : ``TilePyramid`` projection (``geodetic`` or
+        ``mercator``)
+
+    Returns
+    -------
+    zoom : integer
     """
     tile_pyramid = TilePyramid(tile_pyramid_type)
     # TODO read file bounding box from driver

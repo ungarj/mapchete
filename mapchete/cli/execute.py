@@ -73,8 +73,8 @@ def main(args=None):
         except AssertionError:
             raise ValueError("tile index provided is invalid")
         try:
-            output = process_worker(process, tile)
-            write_worker(process, output)
+            output = _process_worker(process, tile)
+            _write_worker(process, output)
             LOGGER.info("1 tile iterated")
         except:
             raise
@@ -84,14 +84,14 @@ def main(args=None):
     num_processed = 0
     if parsed.failed_from_log:
         LOGGER.info("parsing log file ...")
-        process_tiles = failed_tiles_from_log(
+        process_tiles = _failed_tiles_from_log(
             parsed.failed_from_log,
             process,
             failed_since_str=parsed.failed_since
         )
 
     LOGGER.info("starting process using %s worker(s)", multi)
-    f = partial(process_worker, process)
+    f = partial(_process_worker, process)
 
     for zoom in zoom_levels:
         if not process_tiles:
@@ -100,7 +100,7 @@ def main(args=None):
         try:
             for output in pool.imap_unordered(
                 f, process_tiles, chunksize=1):
-                write_worker(process, output)
+                _write_worker(process, output)
                 num_processed += 1
         except KeyboardInterrupt:
             LOGGER.info("Caught KeyboardInterrupt, terminating workers")
@@ -118,7 +118,7 @@ def main(args=None):
     # TODO VRT creation
 
 
-def failed_tiles_from_log(logfile, process, failed_since_str='1980-01-01'):
+def _failed_tiles_from_log(logfile, process, failed_since_str='1980-01-01'):
     """
     Get previously failed tiles.
 
@@ -162,7 +162,7 @@ def failed_tiles_from_log(logfile, process, failed_since_str='1980-01-01'):
                     )
 
 
-def process_worker(process, process_tile):
+def _process_worker(process, process_tile):
     """Worker function running the process."""
     # Skip execution if overwrite is disabled and tile exists
     if process.config.mode == "continue" and (
@@ -182,7 +182,7 @@ def process_worker(process, process_tile):
             return process_tile
 
 
-def write_worker(process, process_tile):
+def _write_worker(process, process_tile):
     """Worker function writing process outputs."""
     if process_tile.message == "exists":
         return

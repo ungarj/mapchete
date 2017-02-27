@@ -7,7 +7,27 @@ from mapchete.io.vector import reproject_geometry
 
 
 class InputData(base.InputData):
-    """Main input class."""
+    """
+    Main input class.
+
+    Parameters
+    ----------
+    input_params : dictionary
+        driver specific parameters
+
+    Attributes
+    ----------
+    path : string
+        path to Mapchete file
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    srid : string
+        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
+    """
 
     METADATA = {
         "driver_name": "Mapchete",
@@ -26,7 +46,18 @@ class InputData(base.InputData):
             raise IOError("no path to .mapchete file provided")
 
     def open(self, tile, **kwargs):
-        """Return InputTile."""
+        """
+        Return InputTile object.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+
+        Returns
+        -------
+        input tile : ``InputTile``
+            tile view of input data
+        """
         try:
             return self.process.config.output.open(
                 tile, self.process, **kwargs)
@@ -35,7 +66,19 @@ class InputData(base.InputData):
                 "output driver from input mapchete does not support reading")
 
     def bbox(self, out_crs=None):
-        """Return data bounding box."""
+        """
+        Return data bounding box.
+
+        Parameters
+        ----------
+        out_crs : ``rasterio.crs.CRS``
+            rasterio CRS object (default: CRS of process pyramid)
+
+        Returns
+        -------
+        bounding box : geometry
+            Shapely geometry object
+        """
         return reproject_geometry(
             self.process.config.process_area(),
             src_crs=self.process.config.crs,

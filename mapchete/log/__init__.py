@@ -5,7 +5,17 @@ import os
 
 
 def get_log_config(mapchete):
-    """Configure logging and return configuration."""
+    """
+    Configure logging and return configuration.
+
+    Parameters
+    ----------
+    mapchete : ``MapcheteProcess``
+
+    Returns
+    -------
+    log configuration : dictionary
+    """
     log_dir = mapchete.config.config_dir
     process_name = mapchete.process_name
     log_file = os.path.join(log_dir, str(process_name + ".log"))

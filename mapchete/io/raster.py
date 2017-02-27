@@ -1,4 +1,4 @@
-"""Wrapper functions around rasterio."""
+"""Wrapper functions around rasterio and useful raster functions."""
 
 import os
 import rasterio
@@ -35,10 +35,20 @@ def read_raster_window(
     of the antimeridian will be read and concatenated to the numpy array
     accordingly.
 
-    - input_file: path to a raster file readable by rasterio.
-    - tile: a Tile object
-    - indexes: a list of band numbers; None will read all.
-    - resampling: one of "nearest", "average", "bilinear" or "lanczos"
+    Parameters
+    ----------
+    input_file : string
+        path to a raster file readable by rasterio.
+    tile : Tile
+        a Tile object
+    indexes : list or int
+        a list of band numbers; None will read all.
+    resampling : string
+        one of "nearest", "average", "bilinear" or "lanczos"
+
+    Returns
+    -------
+    raster : MaskedArray
     """
     try:
         assert os.path.isfile(input_file)
@@ -117,10 +127,16 @@ def write_raster_window(
     """
     Write a window from a numpy array to an output file.
 
-    - in_tile: BufferedTile with a data attribute holding NumPy data
-    - out_profile: metadata dictionary for rasterio
-    - out_tile: provides output boundaries; if None, in_tile is used
-    - out_path: output path
+    Parameters
+    ----------
+    in_tile : ``BufferedTile``
+        ``BufferedTile`` with a data attribute holding NumPy data
+    out_profile : dictionary
+        metadata dictionary for rasterio
+    out_tile : ``Tile``
+        provides output boundaries; if None, in_tile is used
+    out_path : string
+        output path
     """
     assert isinstance(in_tile, BufferedTile)
     assert isinstance(in_tile.data, (np.ndarray, ma.MaskedArray))
@@ -140,7 +156,18 @@ def write_raster_window(
 
 
 def extract_from_tile(in_tile, out_tile):
-    """Extract raster data window from BufferedTile."""
+    """
+    Extract raster data window from BufferedTile.
+
+    Parameters
+    ----------
+    in_tile : ``BufferedTile``
+    out_tile : ``BufferedTile``
+
+    Returns
+    -------
+    extracted array : array
+    """
     if isinstance(in_tile, BufferedTile):
         if isinstance(in_tile.data, (np.ndarray, ma.MaskedArray)):
             pass
@@ -159,7 +186,19 @@ def extract_from_tile(in_tile, out_tile):
 
 
 def extract_from_array(in_data, in_affine, out_tile):
-    """Extract raster data window array."""
+    """
+    Extract raster data window array.
+
+    Parameters
+    ----------
+    in_data : array
+    in_affine : ``Affine``
+    out_tile : ``BufferedTile``
+
+    Returns
+    -------
+    extracted array : array
+    """
     if isinstance(in_data, (np.ndarray, ma.MaskedArray)):
         pass
     elif isinstance(in_data, tuple):
@@ -190,7 +229,23 @@ def extract_from_array(in_data, in_affine, out_tile):
 def resample_from_array(
     in_data, in_affine, out_tile, resampling="nearest", nodataval=0
 ):
-    """Extract and resample from array to target tile."""
+    """
+    Extract and resample from array to target tile.
+
+    Parameters
+    ----------
+    in_data : array
+    in_affine : ``Affine``
+    out_tile : ``BufferedTile``
+    resampling : string
+        one of rasterio's resampling methods (default: nearest)
+    nodataval : integer or float
+        raster nodata value (default: 0)
+
+    Returns
+    -------
+    resampled array : array
+    """
     if isinstance(in_data, (np.ndarray, ma.MaskedArray)):
         pass
     elif isinstance(in_data, tuple):
@@ -219,8 +274,16 @@ def create_mosaic(tiles, nodata=0):
     """
     Create a mosaic from tiles.
 
-    - tiles: an iterable containing BufferedTiles
-    Returns: (mosaic, affine)
+    Parameters
+    ----------
+    tiles : iterable
+        an iterable containing BufferedTiles
+    nodata : integer or float
+        raster nodata value (default: 0)
+
+    Returns
+    -------
+    mosaic, affine : tuple
     """
     tiles_list = list(tiles)
     tiles = tiles_list

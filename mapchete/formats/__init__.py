@@ -11,7 +11,14 @@ _DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
 
 
 def available_output_formats():
-    """Return all available output formats."""
+    """
+    Return all available output formats.
+
+    Returns
+    -------
+    formats : list
+        all available output formats
+    """
     output_formats = []
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
         try:
@@ -25,7 +32,14 @@ def available_output_formats():
 
 
 def available_input_formats():
-    """Return all available input formats."""
+    """
+    Return all available input formats.
+
+    Returns
+    -------
+    formats : list
+        all available input formats
+    """
     input_formats = []
     # Extensions.
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
@@ -37,7 +51,14 @@ def available_input_formats():
 
 
 def load_output_writer(output_params):
-    """Return output class of driver."""
+    """
+    Return output class of driver.
+
+    Returns
+    -------
+    output : ``OutputData``
+        output writer object
+    """
     assert isinstance(output_params, dict)
     driver_name = output_params["format"]
     try:
@@ -56,7 +77,14 @@ def load_output_writer(output_params):
 
 
 def load_input_reader(input_params):
-    """Return input class of driver."""
+    """
+    Return input class of driver.
+
+    Returns
+    -------
+    input : ``InputData``
+        input reader object
+    """
     input_file = input_params["path"]
     driver_name = driver_from_file(input_file)
     try:
@@ -77,7 +105,14 @@ def load_input_reader(input_params):
 
 
 def driver_from_file(input_file):
-    """Return appropriate driver for input file."""
+    """
+    Guess driver from file extension.
+
+    Returns
+    -------
+    driver : string
+        driver name
+    """
     file_ext = os.path.splitext(input_file)[1].split(".")[1]
     try:
         drivers = _file_ext_to_driver()

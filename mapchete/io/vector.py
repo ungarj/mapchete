@@ -34,13 +34,23 @@ def reproject_geometry(
     Supported CRSes for bounds clip: 4326 (WGS84), 3857 (Spherical Mercator)
     and 3035 (ETRS89 / ETRS-LAEA).
 
-    - geometry: a shapely geometry
-    - src_crs: rasterio CRS
-    - dst_crs: rasterio CRS
-    - error_on_clip: bool; True will raise a RuntimeError if a geometry is
-        outside of CRS bounds.
-    - validity_check: bool; checks if reprojected geometry is valid, otherwise
-        throws RuntimeError.
+    Parameters
+    ----------
+    geometry : ``shapely.geometry``
+    src_crs : ``rasterio.crs.CRS``
+        CRS of source data
+    dst_crs : ``rasterio.crs.CRS``
+        target CRS
+    error_on_clip : bool
+        raises a ``RuntimeError`` if a geometry is outside of CRS bounds
+        (default: False)
+    validity_check : bool
+        checks if reprojected geometry is valid and throws ``RuntimeError`` if
+        invalid (default: True)
+
+    Returns
+    -------
+    geometry : ``shapely.geometry``
     """
     assert geometry.is_valid
     assert src_crs.is_valid
@@ -110,8 +120,24 @@ def _reproject_geom(
 
 def read_vector_window(input_file, tile, validity_check=True):
     """
-    Reads an input vector dataset with fiona using the tile bounding box as
-    filter and clipping geometry. Returns a list of GeoJSON like features.
+    Read a window of an input vector dataset.
+
+    Also clips geometry.
+
+    Parameters:
+    -----------
+    input_file : string
+        path to vector file
+    tile : ``Tile``
+        tile extent to read data from
+    validity_check : bool
+        checks if reprojected geometry is valid and throws ``RuntimeError`` if
+        invalid (default: True)
+
+    Returns
+    -------
+    features : list
+      a list of reprojected GeoJSON-like features
     """
     try:
         assert os.path.isfile(input_file)
@@ -142,7 +168,20 @@ def read_vector_window(input_file, tile, validity_check=True):
 
 
 def write_vector_window(in_tile, out_schema, out_tile, out_path):
-    """Write GeoJSON-like objects to GeoJSON."""
+    """
+    Write features to GeoJSON file.
+
+    Parameters
+    ----------
+    in_tile : ``BufferedTile``
+        input tile including data
+    out_schema : dictionary
+        output schema for fiona
+    out_tile : ``BufferedTile``
+        tile used for output extent
+    out_path : string
+        output path for GeoJSON file
+    """
     # Delete existing file.
     if os.path.isfile(out_path):
         os.remove(out_path)
@@ -229,10 +268,21 @@ def _get_reprojected_features(
 def clean_geometry_type(geometry, target_type, allow_multipart=True):
     """
     Return geometry of a specific type if possible.
-    Returns None if input geometry type differs from target type. Filters and
-    splits up GeometryCollection into target types.
-    allow_multipart allows multipart geometries (e.g. MultiPolygon for Polygon
-    type and so on).
+
+    Filters and splits up GeometryCollection into target types.
+
+    Parameters
+    ----------
+    geometry : ``shapely.geometry``
+    target_type : string
+        target geometry type
+    allow_multipart : bool
+        allow multipart geometries (default: True)
+
+    Returns
+    -------
+    cleaned geometry : ``shapely.geometry`` or None
+        returns None if input geometry type differs from target type
     """
     multipart_geoms = {
         "Point": MultiPoint,

@@ -14,7 +14,33 @@ from mapchete.io.raster import write_raster_window
 
 
 class OutputData(base.OutputData):
-    """Main output class."""
+    """
+    PNG output class.
+
+    Parameters
+    ----------
+    output_params : dictionary
+        output parameters from Mapchete file
+
+    Attributes
+    ----------
+    path : string
+        path to output directory
+    file_extension : string
+        file extension for output files (.png)
+    output_params : dictionary
+        output parameters from Mapchete file
+    nodata : integer or float
+        nodata value used when writing PNGs
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    srid : string
+        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
+    """
 
     METADATA = {
         "driver_name": "PNG",
@@ -34,7 +60,14 @@ class OutputData(base.OutputData):
             self.nodata = PNG_PROFILE["nodata"]
 
     def write(self, process_tile):
-        """Write process output into PNGs."""
+        """
+        Write data from one or more process tiles.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        """
         if not os.path.exists(self.path):
             os.makedirs(self.path)
         self.verify_data(process_tile)
@@ -65,7 +98,18 @@ class OutputData(base.OutputData):
                 out_tile=out_tile, out_path=out_path)
 
     def read(self, output_tile):
-        """Read process output tile into numpy array."""
+        """
+        Read existing process output.
+
+        Parameters
+        ----------
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        process output : array
+        """
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
                 data = src.read([1, 2, 3])
@@ -79,27 +123,67 @@ class OutputData(base.OutputData):
         return output_tile
 
     def tiles_exist(self, process_tile):
-        """Check whether all output tiles of a process tile exist."""
+        """
+        Check whether all output tiles of a process tile exist.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        exists : bool
+        """
         return any(
             os.path.exists(self.get_path(tile))
             for tile in self.pyramid.intersecting(process_tile)
         )
 
     def is_valid_with_config(self, config):
-        """Check if output format is valid with other process parameters."""
+        """
+        Check if output format is valid with other process parameters.
+
+        Parameters
+        ----------
+        config : dictionary
+            output configuration parameters
+
+        Returns
+        -------
+        is_valid : bool
+        """
         assert isinstance(config, dict)
         assert "path" in config
         assert isinstance(config["path"], str)
         return True
 
     def get_path(self, tile):
-        """Determine target file path."""
+        """
+        Determine target file path.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        path : string
+        """
         zoomdir = os.path.join(self.path, str(tile.zoom))
         rowdir = os.path.join(zoomdir, str(tile.row))
         return os.path.join(rowdir, str(tile.col) + self.file_extension)
 
     def prepare_path(self, tile):
-        """Create directory and subdirectory if necessary."""
+        """
+        Create directory and subdirectory if necessary.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+        """
         zoomdir = os.path.join(self.path, str(tile.zoom))
         if not os.path.exists(zoomdir):
             os.makedirs(zoomdir)
@@ -108,7 +192,18 @@ class OutputData(base.OutputData):
             os.makedirs(rowdir)
 
     def profile(self, tile):
-        """Create a metadata dictionary for rasterio."""
+        """
+        Create a metadata dictionary for rasterio.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+
+        Returns
+        -------
+        metadata : dictionary
+            output profile dictionary used for rasterio.
+        """
         dst_metadata = PNG_PROFILE
         dst_metadata.pop("transform", None)
         dst_metadata.update(
@@ -117,7 +212,17 @@ class OutputData(base.OutputData):
         return dst_metadata
 
     def verify_data(self, tile):
-        """Verify array data and move array into tuple if necessary."""
+        """
+        Verify array data and move array into tuple if necessary.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+
+        Returns
+        -------
+        valid : bool
+        """
         try:
             assert isinstance(
                 tile.data, (np.ndarray, ma.MaskedArray, tuple, list))
@@ -143,7 +248,15 @@ class OutputData(base.OutputData):
         """
         Convert data into correct output.
 
-        Returns a 3D masked NumPy array as 8 bit unsigned integer.
+        Parameters
+        ----------
+        data : array
+        profile : dictionary
+
+        Returns
+        -------
+        prepared_data : array
+            a 3D masked NumPy array as 8 bit unsigned integer
         """
         if isinstance(data, (list, tuple)):
             out_data = ()
@@ -189,7 +302,17 @@ class OutputData(base.OutputData):
                 fill_value=self.nodata)
 
     def for_web(self, data):
-        """Return tiles for web usage (as file object)."""
+        """
+        Convert data to web output.
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
         data = self.prepare_data(data)
         if len(data) == 1:
             r = data[0]
@@ -211,7 +334,19 @@ class OutputData(base.OutputData):
         return send_file(out_img, mimetype='image/png')
 
     def empty(self, process_tile):
-        """Return empty data."""
+        """
+        Return empty data.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        empty data : array
+            empty array with data type given in output parameters
+        """
         return ma.masked_array(
             data=ma.zeros((3, ) + process_tile.shape),
             mask=ma.ones((3, ) + process_tile.shape),

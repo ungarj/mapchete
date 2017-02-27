@@ -1,4 +1,14 @@
-"""Mapchete configuration."""
+"""
+Configuration object required to rund a Mapchete process.
+
+Before running a process, a MapcheteConfig object has to be initialized by
+either using a Mapchete file or a dictionary holding the process parameters.
+Upon creation, all parameters are validated and the InputData objects are
+created which are then exposed to the user process.
+
+An invalid process configuration or an invalid process file cause an Exception
+when initializing the configuration.
+"""
 
 import os
 import yaml
@@ -40,16 +50,54 @@ class MapcheteConfig(object):
     parameters, creates the necessary metadata required and provides the
     configuration snapshot for every zoom level.
 
-    - input_config: a Mapchete configuration file or a configuration dictionary
-    - zoom: process zoom level or a pair of minimum and maximum zoom level
-    - bounds: left, bottom, right, top process boundaries in output pyramid
-    - single_input_file: single input file if supported by process
-    - mode: specify process mode, one of:
-        - memory: Generate process output on demand without reading
-            pre-existing data or writing new data.
-        - readonly: Just read data without processing new data.
-        - continue (default): Don't overwrite existing output.
-        - overwrite: Overwrite existing output.
+    Parameters
+    ----------
+    input_config : string or dictionary
+        a Mapchete configuration file or a configuration dictionary
+    zoom : list or integer
+        process zoom level or a pair of minimum and maximum zoom level
+    bounds : tuple
+        left, bottom, right, top process boundaries in output pyramid
+    single_input_file : string
+        single input file if supported by process
+    mode : string
+        * ``memory``: Generate process output on demand without reading
+          pre-existing data or writing new data.
+        * ``readonly``: Just read data without processing new data.
+        * ``continue``: (default) Don't overwrite existing output.
+        * ``overwrite``: Overwrite existing output.
+
+    Attributes
+    ----------
+    mode : string
+        process mode
+    raw : dictionary
+        raw process configuration
+    mapchete_file : string
+        path to Mapchete file
+    config_dir : string
+        path to configuration directory
+    output_type : string
+        process output type (``raster`` or ``vector``)
+    process_pyramid : ``tilematrix.TilePyramid``
+        ``TilePyramid`` used to process data
+    output_pyramid : ``tilematrix.TilePyramid``
+        ``TilePyramid`` used to write output data
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    output : OutputData
+        driver specific output object
+    process_file : string
+        absolute path to process file
+    zoom_levels : list
+        valid process zoom levels
+    baselevels : dictionary
+        base zoomlevels, where data is processed; zoom levels not included are
+        generated from baselevels
+    pixelbuffer : integer
+        buffer around process tiles
+    metatiling : integer
+        process metatiling
     """
 
     def __init__(
@@ -97,7 +145,7 @@ class MapcheteConfig(object):
 
     @property
     def output(self):
-        """Output data object of driver."""
+        """OutputData object of driver."""
         output_params = self.raw["output"]
         try:
             assert output_params["format"] in available_output_formats()
@@ -222,13 +270,35 @@ class MapcheteConfig(object):
         return self.raw["metatiling"]
 
     def at_zoom(self, zoom):
-        """Return configuration parameters snapshot for zoom as dictionary."""
+        """
+        Return configuration parameters snapshot for zoom as dictionary.
+
+        Parameters
+        ----------
+        zoom : integer
+            zoom level
+
+        Returns
+        -------
+        configuration snapshot : dictionary
+            zoom level dependent process configuration
+        """
         if zoom not in self._at_zoom_cache:
             self._at_zoom_cache[zoom] = self._at_zoom(zoom)
         return self._at_zoom_cache[zoom]
 
     def process_area(self, zoom=None):
-        """Return process bounding box for zoom level."""
+        """
+        Return process bounding box for zoom level.
+
+        Parameters
+        ----------
+        zoom : integer or list
+
+        Returns
+        -------
+        process area : shapely geometry
+        """
         if zoom:
             return self._process_area(self._delimiters["bounds"], zoom)
         else:
@@ -240,7 +310,18 @@ class MapcheteConfig(object):
             return self._global_process_area
 
     def process_bounds(self, zoom=None):
-        """Return process bounds for zoom level."""
+        """
+        Return process bounds for zoom level.
+
+        Parameters
+        ----------
+        zoom : integer or list
+
+        Returns
+        -------
+        process bounds : tuple
+            left, bottom, right, top
+        """
         return self.process_area(zoom).bounds
 
     def _validate(self):
