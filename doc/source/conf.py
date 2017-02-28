@@ -180,6 +180,7 @@ MOCK_MODULES = [
     'rasterio.crs',
     'matplotlib',
     'matplotlib.pyplot',
+    'numpy',
     'gdal',
     'cached_property',
     'pyproj',
