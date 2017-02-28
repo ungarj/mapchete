@@ -53,7 +53,7 @@ setup(
         'cached_property',
         'pyproj',
         'cachetools'
-    ] if on_rtd else [],
+    ] if not on_rtd else [],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
