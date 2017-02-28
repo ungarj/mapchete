@@ -171,6 +171,8 @@ MOCK_MODULES = [
     'pyyaml',
     'flask',
     'Pillow',
+    'PIL',
+    'PIL.Image',
     'scipy',
     'rasterio',
     'rasterio.features',
@@ -181,9 +183,16 @@ MOCK_MODULES = [
     'matplotlib',
     'matplotlib.pyplot',
     'numpy',
+    'numpy.ma',
     'gdal',
     'cached_property',
     'pyproj',
-    'cachetools'
+    'cachetools',
+    'shapely',
+    'shapely.geometry',
+    'shapely.geos',
+    'shapely.ops',
+    'yaml',
+    'affine'
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
