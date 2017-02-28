@@ -20,6 +20,8 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+import sys
+from mock import Mock as MagicMock
 
 # -- General configuration ------------------------------------------------
 
@@ -154,3 +156,33 @@ texinfo_documents = [
 
 # numpydoc fix
 numpydoc_show_class_members = False
+
+# Mocking
+
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+        return MagicMock()
+
+
+MOCK_MODULES = [
+    'tilematrix',
+    'fiona',
+    'pyyaml',
+    'flask',
+    'Pillow',
+    'scipy',
+    'rasterio',
+    'rasterio.features',
+    'rasterio.warp',
+    'rasterio.warp.Resampling',
+    'rasterio.windows',
+    'rasterio.crs',
+    'matplotlib',
+    'matplotlib.pyplot',
+    'gdal',
+    'cached_property',
+    'pyproj',
+    'cachetools'
+]
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)

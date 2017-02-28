@@ -2,6 +2,8 @@
 
 from setuptools import setup
 
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
+
 setup(
     name='mapchete',
     version='0.4',
@@ -50,7 +52,7 @@ setup(
         'cached_property',
         'pyproj',
         'cachetools'
-    ],
+    ] if on_rtd else [],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
