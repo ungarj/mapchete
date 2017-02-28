@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from setuptools import setup
+import os
 
 on_rtd = os.environ.get('READTHEDOCS') == 'True'
 
