@@ -57,4 +57,11 @@ Metatiles
 ---------
 
 Depending on the process it sometimes makes sense to increase the tile size.
-This is called metatiling.
+A metatiling setting of 2 means that a metatile consists of 2x2 WMTS tiles.
+Increasing the metatile size often also increases performance as some overhead
+is reduced. However, having huge metatiles could also mean RAM is running out
+at some point.
+
+Mapchete lets you to specify which metatile size is being used when processing
+the data and which size is used when writing the outputs. Please note that the
+output tile size cannot be bigger than the process tile size.
