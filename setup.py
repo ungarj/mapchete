@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Install Mapchete."""
+
 from setuptools import setup
 import os
 
@@ -25,7 +27,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'mapchete = mapchete.cli.main:main'
+            'mapchete=mapchete.cli.main:main'
         ],
         'mapchete.formats.drivers': [
             'geojson=mapchete.formats.default.geojson',

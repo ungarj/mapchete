@@ -16,7 +16,8 @@ Mapchete documentation
    common_functions
    configuration
    apidoc/modules
-
+   changelog_link
+   license_link
 
 Indices and tables
 ==================

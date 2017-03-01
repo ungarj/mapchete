@@ -16,12 +16,11 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-
+import os
 import sys
 from mock import Mock as MagicMock
+
+sys.path.insert(0, os.path.abspath('../../'))
 
 # -- General configuration ------------------------------------------------
 
@@ -150,18 +149,23 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'Mapchete', u'Mapchete Documentation',
-     author, 'Mapchete', 'One line description of project.',
-     'Miscellaneous'),
+     author, 'Mapchete', 'Mapchete processes raster and vector geodata.',
+     'GIS'),
 ]
 
 # numpydoc fix
 numpydoc_show_class_members = False
 
-# Mocking
+
+# Mocking packages:
+
 
 class Mock(MagicMock):
+    """Pretend the dependencies are installed when building docs."""
+
     @classmethod
     def __getattr__(cls, name):
+        """Need to put a docstring here, otherwise my linter cries."""
         return MagicMock()
 
 
@@ -185,6 +189,7 @@ MOCK_MODULES = [
     'numpy',
     'numpy.ma',
     'gdal',
+    'ogr',
     'cached_property',
     'pyproj',
     'cachetools',
@@ -192,7 +197,9 @@ MOCK_MODULES = [
     'shapely.geometry',
     'shapely.geos',
     'shapely.ops',
+    'shapely.wkt',
     'yaml',
-    'affine'
+    'affine',
+    'io'
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)

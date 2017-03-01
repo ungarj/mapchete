@@ -1,3 +1,4 @@
 numpydoc>=0.6.0
 sphinxcontrib-autodoc-doxygen>=0.3.2
+sphinx_rtd_theme
 mock
