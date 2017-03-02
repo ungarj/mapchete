@@ -1,4 +1,34 @@
-"""Handles writing process output into a pyramid of GeoTIFF files."""
+"""
+Handles writing process output into a pyramid of GeoTIFF files.
+
+output configuration parameters
+-------------------------------
+
+mandatory
+~~~~~~~~~
+
+bands: integer
+    number of output bands to be written
+path: string
+    output directory
+dtype: string
+    numpy datatype
+
+optional
+~~~~~~~~
+
+tiled: bool
+    internal TIFF tiling (default: True)
+blockxsize: integer
+    internal tile width (default: 256)
+blockysize:
+    internal tile height (default: 256)
+nodata: integer or float
+    nodata value used for writing
+compress: string
+    compression method (default: lzw): lzw, jpeg, packbits, deflate, CCITTRLE,
+    CCITTFAX3, CCITTFAX4, lzma
+"""
 
 import os
 import numpy as np

@@ -57,7 +57,7 @@ Metatiles
 ---------
 
 Depending on the process it sometimes makes sense to increase the tile size.
-A metatiling setting of 2 means that a metatile consists of 2x2 WMTS tiles.
+A ``metatiling`` setting of 2 means that a metatile consists of 2x2 WMTS tiles.
 Increasing the metatile size often also increases performance as some overhead
 is reduced. However, having huge metatiles could also mean RAM is running out
 at some point.
@@ -65,3 +65,19 @@ at some point.
 Mapchete lets you to specify which metatile size is being used when processing
 the data and which size is used when writing the outputs. Please note that the
 output tile size cannot be bigger than the process tile size.
+
+Buffers
+-------
+
+Sometimes there can be artefacts on tile borders. This can be if the process
+requires neighbor pixel values for every pixel (e.g. the hillshading algortihm)
+or when reading raster data in some different projections.
+
+In these cases, a ``pixelbuffer`` value can be set. This will enlarge each tile
+on each side by the numbers of pixels specified. This option can be set for both
+process tiles and output tiles. By default, the output tiles pixelbuffer is set
+to 0, which means that when writing the process output, the buffer will be
+cropped.
+
+Please note that the output ``pixelbuffer`` cannot be larger than the process
+``pixelbuffer``.

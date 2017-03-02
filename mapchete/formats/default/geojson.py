@@ -3,6 +3,24 @@ Handles writing process output into a pyramid of GeoJSON files.
 
 This output format is restricted to the geodetic (WGS84) projection because it
 is the only projection the GeoJSON spec supports.
+
+output configuration parameters
+-------------------------------
+
+output type has to be ``geodetic``
+
+mandatory
+~~~~~~~~~
+
+path: string
+    output directory
+schema: key-value pairs
+    the schema is passed on to fiona
+    properties: key-value pairs
+        fields and field types, like "id: int" etc.
+    geometry: geometry type
+        output geometry type (Geometry, Point, MultiPoint, Line, MultiLine,
+        Polygon, MultiPolygon)
 """
 
 import os

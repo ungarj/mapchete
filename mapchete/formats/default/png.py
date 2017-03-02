@@ -1,4 +1,23 @@
-"""PNG process output."""
+"""
+PNG process output.
+
+output configuration parameters
+-------------------------------
+
+mandatory
+~~~~~~~~~
+
+bands: integer
+    number of output bands to be written
+path: string
+    output directory
+
+optional
+~~~~~~~~
+
+nodata: integer or float
+    nodata value used for writing
+"""
 
 import os
 import io

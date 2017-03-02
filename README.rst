@@ -16,7 +16,7 @@ Python code to the tiles and writing the output into a WMTS_-like tile pyramid.
 .. _WMTS: https://en.wikipedia.org/wiki/Web_Map_Tile_Service
 
 
-Enjoy the documentation_ for deeper insights.
+For deeper insights, please go to the documentation_.
 
 .. _documentation: http://mapchete.readthedocs.io/en/latest/index.html
 

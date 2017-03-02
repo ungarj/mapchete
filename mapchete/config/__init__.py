@@ -145,7 +145,7 @@ class MapcheteConfig(object):
 
     @property
     def output(self):
-        """OutputData object of driver."""
+        """Output object of driver."""
         output_params = self.raw["output"]
         try:
             assert output_params["format"] in available_output_formats()

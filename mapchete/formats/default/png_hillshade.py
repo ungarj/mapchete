@@ -3,6 +3,21 @@ Special PNG process output for hillshades.
 
 Writes inverted hillshade into alpha channel of black image, so that hillshade
 can be used as overlay over other data.
+
+output configuration parameters
+-------------------------------
+
+mandatory
+~~~~~~~~~
+
+path: string
+    output directory
+
+optional
+~~~~~~~~
+
+nodata: integer or float
+    nodata value used for writing
 """
 
 import os
