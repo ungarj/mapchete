@@ -21,6 +21,7 @@ setup(
         'mapchete.commons',
         'mapchete.config',
         'mapchete.formats',
+        'mapchete.formats.default',
         'mapchete.io',
         'mapchete.log',
         'mapchete.static'
@@ -40,8 +41,7 @@ setup(
         ]
     },
     package_dir={'static': 'static'},
-    package_data={'static': [
-        'index.html', 'process_template.py', 'mapchete_template.mapchete']},
+    package_data={'mapchete.static': ['*']},
     install_requires=[
         'tilematrix>=0.4',
         'fiona',
@@ -49,7 +49,7 @@ setup(
         'flask',
         'Pillow',
         'scipy',
-        'rasterio>=0.36.0',
+        'rasterio>=1.0a2',
         'matplotlib',
         'gdal',
         'cached_property',
