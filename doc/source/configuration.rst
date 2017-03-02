@@ -256,8 +256,9 @@ method used to interpolate must be defined.
         higher: bilinear
 
 
+-----------------------
 User defined parameters
-=======================
+-----------------------
 
 All other entries used in the Mapchete file are considered user specific and can
 be accessed using ``self.params`` from within the Process class. ``self.params``
@@ -279,8 +280,9 @@ Process file:
         scaling = self.params["scaling"]  # scaling now has the value 2.0
 
 
+-------------------------------
 Zoom level dependent parameters
-===============================
+-------------------------------
 
 User defined parameters can be adapted for zoom levels. This is usefull if a
 process needs different input parameters for different scales (i.e. zoom
@@ -290,11 +292,11 @@ zoom level of the current tile.
 This can be triggered by adding another level to the YAML file using one of the
 following prefixes:
 
-- ``zoom=``*zoom_level*
-- ``zoom<=``*zoom_level*
-- ``zoom<``*zoom_level*
-- ``zoom>=``*zoom_level*
-- ``zoom>``*zoom_level*
+- ``zoom=`` *zoom_level*
+- ``zoom<=`` *zoom_level*
+- ``zoom<`` *zoom_level*
+- ``zoom>=`` *zoom_level*
+- ``zoom>`` *zoom_level*
 
 **Example:**
 
@@ -315,7 +317,7 @@ Process file:
         # scaling has the value 2.0 if the current tile is from zoom 8 or
         # lower and 1.5 from zoom 9 or higher
 
-Likewise, this works for input data as well:
+This works likewise for input data:
 
 .. code-block:: yaml
 
