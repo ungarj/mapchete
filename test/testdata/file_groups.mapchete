@@ -9,6 +9,13 @@ input_files:
     group2:
         file1: dummy1.tif
         file2: dummy2.tif
+    nested_group:
+        group1:
+            file1: cleantopo_tl.tif
+            file2: cleantopo_br.tif
+        group2:
+            file1: dummy1.tif
+            file2: dummy2.tif
 
 output:
     type: geodetic

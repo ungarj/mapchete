@@ -182,6 +182,26 @@ def main():
     except:
         print "FAILED: baselevels parsing"
 
+
+    ## read input data groups
+    mapchete_file = os.path.join(scriptdir, "testdata/file_groups.mapchete")
+    config = MapcheteConfig(mapchete_file)
+    input_files = config.at_zoom(0)["input_files"]
+    try:
+        assert "file1" in input_files["group1"]
+        assert "file2" in input_files["group1"]
+        assert "file1" in input_files["group2"]
+        assert "file2" in input_files["group2"]
+        assert "nested_group" in input_files
+        assert "group1" in input_files["nested_group"]
+        assert "file1" in input_files["nested_group"]["group1"]
+        assert "file2" in input_files["nested_group"]["group1"]
+        assert "file1" in input_files["nested_group"]["group2"]
+        assert "file2" in input_files["nested_group"]["group2"]
+        print "OK: input data groups"
+    except:
+        print "FAILED: input data groups"
+
     """io module"""
     testdata_directory = os.path.join(scriptdir, "testdata")
     from mapchete.tile import BufferedTilePyramid
