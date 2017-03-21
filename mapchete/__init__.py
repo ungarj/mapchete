@@ -66,10 +66,7 @@ class Mapchete(object):
         assert isinstance(config, MapcheteConfig)
         self.config = config
         config.output
-        try:
-            py_compile.compile(self.config.process_file, doraise=True)
-        except:
-            raise
+        py_compile.compile(self.config.process_file, doraise=True)
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file))[0]
         if self.config.mode == "memory":
@@ -103,16 +100,14 @@ class Mapchete(object):
         try:
             if zoom or zoom == 0:
                 assert isinstance(zoom, int)
-                bbox = self.config.process_area(zoom)
                 for tile in self.config.process_pyramid.tiles_from_geom(
-                    bbox, zoom
+                    self.config.process_area(zoom), zoom
                 ):
                     yield tile
             else:
                 for zoom in reversed(self.config.zoom_levels):
-                    bbox = self.config.process_area(zoom)
                     for tile in self.config.process_pyramid.tiles_from_geom(
-                        bbox, zoom
+                        self.config.process_area(zoom), zoom
                     ):
                         yield tile
         except Exception:
@@ -149,7 +144,10 @@ class Mapchete(object):
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
         assert isinstance(process_tile, BufferedTile)
-        return self._execute(process_tile)
+        try:
+            return self._execute(process_tile)
+        except ImportError:
+            raise
 
     def read(self, output_tile):
         """
@@ -359,9 +357,10 @@ class Mapchete(object):
                 config=self.config, tile=process_tile,
                 params=self.config.at_zoom(process_tile.zoom)
             )
+        except ImportError as e:
+            raise
         except Exception as e:
-            raise RuntimeError(
-                "error invoking process: %s" % e)
+            raise RuntimeError("error invoking process: %s" % e)
         try:
             starttime = time.time()
             message = "execute"
@@ -369,17 +368,13 @@ class Mapchete(object):
             # Actually run process.
             process_data = tile_process.execute()
             # Log process time
-        except Exception as e:
-            raise
-            error = e
-            raise RuntimeError(
-                "error executing process: %s" % e)
+        except Exception as error:
+            message = "execute error"
         finally:
             endtime = time.time()
             elapsed = "%ss" % (round((endtime - starttime), 3))
             LOGGER.info((
-                self.process_name, process_tile.id, message,
-                error, elapsed))
+                self.process_name, process_tile.id, message, error, elapsed))
             del tile_process
         # Analyze proess output.
         return self._streamline_output(process_data, process_tile)

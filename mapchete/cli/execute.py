@@ -45,10 +45,8 @@ def main(args=None):
     try:
         process = Mapchete(
             MapcheteConfig(
-                parsed.mapchete_file, bounds=parsed.bounds,
-                mode=mode, single_input_file=parsed.input_file
-            ),
-        )
+                parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
+                single_input_file=parsed.input_file))
     except PyCompileError as e:
         print e
         return
@@ -73,8 +71,7 @@ def main(args=None):
         except AssertionError:
             raise ValueError("tile index provided is invalid")
         try:
-            output = _process_worker(process, tile)
-            _write_worker(process, output)
+            _write_worker(process, _process_worker(process, tile))
             LOGGER.info("1 tile iterated")
         except:
             raise
@@ -176,6 +173,8 @@ def _process_worker(process, process_tile):
     else:
         try:
             return process.execute(process_tile)
+        except ImportError:
+            raise
         except Exception as e:
             process_tile.message = "error"
             process_tile.error = e
