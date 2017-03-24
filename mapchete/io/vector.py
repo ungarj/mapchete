@@ -13,6 +13,8 @@ from shapely.ops import transform
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
+from mapchete.tile import BufferedTile
+
 
 CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/wgs-84/
@@ -159,7 +161,7 @@ def read_vector_window(input_file, tile, validity_check=True):
                 input_file=input_file, dst_bounds=bbox.bounds, dst_crs=tile.crs,
                 validity_check=validity_check)
             for bbox in tile_boxes
-            )
+        )
     else:
         features = _get_reprojected_features(
             input_file=input_file, dst_bounds=tile.bounds,
@@ -313,3 +315,26 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         return geometry
     else:
         return None
+
+
+def extract_from_tile(in_tile, out_tile):
+    """
+    Extract features from BufferedTile.
+
+    Parameters
+    ----------
+    in_tile : ``BufferedTile``
+    out_tile : ``BufferedTile``
+
+    Returns
+    -------
+    extracted features : list
+    """
+    assert isinstance(in_tile, BufferedTile)
+    assert isinstance(out_tile, BufferedTile)
+    assert isinstance(in_tile.data, list)
+    return [
+        feature
+        for feature in in_tile.data
+        if shape(feature["geometry"]).touches(out_tile.bbox)
+    ]
