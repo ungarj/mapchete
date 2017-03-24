@@ -48,7 +48,6 @@ setup(
         'pyyaml',
         'flask',
         'Pillow',
-        'scipy',
         'rasterio>=1.0a2',
         'matplotlib',
         'gdal',

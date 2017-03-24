@@ -1,5 +1,4 @@
 numpy
-scipy
 rasterio>=1.0a2
 tilematrix>=0.4
 fiona

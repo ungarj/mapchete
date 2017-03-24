@@ -177,7 +177,6 @@ MOCK_MODULES = [
     'Pillow',
     'PIL',
     'PIL.Image',
-    'scipy',
     'rasterio',
     'rasterio.features',
     'rasterio.warp',
