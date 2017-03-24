@@ -2,6 +2,9 @@
 """Test Mapchete io module."""
 
 import os
+import rasterio
+import tempfile
+import numpy as np
 import numpy.ma as ma
 from shapely.geometry import shape
 
@@ -48,7 +51,67 @@ def test_read_raster_window():
         raster.read_raster_window(dummy1, tile, resampling=resampling)
 
 
-# TODO raster.write_raster_window()
+def test_write_raster_window():
+    """Basic output format writing."""
+    path = tempfile.NamedTemporaryFile(delete=False).name
+    # standard tile
+    tp = BufferedTilePyramid("geodetic")
+    tile = tp.tile(5, 5, 5)
+    tile.data = ma.masked_array(np.ones((2, ) + tile.shape))
+    for out_profile in [
+        dict(
+            driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
+            height=tile.height, width=tile.width, affine=tile.affine),
+        dict(
+            driver="GTiff", count=2, dtype="uint8", compress="deflate",
+            nodata=0, height=tile.height, width=tile.width,
+            affine=tile.affine),
+        dict(
+            driver="PNG", count=2, dtype="uint8", nodata=0, height=tile.height,
+            width=tile.width, compress=None, affine=tile.affine),
+    ]:
+        try:
+            raster.write_raster_window(
+                in_tile=tile, out_profile=out_profile, out_tile=tile,
+                out_path=path)
+            with rasterio.open(path, 'r') as src:
+                assert src.read().any()
+                assert src.meta["driver"] == out_profile["driver"]
+                assert src.affine == tile.affine
+        except Exception:
+            raise
+        finally:
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
+    # with metatiling
+    tile = BufferedTilePyramid("geodetic", metatiling=4).tile(5, 1, 1)
+    tile.data = ma.masked_array(np.ones((2, ) + tile.shape))
+    out_tile = BufferedTilePyramid("geodetic").tile(5, 5, 5)
+    out_profile = dict(
+            driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
+            height=out_tile.height, width=out_tile.width,
+            affine=out_tile.affine)
+    try:
+        raster.write_raster_window(
+            in_tile=tile, out_profile=out_profile, out_tile=out_tile,
+            out_path=path)
+        with rasterio.open(path, 'r') as src:
+            assert src.shape == out_tile.shape
+            assert src.read().any()
+            assert src.meta["driver"] == out_profile["driver"]
+            assert src.affine == out_profile["affine"]
+    except Exception:
+        raise
+    finally:
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+
+
 # TODO raster.extract_from_tile()
 # TODO raster.extract_from_array()
 # TODO raster.resample_from_array()

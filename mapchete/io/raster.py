@@ -226,7 +226,7 @@ def write_raster_window(
         output path
     """
     assert isinstance(in_tile, BufferedTile)
-    assert isinstance(in_tile.data, (np.ndarray, ma.MaskedArray))
+    assert isinstance(in_tile.data, ma.MaskedArray)
     assert isinstance(out_profile, dict)
     if out_tile:
         assert isinstance(out_tile, BufferedTile)
