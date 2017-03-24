@@ -13,9 +13,12 @@ install:
 - pip install gdal==2.1.0 --global-option=build_ext --global-option="-I/usr/include/gdal/"
 - pip install -r requirements.txt
 - pip install pytest
+- pip install coveralls
 - pip install .
 script:
-- py.test test/test_*.py
+- coverage run --source=mapchete setup.py test
+after_success:
+- coveralls
 notifications:
   slack:
     secure: VZ2wKUDxDhLjS6Ua8wy92qZlziRoFI5E0KnhX1bub8clxUO/eVL2UPn7O8t9to55skTdcJ02Vc7prUJ1WF2GUwduBtH1UxKXIYFs0mHjXcwL8ykJvXTxIZa13JUEJtlok5EuTUCJfyjlMCjkTfpDc+swEtInIRtShB16/0Ea5WfGkO2hGb77sQKT/odAhr+KdyGyTXxGO3W9aefINLt7HpUJOSYr6VNyNS37P7XNomlCqPDD7GaBY3DEcsmq7tyJ25d3AfXxF9+aF+VpkIsoTg6Fh6z1rP1/VBt6JdX+iNN+8dJ6nrWJGSyApLSL5EqEeX1gk0CrrO1BcSgJ6DZXR38hoHxbimxub2CB/110f9PrV46QlSwKIsL9ddyRdxxi1hvjL8aJzlLx+1VosYtjvjqJuwNbabRDCJp4xWR7yPO+K9Cma/w/394ZRmaf7dlKVoKqCt2z6y2NO3/++BOM/EXQgJWAkXOxNTDl9ao6jF6tOYLA95KBAPvRC0CcpFGvC78y8qpFuu76Oo4XWXFmYXNGaVjFDzBIR/YJoyZEp7v06ifk0JNLaU3hvI7ElrTrwFv/j0GGmA+UY2X5kB9ConMGHywsmAIoC931cDNCrIAPh/OXbMiO2cVD/NPB+aSnxuYDWASaTIBkIedAYvjuQT7f/loWRh3Xgi2AyPJ3UCs=

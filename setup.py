@@ -61,5 +61,7 @@ setup(
         'Topic :: Scientific/Engineering :: GIS',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 2.7',
-    ]
+    ],
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest']
 )
