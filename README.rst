@@ -4,6 +4,19 @@ Mapchete
 
 Mapchete processes raster and vector geodata.
 
+.. image:: https://badge.fury.io/py/mapchete.svg
+    :target: https://badge.fury.io/py/mapchete
+
+.. image:: https://travis-ci.org/ungarj/mapchete.svg?branch=master
+    :target: https://travis-ci.org/ungarj/mapchete
+
+.. image:: https://coveralls.io/repos/github/ungarj/mapchete/badge.svg?branch=master
+    :target: https://coveralls.io/github/ungarj/mapchete?branch=master
+
+.. image:: https://readthedocs.org/projects/mapchete/badge/?version=latest
+    :target: http://mapchete.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
 Processing larger amounts of data requires chunking the input data into smaller
 tiles and process them one by one. Python provides a lot of useful packages to
 process geodata like shapely_ or numpy_.
