@@ -107,7 +107,7 @@ class MapcheteConfig(object):
         """Initialize configuration."""
         try:
             assert mode in ["memory", "readonly", "continue", "overwrite"]
-        except:
+        except Exception:
             raise AttributeError("invalid process mode")
         self.mode = mode
         # parse configuration
@@ -149,7 +149,7 @@ class MapcheteConfig(object):
         output_params = self.raw["output"]
         try:
             assert output_params["format"] in available_output_formats()
-        except:
+        except Exception:
             raise ValueError(
                 "format %s not available in %s" % (
                     output_params["format"], str(available_output_formats())
@@ -168,11 +168,11 @@ class MapcheteConfig(object):
         """Absolute path of process file."""
         try:
             abs_path = os.path.join(self.config_dir, self.raw["process_file"])
-        except:
+        except Exception:
             raise Exception("'process_file' parameter is missing")
         try:
             assert os.path.isfile(abs_path)
-        except:
+        except Exception:
             raise IOError("%s is not available" % abs_path)
         return abs_path
 
@@ -202,7 +202,7 @@ class MapcheteConfig(object):
             for i in zoom:
                 try:
                     assert i >= 0
-                except:
+                except Exception:
                     raise ValueError("Zoom levels must be greater 0.")
             if zoom[0] < zoom[1]:
                 return range(zoom[0], zoom[1]+1)
@@ -232,26 +232,26 @@ class MapcheteConfig(object):
             minmax = {
                 k: v for k, v in baselevels.iteritems() if k in ["min", "max"]}
             assert minmax
-            for k, v in minmax.iteritems():
+            for v in minmax.values():
                 assert isinstance(v, int)
         except Exception as e:
             raise ValueError(
                 "no invalid baselevel zoom parameter given: %s" % e)
         try:
             base_min = minmax["min"]
-        except:
+        except Exception:
             base_min = min(self.zoom_levels)
         try:
             base_max = minmax["max"]
-        except:
+        except Exception:
             base_max = max(self.zoom_levels)
         try:
             resampling_lower = baselevels["lower"]
-        except:
+        except Exception:
             resampling_lower = "nearest"
         try:
             resampling_higher = baselevels["higher"]
-        except:
+        except Exception:
             resampling_higher = "nearest"
         return dict(
             zooms=range(base_min, base_max+1),
@@ -397,7 +397,7 @@ class MapcheteConfig(object):
     def _get_metatile_value(self, metatile_key):
         try:
             return self.raw[metatile_key]
-        except:
+        except Exception:
             pass
         try:
             return self.raw["metatiling"]
@@ -487,7 +487,7 @@ class MapcheteConfig(object):
             # validate bounds
             try:
                 assert len(user_bounds) == 4
-            except:
+            except Exception:
                 raise ValueError("Invalid number of process bounds.")
             bounds = user_bounds
 
@@ -569,5 +569,5 @@ def _strip_zoom(input_string, strip_string):
     try:
         element_zoom = input_string.strip(strip_string)
         return int(element_zoom)
-    except:
+    except Exception:
         raise SyntaxError("zoom level could not be determined")

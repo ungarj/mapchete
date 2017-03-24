@@ -213,7 +213,7 @@ class OutputData(base.OutputData):
         if not os.path.exists(rowdir):
             os.makedirs(rowdir)
 
-    def empty(self, tile):
+    def empty(self, process_tile=None):
         """
         Return empty data.
 

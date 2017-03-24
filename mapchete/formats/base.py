@@ -98,7 +98,7 @@ class InputTile(object):
     def __init__(self, tile, **kwargs):
         """Initialize."""
 
-    def read(self):
+    def read(self, **kwargs):
         """
         Read reprojected & resampled input data.
 
@@ -178,7 +178,7 @@ class OutputData(object):
         """
         raise NotImplementedError
 
-    def write(self, process_tile, overwrite=False):
+    def write(self, process_tile):
         """
         Write data from one or more process tiles.
 
@@ -186,8 +186,6 @@ class OutputData(object):
         ----------
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
-        overwrite : bool
-            deprecated!
         """
         raise NotImplementedError
 

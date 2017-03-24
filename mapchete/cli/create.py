@@ -57,11 +57,11 @@ def create_empty_process(args):
     if os.path.isfile(args.process_file) or os.path.isfile(args.mapchete_file):
         try:
             args.force
-        except:
+        except Exception:
             raise IOError("file(s) already exists")
     try:
         out_path = args.out_path
-    except:
+    except Exception:
         out_path = os.path.join(os.getcwd(), "output")
 
     # copy process file template to target directory
