@@ -5,3 +5,6 @@ build/
 venv/
 *.log
 .cache
+.coverage
+.eggs/
+htmlcov/

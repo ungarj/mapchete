@@ -18,7 +18,7 @@ from itertools import chain
 from mapchete import commons
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTile
-from mapchete.io import raster
+from mapchete.io import raster, vector
 
 LOGGER = logging.getLogger("mapchete")
 
@@ -63,6 +63,8 @@ class Mapchete(object):
         with_cache : bool
             cache processed output data in memory (default: False)
         """
+        if isinstance(config, str):
+            config = MapcheteConfig(config)
         assert isinstance(config, MapcheteConfig)
         self.config = config
         config.output
@@ -329,11 +331,10 @@ class Mapchete(object):
         except:
             pass
         if self.config.output.METADATA["data_type"] == "raster":
-            tile.data = raster.extract_from_tile(
-                process_tile, tile)
-            return tile
+            tile.data = raster.extract_from_tile(process_tile, tile)
         elif self.config.output.METADATA["data_type"] == "vector":
-            raise NotImplementedError()
+            tile.data = vector.extract_from_tile(process_tile, tile)
+        return tile
 
     def _execute(self, process_tile):
         # If baselevel is active and zoom is outside of baselevel,
@@ -564,7 +565,7 @@ class MapcheteProcess(object):
         contours : iterable
             contours as GeoJSON-like pairs of properties and geometry
         """
-        return commons.contours(
+        return commons.extract_contours(
             elevation, self.tile, interval=interval,
             pixelbuffer=self.pixelbuffer, field=field)
 

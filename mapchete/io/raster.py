@@ -63,51 +63,12 @@ def read_raster_window(
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
     if tile.pixelbuffer and _is_on_edge(tile):
-        tile_boxes = clip_geometry_to_srs_bounds(
-            tile.bbox, tile.tile_pyramid, multipart=True)
-        parts_metadata = dict(left=None, middle=None, right=None, none=None)
-        # Split bounding box into multiple parts & request each numpy array
-        # separately.
-        for polygon in tile_boxes:
-            # Check on which side the antimeridian is touched by the polygon:
-            # "left", "middle", "right"
-            # "none" means, the tile touches the edge just on the top and/or
-            # bottom boundary
-            part_metadata = {}
-            left, bottom, right, top = polygon.bounds
-            touches_right = left == tile.tile_pyramid.left
-            touches_left = right == tile.tile_pyramid.right
-            touches_both = touches_left and touches_right
-            height = int(round((top-bottom)/tile.pixel_y_size))
-            width = int(round((right-left)/tile.pixel_x_size))
-            affine = Affine.translation(
-                left, top) * Affine.scale(
-                tile.pixel_x_size, -tile.pixel_y_size)
-            part_metadata.update(
-                bounds=polygon.bounds, shape=(height, width), affine=affine)
-            if touches_both:
-                parts_metadata.update(middle=part_metadata)
-            elif touches_left:
-                parts_metadata.update(left=part_metadata)
-            elif touches_right:
-                parts_metadata.update(right=part_metadata)
-            else:
-                parts_metadata.update(none=part_metadata)
-        # Finally, stitch numpy arrays together into one.
         for band_idx in band_indexes:
-            stitched = ma.concatenate(
-                [
-                    _get_warped_array(
-                        input_file=input_file, band_idx=band_idx,
-                        dst_bounds=parts_metadata[part]["bounds"],
-                        dst_shape=parts_metadata[part]["shape"],
-                        dst_affine=parts_metadata[part]["affine"],
-                        dst_crs=tile.crs, resampling=resampling)
-                    for part in ["none", "left", "middle", "right"]
-                    if parts_metadata[part]
-                ], axis=1)
-            assert stitched.shape == tile.shape
-            yield stitched
+            yield _get_warped_edge_array(
+                tile=tile, input_file=input_file, band_idx=band_idx,
+                dst_bounds=tile.bounds, dst_shape=tile.shape,
+                dst_affine=tile.affine, dst_crs=tile.crs, resampling=resampling
+            )
 
     # If tile boundaries don't exceed pyramid boundaries, simply read window
     # once.
@@ -115,10 +76,136 @@ def read_raster_window(
         for band_idx in band_indexes:
             yield _get_warped_array(
                 input_file=input_file, band_idx=band_idx,
-                dst_bounds=tile.bounds,
-                dst_shape=tile.shape,
-                dst_affine=tile.affine,
+                dst_bounds=tile.bounds, dst_shape=tile.shape,
+                dst_affine=tile.affine, dst_crs=tile.crs, resampling=resampling
+            )
+
+
+def _get_warped_edge_array(
+    tile=None, input_file=None, band_idx=None, dst_bounds=None, dst_shape=None,
+    dst_affine=None, dst_crs=None, resampling="nearest"
+):
+    tile_boxes = clip_geometry_to_srs_bounds(
+        tile.bbox, tile.tile_pyramid, multipart=True)
+    parts_metadata = dict(left=None, middle=None, right=None, none=None)
+    # Split bounding box into multiple parts & request each numpy array
+    # separately.
+    for polygon in tile_boxes:
+        # Check on which side the antimeridian is touched by the polygon:
+        # "left", "middle", "right"
+        # "none" means, the tile touches the edge just on the top and/or
+        # bottom boundary
+        part_metadata = {}
+        left, bottom, right, top = polygon.bounds
+        touches_right = left == tile.tile_pyramid.left
+        touches_left = right == tile.tile_pyramid.right
+        touches_both = touches_left and touches_right
+        height = int(round((top-bottom)/tile.pixel_y_size))
+        width = int(round((right-left)/tile.pixel_x_size))
+        affine = Affine.translation(
+            left, top) * Affine.scale(
+            tile.pixel_x_size, -tile.pixel_y_size)
+        part_metadata.update(
+            bounds=polygon.bounds, shape=(height, width), affine=affine)
+        if touches_both:
+            parts_metadata.update(middle=part_metadata)
+        elif touches_left:
+            parts_metadata.update(left=part_metadata)
+        elif touches_right:
+            parts_metadata.update(right=part_metadata)
+        else:
+            parts_metadata.update(none=part_metadata)
+    # Finally, stitch numpy arrays together into one.
+    return ma.concatenate(
+        [
+            _get_warped_array(
+                input_file=input_file, band_idx=band_idx,
+                dst_bounds=parts_metadata[part]["bounds"],
+                dst_shape=parts_metadata[part]["shape"],
+                dst_affine=parts_metadata[part]["affine"],
                 dst_crs=tile.crs, resampling=resampling)
+            for part in ["none", "left", "middle", "right"]
+            if parts_metadata[part]
+        ], axis=1)
+
+
+def _get_warped_array(
+    input_file=None, band_idx=None, dst_bounds=None, dst_shape=None,
+    dst_affine=None, dst_crs=None, resampling="nearest"
+):
+    """Extract a numpy array from a raster file."""
+    assert isinstance(input_file, str)
+    assert isinstance(band_idx, int)
+    assert isinstance(dst_bounds, tuple)
+    assert isinstance(dst_shape, tuple)
+    assert isinstance(dst_affine, Affine)
+    assert dst_crs.is_valid
+    with rasterio.open(input_file, "r") as src:
+        if dst_crs == src.crs:
+            src_left, src_bottom, src_right, src_top = dst_bounds
+        else:
+            # Return empty array if destination bounds don't intersect with
+            # file bounds.
+            file_bbox = box(*src.bounds)
+            tile_bbox = reproject_geometry(
+                box(*dst_bounds), src_crs=dst_crs, dst_crs=src.crs)
+            if not file_bbox.intersects(tile_bbox):
+                return ma.MaskedArray(
+                    data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
+                    mask=ma.ones(dst_shape), fill_value=src.nodata)
+            # Reproject tile bounds to source file SRS.
+            src_left, src_bottom, src_right, src_top = transform_bounds(
+                dst_crs, src.crs, *dst_bounds, densify_pts=21)
+        if float('Inf') in (src_left, src_bottom, src_right, src_top):
+            # Maybe not the best way to deal with it, but if bounding box
+            # cannot be translated, it is assumed that data is emtpy
+            return ma.MaskedArray(
+                data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
+                mask=ma.ones(dst_shape), fill_value=src.nodata)
+        # Read data window.
+        window = src.window(
+            src_left, src_bottom, src_right, src_top, boundless=True)
+        src_band = src.read(
+            band_idx, window=window, masked=True, boundless=True)
+        # Prepare reprojected array.
+        nodataval = src.nodata
+        # Quick fix because None nodata is not allowed.
+        if not nodataval:
+            nodataval = 0
+        dst_band = np.zeros(
+                dst_shape,
+                src.dtypes[band_idx-1]
+            )
+        dst_band[:] = nodataval
+        # Run rasterio's reproject().
+        reproject(
+            src_band, dst_band, src_transform=src.window_transform(window),
+            src_crs=src.crs, src_nodata=nodataval, dst_transform=dst_affine,
+            dst_crs=dst_crs, dst_nodata=nodataval,
+            resampling=RESAMPLING_METHODS[resampling])
+        return ma.MaskedArray(dst_band, mask=dst_band == nodataval)
+
+
+def _is_on_edge(tile):
+    """Determine whether tile touches or goes over pyramid edge."""
+    tile_left, tile_bottom, tile_right, tile_top = tile.bounds
+    touches_left = tile_left <= tile.tile_pyramid.left
+    touches_bottom = tile_bottom <= tile.tile_pyramid.bottom
+    touches_right = tile_right >= tile.tile_pyramid.right
+    touches_top = tile_top >= tile.tile_pyramid.top
+    return touches_left or touches_bottom or touches_right or touches_top
+
+
+def _get_band_indexes(indexes, input_file):
+    """Return cleaned list of band indexes."""
+    if indexes:
+        if isinstance(indexes, list):
+            return indexes
+        else:
+            return [indexes]
+    else:
+        with rasterio.open(input_file, "r") as src:
+            return src.indexes
 
 
 def write_raster_window(
@@ -344,83 +431,3 @@ def create_mosaic(tiles, nodata=0):
         mosaic[:, minrow:maxrow, mincol:maxcol] = tile.data
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = tile.data.mask
     return (mosaic, mosaic_affine)
-
-
-def _get_warped_array(
-    input_file=None, band_idx=None, dst_bounds=None, dst_shape=None,
-    dst_affine=None, dst_crs=None, resampling="nearest"
-):
-    """Extract a numpy array from a raster file."""
-    assert isinstance(input_file, str)
-    assert isinstance(band_idx, int)
-    assert isinstance(dst_bounds, tuple)
-    assert isinstance(dst_shape, tuple)
-    assert isinstance(dst_affine, Affine)
-    assert dst_crs.is_valid
-    with rasterio.open(input_file, "r") as src:
-        if dst_crs == src.crs:
-            src_left, src_bottom, src_right, src_top = dst_bounds
-        else:
-            # Return empty array if destination bounds don't intersect with
-            # file bounds.
-            file_bbox = box(*src.bounds)
-            tile_bbox = reproject_geometry(
-                box(*dst_bounds), src_crs=dst_crs, dst_crs=src.crs)
-            if not file_bbox.intersects(tile_bbox):
-                return ma.MaskedArray(
-                    data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
-                    mask=ma.ones(dst_shape), fill_value=src.nodata)
-            # Reproject tile bounds to source file SRS.
-            src_left, src_bottom, src_right, src_top = transform_bounds(
-                dst_crs, src.crs, *dst_bounds, densify_pts=21)
-        if float('Inf') in (src_left, src_bottom, src_right, src_top):
-            # Maybe not the best way to deal with it, but if bounding box
-            # cannot be translated, it is assumed that data is emtpy
-            return ma.MaskedArray(
-                data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
-                mask=ma.ones(dst_shape), fill_value=src.nodata)
-        # Read data window.
-        window = src.window(
-            src_left, src_bottom, src_right, src_top, boundless=True)
-        src_band = src.read(
-            band_idx, window=window, masked=True, boundless=True)
-        # Prepare reprojected array.
-        nodataval = src.nodata
-        # Quick fix because None nodata is not allowed.
-        if not nodataval:
-            nodataval = 0
-        dst_band = np.zeros(
-                dst_shape,
-                src.dtypes[band_idx-1]
-            )
-        dst_band[:] = nodataval
-        # Run rasterio's reproject().
-        reproject(
-            src_band, dst_band, src_transform=src.window_transform(window),
-            src_crs=src.crs, src_nodata=nodataval, dst_transform=dst_affine,
-            dst_crs=dst_crs, dst_nodata=nodataval,
-            resampling=RESAMPLING_METHODS[resampling])
-        return ma.MaskedArray(
-            dst_band, mask=dst_band == nodataval)
-
-
-def _is_on_edge(tile):
-    """Determine whether tile touches or goes over pyramid edge."""
-    tile_left, tile_bottom, tile_right, tile_top = tile.bounds
-    touches_left = tile_left <= tile.tile_pyramid.left
-    touches_bottom = tile_bottom <= tile.tile_pyramid.bottom
-    touches_right = tile_right >= tile.tile_pyramid.right
-    touches_top = tile_top >= tile.tile_pyramid.top
-    return touches_left or touches_bottom or touches_right or touches_top
-
-
-def _get_band_indexes(indexes, input_file):
-    """Return cleaned list of band indexes."""
-    if indexes:
-        if isinstance(indexes, list):
-            return indexes
-        else:
-            return [indexes]
-    else:
-        with rasterio.open(input_file, "r") as src:
-            return src.indexes

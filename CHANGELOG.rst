@@ -3,6 +3,13 @@ Changelog
 #########
 
 ---
+0.5
+---
+* introduced iterable input data groups
+* introduced pytest
+* adding Travis CI and coveralls integrations
+
+---
 0.4
 ---
 
