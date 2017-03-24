@@ -19,12 +19,14 @@ from mapchete.formats import available_output_formats
 
 
 def main():
-    MapcheteCLI()
+    """Pass on command line arguments."""
+    MapcheteCLI(sys.argv)
+
 
 class MapcheteCLI(object):
     """Entry point to 'mapchete' command."""
 
-    def __init__(self, args=sys.argv):
+    def __init__(self, args=None):
         """Initialize command line tool."""
         self.args = args
         parser = argparse.ArgumentParser(
