@@ -542,7 +542,7 @@ class MapcheteProcess(object):
         -------
         hillshade : array
         """
-        return commons.hillshade(
+        return commons.hillshade.hillshade(
             elevation, self, azimuth, altitude, z, scale)
 
     def contours(
@@ -565,7 +565,7 @@ class MapcheteProcess(object):
         contours : iterable
             contours as GeoJSON-like pairs of properties and geometry
         """
-        return commons.extract_contours(
+        return commons.contours.extract_contours(
             elevation, self.tile, interval=interval,
             pixelbuffer=self.pixelbuffer, field=field)
 
@@ -590,6 +590,6 @@ class MapcheteProcess(object):
         -------
         clipped array : array
         """
-        return commons.clip_array_with_vector(
+        return commons.clip.clip_array_with_vector(
             array, self.tile.affine, geometries,
             inverted=inverted, clip_buffer=clip_buffer*self.tile.pixel_x_size)
