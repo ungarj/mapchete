@@ -1,0 +1,16 @@
+language: python
+python:
+- '2.7'
+virtualenv:
+  system_site_packages: true
+before_install:
+- sudo apt-add-repository ppa:ubuntugis/ubuntugis-unstable
+- sudo apt-get update
+- sudo apt-get install libgdal-dev
+install:
+- pip install gdal==2.1.0 --global-option=build_ext --global-option="-I/usr/include/gdal/"
+- pip install -r requirements.txt
+- pip install pytest
+- pip install .
+script:
+- py.test test/test_*.py
