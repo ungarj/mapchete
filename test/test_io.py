@@ -7,10 +7,17 @@ from shapely.geometry import shape
 
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
-from mapchete.io import raster, vector
+from mapchete.io import raster, vector, get_best_zoom_level
 
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 testdata_directory = os.path.join(scriptdir, "testdata")
+
+
+def test_best_zoom_level():
+    """Test best zoom level determination."""
+    dummy1 = os.path.join(testdata_directory, "dummy1.tif")
+    assert get_best_zoom_level(dummy1, "geodetic")
+    assert get_best_zoom_level(dummy1, "mercator")
 
 
 def test_read_raster_window():

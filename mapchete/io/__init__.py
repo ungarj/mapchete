@@ -1,7 +1,13 @@
 """Functions for reading and writing data."""
 
 import rasterio
+import ogr
+from shapely.geometry import box
+from shapely.wkt import loads
 from tilematrix import TilePyramid
+
+from mapchete.formats.default import raster_file
+from mapchete.io.vector import reproject_geometry
 
 
 def get_best_zoom_level(input_file, tile_pyramid_type):
@@ -20,11 +26,33 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     -------
     zoom : integer
     """
+    assert tile_pyramid_type in ["geodetic", "mercator"]
     tile_pyramid = TilePyramid(tile_pyramid_type)
-    # TODO read file bounding box from driver
-    input_bbox = file_bbox(input_file, tile_pyramid)
-    xmin, ymin, xmax, ymax = input_bbox.bounds
     with rasterio.open(input_file, "r") as src:
+        try:
+            assert src.crs.is_valid
+        except AssertionError:
+            raise IOError("CRS could not be read from %s" % input_file)
+        bbox = box(
+            src.bounds.left, src.bounds.bottom, src.bounds.right,
+            src.bounds.top)
+        if src.crs != tile_pyramid.crs:
+            segmentize = raster_file._get_segmentize_value(
+                input_file, tile_pyramid)
+            try:
+                ogr_bbox = ogr.CreateGeometryFromWkb(bbox.wkb)
+                ogr_bbox.Segmentize(segmentize)
+                segmentized_bbox = loads(ogr_bbox.ExportToWkt())
+                bbox = segmentized_bbox
+            except:
+                raise
+            try:
+                xmin, ymin, xmax, ymax = reproject_geometry(
+                    bbox, src_crs=src.crs, dst_crs=tile_pyramid.crs).bounds
+            except:
+                raise
+        else:
+            xmin, ymin, xmax, ymax = bbox.bounds
         x_dif = xmax - xmin
         y_dif = ymax - ymin
         size = float(src.width + src.height)
