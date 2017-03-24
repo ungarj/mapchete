@@ -94,6 +94,3 @@ def test_multiprocessing():
 def _worker(process, process_tile):
     """Multiprocessing worker processing a tile."""
     return process.execute(process_tile)
-
-
-# herbert

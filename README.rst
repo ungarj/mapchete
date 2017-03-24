@@ -13,6 +13,10 @@ Mapchete processes raster and vector geodata.
 .. image:: https://coveralls.io/repos/github/ungarj/mapchete/badge.svg?branch=master
     :target: https://coveralls.io/github/ungarj/mapchete?branch=master
 
+.. image:: https://landscape.io/github/ungarj/mapchete/master/landscape.svg?style=flat
+       :target: https://landscape.io/github/ungarj/mapchete/master
+       :alt: Code Health
+
 .. image:: https://readthedocs.org/projects/mapchete/badge/?version=latest
     :target: http://mapchete.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status

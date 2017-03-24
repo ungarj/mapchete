@@ -100,3 +100,7 @@ def test_execute_multiprocessing():
             shutil.rmtree(out_dir)
         except:
             pass
+
+
+# TODO mapchete serve
+# TODO mapchete pyramid
