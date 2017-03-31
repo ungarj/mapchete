@@ -7,6 +7,7 @@ import tempfile
 import numpy as np
 import numpy.ma as ma
 from shapely.geometry import shape
+from rasterio.enums import Compression
 
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
@@ -78,6 +79,9 @@ def test_write_raster_window():
                 assert src.read().any()
                 assert src.meta["driver"] == out_profile["driver"]
                 assert src.affine == tile.affine
+                if out_profile["compress"]:
+                    assert src.compression == Compression(
+                        out_profile["compress"].upper())
         except Exception:
             raise
         finally:

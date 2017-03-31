@@ -227,6 +227,7 @@ class OutputData(base.OutputData):
         )
         try:
             dst_metadata.update(compress=self.output_params["compression"])
+            dst_metadata.update(predictor=self.output_params["predictor"])
         except KeyError:
             pass
         return dst_metadata
