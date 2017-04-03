@@ -126,7 +126,6 @@ class OutputData(base.OutputData):
             out_path = self.get_path(tile)
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
-            # write_from_tile(buffered_tile, profile, out_tile, out_path)
             write_raster_window(
                 in_tile=process_tile, out_profile=self.profile(out_tile),
                 out_tile=out_tile, out_path=out_path)
@@ -225,6 +224,10 @@ class OutputData(base.OutputData):
             count=self.output_params["bands"],
             dtype=self.output_params["dtype"]
         )
+        try:
+            dst_metadata.update(nodata=self.output_params["nodata"])
+        except KeyError:
+            pass
         try:
             dst_metadata.update(compress=self.output_params["compression"])
             dst_metadata.update(predictor=self.output_params["predictor"])
