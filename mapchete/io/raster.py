@@ -24,9 +24,7 @@ RESAMPLING_METHODS = {
     }
 
 
-def read_raster_window(
-    input_file, tile, indexes=None, resampling="nearest"
-):
+def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
     """
     Generate NumPy arrays from an input raster.
 
@@ -166,17 +164,11 @@ def _get_warped_array(
         window = src.window(
             src_left, src_bottom, src_right, src_top, boundless=True)
         src_band = src.read(
-            band_idx, window=window, masked=True, boundless=True)
-        # Prepare reprojected array.
-        nodataval = src.nodata
+            band_idx, window=window, boundless=True)
         # Quick fix because None nodata is not allowed.
-        if not nodataval:
-            nodataval = 0
-        dst_band = np.zeros(
-                dst_shape,
-                src.dtypes[band_idx-1]
-            )
-        dst_band[:] = nodataval
+        nodataval = 0 if not src.nodata else src.nodata
+        # Prepare reprojected array.
+        dst_band = np.empty(dst_shape, src.dtypes[band_idx-1])
         # Run rasterio's reproject().
         reproject(
             src_band, dst_band, src_transform=src.window_transform(window),
