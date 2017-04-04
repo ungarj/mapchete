@@ -6,8 +6,10 @@ import rasterio
 import tempfile
 import numpy as np
 import numpy.ma as ma
-from shapely.geometry import shape
+from shapely.geometry import shape, box
+from shapely.ops import unary_union
 from rasterio.enums import Compression
+from itertools import product
 
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
@@ -116,10 +118,60 @@ def test_write_raster_window():
             pass
 
 
-# TODO raster.extract_from_tile()
-# TODO raster.extract_from_array()
-# TODO raster.resample_from_array()
-# TODO raster.create_mosaic()
+def test_extract_from_tile():
+    """Extract subdata from bigger tile."""
+    in_tile = BufferedTilePyramid("geodetic", metatiling=4).tile(5, 5, 5)
+    shape = (in_tile.shape[0]/2, in_tile.shape[1])
+    in_tile.data = np.concatenate([np.ones(shape), np.ones(shape)*2])
+    # intersecting at top
+    out_tile = BufferedTilePyramid("geodetic").tile(5, 20, 20)
+    out_array = raster.extract_from_tile(in_tile, out_tile)
+    assert isinstance(out_array, np.ndarray)
+    assert np.all(np.where(out_array==1, True, False))
+    # intersecting at bottom
+    out_tile = BufferedTilePyramid("geodetic").tile(5, 22, 20)
+    out_array = raster.extract_from_tile(in_tile, out_tile)
+    assert isinstance(out_array, np.ndarray)
+    assert np.all(np.where(out_array==2, True, False))
+    # not intersecting
+    try:
+        out_tile = BufferedTilePyramid("geodetic").tile(5, 15, 20)
+        out_array = raster.extract_from_tile(in_tile, out_tile)
+    except ValueError:
+        pass
+
+
+def test_resample_from_array():
+    """Resample array using rasterio reproject()."""
+    in_tile = BufferedTilePyramid("geodetic").tile(5, 5, 5)
+    in_data = np.ones(in_tile.shape)
+    # tile from next toom level
+    out_tile = BufferedTilePyramid("geodetic").tile(6, 10, 10)
+    out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)
+    assert isinstance(out_array, ma.masked_array)
+    assert np.all(np.where(out_array==1, True, False))
+    # not intersecting tile
+    out_tile = BufferedTilePyramid("geodetic").tile(7, 0, 0)
+    out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)
+    assert isinstance(out_array, ma.masked_array)
+    assert out_array.mask.all()
+
+
+def test_create_mosaic():
+    """Create mosaic from multiple tiles."""
+    for pixelbuffer in [0, 10]:
+        tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
+        tiles = [tp.tile(5, row, col) for row, col in product(range(4), range(4))]
+        for tile in tiles:
+            tile.data = np.ones(tile.shape)
+        # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
+        out_mosaic, out_affine = raster.create_mosaic(tiles)
+        assert np.all(np.where(out_mosaic==1, True, False))
+        mosaic_bbox = box(
+            out_affine[2], out_affine[5]+out_mosaic.shape[1]*out_affine[4],
+            out_affine[2]+out_mosaic.shape[2]*out_affine[0], out_affine[5])
+        control_bbox = box(*unary_union([tile.bbox for tile in tiles]).bounds)
+        assert mosaic_bbox.equals(control_bbox)
 
 
 def test_read_vector_window():

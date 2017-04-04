@@ -163,8 +163,7 @@ def _get_warped_array(
         # Read data window.
         window = src.window(
             src_left, src_bottom, src_right, src_top, boundless=True)
-        src_band = src.read(
-            band_idx, window=window, boundless=True)
+        src_band = src.read(band_idx, window=window, boundless=True)
         # Quick fix because None nodata is not allowed.
         nodataval = 0 if not src.nodata else src.nodata
         # Prepare reprojected array.
@@ -256,9 +255,10 @@ def extract_from_tile(in_tile, out_tile):
                 mask=np.stack(in_tile.data.mask)
             )
         else:
-            raise TypeError("wrong input data type: %s" % type(in_tile.data))
+            raise TypeError(
+                "NumPy arrays or tuple required, not %s" % type(in_tile.data))
     else:
-        raise TypeError("wrong input tile type: %s" % type(in_tile))
+        raise TypeError("BufferedTile required, not %s" % type(in_tile))
     assert isinstance(out_tile, BufferedTile)
     assert in_tile.data.ndim in [2, 3, 4]
     return extract_from_array(in_tile.data, in_tile.affine, out_tile)
@@ -299,6 +299,8 @@ def extract_from_array(in_data, in_affine, out_tile):
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
+    if not maxrow > minrow and maxcol > mincol:
+        raise ValueError("input and output tile not overlapping")
     if in_data.ndim == 2:
         return in_data[minrow:maxrow, mincol:maxcol]
     else:
@@ -325,8 +327,10 @@ def resample_from_array(
     -------
     resampled array : array
     """
-    if isinstance(in_data, (np.ndarray, ma.MaskedArray)):
+    if isinstance(in_data, ma.MaskedArray):
         pass
+    if isinstance(in_data, np.ndarray):
+        in_data = ma.MaskedArray(in_data, mask=in_data == nodataval)
     elif isinstance(in_data, tuple):
         in_data = ma.MaskedArray(
             data=np.stack(in_data),
@@ -336,17 +340,21 @@ def resample_from_array(
         raise TypeError("wrong input data type: %s" % type(in_data))
     if in_data.ndim == 2:
         in_data = ma.expand_dims(in_data, axis=0)
+    elif in_data.ndim == 3:
+        pass
+    else:
+        raise TypeError("input array must have 2 or 3 dimensions")
     if in_data.fill_value != nodataval:
         ma.set_fill_value(in_data, nodataval)
     out_shape = (in_data.shape[0], ) + out_tile.shape
-    dst_data = np.ones(out_shape, in_data.dtype)
+    dst_data = np.empty(out_shape, in_data.dtype)
     in_data = ma.masked_array(
         data=in_data.filled(), mask=in_data.mask, fill_value=nodataval)
     reproject(
         in_data, dst_data, src_transform=in_affine, src_crs=out_tile.crs,
         dst_transform=out_tile.affine, dst_crs=out_tile.crs,
         resampling=RESAMPLING_METHODS[resampling])
-    return dst_data
+    return ma.MaskedArray(dst_data, mask=dst_data == nodataval)
 
 
 def create_mosaic(tiles, nodata=0):
@@ -369,7 +377,7 @@ def create_mosaic(tiles, nodata=0):
     if not tiles:
         raise RuntimeError("no tiles provided for mosaic")
     elif len(tiles) == 1:
-        return tiles[0].data, tiles[0].affine
+        return (tiles[0].data, tiles[0].affine)
     resolution = None
     dtype = None
     num_bands = 0
@@ -402,15 +410,18 @@ def create_mosaic(tiles, nodata=0):
         m_bottom = min([bottom, m_bottom]) if m_bottom is not None else bottom
         m_right = max([right, m_right]) if m_right is not None else right
         m_top = max([top, m_top]) if m_top is not None else top
+    # determine mosaic shape
     height = int(round((m_top - m_bottom) / resolution))
     width = int(round((m_right - m_left) / resolution))
+    # initialize empty mosaic
     mosaic = ma.MaskedArray(
             data=np.full(
                 (num_bands, height, width), dtype=dtype, fill_value=nodata),
-            mask=np.ones((num_bands, height, width))
-        )
+            mask=np.ones((num_bands, height, width)))
+    # determine Affine
     mosaic_affine = Affine.translation(m_left, m_top) * Affine.scale(
         resolution, -resolution)
+    # fill mosaic array with tile data
     for tile in tiles:
         t_left, t_bottom, t_right, t_top = tile.bounds
         window = from_bounds(
