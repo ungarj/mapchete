@@ -15,7 +15,7 @@ from cachetools import LRUCache
 from copy import copy
 from itertools import chain
 
-from mapchete import commons
+from mapchete.commons import clip, contours, hillshade
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTile
 from mapchete.io import raster, vector
@@ -566,8 +566,7 @@ class MapcheteProcess(object):
             contours as GeoJSON-like pairs of properties and geometry
         """
         return commons.contours.extract_contours(
-            elevation, self.tile, interval=interval,
-            pixelbuffer=self.pixelbuffer, field=field)
+            elevation, self.tile, interval=interval, field=field)
 
     def clip(
         self, array, geometries, inverted=False, clip_buffer=0
@@ -590,6 +589,6 @@ class MapcheteProcess(object):
         -------
         clipped array : array
         """
-        return commons.clip.clip_array_with_vector(
+        return clip.clip_array_with_vector(
             array, self.tile.affine, geometries,
             inverted=inverted, clip_buffer=clip_buffer*self.tile.pixel_x_size)
