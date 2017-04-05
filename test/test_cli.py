@@ -38,18 +38,18 @@ def test_execute():
             MapcheteCLI(args)
         except RuntimeError:
             pass
-    except:
+    except Exception:
         raise
     finally:
         delete_files = [temp_mapchete, temp_process, "temp.pyc", "temp.log"]
         for delete_file in delete_files:
             try:
                 os.remove(delete_file)
-            except:
+            except Exception:
                 pass
         try:
             shutil.rmtree(out_dir)
-        except:
+        except Exception:
             pass
 
 
@@ -87,19 +87,32 @@ def test_execute_multiprocessing():
             '--zoom', '8'
         ]
         MapcheteCLI(args)
-    except:
+    except Exception:
         raise
     finally:
         delete_files = [temp_mapchete, temp_process, "temp.pyc", "temp.log"]
         for delete_file in delete_files:
             try:
                 os.remove(delete_file)
-            except:
+            except Exception:
                 pass
         try:
             shutil.rmtree(out_dir)
-        except:
+        except Exception:
             pass
+
+
+def test_formats(capfd):
+    """Output of mapchete formats command."""
+    MapcheteCLI([None, 'formats'])
+    out, err = capfd.readouterr()
+    assert not err
+    MapcheteCLI([None, 'formats', '-i'])
+    out, err = capfd.readouterr()
+    assert not err
+    MapcheteCLI([None, 'formats', '-o'])
+    out, err = capfd.readouterr()
+    assert not err
 
 
 # TODO mapchete serve
