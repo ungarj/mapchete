@@ -56,8 +56,8 @@ def main(args=None):
                 "nearest", "bilinear", "cubic", "cubic_spline", "lanczos",
                 "average", "mode"])
         parser.add_argument(
-            "--scale_method", type=str, default="minmax_scale",
-            choices=["dtype_scale", "minmax_scale", "crop"],
+            "--scale_method", type=str, default=None,
+            choices=["dtype_scale", "minmax_scale", "crop", None],
             help="scale method if input bands have more than 8 bit" )
         parser.add_argument(
             "--zoom", "-z", type=int, nargs='*')
@@ -74,10 +74,11 @@ def main(args=None):
         raise RuntimeError("invalid arguments for mapchete pyramid")
 
     options = {}
+    bounds = parsed.bounds if ("bounds" in parsed) else None
     options.update(
         pyramid_type=parsed.pyramid_type, scale_method=parsed.scale_method,
         output_format=parsed.output_format, resampling=parsed.resampling_method,
-        zoom=parsed.zoom, bounds=parsed.bounds, overwrite=parsed.overwrite)
+        zoom=parsed.zoom, bounds=bounds, overwrite=parsed.overwrite)
     raster2pyramid(
         parsed.input_raster, parsed.output_dir, options)
 
@@ -154,7 +155,7 @@ def raster2pyramid(
 
     LOGGER.info("preparing process ...")
     try:
-        mapchete = Mapchete(
+        process = Mapchete(
             MapcheteConfig(
                 config,
                 zoom=zoom,
@@ -171,20 +172,18 @@ def raster2pyramid(
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    logging.config.dictConfig(get_log_config(mapchete))
+    logging.config.dictConfig(get_log_config(process))
+    f = partial(_process_worker, process)
 
     for zoom in reversed(range(minzoom, maxzoom+1)):
         # Determine work tiles and run
-        work_tiles = mapchete.get_work_tiles(zoom)
-        func = partial(
-            _worker, mapchete=mapchete, overwrite=overwrite)
+        process_tiles = process.get_process_tiles(zoom)
         pool = Pool()
         try:
-            pool.map_async(func, work_tiles)
-            pool.close()
+            for output in pool.imap_unordered(f, process_tiles, chunksize=1):
+                _write_worker(process, output)
         except KeyboardInterrupt:
-            LOGGER.info(
-                "Caught KeyboardInterrupt, terminating workers")
+            LOGGER.info("Caught KeyboardInterrupt, terminating workers")
             pool.terminate()
             break
         except:
@@ -192,20 +191,36 @@ def raster2pyramid(
         finally:
             pool.close()
             pool.join()
+            process_tiles = None
 
 
-def _worker(tile, mapchete, overwrite):
-    """
-    Worker function running the process.
+def _process_worker(process, process_tile):
+    """Worker function running the process."""
+    # Skip execution if overwrite is disabled and tile exists
+    if process.config.mode == "continue" and (
+        process.config.output.tiles_exist(process_tile)
+    ):
+        process_tile.message = "exists"
+        LOGGER.info((
+            process.process_name, process_tile.id, process_tile.message,
+            None, None))
+        return process_tile
+    else:
+        try:
+            return process.execute(process_tile)
+        except ImportError:
+            raise
+        except Exception as e:
+            process_tile.message = "error"
+            process_tile.error = e
+            return process_tile
 
-    Depends on the overwrite flag and whether the tile exists.
-    """
-    try:
-        log_message = mapchete.execute(tile, overwrite=overwrite)
-    except Exception:
-        log_message = (tile.id, "failed", traceback.print_exc())
-    LOGGER.info(log_message)
-    return log_message
+
+def _write_worker(process, process_tile):
+    """Worker function writing process outputs."""
+    if process_tile.message == "exists":
+        return
+    process.write(process_tile)
 
 
 def _get_zoom(zoom, input_raster, pyramid_type):

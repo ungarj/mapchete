@@ -198,8 +198,8 @@ class MapcheteCLI(object):
                     cubic_spline, lanczos, average or mode)",
             metavar="<str>")
         parser.add_argument(
-            "--scale_method", "-s", type=str, default="minmax_scale",
-            choices=["dtype_scale", "minmax_scale", "crop"],
+            "--scale_method", "-s", type=str, default=None,
+            choices=["dtype_scale", "minmax_scale", "crop", None],
             help="scale method if input bands have more than 8 bit \
                 (dtype_scale, minmax_scale or crop)",
             metavar="<str>")

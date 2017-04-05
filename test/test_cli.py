@@ -5,6 +5,8 @@ import os
 import yaml
 import shutil
 import commands
+import rasterio
+import numpy as np
 
 
 from mapchete.cli.main import MapcheteCLI
@@ -133,5 +135,154 @@ def test_formats(capfd):
     assert not err
 
 
+def test_pyramid():
+    """Automatic tile pyramid creation of raster files."""
+    test_raster = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
+    out_dir = os.path.join(scriptdir, "testdata/tmp")
+    # geodetic pyramid
+    try:
+        MapcheteCLI([
+            None, 'pyramid', test_raster, out_dir, "-pt", "geodetic"])
+        for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
+            f = os.path.join(
+                os.path.join(
+                    os.path.join(
+                        out_dir, str(zoom)), str(row)), str(col)+".tif")
+            with rasterio.open(f, "r") as src:
+                assert src.meta["driver"] == "GTiff"
+                assert src.meta["dtype"] == "uint16"
+                data = src.read(masked=True)
+                assert data.mask.any()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(out_dir)
+        except Exception:
+            pass
+    # mercator pyramid
+    try:
+        MapcheteCLI([None, 'pyramid', test_raster, out_dir])
+        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+            f = os.path.join(
+                os.path.join(
+                    os.path.join(
+                        out_dir, str(zoom)), str(row)), str(col)+".tif")
+            with rasterio.open(f, "r") as src:
+                assert src.meta["driver"] == "GTiff"
+                assert src.meta["dtype"] == "uint16"
+                data = src.read(masked=True)
+                assert data.mask.any()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(out_dir)
+        except Exception:
+            pass
+    # PNG output
+    try:
+        MapcheteCLI([None, 'pyramid', test_raster, out_dir, "-of", "PNG"])
+        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+            f = os.path.join(
+                os.path.join(
+                    os.path.join(
+                        out_dir, str(zoom)), str(row)), str(col)+".png")
+            with rasterio.open(f, "r") as src:
+                assert src.meta["driver"] == "PNG"
+                assert src.meta["dtype"] == "uint8"
+                data = src.read(masked=True)
+                assert data.mask.any()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(out_dir)
+        except Exception:
+            pass
+    # minmax scale
+    try:
+        MapcheteCLI([
+            None, 'pyramid', test_raster, out_dir, "-s", "minmax_scale"])
+        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+            f = os.path.join(
+                os.path.join(
+                    os.path.join(
+                        out_dir, str(zoom)), str(row)), str(col)+".tif")
+            with rasterio.open(f, "r") as src:
+                assert src.meta["driver"] == "GTiff"
+                assert src.meta["dtype"] == "uint16"
+                data = src.read(masked=True)
+                assert data.mask.any()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(out_dir)
+        except Exception:
+            pass
+    # dtype scale
+    try:
+        MapcheteCLI([
+            None, 'pyramid', test_raster, out_dir, "-s", "dtype_scale"])
+        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+            f = os.path.join(
+                os.path.join(
+                    os.path.join(
+                        out_dir, str(zoom)), str(row)), str(col)+".tif")
+            with rasterio.open(f, "r") as src:
+                assert src.meta["driver"] == "GTiff"
+                assert src.meta["dtype"] == "uint16"
+                data = src.read(masked=True)
+                assert data.mask.any()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(out_dir)
+        except Exception:
+            pass
+    # crop scale
+    try:
+        MapcheteCLI([
+            None, 'pyramid', test_raster, out_dir, "-s", "crop"])
+        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+            f = os.path.join(
+                os.path.join(
+                    os.path.join(
+                        out_dir, str(zoom)), str(row)), str(col)+".tif")
+            with rasterio.open(f, "r") as src:
+                assert src.meta["driver"] == "GTiff"
+                assert src.meta["dtype"] == "uint16"
+                data = src.read(masked=True)
+                assert data.mask.any()
+                assert np.all(np.where(data <= 255, True, False))
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(out_dir)
+        except Exception:
+            pass
+    # specific zoom
+    try:
+        MapcheteCLI([
+            None, 'pyramid', test_raster, out_dir, "-z", "3"])
+        for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
+            f = os.path.join(
+                os.path.join(
+                    os.path.join(
+                        out_dir, str(zoom)), str(row)), str(col)+".tif")
+            assert not os.path.isfile(f)
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(out_dir)
+        except Exception:
+            pass
+    # TODO specific bounds
+    # TODO overwrite
+
+
 # TODO mapchete serve
-# TODO mapchete pyramid
