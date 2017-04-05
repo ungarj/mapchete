@@ -5,6 +5,7 @@ import os
 import shutil
 import rasterio
 import numpy.ma as ma
+import pkg_resources
 from cPickle import dumps
 from functools import partial
 from multiprocessing import Pool
@@ -16,6 +17,7 @@ from mapchete.io.raster import create_mosaic
 
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 out_dir = os.path.join(scriptdir, "testdata/tmp")
+testdata_directory = os.path.join(scriptdir, "testdata")
 
 
 def test_processing():
@@ -94,3 +96,31 @@ def test_multiprocessing():
 def _worker(process, process_tile):
     """Multiprocessing worker processing a tile."""
     return process.execute(process_tile)
+
+
+def test_process_template():
+    """Template used to create an empty process."""
+    process_template = pkg_resources.resource_filename(
+        "mapchete.static", "process_template.py")
+    dummy1 = os.path.join(testdata_directory, "dummy1.tif")
+    mp = Mapchete(
+        MapcheteConfig(
+            dict(
+                process_file=process_template,
+                input_files=dict(file1=dummy1),
+                output=dict(
+                    format="GTiff",
+                    path=".",
+                    type="geodetic",
+                    bands=1,
+                    dtype="uint8"
+                ),
+                config_dir=".",
+                process_zoom=4
+            )))
+    process_tile = mp.get_process_tiles(zoom=4).next()
+    # Mapchete throws a RuntimeError if process output is empty
+    try:
+        mp.execute(process_tile)
+    except RuntimeError:
+        pass
