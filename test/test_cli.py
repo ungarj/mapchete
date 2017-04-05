@@ -4,11 +4,29 @@
 import os
 import yaml
 import shutil
+import commands
+
 
 from mapchete.cli.main import MapcheteCLI
 
 scriptdir = os.path.dirname(os.path.realpath(__file__))
 out_dir = os.path.join(scriptdir, "testdata/tmp")
+
+
+def test_main():
+    """Main CLI."""
+    for command in [
+        "mapchete", "mapchete create", "mapchete execute",
+        "mapchete serve"
+    ]:
+        status, output = commands.getstatusoutput(command)
+        assert status == 512
+
+    status, output = commands.getstatusoutput("mapchete formats")
+    assert status == 0
+
+    status, output = commands.getstatusoutput("mapchete wrong_command")
+    assert status == 256
 
 
 def test_execute():

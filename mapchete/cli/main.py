@@ -18,9 +18,9 @@ from mapchete.cli.formats import list_formats
 from mapchete.formats import available_output_formats
 
 
-def main():
+def main(args=sys.argv):
     """Pass on command line arguments."""
-    MapcheteCLI(sys.argv)
+    MapcheteCLI(args)
 
 
 class MapcheteCLI(object):
@@ -230,4 +230,4 @@ class MapcheteCLI(object):
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
