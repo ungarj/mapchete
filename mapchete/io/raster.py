@@ -64,9 +64,7 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
         for band_idx in band_indexes:
             yield _get_warped_edge_array(
                 tile=tile, input_file=input_file, band_idx=band_idx,
-                dst_bounds=tile.bounds, dst_shape=tile.shape,
-                dst_affine=tile.affine, dst_crs=tile.crs, resampling=resampling
-            )
+                resampling=resampling)
 
     # If tile boundaries don't exceed pyramid boundaries, simply read window
     # once.
@@ -80,8 +78,7 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
 
 
 def _get_warped_edge_array(
-    tile=None, input_file=None, band_idx=None, dst_bounds=None, dst_shape=None,
-    dst_affine=None, dst_crs=None, resampling="nearest"
+    tile=None, input_file=None, band_idx=None, resampling="nearest"
 ):
     tile_boxes = clip_geometry_to_srs_bounds(
         tile.bbox, tile.tile_pyramid, multipart=True)

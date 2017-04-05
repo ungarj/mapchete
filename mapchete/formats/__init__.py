@@ -26,7 +26,7 @@ def available_output_formats():
                 v.load().OutputData.METADATA["driver_name"])
         except AttributeError:
             pass
-        except:
+        except Exception:
             raise
     return output_formats
 
@@ -45,7 +45,7 @@ def available_input_formats():
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
         try:
             input_formats.append(v.load().InputData.METADATA["driver_name"])
-        except:
+        except Exception:
             pass
     return input_formats
 
@@ -139,7 +139,7 @@ def _file_ext_to_driver():
                     mapping[ext].append(driver_name)
                 else:
                     mapping[ext] = [driver_name]
-        except:
+        except Exception:
             pass
     if not mapping:
         raise RuntimeError("no drivers could be found")

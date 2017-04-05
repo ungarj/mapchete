@@ -69,7 +69,8 @@ class Mapchete(object):
             config = MapcheteConfig(config)
         assert isinstance(config, MapcheteConfig)
         self.config = config
-        config.output
+        # TODO assert this line is really not necessary
+        # config.output
         py_compile.compile(self.config.process_file, doraise=True)
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file))[0]
@@ -189,17 +190,13 @@ class Mapchete(object):
             error = "no errors"
         else:
             message = "write"
-            try:
-                if self.config.mode == "continue" and (
-                    self.config.output.tiles_exist(process_tile)
-                ):
-                    error = "exists, not overwritten"
-                else:
-                    self.config.output.write(copy(process_tile))
-                    error = "no errors"
-            except Exception as e:
-                raise
-                error = e
+            if self.config.mode == "continue" and (
+                self.config.output.tiles_exist(process_tile)
+            ):
+                error = "exists, not overwritten"
+            else:
+                self.config.output.write(copy(process_tile))
+                error = "no errors"
         endtime = time.time()
         elapsed = "%ss" % (round((endtime - starttime), 3))
         LOGGER.info(

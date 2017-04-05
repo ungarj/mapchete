@@ -2,7 +2,6 @@
 """Command line utility to execute a Mapchete process."""
 
 import os
-import argparse
 from functools import partial
 from multiprocessing import cpu_count
 from multiprocessing.pool import Pool

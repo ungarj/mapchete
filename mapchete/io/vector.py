@@ -80,13 +80,10 @@ def reproject_geometry(
         try:
             bbox_intersection = crs_bbox.intersection(geometry_4326)
         except TopologicalError:
-            try:
-                bbox_intersection = crs_bbox.intersection(
-                    geometry_4326.buffer(0)
-                    )
-                warnings.warn("geometry fixed after clipping")
-            except:
-                raise
+            bbox_intersection = crs_bbox.intersection(
+                geometry_4326.buffer(0)
+                )
+            warnings.warn("geometry fixed after clipping")
         # clip geometry dst_crs boundaries
         return _reproject_geom(
             bbox_intersection,
@@ -115,7 +112,7 @@ def _reproject_geom(
     if validity_check:
         try:
             assert out_geom.is_valid
-        except:
+        except AssertionError:
             raise RuntimeError("invalid geometry after reprojection")
     return out_geom
 
@@ -143,7 +140,7 @@ def read_vector_window(input_file, tile, validity_check=True):
     """
     try:
         assert os.path.isfile(input_file)
-    except:
+    except AssertionError:
         raise IOError("input file does not exist: %s" % input_file)
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
@@ -158,10 +155,9 @@ def read_vector_window(input_file, tile, validity_check=True):
             tile.bbox, tile.tile_pyramid, multipart=True)
         return chain.from_iterable(
             _get_reprojected_features(
-                input_file=input_file, dst_bounds=bbox.bounds, dst_crs=tile.crs,
-                validity_check=validity_check)
-            for bbox in tile_boxes
-        )
+                input_file=input_file, dst_bounds=bbox.bounds,
+                dst_crs=tile.crs, validity_check=validity_check)
+            for bbox in tile_boxes)
     else:
         features = _get_reprojected_features(
             input_file=input_file, dst_bounds=tile.bounds,
@@ -199,7 +195,7 @@ def write_vector_window(in_tile, out_schema, out_tile, out_path):
         if clipped.geom_type != target_type:
             try:
                 out_geom = clean_geometry_type(clipped, target_type)
-            except:
+            except Exception:
                 warnings.warn("failed geometry cleaning during writing")
                 continue
         if out_geom:
@@ -336,5 +332,4 @@ def extract_from_tile(in_tile, out_tile):
     return [
         feature
         for feature in in_tile.data
-        if shape(feature["geometry"]).touches(out_tile.bbox)
-    ]
+        if shape(feature["geometry"]).touches(out_tile.bbox)]
