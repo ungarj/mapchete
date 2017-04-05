@@ -2,6 +2,7 @@
 import numpy as np
 import numpy.ma as ma
 from shapely.geometry import shape, Polygon, MultiPolygon, GeometryCollection
+from shapely.ops import unary_union
 from rasterio.features import geometry_mask
 
 
@@ -32,21 +33,23 @@ def clip_array_with_vector(
     buffered_geometries = []
     # buffer input geometries and clean up
     for feature in geometries:
-        geom = shape(feature['geometry']).buffer(clip_buffer)
-        if not isinstance(geom, (Polygon, MultiPolygon, GeometryCollection)):
-            break
+        try:
+            geom = shape(feature['geometry']).buffer(clip_buffer)
+        # for empty Geometries
+        except AttributeError:
+            if feature["geometry"].is_empty:
+                break
+        # for GeometryCollections
+        except ValueError:
+            if feature["geometry"].geom_type == "GeometryCollection":
+                geom = unary_union(
+                    [g.buffer(clip_buffer) for g in feature["geometry"]])
         if geom.is_empty:
             break
-        if isinstance(geom, GeometryCollection):
-            polygons = [
-                subgeom
-                for subgeom in geom
-                if isinstance(subgeom, (Polygon, MultiPolygon))
-            ]
-            if not polygons:
-                break
-            geom = MultiPolygon(polygons)
+        if not isinstance(geom, (Polygon, MultiPolygon, GeometryCollection)):
+            break
         buffered_geometries.append(geom)
+
     # mask raster by buffered geometries
     if buffered_geometries:
         if array.ndim == 2:
@@ -61,11 +64,9 @@ def clip_array_with_vector(
             return ma.masked_array(
                 array, np.stack((mask for band in array))
             )
+
     # if no geometries, return unmasked array
     else:
-        if inverted:
-            fill = False
-        else:
-            fill = True
+        fill = False if inverted else True
         return ma.masked_array(
             array, mask=np.full(array.shape, fill, dtype=bool))

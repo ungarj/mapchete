@@ -4,6 +4,7 @@
 import os
 import numpy as np
 import numpy.ma as ma
+from shapely.geometry import Point, GeometryCollection
 
 
 from mapchete import Mapchete, MapcheteConfig, MapcheteProcess
@@ -33,6 +34,28 @@ def test_clip():
         assert not clipped_inverted.mask.all()
         # compare results
         assert (clipped+clipped_inverted).mask.all()
+        # using empty Geometries
+        geoms = [dict(geometry=Point())]
+        clipped = tile_process.clip(test_array, geoms)
+        assert clipped.mask.all()
+        # using empty Geometries inverted
+        clipped = tile_process.clip(test_array, geoms, inverted=True)
+        assert not clipped.mask.any()
+        # using Point Geometries
+        geoms = [dict(geometry=tile.bbox.centroid)]
+        clipped = tile_process.clip(test_array, geoms)
+        assert clipped.mask.all()
+        # using Geometry Collections
+        geoms = [dict(
+            geometry=GeometryCollection([tile.bbox.centroid, tile.bbox]))]
+        clipped = tile_process.clip(test_array, geoms)
+        assert not clipped.mask.any()
+        # using 3D array
+        test_array = ma.masked_array(np.ones((1, ) + tile_process.tile.shape))
+        clipped = tile_process.clip(test_array, vector_file.read())
+        assert isinstance(clipped, ma.masked_array)
+        assert clipped.mask.any()
+        assert not clipped.mask.all()
 
 
 def test_contours():
@@ -45,6 +68,14 @@ def test_contours():
         contours = tile_process.contours(dem.read())
         assert contours
         assert isinstance(contours, list)
+        # no contours
+        contours = tile_process.contours(dem.read(), interval=10000)
+        assert isinstance(contours, list)
+        assert not contours
+        # base bigger than values
+        contours = tile_process.contours(dem.read(), base=10000)
+        assert isinstance(contours, list)
+        assert contours
 
 
 def test_hillshade():

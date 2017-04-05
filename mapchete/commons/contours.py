@@ -1,10 +1,10 @@
 """Contour line extraction using matplotlib."""
-import warnings
+
 import matplotlib.pyplot as plt
 from shapely.geometry import LineString, mapping
 
 
-def extract_contours(array, tile, interval=100, pixelbuffer=0, field='elev'):
+def extract_contours(array, tile, interval=100, field='elev', base=0):
     """
     Extract contour lines from an array.
 
@@ -18,21 +18,19 @@ def extract_contours(array, tile, interval=100, pixelbuffer=0, field='elev'):
         elevation value interval when drawing contour lines
     field : string
         output field name containing elevation value
+    base : integer
+        elevation base value the intervals are computed from
 
     Returns
     -------
     contours : iterable
         contours as GeoJSON-like pairs of properties and geometry
     """
-    if pixelbuffer:
-        warnings.warn("pixelbuffer in contours() function is deprecated")
-    levels = _get_contour_values(array.min(), array.max(), interval=interval)
+    levels = _get_contour_values(
+        array.min(), array.max(), interval=interval, base=base)
     if not levels:
         return []
-    try:
-        contours = plt.contour(array, levels)
-    except:
-        raise
+    contours = plt.contour(array, levels)
     index = 0
     out_contours = []
     for level in range(len(contours.collections)):
