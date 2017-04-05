@@ -53,7 +53,7 @@ Changelog
 * added NumPy tile output
 * added spherical mercator support
 * tile with buffers next to antimeridian get full data
-* combined output_ ... parameters to output object in mapchete config files
+* combined output\_ ... parameters to output object in mapchete config files
 
 -----
 0.0.2
