@@ -46,8 +46,6 @@ def clip_array_with_vector(
                     [g.buffer(clip_buffer) for g in feature["geometry"]])
         if geom.is_empty:
             break
-        if not isinstance(geom, (Polygon, MultiPolygon, GeometryCollection)):
-            break
         buffered_geometries.append(geom)
 
     # mask raster by buffered geometries
