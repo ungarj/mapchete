@@ -36,7 +36,6 @@ def test_create_and_execute():
     temp_mapchete = "temp.mapchete"
     temp_process = "temp.py"
     out_format = "GTiff"
-    out_dir = os.path.join(scriptdir, "testdata/tmp")
     try:
         # create from template
         args = [
@@ -65,7 +64,35 @@ def test_create_and_execute():
         for delete_file in delete_files:
             try:
                 os.remove(delete_file)
-            except Exception:
+            except OSError:
+                pass
+        try:
+            shutil.rmtree(out_dir)
+        except OSError:
+            pass
+
+
+def test_create_existing():
+    """Run mapchete create and execute."""
+    temp_mapchete = "temp.mapchete"
+    temp_process = "temp.py"
+    out_format = "GTiff"
+    # create files from template
+    args = [
+        None, 'create', temp_mapchete, temp_process, out_format,
+        "--pyramid_type", "geodetic"]
+    MapcheteCLI(args)
+    # try to create again
+    try:
+        MapcheteCLI(args)
+    except IOError:
+        pass
+    finally:
+        delete_files = [temp_mapchete, temp_process]
+        for delete_file in delete_files:
+            try:
+                os.remove(delete_file)
+            except OSError:
                 pass
         try:
             shutil.rmtree(out_dir)
@@ -78,7 +105,6 @@ def test_execute_multiprocessing():
     temp_mapchete = "temp.mapchete"
     temp_process = "temp.py"
     out_format = "GTiff"
-    out_dir = os.path.join(scriptdir, "testdata/tmp")
     try:
         # create from template
         args = [
@@ -114,7 +140,7 @@ def test_execute_multiprocessing():
         for delete_file in delete_files:
             try:
                 os.remove(delete_file)
-            except Exception:
+            except OSError:
                 pass
         try:
             shutil.rmtree(out_dir)
@@ -125,13 +151,13 @@ def test_execute_multiprocessing():
 def test_formats(capfd):
     """Output of mapchete formats command."""
     MapcheteCLI([None, 'formats'])
-    out, err = capfd.readouterr()
+    err = capfd.readouterr()[1]
     assert not err
     MapcheteCLI([None, 'formats', '-i'])
-    out, err = capfd.readouterr()
+    err = capfd.readouterr()[1]
     assert not err
     MapcheteCLI([None, 'formats', '-o'])
-    out, err = capfd.readouterr()
+    err = capfd.readouterr()[1]
     assert not err
 
 

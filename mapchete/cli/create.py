@@ -4,9 +4,9 @@
 
 import os
 from string import Template
-import pkg_resources
 from shutil import copyfile
 from yaml import dump
+import pkg_resources
 
 FORMAT_MANDATORY = {
     "GTiff": {
@@ -55,14 +55,11 @@ def create_empty_process(args):
     args : argparse.Namespace
     """
     if os.path.isfile(args.process_file) or os.path.isfile(args.mapchete_file):
-        try:
-            args.force
-        except Exception:
+        if not args.force:
             raise IOError("file(s) already exists")
-    try:
-        out_path = args.out_path
-    except Exception:
-        out_path = os.path.join(os.getcwd(), "output")
+
+    out_path = args.out_path if args.out_path else os.path.join(
+        os.getcwd(), "output")
 
     # copy process file template to target directory
     process_template = pkg_resources.resource_filename(
