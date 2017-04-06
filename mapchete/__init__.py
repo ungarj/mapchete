@@ -315,7 +315,7 @@ class Mapchete(object):
                     except OSError:
                         pass
                 return self.process_tile_cache[process_tile.id]
-            except:
+            except Exception:
                 raise
             finally:
                 with self.process_lock:
@@ -327,7 +327,7 @@ class Mapchete(object):
     def _extract(self, process_tile, tile):
         try:
             process_tile = self.process_tile_cache[process_tile.id]
-        except:
+        except Exception:
             pass
         if self.config.output.METADATA["data_type"] == "raster":
             tile.data = raster.extract_from_tile(process_tile, tile)

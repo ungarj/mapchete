@@ -16,7 +16,8 @@ install:
 - pip install coveralls
 - pip install .
 script:
-- coverage run --source=mapchete setup.py test
+# tilify.py is already covered using CLI pyramid tests but does not show up as covered
+- coverage run --source=mapchete --omit=mapchete/cli/tilify.py setup.py test
 after_success:
 - coveralls
 notifications:

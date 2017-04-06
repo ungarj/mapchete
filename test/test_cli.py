@@ -31,8 +31,8 @@ def test_main():
     assert status == 256
 
 
-def test_execute():
-    """Run mapchete execute."""
+def test_create_and_execute():
+    """Run mapchete create and execute."""
     temp_mapchete = "temp.mapchete"
     temp_process = "temp.py"
     out_format = "GTiff"
@@ -69,7 +69,7 @@ def test_execute():
                 pass
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
 
 
@@ -118,7 +118,7 @@ def test_execute_multiprocessing():
                 pass
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
 
 
@@ -135,11 +135,9 @@ def test_formats(capfd):
     assert not err
 
 
-def test_pyramid():
-    """Automatic tile pyramid creation of raster files."""
+def test_pyramid_geodetic():
+    """Automatic geodetic tile pyramid creation of raster files."""
     test_raster = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
-    out_dir = os.path.join(scriptdir, "testdata/tmp")
-    # geodetic pyramid
     try:
         MapcheteCLI([
             None, 'pyramid', test_raster, out_dir, "-pt", "geodetic"])
@@ -158,9 +156,13 @@ def test_pyramid():
     finally:
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
-    # mercator pyramid
+
+
+def test_pyramid_mercator():
+    """Automatic mercator tile pyramid creation of raster files."""
+    test_raster = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
     try:
         MapcheteCLI([None, 'pyramid', test_raster, out_dir])
         for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
@@ -178,9 +180,13 @@ def test_pyramid():
     finally:
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
-    # PNG output
+
+
+def test_pyramid_png():
+    """Automatic PNG tile pyramid creation of raster files."""
+    test_raster = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
     try:
         MapcheteCLI([None, 'pyramid', test_raster, out_dir, "-of", "PNG"])
         for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
@@ -198,9 +204,13 @@ def test_pyramid():
     finally:
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
-    # minmax scale
+
+
+def test_pyramid_minmax():
+    """Automatic tile pyramid creation using minmax scale."""
+    test_raster = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
     try:
         MapcheteCLI([
             None, 'pyramid', test_raster, out_dir, "-s", "minmax_scale"])
@@ -219,9 +229,13 @@ def test_pyramid():
     finally:
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
-    # dtype scale
+
+
+def test_pyramid_dtype():
+    """Automatic tile pyramid creation using dtype scale."""
+    test_raster = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
     try:
         MapcheteCLI([
             None, 'pyramid', test_raster, out_dir, "-s", "dtype_scale"])
@@ -240,9 +254,13 @@ def test_pyramid():
     finally:
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
-    # crop scale
+
+
+def test_pyramid_crop():
+    """Automatic tile pyramid creation cropping data."""
+    test_raster = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
     try:
         MapcheteCLI([
             None, 'pyramid', test_raster, out_dir, "-s", "crop"])
@@ -262,9 +280,13 @@ def test_pyramid():
     finally:
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
-    # specific zoom
+
+
+def test_pyramid_zoom():
+    """Automatic tile pyramid creation using a specific zoom."""
+    test_raster = os.path.join(scriptdir, "testdata/cleantopo_br.tif")
     try:
         MapcheteCLI([
             None, 'pyramid', test_raster, out_dir, "-z", "3"])
@@ -279,10 +301,10 @@ def test_pyramid():
     finally:
         try:
             shutil.rmtree(out_dir)
-        except Exception:
+        except OSError:
             pass
-    # TODO specific bounds
-    # TODO overwrite
 
 
+# TODO pyramid specific bounds
+# TODO pyramid overwrite
 # TODO mapchete serve
