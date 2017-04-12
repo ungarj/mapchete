@@ -4,7 +4,6 @@ import os
 import py_compile
 import logging
 import logging.config
-import traceback
 import imp
 import types
 import time
@@ -102,23 +101,18 @@ class Mapchete(object):
         generator
             iterable of BufferedTile objects
         """
-        try:
-            if zoom or zoom == 0:
-                assert isinstance(zoom, int)
+        if zoom or zoom == 0:
+            assert isinstance(zoom, int)
+            for tile in self.config.process_pyramid.tiles_from_geom(
+                self.config.process_area(zoom), zoom
+            ):
+                yield tile
+        else:
+            for zoom in reversed(self.config.zoom_levels):
                 for tile in self.config.process_pyramid.tiles_from_geom(
                     self.config.process_area(zoom), zoom
                 ):
                     yield tile
-            else:
-                for zoom in reversed(self.config.zoom_levels):
-                    for tile in self.config.process_pyramid.tiles_from_geom(
-                        self.config.process_area(zoom), zoom
-                    ):
-                        yield tile
-        except Exception:
-            LOGGER.error(
-                "error getting work tiles: %s" % traceback.print_exc())
-            raise
 
     def execute(self, process_tile):
         """
@@ -149,10 +143,7 @@ class Mapchete(object):
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
         assert isinstance(process_tile, BufferedTile)
-        try:
-            return self._execute(process_tile)
-        except ImportError:
-            raise
+        return self._execute(process_tile)
 
     def read(self, output_tile):
         """
@@ -202,9 +193,7 @@ class Mapchete(object):
         LOGGER.info(
             (self.process_name, process_tile.id, message, error, elapsed))
 
-    def get_raw_output(
-        self, tile, metatiling=1, pixelbuffer=0, _baselevel_readonly=False
-    ):
+    def get_raw_output(self, tile, _baselevel_readonly=False):
         """
         Get output raw data.
 
@@ -216,12 +205,6 @@ class Mapchete(object):
         tile : tuple, Tile or BufferedTile
             If a tile index is given, a tile will be generated using the
             metatiling setting. Tile cannot be bigger than process tile!
-        metatiling : integer
-            Tile metatile size. Only relevant if tile index is provided.
-            (default: 1)
-        pixelbuffer : integer
-            Tile pixelbuffer. Only relevant if no BufferedTile is provided.
-            Also, cannot be greater than process pixelbuffer. (default: 0)
         overwrite : bool
             Overwrite existing tiles (default: False)
         no_write : bool

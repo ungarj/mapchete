@@ -288,7 +288,7 @@ class OutputData(base.OutputData):
                         assert band.shape == band.mask.shape
                         out_data += (band, )
                         out_mask += (band.mask, )
-                    except:
+                    except AssertionError:
                         out_data += (band.data, )
                         out_mask += (
                             np.where(band.data == self.nodata, True, False), )
@@ -307,7 +307,7 @@ class OutputData(base.OutputData):
             try:
                 assert data.shape == data.mask.shape
                 return data.astype(profile["dtype"])
-            except:
+            except AssertionError:
                 return ma.MaskedArray(
                     data=data.astype(profile["dtype"]),
                     mask=np.where(band.data == self.nodata, True, False))

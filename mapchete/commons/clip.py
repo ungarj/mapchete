@@ -1,7 +1,7 @@
 """Clip array using vector data."""
 import numpy as np
 import numpy.ma as ma
-from shapely.geometry import shape, Polygon, MultiPolygon, GeometryCollection
+from shapely.geometry import shape
 from shapely.ops import unary_union
 from rasterio.features import geometry_mask
 

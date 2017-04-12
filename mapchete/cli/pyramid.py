@@ -11,7 +11,6 @@ from functools import partial
 from multiprocessing.pool import Pool
 import logging
 import logging.config
-import traceback
 from py_compile import PyCompileError
 import rasterio
 
@@ -95,7 +94,7 @@ def raster2pyramid(
     resampling = options["resampling"]
     zoom = options["zoom"]
     bounds = options["bounds"]
-    overwrite = options["overwrite"]
+    mode = "overwrite" if options["overwrite"] else "continue"
 
     # Prepare process parameters
     minzoom, maxzoom = _get_zoom(zoom, input_file, pyramid_type)
@@ -150,7 +149,8 @@ def raster2pyramid(
         resampling=resampling,
         bounds=bounds,
         pixelbuffer=5,
-        baselevel={"zoom": maxzoom, "resampling": resampling}
+        baselevel={"zoom": maxzoom, "resampling": resampling},
+        mode=mode
     )
 
     LOGGER.info("preparing process ...")
