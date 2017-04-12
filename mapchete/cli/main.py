@@ -18,17 +18,18 @@ from mapchete.cli.formats import list_formats
 from mapchete.formats import available_output_formats
 
 
-def main(args=sys.argv):
+def main(args=sys.argv, _test_serve=False):
     """Pass on command line arguments."""
-    MapcheteCLI(args)
+    MapcheteCLI(args, _test_serve=_test_serve)
 
 
 class MapcheteCLI(object):
     """Entry point to 'mapchete' command."""
 
-    def __init__(self, args=None):
+    def __init__(self, args=None, _test_serve=False):
         """Initialize command line tool."""
         self.args = args
+        self._test_serve = _test_serve
         parser = argparse.ArgumentParser(
             description="Mapchete helps developing and running geoprocesses.",
             usage=(
@@ -123,7 +124,7 @@ class MapcheteCLI(object):
                 """set 'input_file' parameter to 'from_command_line')"""),
             metavar="<path>")
         args = parser.parse_args(self.args[2:])
-        serve(args)
+        serve(args, _test=self._test_serve)
 
     def execute(self):
         """Parse params and run execute command."""

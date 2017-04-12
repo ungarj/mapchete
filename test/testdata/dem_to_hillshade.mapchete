@@ -1,0 +1,16 @@
+# mapchete parameters
+process_file: dem_to_hillshade.py
+process_minzoom: 0
+process_maxzoom: 5
+input_files:
+    file1: cleantopo_br.tif
+
+output:
+    type: geodetic
+    dtype: uint8
+    bands: 2
+    format: PNG
+    path: tmp
+    pixelbuffer: 5
+
+pixelbuffer: 5

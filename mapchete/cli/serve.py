@@ -17,25 +17,32 @@ from mapchete.tile import BufferedTilePyramid
 LOGGER = logging.getLogger("mapchete")
 
 
-def main(args=None):
+def main(args=None, _test=False):
     """
     Serve a Mapchete process.
 
     Creates the Mapchete host and serves both web page with OpenLayers and the
     WMTS simple REST endpoint.
     """
-    parsed = args
+    app = create_app(args)
+    if not _test:
+        app.run(
+            threaded=True, debug=True, port=args.port,
+            extra_files=[args.mapchete_file])
 
+
+def create_app(args):
+    """Configure and create Flask app."""
     try:
-        assert os.path.splitext(parsed.mapchete_file)[1] == ".mapchete"
-    except:
+        assert os.path.splitext(args.mapchete_file)[1] == ".mapchete"
+    except AssertionError:
         raise IOError("must be a valid mapchete file")
 
     LOGGER.info("preparing process ...")
     process = Mapchete(
         MapcheteConfig(
-            parsed.mapchete_file, zoom=parsed.zoom, bounds=parsed.bounds,
-            single_input_file=parsed.input_file, mode=_get_mode(parsed)),
+            args.mapchete_file, zoom=args.zoom, bounds=args.bounds,
+            single_input_file=args.input_file, mode=_get_mode(args)),
         with_cache=True
         )
 
@@ -45,12 +52,13 @@ def main(args=None):
     logging.config.dictConfig(get_log_config(process))
 
     @app.route('/', methods=['GET'])
-    def return_index():
+    def index():
         """Render and hosts the appropriate OpenLayers instance."""
         return render_template_string(
             pkgutil.get_data('mapchete.static', 'index.html'),
             srid=process.config.process_pyramid.srid,
-            process_bounds=",".join(map(str, process.config.process_bounds())),
+            process_bounds=",".join([
+                str(i) for i in process.config.process_bounds()]),
             is_mercator=(process.config.process_pyramid.srid == 3857)
         )
 
@@ -66,10 +74,7 @@ def main(args=None):
         web_tile = web_pyramid.tile(zoom, row, col)
         return _tile_response(process, web_tile)
 
-    app.run(
-        threaded=True, debug=True, port=parsed.port,
-        extra_files=[parsed.mapchete_file]
-        )
+    return app
 
 
 def _get_mode(parsed):
@@ -86,8 +91,8 @@ def _get_mode(parsed):
 def _tile_response(process, web_tile):
     if process.config.mode in ["continue", "readonly"]:
         if (
-            web_tile.tile_pyramid.metatiling ==
-            process.config.raw["output"]["metatiling"]
+                web_tile.tile_pyramid.metatiling ==
+                process.config.raw["output"]["metatiling"]
         ):
             try:
                 response = make_response(
@@ -99,9 +104,9 @@ def _tile_response(process, web_tile):
     try:
         return _valid_tile_response(
             process, process.get_raw_output(web_tile))
-    except Exception as e:
+    except Exception as exc:
         LOGGER.info(
-            (process.process_name, "web tile", web_tile.id, "error", e))
+            (process.process_name, "web tile", web_tile.id, "error", exc))
         return _error_tile_response(process, web_tile)
 
 
