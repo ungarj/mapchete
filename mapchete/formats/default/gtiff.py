@@ -37,7 +37,7 @@ import rasterio
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window
+from mapchete.io.raster import write_raster_window, prepare_array
 
 
 class OutputData(base.OutputData):
@@ -117,12 +117,10 @@ class OutputData(base.OutputData):
         """
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        self.verify_data(process_tile)
         process_tile.data = self.prepare_data(
             process_tile.data, self.profile(process_tile))
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
-            # skip if file exists and overwrite is not set
             out_path = self.get_path(tile)
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
@@ -183,9 +181,9 @@ class OutputData(base.OutputData):
         -------
         path : string
         """
-        zoomdir = os.path.join(self.path, str(tile.zoom))
-        rowdir = os.path.join(zoomdir, str(tile.row))
-        return os.path.join(rowdir, str(tile.col) + self.file_extension)
+        return os.path.join(*[
+            self.path, str(tile.zoom), str(tile.row),
+            str(tile.col) + self.file_extension])
 
     def prepare_path(self, tile):
         """
@@ -235,35 +233,6 @@ class OutputData(base.OutputData):
             pass
         return dst_metadata
 
-    def verify_data(self, tile):
-        """
-        Verify array data and move array into tuple if necessary.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-
-        Returns
-        -------
-        valid : bool
-        """
-        try:
-            assert isinstance(
-                tile.data, (np.ndarray, ma.MaskedArray, tuple, list))
-        except AssertionError:
-            raise ValueError(
-                "process output must be 2D NumPy array, masked array or a tuple"
-                )
-        try:
-            if isinstance(tile.data, (tuple, list)):
-                for band in tile.data:
-                    assert band.ndim == 2
-            else:
-                assert tile.data.ndim in [2, 3]
-        except AssertionError:
-            raise ValueError(
-                "each output band must be a 2D NumPy array")
-
     def prepare_data(self, data, profile):
         """
         Convert data into correct output.
@@ -279,42 +248,9 @@ class OutputData(base.OutputData):
             a 3D masked NumPy array including all bands with the data type
             specified in the configuration
         """
-        if isinstance(data, (list, tuple)):
-            out_data = ()
-            out_mask = ()
-            for band in data:
-                if isinstance(band, ma.MaskedArray):
-                    try:
-                        assert band.shape == band.mask.shape
-                        out_data += (band, )
-                        out_mask += (band.mask, )
-                    except AssertionError:
-                        out_data += (band.data, )
-                        out_mask += (
-                            np.where(band.data == self.nodata, True, False), )
-                elif isinstance(band, np.ndarray):
-                    out_data += (band)
-                    out_mask += (np.where(band == self.nodata, True, False))
-                else:
-                    raise ValueError("input data bands must be NumPy arrays")
-            assert len(out_data) == len(out_mask)
-            return ma.MaskedArray(
-                data=np.stack(out_data).astype(profile["dtype"]),
-                mask=np.stack(out_mask))
-        elif isinstance(data, np.ndarray) and data.ndim == 2:
-            data = ma.expand_dims(data, axis=0)
-        if isinstance(data, ma.MaskedArray):
-            try:
-                assert data.shape == data.mask.shape
-                return data.astype(profile["dtype"])
-            except AssertionError:
-                return ma.MaskedArray(
-                    data=data.astype(profile["dtype"]),
-                    mask=np.where(band.data == self.nodata, True, False))
-        elif isinstance(data, np.ndarray):
-            return ma.MaskedArray(
-                data=data.astype(profile["dtype"]),
-                mask=np.where(data == self.nodata, True, False))
+        return prepare_array(
+            data, masked=True, nodata=self.nodata, dtype=profile["dtype"])
+
 
     def empty(self, process_tile):
         """

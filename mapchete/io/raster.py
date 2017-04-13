@@ -431,3 +431,93 @@ def create_mosaic(tiles, nodata=0):
         mosaic[:, minrow:maxrow, mincol:maxcol] = tile.data
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = tile.data.mask
     return (mosaic, mosaic_affine)
+
+
+def prepare_array(data, masked=True, nodata=0, dtype="int16"):
+    """
+    Turn input data into a proper array for further usage.
+
+    Outut array is always 3-dimensional with the given data type. If the output
+    is masked, the fill_value corresponds to the given nodata value.
+
+    Parameters
+    ----------
+    data : array or iterable
+        array (masked or normal) or iterable containing arrays
+    nodata : integer or float
+        nodata value (default: 0) used if input is not a masked array and
+        for output array
+    masked : bool
+        return a NumPy Array or a NumPy MaskedArray (default: True)
+    dtype : string
+        data type of output array (default: "int16")
+
+    Returns
+    -------
+    array : array
+    """
+    # input is iterable
+    if isinstance(data, (list, tuple)):
+        return _prepare_iterable(data, masked, nodata, dtype)
+
+    # special case if a 2D single band is provided
+    elif isinstance(data, np.ndarray) and data.ndim == 2:
+        data = ma.expand_dims(data, axis=0)
+
+    if isinstance(data, ma.MaskedArray):
+        return _prepare_masked(data, masked, nodata, dtype)
+
+    elif isinstance(data, np.ndarray):
+        if masked:
+            return ma.MaskedArray(
+                data=data.astype(dtype),
+                mask=np.where(data == nodata, True, False))
+        else:
+            return data.astype(dtype)
+    else:
+        raise ValueError(
+            "data must be array, masked array or iterable containing arrays.")
+
+
+def _prepare_iterable(data, masked, nodata, dtype):
+    out_data = ()
+    out_mask = ()
+    for band in data:
+        if isinstance(band, ma.MaskedArray):
+            try:
+                out_data += (band.data, )
+                if masked:
+                    assert band.shape == band.mask.shape
+                    out_mask += (band.mask, )
+            except AssertionError:
+                out_mask += (
+                    np.where(band.data == nodata, True, False), )
+        elif isinstance(band, np.ndarray):
+            out_data += (band, )
+            if masked:
+                out_mask += (np.where(band == nodata, True, False), )
+        else:
+            raise ValueError("input data bands must be NumPy arrays")
+    if masked:
+        assert len(out_data) == len(out_mask)
+        return ma.MaskedArray(
+            data=np.stack(out_data).astype(dtype),
+            mask=np.stack(out_mask))
+    else:
+        return np.stack(out_data).astype(dtype)
+
+
+def _prepare_masked(data, masked, nodata, dtype):
+    try:
+        assert data.shape == data.mask.shape
+        if masked:
+            return data.astype(dtype)
+        else:
+            return data.data.astype(dtype)
+    except AssertionError:
+        if masked:
+            return ma.MaskedArray(
+                data=data.data.astype(dtype),
+                mask=np.where(data.data == nodata, True, False))
+        else:
+            return data.data.astype(dtype)
