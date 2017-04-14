@@ -121,14 +121,15 @@ class OutputData(base.OutputData):
 
         Returns
         -------
-        process output : array
+        process output : ``BufferedTile`` with appended data
         """
         if self.old_band_num:
             band_num = 4
         else:
             band_num = 2
         with rasterio.open(self.get_path(output_tile)) as src:
-            return src.read(band_num, masked=True)
+            output_tile.data = src.read(band_num, masked=True)
+            return output_tile
 
     def tiles_exist(self, process_tile):
         """

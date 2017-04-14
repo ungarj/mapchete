@@ -5,7 +5,6 @@ import os
 import shutil
 import numpy as np
 import numpy.ma as ma
-from PIL import Image
 
 from mapchete.formats.default import png_hillshade
 from mapchete.tile import BufferedTilePyramid
@@ -16,7 +15,6 @@ OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
 
 def test_output_data():
     """Check PNG_hillshade as output data."""
-
     output_params = dict(
         type="geodetic",
         format="PNG_hillshade",
@@ -53,7 +51,7 @@ def test_output_data():
         # tiles_exist
         assert output.tiles_exist(tile)
         # read
-        data = output.read(tile)
+        data = output.read(tile).data
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
     except Exception:
@@ -74,7 +72,7 @@ def test_output_data():
         # tiles_exist
         assert output.tiles_exist(tile)
         # read
-        data = output.read(tile)
+        data = output.read(tile).data
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
     except Exception:
