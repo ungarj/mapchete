@@ -30,7 +30,7 @@ from flask import send_file
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window
+from mapchete.io.raster import write_raster_window, prepare_array
 
 
 class OutputData(base.OutputData):
@@ -90,20 +90,16 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-        self.verify_data(process_tile)
-        # assert process_tile data complies with output properties like band
-        # number, data type.
-        data = process_tile.data
-        if isinstance(data, ma.MaskedArray):
-            data = np.where(data.mask, 0, data).astype("uint8")
+        data = prepare_array(
+            process_tile.data, dtype="uint8", masked=False)
         if self.old_band_num:
-            process_tile.data = np.stack((
+            data = np.stack((
                 np.zeros(process_tile.shape), np.zeros(process_tile.shape),
-                np.zeros(process_tile.shape), data))
+                np.zeros(process_tile.shape), data[0]))
         else:
-            process_tile.data = np.stack((np.zeros(process_tile.shape), data))
+            data = np.stack((
+                np.zeros(process_tile.shape), data[0]))
+        process_tile.data = prepare_array(data, dtype="uint8")
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -127,16 +123,12 @@ class OutputData(base.OutputData):
         -------
         process output : array
         """
-        try:
-            if self.old_band_num:
-                band_num = 4
-            else:
-                band_num = 2
-            with rasterio.open(self.get_path(output_tile)) as src:
-                output_tile.data = src.read(band_num, masked=True)
-                return output_tile
-        except:
-            raise
+        if self.old_band_num:
+            band_num = 4
+        else:
+            band_num = 2
+        with rasterio.open(self.get_path(output_tile)) as src:
+            return src.read(band_num, masked=True)
 
     def tiles_exist(self, process_tile):
         """
@@ -187,9 +179,9 @@ class OutputData(base.OutputData):
         -------
         path : string
         """
-        zoomdir = os.path.join(self.path, str(tile.zoom))
-        rowdir = os.path.join(zoomdir, str(tile.row))
-        return os.path.join(rowdir, str(tile.col) + self.file_extension)
+        return os.path.join(*[
+            self.path, str(tile.zoom), str(tile.row),
+            str(tile.col)+self.file_extension])
 
     def prepare_path(self, tile):
         """
@@ -200,12 +192,12 @@ class OutputData(base.OutputData):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        zoomdir = os.path.join(self.path, str(tile.zoom))
-        if not os.path.exists(zoomdir):
-            os.makedirs(zoomdir)
-        rowdir = os.path.join(zoomdir, str(tile.row))
-        if not os.path.exists(rowdir):
-            os.makedirs(rowdir)
+        try:
+            os.makedirs(os.path.dirname(self.get_path(tile)))
+        except OSError:
+            raise
+        except Exception:
+            pass
 
     def profile(self, tile):
         """
@@ -230,37 +222,6 @@ class OutputData(base.OutputData):
         )
         return dst_metadata
 
-    def verify_data(self, tile):
-        """
-        Verify array data and move array into tuple if necessary.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-
-        Returns
-        -------
-        valid : bool
-        """
-        try:
-            assert isinstance(tile.data, (np.ndarray, ma.MaskedArray, tuple))
-        except AssertionError:
-            raise ValueError(
-                "process output must be 2D NumPy array, masked array or a tuple"
-                )
-        if isinstance(tile.data, (tuple, list)):
-            try:
-                assert len(tile.data) == 1
-            except AssertionError:
-                raise ValueError(
-                    "only one band allowed for process output, not %s" %
-                    len(tile.data))
-            tile.data = tile.data[0]
-        try:
-            assert tile.data.ndim == 2
-        except AssertionError:
-            raise ValueError("output band must be a 2D NumPy array")
-
     def for_web(self, data):
         """
         Convert data to web output.
@@ -273,8 +234,7 @@ class OutputData(base.OutputData):
         -------
         web data : array
         """
-        if isinstance(data, ma.MaskedArray):
-            data = np.where(data.mask, 0, data).astype("uint8")
+        data = prepare_array(data, masked=False, dtype="uint8")[0]
         zeros = np.zeros(data.shape)
         out_rgb = (zeros, zeros, zeros, data)
         reshaped = np.stack(out_rgb).transpose(1, 2, 0).astype("uint8")
@@ -305,5 +265,6 @@ class OutputData(base.OutputData):
 PNG_PROFILE = {
     "dtype": "uint8",
     "driver": "PNG",
-    "count": 2
+    "count": 2,
+    "nodata": 0
 }
