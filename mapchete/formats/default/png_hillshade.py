@@ -23,6 +23,7 @@ nodata: integer or float
 import os
 import io
 import rasterio
+from rasterio.errors import RasterioIOError
 import numpy as np
 import numpy.ma as ma
 from PIL import Image
@@ -127,9 +128,12 @@ class OutputData(base.OutputData):
             band_num = 4
         else:
             band_num = 2
-        with rasterio.open(self.get_path(output_tile)) as src:
-            output_tile.data = src.read(band_num, masked=True)
-            return output_tile
+        try:
+            with rasterio.open(self.get_path(output_tile)) as src:
+                output_tile.data = src.read(band_num, masked=True)
+        except RasterioIOError:
+            output_tile.data = self.empty(output_tile)
+        return output_tile
 
     def tiles_exist(self, process_tile):
         """
@@ -196,8 +200,6 @@ class OutputData(base.OutputData):
         try:
             os.makedirs(os.path.dirname(self.get_path(tile)))
         except OSError:
-            raise
-        except Exception:
             pass
 
     def profile(self, tile):

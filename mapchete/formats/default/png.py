@@ -22,10 +22,12 @@ nodata: integer or float
 import os
 import io
 import rasterio
+from rasterio.errors import RasterioIOError
 import numpy as np
 import numpy.ma as ma
 from PIL import Image
 from flask import send_file
+
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
@@ -114,7 +116,7 @@ class OutputData(base.OutputData):
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
                 output_tile.data = src.read(masked=True)
-        except Exception:
+        except RasterioIOError:
             output_tile.data = self.empty(output_tile)
         return output_tile
 
@@ -167,9 +169,9 @@ class OutputData(base.OutputData):
         -------
         path : string
         """
-        zoomdir = os.path.join(self.path, str(tile.zoom))
-        rowdir = os.path.join(zoomdir, str(tile.row))
-        return os.path.join(rowdir, str(tile.col) + self.file_extension)
+        return os.path.join(*[
+            self.path, str(tile.zoom), str(tile.row),
+            str(tile.col)+self.file_extension])
 
     def prepare_path(self, tile):
         """
@@ -180,12 +182,10 @@ class OutputData(base.OutputData):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        zoomdir = os.path.join(self.path, str(tile.zoom))
-        if not os.path.exists(zoomdir):
-            os.makedirs(zoomdir)
-        rowdir = os.path.join(zoomdir, str(tile.row))
-        if not os.path.exists(rowdir):
-            os.makedirs(rowdir)
+        try:
+            os.makedirs(os.path.dirname(self.get_path(tile)))
+        except OSError:
+            pass
 
     def profile(self, tile):
         """

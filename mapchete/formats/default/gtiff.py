@@ -34,6 +34,7 @@ import os
 import numpy as np
 import numpy.ma as ma
 import rasterio
+from rasterio.errors import RasterioIOError
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
@@ -97,12 +98,12 @@ class OutputData(base.OutputData):
 
         Returns
         -------
-        process output : array
+        process output : ``BufferedTile`` with appended data
         """
-        if self.tiles_exist(output_tile):
+        try:
             with rasterio.open(self.get_path(output_tile), "r") as src:
                 output_tile.data = src.read(masked=True)
-        else:
+        except RasterioIOError:
             output_tile.data = self.empty(output_tile)
         return output_tile
 
@@ -117,8 +118,9 @@ class OutputData(base.OutputData):
         """
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        process_tile.data = self.prepare_data(
-            process_tile.data, self.profile(process_tile))
+        process_tile.data = prepare_array(
+            process_tile.data, masked=True, nodata=self.nodata,
+            dtype=self.profile(process_tile)["dtype"])
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             out_path = self.get_path(tile)
@@ -194,12 +196,10 @@ class OutputData(base.OutputData):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        zoomdir = os.path.join(self.path, str(tile.zoom))
-        if not os.path.exists(zoomdir):
-            os.makedirs(zoomdir)
-        rowdir = os.path.join(zoomdir, str(tile.row))
-        if not os.path.exists(rowdir):
-            os.makedirs(rowdir)
+        try:
+            os.makedirs(os.path.dirname(self.get_path(tile)))
+        except OSError:
+            pass
 
     def profile(self, tile):
         """
@@ -232,25 +232,6 @@ class OutputData(base.OutputData):
         except KeyError:
             pass
         return dst_metadata
-
-    def prepare_data(self, data, profile):
-        """
-        Convert data into correct output.
-
-        Parameters
-        ----------
-        data : array
-        profile : dictionary
-
-        Returns
-        -------
-        prepared_data : array
-            a 3D masked NumPy array including all bands with the data type
-            specified in the configuration
-        """
-        return prepare_array(
-            data, masked=True, nodata=self.nodata, dtype=profile["dtype"])
-
 
     def empty(self, process_tile):
         """
@@ -387,7 +368,7 @@ class InputTile(base.InputTile):
 
     def __exit__(self, t, v, tb):
         """Clear cache on close."""
-        del self._np_band_cache
+        del self._np_cache
 
 
 GTIFF_PROFILE = {
