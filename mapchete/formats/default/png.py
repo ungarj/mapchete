@@ -29,7 +29,7 @@ from flask import send_file
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window
+from mapchete.io.raster import write_raster_window, prepare_array
 
 
 class OutputData(base.OutputData):
@@ -87,25 +87,7 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-        self.verify_data(process_tile)
-        data = self.prepare_data(process_tile.data)
-        if len(data) == 1:
-            r = data[0]
-            g = data[0]
-            b = data[0]
-        elif len(data) == 3:
-            r, g, b = data
-        else:
-            raise TypeError("invalid number of bands: %s" % len(data))
-        # Generate alpha channel out of mask or nodata values.
-        a = np.where(r.mask, 0, 255).astype("uint8")
-        # Create 3D NumPy array with alpha channel.
-        stacked = np.stack((r, g, b, a))
-        process_tile.data = ma.masked_array(
-            data=stacked,
-            mask=np.where(stacked == self.nodata, True, False))
+        process_tile.data = prepare_array(process_tile.data, dtype="uint8")
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -127,16 +109,11 @@ class OutputData(base.OutputData):
 
         Returns
         -------
-        process output : array
+        process output : ``BufferedTile`` with appended data
         """
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
-                data = src.read([1, 2, 3])
-                mask = np.where(src.read(4) == 255, False, True)
-                output_tile.data = ma.MaskedArray(
-                    data=data,
-                    mask=np.stack((mask, mask, mask, ))
-                )
+                output_tile.data = src.read(masked=True)
         except Exception:
             output_tile.data = self.empty(output_tile)
         return output_tile
@@ -228,97 +205,11 @@ class OutputData(base.OutputData):
         dst_metadata.update(
             width=tile.width, height=tile.height, affine=tile.affine,
             driver="PNG", crs=tile.crs)
-        return dst_metadata
-
-    def verify_data(self, tile):
-        """
-        Verify array data and move array into tuple if necessary.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-
-        Returns
-        -------
-        valid : bool
-        """
         try:
-            assert isinstance(
-                tile.data, (np.ndarray, ma.MaskedArray, tuple, list))
-        except AssertionError:
-            raise ValueError(
-                "process output must be 2D NumPy array, masked array or a tuple"
-                )
-        if isinstance(tile.data, (tuple, list)):
-            try:
-                assert len(tile.data) == 3
-            except AssertionError:
-                raise ValueError(
-                    """only three bands (red, green, blue) allowed for """
-                    """process output, not %s""" %
-                    len(tile.data))
-        for band in tile.data:
-            try:
-                assert band.ndim == 2
-            except AssertionError:
-                raise ValueError("each output band must be a 2D NumPy array")
-
-    def prepare_data(self, data):
-        """
-        Convert data into correct output.
-
-        Parameters
-        ----------
-        data : array
-        profile : dictionary
-
-        Returns
-        -------
-        prepared_data : array
-            a 3D masked NumPy array as 8 bit unsigned integer
-        """
-        if isinstance(data, (list, tuple)):
-            out_data = ()
-            out_mask = ()
-            for band in data:
-                if isinstance(band, ma.MaskedArray):
-                    try:
-                        assert band.shape == band.mask.shape
-                        out_data += (band, )
-                        out_mask += (band.mask, )
-                    except AssertionError:
-                        out_data += (band.data, )
-                        out_mask += (
-                            np.where(band.data == self.nodata, True, False), )
-                elif isinstance(band, np.ndarray):
-                    out_data += (band)
-                    out_mask += (np.where(band == self.nodata, True, False))
-                else:
-                    raise ValueError("input data bands must be NumPy arrays")
-            assert len(out_data) == len(out_mask) == 3
-            return ma.MaskedArray(
-                data=np.stack(out_data).astype("uint8"),
-                mask=np.stack(out_mask))
-        elif isinstance(data, ma.MaskedArray):
-            if data.ndim == 2:
-                data = data[np.newaxis, :]
-            assert len(data) <= 3
-            try:
-                assert data.shape == data.mask.shape
-                return data.astype("uint8")
-            except AssertionError:
-                return ma.MaskedArray(
-                    data=data.astype("uint8"),
-                    mask=np.where(data == self.nodata, True, False),
-                    fill_value=self.nodata)
-        elif isinstance(data, np.ndarray):
-            if data.ndim == 2:
-                data = data[np.newaxis, :]
-            assert len(data) <= 3
-            return ma.MaskedArray(
-                data=data.astype("uint8"),
-                mask=np.where(data == self.nodata, True, False),
-                fill_value=self.nodata)
+            dst_metadata.update(count=self.output_params["count"])
+        except KeyError:
+            pass
+        return dst_metadata
 
     def for_web(self, data):
         """
