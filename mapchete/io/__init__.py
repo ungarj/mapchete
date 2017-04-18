@@ -29,9 +29,7 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     assert tile_pyramid_type in ["geodetic", "mercator"]
     tile_pyramid = TilePyramid(tile_pyramid_type)
     with rasterio.open(input_file, "r") as src:
-        try:
-            assert src.crs.is_valid
-        except AssertionError:
+        if not src.crs.is_valid:
             raise IOError("CRS could not be read from %s" % input_file)
         bbox = box(
             src.bounds.left, src.bounds.bottom, src.bounds.right,
@@ -39,18 +37,12 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
         if src.crs != tile_pyramid.crs:
             segmentize = raster_file._get_segmentize_value(
                 input_file, tile_pyramid)
-            try:
-                ogr_bbox = ogr.CreateGeometryFromWkb(bbox.wkb)
-                ogr_bbox.Segmentize(segmentize)
-                segmentized_bbox = loads(ogr_bbox.ExportToWkt())
-                bbox = segmentized_bbox
-            except:
-                raise
-            try:
-                xmin, ymin, xmax, ymax = reproject_geometry(
-                    bbox, src_crs=src.crs, dst_crs=tile_pyramid.crs).bounds
-            except:
-                raise
+            ogr_bbox = ogr.CreateGeometryFromWkb(bbox.wkb)
+            ogr_bbox.Segmentize(segmentize)
+            segmentized_bbox = loads(ogr_bbox.ExportToWkt())
+            bbox = segmentized_bbox
+            xmin, ymin, xmax, ymax = reproject_geometry(
+                bbox, src_crs=src.crs, dst_crs=tile_pyramid.crs).bounds
         else:
             xmin, ymin, xmax, ymax = bbox.bounds
         x_dif = xmax - xmin

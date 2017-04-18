@@ -158,7 +158,3 @@ def _get_zoom(zoom, input_raster, pyramid_type):
     else:
         raise ValueError("invalid number of zoom levels provided")
     return minzoom, maxzoom
-
-
-if __name__ == "__main__":
-    main()
