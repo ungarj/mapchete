@@ -168,7 +168,11 @@ class MapcheteCLI(object):
             metavar="<path>")
         parser.add_argument(
             "--quiet", "-q", action="store_true",
-            help="suppress log output")
+            help="suppress progress bar and log output")
+        parser.add_argument(
+            "--debug", "-d", action="store_true",
+            help="show log output and disable progress bar")
+
         args = parser.parse_args(self.args[2:])
         execute(args)
 

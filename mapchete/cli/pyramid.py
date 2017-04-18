@@ -1,20 +1,17 @@
 #!/usr/bin/env python
 """
-Utility to create tile pyramids out of input rasters. Also provides various
-options to rescale data if necessary
+Utility to create tile pyramids out of an input raster.
+
+Also provides various options to rescale data if necessary
 """
 
 import os
-import sys
-import argparse
-from functools import partial
-from multiprocessing.pool import Pool
 import logging
 import logging.config
 from py_compile import PyCompileError
 import rasterio
 
-from mapchete import Mapchete
+from mapchete import Mapchete, batch_process
 from mapchete.config import MapcheteConfig
 from mapchete.log import get_log_config
 from mapchete.io import get_best_zoom_level
@@ -40,8 +37,9 @@ def main(args=None):
     bounds = parsed.bounds if ("bounds" in parsed) else None
     options.update(
         pyramid_type=parsed.pyramid_type, scale_method=parsed.scale_method,
-        output_format=parsed.output_format, resampling=parsed.resampling_method,
-        zoom=parsed.zoom, bounds=bounds, overwrite=parsed.overwrite)
+        output_format=parsed.output_format,
+        resampling=parsed.resampling_method, zoom=parsed.zoom, bounds=bounds,
+        overwrite=parsed.overwrite)
     raster2pyramid(
         parsed.input_raster, parsed.output_dir, options)
 
@@ -129,7 +127,7 @@ def raster2pyramid(
     except PyCompileError as error:
         print error
         return
-    except:
+    except Exception:
         raise
 
     # Prepare output directory and logging
@@ -137,54 +135,9 @@ def raster2pyramid(
         os.makedirs(output_dir)
 
     logging.config.dictConfig(get_log_config(process))
-    f = partial(_process_worker, process)
 
-    for zoom in reversed(range(minzoom, maxzoom+1)):
-        # Determine work tiles and run
-        process_tiles = process.get_process_tiles(zoom)
-        pool = Pool()
-        try:
-            for output in pool.imap_unordered(f, process_tiles, chunksize=1):
-                _write_worker(process, output)
-        except KeyboardInterrupt:
-            LOGGER.info("Caught KeyboardInterrupt, terminating workers")
-            pool.terminate()
-            break
-        except:
-            raise
-        finally:
-            pool.close()
-            pool.join()
-            process_tiles = None
-
-
-def _process_worker(process, process_tile):
-    """Worker function running the process."""
-    # Skip execution if overwrite is disabled and tile exists
-    if process.config.mode == "continue" and (
-        process.config.output.tiles_exist(process_tile)
-    ):
-        process_tile.message = "exists"
-        LOGGER.info((
-            process.process_name, process_tile.id, process_tile.message,
-            None, None))
-        return process_tile
-    else:
-        try:
-            return process.execute(process_tile)
-        except ImportError:
-            raise
-        except Exception as e:
-            process_tile.message = "error"
-            process_tile.error = e
-            return process_tile
-
-
-def _write_worker(process, process_tile):
-    """Worker function writing process outputs."""
-    if process_tile.message == "exists":
-        return
-    process.write(process_tile)
+    batch_process(
+        process, zoom=[minzoom, maxzoom])
 
 
 def _get_zoom(zoom, input_raster, pyramid_type):
@@ -205,6 +158,7 @@ def _get_zoom(zoom, input_raster, pyramid_type):
     else:
         raise ValueError("invalid number of zoom levels provided")
     return minzoom, maxzoom
+
 
 if __name__ == "__main__":
     main()

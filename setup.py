@@ -53,7 +53,8 @@ setup(
         'gdal',
         'cached_property',
         'pyproj',
-        'cachetools'
+        'cachetools',
+        'tqdm'
     ] if not on_rtd else [],
     classifiers=[
         'Development Status :: 3 - Alpha',

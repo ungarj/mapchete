@@ -11,3 +11,4 @@ gdal
 cached_property
 pyproj
 cachetools
+tqdm

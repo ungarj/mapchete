@@ -48,7 +48,7 @@ def get_log_config(mapchete):
         'loggers': {
             'mapchete': {
                 'handlers': ['file', 'stream'],
-                'level': 'DEBUG',
+                'level': 'INFO',
                 'propagate': True
             }
         }

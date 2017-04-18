@@ -10,6 +10,10 @@ import time
 import threading
 import numpy as np
 import numpy.ma as ma
+import tqdm
+from functools import partial
+from multiprocessing import cpu_count
+from multiprocessing.pool import Pool
 from cachetools import LRUCache
 from copy import copy
 from itertools import chain
@@ -190,7 +194,7 @@ class Mapchete(object):
                 error = "no errors"
         endtime = time.time()
         elapsed = "%ss" % (round((endtime - starttime), 3))
-        LOGGER.info(
+        LOGGER.debug(
             (self.process_name, process_tile.id, message, error, elapsed))
 
     def get_raw_output(self, tile, _baselevel_readonly=False):
@@ -356,7 +360,7 @@ class Mapchete(object):
         finally:
             endtime = time.time()
             elapsed = "%ss" % (round((endtime - starttime), 3))
-            LOGGER.info((
+            LOGGER.debug((
                 self.process_name, process_tile.id, message, error, elapsed))
             del tile_process
         # Analyze proess output.
@@ -406,7 +410,7 @@ class Mapchete(object):
         finally:
             endtime = time.time()
             elapsed = "%ss" % (round((endtime - starttime), 3))
-            LOGGER.info((
+            LOGGER.debug((
                 self.process_name, process_tile.id, message,
                 error, elapsed))
         return process_data
@@ -576,3 +580,112 @@ class MapcheteProcess(object):
         return commons_clip.clip_array_with_vector(
             array, self.tile.affine, geometries,
             inverted=inverted, clip_buffer=clip_buffer*self.tile.pixel_x_size)
+
+
+def batch_process(
+    process, zoom=None, tile=None, multi=cpu_count(), quiet=False, debug=False
+):
+    """
+    Process a large batch of tiles.
+
+    Parameters
+    ----------
+    process : MapcheteProcess
+        process to be run
+    zoom : list or int
+        either single zoom level or list of minimum and maximum zoom level;
+        None processes all (default: None)
+    tile : tuple
+        zoom, row and column of tile to be processed (cannot be used with zoom)
+    multi : int
+        number of workers (default: number of CPU cores)
+    quiet : bool
+        set log level to "warning" and disable progress bar
+    debug : bool
+        set log level to "debug" and disable progress bar (cannot be used with
+        quiet)
+    """
+    if zoom and tile:
+        raise ValueError("use either zoom or tile")
+    if quiet and debug:
+        raise ValueError("use either quiet or debug")
+    if quiet:
+        LOGGER.setLevel(logging.WARNING)
+    if debug:
+        LOGGER.setLevel(logging.DEBUG)
+    if tile:
+        tile = process.config.process_pyramid.tile(*tuple(tile))
+        assert tile.is_valid()
+        _write_worker(process, _process_worker(process, tile))
+        LOGGER.info("1 tile iterated")
+        return
+    zoom_levels = list(_get_zoom_level(zoom, process))
+    num_processed = 0
+    LOGGER.info("starting process using %s worker(s)", multi)
+    f = partial(_process_worker, process)
+    # TODO quicker tile number estimation
+    total_tiles = sum(
+        len(list(process.get_process_tiles(z))) for z in zoom_levels)
+    with tqdm.tqdm(
+        total=total_tiles, unit="tiles", disable=(quiet or debug)
+    ) as pbar:
+        for zoom in zoom_levels:
+            process_tiles = process.get_process_tiles(zoom)
+            pool = Pool(multi)
+            try:
+                for output in pool.imap_unordered(
+                    f, process_tiles, chunksize=1
+                ):
+                    pbar.update()
+                    num_processed += 1
+                    _write_worker(process, output)
+            except KeyboardInterrupt:
+                LOGGER.info("Caught KeyboardInterrupt, terminating workers")
+                pool.terminate()
+                break
+            except Exception:
+                raise
+            finally:
+                pool.close()
+                pool.join()
+                process_tiles = None
+
+    LOGGER.info("%s tile(s) iterated", (str(num_processed)))
+
+
+def _get_zoom_level(zoom, process):
+    """Determine zoom levels."""
+    if zoom is None:
+        return reversed(process.config.zoom_levels)
+    elif len(zoom) == 2:
+        return reversed(range(min(zoom), max(zoom)+1))
+    elif len(zoom) == 1:
+        return zoom
+
+
+def _process_worker(process, process_tile):
+    """Worker function running the process."""
+    # Skip execution if overwrite is disabled and tile exists
+    if process.config.mode == "continue" and (
+        process.config.output.tiles_exist(process_tile)
+    ):
+        process_tile.message = "exists"
+        LOGGER.debug((
+            process.process_name, process_tile.id, process_tile.message,
+            None, None))
+        return process_tile
+    else:
+        try:
+            return process.execute(process_tile)
+        except ImportError:
+            raise
+        except Exception as e:
+            process_tile.message = "error"
+            process_tile.error = e
+            return process_tile
+
+
+def _write_worker(process, process_tile):
+    """Worker function writing process outputs."""
+    if not process_tile.message == "exists":
+        process.write(process_tile)
