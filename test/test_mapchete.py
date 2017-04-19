@@ -15,9 +15,174 @@ from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTile
 from mapchete.io.raster import create_mosaic
 
-scriptdir = os.path.dirname(os.path.realpath(__file__))
-out_dir = os.path.join(scriptdir, "testdata/tmp")
-testdata_directory = os.path.join(scriptdir, "testdata")
+SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
+TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
+
+
+def test_empty_execute():
+    """Execute process outside of defined zoom levels."""
+    try:
+        process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/cleantopo_br.mapchete")))
+        tile = process.config.process_pyramid.tile(6, 0, 0)
+        out_tile = process.execute(tile)
+        assert out_tile.data.mask.all()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
+
+
+def test_read_existing_output():
+    """Read existing process output."""
+    try:
+        process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/cleantopo_tl.mapchete")))
+        tile = process.config.process_pyramid.tile(5, 0, 0)
+        # process and save
+        process.write(process.get_raw_output(tile))
+        # read written data
+        out_tile = process.read(tile)
+        assert not out_tile.data.mask.all()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
+
+
+def test_get_raw_output_outside():
+    """Get raw process output outside of zoom levels."""
+    try:
+        process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/cleantopo_br.mapchete")))
+        tile = process.config.process_pyramid.tile(6, 0, 0)
+        out_tile = process.get_raw_output(tile)
+        assert out_tile.data.mask.all()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
+
+
+def test_get_raw_output_memory():
+    """Get raw process output using memory flag."""
+    try:
+        process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/cleantopo_tl.mapchete"), mode="memory"))
+        assert process.config.mode == "memory"
+        tile = process.config.process_pyramid.tile(5, 0, 0)
+        out_tile = process.get_raw_output(tile)
+        assert not out_tile.data.mask.all()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
+
+
+def test_get_raw_output_readonly():
+    """Get raw process output using readonly flag."""
+    try:
+        readonly_process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/cleantopo_tl.mapchete"), mode="readonly"))
+        readonly_tile = readonly_process.config.process_pyramid.tile(5, 0, 0)
+        write_process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/cleantopo_tl.mapchete"), mode="continue"))
+        write_tile = write_process.config.process_pyramid.tile(5, 0, 0)
+        # read non-existing data (returns empty)
+        out_tile = readonly_process.get_raw_output(readonly_tile)
+        assert out_tile.data.mask.all()
+        # process and save
+        try:
+            readonly_process.write(
+                readonly_process.get_raw_output(readonly_tile))
+        except AssertionError:
+            pass
+        write_process.write(write_process.get_raw_output(write_tile))
+        # read written output
+        out_tile = readonly_process.get_raw_output(readonly_tile)
+        assert not out_tile.data.mask.all()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
+
+
+def test_get_raw_output_continue():
+    """Get raw process output using memory flag."""
+    try:
+        process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/cleantopo_tl.mapchete")))
+        assert process.config.mode == "continue"
+        tile = process.config.process_pyramid.tile(5, 0, 0)
+        # process and save
+        process.write(process.get_raw_output(tile))
+        # read written data
+        out_tile = process.get_raw_output(tile)
+        assert not out_tile.data.mask.all()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
+
+
+# TODO
+# def test_baselevels():
+#     """Baselevel interpolation."""
+#     try:
+#         process = Mapchete(
+#             MapcheteConfig(os.path.join(
+#                 SCRIPTDIR, "testdata/baselevels.mapchete"), mode="continue"))
+#         lower_tile = process.get_process_tiles(4).next()
+#         # process and save
+#         for tile in lower_tile.get_children():
+#             output = process.get_raw_output(tile)
+#             process.write(output)
+#         # read from baselevel
+#         out_tile = process.get_raw_output(lower_tile)
+#         assert not out_tile.data.mask.all()
+#         # process and save
+#         tile = process.get_process_tiles(6).next()
+#         output = process.get_raw_output(tile)
+#         process.write(output)
+#         # read from baselevel
+#         assert any([
+#             not process.get_raw_output(upper_tile).data.mask.all()
+#             for upper_tile in tile.get_children()
+#         ])
+#         assert 0
+#     except Exception:
+#         raise
+#     finally:
+#         try:
+#             shutil.rmtree(OUT_DIR)
+#         except OSError:
+#             pass
 
 
 def test_processing():
@@ -26,7 +191,7 @@ def test_processing():
         "testdata/cleantopo_tl.mapchete", "testdata/cleantopo_br.mapchete"
     ]:
         process = Mapchete(
-            MapcheteConfig(os.path.join(scriptdir, cleantopo_process)))
+            MapcheteConfig(os.path.join(SCRIPTDIR, cleantopo_process)))
         for zoom in range(6):
             tiles = []
             for tile in process.get_process_tiles(zoom):
@@ -39,9 +204,9 @@ def test_processing():
                 process.write(output)
             mosaic, mosaic_affine = create_mosaic(tiles)
             try:
-                temp_vrt = os.path.join(out_dir, str(zoom)+".vrt")
+                temp_vrt = os.path.join(OUT_DIR, str(zoom)+".vrt")
                 gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-                    temp_vrt, out_dir, zoom)
+                    temp_vrt, OUT_DIR, zoom)
                 os.system(gdalbuildvrt)
                 with rasterio.open(temp_vrt, "r") as testfile:
                     for file_item, mosaic_item in zip(
@@ -52,13 +217,13 @@ def test_processing():
                     assert band.shape == mosaic.shape
                     assert ma.allclose(band, mosaic)
                     assert ma.allclose(band.mask, mosaic.mask)
-            except:
+            except Exception:
                 raise
             finally:
                 try:
                     os.remove(temp_vrt)
-                    shutil.rmtree(out_dir)
-                except:
+                    shutil.rmtree(OUT_DIR)
+                except OSError:
                     pass
 
 
@@ -66,7 +231,7 @@ def test_multiprocessing():
     """Test parallel tile processing."""
     process = Mapchete(
         MapcheteConfig(os.path.join(
-            scriptdir, "testdata/cleantopo_tl.mapchete")))
+            SCRIPTDIR, "testdata/cleantopo_tl.mapchete")))
     assert dumps(process)
     assert dumps(process.config)
     assert dumps(process.config.output)
@@ -82,14 +247,14 @@ def test_multiprocessing():
                 process.write(raw_output)
     except KeyboardInterrupt:
         pool.terminate()
-    except:
+    except Exception:
         raise
     finally:
         pool.close()
         pool.join()
         try:
-            shutil.rmtree(out_dir)
-        except:
+            shutil.rmtree(OUT_DIR)
+        except Exception:
             pass
 
 
@@ -102,7 +267,7 @@ def test_process_template():
     """Template used to create an empty process."""
     process_template = pkg_resources.resource_filename(
         "mapchete.static", "process_template.py")
-    dummy1 = os.path.join(testdata_directory, "dummy1.tif")
+    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
     mp = Mapchete(
         MapcheteConfig(
             dict(

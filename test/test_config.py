@@ -104,7 +104,7 @@ def test_read_baselevels():
     config = MapcheteConfig(
         os.path.join(scriptdir, "testdata/baselevels.mapchete"))
     assert isinstance(config.baselevels, dict)
-    assert set(config.baselevels["zooms"]) == set([12, 13, 14])
+    assert set(config.baselevels["zooms"]) == set([5, 6])
     assert config.baselevels["lower"] == "bilinear"
     assert config.baselevels["higher"] == "nearest"
 

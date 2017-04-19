@@ -12,7 +12,6 @@ output:
     format: GTiff
     path: tmp
     pixelbuffer: 10
-    # metatiling: 1
 
 pixelbuffer: 10
 metatiling: 8

@@ -1,17 +1,18 @@
 # mapchete parameters
 process_file: ../example_process.py
-process_zoom: 5
+process_minzoom: 4
+process_maxzoom: 7
 input_files:
-    file1: dummy2.tif
+    file1: dummy1.tif
 
 output:
     type: geodetic
     dtype: float32
-    bands: 1
+    bands: 3
     format: GTiff
-    path: test/tmp
+    path: tmp
 
 baselevels:
-    min: 12
-    max: 14
+    min: 5
+    max: 6
     lower: bilinear

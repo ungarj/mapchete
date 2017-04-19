@@ -129,11 +129,6 @@ class Mapchete(object):
         process_tile : Tile
             Member of the process tile pyramid (not necessarily the output
             pyramid, if output has a different metatiling setting)
-        overwrite : bool
-            Overwrite existing tiles (default: False)
-        no_write : bool
-            Never write, just process and cache tiles in RAM (doesn't work with
-            multiprocessing; default: False)
 
         Returns
         -------
@@ -225,6 +220,7 @@ class Mapchete(object):
         if tile.zoom not in self.config.zoom_levels:
             tile.data = self.config.output.empty(tile)
             return tile
+
         if self.config.mode == "memory":
             # Determine affected process Tile and check whether it is already
             # cached.
