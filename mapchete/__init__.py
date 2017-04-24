@@ -221,6 +221,11 @@ class Mapchete(object):
             tile.data = self.config.output.empty(tile)
             return tile
 
+        # TODO implement reprojection
+        if tile.crs != self.config.process_pyramid.crs:
+            raise NotImplementedError(
+                "tile CRS and process CRS must be the same")
+
         if self.config.mode == "memory":
             # Determine affected process Tile and check whether it is already
             # cached.
@@ -352,13 +357,17 @@ class Mapchete(object):
             process_data = tile_process.execute()
             # Log process time
         except Exception as error:
-            message = "execute error"
-        finally:
             endtime = time.time()
             elapsed = "%ss" % (round((endtime - starttime), 3))
-            LOGGER.debug((
-                self.process_name, process_tile.id, message, error, elapsed))
+            LOGGER.error((
+                self.process_name, process_tile.id, message, elapsed))
+            raise
+        finally:
             del tile_process
+        endtime = time.time()
+        elapsed = "%ss" % (round((endtime - starttime), 3))
+        LOGGER.debug((
+            self.process_name, process_tile.id, message, error, elapsed))
         # Analyze proess output.
         return self._streamline_output(process_data, process_tile)
 
@@ -620,8 +629,11 @@ def batch_process(
     LOGGER.info("starting process using %s worker(s)", multi)
     f = partial(_process_worker, process)
     # TODO quicker tile number estimation
-    total_tiles = sum(
-        len(list(process.get_process_tiles(z))) for z in zoom_levels)
+    if (quiet or debug):
+        total_tiles = 0
+    else:
+        total_tiles = sum(
+            len(list(process.get_process_tiles(z))) for z in zoom_levels)
     with tqdm.tqdm(
         total=total_tiles, unit="tiles", disable=(quiet or debug)
     ) as pbar:
@@ -676,9 +688,11 @@ def _process_worker(process, process_tile):
         except ImportError:
             raise
         except Exception as e:
-            process_tile.message = "error"
-            process_tile.error = e
-            return process_tile
+            raise
+            # TODO rethink skipping errors
+            # process_tile.message = "error"
+            # process_tile.error = e
+            # return process_tile
 
 
 def _write_worker(process, process_tile):
