@@ -92,7 +92,7 @@ class OutputData(base.OutputData):
             must be member of process ``TilePyramid``
         """
         data = prepare_array(
-            process_tile.data, dtype="uint8", masked=False)
+            process_tile.data, dtype="uint8", masked=False, nodata=0)
         if self.old_band_num:
             data = np.stack((
                 np.zeros(process_tile.shape), np.zeros(process_tile.shape),
@@ -100,7 +100,8 @@ class OutputData(base.OutputData):
         else:
             data = np.stack((
                 np.zeros(process_tile.shape), data[0]))
-        process_tile.data = prepare_array(data, dtype="uint8")
+        process_tile.data = prepare_array(
+            data, dtype="uint8", masked=True, nodata=255)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -130,7 +131,7 @@ class OutputData(base.OutputData):
             band_num = 2
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
-                output_tile.data = src.read(band_num, masked=True)
+                output_tile.data = ma.masked_values(src.read(band_num), 0)
         except RasterioIOError:
             output_tile.data = self.empty(output_tile)
         return output_tile
@@ -269,5 +270,5 @@ PNG_PROFILE = {
     "dtype": "uint8",
     "driver": "PNG",
     "count": 2,
-    "nodata": 0
+    "nodata": 255
 }
