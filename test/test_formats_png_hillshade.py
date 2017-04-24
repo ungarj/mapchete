@@ -112,6 +112,5 @@ def test_output_data():
     assert not empty.any()
     # read non-existing file
     data = output.read(tile).data
-    print data
     assert data.mask.all()
     # TODO for_web
