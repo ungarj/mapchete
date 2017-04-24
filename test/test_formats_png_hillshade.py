@@ -44,7 +44,7 @@ def test_output_data():
             pass
     # profile
     assert isinstance(output.profile(tile), dict)
-    # write
+    # write full array
     try:
         tile.data = np.ones(tile.shape)*128
         output.write(tile)
@@ -54,6 +54,28 @@ def test_output_data():
         data = output.read(tile).data
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(temp_dir)
+        except OSError:
+            pass
+    # write half masked array
+    try:
+        half_shape = (tile.shape[0], tile.shape[1]/2)
+        tile.data = ma.masked_array(
+            data=np.ones(tile.shape)*128,
+            mask=np.concatenate(
+                [np.zeros(half_shape), np.ones(half_shape)], axis=1))
+        output.write(tile)
+        # tiles_exist
+        assert output.tiles_exist(tile)
+        # read
+        data = output.read(tile).data
+        assert isinstance(data, np.ndarray)
+        assert not data.mask.all()
+        assert data.mask.any()
     except Exception:
         raise
     finally:
