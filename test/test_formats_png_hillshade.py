@@ -35,6 +35,8 @@ def test_output_data():
         temp_dir = os.path.join(*[OUT_DIR, "5", "5"])
         output.prepare_path(tile)
         assert os.path.isdir(temp_dir)
+        # create again to ensure, no OSError is being thrown
+        output.prepare_path(tile)
     except Exception:
         raise
     finally:
@@ -108,4 +110,8 @@ def test_output_data():
     empty = output.empty(tile)
     assert isinstance(empty, ma.MaskedArray)
     assert not empty.any()
+    # read non-existing file
+    data = output.read(tile).data
+    print data
+    assert data.mask.all()
     # TODO for_web

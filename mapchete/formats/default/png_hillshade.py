@@ -262,7 +262,7 @@ class OutputData(base.OutputData):
             empty array with correct data type for raster data or empty list
             for vector data
         """
-        return ma.zeros(process_tile.shape)
+        return ma.masked_values(np.zeros(process_tile.shape), 0)
 
 
 PNG_PROFILE = {
