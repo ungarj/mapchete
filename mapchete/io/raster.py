@@ -438,7 +438,8 @@ def prepare_array(data, masked=True, nodata=0, dtype="int16"):
     Turn input data into a proper array for further usage.
 
     Outut array is always 3-dimensional with the given data type. If the output
-    is masked, the fill_value corresponds to the given nodata value.
+    is masked, the fill_value corresponds to the given nodata value and the
+    nodata value will be burned into the data array.
 
     Parameters
     ----------
@@ -464,14 +465,14 @@ def prepare_array(data, masked=True, nodata=0, dtype="int16"):
     elif isinstance(data, np.ndarray) and data.ndim == 2:
         data = ma.expand_dims(data, axis=0)
 
+    # input is a masked array
     if isinstance(data, ma.MaskedArray):
         return _prepare_masked(data, masked, nodata, dtype)
 
+    # input is a NumPy array
     elif isinstance(data, np.ndarray):
         if masked:
-            return ma.MaskedArray(
-                data=data.astype(dtype),
-                mask=np.where(data == nodata, True, False))
+            return ma.masked_values(data, nodata).astype(dtype)
         else:
             return data.astype(dtype)
     else:
@@ -513,11 +514,9 @@ def _prepare_masked(data, masked, nodata, dtype):
         if masked:
             return data.astype(dtype)
         else:
-            return data.data.astype(dtype)
+            return ma.filled(data, nodata).astype(dtype)
     except AssertionError:
         if masked:
-            return ma.MaskedArray(
-                data=data.data.astype(dtype),
-                mask=np.where(data.data == nodata, True, False))
+            return ma.masked_values(data, nodata).astype(dtype)
         else:
-            return data.data.astype(dtype)
+            return ma.filled(data, nodata).astype(dtype)
