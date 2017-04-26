@@ -124,3 +124,29 @@ def test_read_input_groups():
     assert "file2" in input_files["nested_group"]["group1"]
     assert "file1" in input_files["nested_group"]["group2"]
     assert "file2" in input_files["nested_group"]["group2"]
+
+
+def test_input_files_zooms():
+    """Read correct input file per zoom."""
+    config = MapcheteConfig(
+        os.path.join(scriptdir, "testdata/files_zooms.mapchete"))
+    # zoom 7
+    input_files = config.at_zoom(7)["input_files"]
+    assert os.path.basename(
+        input_files["greater_smaller"].path) == "dummy1.tif"
+    assert os.path.basename(input_files["equals"].path) == "dummy1.tif"
+    # zoom 8
+    input_files = config.at_zoom(8)["input_files"]
+    assert os.path.basename(
+        input_files["greater_smaller"].path) == "dummy1.tif"
+    assert os.path.basename(input_files["equals"].path) == "dummy2.tif"
+    # zoom 9
+    input_files = config.at_zoom(9)["input_files"]
+    assert os.path.basename(
+        input_files["greater_smaller"].path) == "dummy2.tif"
+    assert os.path.basename(input_files["equals"].path) == "cleantopo_br.tif"
+    # zoom 10
+    input_files = config.at_zoom(10)["input_files"]
+    assert os.path.basename(
+        input_files["greater_smaller"].path) == "dummy2.tif"
+    assert os.path.basename(input_files["equals"].path) == "cleantopo_tl.tif"

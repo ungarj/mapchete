@@ -449,6 +449,7 @@ class MapcheteConfig(object):
         input_files = {}
         input_files_areas = []
         for k, v in files.iteritems():
+            # "path" within the .mapchete input_files tree
             lk = "/".join([prefix, k])
             if isinstance(v, dict):
                 next_files, next_areas = self._parse_input_files(v, prefix=lk)
@@ -456,18 +457,19 @@ class MapcheteConfig(object):
                 input_files_areas.extend(next_areas)
             elif v not in ["none", "None", None, ""]:
                 # prepare input files metadata
-                if lk not in self._prepared_files:
+                if v not in self._prepared_files:
                     # load file reader objects for each file
                     if v.startswith("s3://"):
                         path = v
                     else:
                         path = os.path.normpath(
                             os.path.join(self.config_dir, v))
-                    self._prepared_files[lk] = load_input_reader(dict(
+                    self._prepared_files[v] = load_input_reader(dict(
                         path=path, pyramid=self.process_pyramid,
                         pixelbuffer=self.pixelbuffer))
+
                 # add file reader and file bounding box
-                input_files[k] = self._prepared_files[lk]
+                input_files[k] = self._prepared_files[v]
                 input_files_areas.append(input_files[k].bbox(
                     out_crs=self.crs))
             else:
@@ -509,8 +511,8 @@ class MapcheteConfig(object):
         TODOs/gotchas:
         - Elements are unordered, which can lead to unexpected results when
           defining the YAML config.
-        - Provided zoom levels for one element in config file are not allowed to
-          "overlap", i.e. there is not yet a decision mechanism implemented
+        - Provided zoom levels for one element in config file are not allowed
+          to "overlap", i.e. there is not yet a decision mechanism implemented
           which handles this case.
         """
         # If element is a dictionary, analyze subitems.

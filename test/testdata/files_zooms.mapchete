@@ -1,0 +1,19 @@
+# mapchete parameters
+process_file: ../example_process.py
+process_minzoom: 7
+process_maxzoom: 10
+input_files:
+    greater_smaller:
+        zoom<9: dummy1.tif
+        zoom>=9: dummy2.tif
+    equals:
+        zoom=7: dummy1.tif
+        zoom=8: dummy2.tif
+        zoom=9: cleantopo_br.tif
+        zoom=10: cleantopo_tl.tif
+output:
+    dtype: float32
+    bands: 1
+    path: tmp
+    format: GTiff
+    type: geodetic
