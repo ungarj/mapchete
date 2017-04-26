@@ -7,6 +7,7 @@ import imp
 import types
 import time
 import threading
+import numpy as np
 import numpy.ma as ma
 import tqdm
 from functools import partial
@@ -24,8 +25,8 @@ from mapchete.tile import BufferedTile
 from mapchete.io import raster, vector
 from mapchete import errors
 
+logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(logging.INFO)
 
 
 class Mapchete(object):
@@ -361,7 +362,7 @@ class Mapchete(object):
         if isinstance(process_data, str):
             process_tile.data = self.config.output.empty(process_tile)
             process_tile.message = process_data
-        elif isinstance(process_data, ma.MaskedArray):
+        elif isinstance(process_data, (np.ndarray, ma.MaskedArray)):
             process_tile.data = process_data.copy()
         elif isinstance(process_data, types.GeneratorType):
             process_tile.data = list(process_data)
