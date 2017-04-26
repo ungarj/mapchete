@@ -7,13 +7,14 @@ from shapely.wkt import loads
 
 from mapchete.config import MapcheteConfig
 
-scriptdir = os.path.dirname(os.path.realpath(__file__))
+
+SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 
 
 def test_config_zoom5():
     """Example configuration at zoom 5."""
-    config = MapcheteConfig(os.path.join(scriptdir, "example.mapchete"))
-    dummy2_abspath = os.path.join(scriptdir, "testdata/dummy2.tif")
+    config = MapcheteConfig(os.path.join(SCRIPTDIR, "example.mapchete"))
+    dummy2_abspath = os.path.join(SCRIPTDIR, "testdata/dummy2.tif")
     zoom5 = config.at_zoom(5)
     input_files = zoom5["input_files"]
     assert input_files["file1"] is None
@@ -26,9 +27,9 @@ def test_config_zoom5():
 
 def test_config_zoom11():
     """Example configuration at zoom 11."""
-    config = MapcheteConfig(os.path.join(scriptdir, "example.mapchete"))
-    dummy1_abspath = os.path.join(scriptdir, "testdata/dummy1.tif")
-    dummy2_abspath = os.path.join(scriptdir, "testdata/dummy2.tif")
+    config = MapcheteConfig(os.path.join(SCRIPTDIR, "example.mapchete"))
+    dummy1_abspath = os.path.join(SCRIPTDIR, "testdata/dummy1.tif")
+    dummy2_abspath = os.path.join(SCRIPTDIR, "testdata/dummy2.tif")
     zoom11 = config.at_zoom(11)
     input_files = zoom11["input_files"]
     assert input_files["file1"].path == dummy1_abspath
@@ -42,14 +43,14 @@ def test_config_zoom11():
 def test_read_zoom_level():
     """Read zoom level from config file."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/zoom.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/zoom.mapchete"))
     assert 5 in config.zoom_levels
 
 
 def test_minmax_zooms():
     """Read min/max zoom levels from config file."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/minmax_zoom.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete"))
     for zoom in [7, 8, 9, 10]:
         assert zoom in config.zoom_levels
 
@@ -57,14 +58,14 @@ def test_minmax_zooms():
 def test_override_zoom_levels():
     """Override zoom levels when constructing configuration."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/minmax_zoom.mapchete"), zoom=[1, 4])
+        os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete"), zoom=[1, 4])
     for zoom in [1, 2, 3, 4]:
         assert zoom in config.zoom_levels
 
 
 def test_read_bounds():
     """Read bounds from config file."""
-    config = MapcheteConfig(os.path.join(scriptdir, "testdata/zoom.mapchete"))
+    config = MapcheteConfig(os.path.join(SCRIPTDIR, "testdata/zoom.mapchete"))
     test_polygon = Polygon([
         [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]
     ])
@@ -74,7 +75,7 @@ def test_read_bounds():
 def test_override_bounds():
     """Override bounds when construcing configuration."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/zoom.mapchete"),
+        os.path.join(SCRIPTDIR, "testdata/zoom.mapchete"),
         bounds=[3, 2, 3.5, 1.5])
     test_polygon = Polygon([
         [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
@@ -84,7 +85,7 @@ def test_override_bounds():
 def test_bounds_from_input_files():
     """Read bounds from input files."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/files_bounds.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/files_bounds.mapchete"))
     test_polygon = Polygon(
         [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]])
     assert config.process_area(10).equals(test_polygon)
@@ -93,7 +94,7 @@ def test_bounds_from_input_files():
 def test_read_mapchete_input():
     """Read Mapchete files as input files."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/mapchete_input.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/mapchete_input.mapchete"))
     area = config.process_area(5)
     testpolygon = "POLYGON ((3 2, 3.5 2, 3.5 1.5, 3 1.5, 3 1, 2 1, 2 4, 3 4, 3 2))"
     assert area.equals(loads(testpolygon))
@@ -102,7 +103,7 @@ def test_read_mapchete_input():
 def test_read_baselevels():
     """Read baselevels."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/baselevels.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete"))
     assert isinstance(config.baselevels, dict)
     assert set(config.baselevels["zooms"]) == set([5, 6])
     assert config.baselevels["lower"] == "bilinear"
@@ -112,7 +113,7 @@ def test_read_baselevels():
 def test_read_input_groups():
     """Read input data groups."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/file_groups.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/file_groups.mapchete"))
     input_files = config.at_zoom(0)["input_files"]
     assert "file1" in input_files["group1"]
     assert "file2" in input_files["group1"]
@@ -129,7 +130,7 @@ def test_read_input_groups():
 def test_input_files_zooms():
     """Read correct input file per zoom."""
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/files_zooms.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/files_zooms.mapchete"))
     # zoom 7
     input_files = config.at_zoom(7)["input_files"]
     assert os.path.basename(

@@ -15,3 +15,7 @@ class MapcheteProcessException(Exception):
 
 class MapcheteProcessOutputError(ValueError):
     """Raised when a mapchete process output is invalid."""
+
+
+class MapcheteConfigError(ValueError):
+    """Raised when a mapchete process configuration is invalid."""
