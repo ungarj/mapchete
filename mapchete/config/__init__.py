@@ -232,25 +232,26 @@ class MapcheteConfig(object):
                 k: v for k, v in baselevels.iteritems() if k in ["min", "max"]}
             assert minmax
             for v in minmax.values():
+                assert v >= 0
                 assert isinstance(v, int)
         except Exception as e:
             raise MapcheteConfigError(
                 "invalid baselevel zoom parameter given: %s" % e)
         try:
             base_min = minmax["min"]
-        except Exception:
+        except KeyError:
             base_min = min(self.zoom_levels)
         try:
             base_max = minmax["max"]
-        except Exception:
+        except KeyError:
             base_max = max(self.zoom_levels)
         try:
             resampling_lower = baselevels["lower"]
-        except Exception:
+        except KeyError:
             resampling_lower = "nearest"
         try:
             resampling_higher = baselevels["higher"]
-        except Exception:
+        except KeyError:
             resampling_higher = "nearest"
         return dict(
             zooms=range(base_min, base_max+1),
@@ -346,8 +347,7 @@ class MapcheteConfig(object):
         # throw error if unknown object
         else:
             raise MapcheteConfigError(
-                "Configuration has to be a dictionary or a .mapchete file."
-                )
+                "Configuration has to be a dictionary or a .mapchete file.")
         # check if mandatory parameters are provided
         for param in _MANDATORY_PARAMETERS:
             try:

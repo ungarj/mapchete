@@ -7,6 +7,8 @@ This module deserves a cleaner rewrite some day.
 import os
 import pkg_resources
 
+from mapchete import errors
+
 _DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
 
 
@@ -98,7 +100,7 @@ def load_input_reader(input_params):
             input_reader = v.load().InputData(input_params)
             if input_reader.METADATA["driver_name"] == driver_name:
                 return input_reader
-        except AttributeError:
+        except (AttributeError, errors.MapcheteConfigError):
             pass
     raise AttributeError(
         "no loader for driver '%s' could be found." % driver_name)

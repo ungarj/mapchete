@@ -13,7 +13,7 @@ from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
 
-LOGGER = logging.getLogger("mapchete")
+LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 

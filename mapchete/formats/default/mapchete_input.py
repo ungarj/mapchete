@@ -61,7 +61,7 @@ class InputData(base.InputData):
         try:
             return self.process.config.output.open(
                 tile, self.process, **kwargs)
-        except:
+        except Exception:
             raise NotImplementedError(
                 "output driver from input mapchete does not support reading")
 

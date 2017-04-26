@@ -7,16 +7,15 @@ import numpy.ma as ma
 from shapely.geometry import Point, GeometryCollection
 
 
-from mapchete import Mapchete, MapcheteConfig, MapcheteProcess
-from mapchete.tile import BufferedTilePyramid
+from mapchete import Mapchete, MapcheteProcess
 
-scriptdir = os.path.dirname(os.path.realpath(__file__))
+SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 
 
 def test_clip():
     """Clip an array with a vector."""
     process = Mapchete(
-        os.path.join(scriptdir, "testdata/geojson.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
     tile = process.get_process_tiles(zoom=4).next()
     tile_process = MapcheteProcess(tile, params=process.config.at_zoom(4))
     with tile_process.open("file1") as vector_file:
@@ -61,7 +60,7 @@ def test_clip():
 def test_contours():
     """Extract contours from array."""
     process = Mapchete(
-        os.path.join(scriptdir, "testdata/cleantopo_tl.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
     tile = process.get_process_tiles(zoom=4).next()
     tile_process = MapcheteProcess(tile, params=process.config.at_zoom(4))
     with tile_process.open("file1") as dem:
@@ -81,7 +80,7 @@ def test_contours():
 def test_hillshade():
     """Render hillshade from array."""
     process = Mapchete(
-        os.path.join(scriptdir, "testdata/cleantopo_tl.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
     tile = process.get_process_tiles(zoom=4).next()
     tile_process = MapcheteProcess(tile, params=process.config.at_zoom(4))
     with tile_process.open("file1") as dem:
