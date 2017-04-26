@@ -341,8 +341,6 @@ class Mapchete(object):
             )
         except ImportError as e:
             raise errors.MapcheteProcessImportError(e)
-        except Exception as e:
-            raise errors.MapcheteProcessException(e)
         try:
             starttime = time.time()
             # Actually run process.
