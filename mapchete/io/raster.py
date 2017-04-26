@@ -242,20 +242,8 @@ def extract_from_tile(in_tile, out_tile):
     -------
     extracted array : array
     """
-    if isinstance(in_tile, BufferedTile):
-        if isinstance(in_tile.data, (np.ndarray, ma.MaskedArray)):
-            pass
-        elif isinstance(in_tile.data, tuple):
-            in_tile.data = ma.MaskedArray(
-                data=np.stack(in_tile.data),
-                mask=np.stack(in_tile.data.mask)
-            )
-        else:
-            raise TypeError(
-                "NumPy arrays or tuple required, not %s" % type(in_tile.data))
-    else:
-        raise TypeError("BufferedTile required, not %s" % type(in_tile))
     assert isinstance(out_tile, BufferedTile)
+    assert isinstance(in_tile.data, np.ndarray)
     assert in_tile.data.ndim in [2, 3, 4]
     return extract_from_array(in_tile.data, in_tile.affine, out_tile)
 
@@ -274,14 +262,7 @@ def extract_from_array(in_data, in_affine, out_tile):
     -------
     extracted array : array
     """
-    if isinstance(in_data, (np.ndarray, ma.MaskedArray)):
-        pass
-    elif isinstance(in_data, tuple):
-        in_data = ma.MaskedArray(
-            data=np.stack(in_data),
-            mask=np.stack([band.mask for band in in_data]))
-    else:
-        raise TypeError("wrong input data type: %s" % type(in_data))
+    assert isinstance(in_data, np.ndarray)
     left, bottom, right, top = out_tile.bounds
     if in_data.ndim == 2:
         window = from_bounds(

@@ -151,38 +151,39 @@ def test_get_raw_output_continue():
             pass
 
 
-# TODO
-# def test_baselevels():
-#     """Baselevel interpolation."""
-#     try:
-#         process = Mapchete(
-#             MapcheteConfig(os.path.join(
-#                 SCRIPTDIR, "testdata/baselevels.mapchete"), mode="continue"))
-#         lower_tile = process.get_process_tiles(4).next()
-#         # process and save
-#         for tile in lower_tile.get_children():
-#             output = process.get_raw_output(tile)
-#             process.write(output)
-#         # read from baselevel
-#         out_tile = process.get_raw_output(lower_tile)
-#         assert not out_tile.data.mask.all()
-#         # process and save
-#         tile = process.get_process_tiles(6).next()
-#         output = process.get_raw_output(tile)
-#         process.write(output)
-#         # read from baselevel
-#         assert any([
-#             not process.get_raw_output(upper_tile).data.mask.all()
-#             for upper_tile in tile.get_children()
-#         ])
-#         assert 0
-#     except Exception:
-#         raise
-#     finally:
-#         try:
-#             shutil.rmtree(OUT_DIR)
-#         except OSError:
-#             pass
+def test_baselevels():
+    """Baselevel interpolation."""
+    try:
+        process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/baselevels.mapchete"), mode="continue"))
+        # from lower zoom level
+        lower_tile = process.get_process_tiles(4).next()
+        # process and save
+        for tile in lower_tile.get_children():
+            output = process.get_raw_output(tile)
+            process.write(output)
+        # read from baselevel
+        out_tile = process.get_raw_output(lower_tile)
+        assert not out_tile.data.mask.all()
+
+        # from higher zoom level
+        tile = process.get_process_tiles(6).next()
+        # process and save
+        output = process.get_raw_output(tile)
+        process.write(output)
+        # read from baselevel
+        assert any([
+            not process.get_raw_output(upper_tile).data.mask.all()
+            for upper_tile in tile.get_children()
+        ])
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
 
 
 def test_processing():

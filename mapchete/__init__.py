@@ -289,22 +289,14 @@ class Mapchete(object):
         # Wait and return.
         if process_event:
             process_event.wait()
-            try:
-                return self.process_tile_cache[process_tile.id]
-            except KeyError:
-                raise RuntimeError("tile not in cache")
+            return self.process_tile_cache[process_tile.id]
         else:
             try:
                 output = self.execute(process_tile)
                 self.process_tile_cache[process_tile.id] = output
                 if self.config.mode in ["continue", "overwrite"]:
-                    try:
-                        self.write(output)
-                    except OSError:
-                        pass
+                    self.write(output)
                 return self.process_tile_cache[process_tile.id]
-            except Exception:
-                raise
             finally:
                 with self.process_lock:
                     process_event = self.current_processes.get(
@@ -318,6 +310,9 @@ class Mapchete(object):
         except Exception:
             pass
         if self.config.output.METADATA["data_type"] == "raster":
+            process_tile.data = raster.prepare_array(
+                process_tile.data, nodata=self.config.output.nodata,
+                dtype=self.config.output.output_params["dtype"])
             tile.data = raster.extract_from_tile(process_tile, tile)
         elif self.config.output.METADATA["data_type"] == "vector":
             tile.data = vector.extract_from_tile(process_tile, tile)
