@@ -7,7 +7,6 @@ import imp
 import types
 import time
 import threading
-import numpy as np
 import numpy.ma as ma
 import tqdm
 from functools import partial
@@ -76,7 +75,10 @@ class Mapchete(object):
         self.config = config
         # TODO assert this line is really not necessary
         # config.output
-        py_compile.compile(self.config.process_file, doraise=True)
+        try:
+            py_compile.compile(self.config.process_file, doraise=True)
+        except py_compile.PyCompileError as e:
+            raise errors.MapcheteProcessSyntaxError(e)
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file))[0]
         if self.config.mode == "memory":

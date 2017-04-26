@@ -127,12 +127,12 @@ def test_extract_from_tile():
     out_tile = BufferedTilePyramid("geodetic").tile(5, 20, 20)
     out_array = raster.extract_from_tile(in_tile, out_tile)
     assert isinstance(out_array, np.ndarray)
-    assert np.all(np.where(out_array==1, True, False))
+    assert np.all(np.where(out_array == 1, True, False))
     # intersecting at bottom
     out_tile = BufferedTilePyramid("geodetic").tile(5, 22, 20)
     out_array = raster.extract_from_tile(in_tile, out_tile)
     assert isinstance(out_array, np.ndarray)
-    assert np.all(np.where(out_array==2, True, False))
+    assert np.all(np.where(out_array == 2, True, False))
     # not intersecting
     try:
         out_tile = BufferedTilePyramid("geodetic").tile(5, 15, 20)
@@ -161,12 +161,13 @@ def test_create_mosaic():
     """Create mosaic from multiple tiles."""
     for pixelbuffer in [0, 10]:
         tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-        tiles = [tp.tile(5, row, col) for row, col in product(range(4), range(4))]
+        tiles = [
+            tp.tile(5, row, col) for row, col in product(range(4), range(4))]
         for tile in tiles:
             tile.data = np.ones(tile.shape)
         # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
         out_mosaic, out_affine = raster.create_mosaic(tiles)
-        assert np.all(np.where(out_mosaic==1, True, False))
+        assert np.all(np.where(out_mosaic == 1, True, False))
         mosaic_bbox = box(
             out_affine[2], out_affine[5]+out_mosaic.shape[1]*out_affine[4],
             out_affine[2]+out_mosaic.shape[2]*out_affine[0], out_affine[5])
@@ -179,32 +180,32 @@ def test_prepare_array_iterables():
     # input is iterable
     # iterable contains arrays
     data = [np.zeros((1, 1))]
-    ### output ndarray
+    # output ndarray
     output = raster.prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ### output masked array
+    # output masked array
     output = raster.prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ## iterable contains masked arrays
+    # iterable contains masked arrays
     data = [ma.empty((1, 1))]
     output = raster.prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ### output masked array
+    # output masked array
     output = raster.prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ## iterable contains masked arrays with full mask
+    # iterable contains masked arrays with full mask
     data = [ma.masked_array(data=np.ones((1, 1)), mask=np.ones((1, 1)))]
     output = raster.prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ### output masked array
+    # output masked array
     output = raster.prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
@@ -214,23 +215,23 @@ def test_prepare_array_maskedarrays():
     """Convert masked array data into a proper array."""
     # input is ma.masked_array
     data = ma.empty((1, 1, 1))
-    ## output ndarray
+    # output ndarray
     output = raster.prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ## output masked array
+    # output masked array
     output = raster.prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # input is ma.masked_array with full mask
     data = ma.masked_array(data=np.ones((1, 1, 1)), mask=np.ones((1, 1, 1)))
-    ## output ndarray
+    # output ndarray
     output = raster.prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ## output masked array
+    # output masked array
     output = raster.prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
@@ -240,23 +241,23 @@ def test_prepare_array_ndarrays():
     """Convert ndarray data into a proper array."""
     # input is np.ndarray
     data = np.zeros((1, 1, 1))
-    ## output ndarray
+    # output ndarray
     output = raster.prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ## output masked array
+    # output masked array
     output = raster.prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # input is 2D np.ndarray
     data = np.zeros((1, 1))
-    ## output ndarray
+    # output ndarray
     output = raster.prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
-    ## output masked array
+    # output masked array
     output = raster.prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
@@ -267,14 +268,14 @@ def test_prepare_array_errors():
     # input is iterable
     data = [None]
     try:
-        output = raster.prepare_array(data)
+        raster.prepare_array(data)
         raise Exception("test failed")
     except ValueError:
         pass
     # input is not array
     data = 5
     try:
-        output = raster.prepare_array(data)
+        raster.prepare_array(data)
         raise Exception("test failed")
     except ValueError:
         pass
