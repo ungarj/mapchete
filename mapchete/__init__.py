@@ -23,6 +23,7 @@ from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTile
 from mapchete.io import raster, vector
+from mapchete import errors
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
@@ -337,9 +338,9 @@ class Mapchete(object):
                 params=self.config.at_zoom(process_tile.zoom)
             )
         except ImportError as e:
-            raise
+            raise errors.MapcheteProcessImportError(e)
         except Exception as e:
-            raise RuntimeError("error invoking process: %s" % e)
+            raise errors.MapcheteProcessException(e)
         try:
             starttime = time.time()
             # Actually run process.
@@ -362,15 +363,13 @@ class Mapchete(object):
             process_tile.message = process_data
         elif isinstance(process_data, ma.MaskedArray):
             process_tile.data = process_data.copy()
-        elif isinstance(process_data, (list, tuple, np.ndarray)):
-            process_tile.data = process_data
         elif isinstance(process_data, types.GeneratorType):
             process_tile.data = list(process_data)
-        elif process_data is None:
-            raise RuntimeError("process output is empty")
+        elif not process_data:
+            raise errors.MapcheteProcessOutputError("process output is empty")
         else:
-            raise RuntimeError(
-                "not a valid process output: %s" % type(process_data))
+            raise errors.MapcheteProcessOutputError(
+                "invalid output type: %s" % type(process_data))
         return process_tile
 
     def _interpolate_from_baselevel(self, process_tile, baselevel):

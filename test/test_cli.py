@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image
 
 from mapchete.cli.main import MapcheteCLI
+from mapchete.errors import MapcheteProcessOutputError
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
@@ -54,7 +55,7 @@ def test_create_and_execute():
             '--input_file', input_file]
         try:
             MapcheteCLI(args)
-        except RuntimeError:
+        except MapcheteProcessOutputError:
             pass
     except Exception:
         raise
@@ -123,7 +124,7 @@ def test_execute_multiprocessing():
             '--input_file', input_file]
         try:
             MapcheteCLI(args)
-        except RuntimeError:
+        except MapcheteProcessOutputError:
             pass
         # run example process with multiprocessing
         args = [

@@ -23,7 +23,6 @@ setup(
         'mapchete.formats',
         'mapchete.formats.default',
         'mapchete.io',
-        'mapchete.log',
         'mapchete.static'
     ],
     entry_points={
