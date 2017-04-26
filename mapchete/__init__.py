@@ -177,7 +177,7 @@ class Mapchete(object):
         """
         assert self.config.mode in ["continue", "overwrite"]
         starttime = time.time()
-        if not process_tile or process_tile.data is None:
+        if process_tile.data is None:
             LOGGER.debug((process_tile.id, "nothing to write"))
         else:
             if self.config.mode == "continue" and (
@@ -346,10 +346,10 @@ class Mapchete(object):
             # Actually run process.
             process_data = tile_process.execute()
             # Log process time
-        except Exception:
+        except Exception as e:
             elapsed = "%ss" % (round((time.time() - starttime), 3))
             LOGGER.error((process_tile.id, "process error", elapsed))
-            raise
+            raise errors.MapcheteProcessException(e)
         finally:
             del tile_process
         elapsed = "%ss" % (round((time.time() - starttime), 3))
@@ -603,7 +603,9 @@ def batch_process(
     if tile:
         tile = process.config.process_pyramid.tile(*tuple(tile))
         assert tile.is_valid()
-        _write_worker(process, _process_worker(process, tile))
+        output = _process_worker(process, tile)
+        if output:
+            _write_worker(process, output)
         LOGGER.info("1 tile iterated")
         return
     zoom_levels = list(_get_zoom_level(zoom, process))
@@ -667,5 +669,4 @@ def _process_worker(process, process_tile):
 
 def _write_worker(process, process_tile):
     """Worker function writing process outputs."""
-    if not process_tile.message == "exists":
-        process.write(process_tile)
+    process.write(process_tile)

@@ -10,9 +10,9 @@ from cPickle import dumps
 from functools import partial
 from multiprocessing import Pool
 
-from mapchete import Mapchete
+from mapchete import Mapchete, batch_process
 from mapchete.config import MapcheteConfig
-from mapchete.tile import BufferedTile
+from mapchete.tile import BufferedTile, BufferedTilePyramid
 from mapchete.io.raster import create_mosaic
 from mapchete.errors import MapcheteProcessOutputError
 
@@ -152,6 +152,25 @@ def test_get_raw_output_continue():
             pass
 
 
+def test_get_raw_output_reproject():
+    """Get process output from a different CRS."""
+    try:
+        process = Mapchete(
+            MapcheteConfig(os.path.join(
+                SCRIPTDIR, "testdata/cleantopo_tl.mapchete")))
+        assert process.config.mode == "continue"
+        tile = BufferedTilePyramid("mercator").tile(5, 0, 0)
+        # TODO implement function
+        process.get_raw_output(tile)
+    except NotImplementedError:
+        pass
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
+
+
 def test_baselevels():
     """Baselevel interpolation."""
     try:
@@ -265,6 +284,16 @@ def _worker(process, process_tile):
     return process.execute(process_tile)
 
 
+def test_write_empty():
+    """Test write function when passing an empty process_tile."""
+    process = Mapchete(
+        MapcheteConfig(os.path.join(
+            SCRIPTDIR, "testdata/cleantopo_tl.mapchete")))
+    tile = process.config.process_pyramid.tile(5, 0, 0)
+    # process and save
+    process.write(tile)
+
+
 def test_process_template():
     """Template used to create an empty process."""
     process_template = pkg_resources.resource_filename(
@@ -291,3 +320,29 @@ def test_process_template():
         mp.execute(process_tile)
     except MapcheteProcessOutputError:
         pass
+
+
+def test_batch_process():
+    """Test batch_process function."""
+    process = Mapchete(
+        MapcheteConfig(os.path.join(
+            SCRIPTDIR, "testdata/cleantopo_tl.mapchete")))
+    try:
+        # invalid parameters errors
+        try:
+            batch_process(process, zoom=1, tile=(1, 0, 0))
+        except ValueError:
+            pass
+        try:
+            batch_process(process, debug=True, quiet=True)
+        except ValueError:
+            pass
+        # process single tile
+        batch_process(process, tile=(2, 0, 0))
+        batch_process(process, tile=(2, 0, 0), quiet=True)
+        batch_process(process, tile=(2, 0, 0), debug=True)
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except Exception:
+            pass
