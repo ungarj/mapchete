@@ -11,10 +11,10 @@ from flask import Flask, send_file, make_response, render_template_string
 
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.log import get_log_config
 from mapchete.tile import BufferedTilePyramid
 
 LOGGER = logging.getLogger("mapchete")
+LOGGER.setLevel(logging.INFO)
 
 
 def main(args=None, _test=False):
@@ -38,7 +38,6 @@ def create_app(args):
     except AssertionError:
         raise IOError("must be a valid mapchete file")
 
-    LOGGER.info("preparing process ...")
     process = Mapchete(
         MapcheteConfig(
             args.mapchete_file, zoom=args.zoom, bounds=args.bounds,
@@ -48,8 +47,6 @@ def create_app(args):
 
     app = Flask(__name__)
     web_pyramid = BufferedTilePyramid(process.config.raw["output"]["type"])
-
-    logging.config.dictConfig(get_log_config(process))
 
     @app.route('/', methods=['GET'])
     def index():
@@ -105,8 +102,7 @@ def _tile_response(process, web_tile):
         return _valid_tile_response(
             process, process.get_raw_output(web_tile))
     except Exception as exc:
-        LOGGER.info(
-            (process.process_name, "web tile", web_tile.id, "error", exc))
+        LOGGER.info(("web tile", web_tile.id, "error", exc))
         return _error_tile_response(process, web_tile)
 
 

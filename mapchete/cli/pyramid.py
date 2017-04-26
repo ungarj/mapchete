@@ -6,17 +6,12 @@ Also provides various options to rescale data if necessary
 """
 
 import os
-import logging
-import logging.config
-from py_compile import PyCompileError
 import rasterio
 
 from mapchete import Mapchete, batch_process
 from mapchete.config import MapcheteConfig
-from mapchete.log import get_log_config
 from mapchete.io import get_best_zoom_level
 
-LOGGER = logging.getLogger("mapchete")
 # ranges from rasterio
 # https://github.com/mapbox/rasterio/blob/master/rasterio/dtypes.py#L61
 DTYPE_RANGES = {
@@ -115,29 +110,15 @@ def raster2pyramid(
         mode=mode
     )
 
-    LOGGER.info("preparing process ...")
-    try:
-        process = Mapchete(
-            MapcheteConfig(
-                config,
-                zoom=zoom,
-                bounds=bounds
-            )
-        )
-    except PyCompileError as error:
-        print error
-        return
-    except Exception:
-        raise
+    # create process
+    process = Mapchete(MapcheteConfig(config, zoom=zoom, bounds=bounds))
 
-    # Prepare output directory and logging
+    # prepare output directory and logging
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    logging.config.dictConfig(get_log_config(process))
-
-    batch_process(
-        process, zoom=[minzoom, maxzoom])
+    # run process
+    batch_process(process, zoom=[minzoom, maxzoom])
 
 
 def _get_zoom(zoom, input_raster, pyramid_type):

@@ -3,16 +3,9 @@
 
 import os
 from multiprocessing import cpu_count
-import logging
-import logging.config
-from py_compile import PyCompileError
 
 from mapchete import Mapchete, batch_process
 from mapchete.config import MapcheteConfig
-from mapchete.log import get_log_config
-
-
-LOGGER = logging.getLogger("mapchete")
 
 
 def main(args=None):
@@ -27,18 +20,11 @@ def main(args=None):
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
 
-    # Initialize process.
-    try:
-        process = Mapchete(
-            MapcheteConfig(
-                parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
-                single_input_file=parsed.input_file))
-    except PyCompileError as e:
-        print e
-        return
-    except Exception:
-        raise
-    logging.config.dictConfig(get_log_config(process))
+    # initialize process
+    process = Mapchete(MapcheteConfig(
+            parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
+            single_input_file=parsed.input_file))
 
+    # run process
     batch_process(
         process, parsed.zoom, parsed.tile, multi, parsed.quiet, parsed.debug)

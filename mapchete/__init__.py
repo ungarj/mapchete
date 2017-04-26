@@ -3,7 +3,6 @@
 import os
 import py_compile
 import logging
-import logging.config
 import imp
 import types
 import time
@@ -25,7 +24,8 @@ from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTile
 from mapchete.io import raster, vector
 
-LOGGER = logging.getLogger("mapchete")
+LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
 
 class Mapchete(object):
@@ -68,6 +68,7 @@ class Mapchete(object):
         with_cache : bool
             cache processed output data in memory (default: False)
         """
+        LOGGER.info("preparing process ...")
         if isinstance(config, str):
             config = MapcheteConfig(config)
         assert isinstance(config, MapcheteConfig)
@@ -176,21 +177,16 @@ class Mapchete(object):
         assert self.config.mode in ["continue", "overwrite"]
         starttime = time.time()
         if not process_tile or process_tile.data is None:
-            message = "data empty, nothing written"
-            error = "no errors"
+            LOGGER.debug((process_tile.id, "nothing to write"))
         else:
-            message = "write"
             if self.config.mode == "continue" and (
                 self.config.output.tiles_exist(process_tile)
             ):
-                error = "exists, not overwritten"
+                LOGGER.debug((process_tile.id, "exists, not overwritten"))
             else:
                 self.config.output.write(copy(process_tile))
-                error = "no errors"
-        endtime = time.time()
-        elapsed = "%ss" % (round((endtime - starttime), 3))
-        LOGGER.debug(
-            (self.process_name, process_tile.id, message, error, elapsed))
+                elapsed = "%ss" % (round((time.time() - starttime), 3))
+                LOGGER.debug((process_tile.id, "output written", elapsed))
 
     def get_raw_output(self, tile, _baselevel_readonly=False):
         """
@@ -346,23 +342,17 @@ class Mapchete(object):
             raise RuntimeError("error invoking process: %s" % e)
         try:
             starttime = time.time()
-            message = "execute"
-            error = "no errors"
             # Actually run process.
             process_data = tile_process.execute()
             # Log process time
-        except Exception as error:
-            endtime = time.time()
-            elapsed = "%ss" % (round((endtime - starttime), 3))
-            LOGGER.error((
-                self.process_name, process_tile.id, message, elapsed))
+        except Exception:
+            elapsed = "%ss" % (round((time.time() - starttime), 3))
+            LOGGER.error((process_tile.id, "process error", elapsed))
             raise
         finally:
             del tile_process
-        endtime = time.time()
-        elapsed = "%ss" % (round((endtime - starttime), 3))
-        LOGGER.debug((
-            self.process_name, process_tile.id, message, error, elapsed))
+        elapsed = "%ss" % (round((time.time() - starttime), 3))
+        LOGGER.debug((process_tile.id, "processed", elapsed))
         # Analyze proess output.
         return self._streamline_output(process_data, process_tile)
 
@@ -386,8 +376,6 @@ class Mapchete(object):
     def _interpolate_from_baselevel(self, process_tile, baselevel):
         try:
             starttime = time.time()
-            message = "generate from baselevel"
-            error = "no errors"
             if baselevel == "higher":
                 parent_tile = self.get_raw_output(
                     process_tile.get_parent(), _baselevel_readonly=True)
@@ -404,15 +392,13 @@ class Mapchete(object):
                     mosaic, mosaic_affine, process_tile,
                     self.config.baselevels["lower"],
                     nodataval=self.config.output.nodata)
-        except Exception as e:
-            error = e
-            raise
-        finally:
-            endtime = time.time()
-            elapsed = "%ss" % (round((endtime - starttime), 3))
+            elapsed = "%ss" % (round((time.time() - starttime), 3))
             LOGGER.debug((
-                self.process_name, process_tile.id, message,
-                error, elapsed))
+                process_tile.id, "generated from baselevel", elapsed))
+        except Exception as e:
+            elapsed = "%ss" % (round((time.time() - starttime), 3))
+            LOGGER.error((process_tile.id, "baselevel error", e, elapsed))
+            raise
         return process_data
 
 
@@ -610,7 +596,7 @@ def batch_process(
     if quiet and debug:
         raise ValueError("use either quiet or debug")
     if quiet:
-        LOGGER.setLevel(logging.WARNING)
+        LOGGER.setLevel(logging.ERROR)
     if debug:
         LOGGER.setLevel(logging.DEBUG)
     if tile:
@@ -621,7 +607,7 @@ def batch_process(
         return
     zoom_levels = list(_get_zoom_level(zoom, process))
     num_processed = 0
-    LOGGER.info("starting process using %s worker(s)", multi)
+    LOGGER.info("run process using %s worker(s)", multi)
     f = partial(_process_worker, process)
     # TODO quicker tile number estimation
     if (quiet or debug):
@@ -641,7 +627,8 @@ def batch_process(
                 ):
                     pbar.update()
                     num_processed += 1
-                    _write_worker(process, output)
+                    if output:
+                        _write_worker(process, output)
             except KeyboardInterrupt:
                 LOGGER.info("Caught KeyboardInterrupt, terminating workers")
                 pool.terminate()
@@ -672,22 +659,9 @@ def _process_worker(process, process_tile):
     if process.config.mode == "continue" and (
         process.config.output.tiles_exist(process_tile)
     ):
-        process_tile.message = "exists"
-        LOGGER.debug((
-            process.process_name, process_tile.id, process_tile.message,
-            None, None))
-        return process_tile
+        LOGGER.debug((process_tile.id, "tile exists"))
     else:
-        try:
-            return process.execute(process_tile)
-        except ImportError:
-            raise
-        except Exception as e:
-            raise
-            # TODO rethink skipping errors
-            # process_tile.message = "error"
-            # process_tile.error = e
-            # return process_tile
+        return process.execute(process_tile)
 
 
 def _write_worker(process, process_tile):
