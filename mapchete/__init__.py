@@ -365,6 +365,8 @@ class Mapchete(object):
             process_tile.data = process_data.copy()
         elif isinstance(process_data, types.GeneratorType):
             process_tile.data = list(process_data)
+        elif isinstance(process_data, list):
+            process_tile.data = process_data
         elif not process_data:
             raise errors.MapcheteProcessOutputError("process output is empty")
         else:

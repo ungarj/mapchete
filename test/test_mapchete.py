@@ -14,6 +14,7 @@ from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTile
 from mapchete.io.raster import create_mosaic
+from mapchete.errors import MapcheteProcessOutputError
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
@@ -288,5 +289,5 @@ def test_process_template():
     # Mapchete throws a RuntimeError if process output is empty
     try:
         mp.execute(process_tile)
-    except RuntimeError:
+    except MapcheteProcessOutputError:
         pass
