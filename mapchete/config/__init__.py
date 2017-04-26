@@ -235,6 +235,7 @@ class MapcheteConfig(object):
                 assert v >= 0
                 assert isinstance(v, int)
         except Exception as e:
+            print "oho"
             raise MapcheteConfigError(
                 "invalid baselevel zoom parameter given: %s" % e)
         try:
@@ -337,7 +338,7 @@ class MapcheteConfig(object):
             try:
                 config_dir = input_config["config_dir"]
             except KeyError:
-                raise AttributeError("config_dir parameter missing")
+                raise MapcheteConfigError("config_dir parameter missing")
         # from Mapchete file
         elif os.path.splitext(input_config)[1] == ".mapchete":
             with open(input_config, "r") as config_file:
@@ -379,8 +380,6 @@ class MapcheteConfig(object):
                     raise MapcheteConfigError(
                         "please provide an input file via command line")
                 raw.update(input_files={"input_file": single_input_file})
-        elif "input_files" not in raw or raw["input_files"] is None:
-            raise MapcheteConfigError("no input file(s) specified")
         # return parsed configuration
         return raw, mapchete_file, config_dir
 
@@ -398,16 +397,6 @@ class MapcheteConfig(object):
             return config_dict["metatiling"]
         else:
             return default
-
-    def _get_metatile_value(self, metatile_key):
-        try:
-            return self.raw[metatile_key]
-        except Exception:
-            pass
-        try:
-            return self.raw["metatiling"]
-        except KeyError:
-            return 1
 
     def _at_zoom(self, zoom):
         """
@@ -436,11 +425,7 @@ class MapcheteConfig(object):
         if element == "from_command_line":
             element = {"input_file": None}
         files_at_zoom = self._element_at_zoom(name, element, zoom)
-        try:
-            assert isinstance(files_at_zoom, dict)
-        except AssertionError:
-            raise MapcheteConfigError(
-                "input_files could not be read from config")
+        assert isinstance(files_at_zoom, dict)
         input_files, input_files_areas = self._parse_input_files(files_at_zoom)
         if input_files_areas:
             process_area = MultiPolygon((input_files_areas)).buffer(0)

@@ -2,6 +2,7 @@
 """Test Mapchete config module."""
 
 import os
+import yaml
 from shapely.geometry import Polygon
 from shapely.wkt import loads
 
@@ -108,6 +109,26 @@ def test_read_baselevels():
     assert set(config.baselevels["zooms"]) == set([5, 6])
     assert config.baselevels["lower"] == "bilinear"
     assert config.baselevels["higher"] == "nearest"
+
+    # without min
+    with open(
+        os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete")
+    ) as mc:
+        config = yaml.load(mc)
+        config.update(config_dir=os.path.join(SCRIPTDIR, "testdata"))
+        del config["baselevels"]["min"]
+        assert min(MapcheteConfig(config).baselevels["zooms"]) == 4
+
+    # without max and resampling
+    with open(
+        os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete")
+    ) as mc:
+        config = yaml.load(mc)
+        config.update(config_dir=os.path.join(SCRIPTDIR, "testdata"))
+        del config["baselevels"]["max"]
+        del config["baselevels"]["lower"]
+        assert max(MapcheteConfig(config).baselevels["zooms"]) == 7
+        assert MapcheteConfig(config).baselevels["lower"] == "nearest"
 
 
 def test_read_input_groups():

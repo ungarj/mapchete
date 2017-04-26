@@ -27,6 +27,59 @@ def test_config_modes():
         pass
 
 
+def test_metatiles():
+    """Assert metatile sizes are checked."""
+    try:
+        with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
+            config = copy(yaml.load(mc))
+            config.update(
+                config_dir=SCRIPTDIR, metatiling=1)
+            config["output"].update(metatiling=2)
+            MapcheteConfig(config)
+            raise Exception
+    except errors.MapcheteConfigError:
+        pass
+
+
+def test_no_cli_input_file():
+    """Assert input file from command line is checked."""
+    try:
+        with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
+            config = copy(yaml.load(mc))
+            config.update(
+                config_dir=SCRIPTDIR, input_files="from_command_line")
+            MapcheteConfig(config)
+            raise Exception
+    except errors.MapcheteConfigError:
+        pass
+
+
+def test_wrong_bounds():
+    """Wrong bounds number raises error."""
+    try:
+        with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
+            config = copy(yaml.load(mc))
+            config.update(
+                config_dir=SCRIPTDIR)
+            MapcheteConfig(config, bounds=[2, 3])
+            raise Exception
+    except errors.MapcheteConfigError:
+        pass
+
+
+def test_empty_input_files():
+    """Assert empty input files raises error."""
+    try:
+        with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
+            config = copy(yaml.load(mc))
+            config.update(config_dir=SCRIPTDIR)
+            del config["input_files"]
+            MapcheteConfig(config)
+            raise Exception
+    except errors.MapcheteConfigError:
+        pass
+
+
 def test_mandatory_params():
     """Check availability of mandatory parameters."""
     for param in ["process_file", "input_files", "output"]:
@@ -39,11 +92,20 @@ def test_mandatory_params():
                 raise Exception
         except errors.MapcheteConfigError:
             pass
-
+    # invalid path
     try:
         with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
             config = copy(yaml.load(mc))
             config.update(config_dir=SCRIPTDIR, process_file="invalid/path.py")
+            MapcheteConfig(config).process_file
+            raise Exception
+    except errors.MapcheteConfigError:
+        pass
+
+    # no config dir given
+    try:
+        with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
+            config = copy(yaml.load(mc))
             MapcheteConfig(config).process_file
             raise Exception
     except errors.MapcheteConfigError:
@@ -116,6 +178,22 @@ def test_invalid_zoom_levels():
             del config["process_minzoom"]
             del config["process_maxzoom"]
             MapcheteConfig(config, zoom=[0, 5, 7])
+            raise Exception
+    except errors.MapcheteConfigError:
+        pass
+
+
+def test_invalid_baselevels():
+    """Check on invalid baselevel configuration."""
+    # invalid zoom levels
+    try:
+        with open(
+            os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete")
+        ) as mc:
+            config = copy(yaml.load(mc))
+            config.update(config_dir=SCRIPTDIR)
+            config["baselevels"].update(min=-5, max="x")
+            MapcheteConfig(config)
             raise Exception
     except errors.MapcheteConfigError:
         pass
