@@ -235,7 +235,6 @@ class MapcheteConfig(object):
                 assert v >= 0
                 assert isinstance(v, int)
         except Exception as e:
-            print "oho"
             raise MapcheteConfigError(
                 "invalid baselevel zoom parameter given: %s" % e)
         try:
