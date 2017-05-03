@@ -9,8 +9,7 @@ import pkgutil
 from PIL import Image, ImageDraw
 from flask import Flask, send_file, make_response, render_template_string
 
-from mapchete import Mapchete
-from mapchete.config import MapcheteConfig
+import mapchete
 from mapchete.tile import BufferedTilePyramid
 
 logging.basicConfig(level=logging.INFO)
@@ -38,29 +37,29 @@ def create_app(args):
     except AssertionError:
         raise IOError("must be a valid mapchete file")
 
-    process = Mapchete(
-        MapcheteConfig(
-            args.mapchete_file, zoom=args.zoom, bounds=args.bounds,
-            single_input_file=args.input_file, mode=_get_mode(args)),
+    mp = mapchete.open(
+        args.mapchete_file, zoom=args.zoom, bounds=args.bounds,
+        single_input_file=args.input_file, mode=_get_mode(args),
         with_cache=True
-        )
+    )
+    print mp.__dict__
 
     app = Flask(__name__)
-    web_pyramid = BufferedTilePyramid(process.config.raw["output"]["type"])
+    web_pyramid = BufferedTilePyramid(mp.config.raw["output"]["type"])
 
     @app.route('/', methods=['GET'])
     def index():
         """Render and hosts the appropriate OpenLayers instance."""
         return render_template_string(
             pkgutil.get_data('mapchete.static', 'index.html'),
-            srid=process.config.process_pyramid.srid,
+            srid=mp.config.process_pyramid.srid,
             process_bounds=",".join([
-                str(i) for i in process.config.process_bounds()]),
-            is_mercator=(process.config.process_pyramid.srid == 3857)
+                str(i) for i in mp.config.process_bounds()]),
+            is_mercator=(mp.config.process_pyramid.srid == 3857)
         )
 
     tile_base_url = '/wmts_simple/1.0.0/mapchete/default/'
-    is_mercator = process.config.process_pyramid.srid == 3857
+    is_mercator = mp.config.process_pyramid.srid == 3857
     tile_base_url += "g/" if is_mercator else "WGS84/"
 
     @app.route(
@@ -69,7 +68,7 @@ def create_app(args):
         """Return processed, empty or error (in pink color) tile."""
         # convert zoom, row, col into tile object using web pyramid
         web_tile = web_pyramid.tile(zoom, row, col)
-        return _tile_response(process, web_tile)
+        return _tile_response(mp, web_tile)
 
     return app
 
@@ -85,35 +84,35 @@ def _get_mode(parsed):
         return "continue"
 
 
-def _tile_response(process, web_tile):
-    if process.config.mode in ["continue", "readonly"]:
+def _tile_response(mp, web_tile):
+    if mp.config.mode in ["continue", "readonly"]:
         if (
                 web_tile.tile_pyramid.metatiling ==
-                process.config.raw["output"]["metatiling"]
+                mp.config.raw["output"]["metatiling"]
         ):
             try:
                 response = make_response(
-                    send_file(process.config.output.get_path(web_tile)))
+                    send_file(mp.config.output.get_path(web_tile)))
                 response.cache_control.no_write = True
                 return response
             except Exception:
-                return _error_tile_response(process, web_tile)
+                return _error_tile_response(mp, web_tile)
     try:
         return _valid_tile_response(
-            process, process.get_raw_output(web_tile))
+            mp, mp.get_raw_output(web_tile))
     except Exception as exc:
         LOGGER.info(("web tile", web_tile.id, "error", exc))
-        return _error_tile_response(process, web_tile)
+        return _error_tile_response(mp, web_tile)
 
 
-def _valid_tile_response(process, web_tile):
-    response = make_response(process.config.output.for_web(web_tile.data))
+def _valid_tile_response(mp, web_tile):
+    response = make_response(mp.config.output.for_web(web_tile.data))
     response.cache_control.no_write = True
     return response
 
 
-def _error_tile_response(process, web_tile):
-    if process.config.output.METADATA["data_type"] == "raster":
+def _error_tile_response(mp, web_tile):
+    if mp.config.output.METADATA["data_type"] == "raster":
         empty_image = Image.new('RGBA', web_tile.shape)
         draw = ImageDraw.Draw(empty_image)
         draw.rectangle([(0, 0), web_tile.shape], fill=(255, 0, 0, 128))
@@ -125,7 +124,7 @@ def _error_tile_response(process, web_tile):
         resp.cache_control.no_cache = True
         return resp
 
-    elif process.config.output.METADATA["data_type"] == "vector":
+    elif mp.config.output.METADATA["data_type"] == "vector":
         raise NotImplementedError
 
 

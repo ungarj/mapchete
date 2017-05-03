@@ -29,6 +29,43 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 
+def open(
+    config, mode="continue", zoom=None, bounds=None, single_input_file=None,
+    with_cache=False
+):
+    """
+    Open a Mapchete process.
+
+    Parameters
+    ----------
+    config : MapcheteConfig pr dict
+        Mapchete process configuration
+    mode : string
+        * ``memory``: Generate process output on demand without reading
+          pre-existing data or writing new data.
+        * ``readonly``: Just read data without processing new data.
+        * ``continue``: (default) Don't overwrite existing output.
+        * ``overwrite``: Overwrite existing output.
+    zoom : list or integer
+        process zoom level or a pair of minimum and maximum zoom level
+    bounds : tuple
+        left, bottom, right, top process boundaries in output pyramid
+    single_input_file : string
+        single input file if supported by process
+    with_cache : bool
+        process output data cached in memory
+
+    Returns
+    -------
+    Mapchete
+        a Mapchete process object
+    """
+    return Mapchete(
+        MapcheteConfig(
+            config, mode=mode, zoom=zoom, bounds=bounds,
+            single_input_file=single_input_file), with_cache=with_cache)
+
+
 class Mapchete(object):
     """
     Main entry point to every processing job.
@@ -123,6 +160,32 @@ class Mapchete(object):
                 ):
                     yield tile
 
+    def batch_process(
+        self, zoom=None, tile=None, multi=cpu_count(), quiet=False, debug=False
+    ):
+        """
+        Process a large batch of tiles.
+
+        Parameters
+        ----------
+        process : MapcheteProcess
+            process to be run
+        zoom : list or int
+            either single zoom level or list of minimum and maximum zoom level;
+            None processes all (default: None)
+        tile : tuple
+            zoom, row and column of tile to be processed (cannot be used with
+            zoom)
+        multi : int
+            number of workers (default: number of CPU cores)
+        quiet : bool
+            set log level to "warning" and disable progress bar
+        debug : bool
+            set log level to "debug" and disable progress bar (cannot be used
+            with quiet)
+        """
+        batch_process(self, zoom, tile, multi, quiet, debug)
+
     def execute(self, process_tile):
         """
         Run the Mapchete process.
@@ -131,7 +194,7 @@ class Mapchete(object):
 
         Parameters
         ----------
-        process_tile : Tile
+        process_tile : Tile or tile index tuple
             Member of the process tile pyramid (not necessarily the output
             pyramid, if output has a different metatiling setting)
 
@@ -142,11 +205,16 @@ class Mapchete(object):
             there is no process output, data is ``None`` and there is
             information on the process status in the message attribute.
         """
-        assert self.config.mode in ["memory", "continue", "overwrite"]
+        if self.config.mode not in ["memory", "continue", "overwrite"]:
+            raise ValueError(
+                "process mode must be memory, continue or overwrite")
+        if isinstance(process_tile, tuple):
+            process_tile = self.config.process_pyramid.tile(*process_tile)
+        if not isinstance(process_tile, BufferedTile):
+            raise ValueError("Valid Tile or tile index has to be given.")
         if process_tile.zoom not in self.config.zoom_levels:
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
-        assert isinstance(process_tile, BufferedTile)
         return self._execute(process_tile)
 
     def read(self, output_tile):
@@ -155,7 +223,7 @@ class Mapchete(object):
 
         Parameters
         ----------
-        output_tile : BufferedTile
+        output_tile : BufferedTile or tile index tuple
             Member of the output tile pyramid (not necessarily the process
             pyramid, if output has a different metatiling setting)
 
@@ -164,7 +232,13 @@ class Mapchete(object):
         BufferedTile
             Tile with appended data.
         """
-        assert self.config.mode in ["readonly", "continue", "overwrite"]
+        if self.config.mode not in ["readonly", "continue", "overwrite"]:
+            raise ValueError(
+                "process mode must be readonly, continue or overwrite")
+        if isinstance(output_tile, tuple):
+            output_tile = self.config.output_pyramid.tile(*output_tile)
+        if not isinstance(output_tile, BufferedTile):
+            raise ValueError("Valid Tile or tile index has to be given.")
         return self.config.output.read(output_tile)
 
     def write(self, process_tile):
@@ -173,12 +247,17 @@ class Mapchete(object):
 
         Parameters
         ----------
-        process_tile : BufferedTile
+        process_tile : BufferedTile or tile index tuple
             process tile with appended data
         overwrite : bool
             overwrite existing data (default: True)
         """
-        assert self.config.mode in ["continue", "overwrite"]
+        if self.config.mode not in ["continue", "overwrite"]:
+            raise ValueError("process mode must be continue or overwrite")
+        if isinstance(process_tile, tuple):
+            process_tile = self.config.process_pyramid.tile(*process_tile)
+        if not isinstance(process_tile, BufferedTile):
+            raise ValueError("Valid Tile or tile index has to be given.")
         starttime = time.time()
         if process_tile.data is None:
             LOGGER.debug((process_tile.id, "nothing to write"))
@@ -202,8 +281,8 @@ class Mapchete(object):
         Parameters
         ----------
         tile : tuple, Tile or BufferedTile
-            If a tile index is given, a tile will be generated using the
-            metatiling setting. Tile cannot be bigger than process tile!
+            If a tile index is given, a tile from the output pyramid will be
+            assumed. Tile cannot be bigger than process tile!
         overwrite : bool
             Overwrite existing tiles (default: False)
         no_write : bool
@@ -215,6 +294,10 @@ class Mapchete(object):
         BufferedTile
             output data stored in ``data`` attribute
         """
+        if isinstance(tile, tuple):
+            tile = self.config.output_pyramid.tile(*tile)
+        if not isinstance(tile, BufferedTile):
+            raise ValueError("Valid Tile or tile index has to be given.")
         assert isinstance(tile, BufferedTile)
         # Return empty data if zoom level is outside of process zoom levels.
         if tile.zoom not in self.config.zoom_levels:
@@ -402,6 +485,17 @@ class Mapchete(object):
             LOGGER.error((process_tile.id, "baselevel error", e, elapsed))
             raise
         return process_data
+
+    def __enter__(self):
+        """Enable context manager."""
+        return self
+
+    def __exit__(self, t, v, tb):
+        """Clear cache on close."""
+        if self.with_cache:
+            del self.process_tile_cache
+            del self.current_processes
+            del self.process_lock
 
 
 class MapcheteProcess(object):

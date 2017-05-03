@@ -4,8 +4,7 @@
 import os
 from multiprocessing import cpu_count
 
-from mapchete import Mapchete, batch_process
-from mapchete.config import MapcheteConfig
+import mapchete
 
 
 def main(args=None):
@@ -20,11 +19,10 @@ def main(args=None):
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
 
-    # initialize process
-    process = Mapchete(MapcheteConfig(
-            parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
-            single_input_file=parsed.input_file))
-
-    # run process
-    batch_process(
-        process, parsed.zoom, parsed.tile, multi, parsed.quiet, parsed.debug)
+    # initialize and run process
+    with mapchete.open(
+        parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
+        single_input_file=parsed.input_file
+    ) as mp:
+        mp.batch_process(
+            parsed.zoom, parsed.tile, multi, parsed.quiet, parsed.debug)

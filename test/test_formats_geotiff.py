@@ -6,7 +6,7 @@ import shutil
 import numpy as np
 import numpy.ma as ma
 
-from mapchete import Mapchete
+import mapchete
 from mapchete.formats.default import gtiff
 from mapchete.tile import BufferedTilePyramid
 
@@ -81,7 +81,7 @@ def test_output_data():
 
 def test_input_data():
     """Check GeoTIFF proces output as input data."""
-    process = Mapchete(
+    mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete"))
     tp = BufferedTilePyramid("geodetic")
     # TODO tile with existing but empty data
@@ -96,7 +96,7 @@ def test_input_data():
         dtype="int16"
     )
     output = gtiff.OutputData(output_params)
-    with output.open(tile, process, resampling="nearest") as input_tile:
+    with output.open(tile, mp, resampling="nearest") as input_tile:
         assert input_tile.resampling == "nearest"
         for data in [
             input_tile.read(), input_tile.read(1), input_tile.read([1]),
@@ -105,5 +105,5 @@ def test_input_data():
             assert isinstance(data, ma.masked_array)
             assert input_tile.is_empty()
     # open without resampling
-    with output.open(tile, process) as input_tile:
+    with output.open(tile, mp) as input_tile:
         pass

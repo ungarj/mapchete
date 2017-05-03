@@ -3,7 +3,7 @@
 
 import os
 
-from mapchete import Mapchete
+import mapchete
 from mapchete.formats.default import geojson
 from mapchete.tile import BufferedTile
 
@@ -12,10 +12,10 @@ scriptdir = os.path.dirname(os.path.realpath(__file__))
 
 def test_input_data_read():
     """Check GeoJSON as input data."""
-    process = Mapchete(os.path.join(scriptdir, "testdata/geojson.mapchete"))
-    for tile in process.get_process_tiles():
+    mp = mapchete.open(os.path.join(scriptdir, "testdata/geojson.mapchete"))
+    for tile in mp.get_process_tiles():
         assert isinstance(tile, BufferedTile)
-        input_tile = geojson.InputTile(tile, process)
+        input_tile = geojson.InputTile(tile, mp)
         assert isinstance(input_tile.read(), list)
         for feature in input_tile.read():
             assert isinstance(feature, dict)

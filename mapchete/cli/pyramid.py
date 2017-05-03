@@ -8,8 +8,7 @@ Also provides various options to rescale data if necessary
 import os
 import rasterio
 
-from mapchete import Mapchete, batch_process
-from mapchete.config import MapcheteConfig
+import mapchete
 from mapchete.io import get_best_zoom_level
 
 # ranges from rasterio
@@ -111,14 +110,12 @@ def raster2pyramid(
     )
 
     # create process
-    process = Mapchete(MapcheteConfig(config, zoom=zoom, bounds=bounds))
-
-    # prepare output directory and logging
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    # run process
-    batch_process(process, zoom=[minzoom, maxzoom])
+    with mapchete.open(config, zoom=zoom, bounds=bounds) as mp:
+        # prepare output directory
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        # run process
+        mp.batch_process(zoom=[minzoom, maxzoom])
 
 
 def _get_zoom(zoom, input_raster, pyramid_type):

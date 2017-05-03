@@ -149,7 +149,7 @@ def test_resample_from_array():
     out_tile = BufferedTilePyramid("geodetic").tile(6, 10, 10)
     out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)
     assert isinstance(out_array, ma.masked_array)
-    assert np.all(np.where(out_array==1, True, False))
+    assert np.all(np.where(out_array == 1, True, False))
     # not intersecting tile
     out_tile = BufferedTilePyramid("geodetic").tile(7, 0, 0)
     out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)

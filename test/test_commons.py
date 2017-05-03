@@ -6,18 +6,18 @@ import numpy as np
 import numpy.ma as ma
 from shapely.geometry import Point, GeometryCollection
 
-
-from mapchete import Mapchete, MapcheteProcess
+import mapchete
+from mapchete import MapcheteProcess
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 
 
 def test_clip():
     """Clip an array with a vector."""
-    process = Mapchete(
+    mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
-    tile = process.get_process_tiles(zoom=4).next()
-    tile_process = MapcheteProcess(tile, params=process.config.at_zoom(4))
+    tile = mp.get_process_tiles(zoom=4).next()
+    tile_process = MapcheteProcess(tile, params=mp.config.at_zoom(4))
     with tile_process.open("file1") as vector_file:
         test_array = ma.masked_array(np.ones(tile_process.tile.shape))
         clipped = tile_process.clip(test_array, vector_file.read())
@@ -59,10 +59,10 @@ def test_clip():
 
 def test_contours():
     """Extract contours from array."""
-    process = Mapchete(
+    mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
-    tile = process.get_process_tiles(zoom=4).next()
-    tile_process = MapcheteProcess(tile, params=process.config.at_zoom(4))
+    tile = mp.get_process_tiles(zoom=4).next()
+    tile_process = MapcheteProcess(tile, params=mp.config.at_zoom(4))
     with tile_process.open("file1") as dem:
         contours = tile_process.contours(dem.read())
         assert contours
@@ -79,10 +79,10 @@ def test_contours():
 
 def test_hillshade():
     """Render hillshade from array."""
-    process = Mapchete(
+    mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
-    tile = process.get_process_tiles(zoom=4).next()
-    tile_process = MapcheteProcess(tile, params=process.config.at_zoom(4))
+    tile = mp.get_process_tiles(zoom=4).next()
+    tile_process = MapcheteProcess(tile, params=mp.config.at_zoom(4))
     with tile_process.open("file1") as dem:
         shade = tile_process.hillshade(dem.read())
         assert isinstance(shade, np.ndarray)

@@ -7,7 +7,7 @@ import yaml
 import shutil
 from copy import copy
 
-from mapchete import Mapchete
+import mapchete
 from mapchete.config import MapcheteConfig
 from mapchete import errors
 
@@ -209,10 +209,9 @@ def test_import_error():
         config.update(
             config_dir=os.path.join(SCRIPTDIR, "testdata"),
             process_file=os.path.join(SCRIPTDIR, "testdata/import_error.py"))
-        process = Mapchete(MapcheteConfig(config))
-        tile = process.config.process_pyramid.tile(5, 0, 0)
+        mp = mapchete.open(config)
         try:
-            process.execute(tile)
+            mp.execute((5, 0, 0))
         except errors.MapcheteProcessImportError:
             pass
     finally:
@@ -233,7 +232,7 @@ def test_syntax_error():
             config_dir=os.path.join(SCRIPTDIR, "testdata"),
             process_file=os.path.join(SCRIPTDIR, "testdata/syntax_error.py"))
         try:
-            Mapchete(MapcheteConfig(config))
+            MapcheteConfig(config)
         except errors.MapcheteProcessSyntaxError:
             pass
     finally:
@@ -253,10 +252,9 @@ def test_process_exception():
         config.update(
             config_dir=os.path.join(SCRIPTDIR, "testdata"),
             process_file=os.path.join(SCRIPTDIR, "testdata/process_error.py"))
-        process = Mapchete(MapcheteConfig(config))
-        tile = process.config.process_pyramid.tile(5, 0, 0)
+        mp = mapchete.open(config)
         try:
-            process.execute(tile)
+            mp.execute((5, 0, 0))
         except errors.MapcheteProcessException:
             pass
     finally:
@@ -276,10 +274,9 @@ def test_output_error():
         config.update(
             config_dir=os.path.join(SCRIPTDIR, "testdata"),
             process_file=os.path.join(SCRIPTDIR, "testdata/output_error.py"))
-        process = Mapchete(MapcheteConfig(config))
-        tile = process.config.process_pyramid.tile(5, 0, 0)
+        mp = mapchete.open(config)
         try:
-            process.execute(tile)
+            mp.execute((5, 0, 0))
         except errors.MapcheteProcessOutputError:
             pass
     finally:
