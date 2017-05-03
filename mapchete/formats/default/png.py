@@ -223,21 +223,22 @@ class OutputData(base.OutputData):
         -------
         web data : array
         """
-        data = self.prepare_data(data)
+        data = prepare_array(data, nodata=255, dtype=np.uint8)
+        # Create 3D NumPy array with alpha channel.
         if len(data) == 1:
-            r = data[0]
-            g = data[0]
-            b = data[0]
+            rgba = np.stack((
+                data[0], data[0], data[0],
+                np.where(
+                    data[0] == self.nodata, self.nodata, 255).astype("uint8")))
         elif len(data) == 3:
-            r, g, b = data
+            rgba = np.stack((
+                data, np.where(
+                    data[0] == self.nodata, self.nodata, 255).astype("uint8")))
+        elif len(data) == 4:
+            rgba = data
         else:
             raise TypeError("invalid number of bands: %s" % len(data))
-        # Generate alpha channel out of mask or nodata values.
-        a = np.where(r.mask, 0, 255).astype("uint8")
-        # Create 3D NumPy array with alpha channel.
-        rgba = np.stack((r, g, b, a))
-        reshaped = rgba.transpose(1, 2, 0)
-        empty_image = Image.fromarray(reshaped, mode='RGBA')
+        empty_image = Image.fromarray(rgba.transpose(1, 2, 0), mode='RGBA')
         out_img = io.BytesIO()
         empty_image.save(out_img, 'PNG')
         out_img.seek(0)

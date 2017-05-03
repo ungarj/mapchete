@@ -76,6 +76,7 @@ class OutputData(base.OutputData):
         self.path = output_params["path"]
         self.file_extension = ".png"
         self.output_params = output_params
+        self.nodata = PNG_PROFILE["nodata"]
         try:
             self.old_band_num = output_params["old_band_num"]
             PNG_PROFILE.update(count=4)
