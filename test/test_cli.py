@@ -361,7 +361,21 @@ def test_serve(client):
             assert response.status_code == 200
             img = response.response.file
             img.seek(0)
-            assert np.array(Image.open(img)).any()
+            data = np.array(Image.open(img)).transpose(2, 0, 1)
+            assert not data[3].all()
+        # test outside zoom range
+        response = client.get(tile_base_url+"6/31/63.png")
+        assert response.status_code == 200
+        img = response.response.file
+        img.seek(0)
+        data = np.array(Image.open(img)).transpose(2, 0, 1)
+        assert data[0].all()
+        assert not data[1].any()
+        assert not data[2].any()
+        assert data[3].all()
+        # test invalid url
+        response = client.get(tile_base_url+"invalid_url")
+        assert response.status_code == 404
     except Exception:
         raise
     finally:

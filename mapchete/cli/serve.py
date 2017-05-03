@@ -85,18 +85,6 @@ def _get_mode(parsed):
 
 
 def _tile_response(mp, web_tile):
-    if mp.config.mode in ["continue", "readonly"]:
-        if (
-                web_tile.tile_pyramid.metatiling ==
-                mp.config.raw["output"]["metatiling"]
-        ):
-            try:
-                response = make_response(
-                    send_file(mp.config.output.get_path(web_tile)))
-                response.cache_control.no_write = True
-                return response
-            except Exception:
-                return _error_tile_response(mp, web_tile)
     try:
         return _valid_tile_response(
             mp, mp.get_raw_output(web_tile))
