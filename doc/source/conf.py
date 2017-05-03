@@ -19,7 +19,6 @@
 import os
 import sys
 from mock import Mock as MagicMock
-import mapchete
 
 sys.path.insert(0, os.path.abspath('../../'))
 
