@@ -1,5 +1,5 @@
-mapchete.cli.tilify module
-==========================
+mapchete\.cli\.tilify module
+============================
 
 .. automodule:: mapchete.cli.tilify
     :members:

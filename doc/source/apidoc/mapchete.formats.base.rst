@@ -1,5 +1,5 @@
-mapchete.formats.base module
-============================
+mapchete\.formats\.base module
+==============================
 
 .. automodule:: mapchete.formats.base
     :members:

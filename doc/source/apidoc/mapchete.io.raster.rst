@@ -1,5 +1,5 @@
-mapchete.io.raster module
-=========================
+mapchete\.io\.raster module
+===========================
 
 .. automodule:: mapchete.io.raster
     :members:

@@ -1,5 +1,5 @@
-mapchete.cli.execute module
-===========================
+mapchete\.cli\.execute module
+=============================
 
 .. automodule:: mapchete.cli.execute
     :members:

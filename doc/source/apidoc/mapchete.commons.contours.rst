@@ -1,5 +1,5 @@
-mapchete.commons.contours module
-================================
+mapchete\.commons\.contours module
+==================================
 
 .. automodule:: mapchete.commons.contours
     :members:

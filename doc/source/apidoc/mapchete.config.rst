@@ -1,5 +1,5 @@
-mapchete.config package
-=======================
+mapchete\.config package
+========================
 
 Module contents
 ---------------

@@ -11,7 +11,6 @@ Subpackages
     mapchete.config
     mapchete.formats
     mapchete.io
-    mapchete.log
     mapchete.static
 
 Submodules
@@ -19,6 +18,7 @@ Submodules
 
 .. toctree::
 
+   mapchete.errors
    mapchete.tile
 
 Module contents

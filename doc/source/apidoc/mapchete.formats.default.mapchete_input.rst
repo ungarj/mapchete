@@ -1,5 +1,5 @@
-mapchete.formats.default.mapchete_input module
-==============================================
+mapchete\.formats\.default\.mapchete\_input module
+==================================================
 
 .. automodule:: mapchete.formats.default.mapchete_input
     :members:

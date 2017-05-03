@@ -1,5 +1,5 @@
-mapchete.cli package
-====================
+mapchete\.cli package
+=====================
 
 Submodules
 ----------

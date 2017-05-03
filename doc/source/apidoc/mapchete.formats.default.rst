@@ -1,5 +1,5 @@
-mapchete.formats.default package
-================================
+mapchete\.formats\.default package
+==================================
 
 Submodules
 ----------

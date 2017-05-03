@@ -1,5 +1,5 @@
-mapchete.formats.default.gtiff module
-=====================================
+mapchete\.formats\.default\.gtiff module
+========================================
 
 .. automodule:: mapchete.formats.default.gtiff
     :members:

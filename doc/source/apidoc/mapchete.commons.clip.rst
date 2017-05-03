@@ -1,5 +1,5 @@
-mapchete.commons.clip module
-============================
+mapchete\.commons\.clip module
+==============================
 
 .. automodule:: mapchete.commons.clip
     :members:

@@ -1,5 +1,5 @@
-mapchete.formats.default.png module
-===================================
+mapchete\.formats\.default\.png module
+======================================
 
 .. automodule:: mapchete.formats.default.png
     :members:

@@ -1,5 +1,5 @@
-mapchete.cli.pyramid module
-===========================
+mapchete\.cli\.pyramid module
+=============================
 
 .. automodule:: mapchete.cli.pyramid
     :members:

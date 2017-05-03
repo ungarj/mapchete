@@ -1,5 +1,5 @@
-mapchete.cli.main module
-========================
+mapchete\.cli\.main module
+==========================
 
 .. automodule:: mapchete.cli.main
     :members:
