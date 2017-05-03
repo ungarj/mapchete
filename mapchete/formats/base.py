@@ -109,7 +109,7 @@ class InputTile(object):
         """
         raise NotImplementedError
 
-    def is_emtpy(self):
+    def is_empty(self):
         """
         Check if there is data within this tile.
 

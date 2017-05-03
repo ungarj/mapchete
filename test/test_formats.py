@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """Test Mapchete default formats."""
 
+from tilematrix import TilePyramid
+
 from mapchete.formats import (
-    available_input_formats, available_output_formats, driver_from_file)
+    available_input_formats, available_output_formats, driver_from_file, base)
 
 
 def test_available_input_formats():
@@ -24,3 +26,72 @@ def test_filename_to_driver():
         'temp.geojson', 'temp.shp'
     ]:
         assert driver_from_file(filename)
+
+
+def test_base_format_classes():
+    """Base format classes."""
+    # InputData
+    tp = TilePyramid("geodetic")
+    tmp = base.InputData(dict(pyramid=tp, pixelbuffer=0))
+    assert tmp.pyramid
+    assert tmp.pixelbuffer == 0
+    assert tmp.crs
+    assert tmp.srid
+    try:
+        tmp.open(None)
+    except NotImplementedError:
+        pass
+    try:
+        tmp.bbox()
+    except NotImplementedError:
+        pass
+    try:
+        tmp.exists()
+    except NotImplementedError:
+        pass
+
+    # InputTile
+    tmp = base.InputTile(None)
+    try:
+        tmp.read()
+    except NotImplementedError:
+        pass
+    try:
+        tmp.is_empty()
+    except NotImplementedError:
+        pass
+
+    # OutputData
+    tmp = base.OutputData(dict(pixelbuffer=0, type="geodetic", metatiling=1))
+    assert tmp.pyramid
+    assert tmp.pixelbuffer == 0
+    assert tmp.crs
+    assert tmp.srid
+    try:
+        tmp.read(None)
+    except NotImplementedError:
+        pass
+    try:
+        tmp.write(None)
+    except NotImplementedError:
+        pass
+    try:
+        tmp.tiles_exist(None)
+    except NotImplementedError:
+        pass
+    try:
+        tmp.is_valid_with_config(None)
+    except NotImplementedError:
+        pass
+    try:
+        tmp.for_web(None)
+    except NotImplementedError:
+        pass
+    try:
+        tmp.empty(None)
+    except NotImplementedError:
+        pass
+    try:
+        tmp.open(None, None)
+    except NotImplementedError:
+        pass
