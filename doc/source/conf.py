@@ -198,7 +198,6 @@ MOCK_MODULES = [
     'shapely.ops',
     'shapely.wkt',
     'yaml',
-    'affine',
-    'io'
+    'affine'
 ]
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
