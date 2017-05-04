@@ -150,34 +150,17 @@ class OutputData(base.OutputData):
         is_valid : bool
         """
         assert isinstance(config, dict)
-        try:
-            assert "schema" in config
-            assert isinstance(config["schema"], dict)
-        except AssertionError:
-            raise ValueError("no output schema found or invalid schema")
-        try:
-            assert "properties" in config["schema"]
-            assert isinstance(config["schema"]["properties"], dict)
-        except AssertionError:
-            raise ValueError(
-                "no output properties (feature attribute columns) specified")
-        try:
-            assert "geometry" in config["schema"]
-        except AssertionError:
-            raise ValueError("no output geometry type given")
-        try:
-            assert config["schema"]["geometry"] in [
-                "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
-                "Polygon", "MultiPolygon"]
-        except AssertionError:
-            raise ValueError("no invalid output geometry type")
+        assert "schema" in config
+        assert isinstance(config["schema"], dict)
+        assert "properties" in config["schema"]
+        assert isinstance(config["schema"]["properties"], dict)
+        assert "geometry" in config["schema"]
+        assert config["schema"]["geometry"] in [
+            "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
+            "Polygon", "MultiPolygon"]
         assert "path" in config
         assert isinstance(config["path"], str)
-        try:
-            assert config["type"] == "geodetic"
-        except AssertionError:
-            raise ValueError(
-                "GeoJSON output can only be geodetic (EPSG 4326).")
+        assert config["type"] == "geodetic"
         return True
 
     def get_path(self, tile):

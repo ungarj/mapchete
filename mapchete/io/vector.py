@@ -8,7 +8,7 @@ from functools import partial
 from rasterio.crs import CRS
 from shapely.geometry import (
     box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon)
-from shapely.geos import TopologicalError
+# from shapely.geos import IllegalArgumentException
 from shapely.ops import transform
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
@@ -18,11 +18,11 @@ from mapchete.tile import BufferedTile
 
 CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/wgs-84/
-    4326: (-180.0000, -90.0000, 180.0000, 90.0000),
+    'epsg:4326': (-180.0000, -90.0000, 180.0000, 90.0000),
     # http://spatialreference.org/ref/epsg/3035/
-    3857: (-180, -85.0511, 180, 85.0511),
+    'epsg:3857': (-180, -85.0511, 180, 85.0511),
     # unknown source
-    3035: (-10.6700, 34.5000, 31.5500, 71.0500)
+    'epsg:3035': (-10.6700, 34.5000, 31.5500, 71.0500)
     }
 
 
@@ -33,8 +33,8 @@ def reproject_geometry(
     Reproject a geometry and returns the reprojected geometry.
 
     Also, clips geometry if it lies outside the destination CRS boundary.
-    Supported CRSes for bounds clip: 4326 (WGS84), 3857 (Spherical Mercator)
-    and 3035 (ETRS89 / ETRS-LAEA).
+    Supported destination CRSes: 4326 (WGS84), 3857 (Spherical Mercator) and
+    3035 (ETRS89 / ETRS-LAEA).
 
     Parameters
     ----------
@@ -54,66 +54,52 @@ def reproject_geometry(
     -------
     geometry : ``shapely.geometry``
     """
-    assert geometry.is_valid
-    assert src_crs.is_valid
-    assert dst_crs.is_valid
-
     if src_crs == dst_crs:
-        return geometry
+        return geometry.buffer(0)
 
-    # check if geometry has to be clipped
-    if dst_crs.is_epsg_code:
-        dst_epsg = int(dst_crs.to_dict()['init'].split(':')[1])
-    if dst_crs.is_epsg_code and dst_epsg in CRS_BOUNDS:
+    # if geometry potentially has to be clipped, try to reproject and if this
+    # fails, clip and reproject
+    if dst_crs.is_epsg_code and dst_crs.get("init") in CRS_BOUNDS:
+        # try to reproject; if outside of CRS bounds, reproject will fail
+        try:
+            return _reproject_geom(geometry, src_crs, dst_crs)
+        except RuntimeError:
+            # raise optional error if geometry has to be clipped
+            if error_on_clip:
+                raise RuntimeError("geometry outside target CRS bounds")
+        # if initial attempt fails, try to clip to CRS bounds
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
-        crs_bbox = box(*CRS_BOUNDS[dst_epsg])
+        crs_bbox = box(*CRS_BOUNDS[dst_crs.get("init")])
+        # reproject geometry to WGS84
         geometry_4326 = _reproject_geom(
-            geometry,
-            src_crs,
-            wgs84_crs,
-            validity_check=validity_check
-            )
-        # raise optional error if geometry has to be clipped
-        if error_on_clip and not geometry_4326.within(crs_bbox):
-            raise RuntimeError("geometry outside targed CRS bounds")
-        try:
-            bbox_intersection = crs_bbox.intersection(geometry_4326)
-        except TopologicalError:
-            bbox_intersection = crs_bbox.intersection(
-                geometry_4326.buffer(0)
-                )
-            warnings.warn("geometry fixed after clipping")
-        # clip geometry dst_crs boundaries
+            geometry, src_crs, wgs84_crs, validity_check=validity_check)
+        # clip geometry dst_crs boundaries and return
         return _reproject_geom(
-            bbox_intersection,
-            wgs84_crs,
-            dst_crs,
-            validity_check=validity_check
-            )
+            crs_bbox.intersection(geometry_4326.buffer(0)), wgs84_crs,
+            dst_crs, validity_check=validity_check)
+
+    # return without clipping if destination CRS does not have defined bounds
     else:
-        # try without clipping
-        return _reproject_geom(
-            geometry,
-            src_crs,
-            dst_crs
-            )
+        return _reproject_geom(geometry, src_crs, dst_crs)
 
 
-def _reproject_geom(
-    geometry, src_crs, dst_crs, validity_check=True
-):
+def _reproject_geom(geometry, src_crs, dst_crs, validity_check=True):
+    if geometry.is_empty:
+        return geometry
     project = partial(
-        pyproj.transform,
-        pyproj.Proj(src_crs),
-        pyproj.Proj(dst_crs)
-    )
+        pyproj.transform, pyproj.Proj(src_crs), pyproj.Proj(dst_crs))
     out_geom = transform(project, geometry)
-    if validity_check:
-        try:
-            assert out_geom.is_valid
-        except AssertionError:
-            raise RuntimeError("invalid geometry after reprojection")
+    # try to repair geometry as there are a lot of self-intersection errors
+    # after proj handled reprojection; repairing will fail, if there are 'inf'
+    # values among the coordinates, which happens if geometry is out of target
+    # CRS bounds
+    try:
+        out_geom = out_geom.buffer(0)
+    except Exception:
+        pass
+    if validity_check and not out_geom.is_valid or out_geom.is_empty:
+        raise RuntimeError("invalid geometry after reprojection")
     return out_geom
 
 
@@ -138,10 +124,6 @@ def read_vector_window(input_file, tile, validity_check=True):
     features : list
       a list of reprojected GeoJSON-like features
     """
-    try:
-        assert os.path.isfile(input_file)
-    except AssertionError:
-        raise IOError("input file does not exist: %s" % input_file)
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
     tile_left, tile_bottom, tile_right, tile_top = tile.bounds
@@ -160,8 +142,8 @@ def read_vector_window(input_file, tile, validity_check=True):
             for bbox in tile_boxes)
     else:
         features = _get_reprojected_features(
-            input_file=input_file, dst_bounds=tile.bounds,
-            dst_crs=tile.crs, validity_check=validity_check)
+            input_file=input_file, dst_bounds=tile.bounds, dst_crs=tile.crs,
+            validity_check=validity_check)
         return features
 
 
@@ -181,8 +163,10 @@ def write_vector_window(in_tile, out_schema, out_tile, out_path):
         output path for GeoJSON file
     """
     # Delete existing file.
-    if os.path.isfile(out_path):
+    try:
         os.remove(out_path)
+    except OSError:
+        pass
     # Return if tile data is empty
     if not in_tile.data:
         return
@@ -200,9 +184,7 @@ def write_vector_window(in_tile, out_schema, out_tile, out_path):
                 continue
         if out_geom:
             out_features.append(dict(
-                geometry=mapping(out_geom),
-                properties=feature["properties"]
-            ))
+                geometry=mapping(out_geom), properties=feature["properties"]))
     # Return if clipped tile data is empty
     if not out_features:
         return
@@ -218,11 +200,6 @@ def write_vector_window(in_tile, out_schema, out_tile, out_path):
 def _get_reprojected_features(
     input_file=None, dst_bounds=None, dst_crs=None, validity_check=None
 ):
-    assert isinstance(input_file, str)
-    assert isinstance(dst_bounds, tuple)
-    assert isinstance(dst_crs, CRS)
-    assert isinstance(validity_check, bool)
-
     with fiona.open(input_file, 'r') as vector:
         vector_crs = CRS(vector.crs)
         # Reproject tile bounding box to source file CRS for filter:
@@ -235,14 +212,10 @@ def _get_reprojected_features(
         for feature in vector.filter(bbox=dst_bbox.bounds):
             feature_geom = shape(feature['geometry'])
             if not feature_geom.is_valid:
-                try:
-                    feature_geom = feature_geom.buffer(0)
-                    assert feature_geom.is_valid
-                    # warnings.warn("fixed invalid vector input geometry")
-                except AssertionError:
+                feature_geom = feature_geom.buffer(0)
+                if not feature_geom.is_valid:
                     warnings.warn(
-                        "irreparable geometry found in vector input file"
-                        )
+                        "irreparable geometry found in vector input file")
                     continue
             geom = clean_geometry_type(
                 feature_geom.intersection(dst_bbox), feature_geom.geom_type)

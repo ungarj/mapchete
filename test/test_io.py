@@ -6,32 +6,34 @@ import rasterio
 import tempfile
 import numpy as np
 import numpy.ma as ma
-from shapely.geometry import shape, box
+import fiona
+from shapely.geometry import shape, box, Polygon
 from shapely.ops import unary_union
 from rasterio.enums import Compression
+from rasterio.crs import CRS
 from itertools import product
 
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
 from mapchete.io import raster, vector, get_best_zoom_level
 
-scriptdir = os.path.dirname(os.path.realpath(__file__))
-testdata_directory = os.path.join(scriptdir, "testdata")
+SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
 
 def test_best_zoom_level():
     """Test best zoom level determination."""
-    dummy1 = os.path.join(testdata_directory, "dummy1.tif")
+    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
     assert get_best_zoom_level(dummy1, "geodetic")
     assert get_best_zoom_level(dummy1, "mercator")
 
 
 def test_read_raster_window():
     """Read array with read_raster_window."""
-    dummy1 = os.path.join(testdata_directory, "dummy1.tif")
+    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
     zoom = 8
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/minmax_zoom.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete"))
     rasterfile = config.at_zoom(7)["input_files"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
@@ -285,7 +287,7 @@ def test_read_vector_window():
     """Read vector data from read_vector_window."""
     zoom = 4
     config = MapcheteConfig(
-        os.path.join(scriptdir, "testdata/geojson.mapchete"))
+        os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
     vectorfile = config.at_zoom(zoom)["input_files"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
@@ -299,7 +301,52 @@ def test_read_vector_window():
     assert feature_count
 
 
-# TODO vector.reproject_geometry()
+def test_reproject_geometry():
+    """Reproject geometry."""
+    with fiona.open(
+        os.path.join(TESTDATA_DIR, "landpoly.geojson"), "r"
+    ) as src:
+        for feature in src:
+
+            # WGS84 to Spherical Mercator
+            out_geom = vector.reproject_geometry(
+                shape(feature["geometry"]), CRS(src.crs),
+                CRS().from_epsg(3857))
+            assert out_geom.is_valid
+
+            # WGS84 to LAEA
+            out_geom = vector.reproject_geometry(
+                shape(feature["geometry"]), CRS(src.crs),
+                CRS().from_epsg(3035))
+            assert out_geom.is_valid
+
+            # WGS84 to WGS84
+            out_geom = vector.reproject_geometry(
+                shape(feature["geometry"]), CRS(src.crs),
+                CRS().from_epsg(4326))
+            assert out_geom.is_valid
+
+    # WGS84 bounds to Spherical Mercator
+    big_box = box(-180, -90, 180, 90)
+    vector.reproject_geometry(
+        big_box, CRS().from_epsg(4326), CRS().from_epsg(3857))
+
+    # WGS84 bounds to Spherical Mercator raising clip error
+    try:
+        vector.reproject_geometry(
+            big_box, CRS().from_epsg(4326), CRS().from_epsg(3857),
+            error_on_clip=True)
+        raise Exception
+    except RuntimeError:
+        pass
+
+    # empty geometry
+    assert vector.reproject_geometry(
+        Polygon(), CRS().from_epsg(4326), CRS().from_epsg(3857)).is_empty
+    assert vector.reproject_geometry(
+        Polygon(), CRS().from_epsg(4326), CRS().from_epsg(4326)).is_empty
+
+
 # TODO vector.write_vector_window()
 # TODO vector.clean_geometry_type()
 # TODO vector.extract_from_tile()

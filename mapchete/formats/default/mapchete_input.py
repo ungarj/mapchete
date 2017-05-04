@@ -42,8 +42,6 @@ class InputData(base.InputData):
         self.path = input_params["path"]
         if self.path:
             self.process = Mapchete(MapcheteConfig(self.path, mode="readonly"))
-        else:
-            raise IOError("no path to .mapchete file provided")
 
     def open(self, tile, **kwargs):
         """
