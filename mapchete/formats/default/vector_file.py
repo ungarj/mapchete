@@ -85,7 +85,6 @@ class InputData(base.InputData):
             try:
                 assert inp_crs.is_valid
             except AssertionError:
-                print inp.crs
                 raise IOError("CRS could not be read from %s" % self.path)
             bbox = box(*inp.bounds)
         # Check if file bounding box is empty.

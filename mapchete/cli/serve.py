@@ -42,7 +42,6 @@ def create_app(args):
         single_input_file=args.input_file, mode=_get_mode(args),
         with_cache=True
     )
-    print mp.__dict__
 
     app = Flask(__name__)
     web_pyramid = BufferedTilePyramid(mp.config.raw["output"]["type"])
