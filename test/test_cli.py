@@ -315,6 +315,34 @@ def test_pyramid_zoom():
             shutil.rmtree(OUT_DIR)
         except OSError:
             pass
+    try:
+        MapcheteCLI([
+            None, 'pyramid', test_raster, OUT_DIR, "-z", "3", "4"])
+        for zoom, row, col in [(2, 3, 0)]:
+            out_file = os.path.join(
+                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
+            assert not os.path.isfile(out_file)
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
+    try:
+        MapcheteCLI([
+            None, 'pyramid', test_raster, OUT_DIR, "-z", "4", "3"])
+        for zoom, row, col in [(2, 3, 0)]:
+            out_file = os.path.join(
+                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
+            assert not os.path.isfile(out_file)
+    except Exception:
+        raise
+    finally:
+        try:
+            shutil.rmtree(OUT_DIR)
+        except OSError:
+            pass
 
 
 # TODO pyramid specific bounds

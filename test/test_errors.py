@@ -212,6 +212,7 @@ def test_import_error():
         mp = mapchete.open(config)
         try:
             mp.execute((5, 0, 0))
+            raise Exception
         except errors.MapcheteProcessImportError:
             pass
     finally:
@@ -232,7 +233,8 @@ def test_syntax_error():
             config_dir=os.path.join(SCRIPTDIR, "testdata"),
             process_file=os.path.join(SCRIPTDIR, "testdata/syntax_error.py"))
         try:
-            MapcheteConfig(config)
+            mapchete.open(config)
+            raise Exception
         except errors.MapcheteProcessSyntaxError:
             pass
     finally:
@@ -255,6 +257,7 @@ def test_process_exception():
         mp = mapchete.open(config)
         try:
             mp.execute((5, 0, 0))
+            raise Exception
         except errors.MapcheteProcessException:
             pass
     finally:
@@ -277,6 +280,7 @@ def test_output_error():
         mp = mapchete.open(config)
         try:
             mp.execute((5, 0, 0))
+            raise Exception
         except errors.MapcheteProcessOutputError:
             pass
     finally:

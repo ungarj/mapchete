@@ -23,7 +23,9 @@ from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTile
 from mapchete.io import raster, vector
-from mapchete import errors
+from mapchete.errors import (
+    MapcheteProcessSyntaxError, MapcheteProcessImportError,
+    MapcheteProcessException, MapcheteProcessOutputError)
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
@@ -107,8 +109,6 @@ class Mapchete(object):
             cache processed output data in memory (default: False)
         """
         LOGGER.info("preparing process ...")
-        if isinstance(config, str):
-            config = MapcheteConfig(config)
         assert isinstance(config, MapcheteConfig)
         self.config = config
         # TODO assert this line is really not necessary
@@ -116,7 +116,7 @@ class Mapchete(object):
         try:
             py_compile.compile(self.config.process_file, doraise=True)
         except py_compile.PyCompileError as e:
-            raise errors.MapcheteProcessSyntaxError(e)
+            raise MapcheteProcessSyntaxError(e)
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file))[0]
         if self.config.mode == "memory":
@@ -210,8 +210,7 @@ class Mapchete(object):
                 "process mode must be memory, continue or overwrite")
         if isinstance(process_tile, tuple):
             process_tile = self.config.process_pyramid.tile(*process_tile)
-        if not isinstance(process_tile, BufferedTile):
-            raise ValueError("Valid Tile or tile index has to be given.")
+        assert isinstance(process_tile, BufferedTile)
         if process_tile.zoom not in self.config.zoom_levels:
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
@@ -237,8 +236,7 @@ class Mapchete(object):
                 "process mode must be readonly, continue or overwrite")
         if isinstance(output_tile, tuple):
             output_tile = self.config.output_pyramid.tile(*output_tile)
-        if not isinstance(output_tile, BufferedTile):
-            raise ValueError("Valid Tile or tile index has to be given.")
+        assert isinstance(output_tile, BufferedTile)
         return self.config.output.read(output_tile)
 
     def write(self, process_tile):
@@ -256,8 +254,7 @@ class Mapchete(object):
             raise ValueError("process mode must be continue or overwrite")
         if isinstance(process_tile, tuple):
             process_tile = self.config.process_pyramid.tile(*process_tile)
-        if not isinstance(process_tile, BufferedTile):
-            raise ValueError("Valid Tile or tile index has to be given.")
+        assert isinstance(process_tile, BufferedTile)
         starttime = time.time()
         if process_tile.data is None:
             LOGGER.debug((process_tile.id, "nothing to write"))
@@ -296,8 +293,6 @@ class Mapchete(object):
         """
         if isinstance(tile, tuple):
             tile = self.config.output_pyramid.tile(*tile)
-        if not isinstance(tile, BufferedTile):
-            raise ValueError("Valid Tile or tile index has to be given.")
         assert isinstance(tile, BufferedTile)
         # Return empty data if zoom level is outside of process zoom levels.
         if tile.zoom not in self.config.zoom_levels:
@@ -424,7 +419,7 @@ class Mapchete(object):
                 params=self.config.at_zoom(process_tile.zoom)
             )
         except ImportError as e:
-            raise errors.MapcheteProcessImportError(e)
+            raise MapcheteProcessImportError(e)
         try:
             starttime = time.time()
             # Actually run process.
@@ -433,7 +428,7 @@ class Mapchete(object):
         except Exception as e:
             elapsed = "%ss" % (round((time.time() - starttime), 3))
             LOGGER.error((process_tile.id, "process error", elapsed))
-            raise errors.MapcheteProcessException(e)
+            raise MapcheteProcessException(e)
         finally:
             del tile_process
         elapsed = "%ss" % (round((time.time() - starttime), 3))
@@ -452,9 +447,9 @@ class Mapchete(object):
         elif isinstance(process_data, list):
             process_tile.data = process_data
         elif not process_data:
-            raise errors.MapcheteProcessOutputError("process output is empty")
+            raise MapcheteProcessOutputError("process output is empty")
         else:
-            raise errors.MapcheteProcessOutputError(
+            raise MapcheteProcessOutputError(
                 "invalid output type: %s" % type(process_data))
         return process_tile
 

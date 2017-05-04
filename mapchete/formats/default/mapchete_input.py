@@ -56,12 +56,7 @@ class InputData(base.InputData):
         input tile : ``InputTile``
             tile view of input data
         """
-        try:
-            return self.process.config.output.open(
-                tile, self.process, **kwargs)
-        except Exception:
-            raise NotImplementedError(
-                "output driver from input mapchete does not support reading")
+        return self.process.config.output.open(tile, self.process, **kwargs)
 
     def bbox(self, out_crs=None):
         """

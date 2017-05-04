@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 """Test Mapchete default formats."""
 
+import os
 from tilematrix import TilePyramid
 
+import mapchete
 from mapchete.formats import (
     available_input_formats, available_output_formats, driver_from_file, base)
+
+SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
 
 def test_available_input_formats():
@@ -26,6 +31,15 @@ def test_filename_to_driver():
         'temp.geojson', 'temp.shp'
     ]:
         assert driver_from_file(filename)
+
+
+def test_mapchete_input():
+    """Mapchete process as input for other process."""
+    mp = mapchete.open(os.path.join(TESTDATA_DIR, "mapchete_input.mapchete"))
+    config = mp.config.at_zoom(5)
+    mp_input = config["input_files"]["file2"].open(
+        mp.get_process_tiles(5).next())
+    assert mp_input.is_empty()
 
 
 def test_base_format_classes():
