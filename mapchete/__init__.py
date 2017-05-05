@@ -10,6 +10,7 @@ import threading
 import numpy as np
 import numpy.ma as ma
 import tqdm
+from traceback import format_exc
 from functools import partial
 from multiprocessing import cpu_count
 from multiprocessing.pool import Pool
@@ -427,8 +428,11 @@ class Mapchete(object):
             # Log process time
         except Exception as e:
             elapsed = "%ss" % (round((time.time() - starttime), 3))
-            LOGGER.error((process_tile.id, "process error", elapsed))
-            raise MapcheteProcessException(e)
+            LOGGER.error(
+                (process_tile.id, "exception in user process", e, elapsed))
+            for line in format_exc().split("\n"):
+                LOGGER.error(line)
+            raise MapcheteProcessException(format_exc())
         finally:
             del tile_process
         elapsed = "%ss" % (round((time.time() - starttime), 3))
@@ -690,6 +694,7 @@ def batch_process(
         LOGGER.setLevel(logging.ERROR)
     if debug:
         LOGGER.setLevel(logging.DEBUG)
+    # process single tile
     if tile:
         tile = process.config.process_pyramid.tile(*tuple(tile))
         assert tile.is_valid()
@@ -698,40 +703,61 @@ def batch_process(
             _write_worker(process, output)
         LOGGER.info("1 tile iterated")
         return
+
+    # prepare batch
     zoom_levels = list(_get_zoom_level(zoom, process))
     num_processed = 0
-    LOGGER.info("run process using %s worker(s)", multi)
-    f = partial(_process_worker, process)
     # TODO quicker tile number estimation
     if (quiet or debug):
         total_tiles = 0
     else:
         total_tiles = sum(
             len(list(process.get_process_tiles(z))) for z in zoom_levels)
-    with tqdm.tqdm(
-        total=total_tiles, unit="tiles", disable=(quiet or debug)
-    ) as pbar:
-        for zoom in zoom_levels:
-            process_tiles = process.get_process_tiles(zoom)
-            pool = Pool(multi)
-            try:
-                for output in pool.imap_unordered(
-                    f, process_tiles, chunksize=1
-                ):
+
+    # run using multiprocessing
+    if multi > 1:
+        LOGGER.info("run process using %s workers", multi)
+        f = partial(_process_worker, process)
+        with tqdm.tqdm(
+            total=total_tiles, unit="tiles", disable=(quiet or debug)
+        ) as pbar:
+            for zoom in zoom_levels:
+                process_tiles = process.get_process_tiles(zoom)
+                pool = Pool(multi)
+                try:
+                    for output in pool.imap_unordered(
+                        f, process_tiles, chunksize=1
+                    ):
+                        pbar.update()
+                        num_processed += 1
+                        if output:
+                            _write_worker(process, output)
+                except KeyboardInterrupt:
+                    LOGGER.info(
+                        "Caught KeyboardInterrupt, terminating workers")
+                    pool.terminate()
+                    break
+                except Exception:
+                    pool.terminate()
+                    raise
+                finally:
+                    pool.close()
+                    pool.join()
+                    process_tiles = None
+
+    # run without multiprocessing
+    if multi == 1:
+        LOGGER.info("run process using 1 worker")
+        with tqdm.tqdm(
+            total=total_tiles, unit="tiles", disable=(quiet or debug)
+        ) as pbar:
+            for zoom in zoom_levels:
+                for process_tile in process.get_process_tiles(zoom):
                     pbar.update()
-                    num_processed += 1
+                    output = _process_worker(process, process_tile)
                     if output:
                         _write_worker(process, output)
-            except KeyboardInterrupt:
-                LOGGER.info("Caught KeyboardInterrupt, terminating workers")
-                pool.terminate()
-                break
-            except Exception:
-                raise
-            finally:
-                pool.close()
-                pool.join()
-                process_tiles = None
+                    num_processed += 1
 
     LOGGER.info("%s tile(s) iterated", (str(num_processed)))
 

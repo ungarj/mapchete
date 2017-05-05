@@ -322,16 +322,22 @@ def test_batch_process():
         # invalid parameters errors
         try:
             mp.batch_process(zoom=1, tile=(1, 0, 0))
+            raise Exception
         except ValueError:
             pass
         try:
             mp.batch_process(debug=True, quiet=True)
+            raise Exception
         except ValueError:
             pass
         # process single tile
         mp.batch_process(tile=(2, 0, 0))
         mp.batch_process(tile=(2, 0, 0), quiet=True)
         mp.batch_process(tile=(2, 0, 0), debug=True)
+        # process using multiprocessing
+        mp.batch_process(zoom=2, multi=2)
+        # process without multiprocessing
+        mp.batch_process(zoom=2, multi=1)
     finally:
         try:
             shutil.rmtree(OUT_DIR)
