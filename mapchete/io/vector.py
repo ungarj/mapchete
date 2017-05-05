@@ -8,7 +8,6 @@ from functools import partial
 from rasterio.crs import CRS
 from shapely.geometry import (
     box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon)
-# from shapely.geos import IllegalArgumentException
 from shapely.ops import transform
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
@@ -19,9 +18,9 @@ from mapchete.tile import BufferedTile
 CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/wgs-84/
     'epsg:4326': (-180.0000, -90.0000, 180.0000, 90.0000),
-    # http://spatialreference.org/ref/epsg/3035/
-    'epsg:3857': (-180, -85.0511, 180, 85.0511),
     # unknown source
+    'epsg:3857': (-180, -85.0511, 180, 85.0511),
+    # http://spatialreference.org/ref/epsg/3035/
     'epsg:3035': (-10.6700, 34.5000, 31.5500, 71.0500)
     }
 
@@ -30,11 +29,11 @@ def reproject_geometry(
     geometry, src_crs, dst_crs, error_on_clip=False, validity_check=True
 ):
     """
-    Reproject a geometry and returns the reprojected geometry.
+    Reproject a geometry to target CRS.
 
     Also, clips geometry if it lies outside the destination CRS boundary.
-    Supported destination CRSes: 4326 (WGS84), 3857 (Spherical Mercator) and
-    3035 (ETRS89 / ETRS-LAEA).
+    Supported destination CRSes for clipping: 4326 (WGS84), 3857 (Spherical
+    Mercator) and 3035 (ETRS89 / ETRS-LAEA).
 
     Parameters
     ----------
@@ -54,29 +53,28 @@ def reproject_geometry(
     -------
     geometry : ``shapely.geometry``
     """
+    # return repaired geometry if no reprojection needed
     if src_crs == dst_crs:
         return geometry.buffer(0)
 
-    # if geometry potentially has to be clipped, try to reproject and if this
-    # fails, clip and reproject
-    if dst_crs.is_epsg_code and dst_crs.get("init") in CRS_BOUNDS:
-        # try to reproject; if outside of CRS bounds, reproject will fail
-        try:
-            return _reproject_geom(geometry, src_crs, dst_crs)
-        except RuntimeError:
-            # raise optional error if geometry has to be clipped
-            if error_on_clip:
-                raise RuntimeError("geometry outside target CRS bounds")
-        # if initial attempt fails, try to clip to CRS bounds
+    # if geometry potentially has to be clipped, reproject to WGS84 and clip
+    # with CRS bounds
+    elif dst_crs.is_epsg_code and (
+        dst_crs.get("init") in CRS_BOUNDS) and (  # if known CRS
+        not dst_crs.get("init") == "epsg:4326"  # WGS84 does not need clipping
+    ):
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
         crs_bbox = box(*CRS_BOUNDS[dst_crs.get("init")])
         # reproject geometry to WGS84
         geometry_4326 = _reproject_geom(
             geometry, src_crs, wgs84_crs, validity_check=validity_check)
+        # raise error if geometry has to be clipped
+        if error_on_clip and not geometry_4326.within(crs_bbox):
+            raise RuntimeError("geometry outside target CRS bounds")
         # clip geometry dst_crs boundaries and return
         return _reproject_geom(
-            crs_bbox.intersection(geometry_4326.buffer(0)), wgs84_crs,
+            crs_bbox.intersection(geometry_4326), wgs84_crs,
             dst_crs, validity_check=validity_check)
 
     # return without clipping if destination CRS does not have defined bounds
@@ -85,15 +83,13 @@ def reproject_geometry(
 
 
 def _reproject_geom(geometry, src_crs, dst_crs, validity_check=True):
-    if geometry.is_empty:
-        return geometry
+    if geometry.is_empty or src_crs == dst_crs:
+        return geometry.buffer(0)
     project = partial(
         pyproj.transform, pyproj.Proj(src_crs), pyproj.Proj(dst_crs))
     out_geom = transform(project, geometry)
-    # try to repair geometry as there are a lot of self-intersection errors
-    # after proj handled reprojection; repairing will fail, if there are 'inf'
-    # values among the coordinates, which happens if geometry is out of target
-    # CRS bounds
+    # try to repair geometry as there could be a lot of self-intersection
+    # errors after proj handled reprojection;
     try:
         out_geom = out_geom.buffer(0)
     except Exception:
