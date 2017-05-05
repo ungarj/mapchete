@@ -12,6 +12,7 @@ when initializing the configuration.
 
 import os
 import yaml
+import logging
 from cached_property import cached_property
 from shapely.geometry import box, MultiPolygon
 
@@ -20,6 +21,9 @@ from mapchete.formats import (
 from mapchete.tile import BufferedTilePyramid
 from mapchete.errors import MapcheteConfigError
 
+
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger(__name__)
 
 # supported tile pyramid types
 TILING_TYPES = ["geodetic", "mercator"]
@@ -110,6 +114,7 @@ class MapcheteConfig(object):
             assert mode in ["memory", "readonly", "continue", "overwrite"]
         except Exception:
             raise MapcheteConfigError("invalid process mode")
+        LOGGER.info("preparing configuration ...")
         self.mode = mode
         # parse configuration
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
