@@ -6,8 +6,13 @@ Changelog
 0.5
 ---
 * introduced iterable input data groups
-* introduced pytest
+* introduced pytest & test coverage of 92%
 * adding Travis CI and coveralls integrations
+* automated pypi deploy
+* introduced ``mapchete.open()`` and ``batch_process()``
+* progress bar on batch process
+* proper logging & custom exceptions
+* documentation on readthedocs.io
 
 ---
 0.4

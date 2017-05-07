@@ -12,11 +12,18 @@ before_install:
 install:
 - pip install gdal==2.1.0 --global-option=build_ext --global-option="-I/usr/include/gdal/"
 - pip install -r requirements.txt
-- pip install pytest
-- pip install coveralls
+- pip install pytest coveralls
 - pip install .
 script:
 # tilify.py is already covered using CLI pyramid tests but does not show up as covered
 - coverage run --source=mapchete --omit=mapchete/cli/tilify.py setup.py test
 after_success:
 - coveralls
+deploy:
+  provider: pypi
+  user: ungarj
+  password:
+    secure: BM8iiahk8XJJUqSifAZdP2l07TDPNPDU1fXG1lAyHJPf5MmtadN2i+OFoe8M0KkYnEgihEjj7VKaKK0WcJSkYSVIOTg1MCeJEIYlMRmRSYuXARzfWWx+EPLRyhFRr8HPeaC2Vf1cv0GBmeG0dVRkE6mbXZivCX2VjUXy9ib9wzNufmNqKKyzp5sH0OZYWuJrDu7/X2J6lGng4hrF2Jn3u53QzpRJrS3meW/rLl9ckEoYIzbeXh4IJph+DG/egcE/CtolL0XUWyYETQe0JC9F8qgj5LXLBqeoX6qU69TsBnae95forUHGbqi1wtbd0zuZ8tVqUXB1H9tm1H3elIJ4ihVF3Psv6sjbQV9abX2gWpI5+p2CNWRS1x1y+LeQZg2jmNVj+GsYD7S+RjTLfGer3RINtj8yb4dl9oGuoCgKIurJo8VIhWOlIJWMY5GBLEn3HiPAJ+cqYvSmlh3UnJRrg9eJ+8Bve6qXNvYnISyTPgKwp65BkrrIiJl6PMvrBQQ6+ZCeUWXwgBpN3VFuspPZEjnF8+hQBj1IR+nuTGeMtNeKYQe+rak3QC9CRLNrcOygteWr1kOjyl+B7OV/wrI74cwo6hjf0eO7bdszzuL5ZSa8uaTRt1ebEmS54HZpqqMxhqk6tq42fwsXQKFixP1N4udompJWIg8KIZMkZaLoDzI=
+  on:
+    tags: true
+    branch: master
