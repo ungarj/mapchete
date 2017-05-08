@@ -18,8 +18,9 @@ from mapchete.cli.formats import list_formats
 from mapchete.formats import available_output_formats
 
 
-def main(args=sys.argv, _test_serve=False):
+def main(args=None, _test_serve=False):
     """Pass on command line arguments."""
+    args = args or sys.argv
     MapcheteCLI(args, _test_serve=_test_serve)
 
 
