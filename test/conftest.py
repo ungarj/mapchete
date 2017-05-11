@@ -25,5 +25,6 @@ def app():
         SCRIPTDIR, "testdata/dem_to_hillshade.mapchete")
     args = Namespace(
         port=5000, mapchete_file=example_process, zoom=None, bounds=None,
-        input_file=None, memory=None, readonly=False, overwrite=True)
+        input_file=None, memory=None, readonly=False, overwrite=True,
+        debug=False)
     return create_app(args)
