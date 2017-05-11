@@ -32,10 +32,11 @@ def main(args=None, _test=False):
 
 def create_app(args):
     """Configure and create Flask app."""
-    try:
-        assert os.path.splitext(args.mapchete_file)[1] == ".mapchete"
-    except AssertionError:
+    if not os.path.splitext(args.mapchete_file)[1] == ".mapchete":
         raise IOError("must be a valid mapchete file")
+
+    if args.debug:
+        LOGGER.setLevel(logging.DEBUG)
 
     mp = mapchete.open(
         args.mapchete_file, zoom=args.zoom, bounds=args.bounds,
@@ -67,7 +68,7 @@ def create_app(args):
         """Return processed, empty or error (in pink color) tile."""
         # convert zoom, row, col into tile object using web pyramid
         web_tile = web_pyramid.tile(zoom, row, col)
-        return _tile_response(mp, web_tile)
+        return _tile_response(mp, web_tile, args.debug)
 
     return app
 
@@ -83,13 +84,16 @@ def _get_mode(parsed):
         return "continue"
 
 
-def _tile_response(mp, web_tile):
+def _tile_response(mp, web_tile, debug):
     try:
         return _valid_tile_response(
             mp, mp.get_raw_output(web_tile))
     except Exception as exc:
-        LOGGER.info(("web tile", web_tile.id, "error", exc))
-        return _error_tile_response(mp, web_tile)
+        if debug:
+            raise
+        else:
+            LOGGER.error(("web tile", web_tile.id, "error", exc))
+            return _error_tile_response(mp, web_tile)
 
 
 def _valid_tile_response(mp, web_tile):

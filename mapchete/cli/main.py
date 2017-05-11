@@ -95,6 +95,12 @@ class MapcheteCLI(object):
         parser.add_argument(
             "mapchete_file", type=str, help="Mapchete file")
         parser.add_argument(
+            "--debug", "-d", action="store_true",
+            help=(
+                """print more debug information and allow Flask to return """
+                """stack trace""")
+            )
+        parser.add_argument(
             "--port", "-p", type=int, help="port process is hosted on",
             metavar="<int>", default=5000)
         parser.add_argument(
