@@ -129,12 +129,6 @@ def _get_warped_array(
     dst_affine=None, dst_crs=None, resampling="nearest"
 ):
     """Extract a numpy array from a raster file."""
-    assert isinstance(input_file, str)
-    assert isinstance(band_idx, int)
-    assert isinstance(dst_bounds, tuple)
-    assert isinstance(dst_shape, tuple)
-    assert isinstance(dst_affine, Affine)
-    assert dst_crs.is_valid
     with rasterio.open(input_file, "r") as src:
         if dst_crs == src.crs:
             src_left, src_bottom, src_right, src_top = dst_bounds
