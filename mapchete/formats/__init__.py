@@ -97,10 +97,12 @@ def load_input_reader(input_params):
                 driver_name, available_input_formats()))
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
         try:
-            input_reader = v.load().InputData(input_params)
+            # instanciate dummy input reader to read metadata
+            input_reader = v.load().InputData.__new__(
+                v.load().InputData, input_params)
             if input_reader.METADATA["driver_name"] == driver_name:
-                return input_reader
-        except (AttributeError, errors.MapcheteConfigError):
+                return v.load().InputData(input_params)
+        except (AttributeError, errors.MapcheteConfigError) as e:
             pass
     raise AttributeError(
         "no loader for driver '%s' could be found." % driver_name)

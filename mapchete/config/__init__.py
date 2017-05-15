@@ -436,12 +436,12 @@ class MapcheteConfig(object):
         if element == "from_command_line":
             element = {"input_file": None}
         files_at_zoom = self._element_at_zoom(name, element, zoom)
-        assert isinstance(files_at_zoom, dict)
         input_files, input_files_areas = self._parse_input_files(files_at_zoom)
         if input_files_areas:
             LOGGER.debug("intersect input files bounding boxes")
             process_area = MultiPolygon((input_files_areas)).buffer(0)
         else:
+            LOGGER.debug("assume global bounding box")
             process_area = box(
                 self.process_pyramid.left, self.process_pyramid.bottom,
                 self.process_pyramid.right, self.process_pyramid.top)
@@ -455,6 +455,7 @@ class MapcheteConfig(object):
             # "path" within the .mapchete input_files tree
             lk = "/".join([prefix, k])
             if isinstance(v, dict):
+                LOGGER.debug("parse input_files group")
                 next_files, next_areas = self._parse_input_files(v, prefix=lk)
                 input_files[k] = next_files
                 input_files_areas.extend(next_areas)
@@ -468,10 +469,12 @@ class MapcheteConfig(object):
                     else:
                         path = os.path.normpath(
                             os.path.join(self.config_dir, v))
-                    self._prepared_files[v] = load_input_reader(dict(
+                    LOGGER.debug("load input reader for file %s" % v)
+                    _input_reader = load_input_reader(dict(
                         path=path, pyramid=self.process_pyramid,
                         pixelbuffer=self.pixelbuffer))
-
+                    LOGGER.debug("input reader for file %s is %s" % (v, _input_reader))
+                    self._prepared_files[v] = _input_reader
                 # add file reader and file bounding box
                 input_files[k] = self._prepared_files[v]
                 input_files_areas.append(input_files[k].bbox(
@@ -539,7 +542,7 @@ class MapcheteConfig(object):
                 return None
             return out_elements
         # If element is a zoom level statement, filter element.
-        elif isinstance(name, str):
+        elif isinstance(name, basestring):
             if name.startswith("zoom"):
                 cleaned = name.strip("zoom").strip()
                 if cleaned.startswith("="):
