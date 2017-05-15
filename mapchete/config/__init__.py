@@ -22,7 +22,6 @@ from mapchete.tile import BufferedTilePyramid
 from mapchete.errors import MapcheteConfigError
 
 
-logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 # supported tile pyramid types
@@ -107,16 +106,20 @@ class MapcheteConfig(object):
 
     def __init__(
         self, input_config, zoom=None, bounds=None, single_input_file=None,
-        mode="continue"
+        mode="continue", debug=False
     ):
         """Initialize configuration."""
+        LOGGER.info("preparing configuration ...")
+        if debug:
+            LOGGER.setLevel(logging.DEBUG)
         try:
             assert mode in ["memory", "readonly", "continue", "overwrite"]
         except Exception:
             raise MapcheteConfigError("invalid process mode")
-        LOGGER.info("preparing configuration ...")
+        LOGGER.debug("zooms provided to config: %s" % zoom)
         self.mode = mode
         # parse configuration
+        LOGGER.debug("parse configuration ...")
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
             input_config, single_input_file=single_input_file)
         assert self.process_file
@@ -143,6 +146,7 @@ class MapcheteConfig(object):
             self.output_type, metatiling=self.raw["output"]["metatiling"],
             pixelbuffer=self.raw["output"]["pixelbuffer"])
         self.crs = self.process_pyramid.crs
+        LOGGER.debug("validate ...")
         self._validate()
 
     @property
@@ -289,6 +293,7 @@ class MapcheteConfig(object):
             zoom level dependent process configuration
         """
         if zoom not in self._at_zoom_cache:
+            LOGGER.debug("parse configuration for zoom %s..." % zoom)
             self._at_zoom_cache[zoom] = self._at_zoom(zoom)
         return self._at_zoom_cache[zoom]
 
@@ -308,6 +313,7 @@ class MapcheteConfig(object):
             return self._process_area(self._delimiters["bounds"], zoom)
         else:
             if not self._global_process_area:
+                LOGGER.debug("calculate process area ...")
                 self._global_process_area = MultiPolygon([
                         self._process_area(self._delimiters["bounds"], z)
                         for z in self.zoom_levels
@@ -426,12 +432,14 @@ class MapcheteConfig(object):
 
     def _input_files_at_zoom(self, name, element, zoom):
         """Get readers and bounding boxes for input files."""
+        LOGGER.debug("get input files metadata for zoom %s" % zoom)
         if element == "from_command_line":
             element = {"input_file": None}
         files_at_zoom = self._element_at_zoom(name, element, zoom)
         assert isinstance(files_at_zoom, dict)
         input_files, input_files_areas = self._parse_input_files(files_at_zoom)
         if input_files_areas:
+            LOGGER.debug("intersect input files bounding boxes")
             process_area = MultiPolygon((input_files_areas)).buffer(0)
         else:
             process_area = box(
@@ -453,6 +461,7 @@ class MapcheteConfig(object):
             elif v not in ["none", "None", None, ""]:
                 # prepare input files metadata
                 if v not in self._prepared_files:
+                    LOGGER.debug("read metadata from %s" % v)
                     # load file reader objects for each file
                     if v.startswith("s3://"):
                         path = v

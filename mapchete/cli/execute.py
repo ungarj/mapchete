@@ -22,7 +22,9 @@ def main(args=None):
     # initialize and run process
     with mapchete.open(
         parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
-        single_input_file=parsed.input_file
+        zoom=parsed.zoom, single_input_file=parsed.input_file,
+        debug=parsed.debug
     ) as mp:
         mp.batch_process(
-            parsed.zoom, parsed.tile, multi, parsed.quiet, parsed.debug)
+            tile=parsed.tile, multi=multi, quiet=parsed.quiet,
+            debug=parsed.debug)

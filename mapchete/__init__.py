@@ -34,7 +34,7 @@ LOGGER = logging.getLogger(__name__)
 
 def open(
     config, mode="continue", zoom=None, bounds=None, single_input_file=None,
-    with_cache=False
+    with_cache=False, debug=False
 ):
     """
     Open a Mapchete process.
@@ -66,7 +66,8 @@ def open(
     return Mapchete(
         MapcheteConfig(
             config, mode=mode, zoom=zoom, bounds=bounds,
-            single_input_file=single_input_file), with_cache=with_cache)
+            single_input_file=single_input_file, debug=debug),
+            with_cache=with_cache)
 
 
 class Mapchete(object):
@@ -212,6 +213,7 @@ class Mapchete(object):
         if isinstance(process_tile, tuple):
             process_tile = self.config.process_pyramid.tile(*process_tile)
         assert isinstance(process_tile, BufferedTile)
+        LOGGER.debug((process_tile.id, "start ..."))
         if process_tile.zoom not in self.config.zoom_levels:
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
@@ -694,6 +696,7 @@ def batch_process(
         LOGGER.setLevel(logging.ERROR)
     if debug:
         LOGGER.setLevel(logging.DEBUG)
+
     # process single tile
     if tile:
         tile = process.config.process_pyramid.tile(*tuple(tile))
