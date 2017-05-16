@@ -54,6 +54,7 @@ class InputData(base.InputData):
         """Initialize."""
         super(InputData, self).__init__(input_params)
         self.path = input_params["path"]
+        self._bbox_cache = {}
 
     @cached_property
     def profile(self):
@@ -90,36 +91,31 @@ class InputData(base.InputData):
         bounding box : geometry
             Shapely geometry object
         """
-        assert self.path
-        assert self.pyramid
         if out_crs is None:
             out_crs = self.pyramid.crs
-        with rasterio.open(self.path) as inp:
-            inp_crs = inp.crs
-            try:
-                assert inp_crs.is_valid
-            except AssertionError:
-                raise IOError("CRS could not be read from %s" % self.path)
-        out_bbox = bbox = box(
-            inp.bounds.left, inp.bounds.bottom, inp.bounds.right,
-            inp.bounds.top)
-        # If soucre and target CRSes differ, segmentize and reproject
-        if inp_crs != out_crs:
-            segmentize = _get_segmentize_value(self.path, self.pyramid)
-            try:
+        if str(out_crs) not in self._bbox_cache:
+            with rasterio.open(self.path) as inp:
+                inp_crs = inp.crs
+                try:
+                    assert inp_crs.is_valid
+                except AssertionError:
+                    raise IOError("CRS could not be read from %s" % self.path)
+            out_bbox = bbox = box(
+                inp.bounds.left, inp.bounds.bottom, inp.bounds.right,
+                inp.bounds.top
+            )
+            # If soucre and target CRSes differ, segmentize and reproject
+            if inp_crs != out_crs:
+                segmentize = _get_segmentize_value(self.path, self.pyramid)
                 ogr_bbox = ogr.CreateGeometryFromWkb(bbox.wkb)
                 ogr_bbox.Segmentize(segmentize)
-                segmentized_bbox = loads(ogr_bbox.ExportToWkt())
-                bbox = segmentized_bbox
-            except:
-                raise
-            try:
-                return reproject_geometry(
-                    bbox, src_crs=inp_crs, dst_crs=out_crs)
-            except:
-                raise
-        else:
-            return out_bbox
+                self._bbox_cache[str(out_crs)] = reproject_geometry(
+                    loads(ogr_bbox.ExportToWkt()),
+                    src_crs=inp_crs, dst_crs=out_crs
+                )
+            else:
+                self._bbox_cache[str(out_crs)] = out_bbox
+        return self._bbox_cache[str(out_crs)]
 
     def exists(self):
         """
@@ -145,8 +141,8 @@ class InputTile(base.InputTile):
     Attributes
     ----------
     tile : tile : ``Tile``
-    raster_file : string
-        path to input raster file
+    raster_file : ``InputData``
+        parent InputData object
     resampling : string
         resampling method passed on to rasterio
     """
@@ -181,10 +177,10 @@ class InputTile(base.InputTile):
         is empty : bool
         """
         band_indexes = self._get_band_indexes(indexes)
-        src_bbox = self.raster_file.bbox()
-        tile_geom = self.tile.bbox
 
         # empty if tile does not intersect with file bounding box
+        src_bbox = self.raster_file.bbox(out_crs=self.tile.crs)
+        tile_geom = self.tile.bbox
         if not tile_geom.intersects(src_bbox):
             return True
 

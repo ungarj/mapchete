@@ -473,7 +473,8 @@ class MapcheteConfig(object):
                     _input_reader = load_input_reader(dict(
                         path=path, pyramid=self.process_pyramid,
                         pixelbuffer=self.pixelbuffer))
-                    LOGGER.debug("input reader for file %s is %s" % (v, _input_reader))
+                    LOGGER.debug("input reader for file %s is %s" % (
+                        v, _input_reader))
                     self._prepared_files[v] = _input_reader
                 # add file reader and file bounding box
                 input_files[k] = self._prepared_files[v]

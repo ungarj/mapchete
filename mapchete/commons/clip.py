@@ -60,7 +60,7 @@ def clip_array_with_vector(
                 buffered_geometries, (array.shape[1], array.shape[2]),
                 array_affine, invert=inverted)
             return ma.masked_array(
-                array, np.stack((mask for band in array))
+                array, mask=np.stack((mask for band in array))
             )
 
     # if no geometries, return unmasked array
