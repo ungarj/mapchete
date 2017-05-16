@@ -71,7 +71,9 @@ def batch_process(
 def _run_on_single_tile(process, tile):
     LOGGER.debug("run on single tile")
     tile = process.config.process_pyramid.tile(*tuple(tile))
-    _write_worker(process, _process_worker(process, tile))
+    output = _process_worker(process, tile)
+    if output:
+        _write_worker(process, output)
     LOGGER.info("1 tile iterated")
 
 
@@ -92,7 +94,8 @@ def _run_with_multiprocessing(
                 for output in pool.imap_unordered(
                     f, process_tiles, chunksize=1
                 ):
-                    _write_worker(process, output)
+                    if output:
+                        _write_worker(process, output)
                     pbar.update()
                     num_processed += 1
             except KeyboardInterrupt:
@@ -121,7 +124,9 @@ def _run_without_multiprocessing(
     ) as pbar:
         for zoom in zoom_levels:
             for process_tile in process.get_process_tiles(zoom):
-                _write_worker(process, _process_worker(process, process_tile))
+                output = _process_worker(process, process_tile)
+                if output:
+                    _write_worker(process, output)
                 pbar.update()
                 num_processed += 1
     LOGGER.info("%s tile(s) iterated", (str(num_processed)))
@@ -153,7 +158,4 @@ def _process_worker(process, process_tile):
 
 def _write_worker(process, process_tile):
     """Worker function writing process outputs."""
-    if process_tile.message == "empty":
-        LOGGER.debug((process_tile.id, "nothing to write"))
-    else:
-        process.write(process_tile)
+    process.write(process_tile)
