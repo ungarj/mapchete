@@ -7,7 +7,6 @@ from multiprocessing import cpu_count
 from multiprocessing.pool import Pool
 
 
-logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 
@@ -70,17 +69,16 @@ def batch_process(
 
 
 def _run_on_single_tile(process, tile):
+    LOGGER.debug("run on single tile")
     tile = process.config.process_pyramid.tile(*tuple(tile))
-    assert tile.is_valid()
-    output = _process_worker(process, tile)
-    if output:
-        _write_worker(process, output)
+    _write_worker(process, _process_worker(process, tile))
     LOGGER.info("1 tile iterated")
 
 
 def _run_with_multiprocessing(
     process, total_tiles, zoom_levels, multi, quiet, debug
 ):
+    LOGGER.debug("run with multiprocessing")
     num_processed = 0
     LOGGER.info("run process using %s workers", multi)
     f = partial(_process_worker, process)
@@ -94,10 +92,9 @@ def _run_with_multiprocessing(
                 for output in pool.imap_unordered(
                     f, process_tiles, chunksize=1
                 ):
+                    _write_worker(process, output)
                     pbar.update()
                     num_processed += 1
-                    if output:
-                        _write_worker(process, output)
             except KeyboardInterrupt:
                 LOGGER.info(
                     "Caught KeyboardInterrupt, terminating workers")
@@ -116,6 +113,7 @@ def _run_with_multiprocessing(
 def _run_without_multiprocessing(
     process, total_tiles, zoom_levels, quiet, debug
 ):
+    LOGGER.debug("run without multiprocessing")
     num_processed = 0
     LOGGER.info("run process using 1 worker")
     with tqdm.tqdm(
@@ -123,10 +121,8 @@ def _run_without_multiprocessing(
     ) as pbar:
         for zoom in zoom_levels:
             for process_tile in process.get_process_tiles(zoom):
+                _write_worker(process, _process_worker(process, process_tile))
                 pbar.update()
-                output = _process_worker(process, process_tile)
-                if output:
-                    _write_worker(process, output)
                 num_processed += 1
     LOGGER.info("%s tile(s) iterated", (str(num_processed)))
 
@@ -149,11 +145,15 @@ def _process_worker(process, process_tile):
     if process.config.mode == "continue" and (
         process.config.output.tiles_exist(process_tile)
     ):
-        LOGGER.debug((process_tile.id, "tile exists"))
+        LOGGER.debug((process_tile.id, "tile exists, skipping"))
     else:
+        LOGGER.debug((process_tile.id, "execute process"))
         return process.execute(process_tile)
 
 
 def _write_worker(process, process_tile):
     """Worker function writing process outputs."""
-    process.write(process_tile)
+    if process_tile.message == "empty":
+        LOGGER.debug((process_tile.id, "nothing to write"))
+    else:
+        process.write(process_tile)

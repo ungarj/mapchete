@@ -455,7 +455,7 @@ class MapcheteConfig(object):
             # "path" within the .mapchete input_files tree
             lk = "/".join([prefix, k])
             if isinstance(v, dict):
-                LOGGER.debug("parse input_files group")
+                LOGGER.debug("parse input_files group %s" % lk)
                 next_files, next_areas = self._parse_input_files(v, prefix=lk)
                 input_files[k] = next_files
                 input_files_areas.extend(next_areas)
