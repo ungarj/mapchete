@@ -6,6 +6,14 @@ from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry
 
 
+METADATA = {
+    "driver_name": "Mapchete",
+    "data_type": None,
+    "mode": "r",
+    "file_extensions": ["mapchete"]
+}
+
+
 class InputData(base.InputData):
     """
     Main input class.

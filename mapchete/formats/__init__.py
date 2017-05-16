@@ -10,6 +10,29 @@ import pkg_resources
 from mapchete import errors
 
 _DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
+_FILE_EXT_TO_DRIVER = {}
+
+
+def _file_ext_to_driver():
+    global _FILE_EXT_TO_DRIVER
+    if _FILE_EXT_TO_DRIVER:
+        return _FILE_EXT_TO_DRIVER
+    else:
+        _FILE_EXT_TO_DRIVER = {}
+        for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+            try:
+                metadata = v.load().METADATA
+                driver_name = metadata["driver_name"]
+                for ext in metadata["file_extensions"]:
+                    if ext in _FILE_EXT_TO_DRIVER:
+                        _FILE_EXT_TO_DRIVER[ext].append(driver_name)
+                    else:
+                        _FILE_EXT_TO_DRIVER[ext] = [driver_name]
+            except Exception:
+                pass
+        if not _FILE_EXT_TO_DRIVER:
+            raise RuntimeError("no drivers could be found")
+        return _FILE_EXT_TO_DRIVER
 
 
 def available_output_formats():
@@ -102,7 +125,7 @@ def load_input_reader(input_params):
                 v.load().InputData, input_params)
             if input_reader.METADATA["driver_name"] == driver_name:
                 return v.load().InputData(input_params)
-        except (AttributeError, errors.MapcheteConfigError) as e:
+        except (AttributeError, errors.MapcheteConfigError):
             pass
     raise AttributeError(
         "no loader for driver '%s' could be found." % driver_name)
@@ -119,32 +142,12 @@ def driver_from_file(input_file):
     """
     file_ext = os.path.splitext(input_file)[1].split(".")[1]
     try:
-        drivers = _file_ext_to_driver()
-        driver = drivers[file_ext]
+        driver = _file_ext_to_driver()[file_ext]
     except KeyError:
         raise ValueError(
             "no driver could be found for file extension %s" % file_ext)
-    try:
-        assert len(driver) == 1
+    if len(driver) == 1:
         return driver[0]
-    except AssertionError:
+    else:
         raise RuntimeError(
             "error determining read driver from file %s" % input_file)
-
-
-def _file_ext_to_driver():
-    mapping = {}
-    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
-        try:
-            data_loader = v.load().InputData
-            driver_name = data_loader.METADATA["driver_name"]
-            for ext in data_loader.METADATA["file_extensions"]:
-                if ext in mapping:
-                    mapping[ext].append(driver_name)
-                else:
-                    mapping[ext] = [driver_name]
-        except Exception:
-            pass
-    if not mapping:
-        raise RuntimeError("no drivers could be found")
-    return mapping

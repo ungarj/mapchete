@@ -18,6 +18,14 @@ from mapchete.io.vector import reproject_geometry
 from mapchete.io.raster import read_raster_window
 
 
+METADATA = {
+    "driver_name": "raster_file",
+    "data_type": "raster",
+    "mode": "r",
+    "file_extensions": ["tif", "vrt", "png", "jp2"]
+}
+
+
 class InputData(base.InputData):
     """
     Main input class.

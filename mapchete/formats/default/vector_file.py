@@ -12,6 +12,14 @@ from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry, read_vector_window
 
 
+METADATA = {
+    "driver_name": "vector_file",
+    "data_type": "vector",
+    "mode": "r",
+    "file_extensions": ["shp", "geojson"]
+}
+
+
 class InputData(base.InputData):
     """
     Main input class.
