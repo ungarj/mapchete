@@ -114,7 +114,8 @@ class InputData(base.InputData):
             )
             # If soucre and target CRSes differ, segmentize and reproject
             if inp_crs != out_crs:
-                segmentize = _get_segmentize_value(self.path, self.pyramid)
+                # estimate segmentize value (raster pixel size * tile size)
+                segmentize = inp.transform[0] * self.pyramid.tile_size
                 ogr_bbox = ogr.CreateGeometryFromWkb(bbox.wkb)
                 ogr_bbox.Segmentize(segmentize)
                 self._bbox_cache[str(out_crs)] = reproject_geometry(
