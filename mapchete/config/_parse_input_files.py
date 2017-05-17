@@ -38,7 +38,7 @@ def input_files_at_zoom(process, name, element, zoom):
             analyzed_files = {
                 key: reader
                 for key, reader in pool.imap_unordered(
-                    f, files_flat, chunksize=1
+                    f, files_flat, chunksize=8
                 )
             }
         except KeyboardInterrupt:
