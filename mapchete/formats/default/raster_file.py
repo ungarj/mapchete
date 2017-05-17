@@ -185,8 +185,6 @@ class InputTile(base.InputTile):
         -------
         is empty : bool
         """
-        band_indexes = self._get_band_indexes(indexes)
-
         # empty if tile does not intersect with file bounding box
         src_bbox = self.raster_file.bbox(out_crs=self.tile.crs)
         tile_geom = self.tile.bbox
@@ -195,7 +193,7 @@ class InputTile(base.InputTile):
 
         # empty if source band(s) are empty
         all_bands_empty = True
-        for band in self._bands_from_cache(band_indexes):
+        for band in self._bands_from_cache(self._get_band_indexes(indexes)):
             if not band.mask.all():
                 all_bands_empty = False
                 break
