@@ -54,6 +54,7 @@ class InputData(base.InputData):
         """Initialize."""
         super(InputData, self).__init__(input_params)
         self.path = input_params["path"]
+        self._bbox_cache = {}
 
     def open(self, tile, **kwargs):
         """
@@ -84,25 +85,28 @@ class InputData(base.InputData):
         bounding box : geometry
             Shapely geometry object
         """
-        assert self.path
-        assert self.pyramid
         if out_crs is None:
             out_crs = self.pyramid.crs
-        with fiona.open(self.path) as inp:
-            inp_crs = CRS(inp.crs)
-            try:
-                assert inp_crs.is_valid
-            except AssertionError:
-                raise IOError("CRS could not be read from %s" % self.path)
-            bbox = box(*inp.bounds)
-        # Check if file bounding box is empty.
-        if len(set(inp.bounds)) == 1:
-            return Polygon()
-        # If soucre and target CRSes differ, segmentize and reproject
-        if inp_crs != out_crs:
-            return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
-        else:
-            return bbox
+        if str(out_crs) not in self._bbox_cache:
+            with fiona.open(self.path) as inp:
+                inp_crs = CRS(inp.crs)
+                try:
+                    assert inp_crs.is_valid
+                except AssertionError:
+                    raise IOError("CRS could not be read from %s" % self.path)
+                bbox = box(*inp.bounds)
+            # Check if file bounding box is empty.
+            if len(set(inp.bounds)) == 1:
+                self._bbox_cache[str(out_crs)] = Polygon()
+            # If soucre and target CRSes differ, segmentize and reproject
+            if inp_crs != out_crs:
+                self._bbox_cache[str(out_crs)] = reproject_geometry(
+                    bbox, src_crs=inp_crs, dst_crs=out_crs
+                )
+            else:
+                self._bbox_cache[str(out_crs)] = bbox
+
+        return self._bbox_cache[str(out_crs)]
 
 
 class InputTile(base.InputTile):

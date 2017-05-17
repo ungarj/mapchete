@@ -16,10 +16,10 @@ import logging
 from cached_property import cached_property
 from shapely.geometry import box, MultiPolygon
 
-from mapchete.formats import (
-    load_output_writer, available_output_formats, load_input_reader)
+from mapchete.formats import load_output_writer, available_output_formats
 from mapchete.tile import BufferedTilePyramid
 from mapchete.errors import MapcheteConfigError
+from mapchete.config._parse_input_files import input_files_at_zoom
 
 
 LOGGER = logging.getLogger(__name__)
@@ -128,7 +128,6 @@ class MapcheteConfig(object):
         # helper caches
         self._at_zoom_cache = {}
         self._global_process_area = None
-        self._prepared_files = {}
         # other properties
         try:
             self.output_type = self.raw["output"]["type"]
@@ -423,66 +422,13 @@ class MapcheteConfig(object):
                 if out_element is not None:
                     params[name] = out_element
             if name == "input_files":
-                input_files, process_area = self._input_files_at_zoom(
-                    name, element, zoom)
+                input_files, process_area = input_files_at_zoom(
+                    self, name, element, zoom
+                )
         params.update(
             input_files=input_files, output=self.output,
             process_area=process_area)
         return params
-
-    def _input_files_at_zoom(self, name, element, zoom):
-        """Get readers and bounding boxes for input files."""
-        LOGGER.debug("get input files metadata for zoom %s" % zoom)
-        if element == "from_command_line":
-            element = {"input_file": None}
-        files_at_zoom = self._element_at_zoom(name, element, zoom)
-        input_files, input_files_areas = self._parse_input_files(files_at_zoom)
-        if input_files_areas:
-            LOGGER.debug("intersect input files bounding boxes")
-            process_area = MultiPolygon((input_files_areas)).buffer(0)
-        else:
-            LOGGER.debug("assume global bounding box")
-            process_area = box(
-                self.process_pyramid.left, self.process_pyramid.bottom,
-                self.process_pyramid.right, self.process_pyramid.top)
-        return input_files, process_area
-
-    def _parse_input_files(self, files, prefix=""):
-        """Return correctly parsed input file groups."""
-        input_files = {}
-        input_files_areas = []
-        for k, v in files.iteritems():
-            # "path" within the .mapchete input_files tree
-            lk = "/".join([prefix, k])
-            if isinstance(v, dict):
-                LOGGER.debug("parse input_files group %s" % lk)
-                next_files, next_areas = self._parse_input_files(v, prefix=lk)
-                input_files[k] = next_files
-                input_files_areas.extend(next_areas)
-            elif v not in ["none", "None", None, ""]:
-                # prepare input files metadata
-                if v not in self._prepared_files:
-                    LOGGER.debug("read metadata from %s" % v)
-                    # load file reader objects for each file
-                    if v.startswith("s3://"):
-                        path = v
-                    else:
-                        path = os.path.normpath(
-                            os.path.join(self.config_dir, v))
-                    LOGGER.debug("load input reader for file %s" % v)
-                    _input_reader = load_input_reader(dict(
-                        path=path, pyramid=self.process_pyramid,
-                        pixelbuffer=self.pixelbuffer))
-                    LOGGER.debug("input reader for file %s is %s" % (
-                        v, _input_reader))
-                    self._prepared_files[v] = _input_reader
-                # add file reader and file bounding box
-                input_files[k] = self._prepared_files[v]
-                input_files_areas.append(input_files[k].bbox(
-                    out_crs=self.crs))
-            else:
-                input_files[k] = None
-        return input_files, input_files_areas
 
     def _process_area(self, user_bounds, zoom):
         """Calculate process bounding box."""
