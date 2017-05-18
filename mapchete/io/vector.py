@@ -1,8 +1,9 @@
 """Functions handling vector data."""
 
+import os
+import logging
 import warnings
 import pyproj
-import os
 import fiona
 from functools import partial
 from rasterio.crs import CRS
@@ -14,6 +15,8 @@ from itertools import chain
 
 from mapchete.tile import BufferedTile
 
+# suppress shapely warnings
+logging.getLogger("shapely").setLevel(logging.ERROR)
 
 CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/wgs-84/
