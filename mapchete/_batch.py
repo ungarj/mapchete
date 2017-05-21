@@ -158,4 +158,8 @@ def _process_worker(process, process_tile):
 
 def _write_worker(process, process_tile):
     """Worker function writing process outputs."""
-    process.write(process_tile)
+    if process_tile and (
+        process_tile.data is not None) and (
+        process_tile.message != "empty"
+    ):
+        process.write(process_tile)

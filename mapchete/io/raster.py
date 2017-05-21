@@ -2,6 +2,8 @@
 
 import os
 import rasterio
+import logging
+import time
 import numpy as np
 import numpy.ma as ma
 from shapely.geometry import box
@@ -12,6 +14,9 @@ from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.tile import BufferedTile
 from mapchete.io.vector import reproject_geometry
+
+
+LOGGER = logging.getLogger(__name__)
 
 RESAMPLING_METHODS = {
     "nearest": Resampling.nearest,
@@ -48,9 +53,7 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
     -------
     raster : MaskedArray
     """
-    try:
-        assert os.path.isfile(input_file)
-    except AssertionError:
+    if not os.path.isfile(input_file):
         if input_file.split("/")[1] == "vsizip" or (
             input_file.startswith("s3://")
         ):
@@ -80,6 +83,7 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
 def _get_warped_edge_array(
     tile=None, input_file=None, band_idx=None, resampling="nearest"
 ):
+    LOGGER.debug("read array at pyramid edge")
     tile_boxes = clip_geometry_to_srs_bounds(
         tile.bbox, tile.tile_pyramid, multipart=True)
     parts_metadata = dict(left=None, middle=None, right=None, none=None)
@@ -129,6 +133,7 @@ def _get_warped_array(
     dst_affine=None, dst_crs=None, resampling="nearest"
 ):
     """Extract a numpy array from a raster file."""
+    LOGGER.debug("read array using rasterio")
     with rasterio.open(input_file, "r") as src:
         if dst_crs == src.crs:
             src_left, src_bottom, src_right, src_top = dst_bounds
@@ -139,32 +144,40 @@ def _get_warped_array(
             tile_bbox = reproject_geometry(
                 box(*dst_bounds), src_crs=dst_crs, dst_crs=src.crs)
             if not file_bbox.intersects(tile_bbox):
+                LOGGER.debug("file bounding box does not intersect with tile")
                 return ma.MaskedArray(
                     data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
                     mask=ma.ones(dst_shape), fill_value=src.nodata)
             # Reproject tile bounds to source file SRS.
             src_left, src_bottom, src_right, src_top = transform_bounds(
                 dst_crs, src.crs, *dst_bounds, densify_pts=21)
+
         if float('Inf') in (src_left, src_bottom, src_right, src_top):
             # Maybe not the best way to deal with it, but if bounding box
             # cannot be translated, it is assumed that data is emtpy
+            LOGGER.debug("tile seems to be outside of input CRS bounds")
             return ma.MaskedArray(
                 data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
                 mask=ma.ones(dst_shape), fill_value=src.nodata)
         # Read data window.
         window = src.window(
             src_left, src_bottom, src_right, src_top, boundless=True)
+        start = time.time()
         src_band = src.read(band_idx, window=window, boundless=True)
+        LOGGER.debug("window read in %ss" % round(time.time() - start, 3))
         # Quick fix because None nodata is not allowed.
         nodataval = 0 if not src.nodata else src.nodata
         # Prepare reprojected array.
         dst_band = np.empty(dst_shape, src.dtypes[band_idx-1])
         # Run rasterio's reproject().
+        start = time.time()
         reproject(
             src_band, dst_band, src_transform=src.window_transform(window),
             src_crs=src.crs, src_nodata=nodataval, dst_transform=dst_affine,
             dst_crs=dst_crs, dst_nodata=nodataval,
             resampling=RESAMPLING_METHODS[resampling])
+        LOGGER.debug(
+            "window reprojected in %ss" % round(time.time() - start, 3))
         return ma.MaskedArray(dst_band, mask=dst_band == nodataval)
 
 

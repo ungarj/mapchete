@@ -26,7 +26,9 @@ from mapchete.errors import (
     MapcheteProcessSyntaxError, MapcheteProcessImportError,
     MapcheteProcessException, MapcheteProcessOutputError)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO, format='%(levelname)s %(name)s %(message)s'
+)
 LOGGER = logging.getLogger(__name__)
 
 
@@ -255,9 +257,6 @@ class Mapchete(object):
         """
         if self.config.mode not in ["continue", "overwrite"]:
             raise ValueError("process mode must be continue or overwrite")
-        if isinstance(process_tile, tuple):
-            process_tile = self.config.process_pyramid.tile(*process_tile)
-        assert isinstance(process_tile, BufferedTile)
         starttime = time.time()
         if process_tile.data is None or process_tile.message == "empty":
             LOGGER.debug((process_tile.id, "nothing to write"))
