@@ -284,7 +284,7 @@ def test_write_empty():
     mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
     # process and save
-    mp.write((5, 0, 0))
+    mp.write(mp.config.process_pyramid.tile(5, 0, 0))
 
 
 def test_process_template():
