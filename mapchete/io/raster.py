@@ -269,26 +269,18 @@ def extract_from_array(in_data, in_affine, out_tile):
     -------
     extracted array : array
     """
-    assert isinstance(in_data, np.ndarray)
     left, bottom, right, top = out_tile.bounds
-    if in_data.ndim == 2:
-        window = from_bounds(
-            left, bottom, right, top, in_affine, height=in_data.shape[0],
-            width=in_data.shape[1])
-    else:
-        window = from_bounds(
-            left, bottom, right, top, in_affine, height=in_data[0].shape[0],
-            width=in_data[0].shape[1])
+    window = from_bounds(
+        left, bottom, right, top, in_affine,
+        height=in_data.shape[-2], width=in_data.shape[-1]
+    )
     minrow = window.row_off
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
     if not maxrow > minrow and maxcol > mincol:
         raise ValueError("input and output tile not overlapping")
-    if in_data.ndim == 2:
-        return in_data[minrow:maxrow, mincol:maxcol]
-    else:
-        return in_data[..., minrow:maxrow, mincol:maxcol]
+    return in_data[..., minrow:maxrow, mincol:maxcol]
 
 
 def resample_from_array(
