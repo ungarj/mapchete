@@ -4,7 +4,9 @@
 import os
 import logging
 import time
+from sets import ImmutableSet
 from shapely.geometry import box, MultiPolygon
+from shapely.wkt import dumps
 from functools import partial
 from multiprocessing import cpu_count
 from multiprocessing.pool import Pool
@@ -33,7 +35,7 @@ def input_files_at_zoom(process, name, element, zoom):
         else:
             new_files.append((name, path))
 
-    LOGGER.debug("%s files to analyze", len(new_files))
+    LOGGER.debug("%s new files to analyze", len(new_files))
     if len(new_files) >= cpu_count():
         # analyze files in parallel
         start = time.time()
@@ -90,7 +92,12 @@ def input_files_at_zoom(process, name, element, zoom):
     ]
     if input_files_areas:
         LOGGER.debug("intersect input files bounding boxes")
-        process_area = MultiPolygon((input_files_areas)).buffer(0)
+        id_ = ImmutableSet([dumps(i) for i in input_files_areas])
+        if id_ not in process._process_area_cache:
+            process._process_area_cache[id_] = MultiPolygon(
+                (input_files_areas)
+            ).buffer(0)
+        process_area = process._process_area_cache[id_]
     else:
         LOGGER.debug("assume global bounding box")
         process_area = box(

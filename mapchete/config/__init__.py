@@ -121,6 +121,7 @@ class MapcheteConfig(object):
         # parse configuration
         LOGGER.debug("parse configuration ...")
         self._input_files_cache = {}
+        self._process_area_cache = {}
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
             input_config, single_input_file=single_input_file)
         assert self.process_file
