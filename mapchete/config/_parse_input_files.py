@@ -24,9 +24,17 @@ def input_files_at_zoom(process, name, element, zoom):
     files_tree = process._element_at_zoom(name, element, zoom)
     # convert tree to key-value object, where path within tree is the key
     files_flat = _flatten_tree(files_tree)
+    # select files not yet cached
+    new_files = []
+    cached_files = {}
+    for name, path in files_flat:
+        if path in process._input_files_cache:
+            cached_files[name] = process._input_files_cache[path]
+        else:
+            new_files.append((name, path))
 
-    LOGGER.debug("%s files to analyze", len(files_flat))
-    if len(files_flat) >= cpu_count():
+    LOGGER.debug("%s files to analyze", len(new_files))
+    if len(new_files) >= cpu_count():
         # analyze files in parallel
         start = time.time()
         f = partial(
@@ -36,9 +44,9 @@ def input_files_at_zoom(process, name, element, zoom):
         pool = Pool()
         try:
             analyzed_files = {
-                key: reader
-                for key, reader in pool.imap_unordered(
-                    f, files_flat, chunksize=8
+                key: location_reader
+                for key, location_reader in pool.imap_unordered(
+                    f, new_files, chunksize=8
                 )
             }
         except KeyboardInterrupt:
@@ -61,18 +69,23 @@ def input_files_at_zoom(process, name, element, zoom):
                 process.config_dir, process.process_pyramid,
                 process.pixelbuffer, (k, v)
             )[1]
-            for k, v in files_flat
+            for k, v in new_files
         }
         LOGGER.debug(
             "sequential file parsing: %ss" % round(time.time() - start, 3))
 
     # create original dicionary with file readers
-    input_files = _unflatten_tree(analyzed_files)
+    analyzed_readers = {}
+    for name, (location, reader) in analyzed_files.iteritems():
+        process._input_files_cache[location] = reader
+        analyzed_readers[name] = reader
+    analyzed_readers.update(cached_files)
+    input_files = _unflatten_tree(analyzed_readers)
 
     # collect boundding boxes of inputs
     input_files_areas = [
         reader.bbox(out_crs=process.crs)
-        for reader in analyzed_files.values()
+        for reader in analyzed_readers.values()
         if reader is not None
     ]
     if input_files_areas:
@@ -140,6 +153,6 @@ def _file_worker(conf_dir, pyramid, pixelbuffer, kv):
         )
         # trigger input bounding box caches
         _input_reader.bbox(out_crs=pyramid.crs)
-        return key, _input_reader
+        return key, (location, _input_reader)
     else:
-        return key, None
+        return key, (None, None)
