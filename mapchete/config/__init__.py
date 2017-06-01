@@ -150,15 +150,13 @@ class MapcheteConfig(object):
         LOGGER.debug("validate ...")
         self._validate()
 
-    @property
+    @cached_property
     def output(self):
         """Output object of driver."""
         output_params = self.raw["output"]
         if "format" not in output_params:
             raise MapcheteConfigError("output format not specified")
-        try:
-            assert output_params["format"] in available_output_formats()
-        except AssertionError:
+        if not output_params["format"] in available_output_formats():
             raise MapcheteConfigError(
                 "format %s not available in %s" % (
                     output_params["format"], str(available_output_formats())
