@@ -6,6 +6,7 @@ import yaml
 from shapely.geometry import Polygon
 from shapely.wkt import loads
 
+import mapchete
 from mapchete.config import MapcheteConfig
 
 
@@ -129,6 +130,18 @@ def test_read_baselevels():
         del config["baselevels"]["lower"]
         assert max(MapcheteConfig(config).baselevels["zooms"]) == 7
         assert MapcheteConfig(config).baselevels["lower"] == "nearest"
+
+
+def test_empty_input_files():
+    """Verify configuration gets parsed without input files."""
+    with open(
+        os.path.join(SCRIPTDIR, "testdata/file_groups.mapchete"), "r"
+    ) as src:
+        config = yaml.load(src.read())
+        config.update(
+            input_files=None, config_dir=os.path.join(SCRIPTDIR, "testdata")
+        )
+    assert mapchete.open(config)
 
 
 def test_read_input_groups():

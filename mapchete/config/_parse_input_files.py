@@ -22,6 +22,11 @@ def input_files_at_zoom(process, name, element, zoom):
     # case where single input files is provided by CLI
     if element == "from_command_line":
         element = {"input_file": None}
+    elif element is None:
+        return dict(), box(
+            process.process_pyramid.left, process.process_pyramid.bottom,
+            process.process_pyramid.right, process.process_pyramid.top
+        )
     # get input files for current zoom level
     files_tree = process._element_at_zoom(name, element, zoom)
     # convert tree to key-value object, where path within tree is the key
