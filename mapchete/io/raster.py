@@ -303,7 +303,8 @@ def extract_from_array(in_data, in_affine, out_tile):
         dst_shape = tuple(dst_shape)
         out_array = np.zeros(
             dst_shape, dtype=in_data.dtype
-        ) * in_data.fill_value
+        )
+        out_array *= in_data.fill_value
         # determine target window params
         d_minrow = -minrow
         d_maxrow = d_minrow + in_data.shape[-2]
