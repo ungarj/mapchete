@@ -345,11 +345,13 @@ class Mapchete(object):
     def _read_existing_output(self, tile, output_tiles):
         if self.config.output.METADATA["data_type"] == "raster":
             mosaic, affine = raster.create_mosaic(
-                [self.read(output_tile) for output_tile in output_tiles])
+                [self.read(output_tile) for output_tile in output_tiles]
+            )
             tile.data = raster.extract_from_array(mosaic, affine, tile)
         elif self.config.output.METADATA["data_type"] == "vector":
             tile.data = list(chain.from_iterable([
-                self.read(output_tile).data for output_tile in output_tiles]))
+                self.read(output_tile).data for output_tile in output_tiles
+            ]))
         return tile
 
     def _execute_using_cache(self, process_tile):
@@ -404,12 +406,16 @@ class Mapchete(object):
         if self.config.baselevels:
             if process_tile.zoom < min(self.config.baselevels["zooms"]):
                 process_data = self._interpolate_from_baselevel(
-                    process_tile, "lower")
+                    process_tile,
+                    "lower"
+                )
                 # Analyze proess output.
                 return self._streamline_output(process_data, process_tile)
             elif process_tile.zoom > max(self.config.baselevels["zooms"]):
                 process_data = self._interpolate_from_baselevel(
-                    process_tile, "higher")
+                    process_tile,
+                    "higher"
+                )
                 # Analyze proess output.
                 return self._streamline_output(process_data, process_tile)
         # Otherwise, load process source and execute.
@@ -455,28 +461,37 @@ class Mapchete(object):
             raise MapcheteProcessOutputError("process output is empty")
         else:
             raise MapcheteProcessOutputError(
-                "invalid output type: %s" % type(process_data))
+                "invalid output type: %s" % type(process_data)
+            )
         return process_tile
 
     def _interpolate_from_baselevel(self, process_tile, baselevel):
         try:
             starttime = time.time()
+            # resample from parent tile
             if baselevel == "higher":
                 parent_tile = self.get_raw_output(
                     process_tile.get_parent(), _baselevel_readonly=True)
                 process_data = raster.resample_from_array(
-                    parent_tile.data, parent_tile.affine, process_tile,
+                    parent_tile.data,
+                    parent_tile.affine,
+                    process_tile,
                     self.config.baselevels["higher"],
-                    nodataval=self.config.output.nodata)
+                    nodataval=self.config.output.nodata
+                )
+            # resample from children tiles
             elif baselevel == "lower":
                 mosaic, mosaic_affine = raster.create_mosaic([
-                    self.get_raw_output(base_tile, _baselevel_readonly=True)
-                    for base_tile in process_tile.get_children()
+                    self.get_raw_output(child_tile, _baselevel_readonly=True)
+                    for child_tile in process_tile.get_children()
                 ])
                 process_data = raster.resample_from_array(
-                    mosaic, mosaic_affine, process_tile,
+                    mosaic,
+                    mosaic_affine,
+                    process_tile,
                     self.config.baselevels["lower"],
-                    nodataval=self.config.output.nodata)
+                    nodataval=self.config.output.nodata
+                )
             elapsed = "%ss" % (round((time.time() - starttime), 3))
             LOGGER.debug((
                 process_tile.id, "generated from baselevel", elapsed))

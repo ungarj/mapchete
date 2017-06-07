@@ -124,7 +124,9 @@ def test_extract_from_tile():
     """Extract subdata from bigger tile."""
     in_tile = BufferedTilePyramid("geodetic", metatiling=4).tile(5, 5, 5)
     shape = (in_tile.shape[0]/2, in_tile.shape[1])
-    in_tile.data = np.concatenate([np.ones(shape), np.ones(shape)*2])
+    in_tile.data = ma.masked_array(
+        np.concatenate([np.ones(shape), np.ones(shape)*2])
+    )
     # intersecting at top
     out_tile = BufferedTilePyramid("geodetic").tile(5, 20, 20)
     out_array = raster.extract_from_tile(in_tile, out_tile)
@@ -139,6 +141,7 @@ def test_extract_from_tile():
     try:
         out_tile = BufferedTilePyramid("geodetic").tile(5, 15, 20)
         out_array = raster.extract_from_tile(in_tile, out_tile)
+        raise Exception()
     except ValueError:
         pass
 

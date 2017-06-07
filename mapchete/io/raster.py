@@ -270,17 +270,53 @@ def extract_from_array(in_data, in_affine, out_tile):
     extracted array : array
     """
     left, bottom, right, top = out_tile.bounds
+    # determine output tile window in input data
     window = from_bounds(
         left, bottom, right, top, in_affine,
-        height=in_data.shape[-2], width=in_data.shape[-1]
+        height=in_data.shape[-2], width=in_data.shape[-1],
+        boundless=True
     )
     minrow = window.row_off
     maxrow = window.row_off + window.num_rows
     mincol = window.col_off
     maxcol = window.col_off + window.num_cols
-    if not maxrow > minrow and maxcol > mincol:
-        raise ValueError("input and output tile not overlapping")
-    return in_data[..., minrow:maxrow, mincol:maxcol]
+
+    # if output window is within input window
+    if (
+        minrow >= 0 and
+        mincol >= 0 and
+        maxrow <= in_data.shape[-2] and
+        maxcol <= in_data.shape[-1]
+    ):
+        return in_data[..., minrow:maxrow, mincol:maxcol]
+    # special case if output window contains input window
+    elif (
+        minrow < 0 and
+        mincol < 0 and
+        maxrow > in_data.shape[-2] and
+        maxcol > in_data.shape[-1]
+    ):
+        # determine output shape (first dimensions from data, width and height
+        # from output tile)
+        dst_shape = list(in_data.shape)
+        dst_shape[-2:] = out_tile.shape[-2:]
+        dst_shape = tuple(dst_shape)
+        out_array = np.zeros(
+            dst_shape, dtype=in_data.dtype
+        ) * in_data.fill_value
+        # determine target window params
+        d_minrow = -minrow
+        d_maxrow = d_minrow + in_data.shape[-2]
+        d_mincol = -mincol
+        d_maxcol = d_mincol + in_data.shape[-1]
+        # write input array into window
+        out_array[..., d_minrow:d_maxrow, d_mincol:d_maxcol] = in_data
+        return ma.masked_where(out_array == in_data.fill_value, out_array)
+    # raise error if output and input windows do overlap partially
+    else:
+        raise ValueError(
+            "extraction fails if input and output shapes partially overlap"
+        )
 
 
 def resample_from_array(
@@ -373,12 +409,10 @@ def create_mosaic(tiles, nodata=0):
         if isinstance(tile.data, (np.ndarray)):
             tile.data = ma.masked_where(tile.data == nodata, tile.data)
         num_bands = tile_data.shape[0]
-        if resolution is None:
-            resolution = tile.pixel_x_size
+        resolution = tile.pixel_x_size if resolution is None else resolution
         if tile.pixel_x_size != resolution:
             raise RuntimeError("tiles must have same resolution")
-        if dtype is None:
-            dtype = tile_data[0].dtype
+        dtype = tile_data[0].dtype if dtype is None else dtype
         if tile_data[0].dtype != dtype:
             raise RuntimeError("all tiles must have the same dtype")
         left, bottom, right, top = tile.bounds
