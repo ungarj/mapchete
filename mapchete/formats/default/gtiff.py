@@ -100,10 +100,11 @@ class OutputData(base.OutputData):
         -------
         process output : ``BufferedTile`` with appended data
         """
-        try:
-            with rasterio.open(self.get_path(output_tile), "r") as src:
+        path = self.get_path(output_tile)
+        if os.path.isfile(path):
+            with rasterio.open(path, "r") as src:
                 output_tile.data = src.read(masked=True)
-        except RasterioIOError:
+        else:
             output_tile.data = self.empty(output_tile)
         return output_tile
 

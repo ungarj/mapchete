@@ -315,7 +315,12 @@ class Mapchete(object):
 
         # TODO: cases where tile intersects with multiple process tiles
         process_tile = self.config.process_pyramid.intersecting(tile)[0]
-        output_tiles = self.config.output_pyramid.intersecting(tile)
+        if self.config.pixelbuffer > 0:
+            output_tiles = self.config.output_pyramid.tiles_from_bounds(
+                tile.bounds, tile.zoom
+            )
+        else:
+            output_tiles = self.config.output_pyramid.intersecting(tile)
 
         if self.config.mode == "readonly" or _baselevel_readonly:
             if self.config.output.tiles_exist(process_tile):
