@@ -2,6 +2,7 @@
 
 import logging
 import tqdm
+import time
 from functools import partial
 from itertools import product
 from multiprocessing import cpu_count
@@ -158,8 +159,14 @@ def _process_worker(process, process_tile):
     ):
         LOGGER.debug((process_tile.id, "tile exists, skipping"))
     else:
-        LOGGER.debug((process_tile.id, "execute process"))
-        return process.execute(process_tile)
+        start = time.time()
+        output = process.execute(process_tile)
+        LOGGER.debug((
+            process_tile.id, "processed in %ss" % (
+                round(time.time() - start, 3)
+            )
+        ))
+        return output
 
 
 def _write_worker(process, process_tile):
@@ -168,7 +175,13 @@ def _write_worker(process, process_tile):
         process_tile.data is not None) and (
         process_tile.message != "empty"
     ):
+        start = time.time()
         process.write(process_tile)
+        LOGGER.debug((
+            process_tile.id, "output written in %ss" % (
+                round(time.time() - start, 3)
+            )
+        ))
 
 
 def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
