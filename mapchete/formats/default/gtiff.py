@@ -117,11 +117,11 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
         process_tile.data = prepare_array(
             process_tile.data, masked=True, nodata=self.nodata,
             dtype=self.profile(process_tile)["dtype"])
+        if process_tile.data.mask.all():
+            return
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             out_path = self.get_path(tile)
