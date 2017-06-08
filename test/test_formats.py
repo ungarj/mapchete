@@ -53,14 +53,17 @@ def test_base_format_classes():
     assert tmp.srid
     try:
         tmp.open(None)
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.bbox()
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.exists()
+        raise Exception()
     except NotImplementedError:
         pass
 
@@ -68,10 +71,12 @@ def test_base_format_classes():
     tmp = base.InputTile(None)
     try:
         tmp.read()
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.is_empty()
+        raise Exception()
     except NotImplementedError:
         pass
 
@@ -83,29 +88,36 @@ def test_base_format_classes():
     assert tmp.srid
     try:
         tmp.read(None)
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.write(None)
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.tiles_exist(None)
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.is_valid_with_config(None)
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.for_web(None)
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.empty(None)
+        raise Exception()
     except NotImplementedError:
         pass
     try:
         tmp.open(None, None)
+        raise Exception()
     except NotImplementedError:
         pass

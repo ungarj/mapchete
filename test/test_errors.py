@@ -22,7 +22,7 @@ def test_config_modes():
     try:
         MapcheteConfig(
             os.path.join(SCRIPTDIR, "example.mapchete"), mode="invalid")
-        raise Exception
+        raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -36,7 +36,7 @@ def test_metatiles():
                 config_dir=SCRIPTDIR, metatiling=1)
             config["output"].update(metatiling=2)
             MapcheteConfig(config)
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -49,7 +49,7 @@ def test_no_cli_input_file():
             config.update(
                 config_dir=SCRIPTDIR, input_files="from_command_line")
             MapcheteConfig(config)
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -62,7 +62,7 @@ def test_wrong_bounds():
             config.update(
                 config_dir=SCRIPTDIR)
             MapcheteConfig(config, bounds=[2, 3])
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -75,7 +75,7 @@ def test_empty_input_files():
             config.update(config_dir=SCRIPTDIR)
             del config["input_files"]
             MapcheteConfig(config)
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -89,7 +89,7 @@ def test_mandatory_params():
                 del config[param]
                 config.update(config_dir=SCRIPTDIR)
                 MapcheteConfig(config)
-                raise Exception
+                raise Exception()
         except errors.MapcheteConfigError:
             pass
     # invalid path
@@ -98,7 +98,7 @@ def test_mandatory_params():
             config = copy(yaml.load(mc))
             config.update(config_dir=SCRIPTDIR, process_file="invalid/path.py")
             MapcheteConfig(config).process_file
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -107,7 +107,7 @@ def test_mandatory_params():
         with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
             config = copy(yaml.load(mc))
             MapcheteConfig(config).process_file
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -123,14 +123,14 @@ def test_invalid_output_params():
                 # invalid
                 config["output"][param] = "invalid"
                 MapcheteConfig(config)
-                raise Exception
+                raise Exception()
             except errors.MapcheteConfigError:
                 pass
             try:
                 # missing
                 del config["output"][param]
                 MapcheteConfig(config)
-                raise Exception
+                raise Exception()
             except errors.MapcheteConfigError:
                 pass
 
@@ -145,7 +145,7 @@ def test_invalid_zoom_levels():
             del config["process_minzoom"]
             del config["process_maxzoom"]
             MapcheteConfig(config)
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
     # invalid single zoom level
@@ -156,7 +156,7 @@ def test_invalid_zoom_levels():
             del config["process_minzoom"]
             del config["process_maxzoom"]
             MapcheteConfig(config, zoom=-5)
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
     # invalid zoom level in pair
@@ -167,7 +167,7 @@ def test_invalid_zoom_levels():
             del config["process_minzoom"]
             del config["process_maxzoom"]
             MapcheteConfig(config, zoom=[-5, 0])
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
     # invalid number of zoom levels
@@ -178,7 +178,7 @@ def test_invalid_zoom_levels():
             del config["process_minzoom"]
             del config["process_maxzoom"]
             MapcheteConfig(config, zoom=[0, 5, 7])
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -194,7 +194,7 @@ def test_invalid_baselevels():
             config.update(config_dir=SCRIPTDIR)
             config["baselevels"].update(min=-5, max="x")
             MapcheteConfig(config)
-            raise Exception
+            raise Exception()
     except errors.MapcheteConfigError:
         pass
 
@@ -212,14 +212,11 @@ def test_import_error():
         mp = mapchete.open(config)
         try:
             mp.execute((5, 0, 0))
-            raise Exception
+            raise Exception()
         except errors.MapcheteProcessImportError:
             pass
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_syntax_error():
@@ -234,14 +231,11 @@ def test_syntax_error():
             process_file=os.path.join(SCRIPTDIR, "testdata/syntax_error.py"))
         try:
             mapchete.open(config)
-            raise Exception
+            raise Exception()
         except errors.MapcheteProcessSyntaxError:
             pass
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_process_exception():
@@ -257,14 +251,11 @@ def test_process_exception():
         mp = mapchete.open(config)
         try:
             mp.execute((5, 0, 0))
-            raise Exception
+            raise Exception()
         except errors.MapcheteProcessException:
             pass
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_output_error():
@@ -280,11 +271,8 @@ def test_output_error():
         mp = mapchete.open(config)
         try:
             mp.execute((5, 0, 0))
-            raise Exception
+            raise Exception()
         except errors.MapcheteProcessOutputError:
             pass
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)

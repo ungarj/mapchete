@@ -57,8 +57,6 @@ def test_create_and_execute():
             MapcheteCLI(args)
         except MapcheteProcessOutputError:
             pass
-    except Exception:
-        raise
     finally:
         delete_files = [temp_mapchete, temp_process, "temp.pyc", "temp.log"]
         for delete_file in delete_files:
@@ -66,10 +64,7 @@ def test_create_and_execute():
                 os.remove(delete_file)
             except OSError:
                 pass
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_create_existing():
@@ -94,10 +89,7 @@ def test_create_existing():
                 os.remove(delete_file)
             except OSError:
                 pass
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_execute_multiprocessing():
@@ -133,8 +125,6 @@ def test_execute_multiprocessing():
             '--zoom', '8'
         ]
         MapcheteCLI(args)
-    except Exception:
-        raise
     finally:
         delete_files = [temp_mapchete, temp_process, "temp.pyc", "temp.log"]
         for delete_file in delete_files:
@@ -142,10 +132,7 @@ def test_execute_multiprocessing():
                 os.remove(delete_file)
             except OSError:
                 pass
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_formats(capfd):
@@ -175,13 +162,8 @@ def test_pyramid_geodetic():
                 assert src.meta["dtype"] == "uint16"
                 data = src.read(masked=True)
                 assert data.mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_pyramid_mercator():
@@ -197,13 +179,8 @@ def test_pyramid_mercator():
                 assert src.meta["dtype"] == "uint16"
                 data = src.read(masked=True)
                 assert data.mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_pyramid_png():
@@ -219,13 +196,8 @@ def test_pyramid_png():
                 assert src.meta["dtype"] == "uint8"
                 data = src.read(masked=True)
                 assert data.mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_pyramid_minmax():
@@ -242,13 +214,8 @@ def test_pyramid_minmax():
                 assert src.meta["dtype"] == "uint16"
                 data = src.read(masked=True)
                 assert data.mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_pyramid_dtype():
@@ -265,13 +232,8 @@ def test_pyramid_dtype():
                 assert src.meta["dtype"] == "uint16"
                 data = src.read(masked=True)
                 assert data.mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_pyramid_crop():
@@ -289,13 +251,8 @@ def test_pyramid_crop():
                 data = src.read(masked=True)
                 assert data.mask.any()
                 assert np.all(np.where(data <= 255, True, False))
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_pyramid_zoom():
@@ -308,13 +265,9 @@ def test_pyramid_zoom():
             out_file = os.path.join(
                 *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
             assert not os.path.isfile(out_file)
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
+
     try:
         MapcheteCLI([
             None, 'pyramid', test_raster, OUT_DIR, "-z", "3", "4"])
@@ -322,13 +275,9 @@ def test_pyramid_zoom():
             out_file = os.path.join(
                 *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
             assert not os.path.isfile(out_file)
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
+
     try:
         MapcheteCLI([
             None, 'pyramid', test_raster, OUT_DIR, "-z", "4", "3"])
@@ -336,13 +285,8 @@ def test_pyramid_zoom():
             out_file = os.path.join(
                 *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
             assert not os.path.isfile(out_file)
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 # TODO pyramid specific bounds
@@ -404,10 +348,5 @@ def test_serve(client):
         # test invalid url
         response = client.get(tile_base_url+"invalid_url")
         assert response.status_code == 404
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)

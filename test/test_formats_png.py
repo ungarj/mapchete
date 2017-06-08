@@ -35,13 +35,8 @@ def test_output_data():
         temp_dir = os.path.join(*[OUT_DIR, "5", "5"])
         output.prepare_path(tile)
         assert os.path.isdir(temp_dir)
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except OSError:
-            pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
     # profile
     assert isinstance(output.profile(tile), dict)
     # write
@@ -55,13 +50,8 @@ def test_output_data():
         assert isinstance(data, np.ndarray)
         assert data.shape[0] == 4
         assert not data[0].mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except OSError:
-            pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
     # empty
     empty = output.empty(tile)
     assert isinstance(empty, ma.MaskedArray)

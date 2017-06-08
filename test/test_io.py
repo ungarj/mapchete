@@ -2,6 +2,7 @@
 """Test Mapchete io module."""
 
 import os
+import shutil
 import rasterio
 import tempfile
 import numpy as np
@@ -86,14 +87,8 @@ def test_write_raster_window():
                 if out_profile["compress"]:
                     assert src.compression == Compression(
                         out_profile["compress"].upper())
-        except Exception:
-            raise
         finally:
-            try:
-                os.remove(path)
-            except Exception:
-                pass
-
+            shutil.rmtree(path, ignore_errors=True)
     # with metatiling
     tile = BufferedTilePyramid("geodetic", metatiling=4).tile(5, 1, 1)
     tile.data = ma.masked_array(np.ones((2, ) + tile.shape))
@@ -111,13 +106,8 @@ def test_write_raster_window():
             assert src.read().any()
             assert src.meta["driver"] == out_profile["driver"]
             assert src.affine == out_profile["affine"]
-    except Exception:
-        raise
     finally:
-        try:
-            os.remove(path)
-        except Exception:
-            pass
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def test_extract_from_tile():
@@ -274,14 +264,14 @@ def test_prepare_array_errors():
     data = [None]
     try:
         raster.prepare_array(data)
-        raise Exception("test failed")
+        raise Exception()
     except ValueError:
         pass
     # input is not array
     data = 5
     try:
         raster.prepare_array(data)
-        raise Exception("test failed")
+        raise Exception()
     except ValueError:
         pass
 
@@ -339,7 +329,7 @@ def test_reproject_geometry():
         vector.reproject_geometry(
             big_box, CRS().from_epsg(4326), CRS().from_epsg(3857),
             error_on_clip=True)
-        raise Exception
+        raise Exception()
     except RuntimeError:
         pass
 

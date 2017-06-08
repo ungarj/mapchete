@@ -41,10 +41,8 @@ def test_input_data_read():
                 for feature in input_tile.read():
                     assert isinstance(feature, dict)
     finally:
-        try:
-            shutil.rmtree(TEMP_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(TEMP_DIR, ignore_errors=True)
+
 
 def test_output_data():
     """Check GeoJSON as output data."""
@@ -75,7 +73,4 @@ def test_output_data():
             if output.data:
                 assert out_tile.data
     finally:
-        try:
-            shutil.rmtree(TEMP_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(TEMP_DIR, ignore_errors=True)

@@ -295,7 +295,10 @@ class Mapchete(object):
         """
         if isinstance(tile, tuple):
             tile = self.config.output_pyramid.tile(*tile)
-        assert isinstance(tile, BufferedTile)
+        elif isinstance(tile, BufferedTile):
+            pass
+        else:
+            raise ValueError("'tile' must be a tuple or BufferedTile")
         # Return empty data if zoom level is outside of process zoom levels.
         if tile.zoom not in self.config.zoom_levels:
             tile.data = self.config.output.empty(tile)

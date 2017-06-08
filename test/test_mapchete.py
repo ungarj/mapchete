@@ -29,13 +29,8 @@ def test_empty_execute():
         ) as mp:
             out_tile = mp.execute((6, 0, 0))
             assert out_tile.data.mask.all()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_read_existing_output():
@@ -50,13 +45,8 @@ def test_read_existing_output():
             # read written data
             out_tile = mp.read(tile)
             assert not out_tile.data.mask.all()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_get_raw_output_outside():
@@ -67,13 +57,8 @@ def test_get_raw_output_outside():
         ) as mp:
             out_tile = mp.get_raw_output((6, 0, 0))
             assert out_tile.data.mask.all()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_get_raw_output_memory():
@@ -86,13 +71,8 @@ def test_get_raw_output_memory():
             assert mp.config.mode == "memory"
             out_tile = mp.get_raw_output((5, 0, 0))
             assert not out_tile.data.mask.all()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_get_raw_output_readonly():
@@ -113,6 +93,7 @@ def test_get_raw_output_readonly():
         # try to process and save empty data
         try:  # TODO
             readonly_mp.write(readonly_mp.get_raw_output(tile))
+            raise Exception()
         except ValueError:
             pass
 
@@ -122,13 +103,8 @@ def test_get_raw_output_readonly():
         # read written output
         out_tile = readonly_mp.get_raw_output(tile)
         assert not out_tile.data.mask.all()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_get_raw_output_continue():
@@ -143,13 +119,8 @@ def test_get_raw_output_continue():
         # read written data
         out_tile = mp.get_raw_output(tile)
         assert not out_tile.data.mask.all()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_get_raw_output_reproject():
@@ -163,10 +134,7 @@ def test_get_raw_output_reproject():
     except NotImplementedError:
         pass
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except OSError:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_baselevels():
@@ -195,8 +163,6 @@ def test_baselevels():
             not mp.get_raw_output(upper_tile).data.mask.all()
             for upper_tile in tile.get_children()
         ])
-    except Exception:
-        raise
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
@@ -232,8 +198,6 @@ def test_baselevels_buffer():
             not mp.get_raw_output(upper_tile).data.mask.all()
             for upper_tile in tile.get_children()
         ])
-    except Exception:
-        raise
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
@@ -269,14 +233,8 @@ def test_processing():
                     assert band.shape == mosaic.shape
                     assert ma.allclose(band, mosaic)
                     assert ma.allclose(band.mask, mosaic.mask)
-            except Exception:
-                raise
             finally:
-                try:
-                    os.remove(temp_vrt)
-                    shutil.rmtree(OUT_DIR)
-                except OSError:
-                    pass
+                shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def test_multiprocessing():
@@ -298,15 +256,10 @@ def test_multiprocessing():
                 mp.write(raw_output)
     except KeyboardInterrupt:
         pool.terminate()
-    except Exception:
-        raise
     finally:
         pool.close()
         pool.join()
-        try:
-            shutil.rmtree(OUT_DIR)
-        except Exception:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
 def _worker(mp, tile):
@@ -345,6 +298,7 @@ def test_process_template():
     # Mapchete throws a RuntimeError if process output is empty
     try:
         mp.execute(process_tile)
+        raise Exception()
     except MapcheteProcessOutputError:
         pass
 
@@ -357,12 +311,12 @@ def test_batch_process():
         # invalid parameters errors
         try:
             mp.batch_process(zoom=1, tile=(1, 0, 0))
-            raise Exception
+            raise Exception()
         except ValueError:
             pass
         try:
             mp.batch_process(debug=True, quiet=True)
-            raise Exception
+            raise Exception()
         except ValueError:
             pass
         # process single tile
@@ -374,7 +328,4 @@ def test_batch_process():
         # process without multiprocessing
         mp.batch_process(zoom=2, multi=1)
     finally:
-        try:
-            shutil.rmtree(OUT_DIR)
-        except Exception:
-            pass
+        shutil.rmtree(OUT_DIR, ignore_errors=True)

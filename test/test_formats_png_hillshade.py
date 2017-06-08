@@ -37,13 +37,8 @@ def test_output_data():
         assert os.path.isdir(temp_dir)
         # create again to ensure, no OSError is being thrown
         output.prepare_path(tile)
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except OSError:
-            pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
     # profile
     assert isinstance(output.profile(tile), dict)
     # write full array
@@ -56,13 +51,8 @@ def test_output_data():
         data = output.read(tile).data
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except OSError:
-            pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
     # write half masked array
     try:
         half_shape = (tile.shape[0], tile.shape[1]/2)
@@ -78,13 +68,8 @@ def test_output_data():
         assert isinstance(data, np.ndarray)
         assert not data.mask.all()
         assert data.mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except OSError:
-            pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
     # old_band_num
     output_params.update(old_band_num=True)
     output = png_hillshade.OutputData(output_params)
@@ -99,13 +84,8 @@ def test_output_data():
         data = output.read(tile).data
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
-    except Exception:
-        raise
     finally:
-        try:
-            shutil.rmtree(temp_dir)
-        except OSError:
-            pass
+        shutil.rmtree(temp_dir, ignore_errors=True)
     # empty
     empty = output.empty(tile)
     assert isinstance(empty, ma.MaskedArray)
