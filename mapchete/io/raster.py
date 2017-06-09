@@ -289,30 +289,6 @@ def extract_from_array(in_data, in_affine, out_tile):
         maxcol <= in_data.shape[-1]
     ):
         return in_data[..., minrow:maxrow, mincol:maxcol]
-    # special case if output window contains input window
-    elif (
-        minrow < 0 and
-        mincol < 0 and
-        maxrow > in_data.shape[-2] and
-        maxcol > in_data.shape[-1]
-    ):
-        # determine output shape (first dimensions from data, width and height
-        # from output tile)
-        dst_shape = list(in_data.shape)
-        dst_shape[-2:] = out_tile.shape[-2:]
-        dst_shape = tuple(dst_shape)
-        out_array = np.zeros(
-            dst_shape, dtype=in_data.dtype
-        )
-        out_array *= in_data.fill_value
-        # determine target window params
-        d_minrow = -minrow
-        d_maxrow = d_minrow + in_data.shape[-2]
-        d_mincol = -mincol
-        d_maxcol = d_mincol + in_data.shape[-1]
-        # write input array into window
-        out_array[..., d_minrow:d_maxrow, d_mincol:d_maxcol] = in_data
-        return ma.masked_where(out_array == in_data.fill_value, out_array)
     # raise error if output and input windows do overlap partially
     else:
         raise ValueError(

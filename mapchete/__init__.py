@@ -215,7 +215,6 @@ class Mapchete(object):
         if isinstance(process_tile, tuple):
             process_tile = self.config.process_pyramid.tile(*process_tile)
         assert isinstance(process_tile, BufferedTile)
-        LOGGER.debug((process_tile.id, "start ..."))
         if process_tile.zoom not in self.config.zoom_levels:
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
