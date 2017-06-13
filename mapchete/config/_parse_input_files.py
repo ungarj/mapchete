@@ -5,7 +5,8 @@ import os
 import logging
 import time
 from sets import ImmutableSet
-from shapely.geometry import box, MultiPolygon
+from shapely.geometry import box
+from shapely.ops import unary_union
 from shapely.wkt import dumps
 from functools import partial
 from multiprocessing import cpu_count
@@ -99,9 +100,7 @@ def input_files_at_zoom(process, name, element, zoom):
         LOGGER.debug("intersect input files bounding boxes")
         id_ = ImmutableSet([dumps(i) for i in input_files_areas])
         if id_ not in process._process_area_cache:
-            process._process_area_cache[id_] = MultiPolygon(
-                (input_files_areas)
-            ).buffer(0)
+            process._process_area_cache[id_] = unary_union(input_files_areas)
         process_area = process._process_area_cache[id_]
     else:
         LOGGER.debug("assume global bounding box")
