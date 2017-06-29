@@ -1,6 +1,6 @@
 # mapchete parameters
 process_file: ../example_process.py
-process_minzoom: 4
+process_minzoom: 3
 process_maxzoom: 7
 input_files:
     file1: dummy1.tif

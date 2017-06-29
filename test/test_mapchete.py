@@ -142,16 +142,18 @@ def test_baselevels():
     try:
         mp = mapchete.open(
             os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete"),
-            mode="continue")
+            mode="continue"
+        )
+        # process data before getting baselevels
+        mp.batch_process(quiet=True)
+
         # get tile from lower zoom level
-        lower_tile = mp.get_process_tiles(4).next()
-        # process and save
-        for tile in lower_tile.get_children():
-            output = mp.get_raw_output(tile)
-            mp.write(output)
-        # read from baselevel
-        out_tile = mp.get_raw_output(lower_tile)
-        assert not out_tile.data.mask.all()
+        for t in mp.get_process_tiles(4):
+            tile = mp.get_raw_output(t)
+            assert not tile.data.mask.all()
+            # write for next zoom level
+            mp.write(tile)
+            assert not mp.get_raw_output(tile.get_parent()).data.mask.all()
 
         # get tile from higher zoom level
         tile = mp.get_process_tiles(6).next()

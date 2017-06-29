@@ -118,7 +118,7 @@ def test_read_baselevels():
         config = yaml.load(mc)
         config.update(config_dir=os.path.join(SCRIPTDIR, "testdata"))
         del config["baselevels"]["min"]
-        assert min(MapcheteConfig(config).baselevels["zooms"]) == 4
+        assert min(MapcheteConfig(config).baselevels["zooms"]) == 3
 
     # without max and resampling
     with open(
