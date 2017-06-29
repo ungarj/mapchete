@@ -115,8 +115,6 @@ class Mapchete(object):
         LOGGER.info("preparing process ...")
         assert isinstance(config, MapcheteConfig)
         self.config = config
-        # TODO assert this line is really not necessary
-        # config.output
         try:
             py_compile.compile(self.config.process_file, doraise=True)
         except py_compile.PyCompileError as e:
