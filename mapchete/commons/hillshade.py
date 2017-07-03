@@ -34,6 +34,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import numpy as np
+import numpy.ma as ma
 from itertools import product
 import math
 
@@ -123,7 +124,6 @@ def hillshade(elevation, tile, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0):
     # stretch to 0 - 255 and invert
     shaded = (((shaded+1.0)/2)*-255.0).astype("uint8")
     # add one pixel padding using the edge values
-    return np.where(
-        elevation.mask, np.ones(elevation.shape),
-        np.pad(shaded, 1, mode='edge')
-        )
+    return ma.masked_array(
+        data=np.pad(shaded, 1, mode='edge'), mask=elevation.mask
+    )
