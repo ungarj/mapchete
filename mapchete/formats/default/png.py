@@ -229,13 +229,17 @@ class OutputData(base.OutputData):
             rgba = np.stack((
                 data[0], data[0], data[0],
                 np.where(
-                    data[0] == self.nodata, self.nodata, 255).astype("uint8")))
+                    data[0].data == self.nodata, 255, 0)
+                .astype("uint8")
+            ))
         elif len(data) == 3:
             rgba = np.stack((
-                data, np.where(
-                    data[0] == self.nodata, self.nodata, 255).astype("uint8")))
+                data[0], data[1], data[2], np.where(
+                    data[0].data == self.nodata, 255, 0
+                ).astype("uint8")
+            ))
         elif len(data) == 4:
-            rgba = data
+            rgba = data.astype("uint8")
         else:
             raise TypeError("invalid number of bands: %s" % len(data))
         empty_image = Image.fromarray(rgba.transpose(1, 2, 0), mode='RGBA')
