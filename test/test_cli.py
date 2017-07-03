@@ -334,6 +334,7 @@ def test_serve(client):
             img = response.response.file
             img.seek(0)
             data = np.array(Image.open(img)).transpose(2, 0, 1)
+            # get alpha band and assert not all are masked
             assert not data[3].all()
         # test outside zoom range
         response = client.get(tile_base_url+"6/31/63.png")
@@ -341,9 +342,11 @@ def test_serve(client):
         img = response.response.file
         img.seek(0)
         data = np.array(Image.open(img)).transpose(2, 0, 1)
-        assert data[0].all()
+        # all three bands have to be 0
+        assert not data[0].any()
         assert not data[1].any()
         assert not data[2].any()
+        # alpha band has to be filled with 255
         assert data[3].all()
         # test invalid url
         response = client.get(tile_base_url+"invalid_url")

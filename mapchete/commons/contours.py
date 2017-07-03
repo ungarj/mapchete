@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from shapely.geometry import LineString, mapping
 
 
-
 def extract_contours(array, tile, interval=100, field='elev', base=0):
     """
     Extract contour lines from an array.

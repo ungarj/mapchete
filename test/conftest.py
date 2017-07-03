@@ -26,5 +26,6 @@ def app():
     args = Namespace(
         port=5000, mapchete_file=example_process, zoom=None, bounds=None,
         input_file=None, memory=None, readonly=False, overwrite=True,
-        debug=False)
+        debug=True
+    )
     return create_app(args)

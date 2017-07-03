@@ -41,7 +41,7 @@ def create_app(args):
     mp = mapchete.open(
         args.mapchete_file, zoom=args.zoom, bounds=args.bounds,
         single_input_file=args.input_file, mode=_get_mode(args),
-        with_cache=True
+        with_cache=True, debug=args.debug
     )
 
     app = Flask(__name__)
@@ -86,10 +86,13 @@ def _get_mode(parsed):
 
 def _tile_response(mp, web_tile, debug):
     try:
+        LOGGER.debug("getting web tile %s" % str(web_tile.id))
         return _valid_tile_response(
-            mp, mp.get_raw_output(web_tile))
+            mp, mp.get_raw_output(web_tile)
+        )
     except Exception as exc:
         if debug:
+            LOGGER.debug("getting web tile %s failed" % str(web_tile.id))
             raise
         else:
             LOGGER.error(("web tile", web_tile.id, "error", exc))
