@@ -1,10 +1,11 @@
 """Contour line extraction using matplotlib."""
 
 import matplotlib
+# Must be called before pyplot otherwise Travis fails
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from shapely.geometry import LineString, mapping
 
-matplotlib.use('Agg')
 
 
 def extract_contours(array, tile, interval=100, field='elev', base=0):
