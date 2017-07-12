@@ -18,18 +18,23 @@ def main(args=None):
 
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
-    if parsed.zoom:
-        zoom = parsed.zoom
-    elif parsed.tile:
-        zoom = parsed.tile[0]
-    else:
-        zoom = None
+    zoom = parsed.zoom if parsed.zoom else None
 
+    # process single tile
+    if parsed.tile:
+        with mapchete.open(
+            parsed.mapchete_file, mode=mode,
+            single_input_file=parsed.input_file, debug=parsed.debug
+        ) as mp:
+            mp.batch_process(
+                tile=parsed.tile, quiet=parsed.quiet, debug=parsed.debug
+            )
     # initialize and run process
-    with mapchete.open(
-        parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
-        zoom=zoom, single_input_file=parsed.input_file, debug=parsed.debug
-    ) as mp:
-        mp.batch_process(
-            tile=parsed.tile, multi=multi, quiet=parsed.quiet,
-            debug=parsed.debug)
+    else:
+        with mapchete.open(
+            parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
+            single_input_file=parsed.input_file, debug=parsed.debug
+        ) as mp:
+            mp.batch_process(
+                multi=multi, quiet=parsed.quiet, debug=parsed.debug, zoom=zoom
+            )
