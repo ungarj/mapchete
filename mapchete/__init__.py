@@ -316,9 +316,9 @@ class Mapchete(object):
         # TODO: cases where tile intersects with multiple process tiles
         process_tile = self.config.process_pyramid.intersecting(tile)[0]
         if self.config.pixelbuffer > 0:
-            output_tiles = self.config.output_pyramid.tiles_from_bounds(
+            output_tiles = list(self.config.output_pyramid.tiles_from_bounds(
                 tile.bounds, tile.zoom
-            )
+            ))
         else:
             output_tiles = self.config.output_pyramid.intersecting(tile)
 
@@ -476,7 +476,8 @@ class Mapchete(object):
             # resample from parent tile
             if baselevel == "higher":
                 parent_tile = self.get_raw_output(
-                    process_tile.get_parent(), _baselevel_readonly=True)
+                    process_tile.get_parent(), _baselevel_readonly=True
+                )
                 process_data = raster.resample_from_array(
                     parent_tile.data,
                     parent_tile.affine,

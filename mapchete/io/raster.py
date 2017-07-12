@@ -292,7 +292,7 @@ def extract_from_array(in_data, in_affine, out_tile):
     # raise error if output and input windows do overlap partially
     else:
         raise ValueError(
-            "extraction fails if input and output shapes partially overlap"
+            "extraction fails if output shape is not within input"
         )
 
 
@@ -400,6 +400,7 @@ def create_mosaic(tiles, nodata=0):
     # determine mosaic shape
     height = int(round((m_top - m_bottom) / resolution))
     width = int(round((m_right - m_left) / resolution))
+
     # initialize empty mosaic
     mosaic = ma.MaskedArray(
             data=np.full(
@@ -408,6 +409,7 @@ def create_mosaic(tiles, nodata=0):
     # determine Affine
     mosaic_affine = Affine.translation(m_left, m_top) * Affine.scale(
         resolution, -resolution)
+
     # fill mosaic array with tile data
     for tile in tiles:
         t_left, t_bottom, t_right, t_top = tile.bounds

@@ -237,14 +237,16 @@ class MapcheteConfig(object):
             return {}
         try:
             minmax = {
-                k: v for k, v in baselevels.iteritems() if k in ["min", "max"]}
+                k: v for k, v in baselevels.iteritems() if k in ["min", "max"]
+            }
             assert minmax
             for v in minmax.values():
                 assert v >= 0
                 assert isinstance(v, int)
         except Exception as e:
             raise MapcheteConfigError(
-                "invalid baselevel zoom parameter given: %s" % e)
+                "invalid baselevel zoom parameter given: %s" % e
+            )
         try:
             base_min = minmax["min"]
         except KeyError:
