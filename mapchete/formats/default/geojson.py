@@ -85,8 +85,9 @@ class OutputData(base.OutputData):
         -------
         process output : list
         """
-        if self.tiles_exist(output_tile):
-            with fiona.open(self.get_path(output_tile), "r") as src:
+        path = self.get_path(output_tile)
+        if os.path.isfile(path):
+            with fiona.open(path, "r") as src:
                 output_tile.data = list(src)
         else:
             output_tile.data = self.empty(output_tile)
@@ -120,7 +121,7 @@ class OutputData(base.OutputData):
 
     def tiles_exist(self, process_tile):
         """
-        Check whether all output tiles of a process tile exist.
+        Check whether output tiles of a process tile exist.
 
         Parameters
         ----------
@@ -131,7 +132,7 @@ class OutputData(base.OutputData):
         -------
         exists : bool
         """
-        return all(
+        return any(
             os.path.exists(self.get_path(tile))
             for tile in self.pyramid.intersecting(process_tile)
         )

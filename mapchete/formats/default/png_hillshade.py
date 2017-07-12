@@ -139,7 +139,7 @@ class OutputData(base.OutputData):
 
     def tiles_exist(self, process_tile):
         """
-        Check whether all output tiles of a process tile exist.
+        Check whether output tiles of a process tile exist.
 
         Parameters
         ----------

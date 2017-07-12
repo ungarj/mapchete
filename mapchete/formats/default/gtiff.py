@@ -34,7 +34,6 @@ import os
 import numpy as np
 import numpy.ma as ma
 import rasterio
-from rasterio.errors import RasterioIOError
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
@@ -129,11 +128,12 @@ class OutputData(base.OutputData):
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
                 in_tile=process_tile, out_profile=self.profile(out_tile),
-                out_tile=out_tile, out_path=out_path)
+                out_tile=out_tile, out_path=out_path
+            )
 
     def tiles_exist(self, process_tile):
         """
-        Check whether all output tiles of a process tile exist.
+        Check whether output tiles of a process tile exist.
 
         Parameters
         ----------
@@ -144,7 +144,7 @@ class OutputData(base.OutputData):
         -------
         exists : bool
         """
-        return all(
+        return any(
             os.path.exists(self.get_path(tile))
             for tile in self.pyramid.intersecting(process_tile)
         )
