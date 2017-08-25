@@ -2,6 +2,7 @@
 """Test Mapchete default formats."""
 
 import os
+import yaml
 from tilematrix import TilePyramid
 
 import mapchete
@@ -10,7 +11,9 @@ from mapchete.formats import (
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
-
+HTTP_RASTER = (
+    "http://sentinel-s2-l1c.s3.amazonaws.com/tiles/33/T/WN/2016/4/3/0/B02.jp2"
+)
 
 def test_available_input_formats():
     """Check if default input formats can be listed."""
@@ -121,3 +124,22 @@ def test_base_format_classes():
         raise Exception()
     except NotImplementedError:
         pass
+
+
+def test_http_rasters():
+    """Raster file on remote server with http:// or https:// URLs."""
+    zoom = 13
+    with open(
+        os.path.join(SCRIPTDIR, "testdata/files_bounds.mapchete"), "r"
+    ) as src:
+        config = yaml.load(src.read())
+        config.update(
+            input_files=dict(file1=HTTP_RASTER),
+            config_dir=os.path.join(SCRIPTDIR, "testdata"),
+            process_zoom=zoom
+        )
+    # TODO make tests more performant
+    with mapchete.open(config) as mp:
+        assert mp.config.process_area(zoom).area > 0
+        # tile = mp.get_raw_output(mp.get_process_tiles(zoom).next())
+        # assert not tile.data.mask.all()

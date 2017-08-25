@@ -55,7 +55,7 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
     """
     if not os.path.isfile(input_file):
         if input_file.split("/")[1] == "vsizip" or (
-            input_file.startswith("s3://")
+            input_file.startswith(("s3://", "https://", "http://"))
         ):
             pass
         else:
