@@ -151,8 +151,9 @@ def _file_worker(conf_dir, pyramid, pixelbuffer, kv):
     if location not in ["none", "None", None, ""]:
         # prepare input files metadata
         LOGGER.debug("read metadata from %s" % location)
-        # get absolute paths if not on S3
-        path = location if location.startswith("s3://") else os.path.normpath(
+        # get absolute paths if not remote
+        path = location if location.startswith(
+            ("s3://", "https://", "http://")) else os.path.normpath(
             os.path.join(conf_dir, location)
         )
         LOGGER.debug("load input reader for file %s" % location)
