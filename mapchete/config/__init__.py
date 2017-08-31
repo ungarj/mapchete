@@ -13,13 +13,14 @@ when initializing the configuration.
 import os
 import yaml
 import logging
+import warnings
 from cached_property import cached_property
 from shapely.geometry import box, MultiPolygon
 
 from mapchete.formats import load_output_writer, available_output_formats
 from mapchete.tile import BufferedTilePyramid
 from mapchete.errors import MapcheteConfigError
-from mapchete.config._parse_input_files import input_files_at_zoom
+from mapchete.config._parse_input import input_at_zoom
 
 
 LOGGER = logging.getLogger(__name__)
@@ -29,20 +30,20 @@ TILING_TYPES = ["geodetic", "mercator"]
 
 # parameters to be provided in the process configuration
 _MANDATORY_PARAMETERS = [
-    "process_file",  # the Python file the process is defined in
-    "input_files",  # input files for process; can also be "from_command_line"
-    "output"  # dictionary configuring the output format
+    "process_file",     # the Python file the process is defined in
+    "input",            # files & other types; can also be "from_command_line"
+    "output"            # process output format parameters
 ]
 
 # parameters with special functions which cannot be used for user parameters
 _RESERVED_PARAMETERS = [
     "process_minzoom",  # minimum zoom where process is valid
     "process_maxzoom",  # maximum zoom where process is valid
-    "process_zoom",  # single zoom where process is valid
-    "process_bounds",  # process boundaries
-    "metatiling",  # metatile size (for both process and output)
-    "pixelbuffer",  # buffer around each tile in pixels
-    "baselevels"  # enable interpolation from other zoom levels
+    "process_zoom",     # single zoom where process is valid
+    "process_bounds",   # process boundaries
+    "metatiling",       # metatile size (for both process and output)
+    "pixelbuffer",      # buffer around each tile in pixels
+    "baselevels"        # enable interpolation from other zoom levels
 ]
 
 
@@ -120,7 +121,7 @@ class MapcheteConfig(object):
         self.mode = mode
         # parse configuration
         LOGGER.debug("parse configuration ...")
-        self._input_files_cache = {}
+        self._input_cache = {}
         self._process_area_cache = {}
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
             input_config, single_input_file=single_input_file)
@@ -360,6 +361,14 @@ class MapcheteConfig(object):
         else:
             raise MapcheteConfigError(
                 "Configuration has to be a dictionary or a .mapchete file.")
+        # make sure old input_files parameter is converted correctly
+        if "input_files" in raw and "input" in raw:
+            raise MapcheteConfigError("Either 'input_files' or'input allowed")
+        elif "input_files" in raw:
+            warnings.warn(
+                "'input_files' is deprecated and will be replaced by 'input'"
+            )
+            raw["input"] = raw.pop("input_files")
         # check if mandatory parameters are provided
         for param in _MANDATORY_PARAMETERS:
             try:
@@ -383,14 +392,16 @@ class MapcheteConfig(object):
                 config_dir, raw["output"]["path"]))
         )
         # determine input files
-        if raw["input_files"] == "from_command_line":
-            if self.mode in ["memory", "continue", "overwrite"]:
+        if raw["input"] == "from_command_line" and (
+            self.mode in ["memory", "continue", "overwrite"]
+        ):
                 try:
                     assert single_input_file
                 except AssertionError:
                     raise MapcheteConfigError(
                         "please provide an input file via command line")
-                raw.update(input_files={"input_file": single_input_file})
+                raw.update(input={"input_file": single_input_file})
+
         # return parsed configuration
         return raw, mapchete_file, config_dir
 
@@ -417,18 +428,18 @@ class MapcheteConfig(object):
         respective InputData class.
         """
         params = {}
-        input_files = {}
+        input_ = {}
         for name, element in self.raw.iteritems():
             if name not in _RESERVED_PARAMETERS:
                 out_element = self._element_at_zoom(name, element, zoom)
                 if out_element is not None:
                     params[name] = out_element
-            if name == "input_files":
-                input_files, process_area = input_files_at_zoom(
+            if name == "input":
+                input_, process_area = input_at_zoom(
                     self, name, element, zoom
                 )
         params.update(
-            input_files=input_files, output=self.output,
+            input=input_, output=self.output,
             process_area=process_area)
         return params
 
@@ -449,11 +460,11 @@ class MapcheteConfig(object):
                 raise MapcheteConfigError("Invalid number of process bounds.")
             bounds = user_bounds
 
-        input_files_bbox = self.at_zoom(zoom)["process_area"]
+        input_bbox = self.at_zoom(zoom)["process_area"]
         if bounds:
-            return box(*bounds).intersection(input_files_bbox)
+            return box(*bounds).intersection(input_bbox)
         else:
-            return input_files_bbox
+            return input_bbox
 
     def _element_at_zoom(self, name, element, zoom):
         """
@@ -478,13 +489,13 @@ class MapcheteConfig(object):
             for sub_name, sub_element in sub_elements.iteritems():
                 out_element = self._element_at_zoom(
                     sub_name, sub_element, zoom)
-                if name == "input_files":
+                if name == "input":
                     out_elements[sub_name] = out_element
                 elif out_element is not None:
                     out_elements[sub_name] = out_element
             # If there is only one subelement, collapse unless it is
-            # input_files. In such case, return a dictionary.
-            if len(out_elements) == 1 and name != "input_files":
+            # input. In such case, return a dictionary.
+            if len(out_elements) == 1 and name != "input":
                 return out_elements.itervalues().next()
             # If subelement is empty, return None
             if len(out_elements) == 0:

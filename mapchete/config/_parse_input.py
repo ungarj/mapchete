@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Functions to parse through input files."""
+"""Functions to parse through input items."""
 
 import os
 import logging
@@ -17,9 +17,10 @@ from mapchete.formats import load_input_reader
 LOGGER = logging.getLogger(__name__)
 
 
-def input_files_at_zoom(process, name, element, zoom):
-    """Get readers and bounding boxes for input files."""
-    LOGGER.debug("get input files metadata for zoom %s" % zoom)
+def input_at_zoom(process, name, element, zoom):
+    """Get readers and bounding boxes for input."""
+    print name, element
+    LOGGER.debug("get input items metadata for zoom %s" % zoom)
     # case where single input files is provided by CLI
     if element == "from_command_line":
         element = {"input_file": None}
@@ -29,15 +30,17 @@ def input_files_at_zoom(process, name, element, zoom):
             process.process_pyramid.right, process.process_pyramid.top
         )
     # get input files for current zoom level
+    print name, element
     files_tree = process._element_at_zoom(name, element, zoom)
+    print files_tree
     # convert tree to key-value object, where path within tree is the key
     files_flat = _flatten_tree(files_tree)
     # select files not yet cached
     new_files = []
     cached_files = {}
     for name, path in files_flat:
-        if path in process._input_files_cache:
-            cached_files[name] = process._input_files_cache[path]
+        if path in process._input_cache:
+            cached_files[name] = process._input_cache[path]
         else:
             new_files.append((name, path))
 
@@ -85,22 +88,22 @@ def input_files_at_zoom(process, name, element, zoom):
     # create original dicionary with file readers
     analyzed_readers = {}
     for name, (location, reader) in analyzed_files.iteritems():
-        process._input_files_cache[location] = reader
+        process._input_cache[location] = reader
         analyzed_readers[name] = reader
     analyzed_readers.update(cached_files)
-    input_files = _unflatten_tree(analyzed_readers)
+    input_ = _unflatten_tree(analyzed_readers)
 
     # collect boundding boxes of inputs
-    input_files_areas = [
+    input_areas = [
         reader.bbox(out_crs=process.crs)
         for reader in analyzed_readers.values()
         if reader is not None
     ]
-    if input_files_areas:
+    if input_areas:
         LOGGER.debug("intersect input files bounding boxes")
-        id_ = ImmutableSet([dumps(i) for i in input_files_areas])
+        id_ = ImmutableSet([dumps(i) for i in input_areas])
         if id_ not in process._process_area_cache:
-            process._process_area_cache[id_] = unary_union(input_files_areas)
+            process._process_area_cache[id_] = unary_union(input_areas)
         process_area = process._process_area_cache[id_]
     else:
         LOGGER.debug("assume global bounding box")
@@ -108,7 +111,7 @@ def input_files_at_zoom(process, name, element, zoom):
             process.process_pyramid.left, process.process_pyramid.bottom,
             process.process_pyramid.right, process.process_pyramid.top
         )
-    return input_files, process_area
+    return input_, process_area
 
 
 def _flatten_tree(tree, old_path=None):
