@@ -83,7 +83,7 @@ def test_write_raster_window():
             with rasterio.open(path, 'r') as src:
                 assert src.read().any()
                 assert src.meta["driver"] == out_profile["driver"]
-                assert src.affine == tile.affine
+                assert src.transform == tile.affine
                 if out_profile["compress"]:
                     assert src.compression == Compression(
                         out_profile["compress"].upper())
@@ -105,7 +105,7 @@ def test_write_raster_window():
             assert src.shape == out_tile.shape
             assert src.read().any()
             assert src.meta["driver"] == out_profile["driver"]
-            assert src.affine == out_profile["affine"]
+            assert src.transform == out_profile["affine"]
     finally:
         shutil.rmtree(path, ignore_errors=True)
 
