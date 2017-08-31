@@ -17,7 +17,9 @@ import warnings
 from cached_property import cached_property
 from shapely.geometry import box, MultiPolygon
 
-from mapchete.formats import load_output_writer, available_output_formats
+from mapchete.formats import (
+    load_output_writer, available_output_formats, available_input_formats
+)
 from mapchete.tile import BufferedTilePyramid
 from mapchete.errors import MapcheteConfigError
 from mapchete.config._parse_input import input_at_zoom
@@ -41,7 +43,7 @@ _RESERVED_PARAMETERS = [
     "process_maxzoom",  # maximum zoom where process is valid
     "process_zoom",     # single zoom where process is valid
     "process_bounds",   # process boundaries
-    "metatiling",       # metatile size (for both process and output)
+    "metatiling",       # process metatile size
     "pixelbuffer",      # buffer around each tile in pixels
     "baselevels"        # enable interpolation from other zoom levels
 ]
@@ -113,9 +115,7 @@ class MapcheteConfig(object):
         LOGGER.info("preparing configuration ...")
         if debug:
             LOGGER.setLevel(logging.DEBUG)
-        try:
-            assert mode in ["memory", "readonly", "continue", "overwrite"]
-        except Exception:
+        if not mode in ["memory", "readonly", "continue", "overwrite"]:
             raise MapcheteConfigError("invalid process mode")
         LOGGER.debug("zooms provided to config: %s" % zoom)
         self.mode = mode
@@ -125,7 +125,8 @@ class MapcheteConfig(object):
         self._process_area_cache = {}
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
             input_config, single_input_file=single_input_file)
-        assert self.process_file
+        if not self.process_file:
+            raise MapcheteConfigError("no process_file given")
         # set process delimiters
         self._delimiters = dict(zoom=zoom, bounds=bounds)
         # helper caches
@@ -136,9 +137,7 @@ class MapcheteConfig(object):
             self.output_type = self.raw["output"]["type"]
         except KeyError:
             raise MapcheteConfigError("no output type given")
-        try:
-            assert self.raw["output"]["type"] in TILING_TYPES
-        except AssertionError:
+        if self.raw["output"]["type"] not in TILING_TYPES:
             raise MapcheteConfigError(
                 "output type (geodetic or mercator) is missing")
         self.process_pyramid = BufferedTilePyramid(
@@ -163,23 +162,21 @@ class MapcheteConfig(object):
                     output_params["format"], str(available_output_formats())
                 ))
         writer = load_output_writer(output_params)
-        try:
-            assert writer.is_valid_with_config(output_params)
-        except AssertionError, e:
-            raise ValueError(
-                "driver %s not compatible with configuration: %s" %
-                (writer.METADATA["driver_name"], e))
+        if not writer.is_valid_with_config(output_params):
+            raise MapcheteConfigError(
+                "driver %s not compatible with configuration: %s" % (
+                    writer.METADATA["driver_name"], output_params)
+                )
         return writer
 
     @cached_property
     def process_file(self):
         """Absolute path of process file."""
         abs_path = os.path.join(self.config_dir, self.raw["process_file"])
-        try:
-            assert os.path.isfile(abs_path)
-        except Exception:
+        if os.path.isfile(abs_path):
+            return abs_path
+        else:
             raise MapcheteConfigError("%s is not available" % abs_path)
-        return abs_path
 
     @cached_property
     def zoom_levels(self):
@@ -202,16 +199,12 @@ class MapcheteConfig(object):
         if isinstance(zoom, int):
             zoom = [zoom]
         if len(zoom) == 1:
-            try:
-                assert zoom[0] >= 0
-            except Exception:
+            if zoom[0] < 0:
                 raise MapcheteConfigError("Zoom level must be greater 0.")
             return zoom
         elif len(zoom) == 2:
             for i in zoom:
-                try:
-                    assert i >= 0
-                except Exception:
+                if i < 0:
                     raise MapcheteConfigError("Zoom levels must be greater 0.")
             if zoom[0] < zoom[1]:
                 return range(zoom[0], zoom[1]+1)
@@ -236,34 +229,28 @@ class MapcheteConfig(object):
             baselevels = self.raw["baselevels"]
         except KeyError:
             return {}
-        try:
-            minmax = {
-                k: v for k, v in baselevels.iteritems() if k in ["min", "max"]
-            }
-            assert minmax
-            for v in minmax.values():
-                assert v >= 0
-                assert isinstance(v, int)
-        except Exception as e:
+        minmax = {
+            k: v for k, v in baselevels.iteritems() if k in ["min", "max"]
+        }
+        if not minmax:
             raise MapcheteConfigError(
-                "invalid baselevel zoom parameter given: %s" % e
+                "no min and max values given for baselevels"
             )
-        try:
-            base_min = minmax["min"]
-        except KeyError:
-            base_min = min(self.zoom_levels)
-        try:
-            base_max = minmax["max"]
-        except KeyError:
-            base_max = max(self.zoom_levels)
-        try:
-            resampling_lower = baselevels["lower"]
-        except KeyError:
-            resampling_lower = "nearest"
-        try:
-            resampling_higher = baselevels["higher"]
-        except KeyError:
-            resampling_higher = "nearest"
+        for v in minmax.values():
+            if v < 0 or not isinstance(v, int):
+                raise MapcheteConfigError(
+                    "invalid baselevel zoom parameter given: %s" % (
+                        minmax.values()
+                    )
+                )
+        base_min = minmax["min"] if "min" in minmax else min(self.zoom_levels)
+        base_max = minmax["max"] if "max" in minmax else max(self.zoom_levels)
+        resampling_lower = (
+            baselevels["lower"] if "lower" in baselevels else "nearest"
+        )
+        resampling_higher = (
+            baselevels["higher"] if "higher" in baselevels else "nearest"
+        )
         return dict(
             zooms=range(base_min, base_max+1),
             lower=resampling_lower,
@@ -371,9 +358,7 @@ class MapcheteConfig(object):
             raw["input"] = raw.pop("input_files")
         # check if mandatory parameters are provided
         for param in _MANDATORY_PARAMETERS:
-            try:
-                assert param in raw
-            except AssertionError:
+            if not param in raw:
                 raise MapcheteConfigError("%s parameter missing" % param)
         # pixelbuffer and metatiling
         raw["pixelbuffer"] = self._set_pixelbuffer(raw)
@@ -381,9 +366,7 @@ class MapcheteConfig(object):
         raw["metatiling"] = self._set_metatiling(raw)
         raw["output"]["metatiling"] = self._set_metatiling(
             raw["output"], default=raw["metatiling"])
-        try:
-            assert raw["metatiling"] >= raw["output"]["metatiling"]
-        except AssertionError:
+        if not raw["metatiling"] >= raw["output"]["metatiling"]:
             raise MapcheteConfigError(
                 "Process metatiles cannot be smaller than output metatiles.")
         # absolute output path
@@ -395,11 +378,10 @@ class MapcheteConfig(object):
         if raw["input"] == "from_command_line" and (
             self.mode in ["memory", "continue", "overwrite"]
         ):
-                try:
-                    assert single_input_file
-                except AssertionError:
-                    raise MapcheteConfigError(
-                        "please provide an input file via command line")
+            if not single_input_file:
+                raise MapcheteConfigError(
+                    "please provide an input file via command line")
+            else:
                 raw.update(input={"input_file": single_input_file})
 
         # return parsed configuration
@@ -407,15 +389,16 @@ class MapcheteConfig(object):
 
     def _set_pixelbuffer(self, config_dict):
         if "pixelbuffer" in config_dict:
-            assert isinstance(config_dict["pixelbuffer"], int)
-            assert config_dict["pixelbuffer"] >= 0
+            if not isinstance(config_dict["pixelbuffer"], int) and (
+                config_dict["pixelbuffer"] < 0
+            ):
+                raise ValueError("pixelbuffer must be an integer > 0")
             return config_dict["pixelbuffer"]
         else:
             return 0
 
     def _set_metatiling(self, config_dict, default=1):
         if "metatiling" in config_dict:
-            assert config_dict["metatiling"] in [1, 2, 4, 8, 16]
             return config_dict["metatiling"]
         else:
             return default
@@ -454,11 +437,10 @@ class MapcheteConfig(object):
         # overwrite if bounds are provided explicitly
         if user_bounds:
             # validate bounds
-            try:
-                assert len(user_bounds) == 4
-            except Exception:
+            if len(user_bounds) == 4:
+                bounds = user_bounds
+            else:
                 raise MapcheteConfigError("Invalid number of process bounds.")
-            bounds = user_bounds
 
         input_bbox = self.at_zoom(zoom)["process_area"]
         if bounds:
@@ -484,9 +466,10 @@ class MapcheteConfig(object):
         """
         # If element is a dictionary, analyze subitems.
         if isinstance(element, dict):
-            sub_elements = element
+            if "format" in element:
+                return element
             out_elements = {}
-            for sub_name, sub_element in sub_elements.iteritems():
+            for sub_name, sub_element in element.iteritems():
                 out_element = self._element_at_zoom(
                     sub_name, sub_element, zoom)
                 if name == "input":

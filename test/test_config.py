@@ -8,6 +8,7 @@ from shapely.wkt import loads
 
 import mapchete
 from mapchete.config import MapcheteConfig
+from mapchete.errors import MapcheteDriverError
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -159,6 +160,7 @@ def test_read_input_groups():
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/file_groups.mapchete"))
     input_files = config.at_zoom(0)["input"]
+    print input_files
     assert "file1" in input_files["group1"]
     assert "file2" in input_files["group1"]
     assert "file1" in input_files["group2"]
@@ -195,3 +197,14 @@ def test_input_files_zooms():
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy2.tif"
     assert os.path.basename(input_files["equals"].path) == "cleantopo_tl.tif"
+
+
+def test_abstract_input():
+    """Read abstract input definitions."""
+    try:
+        MapcheteConfig(
+            os.path.join(SCRIPTDIR, "testdata/abstract_input.mapchete")
+        )
+        raise Exception
+    except MapcheteDriverError:
+        pass
