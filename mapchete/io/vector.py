@@ -29,7 +29,8 @@ CRS_BOUNDS = {
 
 
 def reproject_geometry(
-    geometry, src_crs, dst_crs, error_on_clip=False, validity_check=True
+    geometry, src_crs=None, dst_crs=None, error_on_clip=False,
+    validity_check=True
 ):
     """
     Reproject a geometry to target CRS.

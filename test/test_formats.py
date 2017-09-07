@@ -40,7 +40,7 @@ def test_mapchete_input():
     """Mapchete process as input for other process."""
     mp = mapchete.open(os.path.join(TESTDATA_DIR, "mapchete_input.mapchete"))
     config = mp.config.at_zoom(5)
-    mp_input = config["input_files"]["file2"].open(
+    mp_input = config["input"]["file2"].open(
         mp.get_process_tiles(5).next())
     assert mp_input.is_empty()
 

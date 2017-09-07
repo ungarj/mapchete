@@ -19,3 +19,7 @@ class MapcheteProcessOutputError(ValueError):
 
 class MapcheteConfigError(ValueError):
     """Raised when a mapchete process configuration is invalid."""
+
+
+class MapcheteDriverError(Exception):
+    """Raised when a mapchete process configuration is invalid."""

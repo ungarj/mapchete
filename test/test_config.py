@@ -8,6 +8,7 @@ from shapely.wkt import loads
 
 import mapchete
 from mapchete.config import MapcheteConfig
+from mapchete.errors import MapcheteDriverError
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -18,7 +19,7 @@ def test_config_zoom5():
     config = MapcheteConfig(os.path.join(SCRIPTDIR, "example.mapchete"))
     dummy2_abspath = os.path.join(SCRIPTDIR, "testdata/dummy2.tif")
     zoom5 = config.at_zoom(5)
-    input_files = zoom5["input_files"]
+    input_files = zoom5["input"]
     assert input_files["file1"] is None
     assert input_files["file2"].path == dummy2_abspath
     assert zoom5["some_integer_parameter"] == 12
@@ -33,7 +34,7 @@ def test_config_zoom11():
     dummy1_abspath = os.path.join(SCRIPTDIR, "testdata/dummy1.tif")
     dummy2_abspath = os.path.join(SCRIPTDIR, "testdata/dummy2.tif")
     zoom11 = config.at_zoom(11)
-    input_files = zoom11["input_files"]
+    input_files = zoom11["input"]
     assert input_files["file1"].path == dummy1_abspath
     assert input_files["file2"].path == dummy2_abspath
     assert zoom11["some_integer_parameter"] == 12
@@ -82,6 +83,16 @@ def test_override_bounds():
     test_polygon = Polygon([
         [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
     assert config.process_area(5).equals(test_polygon)
+
+
+def test_input():
+    """Parse configuration using "input" instead of "input"."""
+    config = yaml.load(
+        open(os.path.join(SCRIPTDIR, "example.mapchete"), "r").read()
+    )
+    # config["input"] = config.pop("input")
+    config["config_dir"] = SCRIPTDIR
+    assert mapchete.open(config)
 
 
 def test_bounds_from_input_files():
@@ -148,7 +159,8 @@ def test_read_input_groups():
     """Read input data groups."""
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/file_groups.mapchete"))
-    input_files = config.at_zoom(0)["input_files"]
+    input_files = config.at_zoom(0)["input"]
+    print input_files
     assert "file1" in input_files["group1"]
     assert "file2" in input_files["group1"]
     assert "file1" in input_files["group2"]
@@ -166,22 +178,33 @@ def test_input_files_zooms():
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/files_zooms.mapchete"))
     # zoom 7
-    input_files = config.at_zoom(7)["input_files"]
+    input_files = config.at_zoom(7)["input"]
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy1.tif"
     assert os.path.basename(input_files["equals"].path) == "dummy1.tif"
     # zoom 8
-    input_files = config.at_zoom(8)["input_files"]
+    input_files = config.at_zoom(8)["input"]
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy1.tif"
     assert os.path.basename(input_files["equals"].path) == "dummy2.tif"
     # zoom 9
-    input_files = config.at_zoom(9)["input_files"]
+    input_files = config.at_zoom(9)["input"]
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy2.tif"
     assert os.path.basename(input_files["equals"].path) == "cleantopo_br.tif"
     # zoom 10
-    input_files = config.at_zoom(10)["input_files"]
+    input_files = config.at_zoom(10)["input"]
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy2.tif"
     assert os.path.basename(input_files["equals"].path) == "cleantopo_tl.tif"
+
+
+def test_abstract_input():
+    """Read abstract input definitions."""
+    try:
+        MapcheteConfig(
+            os.path.join(SCRIPTDIR, "testdata/abstract_input.mapchete")
+        )
+        raise Exception
+    except MapcheteDriverError:
+        pass

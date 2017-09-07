@@ -35,7 +35,7 @@ def test_read_raster_window():
     zoom = 8
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete"))
-    rasterfile = config.at_zoom(7)["input_files"]["file1"]
+    rasterfile = config.at_zoom(7)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
     pixelbuffer = 5
@@ -83,7 +83,7 @@ def test_write_raster_window():
             with rasterio.open(path, 'r') as src:
                 assert src.read().any()
                 assert src.meta["driver"] == out_profile["driver"]
-                assert src.affine == tile.affine
+                assert src.transform == tile.affine
                 if out_profile["compress"]:
                     assert src.compression == Compression(
                         out_profile["compress"].upper())
@@ -105,7 +105,7 @@ def test_write_raster_window():
             assert src.shape == out_tile.shape
             assert src.read().any()
             assert src.meta["driver"] == out_profile["driver"]
-            assert src.affine == out_profile["affine"]
+            assert src.transform == out_profile["affine"]
     finally:
         shutil.rmtree(path, ignore_errors=True)
 
@@ -281,7 +281,7 @@ def test_read_vector_window():
     zoom = 4
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
-    vectorfile = config.at_zoom(zoom)["input_files"]["file1"]
+    vectorfile = config.at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     tiles = tile_pyramid.tiles_from_geom(vectorfile.bbox(), zoom)
