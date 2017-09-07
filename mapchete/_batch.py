@@ -202,6 +202,8 @@ def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
     """
     if not 0 <= init_zoom <= minzoom <= maxzoom:
         raise ValueError("invalid zoom levels given")
+    # make sure no rounding errors occur
+    geometry = geometry.buffer(-0.000000001)
     return _count_tiles(
         [
             pyramid.tile(*tile_id)

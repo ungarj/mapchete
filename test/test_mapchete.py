@@ -15,6 +15,7 @@ import mapchete
 from mapchete.tile import BufferedTile
 from mapchete.io.raster import create_mosaic
 from mapchete.errors import MapcheteProcessOutputError
+from mapchete import _batch
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
@@ -303,6 +304,27 @@ def test_process_template():
         raise Exception()
     except MapcheteProcessOutputError:
         pass
+
+
+def test_count_tiles():
+    """Count tiles function."""
+    maxzoom = 13
+    mp_conf = yaml.load(open(
+        os.path.join(SCRIPTDIR, "testdata/zoom.mapchete"), "r").read()
+    )
+    del mp_conf["process_zoom"]
+    mp_conf.update(
+        process_maxzoom=maxzoom,
+        process_bounds=[14.0625, 47.8125, 16.875, 50.625],
+        config_dir=TESTDATA_DIR, input_files=None, metatiling=8
+    )
+    for minzoom in range(0, 14):
+        mp_conf.update(process_minzoom=minzoom)
+        with mapchete.open(mp_conf) as mp:
+            assert len(list(mp.get_process_tiles())) == _batch.count_tiles(
+                mp.config.process_area(), mp.config.process_pyramid, minzoom,
+                maxzoom
+            )
 
 
 def test_batch_process():
