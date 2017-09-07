@@ -170,6 +170,23 @@ def test_create_mosaic():
         assert mosaic_bbox.equals(control_bbox)
 
 
+def inactive_test_create_mosaic_antimeridian():
+    """Create mosaic using tiles on opposing antimeridian sides."""
+    zoom = 5
+    row = 0
+    pixelbuffer = 0
+    tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
+    west = tp.tile(zoom, row, 0)
+    east = tp.tile(zoom, row, tp.matrix_width(zoom)-1)
+    for tile in [west, east]:
+        tile.data = np.ones(tile.shape)
+    out_mosaic, out_affine = raster.create_mosaic([west, east])
+    # Huge array gets initialized because the two tiles are on opposing sides
+    # of the projection area. The below test should pass if the tiles are
+    # stitched together next to each other.
+    assert out_mosaic.shape == (1, west.height, west.width*2-2*pixelbuffer)
+
+
 def test_prepare_array_iterables():
     """Convert iterable data into a proper array."""
     # input is iterable
