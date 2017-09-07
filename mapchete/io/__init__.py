@@ -26,7 +26,6 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     -------
     zoom : integer
     """
-    assert tile_pyramid_type in ["geodetic", "mercator"]
     tile_pyramid = TilePyramid(tile_pyramid_type)
     with rasterio.open(input_file, "r") as src:
         if not src.crs.is_valid:

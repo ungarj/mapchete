@@ -113,7 +113,8 @@ class Mapchete(object):
             cache processed output data in memory (default: False)
         """
         LOGGER.info("preparing process ...")
-        assert isinstance(config, MapcheteConfig)
+        if not isinstance(config, MapcheteConfig):
+            raise TypeError("config must be MapcheteConfig object")
         self.config = config
         try:
             py_compile.compile(self.config.process_file, doraise=True)
@@ -150,7 +151,6 @@ class Mapchete(object):
             iterable of BufferedTile objects
         """
         if zoom or zoom == 0:
-            assert isinstance(zoom, int)
             for tile in self.config.process_pyramid.tiles_from_geom(
                 self.config.process_area(zoom), zoom
             ):
@@ -212,7 +212,10 @@ class Mapchete(object):
                 "process mode must be memory, continue or overwrite")
         if isinstance(process_tile, tuple):
             process_tile = self.config.process_pyramid.tile(*process_tile)
-        assert isinstance(process_tile, BufferedTile)
+        elif isinstance(process_tile, BufferedTile):
+            pass
+        else:
+            raise TypeError("process_tile must be tuple or BufferedTile")
         if process_tile.zoom not in self.config.zoom_levels:
             process_tile.data = self.config.output.empty(process_tile)
             return process_tile
@@ -238,7 +241,10 @@ class Mapchete(object):
                 "process mode must be readonly, continue or overwrite")
         if isinstance(output_tile, tuple):
             output_tile = self.config.output_pyramid.tile(*output_tile)
-        assert isinstance(output_tile, BufferedTile)
+        elif isinstance(output_tile, BufferedTile):
+            pass
+        else:
+            raise TypeError("output_tile must be tuple or BufferedTile")
         return self.config.output.read(output_tile)
 
     def write(self, process_tile):
@@ -328,14 +334,12 @@ class Mapchete(object):
             else:
                 tile.data = self.config.output.empty(tile)
                 return tile
-
-        if self.config.mode == "continue" and not _baselevel_readonly:
+        elif self.config.mode == "continue" and not _baselevel_readonly:
             if self.config.output.tiles_exist(process_tile):
                 return self._read_existing_output(tile, output_tiles)
             else:
                 return self._process_and_overwrite_output(tile, process_tile)
-
-        if self.config.mode == "overwrite" and not _baselevel_readonly:
+        elif self.config.mode == "overwrite" and not _baselevel_readonly:
             return self._process_and_overwrite_output(tile, process_tile)
 
     def _process_and_overwrite_output(self, tile, process_tile):
@@ -360,9 +364,6 @@ class Mapchete(object):
         return tile
 
     def _execute_using_cache(self, process_tile):
-        assert self.with_cache
-        assert self.config.mode in ["memory", "continue", "overwrite"]
-
         # Extract Tile subset from process Tile and return.
         try:
             return self.process_tile_cache[process_tile.id]
