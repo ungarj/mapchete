@@ -5,6 +5,7 @@ import os
 import shutil
 import yaml
 import rasterio
+import numpy as np
 import numpy.ma as ma
 import pkg_resources
 from cPickle import dumps
@@ -201,6 +202,35 @@ def test_baselevels_buffer():
             not mp.get_raw_output(upper_tile).data.mask.all()
             for upper_tile in tile.get_children()
         ])
+    finally:
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
+
+
+def inactive_test_baselevels_buffer_antimeridian():
+    """Baselevel interpolation using buffers."""
+    try:
+        mp_config = yaml.load(open(
+            os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete"),
+            "r").read()
+        )
+        mp_config.update(
+            pixelbuffer=10, config_dir=os.path.join(SCRIPTDIR, "testdata"),
+            input_files=None
+        )
+        zoom = 5
+        row = 0
+        with mapchete.open(mp_config) as mp:
+            # write data left and right of antimeridian
+            west = mp.config.process_pyramid.tile(zoom, row, 0)
+            east = mp.config.process_pyramid.tile(
+                zoom, row, mp.config.process_pyramid.matrix_width(zoom)-1
+            )
+            for tile in [west, east]:
+                tile.data = np.ones(tile.shape)
+                mp.write(tile)
+            # use baselevel generation to interpolate tile and somehow
+            # assert no data from across the antimeridian is read.
+            interpolated_tile = mp.get_raw_output(west.get_parent())
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
