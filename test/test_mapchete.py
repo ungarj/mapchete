@@ -316,8 +316,9 @@ def test_count_tiles():
     mp_conf.update(
         process_maxzoom=maxzoom,
         process_bounds=[14.0625, 47.8125, 16.875, 50.625],
-        config_dir=TESTDATA_DIR, input_files=None, metatiling=8
+        config_dir=TESTDATA_DIR, input_files=None, metatiling=8, pixelbuffer=5
     )
+    # for minzoom in range(0, 14):
     for minzoom in range(0, 14):
         mp_conf.update(process_minzoom=minzoom)
         with mapchete.open(mp_conf) as mp:

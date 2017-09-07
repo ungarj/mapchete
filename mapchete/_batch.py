@@ -7,6 +7,7 @@ from functools import partial
 from itertools import product
 from multiprocessing import cpu_count
 from multiprocessing.pool import Pool
+from tilematrix import TilePyramid
 
 
 LOGGER = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ def batch_process(
     # prepare batch
     zoom_levels = list(_get_zoom_level(zoom, process))
 
-    # TODO quicker tile number estimation
+    # estimate process tiles
     if (quiet or debug):
         total_tiles = 0
     else:
@@ -202,11 +203,16 @@ def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
     """
     if not 0 <= init_zoom <= minzoom <= maxzoom:
         raise ValueError("invalid zoom levels given")
+    # tile buffers are not being taken into account
+    unbuffered_pyramid = TilePyramid(
+        pyramid.type, tile_size=pyramid.tile_size,
+        metatiling=pyramid.metatiling
+    )
     # make sure no rounding errors occur
     geometry = geometry.buffer(-0.000000001)
     return _count_tiles(
         [
-            pyramid.tile(*tile_id)
+            unbuffered_pyramid.tile(*tile_id)
             for tile_id in product(
                 [init_zoom],
                 range(pyramid.matrix_height(init_zoom)),
@@ -220,7 +226,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
     count = 0
     for tile in tiles:
         # determine data covered by tile
-        tile_intersection = tile.bbox.intersection(geometry)
+        tile_intersection = tile.bbox().intersection(geometry)
         # skip if there is no data
         if tile_intersection.is_empty:
             continue
@@ -230,7 +236,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
         # if there are further zoom levels, analyze descendants
         if tile.zoom < maxzoom:
             # if tile is full, all of its descendants will be full as well
-            if tile.zoom >= minzoom and tile_intersection.equals(tile.bbox):
+            if tile.zoom >= minzoom and tile_intersection.equals(tile.bbox()):
                 # sum up tiles for each remaining zoom level
                 count += sum([
                      4**z_diff
