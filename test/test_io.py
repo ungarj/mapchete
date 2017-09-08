@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Test Mapchete io module."""
 
+import pytest
 import os
 import shutil
 import rasterio
@@ -152,8 +153,50 @@ def test_resample_from_array():
     assert out_array.mask.all()
 
 
+def test_create_mosaic_errors():
+    """Check error handling of create_mosaic()."""
+    tp_geo = BufferedTilePyramid("geodetic")
+    tp_mer = BufferedTilePyramid("mercator")
+    geo_tile = tp_geo.tile(1, 0, 0)
+    geo_tile.data = np.ndarray(geo_tile.shape)
+    mer_tile = tp_mer.tile(1, 1, 0)
+    mer_tile.data = np.ndarray(mer_tile.shape)
+    # CRS error
+    with pytest.raises(ValueError):
+        raster.create_mosaic([geo_tile, mer_tile])
+    # zoom error
+    with pytest.raises(ValueError):
+        diff_zoom = tp_geo.tile(2, 1, 0)
+        diff_zoom.data = np.ndarray(diff_zoom.shape)
+        raster.create_mosaic([geo_tile, diff_zoom])
+    # tile data error
+    with pytest.raises(TypeError):
+        geo_tile.data = None
+        # for one tile
+        raster.create_mosaic([geo_tile])
+    with pytest.raises(TypeError):
+        geo_tile.data = None
+        # for multiple tiles
+        raster.create_mosaic([geo_tile, geo_tile])
+    # tile data type error
+    with pytest.raises(TypeError):
+        geo_tile.data = np.ndarray(geo_tile.shape)
+        diff_type = tp_geo.tile(1, 1, 0)
+        diff_type.data = np.ndarray(diff_zoom.shape).astype("int")
+        raster.create_mosaic([geo_tile, diff_type])
+
+
 def test_create_mosaic():
-    """Create mosaic from multiple tiles."""
+    """Create mosaic from tiles."""
+    tp = BufferedTilePyramid("geodetic")
+    # quick return mosaic if there is just one tile
+    tile = tp.tile(3, 3, 3)
+    tile.data = np.ones(tile.shape)
+    mosaic = raster.create_mosaic([tile])
+    assert isinstance(mosaic, raster.ReferencedRaster)
+    assert np.array_equal(tile.data, mosaic.data)
+    assert tile.affine == mosaic.affine
+    # multiple tiles
     for pixelbuffer in [0, 10]:
         tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
         tiles = [
@@ -161,30 +204,35 @@ def test_create_mosaic():
         for tile in tiles:
             tile.data = np.ones(tile.shape)
         # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
-        out_mosaic, out_affine = raster.create_mosaic(tiles)
-        assert np.all(np.where(out_mosaic == 1, True, False))
+        mosaic = raster.create_mosaic(tiles)
+        assert isinstance(mosaic, raster.ReferencedRaster)
+        assert np.all(np.where(mosaic.data == 1, True, False))
         mosaic_bbox = box(
-            out_affine[2], out_affine[5]+out_mosaic.shape[1]*out_affine[4],
-            out_affine[2]+out_mosaic.shape[2]*out_affine[0], out_affine[5])
+            mosaic.affine[2],
+            mosaic.affine[5] + mosaic.data.shape[1] * mosaic.affine[4],
+            mosaic.affine[2] + mosaic.data.shape[2] * mosaic.affine[0],
+            mosaic.affine[5]
+        )
         control_bbox = box(*unary_union([tile.bbox for tile in tiles]).bounds)
         assert mosaic_bbox.equals(control_bbox)
 
 
-def inactive_test_create_mosaic_antimeridian():
+def test_create_mosaic_antimeridian():
     """Create mosaic using tiles on opposing antimeridian sides."""
     zoom = 5
     row = 0
-    pixelbuffer = 0
+    pixelbuffer = 5
     tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     west = tp.tile(zoom, row, 0)
     east = tp.tile(zoom, row, tp.matrix_width(zoom)-1)
     for tile in [west, east]:
         tile.data = np.ones(tile.shape)
-    out_mosaic, out_affine = raster.create_mosaic([west, east])
+    mosaic = raster.create_mosaic([west, east])
+    assert isinstance(mosaic, raster.ReferencedRaster)
     # Huge array gets initialized because the two tiles are on opposing sides
     # of the projection area. The below test should pass if the tiles are
     # stitched together next to each other.
-    assert out_mosaic.shape == (1, west.height, west.width*2-2*pixelbuffer)
+    assert mosaic.data.shape == (1, west.height, west.width*2-2*pixelbuffer)
 
 
 def test_prepare_array_iterables():
