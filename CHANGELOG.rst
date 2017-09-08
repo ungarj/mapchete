@@ -7,6 +7,8 @@ Changelog
 ---
 * ``input_files`` config option now raises a deprecation warning and will be replaced with ``input``
 * abstract ``input`` types are now available which is necessary for additional non-file based input drivers such as DB connections
+* improved antimeridian handling in ``create_mosaic()`` (#69)
+* improved baselevel generation performance (#74)
 
 
 ---

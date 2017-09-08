@@ -18,18 +18,21 @@ process_file
 Path to python file, relative from the Mapchete file.
 
 
-input_files
-===========
+input
+=====
 
-List of input files required for the process. Each file has to be assigned a
-name, wich then can be referenced from the ``self.open()`` function within the
-process.
+Input data required for the process. Each input type has to be assigned an
+identifier, wich then can be referenced from the ``self.open()`` function
+from within the process.
+
+For single files like GeoTIFFs, JPEG2000 files, Shapefiles or GeoJSON files,
+a file path (either remote or local) is sufficient.
 
 **Example:**
 
 .. code-block:: yaml
 
-    input_files:
+    input:
         dem: path/to/elevation_data.tif
         land_polygons: path/to/land_polygons.shp
 
@@ -37,14 +40,14 @@ from_command_line
 -----------------
 
 If the process is designed for a single file, you can also use the
-``--input_file`` parameter of the :doc:`cli`. In this case, the ``input_files``
+``--input_file`` parameter of the :doc:`cli`. In this case, the ``input``
 parameter has to be set to ``from_command_line``.
 
 **Example:**
 
 .. code-block:: yaml
 
-    input_files: from_command_line
+    input: from_command_line
 
 Run the process afterwards like this:
 
@@ -52,6 +55,18 @@ Run the process afterwards like this:
 
     mapchete execute my_process.mapchete --input_file path/to/elevation_data.tif
 
+It is also possible to define input data groups e.g. for extracted Sentinel-2
+granules, where bands are stored in separate files:
+
+**Example:**
+
+.. code-block:: yaml
+
+    input:
+        sentinel2_granule:
+            red: path/to/B04.jp2
+            green: path/to/B03.jp2
+            blue: path/to/B02.jp2
 
 
 output
@@ -321,7 +336,7 @@ This works likewise for input data:
 
 .. code-block:: yaml
 
-    input_files:
+    input:
         land_polygons:
             zoom<=10: land_polygons_simplified.shp
             zoom>10: land_polygons.shp
