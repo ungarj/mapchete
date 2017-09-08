@@ -6,7 +6,9 @@ import logging
 import time
 import numpy as np
 import numpy.ma as ma
+from collections import namedtuple
 from shapely.geometry import box
+from shapely.ops import cascaded_union
 from rasterio.warp import Resampling, transform_bounds, reproject
 from rasterio.windows import from_bounds
 from affine import Affine
@@ -27,6 +29,9 @@ RESAMPLING_METHODS = {
     "average": Resampling.average,
     "mode": Resampling.mode
     }
+
+
+ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
 
 
 def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
@@ -355,74 +360,105 @@ def create_mosaic(tiles, nodata=0):
     tiles : iterable
         an iterable containing BufferedTiles
     nodata : integer or float
-        raster nodata value (default: 0)
+        raster nodata value to initialize the mosaic with (default: 0)
 
     Returns
     -------
-    mosaic, affine : tuple
+    mosaic : ReferencedRaster
     """
+    # convert to list if tiles are provided as generator
     tiles_list = list(tiles)
     tiles = tiles_list
-    if not tiles:
-        raise RuntimeError("no tiles provided for mosaic")
-    elif len(tiles) == 1:
-        return (tiles[0].data, tiles[0].affine)
-    resolution = None
-    dtype = None
-    num_bands = 0
+    # quick return if there is just one tile
+    if len(tiles) == 1:
+        if not isinstance(tiles[0].data, (np.ndarray, tuple)):
+            raise TypeError("tile data has to be np.ndarray or tuple")
+        return ReferencedRaster(data=tiles[0].data, affine=tiles[0].affine)
+    # assert all tiles have same properties
+    _check_tiles_for_mosaic(tiles)
+    # set variables for later use
+    pyramid = tiles[0].tile_pyramid
+    resolution = tiles[0].pixel_x_size
+    dtype = tiles[0].data[0].dtype
+    # just handle antimeridian on global pyramid types
+    shift = _shift_required(tiles)
+    # determine mosaic shape and reference
     m_left, m_bottom, m_right, m_top = None, None, None, None
     for tile in tiles:
-        if isinstance(tile.data, (np.ndarray, ma.MaskedArray)):
-            if tile.data.ndim == 2:
-                tile_data = ma.expand_dims(tile.data, axis=0)
-            elif tile.data.ndim == 3:
-                tile_data = tile.data
-            else:
-                raise TypeError("tile.data bands must be 2-dimensional")
-        elif isinstance(tile.data, tuple):
-            tile_data = np.stack(tile.data)
-        else:
-            raise TypeError("tile.data must be an array or a tuple of arrays")
-        if isinstance(tile.data, (np.ndarray)):
-            tile.data = ma.masked_where(tile.data == nodata, tile.data)
-        num_bands = tile_data.shape[0]
-        resolution = tile.pixel_x_size if resolution is None else resolution
-        if tile.pixel_x_size != resolution:
-            raise RuntimeError("tiles must have same resolution")
-        dtype = tile_data[0].dtype if dtype is None else dtype
-        if tile_data[0].dtype != dtype:
-            raise RuntimeError("all tiles must have the same dtype")
+        tile.data = prepare_array(tile.data, nodata=nodata, dtype=dtype)
+        num_bands = tile.data.shape[0]
         left, bottom, right, top = tile.bounds
+        if shift:
+            left += pyramid.x_size/2
+            right += pyramid.x_size/2
+            # if tile is now shifted outside pyramid bounds, move within
+            if right > pyramid.right:
+                right -= pyramid.x_size
+                left -= pyramid.x_size
         m_left = min([left, m_left]) if m_left is not None else left
         m_bottom = min([bottom, m_bottom]) if m_bottom is not None else bottom
         m_right = max([right, m_right]) if m_right is not None else right
         m_top = max([top, m_top]) if m_top is not None else top
-    # determine mosaic shape
     height = int(round((m_top - m_bottom) / resolution))
     width = int(round((m_right - m_left) / resolution))
-
     # initialize empty mosaic
     mosaic = ma.MaskedArray(
-            data=np.full(
-                (num_bands, height, width), dtype=dtype, fill_value=nodata),
-            mask=np.ones((num_bands, height, width)))
-    # determine Affine
-    mosaic_affine = Affine.translation(m_left, m_top) * Affine.scale(
-        resolution, -resolution)
-
+        data=np.full(
+            (num_bands, height, width), dtype=dtype, fill_value=nodata),
+        mask=np.ones((num_bands, height, width))
+    )
+    # create Affine
+    affine = Affine(resolution, 0, m_left, 0, -resolution, m_top)
     # fill mosaic array with tile data
     for tile in tiles:
         t_left, t_bottom, t_right, t_top = tile.bounds
+        if shift:
+            t_left += pyramid.x_size/2
+            t_right += pyramid.x_size/2
+            # if tile is now shifted outside pyramid bounds, move within
+            if t_right > pyramid.right:
+                t_right -= pyramid.x_size
+                t_left -= pyramid.x_size
         window = from_bounds(
-            t_left, t_bottom, t_right, t_top, mosaic_affine, height=height,
-            width=width)
+            t_left, t_bottom, t_right, t_top, affine, height=height,
+            width=width
+        )
         minrow = window.row_off
         maxrow = window.row_off + window.num_rows
         mincol = window.col_off
         maxcol = window.col_off + window.num_cols
         mosaic[:, minrow:maxrow, mincol:maxcol] = tile.data
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = tile.data.mask
-    return (mosaic, mosaic_affine)
+    if shift:
+        # shift back output mosaic
+        affine = Affine(
+            resolution, 0, m_left - pyramid.x_size / 2, 0, -resolution, m_top
+        )
+    return ReferencedRaster(data=mosaic, affine=affine)
+
+
+def _check_tiles_for_mosaic(tiles):
+    for i, tile in enumerate(tiles):
+        if tile.zoom != tiles[0].zoom:
+            raise ValueError("all tiles must be from same zoom level")
+        if tile.crs != tiles[0].crs:
+            raise ValueError("all tiles must have the same CRS")
+        if not isinstance(tile.data, (np.ndarray, tuple)):
+            raise TypeError("tile data has to be np.ndarray or tuple")
+        if tile.data[0].dtype != tiles[0].data[0].dtype:
+            raise TypeError("all tile data must have the same dtype")
+
+
+def _shift_required(tiles):
+    """Determine if temporary shift is required to deal with antimeridian."""
+    if tiles[0].tile_pyramid.is_global:
+        # check if tiles are all connected to each other
+        bbox = cascaded_union([tile.bbox for tile in tiles])
+        connected = True if bbox.geom_type != "MultiPolygon" else False
+        # if tiles are not connected, shift by half the globe
+        return True if not connected else False
+    else:
+        return False
 
 
 def prepare_array(data, masked=True, nodata=0, dtype="int16"):
