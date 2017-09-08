@@ -296,12 +296,15 @@ class Mapchete(object):
         BufferedTile
             output data stored in ``data`` attribute
         """
-        if isinstance(tile, tuple):
-            tile = self.config.output_pyramid.tile(*tile)
-        elif isinstance(tile, BufferedTile):
-            pass
-        else:
+        if not isinstance(tile, (BufferedTile, tuple)):
             raise ValueError("'tile' must be a tuple or BufferedTile")
+        tile = (
+            self.config.output_pyramid.tile(*tile)
+            if isinstance(tile, tuple)
+            else tile
+        )
+        if _baselevel_readonly:
+            tile = self.config.baselevels["tile_pyramid"].tile(*tile.id)
         # Return empty data if zoom level is outside of process zoom levels.
         if tile.zoom not in self.config.zoom_levels:
             tile.data = self.config.output.empty(tile)
@@ -310,7 +313,8 @@ class Mapchete(object):
         # TODO implement reprojection
         if tile.crs != self.config.process_pyramid.crs:
             raise NotImplementedError(
-                "tile CRS and process CRS must be the same")
+                "tile CRS and process CRS must be the same"
+            )
 
         if self.config.mode == "memory":
             # Determine affected process Tile and check whether it is already
@@ -321,7 +325,9 @@ class Mapchete(object):
 
         # TODO: cases where tile intersects with multiple process tiles
         process_tile = self.config.process_pyramid.intersecting(tile)[0]
-        if self.config.pixelbuffer > 0:
+
+        # get output_tiles that intersect with current tile
+        if tile.pixelbuffer > self.config.output.pixelbuffer:
             output_tiles = list(self.config.output_pyramid.tiles_from_bounds(
                 tile.bounds, tile.zoom
             ))

@@ -206,7 +206,7 @@ def test_baselevels_buffer():
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
-def inactive_test_baselevels_buffer_antimeridian():
+def test_baselevels_buffer_antimeridian():
     """Baselevel interpolation using buffers."""
     try:
         mp_config = yaml.load(open(
@@ -222,15 +222,18 @@ def inactive_test_baselevels_buffer_antimeridian():
         with mapchete.open(mp_config) as mp:
             # write data left and right of antimeridian
             west = mp.config.process_pyramid.tile(zoom, row, 0)
+            shape = (3, ) + west.shape
+            west.data = np.ones(shape) * 0
+            mp.write(west)
             east = mp.config.process_pyramid.tile(
-                zoom, row, mp.config.process_pyramid.matrix_width(zoom)-1
+                zoom, row, mp.config.process_pyramid.matrix_width(zoom) - 1
             )
-            for tile in [west, east]:
-                tile.data = np.ones(tile.shape)
-                mp.write(tile)
+            east.data = np.ones(shape) * 10
+            mp.write(east)
             # use baselevel generation to interpolate tile and somehow
             # assert no data from across the antimeridian is read.
-            interpolated_tile = mp.get_raw_output(west.get_parent())
+            lower_tile = mp.get_raw_output(west.get_parent())
+            assert np.where(lower_tile.data.data != 10, True, False).all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 

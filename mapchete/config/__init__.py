@@ -17,9 +17,7 @@ import warnings
 from cached_property import cached_property
 from shapely.geometry import box, MultiPolygon
 
-from mapchete.formats import (
-    load_output_writer, available_output_formats, available_input_formats
-)
+from mapchete.formats import load_output_writer, available_output_formats
 from mapchete.tile import BufferedTilePyramid
 from mapchete.errors import MapcheteConfigError
 from mapchete.config._parse_input import input_at_zoom
@@ -115,7 +113,7 @@ class MapcheteConfig(object):
         LOGGER.info("preparing configuration ...")
         if debug:
             LOGGER.setLevel(logging.DEBUG)
-        if not mode in ["memory", "readonly", "continue", "overwrite"]:
+        if mode not in ["memory", "readonly", "continue", "overwrite"]:
             raise MapcheteConfigError("invalid process mode")
         LOGGER.debug("zooms provided to config: %s" % zoom)
         self.mode = mode
@@ -156,7 +154,7 @@ class MapcheteConfig(object):
         output_params = self.raw["output"]
         if "format" not in output_params:
             raise MapcheteConfigError("output format not specified")
-        if not output_params["format"] in available_output_formats():
+        if output_params["format"] not in available_output_formats():
             raise MapcheteConfigError(
                 "format %s not available in %s" % (
                     output_params["format"], str(available_output_formats())
@@ -255,6 +253,11 @@ class MapcheteConfig(object):
             zooms=range(base_min, base_max+1),
             lower=resampling_lower,
             higher=resampling_higher,
+            tile_pyramid=BufferedTilePyramid(
+                self.output_pyramid.type,
+                pixelbuffer=self.output_pyramid.pixelbuffer,
+                metatiling=self.process_pyramid.metatiling
+            )
         )
 
     @cached_property
@@ -358,7 +361,7 @@ class MapcheteConfig(object):
             raw["input"] = raw.pop("input_files")
         # check if mandatory parameters are provided
         for param in _MANDATORY_PARAMETERS:
-            if not param in raw:
+            if param not in raw:
                 raise MapcheteConfigError("%s parameter missing" % param)
         # pixelbuffer and metatiling
         raw["pixelbuffer"] = self._set_pixelbuffer(raw)
