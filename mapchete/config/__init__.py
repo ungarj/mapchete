@@ -16,6 +16,7 @@ import logging
 import warnings
 from cached_property import cached_property
 from shapely.geometry import box, MultiPolygon
+from tilematrix._conf import PYRAMID_PARAMS
 
 from mapchete.formats import load_output_writer, available_output_formats
 from mapchete.tile import BufferedTilePyramid
@@ -26,7 +27,7 @@ from mapchete.config._parse_input import input_at_zoom
 LOGGER = logging.getLogger(__name__)
 
 # supported tile pyramid types
-TILING_TYPES = ["geodetic", "mercator"]
+TILING_TYPES = PYRAMID_PARAMS.keys()
 
 # parameters to be provided in the process configuration
 _MANDATORY_PARAMETERS = [
@@ -137,7 +138,8 @@ class MapcheteConfig(object):
             raise MapcheteConfigError("no output type given")
         if self.raw["output"]["type"] not in TILING_TYPES:
             raise MapcheteConfigError(
-                "output type (geodetic or mercator) is missing")
+                "output type is missing: %s" % PYRAMID_PARAMS.keys()
+            )
         self.process_pyramid = BufferedTilePyramid(
             self.output_type, metatiling=self.metatiling,
             pixelbuffer=self.pixelbuffer)
@@ -189,13 +191,11 @@ class MapcheteConfig(object):
         else:
             zoom = []
         # overwrite zoom if provided in additional_parameters
-        if self._delimiters["zoom"]:
-            zoom = self._delimiters["zoom"]
+        zoom = self._delimiters["zoom"] if self._delimiters["zoom"] else zoom
         # # if zoom still empty, throw exception
         if not zoom:
             raise MapcheteConfigError("No zoom level(s) provided.")
-        if isinstance(zoom, int):
-            zoom = [zoom]
+        zoom = [zoom] if isinstance(zoom, int) else zoom
         if len(zoom) == 1:
             if zoom[0] < 0:
                 raise MapcheteConfigError("Zoom level must be greater 0.")
