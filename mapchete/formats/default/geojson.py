@@ -32,6 +32,13 @@ from mapchete.formats import base
 from mapchete.io.vector import write_vector_window
 
 
+METADATA = {
+    "driver_name": "GeoJSON",
+    "data_type": "vector",
+    "mode": "rw"
+}
+
+
 class OutputData(base.OutputData):
     """
     Output class for GeoJSON.

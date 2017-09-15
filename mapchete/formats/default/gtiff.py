@@ -40,6 +40,13 @@ from mapchete.tile import BufferedTile
 from mapchete.io.raster import write_raster_window, prepare_array
 
 
+METADATA = {
+    "driver_name": "GTiff",
+    "data_type": "raster",
+    "mode": "rw"
+    }
+
+
 class OutputData(base.OutputData):
     """
     Template class handling process output data.

@@ -33,6 +33,12 @@ from mapchete.formats import base
 from mapchete.tile import BufferedTile
 from mapchete.io.raster import write_raster_window, prepare_array
 
+METADATA = {
+    "driver_name": "PNG_hillshade",
+    "data_type": "raster",
+    "mode": "w"
+}
+
 
 class OutputData(base.OutputData):
     """

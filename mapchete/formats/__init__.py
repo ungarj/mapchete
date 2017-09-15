@@ -6,6 +6,7 @@ This module deserves a cleaner rewrite some day.
 
 import os
 import pkg_resources
+import warnings
 
 from mapchete import errors
 
@@ -22,6 +23,12 @@ def _file_ext_to_driver():
         for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
             try:
                 metadata = v.load().METADATA
+            except AttributeError:
+                warnings.warn(
+                    "driver %s cannot be loaded" % str(v).split(" ")[-1]
+                )
+                continue
+            try:
                 driver_name = metadata["driver_name"]
                 for ext in metadata["file_extensions"]:
                     if ext in _FILE_EXT_TO_DRIVER:
@@ -68,6 +75,8 @@ def available_input_formats():
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
         try:
             input_formats.append(v.load().InputData.METADATA["driver_name"])
+        except ImportError:
+            raise
         except Exception:
             pass
     return input_formats
@@ -92,6 +101,8 @@ def load_output_writer(output_params):
             output_writer = v.load().OutputData(output_params)
             if output_writer.METADATA["driver_name"] == driver_name:
                 return output_writer
+        except ImportError:
+            raise
         except AttributeError:
             pass
     raise errors.MapcheteDriverError(
