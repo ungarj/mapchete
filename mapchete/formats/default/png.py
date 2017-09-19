@@ -95,22 +95,7 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        data = prepare_array(process_tile.data, dtype="uint8")
-        if len(data) == 1:
-            rgba = np.stack((
-                data[0], data[0], data[0],
-                np.where(data[0].data == self.nodata, 0, 255).astype("uint8")
-            ))
-        elif len(data) == 3:
-            rgba = np.stack((
-                data[0], data[1], data[2], np.where(
-                    data[0].data == self.nodata, 0, 255
-                ).astype("uint8")
-            ))
-        elif len(data) == 4:
-            rgba = data.astype("uint8")
-        else:
-            raise TypeError("invalid number of bands: %s" % len(data))
+        rgba = self._prepare_array_for_png(process_tile.data)
         process_tile.data = rgba
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
@@ -247,25 +232,7 @@ class OutputData(base.OutputData):
         -------
         web data : array
         """
-        data = prepare_array(data, nodata=255, dtype=np.uint8)
-        # Create 3D NumPy array with alpha channel.
-        if len(data) == 1:
-            rgba = np.stack((
-                data[0], data[0], data[0],
-                np.where(
-                    data[0].data == self.nodata, 0, 255)
-                .astype("uint8")
-            ))
-        elif len(data) == 3:
-            rgba = np.stack((
-                data[0], data[1], data[2], np.where(
-                    data[0].data == self.nodata, 0, 255
-                ).astype("uint8")
-            ))
-        elif len(data) == 4:
-            rgba = data.astype("uint8")
-        else:
-            raise TypeError("invalid number of bands: %s" % len(data))
+        rgba = self._prepare_array_for_png(data)
         empty_image = Image.fromarray(rgba.transpose(1, 2, 0), mode='RGBA')
         out_img = io.BytesIO()
         empty_image.save(out_img, 'PNG')
@@ -286,11 +253,40 @@ class OutputData(base.OutputData):
         empty data : array
             empty array with data type given in output parameters
         """
+        bands = (
+            self.output_params["bands"]
+            if "bands" in self.output_params
+            else PNG_PROFILE["count"]
+        )
         return ma.masked_array(
-            data=ma.zeros((3, ) + process_tile.shape),
-            mask=ma.ones((3, ) + process_tile.shape),
+            data=ma.zeros((bands, ) + process_tile.shape),
+            mask=ma.zeros((bands, ) + process_tile.shape),
             dtype=PNG_PROFILE["dtype"]
         )
+
+    def _prepare_array_for_png(self, data):
+        data = prepare_array(data, dtype=np.uint8)
+        # Create 3D NumPy array with alpha channel.
+        if len(data) == 1:
+            rgba = np.stack((
+                data[0], data[0], data[0],
+                np.where(
+                    data[0].data == self.nodata, 0, 255)
+                .astype("uint8")
+            ))
+        elif len(data) == 2:
+            rgba = np.stack((data[0], data[0], data[0], data[1]))
+        elif len(data) == 3:
+            rgba = np.stack((
+                data[0], data[1], data[2], np.where(
+                    data[0].data == self.nodata, 0, 255
+                ).astype("uint8")
+            ))
+        elif len(data) == 4:
+            rgba = np.array(data).astype("uint8")
+        else:
+            raise TypeError("invalid number of bands: %s" % len(data))
+        return rgba
 
 
 PNG_PROFILE = {

@@ -406,7 +406,8 @@ class Mapchete(object):
         if self.config.output.METADATA["data_type"] == "raster":
             process_tile.data = raster.prepare_array(
                 process_tile.data, nodata=self.config.output.nodata,
-                dtype=self.config.output.output_params["dtype"])
+                dtype=self.config.output.output_params["dtype"]
+            )
             tile.data = raster.extract_from_tile(process_tile, tile)
         elif self.config.output.METADATA["data_type"] == "vector":
             tile.data = vector.extract_from_tile(process_tile, tile)
