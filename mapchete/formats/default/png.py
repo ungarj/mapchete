@@ -95,16 +95,34 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        process_tile.data = prepare_array(process_tile.data, dtype="uint8")
+        data = prepare_array(process_tile.data, dtype="uint8")
+        if len(data) == 1:
+            rgba = np.stack((
+                data[0], data[0], data[0],
+                np.where(data[0].data == self.nodata, 0, 255).astype("uint8")
+            ))
+        elif len(data) == 3:
+            rgba = np.stack((
+                data[0], data[1], data[2], np.where(
+                    data[0].data == self.nodata, 0, 255
+                ).astype("uint8")
+            ))
+        elif len(data) == 4:
+            rgba = data.astype("uint8")
+        else:
+            raise TypeError("invalid number of bands: %s" % len(data))
+        process_tile.data = rgba
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
-            out_path = self.get_path(tile)
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
-                in_tile=process_tile, out_profile=self.profile(out_tile),
-                out_tile=out_tile, out_path=out_path)
+                in_tile=process_tile,
+                out_tile=BufferedTile(tile, self.pixelbuffer),
+                out_profile=self.profile(out_tile),
+                out_path=self.get_path(tile)
+            )
 
     def read(self, output_tile):
         """
@@ -235,13 +253,13 @@ class OutputData(base.OutputData):
             rgba = np.stack((
                 data[0], data[0], data[0],
                 np.where(
-                    data[0].data == self.nodata, 255, 0)
+                    data[0].data == self.nodata, 0, 255)
                 .astype("uint8")
             ))
         elif len(data) == 3:
             rgba = np.stack((
                 data[0], data[1], data[2], np.where(
-                    data[0].data == self.nodata, 255, 0
+                    data[0].data == self.nodata, 0, 255
                 ).astype("uint8")
             ))
         elif len(data) == 4:

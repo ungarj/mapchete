@@ -346,8 +346,8 @@ def test_serve(client):
         assert not data[0].any()
         assert not data[1].any()
         assert not data[2].any()
-        # alpha band has to be filled with 255
-        assert data[3].all()
+        # alpha band has to be filled with 0
+        assert not data[3].any()
         # test invalid url
         response = client.get(tile_base_url+"invalid_url")
         assert response.status_code == 404
