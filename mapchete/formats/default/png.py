@@ -96,7 +96,7 @@ class OutputData(base.OutputData):
             must be member of process ``TilePyramid``
         """
         rgba = self._prepare_array_for_png(process_tile.data)
-        process_tile.data = rgba
+        process_tile.data = ma.masked_where(rgba == self.nodata, rgba)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
