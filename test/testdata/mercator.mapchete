@@ -7,8 +7,6 @@ input_files:
         zoom>=10: dummy1.tif
     file2: dummy2.tif
 output:
-    dtype: float32
-    bands: 1
     path: tmp
     format: PNG_hillshade
     type: mercator

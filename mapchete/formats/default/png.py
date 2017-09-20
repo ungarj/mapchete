@@ -81,6 +81,7 @@ class OutputData(base.OutputData):
         self.path = output_params["path"]
         self.file_extension = ".png"
         self.output_params = output_params
+        self.output_params["dtype"] = PNG_PROFILE["dtype"]
         try:
             self.nodata = output_params["nodata"]
         except KeyError:

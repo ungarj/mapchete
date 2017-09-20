@@ -6,7 +6,6 @@ process_bounds: [-180, -90, 180, 90]
 input_files:
     file1: dummy1.tif
 output:
-    dtype: float32
     bands: 1
     path: tmp
     format: PNG

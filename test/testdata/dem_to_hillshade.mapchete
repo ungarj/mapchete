@@ -7,7 +7,6 @@ input_files:
 
 output:
     type: geodetic
-    dtype: uint8
     bands: 2
     format: PNG
     path: tmp
