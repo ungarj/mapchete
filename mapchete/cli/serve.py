@@ -2,12 +2,11 @@
 """Command line utility to serve a Mapchete process."""
 
 import os
-import io
 import logging
 import logging.config
 import pkgutil
-from PIL import Image, ImageDraw
-from flask import Flask, send_file, make_response, render_template_string
+from traceback import format_exc
+from flask import Flask, make_response, render_template_string, abort
 
 import mapchete
 from mapchete.tile import BufferedTilePyramid
@@ -88,36 +87,20 @@ def _tile_response(mp, web_tile, debug):
     try:
         LOGGER.debug("getting web tile %s" % str(web_tile.id))
         return _valid_tile_response(mp, mp.get_raw_output(web_tile))
-    except Exception as exc:
+    except Exception:
         if debug:
             LOGGER.debug("getting web tile %s failed" % str(web_tile.id))
+            for line in format_exc().split("\n"):
+                LOGGER.error(line)
             raise
         else:
-            LOGGER.error(("web tile", web_tile.id, "error", exc))
-            return _error_tile_response(mp, web_tile)
+            abort(500)
 
 
 def _valid_tile_response(mp, web_tile):
     response = make_response(mp.config.output.for_web(web_tile.data))
     response.cache_control.no_write = True
     return response
-
-
-def _error_tile_response(mp, web_tile):
-    if mp.config.output.METADATA["data_type"] == "raster":
-        empty_image = Image.new('RGBA', web_tile.shape)
-        draw = ImageDraw.Draw(empty_image)
-        draw.rectangle([(0, 0), web_tile.shape], fill=(255, 0, 0, 128))
-        del draw
-        out_img = io.BytesIO()
-        empty_image.save(out_img, 'PNG')
-        out_img.seek(0)
-        resp = make_response(send_file(out_img, mimetype='image/png'))
-        resp.cache_control.no_cache = True
-        return resp
-
-    elif mp.config.output.METADATA["data_type"] == "vector":
-        raise NotImplementedError
 
 
 if __name__ == '__main__':
