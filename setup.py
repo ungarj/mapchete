@@ -9,7 +9,7 @@ on_rtd = os.environ.get('READTHEDOCS') == 'True'
 
 setup(
     name='mapchete',
-    version='0.6',
+    version='0.7',
     description='tile-based geodata processing',
     author='Joachim Ungar',
     author_email='joachim.ungar@gmail.com',

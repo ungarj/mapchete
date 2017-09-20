@@ -23,3 +23,7 @@ class MapcheteConfigError(ValueError):
 
 class MapcheteDriverError(Exception):
     """Raised when a mapchete process configuration is invalid."""
+
+
+class MapcheteEmptyInputTile(Exception):
+    """Generic exception raised by a driver if input tile is empty."""
