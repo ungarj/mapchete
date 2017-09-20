@@ -3,6 +3,14 @@ Changelog
 #########
 
 ---
+0.7
+---
+* fixed PNG alpha band handling
+* added generic ``MapcheteEmptyInputTile`` exception
+* internal: available pyramid types are now loaded dynamically from ``tilematrix``
+* closed #25: use HTTP errors instead of generating pink tiles in ``mapchete serve``
+
+---
 0.6
 ---
 * ``input_files`` config option now raises a deprecation warning and will be replaced with ``input``
