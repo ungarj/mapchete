@@ -37,16 +37,19 @@ class MapcheteCLI(object):
                 """mapchete <command> [<args>]"""
                 """\n"""
                 """\n    """
-                """create      Creates empty process and configuration files."""
+                """create       Creates empty process and configuration files."""
                 """\n    """
-                """serve       Locally serves a process."""
+                """serve        Locally serves a process."""
                 """\n    """
-                """execute     Executes a process."""
+                """execute      Executes a process."""
                 """\n    """
-                """pyramid     Creates a tile pyramid from an input raster."""
+                """pyramid      Creates a tile pyramid from an input raster."""
                 """\n    """
-                """formats     Lists available input and/or output formats."""
+                """formats      Lists available input and/or output formats."""
             ))
+        parser.add_argument(
+            '-v', '--version', action='version', version=mapchete.__version__
+        )
         parser.add_argument("command", help="Subcommand to run")
         # parse_args defaults to [1:] for args, but you need to
         # exclude the rest of the args too, or validation will fail

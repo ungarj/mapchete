@@ -5,11 +5,22 @@
 from setuptools import setup
 import os
 
+# don't install dependencies when building win readthedocs
 on_rtd = os.environ.get('READTHEDOCS') == 'True'
+
+# get version number
+# from https://github.com/mapbox/rasterio/blob/master/setup.py#L55
+with open('mapchete/__init__.py') as f:
+    for line in f:
+        if line.find("__version__") >= 0:
+            version = line.split("=")[1].strip()
+            version = version.strip('"')
+            version = version.strip("'")
+            continue
 
 setup(
     name='mapchete',
-    version='0.7',
+    version=version,
     description='tile-based geodata processing',
     author='Joachim Ungar',
     author_email='joachim.ungar@gmail.com',
@@ -42,7 +53,7 @@ setup(
     package_dir={'static': 'static'},
     package_data={'mapchete.static': ['*']},
     install_requires=[
-        'tilematrix>=0.6',
+        'tilematrix>=0.8',
         'fiona',
         'pyyaml',
         'flask',

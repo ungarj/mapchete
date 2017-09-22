@@ -34,4 +34,4 @@ locations of the headers:
 
 .. code-block:: shell
 
-    pip install gdal==2.1.0 --global-option=build_ext --global-option="-I/usr/include/gdal/"
+    pip install gdal==2.2.1 --global-option=build_ext --global-option="-I/usr/include/gdal/"

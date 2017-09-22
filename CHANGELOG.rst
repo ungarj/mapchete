@@ -3,6 +3,12 @@ Changelog
 #########
 
 ---
+0.8
+---
+* current version number is now accessable at ``mapchete.__version`` (#77)
+* added ``--version`` flag to command line tools
+
+---
 0.7
 ---
 * fixed PNG alpha band handling

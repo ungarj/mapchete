@@ -32,6 +32,9 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 
 
+__version__ = "0.8"
+
+
 def open(
     config, mode="continue", zoom=None, bounds=None, single_input_file=None,
     with_cache=False, debug=False
