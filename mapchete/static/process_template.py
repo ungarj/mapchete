@@ -2,20 +2,24 @@
 
 """Mapchete process file template."""
 
-from mapchete import MapcheteProcess
 
+def execute(mp):
+    """
+    Insert your python code here.
 
-class Process(MapcheteProcess):
-    """Main process class."""
+    Access input data specified in the .mapchete file:
 
-    def __init__(self, **kwargs):
-        """Process initialization."""
-        MapcheteProcess.__init__(self, **kwargs)
-        self.identifier = "my_process_id",
-        self.title = "My long process title",
-        self.version = "0.1",
-        self.abstract = "Short description on what my process does."
+    with mp.open("<input_id>") as src:
+        data = src.read()
 
-    def execute(self):
-        """Insert your python code here."""
-        pass
+    For vector data a list of features is returned, for raster data a numpy
+    array. Data is already reprojected.
+
+    To write the process output simply return a feature list or numpy array:
+
+    return modified_data
+
+    Please note the returned data type has to match the output type specified
+    in the .mapchete file.
+    """
+    pass

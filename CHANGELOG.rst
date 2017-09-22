@@ -5,6 +5,7 @@ Changelog
 ---
 0.8
 ---
+* process file now will accept a simple ``execute(mp)`` function
 * current version number is now accessable at ``mapchete.__version`` (#77)
 * added ``--version`` flag to command line tools
 
@@ -23,7 +24,6 @@ Changelog
 * abstract ``input`` types are now available which is necessary for additional non-file based input drivers such as DB connections
 * improved antimeridian handling in ``create_mosaic()`` (#69)
 * improved baselevel generation performance (#74)
-
 
 ---
 0.5

@@ -1,7 +1,8 @@
 # mandatory parameters
 ######################
 process_file: $process_file
-input_files: from_command_line
+input:
+    # from_command_line --> use the -i switch in CLI and provide path to file
     # raster_file: path/to/raster
     # vector_file: path/to/vector
 

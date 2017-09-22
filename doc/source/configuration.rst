@@ -22,7 +22,7 @@ input
 =====
 
 Input data required for the process. Each input type has to be assigned an
-identifier, wich then can be referenced from the ``self.open()`` function
+identifier, wich then can be referenced from the ``mp.open()`` function
 from within the process.
 
 For single files like GeoTIFFs, JPEG2000 files, Shapefiles or GeoJSON files,
@@ -276,7 +276,7 @@ User defined parameters
 -----------------------
 
 All other entries used in the Mapchete file are considered user specific and can
-be accessed using ``self.params`` from within the Process class. ``self.params``
+be accessed using ``mp.params`` from within the Process class. ``mp.params``
 is a dictionary which contains all parameters.
 
 **Example:**
@@ -291,8 +291,8 @@ Process file:
 
 .. code-block:: python
 
-    def execute(self):
-        scaling = self.params["scaling"]  # scaling now has the value 2.0
+    def execute(mp):
+        scaling = mp.params["scaling"]  # scaling now has the value 2.0
 
 
 -------------------------------
@@ -301,7 +301,7 @@ Zoom level dependent parameters
 
 User defined parameters can be adapted for zoom levels. This is usefull if a
 process needs different input parameters for different scales (i.e. zoom
-levels). ``self.params`` will always provide a configuration snapshot for the
+levels). ``mp.params`` will always provide a configuration snapshot for the
 zoom level of the current tile.
 
 This can be triggered by adding another level to the YAML file using one of the
@@ -327,8 +327,8 @@ Process file:
 
 .. code-block:: python
 
-    def execute(self):
-        scaling = self.params["scaling"]
+    def execute(mp):
+        scaling = mp.params["scaling"]
         # scaling has the value 2.0 if the current tile is from zoom 8 or
         # lower and 1.5 from zoom 9 or higher
 
@@ -343,8 +343,8 @@ This works likewise for input data:
 
 .. code-block:: python
 
-    def execute(self):
-        with self.open("land_polygons") as polygons:
+    def execute(mp):
+        with mp.open("land_polygons") as polygons:
             p = polygons.read()
             # if the current tile zoom is 10 or lower, features from
             # land_polygons_simplified.shp are returned, if the tile zoom

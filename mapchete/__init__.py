@@ -2,7 +2,9 @@
 
 import os
 import py_compile
+import inspect
 import logging
+import warnings
 import imp
 import types
 import time
@@ -92,16 +94,8 @@ class Mapchete(object):
     ----------
     config : MapcheteConfig
         Mapchete process configuration
-    process_name : string
-        process name
     with_cache : bool
         process output data cached in memory
-    process_tile_cache : LRUCache
-        cache object storing the output data (only if with_cache = True)
-    current_processed : dict
-        process tiles currently processed (only if with_cache = True)
-    process_lock : Lock
-        lock object (only if with_cache = True)
     """
 
     def __init__(self, config, with_cache=False):
@@ -436,20 +430,49 @@ class Mapchete(object):
                 return self._streamline_output(process_data, process_tile)
         # Otherwise, load process source and execute.
         try:
-            new_process = imp.load_source(
-                self.process_name + "Process", self.config.process_file)
-            tile_process = new_process.Process(
-                config=self.config, tile=process_tile,
-                params=self.config.at_zoom(process_tile.zoom)
+            user_process_py = imp.load_source(
+                self.process_name + "process_file", self.config.process_file
             )
+            if hasattr(user_process_py, "execute"):
+                process_is_function = True
+                tile_process = MapcheteProcess(
+                    config=self.config, tile=process_tile,
+                    params=self.config.at_zoom(process_tile.zoom)
+                )
+                user_execute = user_process_py.execute
+            elif hasattr(user_process_py, "Process"):
+                warnings.warn(
+                    """instanciating MapcheteProcess will be deprecated, """
+                    """provide execute() function instead"""
+                )
+                process_is_function = False
+                tile_process = user_process_py.Process(
+                    config=self.config, tile=process_tile,
+                    params=self.config.at_zoom(process_tile.zoom)
+                )
+            else:
+                raise ImportError(
+                    "No execute() function or Process object found in %s" % (
+                        self.config.process_file
+                    )
+                )
         except ImportError as e:
             raise MapcheteProcessImportError(e)
         try:
-            starttime = time.time()
-            # Actually run process.
-            process_data = tile_process.execute()
-            # Log process time
+            if process_is_function:
+                if len(inspect.getargspec(user_execute).args) != 1:
+                    raise MapcheteProcessImportError(
+                        "execute() function has to accept exactly one argument"
+                    )
+                starttime = time.time()
+                # Actually run process.
+                process_data = user_execute(tile_process)
+            else:
+                starttime = time.time()
+                # Actually run process.
+                process_data = tile_process.execute()
         except Exception as e:
+            # Log process time
             elapsed = "%ss" % (round((time.time() - starttime), 3))
             LOGGER.error(
                 (process_tile.id, "exception in user process", e, elapsed))

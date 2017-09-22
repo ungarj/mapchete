@@ -11,7 +11,7 @@ Calculate hillshading from elevation data
 
 .. code-block:: python
 
-    self.hillshade(
+    mp.hillshade(
         elevation,
         azimuth=315.0,
         altitude=45.0,
@@ -35,7 +35,7 @@ Extract contour lines from elevation data
 
 .. code-block:: python
 
-    self.contours(
+    mp.contours(
         array,
         interval=100,
         pixelbuffer=0,
@@ -56,7 +56,7 @@ Clip array by vector data
 
 .. code-block:: python
 
-    self.clip(
+    mp.clip(
         array,
         geometries,
         inverted=False,

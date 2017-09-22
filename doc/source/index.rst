@@ -36,29 +36,18 @@ vector dataset could look like this:
 
 .. code-block:: python
 
-    from mapchete import MapcheteProcess
-
-    class Process(MapcheteProcess):
-
-        def __init__(self, **kwargs):
-            MapcheteProcess.__init__(self, **kwargs)
-            self.identifier = "my_process_id",
-            self.title = "My long process title",
-            self.version = "0.1",
-            self.abstract = "short description on what my process does"
-
-        def execute(self):
-            # Open elevation model.
-            with self.open("DEM_file", resampling="cubic_spline") as dem_file:
-                # Skip tile if there is no data available.
-                if dem_file.is_empty(1):
-                    return "empty"
-                dem = dem_file.read(1)
-            # Create hillshade.
-            hillshade = self.hillshade(dem)
-            # Clip with polygons and return result.
-            with self.open("land_polygons") as land_file:
-                return self.clip(hillshade, land_file.read())
+    def execute(mp):
+        # Open elevation model.
+        with mp.open("DEM_file", resampling="cubic_spline") as dem_file:
+            # Skip tile if there is no data available.
+            if dem_file.is_empty(1):
+                return "empty"
+            dem = dem_file.read(1)
+        # Create hillshade.
+        hillshade = mp.hillshade(dem)
+        # Clip with polygons and return result.
+        with mp.open("land_polygons") as land_file:
+            return mp.clip(hillshade, land_file.read())
 
 
 Examine the result in your browser by serving the process by pointing it to

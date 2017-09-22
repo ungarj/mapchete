@@ -273,6 +273,48 @@ def test_processing():
                 shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
+def test_processing_as_function():
+    """Test correct processing using execute function()."""
+    for cleantopo_process in [
+        "testdata/cleantopo_tl.mapchete", "testdata/cleantopo_br.mapchete"
+    ]:
+        mp_config = yaml.load(
+            open(os.path.join(SCRIPTDIR, cleantopo_process)).read()
+        )
+        mp_config.update(
+            process_file="../example_process_as_function.py",
+            config_dir=TESTDATA_DIR
+        )
+        mp = mapchete.open(mp_config)
+        for zoom in range(6):
+            tiles = []
+            for tile in mp.get_process_tiles(zoom):
+                output = mp.execute(tile)
+                tiles.append(output)
+                assert isinstance(output, BufferedTile)
+                assert isinstance(output.data, ma.MaskedArray)
+                assert output.data.shape == output.shape
+                assert not ma.all(output.data.mask)
+                mp.write(output)
+            mosaic, mosaic_affine = create_mosaic(tiles)
+            try:
+                temp_vrt = os.path.join(OUT_DIR, str(zoom)+".vrt")
+                gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
+                    temp_vrt, OUT_DIR, zoom)
+                os.system(gdalbuildvrt)
+                with rasterio.open(temp_vrt, "r") as testfile:
+                    for file_item, mosaic_item in zip(
+                        testfile.meta["transform"], mosaic_affine
+                    ):
+                        assert file_item == mosaic_item
+                    band = testfile.read(1, masked=True)
+                    assert band.shape == mosaic.shape
+                    assert ma.allclose(band, mosaic)
+                    assert ma.allclose(band.mask, mosaic.mask)
+            finally:
+                shutil.rmtree(OUT_DIR, ignore_errors=True)
+
+
 def test_multiprocessing():
     """Test parallel tile processing."""
     mp = mapchete.open(
