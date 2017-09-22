@@ -32,20 +32,23 @@ class MapcheteCLI(object):
         self.args = args
         self._test_serve = _test_serve
         parser = argparse.ArgumentParser(
-            description="Mapchete helps developing and running geoprocesses.",
+            description="tile-based geodata processing with Python",
             usage=(
                 """mapchete <command> [<args>]"""
                 """\n"""
-                """\n    """
-                """create       Creates empty process and configuration files."""
-                """\n    """
-                """serve        Locally serves a process."""
-                """\n    """
-                """execute      Executes a process."""
-                """\n    """
-                """pyramid      Creates a tile pyramid from an input raster."""
-                """\n    """
-                """formats      Lists available input and/or output formats."""
+                """\n"""
+                """available commands:"""
+                """\n  """
+                """create         Create new process and configuration."""
+                """\n  """
+                """serve          Serve a process for inspection."""
+                """\n  """
+                """execute        Execute a process."""
+                """\n  """
+                """pyramid        Create a tile pyramid from an input raster."""
+                """\n  """
+                """formats        List available input and/or output formats."""
+                """\n  """
             ))
         parser.add_argument(
             '-v', '--version', action='version', version=mapchete.__version__
@@ -54,10 +57,9 @@ class MapcheteCLI(object):
         # parse_args defaults to [1:] for args, but you need to
         # exclude the rest of the args too, or validation will fail
         args = parser.parse_args(self.args[1:2])
+        # if given command has no corresponding function, throw error
         if not hasattr(self, args.command):
-            print "Unrecognized command"
-            parser.print_help()
-            exit(1)
+            parser.error('unrecognized command "%s"' % args.command)
         # use dispatch pattern to invoke method with same name
         getattr(self, args.command)()
 
