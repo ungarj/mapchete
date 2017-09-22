@@ -21,14 +21,16 @@ def test_main():
     for command in [
             "mapchete", "mapchete create", "mapchete execute", "mapchete serve"
     ]:
-        status = commands.getstatusoutput(command)[0]
+        status, output = commands.getstatusoutput(command)
         assert status == 512
+        assert "too few arguments" in output
 
     status = commands.getstatusoutput("mapchete formats")[0]
     assert status == 0
 
-    status = commands.getstatusoutput("mapchete wrong_command")[0]
-    assert status == 256
+    status, output = commands.getstatusoutput("mapchete wrong_command")
+    assert status == 512
+    assert "unrecognized command" in output
 
 
 def test_create_and_execute():
