@@ -102,10 +102,6 @@ class InputData(base.InputData):
         if str(out_crs) not in self._bbox_cache:
             with rasterio.open(self.path) as inp:
                 inp_crs = inp.crs
-                try:
-                    assert inp_crs.is_valid
-                except AssertionError:
-                    raise IOError("CRS could not be read from %s" % self.path)
             out_bbox = bbox = box(
                 inp.bounds.left, inp.bounds.bottom, inp.bounds.right,
                 inp.bounds.top

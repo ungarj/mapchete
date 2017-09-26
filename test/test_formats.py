@@ -5,6 +5,7 @@ import pytest
 import os
 import yaml
 from tilematrix import TilePyramid
+from rasterio.crs import CRS
 
 import mapchete
 from mapchete.formats import (
@@ -42,8 +43,10 @@ def test_mapchete_input():
     """Mapchete process as input for other process."""
     mp = mapchete.open(os.path.join(TESTDATA_DIR, "mapchete_input.mapchete"))
     config = mp.config.at_zoom(5)
-    mp_input = config["input"]["file2"].open(
-        mp.get_process_tiles(5).next())
+    input_data = config["input"]["file2"]
+    assert input_data.bbox()
+    assert input_data.bbox(CRS.from_epsg(3857))
+    mp_input = input_data.open(mp.get_process_tiles(5).next())
     assert mp_input.is_empty()
 
 
