@@ -31,9 +31,6 @@ def main(args=None, _test=False):
 
 def create_app(args):
     """Configure and create Flask app."""
-    if not os.path.splitext(args.mapchete_file)[1] == ".mapchete":
-        raise IOError("must be a valid mapchete file")
-
     if args.debug:
         LOGGER.setLevel(logging.DEBUG)
 
@@ -101,7 +98,3 @@ def _valid_tile_response(mp, web_tile):
     response = make_response(mp.config.output.for_web(web_tile.data))
     response.cache_control.no_write = True
     return response
-
-
-if __name__ == '__main__':
-    main()
