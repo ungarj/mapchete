@@ -1,13 +1,11 @@
 """Functions for reading and writing data."""
 
 import rasterio
-import ogr
 from shapely.geometry import box
-from shapely.wkt import loads
 from tilematrix import TilePyramid
 
 from mapchete.formats.default import raster_file
-from mapchete.io.vector import reproject_geometry
+from mapchete.io.vector import reproject_geometry, segmentize_geometry
 
 
 def get_best_zoom_level(input_file, tile_pyramid_type):
@@ -34,14 +32,14 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
             src.bounds.left, src.bounds.bottom, src.bounds.right,
             src.bounds.top)
         if src.crs != tile_pyramid.crs:
-            segmentize = raster_file._get_segmentize_value(
-                input_file, tile_pyramid)
-            ogr_bbox = ogr.CreateGeometryFromWkb(bbox.wkb)
-            ogr_bbox.Segmentize(segmentize)
-            segmentized_bbox = loads(ogr_bbox.ExportToWkt())
-            bbox = segmentized_bbox
             xmin, ymin, xmax, ymax = reproject_geometry(
-                bbox, src_crs=src.crs, dst_crs=tile_pyramid.crs).bounds
+                segmentize_geometry(
+                    bbox, raster_file._get_segmentize_value(
+                        input_file, tile_pyramid
+                    )
+                ),
+                src_crs=src.crs, dst_crs=tile_pyramid.crs
+            ).bounds
         else:
             xmin, ymin, xmax, ymax = bbox.bounds
         x_dif = xmax - xmin

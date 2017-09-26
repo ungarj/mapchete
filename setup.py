@@ -60,7 +60,6 @@ setup(
         'Pillow',
         'rasterio>=1.0a2',
         'matplotlib',
-        'gdal',
         'cached_property',
         'pyproj',
         'cachetools',

@@ -8,9 +8,9 @@ virtualenv:
 before_install:
 - sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
 - sudo apt-get -y update
-- sudo apt-get install -y libgdal-dev build-essential gdal-bin python-tk
+- sudo apt-get install -y gdal-bin python-tk libopenjpeg-dev
+- sudo pip install --no-binary :all: rasterio==1.0a9
 install:
-- pip install gdal==2.1.0 --global-option=build_ext --global-option="-I/usr/include/gdal/"
 - pip install -r requirements.txt
 - pip install pytest coveralls
 - pip install .

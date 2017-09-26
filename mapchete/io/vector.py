@@ -8,7 +8,9 @@ import fiona
 from functools import partial
 from rasterio.crs import CRS
 from shapely.geometry import (
-    box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon)
+    box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon, Polygon,
+    LinearRing, LineString
+)
 from shapely.ops import transform
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
@@ -101,6 +103,37 @@ def _reproject_geom(geometry, src_crs, dst_crs, validity_check=True):
     if validity_check and not out_geom.is_valid or out_geom.is_empty:
         raise RuntimeError("invalid geometry after reprojection")
     return out_geom
+
+
+def segmentize_geometry(geometry, segmentize_value):
+    """
+    Segmentize Polygon outer ring by segmentize value.
+
+    Just Polygon geometry type supported.
+
+    Parameters
+    ----------
+    geometry : ``shapely.geometry``
+    segmentize_value: float
+
+    Returns
+    -------
+    geometry : ``shapely.geometry``
+    """
+    if geometry.geom_type != "Polygon":
+        raise TypeError("segmentize geometry type must be Polygon")
+    points = []
+    p_xy = None
+    for xy in geometry.exterior.coords:
+        if p_xy is not None:
+            line_segment = LineString([p_xy, xy])
+            points.extend([
+                line_segment.interpolate(segmentize_value * i).coords[0]
+                for i in range(int(line_segment.length / segmentize_value))
+            ])
+        p_xy = xy
+        points.append(xy)
+    return Polygon(LinearRing(points))
 
 
 def read_vector_window(input_file, tile, validity_check=True):

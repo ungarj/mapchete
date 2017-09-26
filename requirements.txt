@@ -7,7 +7,6 @@ pyyaml
 flask
 Pillow
 matplotlib
-gdal
 cached_property
 pyproj
 cachetools

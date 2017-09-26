@@ -7,14 +7,12 @@ extended easily.
 
 import os
 import rasterio
-import ogr
 from shapely.geometry import box
-from shapely.wkt import loads
 from cached_property import cached_property
 from copy import deepcopy
 
 from mapchete.formats import base
-from mapchete.io.vector import reproject_geometry
+from mapchete.io.vector import reproject_geometry, segmentize_geometry
 from mapchete.io.raster import read_raster_window
 
 
@@ -115,11 +113,11 @@ class InputData(base.InputData):
             # If soucre and target CRSes differ, segmentize and reproject
             if inp_crs != out_crs:
                 # estimate segmentize value (raster pixel size * tile size)
-                segmentize = inp.transform[0] * self.pyramid.tile_size
-                ogr_bbox = ogr.CreateGeometryFromWkb(bbox.wkb)
-                ogr_bbox.Segmentize(segmentize)
+                # and get reprojected bounding box
                 self._bbox_cache[str(out_crs)] = reproject_geometry(
-                    loads(ogr_bbox.ExportToWkt()),
+                    segmentize_geometry(
+                        bbox, inp.transform[0] * self.pyramid.tile_size
+                    ),
                     src_crs=inp_crs, dst_crs=out_crs
                 )
             else:

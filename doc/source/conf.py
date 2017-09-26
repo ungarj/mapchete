@@ -191,8 +191,6 @@ MOCK_MODULES = [
     'matplotlib.pyplot',
     'numpy',
     'numpy.ma',
-    'gdal',
-    'ogr',
     'cached_property',
     'pyproj',
     'cachetools',
