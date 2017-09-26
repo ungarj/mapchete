@@ -26,8 +26,6 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     """
     tile_pyramid = TilePyramid(tile_pyramid_type)
     with rasterio.open(input_file, "r") as src:
-        if not src.crs.is_valid:
-            raise IOError("CRS could not be read from %s" % input_file)
         bbox = box(
             src.bounds.left, src.bounds.bottom, src.bounds.right,
             src.bounds.top)

@@ -28,7 +28,7 @@ def test_input_data_read():
         # reprojected GeoJSON
         with open(os.path.join(SCRIPTDIR, "testdata/geojson.mapchete")) as src:
             config = yaml.load(src.read())
-            config["input_files"].update(
+            config["input"].update(
                 file1=os.path.join(TESTDATA_DIR, "landpoly_3857.geojson"))
             config.update(config_dir=TESTDATA_DIR)
         mp = mapchete.open(config, mode="readonly")

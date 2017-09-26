@@ -1,7 +1,7 @@
 # mapchete parameters
 process_file: geojson_test.py
 process_zoom: 4
-input_files:
+input:
     file1: antimeridian.geojson
 
 output:

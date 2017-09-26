@@ -9,6 +9,7 @@ import tempfile
 import numpy as np
 import numpy.ma as ma
 import fiona
+import yaml
 from shapely.geometry import shape, box, Polygon
 from shapely.ops import unary_union
 from rasterio.enums import Compression
@@ -346,6 +347,24 @@ def test_read_vector_window():
     zoom = 4
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
+    vectorfile = config.at_zoom(zoom)["input"]["file1"]
+    pixelbuffer = 5
+    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
+    tiles = tile_pyramid.tiles_from_geom(vectorfile.bbox(), zoom)
+    feature_count = 0
+    for tile in tiles:
+        for feature in vector.read_vector_window(vectorfile.path, tile):
+            assert "properties" in feature
+            assert shape(feature["geometry"]).is_valid
+            feature_count += 1
+    assert feature_count
+    # into different CRS
+    raw_config = yaml.load(
+        open(os.path.join(SCRIPTDIR, "testdata/geojson.mapchete")).read()
+    )
+    raw_config["input"].update(file1="landpoly_3857.geojson")
+    raw_config.update(config_dir=TESTDATA_DIR)
+    config = MapcheteConfig(raw_config)
     vectorfile = config.at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
