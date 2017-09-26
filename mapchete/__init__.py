@@ -294,7 +294,7 @@ class Mapchete(object):
             output data stored in ``data`` attribute
         """
         if not isinstance(tile, (BufferedTile, tuple)):
-            raise ValueError("'tile' must be a tuple or BufferedTile")
+            raise TypeError("'tile' must be a tuple or BufferedTile")
         tile = (
             self.config.output_pyramid.tile(*tile)
             if isinstance(tile, tuple)
