@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Test Mapchete default formats."""
 
+import pytest
 import os
 import yaml
 from tilematrix import TilePyramid
@@ -14,6 +15,7 @@ TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 HTTP_RASTER = (
     "http://sentinel-s2-l1c.s3.amazonaws.com/tiles/33/T/WN/2016/4/3/0/B02.jp2"
 )
+
 
 def test_available_input_formats():
     """Check if default input formats can be listed."""
@@ -54,34 +56,19 @@ def test_base_format_classes():
     assert tmp.pixelbuffer == 0
     assert tmp.crs
     assert tmp.srid
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.open(None)
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.bbox()
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.exists()
-        raise Exception()
-    except NotImplementedError:
-        pass
 
     # InputTile
     tmp = base.InputTile(None)
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.read()
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.is_empty()
-        raise Exception()
-    except NotImplementedError:
-        pass
 
     # OutputData
     tmp = base.OutputData(dict(pixelbuffer=0, type="geodetic", metatiling=1))
@@ -89,41 +76,20 @@ def test_base_format_classes():
     assert tmp.pixelbuffer == 0
     assert tmp.crs
     assert tmp.srid
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.read(None)
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.write(None)
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.tiles_exist(None)
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.is_valid_with_config(None)
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.for_web(None)
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.empty(None)
-        raise Exception()
-    except NotImplementedError:
-        pass
-    try:
+    with pytest.raises(NotImplementedError):
         tmp.open(None, None)
-        raise Exception()
-    except NotImplementedError:
-        pass
 
 
 def test_http_rasters():
