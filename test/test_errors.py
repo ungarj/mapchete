@@ -181,7 +181,6 @@ def test_invalid_zoom_levels():
             del config["process_minzoom"]
             del config["process_maxzoom"]
             MapcheteConfig(config)
-            raise Exception()
     # invalid single zoom level
     with pytest.raises(errors.MapcheteConfigError):
         with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
@@ -236,6 +235,34 @@ def test_import_error():
             mp.execute((5, 0, 0))
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
+
+
+def test_malformed_process_file():
+    """Assert import error is raised."""
+    config = yaml.load(open(
+        os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
+    ).read())
+    config.update(
+        config_dir=os.path.join(SCRIPTDIR, "testdata"),
+        process_file=os.path.join(SCRIPTDIR, "testdata/malformed.py")
+    )
+    with mapchete.open(config) as mp:
+        with pytest.raises(errors.MapcheteProcessImportError):
+            mp.execute((5, 0, 0))
+
+
+def test_execute_params():
+    """Assert import error is raised."""
+    config = yaml.load(open(
+        os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
+    ).read())
+    config.update(
+        config_dir=os.path.join(SCRIPTDIR, "testdata"),
+        process_file=os.path.join(SCRIPTDIR, "testdata/execute_params_error.py")
+    )
+    with mapchete.open(config) as mp:
+        with pytest.raises(errors.MapcheteProcessImportError):
+            mp.execute((5, 0, 0))
 
 
 def test_syntax_error():

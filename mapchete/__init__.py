@@ -440,6 +440,10 @@ class Mapchete(object):
                     params=self.config.at_zoom(process_tile.zoom)
                 )
                 user_execute = user_process_py.execute
+                if len(inspect.getargspec(user_execute).args) != 1:
+                    raise ImportError(
+                        "execute() function has to accept exactly one argument"
+                    )
             elif hasattr(user_process_py, "Process"):
                 warnings.warn(
                     """instanciating MapcheteProcess will be deprecated, """
@@ -459,17 +463,11 @@ class Mapchete(object):
         except ImportError as e:
             raise MapcheteProcessImportError(e)
         try:
+            starttime = time.time()
+            # Actually run process.
             if process_is_function:
-                if len(inspect.getargspec(user_execute).args) != 1:
-                    raise MapcheteProcessImportError(
-                        "execute() function has to accept exactly one argument"
-                    )
-                starttime = time.time()
-                # Actually run process.
                 process_data = user_execute(tile_process)
             else:
-                starttime = time.time()
-                # Actually run process.
                 process_data = tile_process.execute()
         except Exception as e:
             # Log process time
@@ -505,40 +503,35 @@ class Mapchete(object):
         return process_tile
 
     def _interpolate_from_baselevel(self, process_tile, baselevel):
-        try:
-            starttime = time.time()
-            # resample from parent tile
-            if baselevel == "higher":
-                parent_tile = self.get_raw_output(
-                    process_tile.get_parent(), _baselevel_readonly=True
-                )
-                process_data = raster.resample_from_array(
-                    parent_tile.data,
-                    parent_tile.affine,
-                    process_tile,
-                    self.config.baselevels["higher"],
-                    nodataval=self.config.output.nodata
-                )
-            # resample from children tiles
-            elif baselevel == "lower":
-                mosaic, mosaic_affine = raster.create_mosaic([
-                    self.get_raw_output(child_tile, _baselevel_readonly=True)
-                    for child_tile in process_tile.get_children()
-                ])
-                process_data = raster.resample_from_array(
-                    mosaic,
-                    mosaic_affine,
-                    process_tile,
-                    self.config.baselevels["lower"],
-                    nodataval=self.config.output.nodata
-                )
-            elapsed = "%ss" % (round((time.time() - starttime), 3))
-            LOGGER.debug((
-                process_tile.id, "generated from baselevel", elapsed))
-        except Exception as e:
-            elapsed = "%ss" % (round((time.time() - starttime), 3))
-            LOGGER.error((process_tile.id, "baselevel error", e, elapsed))
-            raise
+        starttime = time.time()
+        # resample from parent tile
+        if baselevel == "higher":
+            parent_tile = self.get_raw_output(
+                process_tile.get_parent(), _baselevel_readonly=True
+            )
+            process_data = raster.resample_from_array(
+                parent_tile.data,
+                parent_tile.affine,
+                process_tile,
+                self.config.baselevels["higher"],
+                nodataval=self.config.output.nodata
+            )
+        # resample from children tiles
+        elif baselevel == "lower":
+            mosaic, mosaic_affine = raster.create_mosaic([
+                self.get_raw_output(child_tile, _baselevel_readonly=True)
+                for child_tile in process_tile.get_children()
+            ])
+            process_data = raster.resample_from_array(
+                mosaic,
+                mosaic_affine,
+                process_tile,
+                self.config.baselevels["lower"],
+                nodataval=self.config.output.nodata
+            )
+        elapsed = "%ss" % (round((time.time() - starttime), 3))
+        LOGGER.debug((
+            process_tile.id, "generated from baselevel", elapsed))
         return process_data
 
     def __enter__(self):
