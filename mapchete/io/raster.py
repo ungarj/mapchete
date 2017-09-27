@@ -59,9 +59,7 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
     raster : MaskedArray
     """
     if not os.path.isfile(input_file):
-        if input_file.split("/")[1] == "vsizip" or (
-            input_file.startswith(("s3://", "https://", "http://"))
-        ):
+        if input_file.startswith(("/vsizip", "s3://", "https://", "http://")):
             pass
         else:
             raise IOError("input file not found %s" % input_file)
@@ -146,8 +144,18 @@ def _get_warped_array(
             # Return empty array if destination bounds don't intersect with
             # file bounds.
             file_bbox = box(*src.bounds)
-            tile_bbox = reproject_geometry(
-                box(*dst_bounds), src_crs=dst_crs, dst_crs=src.crs)
+            try:
+                tile_bbox = reproject_geometry(
+                    box(*dst_bounds), src_crs=dst_crs, dst_crs=src.crs,
+                    error_on_clip=True
+                )
+            except RuntimeError:
+                # Maybe not the best way to deal with it, but if bounding box
+                # cannot be translated, it is assumed that data is emtpy
+                LOGGER.debug("tile seems to be outside of input CRS bounds")
+                return ma.MaskedArray(
+                    data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
+                    mask=ma.ones(dst_shape), fill_value=src.nodata)
             if not file_bbox.intersects(tile_bbox):
                 LOGGER.debug("file bounding box does not intersect with tile")
                 return ma.MaskedArray(
@@ -156,7 +164,6 @@ def _get_warped_array(
             # Reproject tile bounds to source file SRS.
             src_left, src_bottom, src_right, src_top = transform_bounds(
                 dst_crs, src.crs, *dst_bounds, densify_pts=21)
-
         if float('Inf') in (src_left, src_bottom, src_right, src_top):
             # Maybe not the best way to deal with it, but if bounding box
             # cannot be translated, it is assumed that data is emtpy
@@ -328,8 +335,14 @@ def resample_from_array(
     elif isinstance(in_data, tuple):
         in_data = ma.MaskedArray(
             data=np.stack(in_data),
-            mask=np.stack([band.mask for band in in_data]),
-            fill_value=nodataval)
+            mask=np.stack([
+                band.mask
+                if isinstance(band, ma.masked_array)
+                else np.where(band == nodataval, True, False)
+                for band in in_data
+            ]),
+            fill_value=nodataval
+        )
     else:
         raise TypeError("wrong input data type: %s" % type(in_data))
     if in_data.ndim == 2:

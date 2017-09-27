@@ -33,11 +33,12 @@ def test_best_zoom_level():
 
 def test_read_raster_window():
     """Read array with read_raster_window."""
-    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
     zoom = 8
+    # without reproject
+    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete"))
-    rasterfile = config.at_zoom(7)["input"]["file1"]
+    rasterfile = config.at_zoom(zoom)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
     pixelbuffer = 5
@@ -56,7 +57,42 @@ def test_read_raster_window():
         "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average",
         "mode"
     ]:
-        raster.read_raster_window(dummy1, tile, resampling=resampling)
+        raster.read_raster_window(dummy1, tile, resampling=resampling).next()
+
+    # with reproject
+    config_raw = yaml.load(open(
+        os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete")
+    ).read())
+    dummy1 = os.path.join(TESTDATA_DIR, "dummy1_3857.tif")
+    config_raw["input"].update(file1="dummy1_3857.tif")
+    config_raw.update(config_dir=TESTDATA_DIR)
+    config = MapcheteConfig(config_raw)
+    rasterfile = config.at_zoom(zoom)["input"]["file1"]
+    dummy1_bbox = rasterfile.bbox()
+
+    pixelbuffer = 5
+    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
+    tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
+    # not intersecting tile
+    tiles.append(tile_pyramid.tile(zoom, 1, 1))   # out of CRS bounds
+    tiles.append(tile_pyramid.tile(zoom, 16, 1))  # out of file bbox
+    for tile in tiles:
+        for band in raster.read_raster_window(dummy1, tile):
+            assert isinstance(band, ma.MaskedArray)
+            assert band.shape == tile.shape
+        bands = raster.read_raster_window(dummy1, tile, [1]).next()
+        assert isinstance(bands, ma.MaskedArray)
+        assert bands.shape == tile.shape
+    for resampling in [
+        "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average",
+        "mode"
+    ]:
+        raster.read_raster_window(dummy1, tile, resampling=resampling).next()
+    # errors
+    with pytest.raises(IOError):
+        raster.read_raster_window(
+            "nonexisting_path", tile, resampling=resampling
+        ).next()
 
 
 def test_write_raster_window():
@@ -80,8 +116,8 @@ def test_write_raster_window():
     ]:
         try:
             raster.write_raster_window(
-                in_tile=tile, out_profile=out_profile, out_tile=tile,
-                out_path=path)
+                in_tile=tile, out_profile=out_profile, out_path=path
+            )
             with rasterio.open(path, 'r') as src:
                 assert src.read().any()
                 assert src.meta["driver"] == out_profile["driver"]
@@ -152,6 +188,17 @@ def test_resample_from_array():
     out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)
     assert isinstance(out_array, ma.masked_array)
     assert out_array.mask.all()
+    # data as tuple
+    in_data = (np.ones(in_tile.shape[1:]), )
+    out_tile = BufferedTilePyramid("geodetic").tile(6, 10, 10)
+    out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)
+    # errors
+    with pytest.raises(TypeError):
+        in_data = "invalid_type"
+        raster.resample_from_array(in_data, in_tile.affine, out_tile)
+    with pytest.raises(TypeError):
+        in_data = np.ones(in_tile.shape[0])
+        raster.resample_from_array(in_data, in_tile.affine, out_tile)
 
 
 def test_create_mosaic_errors():
