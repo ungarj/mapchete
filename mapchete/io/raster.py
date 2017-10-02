@@ -267,26 +267,28 @@ def extract_from_tile(in_tile, out_tile):
     return extract_from_array(in_tile.data, in_tile.affine, out_tile)
 
 
-def extract_from_array(in_data, in_affine, out_tile):
+def extract_from_array(in_data=None, in_affine=None, out_tile=None):
     """
     Extract raster data window array.
 
     Parameters
     ----------
-    in_data : array
-    in_affine : ``Affine``
+    in_data : array or ReferencedRaster
+    in_affine : ``Affine`` required if in_data is an array
     out_tile : ``BufferedTile``
 
     Returns
     -------
     extracted array : array
     """
+    if isinstance(in_data, ReferencedRaster):
+        in_affine = in_data.affine
+        in_data = in_data.data
     left, bottom, right, top = out_tile.bounds
     # determine output tile window in input data
     window = from_bounds(
         left, bottom, right, top, in_affine,
-        height=in_data.shape[-2], width=in_data.shape[-1],
-        boundless=True
+        height=in_data.shape[-2], width=in_data.shape[-1], boundless=True
     )
     minrow = window.row_off
     maxrow = window.row_off + window.num_rows
@@ -384,9 +386,10 @@ def create_mosaic(tiles, nodata=0):
     tiles = tiles_list
     # quick return if there is just one tile
     if len(tiles) == 1:
-        if not isinstance(tiles[0].data, (np.ndarray, tuple)):
+        tile = tiles[0]
+        if not isinstance(tile.data, (np.ndarray, tuple)):
             raise TypeError("tile data has to be np.ndarray or tuple")
-        return ReferencedRaster(data=tiles[0].data, affine=tiles[0].affine)
+        return ReferencedRaster(data=tile.data, affine=tile.affine)
     # assert all tiles have same properties
     _check_tiles_for_mosaic(tiles)
     # set variables for later use

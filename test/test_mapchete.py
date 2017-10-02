@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Test Mapchete main module and processing."""
 
+import pytest
 import os
 import shutil
 import yaml
@@ -11,6 +12,7 @@ import pkg_resources
 from cPickle import dumps
 from functools import partial
 from multiprocessing import Pool
+from shapely.geometry import shape
 
 import mapchete
 from mapchete.tile import BufferedTile
@@ -37,18 +39,85 @@ def test_empty_execute():
 
 def test_read_existing_output():
     """Read existing process output."""
+    # raster data
     try:
+        tile = (5, 0, 0)
         with mapchete.open(
             os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete")
         ) as mp:
-            tile = (5, 0, 0)
             # process and save
-            mp.write(mp.get_raw_output(tile))
-            # read written data
-            out_tile = mp.read(tile)
-            assert not out_tile.data.mask.all()
+            mp.get_raw_output(tile)
+            # read written data from within MapcheteProcess object
+            mp_tile = mapchete.MapcheteProcess(
+                mp.config.process_pyramid.tile(*tile),
+                config=mp.config,
+                params=mp.config.at_zoom(5)
+            )
+            data = mp_tile.read()
+            assert data.any()
+            assert isinstance(data, ma.masked_array)
+            assert not data.mask.all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
+    # raster data process buffer > output buffer
+    try:
+        config = yaml.load(open(
+            os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete")
+        ).read())
+        config.update(config_dir=TESTDATA_DIR)
+        config["output"].update(pixelbuffer=0)
+        with mapchete.open(config) as mp:
+            tile = mp.get_process_tiles(5).next()
+            # process and save
+            mp.get_raw_output(tile)
+            # read written data from within MapcheteProcess object
+            mp_tile = mapchete.MapcheteProcess(
+                mp.config.process_pyramid.tile(*tile.id),
+                config=mp.config,
+                params=mp.config.at_zoom(5)
+            )
+            data = mp_tile.read()
+            assert data.any()
+            assert isinstance(data, ma.masked_array)
+            assert not data.mask.all()
+    finally:
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    # vector data
+    try:
+        with mapchete.open(
+            os.path.join(SCRIPTDIR, "testdata/geojson.mapchete")
+        ) as mp:
+            tile = mp.get_process_tiles(4).next()
+            # process and save
+            mp.write(mp.get_raw_output(tile))
+            # read written data from within MapcheteProcess object
+            mp_tile = mapchete.MapcheteProcess(
+                tile,
+                config=mp.config,
+                params=mp.config.at_zoom(4)
+            )
+            data = mp_tile.read()
+            assert data
+            for feature in data:
+                assert shape(feature["geometry"]).is_valid
+    finally:
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
+
+
+def test_open_data_error():
+    """Try to open data not specified as input."""
+    tile = (5, 0, 0)
+    with mapchete.open(
+        os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete")
+    ) as mp:
+        # read written data from within MapcheteProcess object
+        mp_tile = mapchete.MapcheteProcess(
+            mp.config.process_pyramid.tile(*tile),
+            config=mp.config,
+            params=mp.config.at_zoom(5)
+        )
+        with pytest.raises(ValueError):
+            mp_tile.open("invaild_input_id")
 
 
 def test_get_raw_output_outside():

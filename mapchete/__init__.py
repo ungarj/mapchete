@@ -606,11 +606,25 @@ class MapcheteProcess(object):
         -------
         process output : NumPy array (raster) or feature iterator (vector)
         """
-        with self.config.output.open(self.tile, **kwargs) as existing_tile:
-            if existing_tile.is_empty():
-                return self.config.output.empty(self.tile)
-            else:
-                return existing_tile.read(**kwargs)
+        if self.tile.pixelbuffer > self.config.output.pixelbuffer:
+            output_tiles = list(self.config.output_pyramid.tiles_from_bounds(
+                self.tile.bounds, self.tile.zoom
+            ))
+        else:
+            output_tiles = self.config.output_pyramid.intersecting(self.tile)
+        if self.config.output.METADATA["data_type"] == "raster":
+            return raster.extract_from_array(
+                in_data=raster.create_mosaic([
+                    self.config.output.read(output_tile)
+                    for output_tile in output_tiles
+                ]),
+                out_tile=self.tile
+            )
+        elif self.config.output.METADATA["data_type"] == "vector":
+            return list(chain.from_iterable([
+                self.config.output.read(output_tile).data
+                for output_tile in output_tiles
+            ]))
 
     def open(self, input_id, **kwargs):
         """
