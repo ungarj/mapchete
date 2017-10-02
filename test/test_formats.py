@@ -9,7 +9,11 @@ from rasterio.crs import CRS
 
 import mapchete
 from mapchete.formats import (
-    available_input_formats, available_output_formats, driver_from_file, base)
+    available_input_formats, available_output_formats, driver_from_file, base,
+    load_output_writer, load_input_reader
+)
+from mapchete import errors
+
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -37,6 +41,30 @@ def test_filename_to_driver():
         'temp.geojson', 'temp.shp'
     ]:
         assert driver_from_file(filename)
+
+
+def test_output_writer_errors():
+    """Test errors when loading output writer."""
+    with pytest.raises(TypeError):
+        load_output_writer("not_a_dictionary")
+    with pytest.raises(errors.MapcheteDriverError):
+        load_output_writer({"format": "invalid_driver"})
+
+
+def test_input_reader_errors():
+    """Test errors when loading input readers."""
+    with pytest.raises(TypeError):
+        load_input_reader("not_a_dictionary")
+    with pytest.raises(errors.MapcheteDriverError):
+        load_input_reader({})
+    with pytest.raises(errors.MapcheteDriverError):
+        load_input_reader({"abstract": {"format": "invalid_format"}})
+
+
+def test_driver_from_file_errors():
+    """Test errors when determining input driver from filename."""
+    with pytest.raises(errors.MapcheteDriverError):
+        driver_from_file("invalid_extension.exe")
 
 
 def test_mapchete_input():

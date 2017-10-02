@@ -21,13 +21,16 @@ def _file_ext_to_driver():
     else:
         _FILE_EXT_TO_DRIVER = {}
         for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
-            try:
-                metadata = v.load().METADATA
-            except AttributeError:
+            _driver = v.load()
+            if not hasattr(_driver, "METADATA"):
                 warnings.warn(
-                    "driver %s cannot be loaded" % str(v).split(" ")[-1]
+                    "driver %s cannot be loaded, METADATA is missing" % (
+                        str(v).split(" ")[-1]
+                    )
                 )
                 continue
+            else:
+                metadata = v.load().METADATA
             try:
                 driver_name = metadata["driver_name"]
                 for ext in metadata["file_extensions"]:
@@ -53,11 +56,11 @@ def available_output_formats():
     """
     output_formats = []
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
-        try:
-            output_formats.append(
-                v.load().OutputData.METADATA["driver_name"])
-        except AttributeError:
-            pass
+        driver_ = v.load()
+        if hasattr(driver_, "METADATA") and (
+            driver_.METADATA["mode"] in ["w", "rw"]
+        ):
+            output_formats.append(driver_.METADATA["driver_name"])
     return output_formats
 
 
@@ -71,14 +74,12 @@ def available_input_formats():
         all available input formats
     """
     input_formats = []
-    # Extensions.
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
-        try:
-            input_formats.append(v.load().InputData.METADATA["driver_name"])
-        except ImportError:
-            raise
-        except Exception:
-            pass
+        driver_ = v.load()
+        if hasattr(driver_, "METADATA") and (
+            driver_.METADATA["mode"] in ["r", "rw"]
+        ):
+            input_formats.append(driver_.METADATA["driver_name"])
     return input_formats
 
 
@@ -92,19 +93,16 @@ def load_output_writer(output_params):
         output writer object
     """
     if not isinstance(output_params, dict):
-        raise ValueError("output_params must be a dictionary")
+        raise TypeError("output_params must be a dictionary")
     driver_name = output_params["format"]
-    if driver_name not in available_output_formats():
-        raise errors.MapcheteDriverError("driver %s not found" % driver_name)
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
-        try:
-            output_writer = v.load().OutputData(output_params)
-            if output_writer.METADATA["driver_name"] == driver_name:
-                return output_writer
-        except ImportError:
-            raise
-        except AttributeError:
-            pass
+        _driver = v.load()
+        if all(
+            [hasattr(_driver, attr) for attr in ["OutputData", "METADATA"]]
+            ) and (
+            _driver.METADATA["driver_name"] == driver_name
+        ):
+            return _driver.OutputData(output_params)
     raise errors.MapcheteDriverError(
         "no loader for driver '%s' could be found." % driver_name)
 
@@ -118,6 +116,8 @@ def load_input_reader(input_params):
     input_params : ``InputData``
         input parameters
     """
+    if not isinstance(input_params, dict):
+        raise TypeError("input_params must be a dictionary")
     if "abstract" in input_params:
         driver_name = input_params["abstract"]["format"]
     elif "path" in input_params:
@@ -126,20 +126,12 @@ def load_input_reader(input_params):
     else:
         raise errors.MapcheteDriverError(
             "invalid input parameters %s" % input_params)
-    if driver_name not in available_input_formats():
-        raise errors.MapcheteDriverError(
-            "driver %s not found in %s" % (
-                driver_name, available_input_formats())
-            )
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
-        try:
-            # instanciate dummy input reader to read metadata
-            input_reader = v.load().InputData.__new__(
-                v.load().InputData, input_params)
-            if input_reader.METADATA["driver_name"] == driver_name:
-                return v.load().InputData(input_params)
-        except (AttributeError, errors.MapcheteConfigError):
-            pass
+        driver_ = v.load()
+        if hasattr(driver_, "METADATA") and (
+            driver_.METADATA["driver_name"] == driver_name
+        ):
+            return v.load().InputData(input_params)
     raise errors.MapcheteDriverError(
         "no loader for driver '%s' could be found." % driver_name)
 
@@ -154,13 +146,13 @@ def driver_from_file(input_file):
         driver name
     """
     file_ext = os.path.splitext(input_file)[1].split(".")[1]
-    try:
-        driver = _file_ext_to_driver()[file_ext]
-    except KeyError:
+    if file_ext not in _file_ext_to_driver():
         raise errors.MapcheteDriverError(
-            "no driver could be found for file extension %s" % file_ext)
-    if len(driver) == 1:
-        return driver[0]
-    else:
-        raise errors.MapcheteDriverError(
-            "error determining read driver from file %s" % input_file)
+            "no driver could be found for file extension %s" % file_ext
+        )
+    driver = _file_ext_to_driver()[file_ext]
+    if len(driver) > 1:
+        warnings.warn(
+            "more than one driver for file found, taking %s" % driver[0]
+        )
+    return driver[0]
