@@ -26,20 +26,16 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     """
     tile_pyramid = TilePyramid(tile_pyramid_type)
     with rasterio.open(input_file, "r") as src:
-        bbox = box(
-            src.bounds.left, src.bounds.bottom, src.bounds.right,
-            src.bounds.top)
-        if src.crs != tile_pyramid.crs:
-            xmin, ymin, xmax, ymax = reproject_geometry(
-                segmentize_geometry(
-                    bbox, raster_file._get_segmentize_value(
-                        input_file, tile_pyramid
-                    )
+        xmin, ymin, xmax, ymax = reproject_geometry(
+            segmentize_geometry(
+                box(
+                    src.bounds.left, src.bounds.bottom, src.bounds.right,
+                    src.bounds.top
                 ),
-                src_crs=src.crs, dst_crs=tile_pyramid.crs
-            ).bounds
-        else:
-            xmin, ymin, xmax, ymax = bbox.bounds
+                raster_file._get_segmentize_value(input_file, tile_pyramid)
+            ),
+            src_crs=src.crs, dst_crs=tile_pyramid.crs
+        ).bounds
         x_dif = xmax - xmin
         y_dif = ymax - ymin
         size = float(src.width + src.height)
@@ -48,8 +44,6 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
             (y_dif / float(src.height)) * (float(src.height) / size)
         )
 
-    for zoom in range(0, 25):
+    for zoom in range(0, 40):
         if tile_pyramid.pixel_x_size(zoom) <= avg_resolution:
             return zoom-1
-
-    raise ValueError("no fitting zoom level found")

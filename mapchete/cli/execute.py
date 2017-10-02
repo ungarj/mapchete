@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Command line utility to execute a Mapchete process."""
 
-import os
 from multiprocessing import cpu_count
 
 import mapchete
@@ -10,12 +9,6 @@ import mapchete
 def main(args=None):
     """Execute a Mapchete process."""
     parsed = args
-
-    if parsed.input_file and not (
-        os.path.isfile(parsed.input_file) or os.path.isdir(parsed.input_file)
-    ):
-        raise IOError("input_file %s not found" % parsed.input_file)
-
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
     zoom = parsed.zoom if parsed.zoom else None

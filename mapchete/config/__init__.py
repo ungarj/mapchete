@@ -512,17 +512,14 @@ class MapcheteConfig(object):
             # element.
             else:
                 return element
-        # If element is a number, return as number.
-        elif isinstance(element, int):
-            return element
+        # Return all other types as they are.
         else:
-            raise MapcheteConfigError("error while parsing configuration")
+            return element
 
 
 def _strip_zoom(input_string, strip_string):
-    """Return zoom level as integer or throws error."""
+    """Return zoom level as integer or throw error."""
     try:
-        element_zoom = input_string.strip(strip_string)
-        return int(element_zoom)
-    except Exception:
-        raise MapcheteConfigError("zoom level could not be determined")
+        return int(input_string.strip(strip_string))
+    except Exception as e:
+        raise MapcheteConfigError("zoom level could not be determined: %s" % e)
