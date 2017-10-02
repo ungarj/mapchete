@@ -124,8 +124,6 @@ class MapcheteConfig(object):
         self._process_area_cache = {}
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
             input_config, single_input_file=single_input_file)
-        if not self.process_file:
-            raise MapcheteConfigError("no process_file given")
         # set process delimiters
         self._delimiters = dict(zoom=zoom, bounds=bounds)
         # helper caches
@@ -162,10 +160,12 @@ class MapcheteConfig(object):
                     output_params["format"], str(available_output_formats())
                 ))
         writer = load_output_writer(output_params)
-        if not writer.is_valid_with_config(output_params):
+        try:
+            writer.is_valid_with_config(output_params)
+        except Exception:
             raise MapcheteConfigError(
-                "driver %s not compatible with configuration: %s" % (
-                    writer.METADATA["driver_name"], output_params)
+                "driver %s not compatible with configuration" % (
+                    writer.METADATA["driver_name"])
                 )
         return writer
 
@@ -223,10 +223,9 @@ class MapcheteConfig(object):
             lower: <resampling method>
             higher: <resampling method>
         """
-        try:
-            baselevels = self.raw["baselevels"]
-        except KeyError:
+        if "baselevels" not in self.raw:
             return {}
+        baselevels = self.raw["baselevels"]
         minmax = {
             k: v for k, v in baselevels.iteritems() if k in ["min", "max"]
         }
@@ -392,10 +391,10 @@ class MapcheteConfig(object):
 
     def _set_pixelbuffer(self, config_dict):
         if "pixelbuffer" in config_dict:
-            if not isinstance(config_dict["pixelbuffer"], int) and (
+            if not isinstance(config_dict["pixelbuffer"], int) or (
                 config_dict["pixelbuffer"] < 0
             ):
-                raise ValueError("pixelbuffer must be an integer > 0")
+                raise MapcheteConfigError("pixelbuffer must be an integer > 0")
             return config_dict["pixelbuffer"]
         else:
             return 0

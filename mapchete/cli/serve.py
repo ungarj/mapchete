@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Command line utility to serve a Mapchete process."""
 
-import os
 import logging
 import logging.config
 import pkgutil

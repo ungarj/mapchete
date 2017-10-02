@@ -1,17 +1,62 @@
 #!/usr/bin/env python
 """Test Mapchete config module."""
 
+import pytest
 import os
 import yaml
 from shapely.geometry import Polygon
 from shapely.wkt import loads
+from copy import deepcopy
 
 import mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.errors import MapcheteDriverError
+from mapchete.errors import MapcheteDriverError, MapcheteConfigError
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+
+
+def test_config_errors():
+    """Test various configuration parsing errors."""
+    config_orig = yaml.load(open(
+        os.path.join(SCRIPTDIR, "example.mapchete")
+    ).read())
+    config_orig.update(config_dir=SCRIPTDIR)
+    # wrong config type
+    with pytest.raises(MapcheteConfigError):
+        mapchete.open("not_a_config")
+    # missing process_file
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(config_orig)
+        del config["process_file"]
+        MapcheteConfig(config)
+    # using input and input_files
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(config_orig)
+        config.update(input=None, input_files=None)
+        mapchete.open(config)
+    # output configuration not compatible with driver
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(config_orig)
+        del config["output"]["bands"]
+        MapcheteConfig(config)
+    # no baselevel params
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(config_orig)
+        config.update(baselevels={})
+        with mapchete.open(config) as mp:
+            mp.config.baselevels
+    # wrong baselevel min or max
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(config_orig)
+        config.update(baselevels={"min": "invalid"})
+        with mapchete.open(config) as mp:
+            mp.config.baselevels
+    # wrong pixelbuffer type
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(config_orig)
+        config.update(pixelbuffer="wrong_type")
+        mapchete.open(config)
 
 
 def test_config_zoom5():
