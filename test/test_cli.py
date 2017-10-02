@@ -33,6 +33,15 @@ def test_main():
     assert "unrecognized command" in output
 
 
+def test_missing_input_file():
+    """Check if IOError is raised if input_file is invalid."""
+    status, output = commands.getstatusoutput(
+        "mapchete execute process.mapchete --input_file invalid.tif"
+    )
+    assert status == 256
+    assert "IOError: input_file invalid.tif not found"
+
+
 def test_create_and_execute():
     """Run mapchete create and execute."""
     temp_mapchete = "temp.mapchete"

@@ -14,7 +14,7 @@ def main(args=None):
     if parsed.input_file and not (
         os.path.isfile(parsed.input_file) or os.path.isdir(parsed.input_file)
     ):
-        raise IOError("input_file not found")
+        raise IOError("input_file %s not found" % parsed.input_file)
 
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
