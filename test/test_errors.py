@@ -207,19 +207,6 @@ def test_invalid_zoom_levels():
             MapcheteConfig(config, zoom=[0, 5, 7])
 
 
-def test_invalid_baselevels():
-    """Check on invalid baselevel configuration."""
-    # invalid zoom levels
-    with pytest.raises(errors.MapcheteConfigError):
-        with open(
-            os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete")
-        ) as mc:
-            config = copy(yaml.load(mc))
-            config.update(config_dir=SCRIPTDIR)
-            config["baselevels"].update(min=-5, max="x")
-            MapcheteConfig(config)
-
-
 def test_import_error():
     """Assert import error is raised."""
     try:
