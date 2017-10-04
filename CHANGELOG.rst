@@ -3,6 +3,12 @@ Changelog
 #########
 
 ---
+0.9
+---
+* removed GDAL from dependencies by reimplementing ogr ``segmentize()`` using shapely
+* use ``cascaded_union()`` instead of ``MultiPolygon`` to determine process area
+
+---
 0.8
 ---
 * process file now will accept a simple ``execute(mp)`` function
