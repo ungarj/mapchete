@@ -22,7 +22,7 @@ class MapcheteConfigError(ValueError):
 
 
 class MapcheteDriverError(Exception):
-    """Raised when a mapchete process configuration is invalid."""
+    """Raised on input or output driver errors."""
 
 
 class MapcheteEmptyInputTile(Exception):

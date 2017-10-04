@@ -13,6 +13,7 @@ from multiprocessing import cpu_count
 from multiprocessing.pool import Pool
 
 from mapchete.formats import load_input_reader
+from mapchete.errors import MapcheteDriverError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -147,37 +148,46 @@ def _unflatten_tree(flat):
 
 
 def _input_worker(conf_dir, pyramid, pixelbuffer, kv):
-    key, input_obj = kv
-    if input_obj not in ["none", "None", None, ""]:
-        # prepare input metadata
-        LOGGER.debug("read metadata from %s" % input_obj)
-        # for single file inputs
-        if isinstance(input_obj, str):
-            # get absolute paths if not remote
-            path = input_obj if input_obj.startswith(
-                ("s3://", "https://", "http://")) else os.path.normpath(
-                os.path.join(conf_dir, input_obj)
-            )
-            LOGGER.debug("load input reader for file %s" % input_obj)
-            _input_reader = load_input_reader(dict(
-                path=path, pyramid=pyramid, pixelbuffer=pixelbuffer
-            ))
-            LOGGER.debug(
-                "input reader for file %s is %s" % (input_obj, _input_reader)
-            )
-        # for abstract inputs
-        elif isinstance(input_obj, dict):
-            LOGGER.debug("load input reader for abstract input %s" % input_obj)
-            _input_reader = load_input_reader(dict(
-                abstract=input_obj, pyramid=pyramid, pixelbuffer=pixelbuffer
-            ))
-            LOGGER.debug(
-                "input reader for abstract input %s is %s" % (
-                    input_obj, _input_reader
+    try:
+        key, input_obj = kv
+        if input_obj not in ["none", "None", None, ""]:
+            # prepare input metadata
+            LOGGER.debug("read metadata from %s" % input_obj)
+            # for single file inputs
+            if isinstance(input_obj, (str, unicode)):
+                # get absolute paths if not remote
+                path = input_obj if input_obj.startswith(
+                    ("s3://", "https://", "http://")) else os.path.normpath(
+                    os.path.join(conf_dir, input_obj)
                 )
-            )
-        # trigger input bounding box caches
-        _input_reader.bbox(out_crs=pyramid.crs)
-        return key, (input_obj, _input_reader)
-    else:
-        return key, (None, None)
+                LOGGER.debug("load input reader for file %s" % input_obj)
+                _input_reader = load_input_reader(dict(
+                    path=path, pyramid=pyramid, pixelbuffer=pixelbuffer
+                ))
+                LOGGER.debug(
+                    "input reader for file %s is %s" % (
+                        input_obj, _input_reader
+                    )
+                )
+            # for abstract inputs
+            elif isinstance(input_obj, dict):
+                LOGGER.debug(
+                    "load input reader for abstract input %s" % input_obj
+                )
+                _input_reader = load_input_reader(dict(
+                    abstract=input_obj, pyramid=pyramid, pixelbuffer=pixelbuffer
+                ))
+                LOGGER.debug(
+                    "input reader for abstract input %s is %s" % (
+                        input_obj, _input_reader
+                    )
+                )
+            # trigger input bounding box caches
+            _input_reader.bbox(out_crs=pyramid.crs)
+            return key, (input_obj, _input_reader)
+        else:
+            return key, (None, None)
+    except Exception as e:
+        raise MapcheteDriverError(
+            "%s could not be read: %s" % (input_obj, e)
+        )
