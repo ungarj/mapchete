@@ -189,5 +189,5 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, kv):
             return key, (None, None)
     except Exception as e:
         raise MapcheteDriverError(
-            "%s could not be read: %s" % (input_obj, e)
+            "%s could not be read: %s" % (key, e)
         )
