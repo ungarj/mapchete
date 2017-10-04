@@ -15,7 +15,8 @@ import yaml
 import logging
 import warnings
 from cached_property import cached_property
-from shapely.geometry import box, MultiPolygon
+from shapely.geometry import box
+from shapely.ops import cascaded_union
 from tilematrix._conf import PYRAMID_PARAMS
 
 from mapchete.formats import load_output_writer, available_output_formats
@@ -305,7 +306,7 @@ class MapcheteConfig(object):
         else:
             if not self._global_process_area:
                 LOGGER.debug("calculate process area ...")
-                self._global_process_area = MultiPolygon([
+                self._global_process_area = cascaded_union([
                         self._process_area(self._delimiters["bounds"], z)
                         for z in self.zoom_levels
                     ]).buffer(0)
@@ -431,10 +432,9 @@ class MapcheteConfig(object):
     def _process_area(self, user_bounds, zoom):
         """Calculate process bounding box."""
         # process_bounds
-        try:
-            config_bounds = self.raw["process_bounds"]
-            bounds = config_bounds
-        except KeyError:
+        if "process_bounds" in self.raw:
+            bounds = self.raw["process_bounds"]
+        else:
             bounds = ()
         # overwrite if bounds are provided explicitly
         if user_bounds:
@@ -442,8 +442,9 @@ class MapcheteConfig(object):
             if len(user_bounds) == 4:
                 bounds = user_bounds
             else:
-                raise MapcheteConfigError("Invalid number of process bounds.")
-
+                raise MapcheteConfigError(
+                    "Invalid number of process bounds values."
+                )
         input_bbox = self.at_zoom(zoom)["process_area"]
         if bounds:
             return box(*bounds).intersection(input_bbox)

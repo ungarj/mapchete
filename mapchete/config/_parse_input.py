@@ -6,7 +6,7 @@ import logging
 import time
 from sets import ImmutableSet
 from shapely.geometry import box
-from shapely.ops import unary_union
+from shapely.ops import cascaded_union
 from shapely.wkt import dumps
 from functools import partial
 from multiprocessing import cpu_count
@@ -90,17 +90,17 @@ def input_at_zoom(process, name, element, zoom):
     analyzed_readers.update(cached_inputs)
     input_ = _unflatten_tree(analyzed_readers)
 
-    # collect boundding boxes of inputs
+    # collect bounding boxes of inputs
     input_areas = [
         reader.bbox(out_crs=process.crs)
         for reader in analyzed_readers.values()
         if reader is not None
     ]
     if input_areas:
-        LOGGER.debug("intersect input bounding boxes")
+        LOGGER.debug("union input bounding boxes")
         id_ = ImmutableSet([dumps(i) for i in input_areas])
         if id_ not in process._process_area_cache:
-            process._process_area_cache[id_] = unary_union(input_areas)
+            process._process_area_cache[id_] = cascaded_union(input_areas)
         process_area = process._process_area_cache[id_]
     else:
         LOGGER.debug("assume global bounding box")
