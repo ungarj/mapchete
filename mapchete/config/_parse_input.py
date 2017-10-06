@@ -182,6 +182,8 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, kv):
                         input_obj, _input_reader
                     )
                 )
+            else:
+                raise TypeError("invalid input type %s", type(input_obj))
             # trigger input bounding box caches
             _input_reader.bbox(out_crs=pyramid.crs)
             return key, (input_obj, _input_reader)
