@@ -15,7 +15,6 @@ from multiprocessing import Pool
 from shapely.geometry import shape
 
 import mapchete
-from mapchete.tile import BufferedTile
 from mapchete.io.raster import create_mosaic
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete import _batch

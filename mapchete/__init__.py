@@ -344,9 +344,7 @@ class Mapchete(object):
             if self.config.output.tiles_exist(process_tile):
                 return self._read_existing_output(tile, output_tiles)
             else:
-                return self._process_and_overwrite_output(
-                    tile, process_tile
-                )
+                return self._process_and_overwrite_output(tile, process_tile)
         elif self.config.mode == "overwrite" and not _baselevel_readonly:
             return self._process_and_overwrite_output(tile, process_tile)
 
@@ -535,7 +533,9 @@ class Mapchete(object):
                     child_tile,
                     self.get_raw_output(child_tile, _baselevel_readonly=True)
                 )
-                for child_tile in tile.get_children()
+                for child_tile in self.config.baselevels["tile_pyramid"].tile(
+                    *tile.id
+                ).get_children()
             ])
             process_data = raster.resample_from_array(
                 in_raster=mosaic,
