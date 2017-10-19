@@ -200,10 +200,8 @@ class Mapchete(object):
 
         Returns
         -------
-        BufferedTile
-            Process output is stored in the ``data`` attribute. If
-            there is no process output, data is ``None`` and there is
-            information on the process status in the message attribute.
+        data : NumPy array or features
+            process output
         """
         if self.config.mode not in ["memory", "continue", "overwrite"]:
             raise ValueError(
@@ -230,8 +228,8 @@ class Mapchete(object):
 
         Returns
         -------
-        BufferedTile
-            Tile with appended data.
+        data : NumPy array or features
+            process output
         """
         if self.config.mode not in ["readonly", "continue", "overwrite"]:
             raise ValueError(
@@ -423,19 +421,17 @@ class Mapchete(object):
         # interpolate from other zoom levels.
         if self.config.baselevels:
             if process_tile.zoom < min(self.config.baselevels["zooms"]):
-                process_data = self._interpolate_from_baselevel(
-                    process_tile,
-                    "lower"
+                return self._streamline_output(
+                    self._interpolate_from_baselevel(
+                        process_tile, "lower"
+                    )
                 )
-                # Analyze proess output.
-                return self._streamline_output(process_data)
             elif process_tile.zoom > max(self.config.baselevels["zooms"]):
-                process_data = self._interpolate_from_baselevel(
-                    process_tile,
-                    "higher"
+                return self._streamline_output(
+                    self._interpolate_from_baselevel(
+                        process_tile, "higher"
+                    )
                 )
-                # Analyze proess output.
-                return self._streamline_output(process_data)
         # Otherwise, load process source and execute.
         try:
             user_process_py = imp.load_source(
@@ -497,7 +493,6 @@ class Mapchete(object):
 
     def _streamline_output(self, process_data):
         if isinstance(process_data, str) and process_data == "empty":
-            # TODO find better solution to handle nodata tiles
             raise MapcheteNodataTile
         elif isinstance(process_data, (np.ndarray, ma.MaskedArray)):
             return process_data
@@ -555,9 +550,9 @@ class Mapchete(object):
     def __exit__(self, t, v, tb):
         """Clear cache on close."""
         if self.with_cache:
-            del self.process_tile_cache
-            del self.current_processes
-            del self.process_lock
+            self.process_tile_cache = None
+            self.current_processes = None
+            self.process_lock = None
 
 
 class MapcheteProcess(object):
