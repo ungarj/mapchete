@@ -41,12 +41,12 @@ def test_output_data():
     assert isinstance(output.profile(tile), dict)
     # write
     try:
-        tile.data = np.ones((1, ) + tile.shape)*128
-        output.write(tile)
+        data = np.ones((1, ) + tile.shape)*128
+        output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
         # read
-        data = output.read(tile).data
+        data = output.read(tile)
         assert isinstance(data, np.ndarray)
         assert data.shape[0] == 4
         assert not data[0].mask.any()

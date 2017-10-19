@@ -6,13 +6,14 @@ import logging
 import time
 import numpy as np
 import numpy.ma as ma
+from affine import Affine
 from collections import namedtuple
-from shapely.geometry import box
-from shapely.ops import cascaded_union
 from rasterio.warp import Resampling, transform_bounds, reproject
 from rasterio.windows import from_bounds
-from affine import Affine
+from shapely.geometry import box
+from shapely.ops import cascaded_union
 from tilematrix import clip_geometry_to_srs_bounds
+from types import GeneratorType
 
 from mapchete.tile import BufferedTile
 from mapchete.io.vector import reproject_geometry
@@ -216,7 +217,7 @@ def _get_band_indexes(indexes, input_file):
 
 
 def write_raster_window(
-    in_tile=None, out_profile=None, out_tile=None, out_path=None
+    in_tile=None, in_data=None, out_profile=None, out_tile=None, out_path=None
 ):
     """
     Write a window from a numpy array to an output file.
@@ -225,6 +226,7 @@ def write_raster_window(
     ----------
     in_tile : ``BufferedTile``
         ``BufferedTile`` with a data attribute holding NumPy data
+    in_data : array
     out_profile : dictionary
         metadata dictionary for rasterio
     out_tile : ``Tile``
@@ -232,15 +234,26 @@ def write_raster_window(
     out_path : string
         output path
     """
+    for k, v in {
+        "in_tile": in_tile, "in_data": in_data, "out_profile": out_profile,
+        "out_path": out_path
+    }.iteritems():
+        if v is None:
+            raise ValueError("%s parameter missing" % k)
+    out_tile = in_tile if out_tile is None else out_tile
     assert isinstance(in_tile, BufferedTile)
-    assert isinstance(in_tile.data, ma.MaskedArray)
+    assert isinstance(in_data, ma.MaskedArray)
     assert isinstance(out_profile, dict)
     if out_tile:
         assert isinstance(out_tile, BufferedTile)
     else:
         out_tile = in_tile
     assert isinstance(out_path, str)
-    window_data = extract_from_tile(in_tile, out_tile)
+    window_data = extract_from_array(
+        in_raster=in_data,
+        in_affine=in_tile.affine,
+        out_tile=out_tile
+    )
     # write if there is any band with non-masked data
     if window_data.all() is not ma.masked:
         with rasterio.open(out_path, 'w', **out_profile) as dst:
@@ -248,47 +261,28 @@ def write_raster_window(
                 dst.write(data.astype(out_profile["dtype"]), band+1)
 
 
-def extract_from_tile(in_tile, out_tile):
-    """
-    Extract raster data window from BufferedTile.
-
-    Parameters
-    ----------
-    in_tile : ``BufferedTile``
-    out_tile : ``BufferedTile``
-
-    Returns
-    -------
-    extracted array : array
-    """
-    assert isinstance(out_tile, BufferedTile)
-    assert isinstance(in_tile.data, np.ndarray)
-    assert in_tile.data.ndim in [2, 3, 4]
-    return extract_from_array(in_tile.data, in_tile.affine, out_tile)
-
-
-def extract_from_array(in_data=None, in_affine=None, out_tile=None):
+def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     """
     Extract raster data window array.
 
     Parameters
     ----------
-    in_data : array or ReferencedRaster
-    in_affine : ``Affine`` required if in_data is an array
+    in_raster : array or ReferencedRaster
+    in_affine : ``Affine`` required if in_raster is an array
     out_tile : ``BufferedTile``
 
     Returns
     -------
     extracted array : array
     """
-    if isinstance(in_data, ReferencedRaster):
-        in_affine = in_data.affine
-        in_data = in_data.data
+    if isinstance(in_raster, ReferencedRaster):
+        in_affine = in_raster.affine
+        in_raster = in_raster.data
     left, bottom, right, top = out_tile.bounds
     # determine output tile window in input data
     window = from_bounds(
         left, bottom, right, top, in_affine,
-        height=in_data.shape[-2], width=in_data.shape[-1], boundless=True
+        height=in_raster.shape[-2], width=in_raster.shape[-1], boundless=True
     )
     minrow = window.row_off
     maxrow = window.row_off + window.num_rows
@@ -299,10 +293,10 @@ def extract_from_array(in_data=None, in_affine=None, out_tile=None):
     if (
         minrow >= 0 and
         mincol >= 0 and
-        maxrow <= in_data.shape[-2] and
-        maxcol <= in_data.shape[-1]
+        maxrow <= in_raster.shape[-2] and
+        maxcol <= in_raster.shape[-1]
     ):
-        return in_data[..., minrow:maxrow, mincol:maxcol]
+        return in_raster[..., minrow:maxrow, mincol:maxcol]
     # raise error if output and input windows do overlap partially
     else:
         raise ValueError(
@@ -311,14 +305,15 @@ def extract_from_array(in_data=None, in_affine=None, out_tile=None):
 
 
 def resample_from_array(
-    in_data, in_affine, out_tile, resampling="nearest", nodataval=0
+    in_raster=None, in_affine=None, out_tile=None, resampling="nearest",
+    nodataval=0
 ):
     """
     Extract and resample from array to target tile.
 
     Parameters
     ----------
-    in_data : array
+    in_raster : array
     in_affine : ``Affine``
     out_tile : ``BufferedTile``
     resampling : string
@@ -330,37 +325,37 @@ def resample_from_array(
     -------
     resampled array : array
     """
-    if isinstance(in_data, ma.MaskedArray):
+    if isinstance(in_raster, ma.MaskedArray):
         pass
-    if isinstance(in_data, np.ndarray):
-        in_data = ma.MaskedArray(in_data, mask=in_data == nodataval)
-    elif isinstance(in_data, tuple):
-        in_data = ma.MaskedArray(
-            data=np.stack(in_data),
+    if isinstance(in_raster, np.ndarray):
+        in_raster = ma.MaskedArray(in_raster, mask=in_raster == nodataval)
+    elif isinstance(in_raster, tuple):
+        in_raster = ma.MaskedArray(
+            data=np.stack(in_raster),
             mask=np.stack([
                 band.mask
                 if isinstance(band, ma.masked_array)
                 else np.where(band == nodataval, True, False)
-                for band in in_data
+                for band in in_raster
             ]),
             fill_value=nodataval
         )
     else:
-        raise TypeError("wrong input data type: %s" % type(in_data))
-    if in_data.ndim == 2:
-        in_data = ma.expand_dims(in_data, axis=0)
-    elif in_data.ndim == 3:
+        raise TypeError("wrong input data type: %s" % type(in_raster))
+    if in_raster.ndim == 2:
+        in_raster = ma.expand_dims(in_raster, axis=0)
+    elif in_raster.ndim == 3:
         pass
     else:
         raise TypeError("input array must have 2 or 3 dimensions")
-    if in_data.fill_value != nodataval:
-        ma.set_fill_value(in_data, nodataval)
-    out_shape = (in_data.shape[0], ) + out_tile.shape
-    dst_data = np.empty(out_shape, in_data.dtype)
-    in_data = ma.masked_array(
-        data=in_data.filled(), mask=in_data.mask, fill_value=nodataval)
+    if in_raster.fill_value != nodataval:
+        ma.set_fill_value(in_raster, nodataval)
+    out_shape = (in_raster.shape[0], ) + out_tile.shape
+    dst_data = np.empty(out_shape, in_raster.dtype)
+    in_raster = ma.masked_array(
+        data=in_raster.filled(), mask=in_raster.mask, fill_value=nodataval)
     reproject(
-        in_data, dst_data, src_transform=in_affine, src_crs=out_tile.crs,
+        in_raster, dst_data, src_transform=in_affine, src_crs=out_tile.crs,
         dst_transform=out_tile.affine, dst_crs=out_tile.crs,
         resampling=RESAMPLING_METHODS[resampling])
     return ma.MaskedArray(dst_data, mask=dst_data == nodataval)
@@ -373,7 +368,7 @@ def create_mosaic(tiles, nodata=0):
     Parameters
     ----------
     tiles : iterable
-        an iterable containing BufferedTiles
+        an iterable containing tuples of a BufferedTile and an array
     nodata : integer or float
         raster nodata value to initialize the mosaic with (default: 0)
 
@@ -381,32 +376,35 @@ def create_mosaic(tiles, nodata=0):
     -------
     mosaic : ReferencedRaster
     """
-    # convert to list if tiles are provided as generator
-    tiles_list = list(tiles)
-    tiles = tiles_list
+    if isinstance(tiles, GeneratorType):
+        tiles = list(tiles)
+    elif not isinstance(tiles, list):
+        raise TypeError("tiles must be either a list or generator")
+    if not all([isinstance(pair, tuple) for pair in tiles]):
+        raise TypeError("tiles items must be tuples")
+    if not all([
+        all([isinstance(tile, BufferedTile), isinstance(data, np.ndarray)])
+        for tile, data in tiles
+    ]):
+        raise TypeError("tuples must be pairs of BufferedTile and array")
+
     # quick return if there is just one tile
     if len(tiles) == 1:
-        tile = tiles[0]
-        if not isinstance(tile.data, (np.ndarray, tuple)):
-            raise TypeError("tile data has to be np.ndarray or tuple")
-        return ReferencedRaster(data=tile.data, affine=tile.affine)
+        tile, data = tiles[0]
+        return ReferencedRaster(data=data, affine=tile.affine)
+
     # assert all tiles have same properties
-    _check_tiles_for_mosaic(tiles)
-    # set variables for later use
-    pyramid = tiles[0].tile_pyramid
-    resolution = tiles[0].pixel_x_size
-    dtype = tiles[0].data[0].dtype
+    pyramid, resolution, dtype = _get_tiles_properties(tiles)
     # just handle antimeridian on global pyramid types
     shift = _shift_required(tiles)
     # determine mosaic shape and reference
     m_left, m_bottom, m_right, m_top = None, None, None, None
-    for tile in tiles:
-        tile.data = prepare_array(tile.data, nodata=nodata, dtype=dtype)
-        num_bands = tile.data.shape[0]
+    for tile, data in tiles:
+        num_bands = data.shape[0] if data.ndim > 2 else 1
         left, bottom, right, top = tile.bounds
         if shift:
-            left += pyramid.x_size/2
-            right += pyramid.x_size/2
+            left += pyramid.x_size / 2
+            right += pyramid.x_size / 2
             # if tile is now shifted outside pyramid bounds, move within
             if right > pyramid.right:
                 right -= pyramid.x_size
@@ -426,11 +424,12 @@ def create_mosaic(tiles, nodata=0):
     # create Affine
     affine = Affine(resolution, 0, m_left, 0, -resolution, m_top)
     # fill mosaic array with tile data
-    for tile in tiles:
+    for tile, data in tiles:
+        data = prepare_array(data, nodata=nodata, dtype=dtype)
         t_left, t_bottom, t_right, t_top = tile.bounds
         if shift:
-            t_left += pyramid.x_size/2
-            t_right += pyramid.x_size/2
+            t_left += pyramid.x_size / 2
+            t_right += pyramid.x_size / 2
             # if tile is now shifted outside pyramid bounds, move within
             if t_right > pyramid.right:
                 t_right -= pyramid.x_size
@@ -443,8 +442,8 @@ def create_mosaic(tiles, nodata=0):
         maxrow = window.row_off + window.num_rows
         mincol = window.col_off
         maxcol = window.col_off + window.num_cols
-        mosaic[:, minrow:maxrow, mincol:maxcol] = tile.data
-        mosaic.mask[:, minrow:maxrow, mincol:maxcol] = tile.data.mask
+        mosaic[:, minrow:maxrow, mincol:maxcol] = data
+        mosaic.mask[:, minrow:maxrow, mincol:maxcol] = data.mask
     if shift:
         # shift back output mosaic
         affine = Affine(
@@ -453,23 +452,24 @@ def create_mosaic(tiles, nodata=0):
     return ReferencedRaster(data=mosaic, affine=affine)
 
 
-def _check_tiles_for_mosaic(tiles):
-    for i, tile in enumerate(tiles):
-        if tile.zoom != tiles[0].zoom:
+def _get_tiles_properties(tiles):
+    for tile, data in tiles:
+        if tile.zoom != tiles[0][0].zoom:
             raise ValueError("all tiles must be from same zoom level")
-        if tile.crs != tiles[0].crs:
+        if tile.crs != tiles[0][0].crs:
             raise ValueError("all tiles must have the same CRS")
-        if not isinstance(tile.data, (np.ndarray, tuple)):
+        if not isinstance(data, (np.ndarray, tuple)):
             raise TypeError("tile data has to be np.ndarray or tuple")
-        if tile.data[0].dtype != tiles[0].data[0].dtype:
+        if data[0].dtype != tiles[0][1][0].dtype:
             raise TypeError("all tile data must have the same dtype")
+    return tile.tile_pyramid, tile.pixel_x_size, data[0].dtype
 
 
 def _shift_required(tiles):
     """Determine if temporary shift is required to deal with antimeridian."""
-    if tiles[0].tile_pyramid.is_global:
+    if tiles[0][0].tile_pyramid.is_global:
         # check if tiles are all connected to each other
-        bbox = cascaded_union([tile.bbox for tile in tiles])
+        bbox = cascaded_union([tile.bbox for tile, _ in tiles])
         connected = True if bbox.geom_type != "MultiPolygon" else False
         # if tiles are not connected, shift by half the globe
         return True if not connected else False
@@ -501,6 +501,10 @@ def prepare_array(data, masked=True, nodata=0, dtype="int16"):
     -------
     array : array
     """
+    # return if data is None
+    if data is None:
+        return
+
     # input is iterable
     if isinstance(data, (list, tuple)):
         return _prepare_iterable(data, masked, nodata, dtype)

@@ -101,7 +101,7 @@ def test_write_raster_window():
     # standard tile
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
-    tile.data = ma.masked_array(np.ones((2, ) + tile.shape))
+    data = ma.masked_array(np.ones((2, ) + tile.shape))
     for out_profile in [
         dict(
             driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
@@ -116,7 +116,8 @@ def test_write_raster_window():
     ]:
         try:
             raster.write_raster_window(
-                in_tile=tile, out_profile=out_profile, out_path=path
+                in_tile=tile, in_data=data, out_profile=out_profile,
+                out_path=path
             )
             with rasterio.open(path, 'r') as src:
                 assert src.read().any()
@@ -129,7 +130,7 @@ def test_write_raster_window():
             shutil.rmtree(path, ignore_errors=True)
     # with metatiling
     tile = BufferedTilePyramid("geodetic", metatiling=4).tile(5, 1, 1)
-    tile.data = ma.masked_array(np.ones((2, ) + tile.shape))
+    data = ma.masked_array(np.ones((2, ) + tile.shape))
     out_tile = BufferedTilePyramid("geodetic").tile(5, 5, 5)
     out_profile = dict(
             driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
@@ -137,8 +138,9 @@ def test_write_raster_window():
             affine=out_tile.affine)
     try:
         raster.write_raster_window(
-            in_tile=tile, out_profile=out_profile, out_tile=out_tile,
-            out_path=path)
+            in_tile=tile, in_data=data, out_profile=out_profile,
+            out_tile=out_tile, out_path=path
+        )
         with rasterio.open(path, 'r') as src:
             assert src.shape == out_tile.shape
             assert src.read().any()
@@ -148,30 +150,33 @@ def test_write_raster_window():
         shutil.rmtree(path, ignore_errors=True)
 
 
-def test_extract_from_tile():
-    """Extract subdata from bigger tile."""
+def test_extract_from_array():
+    """Extract subdata from array."""
     in_tile = BufferedTilePyramid("geodetic", metatiling=4).tile(5, 5, 5)
     shape = (in_tile.shape[0]/2, in_tile.shape[1])
-    in_tile.data = ma.masked_array(
+    data = ma.masked_array(
         np.concatenate([np.ones(shape), np.ones(shape)*2])
     )
     # intersecting at top
     out_tile = BufferedTilePyramid("geodetic").tile(5, 20, 20)
-    out_array = raster.extract_from_tile(in_tile, out_tile)
+    out_array = raster.extract_from_array(
+        in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
+    )
     assert isinstance(out_array, np.ndarray)
     assert np.all(np.where(out_array == 1, True, False))
     # intersecting at bottom
     out_tile = BufferedTilePyramid("geodetic").tile(5, 22, 20)
-    out_array = raster.extract_from_tile(in_tile, out_tile)
+    out_array = raster.extract_from_array(
+        in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
+    )
     assert isinstance(out_array, np.ndarray)
     assert np.all(np.where(out_array == 2, True, False))
     # not intersecting
-    try:
-        out_tile = BufferedTilePyramid("geodetic").tile(5, 15, 20)
-        out_array = raster.extract_from_tile(in_tile, out_tile)
-        raise Exception()
-    except ValueError:
-        pass
+    out_tile = BufferedTilePyramid("geodetic").tile(5, 15, 20)
+    with pytest.raises(ValueError):
+        out_array = raster.extract_from_array(
+            in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
+        )
 
 
 def test_resample_from_array():
@@ -206,32 +211,35 @@ def test_create_mosaic_errors():
     tp_geo = BufferedTilePyramid("geodetic")
     tp_mer = BufferedTilePyramid("mercator")
     geo_tile = tp_geo.tile(1, 0, 0)
-    geo_tile.data = np.ndarray(geo_tile.shape)
+    geo_tile_data = np.ndarray(geo_tile.shape)
     mer_tile = tp_mer.tile(1, 1, 0)
-    mer_tile.data = np.ndarray(mer_tile.shape)
+    mer_tile_data = np.ndarray(mer_tile.shape)
     # CRS error
     with pytest.raises(ValueError):
-        raster.create_mosaic([geo_tile, mer_tile])
+        raster.create_mosaic([
+            (geo_tile, geo_tile_data), (mer_tile, mer_tile_data)
+        ])
     # zoom error
     with pytest.raises(ValueError):
         diff_zoom = tp_geo.tile(2, 1, 0)
-        diff_zoom.data = np.ndarray(diff_zoom.shape)
-        raster.create_mosaic([geo_tile, diff_zoom])
+        diff_zoom_data = np.ndarray(diff_zoom.shape)
+        raster.create_mosaic([
+            (geo_tile, geo_tile_data), (diff_zoom, diff_zoom_data)
+        ])
     # tile data error
     with pytest.raises(TypeError):
-        geo_tile.data = None
         # for one tile
-        raster.create_mosaic([geo_tile])
+        raster.create_mosaic([(geo_tile, None)])
     with pytest.raises(TypeError):
-        geo_tile.data = None
         # for multiple tiles
-        raster.create_mosaic([geo_tile, geo_tile])
+        raster.create_mosaic([(geo_tile, None), (geo_tile, None)])
     # tile data type error
     with pytest.raises(TypeError):
-        geo_tile.data = np.ndarray(geo_tile.shape)
         diff_type = tp_geo.tile(1, 1, 0)
-        diff_type.data = np.ndarray(diff_zoom.shape).astype("int")
-        raster.create_mosaic([geo_tile, diff_type])
+        diff_type_data = np.ndarray(diff_zoom.shape).astype("int")
+        raster.create_mosaic([
+            (geo_tile, geo_tile_data), (diff_type, diff_type_data)
+        ])
 
 
 def test_create_mosaic():
@@ -239,18 +247,18 @@ def test_create_mosaic():
     tp = BufferedTilePyramid("geodetic")
     # quick return mosaic if there is just one tile
     tile = tp.tile(3, 3, 3)
-    tile.data = np.ones(tile.shape)
-    mosaic = raster.create_mosaic([tile])
+    data = np.ones(tile.shape)
+    mosaic = raster.create_mosaic([(tile, data)])
     assert isinstance(mosaic, raster.ReferencedRaster)
-    assert np.array_equal(tile.data, mosaic.data)
+    assert np.array_equal(data, mosaic.data)
     assert tile.affine == mosaic.affine
     # multiple tiles
     for pixelbuffer in [0, 10]:
         tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
         tiles = [
-            tp.tile(5, row, col) for row, col in product(range(4), range(4))]
-        for tile in tiles:
-            tile.data = np.ones(tile.shape)
+            (tp.tile(5, row, col), np.ones(tp.tile(5, row, col).shape))
+            for row, col in product(range(4), range(4))
+        ]
         # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
         mosaic = raster.create_mosaic(tiles)
         assert isinstance(mosaic, raster.ReferencedRaster)
@@ -261,7 +269,7 @@ def test_create_mosaic():
             mosaic.affine[2] + mosaic.data.shape[2] * mosaic.affine[0],
             mosaic.affine[5]
         )
-        control_bbox = box(*unary_union([tile.bbox for tile in tiles]).bounds)
+        control_bbox = box(*unary_union([t.bbox for t, _ in tiles]).bounds)
         assert mosaic_bbox.equals(control_bbox)
 
 
@@ -273,14 +281,17 @@ def test_create_mosaic_antimeridian():
     tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     west = tp.tile(zoom, row, 0)
     east = tp.tile(zoom, row, tp.matrix_width(zoom)-1)
-    for tile in [west, east]:
-        tile.data = np.ones(tile.shape)
-    mosaic = raster.create_mosaic([west, east])
+    mosaic = raster.create_mosaic([
+        (west, np.ones(west.shape).astype("uint8")),
+        (east, np.ones(east.shape).astype("uint8") * 2)
+    ])
     assert isinstance(mosaic, raster.ReferencedRaster)
     # Huge array gets initialized because the two tiles are on opposing sides
     # of the projection area. The below test should pass if the tiles are
     # stitched together next to each other.
     assert mosaic.data.shape == (1, west.height, west.width*2-2*pixelbuffer)
+    assert mosaic.data[0][0][0] == 2
+    assert mosaic.data[0][0][-1] == 1
 
 
 def test_prepare_array_iterables():

@@ -109,12 +109,11 @@ class OutputData(base.OutputData):
         path = self.get_path(output_tile)
         if os.path.isfile(path):
             with rasterio.open(path, "r") as src:
-                output_tile.data = src.read(masked=True)
+                return src.read(masked=True)
         else:
-            output_tile.data = self.empty(output_tile)
-        return output_tile
+            return self.empty(output_tile)
 
-    def write(self, process_tile):
+    def write(self, process_tile, data):
         """
         Write data from process tiles into GeoTIFF file(s).
 
@@ -123,10 +122,10 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        process_tile.data = prepare_array(
-            process_tile.data, masked=True, nodata=self.nodata,
+        data = prepare_array(
+            data, masked=True, nodata=self.nodata,
             dtype=self.profile(process_tile)["dtype"])
-        if process_tile.data.mask.all():
+        if data.mask.all():
             return
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
@@ -134,8 +133,9 @@ class OutputData(base.OutputData):
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
-                in_tile=process_tile, out_profile=self.profile(out_tile),
-                out_tile=out_tile, out_path=out_path
+                in_tile=process_tile, in_data=data,
+                out_profile=self.profile(out_tile), out_tile=out_tile,
+                out_path=out_path
             )
 
     def tiles_exist(self, process_tile):
@@ -366,8 +366,7 @@ class InputTile(base.InputTile):
         """Cache reprojected source data for multiple usage."""
         for band_index in indexes:
             if self._np_cache is None:
-                tile = self.process.get_raw_output(self.tile)
-                self._np_cache = tile.data
+                self._np_cache = self.process.get_raw_output(self.tile)
             yield self._np_cache[band_index-1]
 
     def __enter__(self):

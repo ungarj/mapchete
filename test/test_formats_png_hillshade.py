@@ -43,12 +43,12 @@ def test_output_data():
     assert isinstance(output.profile(tile), dict)
     # write full array
     try:
-        tile.data = np.ones(tile.shape)*128
-        output.write(tile)
+        data = np.ones(tile.shape)*128
+        output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
         # read
-        data = output.read(tile).data
+        data = output.read(tile)
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
     finally:
@@ -56,15 +56,15 @@ def test_output_data():
     # write half masked array
     try:
         half_shape = (tile.shape[0], tile.shape[1]/2)
-        tile.data = ma.masked_array(
+        data = ma.masked_array(
             data=np.ones(tile.shape)*128,
             mask=np.concatenate(
                 [np.zeros(half_shape), np.ones(half_shape)], axis=1))
-        output.write(tile)
+        output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
         # read
-        data = output.read(tile).data
+        data = output.read(tile)
         assert isinstance(data, np.ndarray)
         assert not data.mask.all()
         assert data.mask.any()
@@ -76,12 +76,12 @@ def test_output_data():
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     try:
-        tile.data = np.ones(tile.shape)*128
-        output.write(tile)
+        data = np.ones(tile.shape)*128
+        output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
         # read
-        data = output.read(tile).data
+        data = output.read(tile)
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
     finally:
@@ -91,6 +91,6 @@ def test_output_data():
     assert isinstance(empty, ma.MaskedArray)
     assert not empty.any()
     # read non-existing file
-    data = output.read(tile).data
+    data = output.read(tile)
     assert data.mask.all()
     # TODO for_web

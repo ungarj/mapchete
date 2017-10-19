@@ -151,12 +151,6 @@ class BufferedTile(Tile):
         tile bounding box as shapely geometry
     pixelbuffer : integer
         pixelbuffer used to create tile
-    data : array or list
-        raster or vector data
-    message : string
-        a place for status messages
-    error : string
-        a place for error messages
     profile : dictionary
         rasterio metadata profile
     """
@@ -167,9 +161,6 @@ class BufferedTile(Tile):
         Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
         self._tile = tile
         self.pixelbuffer = pixelbuffer
-        self.data = None
-        self.message = None
-        self.error = None
 
     @cached_property
     def profile(self):

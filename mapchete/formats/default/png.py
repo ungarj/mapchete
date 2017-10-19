@@ -87,7 +87,7 @@ class OutputData(base.OutputData):
         except KeyError:
             self.nodata = PNG_PROFILE["nodata"]
 
-    def write(self, process_tile):
+    def write(self, process_tile, data):
         """
         Write data from one or more process tiles.
 
@@ -96,8 +96,8 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        rgba = self._prepare_array_for_png(process_tile.data)
-        process_tile.data = ma.masked_where(rgba == self.nodata, rgba)
+        rgba = self._prepare_array_for_png(data)
+        data = ma.masked_where(rgba == self.nodata, rgba)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -105,6 +105,7 @@ class OutputData(base.OutputData):
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
                 in_tile=process_tile,
+                in_data=data,
                 out_tile=BufferedTile(tile, self.pixelbuffer),
                 out_profile=self.profile(out_tile),
                 out_path=self.get_path(tile)
@@ -125,10 +126,9 @@ class OutputData(base.OutputData):
         """
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
-                output_tile.data = src.read(masked=True)
+                return src.read(masked=True)
         except RasterioIOError:
-            output_tile.data = self.empty(output_tile)
-        return output_tile
+            return self.empty(output_tile)
 
     def tiles_exist(self, process_tile):
         """

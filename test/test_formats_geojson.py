@@ -63,14 +63,14 @@ def test_output_data():
         mp = mapchete.open(os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
         for tile in mp.get_process_tiles(4):
             # write empty
-            mp.write(tile)
+            mp.write(tile, None)
             # write data
-            output = mp.get_raw_output(tile)
-            mp.write(output)
+            raw_output = mp.get_raw_output(tile)
+            mp.write(tile, raw_output)
             # read data
-            out_tile = mp.config.output.read(tile)
-            assert isinstance(out_tile.data, list)
-            if output.data:
-                assert out_tile.data
+            read_output = mp.config.output.read(tile)
+            assert isinstance(read_output, list)
+            if raw_output:
+                assert read_output
     finally:
         shutil.rmtree(TEMP_DIR, ignore_errors=True)

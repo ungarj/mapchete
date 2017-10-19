@@ -93,7 +93,7 @@ def _tile_response(mp, web_tile, debug):
             abort(500)
 
 
-def _valid_tile_response(mp, web_tile):
-    response = make_response(mp.config.output.for_web(web_tile.data))
+def _valid_tile_response(mp, data):
+    response = make_response(mp.config.output.for_web(data))
     response.cache_control.no_write = True
     return response

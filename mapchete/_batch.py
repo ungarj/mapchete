@@ -78,10 +78,10 @@ def batch_process(
 
 def _run_on_single_tile(process, tile):
     LOGGER.debug("run on single tile")
-    tile = process.config.process_pyramid.tile(*tuple(tile))
-    output = _process_worker(process, tile)
-    if output:
-        _write_worker(process, output)
+    tile, output = _process_worker(
+        process, process.config.process_pyramid.tile(*tuple(tile))
+    )
+    _write_worker(process, tile, output)
     LOGGER.info("1 tile iterated")
 
 
@@ -99,11 +99,10 @@ def _run_with_multiprocessing(
             process_tiles = process.get_process_tiles(zoom)
             pool = Pool(multi)
             try:
-                for output in pool.imap_unordered(
+                for tile, output in pool.imap_unordered(
                     f, process_tiles, chunksize=1
                 ):
-                    if output:
-                        _write_worker(process, output)
+                    _write_worker(process, tile, output)
                     pbar.update()
                     num_processed += 1
             except KeyboardInterrupt:
@@ -132,9 +131,8 @@ def _run_without_multiprocessing(
     ) as pbar:
         for zoom in zoom_levels:
             for process_tile in process.get_process_tiles(zoom):
-                output = _process_worker(process, process_tile)
-                if output:
-                    _write_worker(process, output)
+                tile, output = _process_worker(process, process_tile)
+                _write_worker(process, tile, output)
                 pbar.update()
                 num_processed += 1
     LOGGER.info("%s tile(s) iterated", (str(num_processed)))
@@ -159,6 +157,7 @@ def _process_worker(process, process_tile):
         process.config.output.tiles_exist(process_tile)
     ):
         LOGGER.debug((process_tile.id, "tile exists, skipping"))
+        return process_tile, None
     else:
         start = time.time()
         output = process.execute(process_tile)
@@ -167,17 +166,16 @@ def _process_worker(process, process_tile):
                 round(time.time() - start, 3)
             )
         ))
-        return output
+        return process_tile, output
 
 
-def _write_worker(process, process_tile):
+def _write_worker(process, process_tile, data):
     """Worker function writing process outputs."""
-    if process_tile and (
-        process_tile.data is not None) and (
-        process_tile.message != "empty"
-    ):
+    if data is None:
+        LOGGER.debug("%s nothing written, tile data empty", process_tile.id)
+    else:
         start = time.time()
-        process.write(process_tile)
+        process.write(process_tile, data)
         LOGGER.debug((
             process_tile.id, "output written in %ss" % (
                 round(time.time() - start, 3)
