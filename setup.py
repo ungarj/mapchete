@@ -58,7 +58,7 @@ setup(
         'pyyaml',
         'flask',
         'Pillow',
-        'rasterio>=1.0a2',
+        'rasterio==1.0a9',
         'matplotlib',
         'cached_property',
         'pyproj',
