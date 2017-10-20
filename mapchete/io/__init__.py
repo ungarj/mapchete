@@ -32,7 +32,7 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
                     src.bounds.left, src.bounds.bottom, src.bounds.right,
                     src.bounds.top
                 ),
-                raster_file._get_segmentize_value(input_file, tile_pyramid)
+                raster_file.get_segmentize_value(input_file, tile_pyramid)
             ),
             src_crs=src.crs, dst_crs=tile_pyramid.crs
         ).bounds

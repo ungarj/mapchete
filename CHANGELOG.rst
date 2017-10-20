@@ -13,7 +13,8 @@ Changelog
   * Mapchete.write() requires process_tile and data as arguments
   * same valid for all other read() and write() functions in drivers & MapcheteProcess object
 * new MapcheteNodataTile exception to indicate an empty process output
-
+* raster_file Input cache removed
+* ``get_segmentize_value()`` function is now public
 
 ---
 0.9

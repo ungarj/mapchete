@@ -60,7 +60,6 @@ class InputData(base.InputData):
         """Initialize."""
         super(InputData, self).__init__(input_params)
         self.path = input_params["path"]
-        self._bbox_cache = {}
 
     @cached_property
     def profile(self):
@@ -99,26 +98,21 @@ class InputData(base.InputData):
         """
         if out_crs is None:
             out_crs = self.pyramid.crs
-        if str(out_crs) not in self._bbox_cache:
-            with rasterio.open(self.path) as inp:
-                inp_crs = inp.crs
-            out_bbox = bbox = box(
-                inp.bounds.left, inp.bounds.bottom, inp.bounds.right,
-                inp.bounds.top
+        with rasterio.open(self.path) as inp:
+            inp_crs = inp.crs
+            out_bbox = bbox = box(*inp.bounds)
+        # If soucre and target CRSes differ, segmentize and reproject
+        if inp_crs != out_crs:
+            # estimate segmentize value (raster pixel size * tile size)
+            # and get reprojected bounding box
+            return reproject_geometry(
+                segmentize_geometry(
+                    bbox, inp.transform[0] * self.pyramid.tile_size
+                ),
+                src_crs=inp_crs, dst_crs=out_crs
             )
-            # If soucre and target CRSes differ, segmentize and reproject
-            if inp_crs != out_crs:
-                # estimate segmentize value (raster pixel size * tile size)
-                # and get reprojected bounding box
-                self._bbox_cache[str(out_crs)] = reproject_geometry(
-                    segmentize_geometry(
-                        bbox, inp.transform[0] * self.pyramid.tile_size
-                    ),
-                    src_crs=inp_crs, dst_crs=out_crs
-                )
-            else:
-                self._bbox_cache[str(out_crs)] = out_bbox
-        return self._bbox_cache[str(out_crs)]
+        else:
+            return out_bbox
 
     def exists(self):
         """
@@ -167,9 +161,19 @@ class InputTile(base.InputTile):
         """
         band_indexes = self._get_band_indexes(indexes)
         if len(band_indexes) == 1:
-            return self._bands_from_cache(indexes=band_indexes).next()
+            return read_raster_window(
+                self.raster_file.path,
+                self.tile,
+                indexes=self._get_band_indexes(indexes),
+                resampling=self.resampling
+            ).next()
         else:
-            return self._bands_from_cache(indexes=band_indexes)
+            return read_raster_window(
+                self.raster_file.path,
+                self.tile,
+                indexes=self._get_band_indexes(indexes),
+                resampling=self.resampling
+            )
 
     def is_empty(self, indexes=None):
         """
@@ -180,18 +184,9 @@ class InputTile(base.InputTile):
         is empty : bool
         """
         # empty if tile does not intersect with file bounding box
-        src_bbox = self.raster_file.bbox(out_crs=self.tile.crs)
-        tile_geom = self.tile.bbox
-        if not tile_geom.intersects(src_bbox):
-            return True
-
-        # empty if source band(s) are empty
-        all_bands_empty = True
-        for band in self._bands_from_cache(self._get_band_indexes(indexes)):
-            if not band.mask.all():
-                all_bands_empty = False
-                break
-        return all_bands_empty
+        return not self.tile.bbox.intersects(
+            self.raster_file.bbox(out_crs=self.tile.crs)
+        )
 
     def _get_band_indexes(self, indexes=None):
         """Return valid band indexes."""
@@ -201,25 +196,28 @@ class InputTile(base.InputTile):
             else:
                 return [indexes]
         else:
-            return range(1, self.raster_file.profile["count"]+1)
-
-    def _bands_from_cache(self, indexes=None):
-        """Cache reprojected source data for multiple usage."""
-        band_indexes = self._get_band_indexes(indexes)
-        for band_index in band_indexes:
-            if band_index not in self._np_band_cache:
-                band = read_raster_window(
-                    self.raster_file.path,
-                    self.tile,
-                    indexes=band_index,
-                    resampling=self.resampling
-                ).next()
-                self._np_band_cache[band_index] = band
-            yield self._np_band_cache[band_index]
+            return range(1, self.raster_file.profile["count"] + 1)
 
 
-def _get_segmentize_value(input_file, tile_pyramid):
-    """Return the recommended segmentation value in input file units."""
+def get_segmentize_value(input_file=None, tile_pyramid=None):
+    """
+    Return the recommended segmentation value in input file units.
+
+    It is calculated by multiplyling raster pixel size with tile shape in
+    pixels.
+
+    Parameters
+    ----------
+    input_file : str
+        location of a file readable by rasterio
+    tile_pyramied : ``TilePyramid`` or ``BufferedTilePyramid``
+        tile pyramid to estimate target tile size
+
+    Returns
+    -------
+    segmenize value : float
+        length suggested of line segmentation to reproject file bounds
+    """
     with rasterio.open(input_file, "r") as input_raster:
         pixelsize = input_raster.transform[0]
     return pixelsize * tile_pyramid.tile_size
