@@ -205,7 +205,6 @@ def test_read_input_groups():
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/file_groups.mapchete"))
     input_files = config.at_zoom(0)["input"]
-    print input_files
     assert "file1" in input_files["group1"]
     assert "file2" in input_files["group1"]
     assert "file1" in input_files["group2"]

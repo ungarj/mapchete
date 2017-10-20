@@ -15,7 +15,6 @@ from multiprocessing import Pool
 from shapely.geometry import shape
 
 import mapchete
-from mapchete.tile import BufferedTile
 from mapchete.io.raster import create_mosaic
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete import _batch
@@ -31,8 +30,7 @@ def test_empty_execute():
         with mapchete.open(
             os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
         ) as mp:
-            out_tile = mp.execute((6, 0, 0))
-            assert out_tile.data.mask.all()
+            assert mp.execute((6, 0, 0)).mask.all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
@@ -89,7 +87,7 @@ def test_read_existing_output():
         ) as mp:
             tile = mp.get_process_tiles(4).next()
             # process and save
-            mp.write(mp.get_raw_output(tile))
+            mp.write(tile, mp.get_raw_output(tile))
             # read written data from within MapcheteProcess object
             mp_tile = mapchete.MapcheteProcess(
                 tile,
@@ -126,8 +124,7 @@ def test_get_raw_output_outside():
         with mapchete.open(
             os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
         ) as mp:
-            out_tile = mp.get_raw_output((6, 0, 0))
-            assert out_tile.data.mask.all()
+            assert mp.get_raw_output((6, 0, 0)).mask.all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
@@ -140,8 +137,7 @@ def test_get_raw_output_memory():
             mode="memory"
         ) as mp:
             assert mp.config.mode == "memory"
-            out_tile = mp.get_raw_output((5, 0, 0))
-            assert not out_tile.data.mask.all()
+            assert not mp.get_raw_output((5, 0, 0)).mask.all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
@@ -158,22 +154,17 @@ def test_get_raw_output_readonly():
             mode="continue")
 
         # read non-existing data (returns empty)
-        out_tile = readonly_mp.get_raw_output(tile)
-        assert out_tile.data.mask.all()
+        assert readonly_mp.get_raw_output(tile).mask.all()
 
         # try to process and save empty data
-        try:  # TODO
-            readonly_mp.write(readonly_mp.get_raw_output(tile))
-            raise Exception()
-        except ValueError:
-            pass
+        with pytest.raises(ValueError):
+            readonly_mp.write(tile, readonly_mp.get_raw_output(tile))
 
         # actually process and save
-        write_mp.write(write_mp.get_raw_output(tile))
+        write_mp.write(tile, write_mp.get_raw_output(tile))
 
         # read written output
-        out_tile = readonly_mp.get_raw_output(tile)
-        assert not out_tile.data.mask.all()
+        assert not readonly_mp.get_raw_output(tile).mask.all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
@@ -186,10 +177,9 @@ def test_get_raw_output_continue():
         assert mp.config.mode == "continue"
         tile = (5, 0, 0)
         # process and save
-        mp.write(mp.get_raw_output(tile))
+        mp.write(tile, mp.get_raw_output(tile))
         # read written data
-        out_tile = mp.get_raw_output(tile)
-        assert not out_tile.data.mask.all()
+        assert not mp.get_raw_output(tile).mask.all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
@@ -219,21 +209,20 @@ def test_baselevels():
         mp.batch_process(quiet=True)
 
         # get tile from lower zoom level
-        for t in mp.get_process_tiles(4):
-            tile = mp.get_raw_output(t)
-            assert not tile.data.mask.all()
+        for tile in mp.get_process_tiles(4):
+            data = mp.get_raw_output(tile)
+            assert not data.mask.all()
             # write for next zoom level
-            mp.write(tile)
-            assert not mp.get_raw_output(tile.get_parent()).data.mask.all()
+            mp.write(tile, data)
+            assert not mp.get_raw_output(tile.get_parent()).mask.all()
 
         # get tile from higher zoom level
         tile = mp.get_process_tiles(6).next()
         # process and save
-        output = mp.get_raw_output(tile)
-        mp.write(output)
+        mp.write(tile, mp.get_raw_output(tile))
         # read from baselevel
         assert any([
-            not mp.get_raw_output(upper_tile).data.mask.all()
+            not mp.get_raw_output(upper_tile).mask.all()
             for upper_tile in tile.get_children()
         ])
     finally:
@@ -255,20 +244,17 @@ def test_baselevels_buffer():
         lower_tile = mp.get_process_tiles(4).next()
         # process and save
         for tile in lower_tile.get_children():
-            output = mp.get_raw_output(tile)
-            mp.write(output)
+            mp.write(tile, mp.get_raw_output(tile))
         # read from baselevel
-        out_tile = mp.get_raw_output(lower_tile)
-        assert not out_tile.data.mask.all()
+        assert not mp.get_raw_output(lower_tile).mask.all()
 
         # get tile from higher zoom level
         tile = mp.get_process_tiles(6).next()
         # process and save
-        output = mp.get_raw_output(tile)
-        mp.write(output)
+        mp.write(tile, mp.get_raw_output(tile))
         # read from baselevel
         assert any([
-            not mp.get_raw_output(upper_tile).data.mask.all()
+            not mp.get_raw_output(upper_tile).mask.all()
             for upper_tile in tile.get_children()
         ])
     finally:
@@ -292,17 +278,15 @@ def test_baselevels_buffer_antimeridian():
             # write data left and right of antimeridian
             west = mp.config.process_pyramid.tile(zoom, row, 0)
             shape = (3, ) + west.shape
-            west.data = np.ones(shape) * 0
-            mp.write(west)
+            mp.write(west, np.ones(shape) * 0)
             east = mp.config.process_pyramid.tile(
                 zoom, row, mp.config.process_pyramid.matrix_width(zoom) - 1
             )
-            east.data = np.ones(shape) * 10
-            mp.write(east)
+            mp.write(east, np.ones(shape) * 10)
             # use baselevel generation to interpolate tile and somehow
             # assert no data from across the antimeridian is read.
             lower_tile = mp.get_raw_output(west.get_parent())
-            assert np.where(lower_tile.data.data != 10, True, False).all()
+            assert np.where(lower_tile != 10, True, False).all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
@@ -317,12 +301,11 @@ def test_processing():
             tiles = []
             for tile in mp.get_process_tiles(zoom):
                 output = mp.execute(tile)
-                tiles.append(output)
-                assert isinstance(output, BufferedTile)
-                assert isinstance(output.data, ma.MaskedArray)
-                assert output.data.shape == output.shape
-                assert not ma.all(output.data.mask)
-                mp.write(output)
+                tiles.append((tile, output))
+                assert isinstance(output, ma.MaskedArray)
+                assert output.shape == output.shape
+                assert not ma.all(output.mask)
+                mp.write(tile, output)
             mosaic, mosaic_affine = create_mosaic(tiles)
             try:
                 temp_vrt = os.path.join(OUT_DIR, str(zoom)+".vrt")
@@ -359,12 +342,11 @@ def test_processing_as_function():
             tiles = []
             for tile in mp.get_process_tiles(zoom):
                 output = mp.execute(tile)
-                tiles.append(output)
-                assert isinstance(output, BufferedTile)
-                assert isinstance(output.data, ma.MaskedArray)
-                assert output.data.shape == output.shape
-                assert not ma.all(output.data.mask)
-                mp.write(output)
+                tiles.append((tile, output))
+                assert isinstance(output, ma.MaskedArray)
+                assert output.shape == output.shape
+                assert not ma.all(output.mask)
+                mp.write(tile, output)
             mosaic, mosaic_affine = create_mosaic(tiles)
             try:
                 temp_vrt = os.path.join(OUT_DIR, str(zoom)+".vrt")
@@ -397,10 +379,10 @@ def test_multiprocessing():
     try:
         pool = Pool()
         for zoom in reversed(mp.config.zoom_levels):
-            for raw_output in pool.imap_unordered(
+            for tile, raw_output in pool.imap_unordered(
                 f, mp.get_process_tiles(zoom), chunksize=8
             ):
-                mp.write(raw_output)
+                mp.write(tile, raw_output)
     except KeyboardInterrupt:
         pool.terminate()
     finally:
@@ -411,7 +393,7 @@ def test_multiprocessing():
 
 def _worker(mp, tile):
     """Multiprocessing worker processing a tile."""
-    return mp.execute(tile)
+    return tile, mp.execute(tile)
 
 
 def test_write_empty():
@@ -419,7 +401,7 @@ def test_write_empty():
     mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
     # process and save
-    mp.write(mp.config.process_pyramid.tile(5, 0, 0))
+    mp.write(mp.config.process_pyramid.tile(5, 0, 0), None)
 
 
 def test_process_template():
@@ -478,16 +460,10 @@ def test_batch_process():
         os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
     try:
         # invalid parameters errors
-        try:
+        with pytest.raises(ValueError):
             mp.batch_process(zoom=1, tile=(1, 0, 0))
-            raise Exception()
-        except ValueError:
-            pass
-        try:
+        with pytest.raises(ValueError):
             mp.batch_process(debug=True, quiet=True)
-            raise Exception()
-        except ValueError:
-            pass
         # process single tile
         mp.batch_process(tile=(2, 0, 0))
         mp.batch_process(tile=(2, 0, 0), quiet=True)

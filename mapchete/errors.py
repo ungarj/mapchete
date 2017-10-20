@@ -27,3 +27,7 @@ class MapcheteDriverError(Exception):
 
 class MapcheteEmptyInputTile(Exception):
     """Generic exception raised by a driver if input tile is empty."""
+
+
+class MapcheteNodataTile(Exception):
+    """Indicates an empty tile."""

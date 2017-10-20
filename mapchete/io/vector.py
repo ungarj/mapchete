@@ -180,14 +180,15 @@ def read_vector_window(input_file, tile, validity_check=True):
         return features
 
 
-def write_vector_window(in_tile, out_schema, out_tile, out_path):
+def write_vector_window(in_data=None, out_schema=None, out_tile=None,
+    out_path=None
+):
     """
     Write features to GeoJSON file.
 
     Parameters
     ----------
-    in_tile : ``BufferedTile``
-        input tile including data
+    in_data : features
     out_schema : dictionary
         output schema for fiona
     out_tile : ``BufferedTile``
@@ -201,10 +202,10 @@ def write_vector_window(in_tile, out_schema, out_tile, out_path):
     except OSError:
         pass
     # Return if tile data is empty
-    if not in_tile.data:
+    if not in_data:
         return
     out_features = []
-    for feature in in_tile.data:
+    for feature in in_data:
         feature_geom = shape(feature["geometry"])
         clipped = feature_geom.intersection(out_tile.bbox)
         out_geom = clipped
@@ -317,25 +318,3 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         return geometry
     else:
         return None
-
-
-def extract_from_tile(in_tile, out_tile):
-    """
-    Extract features from BufferedTile.
-
-    Parameters
-    ----------
-    in_tile : ``BufferedTile``
-    out_tile : ``BufferedTile``
-
-    Returns
-    -------
-    extracted features : list
-    """
-    assert isinstance(in_tile, BufferedTile)
-    assert isinstance(out_tile, BufferedTile)
-    assert isinstance(in_tile.data, list)
-    return [
-        feature
-        for feature in in_tile.data
-        if shape(feature["geometry"]).touches(out_tile.bbox)]

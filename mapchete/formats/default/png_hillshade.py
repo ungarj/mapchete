@@ -89,7 +89,7 @@ class OutputData(base.OutputData):
         except KeyError:
             self.old_band_num = False
 
-    def write(self, process_tile):
+    def write(self, process_tile, data):
         """
         Write data from process tiles into PNG file(s).
 
@@ -98,8 +98,7 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        data = prepare_array(
-            process_tile.data, dtype="uint8", masked=False, nodata=0)
+        data = prepare_array(data, dtype="uint8", masked=False, nodata=0)
         if self.old_band_num:
             data = np.stack((
                 np.zeros(process_tile.shape), np.zeros(process_tile.shape),
@@ -107,8 +106,7 @@ class OutputData(base.OutputData):
         else:
             data = np.stack((
                 np.zeros(process_tile.shape), data[0]))
-        process_tile.data = prepare_array(
-            data, dtype="uint8", masked=True, nodata=255)
+        data = prepare_array(data, dtype="uint8", masked=True, nodata=255)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -116,8 +114,10 @@ class OutputData(base.OutputData):
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
-                in_tile=process_tile, out_profile=self.profile(out_tile),
-                out_tile=out_tile, out_path=out_path)
+                in_tile=process_tile, in_data=data,
+                out_profile=self.profile(out_tile), out_tile=out_tile,
+                out_path=out_path
+            )
 
     def read(self, output_tile):
         """
@@ -138,9 +138,9 @@ class OutputData(base.OutputData):
             band_num = 2
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
-                output_tile.data = ma.masked_values(src.read(band_num), 0)
+                return ma.masked_values(src.read(band_num), 0)
         except RasterioIOError:
-            output_tile.data = self.empty(output_tile)
+            return self.empty(output_tile)
         return output_tile
 
     def tiles_exist(self, process_tile):

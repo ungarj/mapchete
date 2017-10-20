@@ -95,12 +95,11 @@ class OutputData(base.OutputData):
         path = self.get_path(output_tile)
         if os.path.isfile(path):
             with fiona.open(path, "r") as src:
-                output_tile.data = list(src)
+                return list(src)
         else:
-            output_tile.data = self.empty(output_tile)
-        return output_tile
+            return self.empty(output_tile)
 
-    def write(self, process_tile):
+    def write(self, process_tile, data):
         """
         Write data from process tiles into GeoJSON file(s).
 
@@ -111,11 +110,11 @@ class OutputData(base.OutputData):
         """
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        if process_tile.data is None:
+        if data is None:
             return
-        assert isinstance(process_tile.data, (list, types.GeneratorType))
-        if isinstance(process_tile.data, types.GeneratorType):
-            process_tile.data = list(process_tile.data)
+        assert isinstance(data, (list, types.GeneratorType))
+        if isinstance(data, types.GeneratorType):
+            data = list(data)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -123,8 +122,9 @@ class OutputData(base.OutputData):
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_vector_window(
-                in_tile=process_tile, out_schema=self.output_params["schema"],
-                out_tile=out_tile, out_path=out_path)
+                in_data=data, out_schema=self.output_params["schema"],
+                out_tile=out_tile, out_path=out_path
+            )
 
     def tiles_exist(self, process_tile):
         """
@@ -289,7 +289,8 @@ class InputTile(base.InputTile):
     def _from_cache(self, validity_check=True):
         if validity_check not in self._cache:
             self._cache[validity_check] = self.process.get_raw_output(
-                self.tile).data
+                self.tile
+            )
         return self._cache[validity_check]
 
     def __enter__(self):

@@ -138,5 +138,3 @@ def test_http_rasters():
     # TODO make tests more performant
     with mapchete.open(config) as mp:
         assert mp.config.process_area(zoom).area > 0
-        # tile = mp.get_raw_output(mp.get_process_tiles(zoom).next())
-        # assert not tile.data.mask.all()

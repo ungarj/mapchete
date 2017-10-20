@@ -2,6 +2,19 @@
 Changelog
 #########
 
+----
+0.10
+----
+* better memory handling by detatching process output data from ``BufferedTile`` objects
+* breaking API changes:
+  * Mapchete.execute() returns raw data instead of tile with data attribute
+  * Mapchete.read() returns raw data instead of tile with data attribute
+  * Mapchete.get_raw_output() returns raw data instead of tile with data attribute
+  * Mapchete.write() requires process_tile and data as arguments
+  * same valid for all other read() and write() functions in drivers & MapcheteProcess object
+* new MapcheteNodataTile exception to indicate an empty process output
+
+
 ---
 0.9
 ---
