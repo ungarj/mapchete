@@ -88,6 +88,7 @@ class OutputData(base.OutputData):
             PNG_PROFILE.update(count=4)
         except KeyError:
             self.old_band_num = False
+        self.output_params.update(dtype=PNG_PROFILE["dtype"])
 
     def write(self, process_tile, data):
         """
