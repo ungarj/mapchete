@@ -76,9 +76,8 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
     # once.
     else:
         return _get_warped_array(
-            input_file=input_file, indexes=indexes,
-            dst_bounds=tile.bounds, dst_shape=dst_shape,
-            dst_crs=tile.crs, resampling=resampling
+            input_file=input_file, indexes=indexes, dst_bounds=tile.bounds,
+            dst_shape=dst_shape, dst_crs=tile.crs, resampling=resampling
         )
 
 
@@ -147,7 +146,9 @@ def _get_warped_array(
         with WarpedVRT(src, dst_crs=dst_crs) as vrt:
             try:
                 return vrt.read(
-                    window=vrt.window(*dst_bounds, precision=21),
+                    window=vrt.window(
+                        *dst_bounds, precision=21, boundless=True
+                    ),
                     boundless=True,
                     resampling=RESAMPLING_METHODS[resampling],
                     out_shape=dst_shape,

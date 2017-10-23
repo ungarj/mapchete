@@ -59,6 +59,10 @@ def test_read_raster_window():
     ]:
         raster.read_raster_window(dummy1, tile, resampling=resampling)
 
+
+def test_read_raster_window_reproject():
+    """Read array with read_raster_window."""
+    zoom = 8
     # with reproject
     config_raw = yaml.load(open(
         os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete")
@@ -93,6 +97,16 @@ def test_read_raster_window():
         raster.read_raster_window(
             "nonexisting_path", tile, resampling=resampling
         )
+
+
+def test_read_raster_window_partly_overlapping():
+    """Read array with read_raster_window where window is bigger than file."""
+    tile = BufferedTilePyramid("geodetic").tile(4, 15, 31)
+    data = raster.read_raster_window(
+        os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif"), tile
+    )
+    assert isinstance(data, ma.MaskedArray)
+    assert data.mask.any()
 
 
 def test_write_raster_window():
