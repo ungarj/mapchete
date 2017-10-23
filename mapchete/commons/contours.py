@@ -30,10 +30,8 @@ def extract_contours(array, tile, interval=100, field='elev', base=0):
     contours : iterable
         contours as GeoJSON-like pairs of properties and geometry
     """
-    print interval
     levels = _get_contour_values(
         array.min(), array.max(), interval=interval, base=base)
-    print levels
     if not levels:
         return []
     contours = plt.contour(array, levels)
@@ -63,7 +61,6 @@ def extract_contours(array, tile, interval=100, field='elev', base=0):
 
 def _get_contour_values(min_val, max_val, base=0, interval=100):
     """Return a list of values between min and max within an interval."""
-    print min_val, max_val, base, interval
     i = base
     out = []
     if min_val < base:

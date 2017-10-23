@@ -67,7 +67,6 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
             dst_shape = (len(indexes),) + dst_shape
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
-    print tile.id, tile.pixelbuffer, _is_on_edge(tile)
     if tile.pixelbuffer and _is_on_edge(tile):
         return _get_warped_edge_array(
             tile=tile, input_file=input_file, indexes=indexes,
