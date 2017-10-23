@@ -172,8 +172,6 @@ def test_pyramid_geodetic():
                 assert src.meta["driver"] == "GTiff"
                 assert src.meta["dtype"] == "uint16"
                 data = src.read(masked=True)
-                print zoom, row, col
-                print out_file
                 assert data.mask.any()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)

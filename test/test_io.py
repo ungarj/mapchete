@@ -43,9 +43,11 @@ def test_read_raster_window():
 
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = tile_pyramid.tiles_from_geom(dummy1_bbox, zoom)
-    width = height = tile_pyramid.tile_size + 2 * pixelbuffer
+    tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
+    # add edge tile
+    tiles.append(tile_pyramid.tile(8, 0, 0))
     for tile in tiles:
+        width, height = tile.shape
         for band in raster.read_raster_window(dummy1, tile):
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
@@ -53,6 +55,11 @@ def test_read_raster_window():
             band = raster.read_raster_window(dummy1, tile, index)
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
+        for index in [None, [1, 2, 3]]:
+            band = raster.read_raster_window(dummy1, tile, index)
+            assert isinstance(band, ma.MaskedArray)
+            assert band.ndim == 3
+            assert band.shape == (3, width, height)
     for resampling in [
         "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average",
         "mode"
@@ -77,6 +84,10 @@ def test_read_raster_window_reproject():
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
+    # target window out of CRS bounds
+    band = raster.read_raster_window(dummy1, tile_pyramid.tile(12, 0, 0))
+    assert isinstance(band, ma.MaskedArray)
+    assert band.mask.all()
     # not intersecting tile
     tiles.append(tile_pyramid.tile(zoom, 1, 1))   # out of CRS bounds
     tiles.append(tile_pyramid.tile(zoom, 16, 1))  # out of file bbox
@@ -164,6 +175,44 @@ def test_write_raster_window():
         shutil.rmtree(path, ignore_errors=True)
 
 
+def test_write_raster_window_errors():
+    """Basic output format writing."""
+    tile = BufferedTilePyramid("geodetic").tile(5, 5, 5)
+    data = ma.masked_array(np.ndarray((1, 1)))
+    profile = {}
+    path = ""
+    # in_tile
+    with pytest.raises(TypeError):
+        raster.write_raster_window(
+            in_tile="invalid tile", in_data=data, out_profile=profile,
+            out_tile=tile, out_path=path
+        )
+    # out_tile
+    with pytest.raises(TypeError):
+        raster.write_raster_window(
+            in_tile=tile, in_data=data, out_profile=profile,
+            out_tile="invalid tile", out_path=path
+        )
+    # in_data
+    with pytest.raises(TypeError):
+        raster.write_raster_window(
+            in_tile=tile, in_data="invalid data", out_profile=profile,
+            out_tile=tile, out_path=path
+        )
+    # out_profile
+    with pytest.raises(TypeError):
+        raster.write_raster_window(
+            in_tile=tile, in_data=data, out_profile="invalid profile",
+            out_tile=tile, out_path=path
+        )
+    # out_path
+    with pytest.raises(TypeError):
+        raster.write_raster_window(
+            in_tile=tile, in_data=data, out_profile=profile,
+            out_tile=tile, out_path=999
+        )
+
+
 def test_extract_from_array():
     """Extract subdata from array."""
     in_tile = BufferedTilePyramid("geodetic", metatiling=4).tile(5, 5, 5)
@@ -228,6 +277,11 @@ def test_create_mosaic_errors():
     geo_tile_data = np.ndarray(geo_tile.shape)
     mer_tile = tp_mer.tile(1, 1, 0)
     mer_tile_data = np.ndarray(mer_tile.shape)
+    # tiles error
+    with pytest.raises(TypeError):
+        raster.create_mosaic("invalid tiles")
+    with pytest.raises(TypeError):
+        raster.create_mosaic(["invalid tiles"])
     # CRS error
     with pytest.raises(ValueError):
         raster.create_mosaic([
@@ -274,7 +328,8 @@ def test_create_mosaic():
             for row, col in product(range(4), range(4))
         ]
         # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
-        mosaic = raster.create_mosaic(tiles)
+        # also use tile generator
+        mosaic = raster.create_mosaic((t for t in tiles))
         assert isinstance(mosaic, raster.ReferencedRaster)
         assert np.all(np.where(mosaic.data == 1, True, False))
         mosaic_bbox = box(

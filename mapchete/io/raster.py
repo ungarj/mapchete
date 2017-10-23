@@ -1,5 +1,6 @@
 """Wrapper functions around rasterio and useful raster functions."""
 
+import itertools
 import rasterio
 import logging
 import numpy as np
@@ -66,6 +67,7 @@ def read_raster_window(input_file, tile, indexes=None, resampling="nearest"):
             dst_shape = (len(indexes),) + dst_shape
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
+    print tile.id, tile.pixelbuffer, _is_on_edge(tile)
     if tile.pixelbuffer and _is_on_edge(tile):
         return _get_warped_edge_array(
             tile=tile, input_file=input_file, indexes=indexes,
@@ -100,8 +102,8 @@ def _get_warped_edge_array(
         touches_right = left == tile.tile_pyramid.left
         touches_left = right == tile.tile_pyramid.right
         touches_both = touches_left and touches_right
-        height = int(round((top-bottom)/tile.pixel_y_size))
-        width = int(round((right-left)/tile.pixel_x_size))
+        height = int(round((top - bottom) / tile.pixel_y_size))
+        width = int(round((right - left) / tile.pixel_x_size))
         if indexes is None:
             dst_shape = (None, height, width)
         elif isinstance(indexes, int):
@@ -117,20 +119,20 @@ def _get_warped_edge_array(
             parts_metadata.update(right=part_metadata)
         else:
             parts_metadata.update(none=part_metadata)
-    # Finally, stitch numpy arrays together into one.
-    return ma.concatenate(
-        [
-            _get_warped_array(
-                input_file=input_file,
-                indexes=indexes,
-                dst_bounds=parts_metadata[part]["bounds"],
-                dst_shape=parts_metadata[part]["shape"],
-                dst_crs=tile.crs,
-                resampling=resampling
-            )
-            for part in ["none", "left", "middle", "right"]
-            if parts_metadata[part]
-        ], axis=1)
+    # Finally, stitch numpy arrays together into one. Axis -1 is the last axis
+    # which in case of rasterio arrays always is the width (West-East).
+    return ma.concatenate([
+        _get_warped_array(
+            input_file=input_file,
+            indexes=indexes,
+            dst_bounds=parts_metadata[part]["bounds"],
+            dst_shape=parts_metadata[part]["shape"],
+            dst_crs=tile.crs,
+            resampling=resampling
+        )
+        for part in ["none", "left", "middle", "right"]
+        if parts_metadata[part]
+    ], axis=-1)
 
 
 def _get_warped_array(
@@ -144,25 +146,17 @@ def _get_warped_array(
             dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
             indexes = list(src.indexes)
         with WarpedVRT(src, dst_crs=dst_crs) as vrt:
-            try:
-                return vrt.read(
-                    window=vrt.window(
-                        *dst_bounds, precision=21, boundless=True
-                    ),
-                    boundless=True,
-                    resampling=RESAMPLING_METHODS[resampling],
-                    out_shape=dst_shape,
-                    indexes=indexes,
-                    masked=True
-                )
-            # A ZeroDivisionError is raised when the destination window cannot
-            # be translated into the source CRS. In this case, an empty
-            # array is returned.
-            except ZeroDivisionError:
-                return ma.MaskedArray(
-                    data=ma.zeros(dst_shape, dtype=src.profile["dtype"]),
-                    mask=ma.ones(dst_shape), fill_value=src.nodata
-                )
+            return vrt.read(
+                window=vrt.window(
+                    *dst_bounds, precision=21, height=dst_shape[-2],
+                    width=dst_shape[-1]
+                ).round_lengths().round_offsets(),
+                boundless=True,
+                resampling=RESAMPLING_METHODS[resampling],
+                out_shape=dst_shape,
+                indexes=indexes,
+                masked=True
+            )
 
 
 def _is_on_edge(tile):
@@ -193,21 +187,16 @@ def write_raster_window(
     out_path : string
         output path
     """
-    for k, v in {
-        "in_tile": in_tile, "in_data": in_data, "out_profile": out_profile,
-        "out_path": out_path
-    }.iteritems():
-        if v is None:
-            raise ValueError("%s parameter missing" % k)
     out_tile = in_tile if out_tile is None else out_tile
-    assert isinstance(in_tile, BufferedTile)
-    assert isinstance(in_data, ma.MaskedArray)
-    assert isinstance(out_profile, dict)
-    if out_tile:
-        assert isinstance(out_tile, BufferedTile)
-    else:
-        out_tile = in_tile
-    assert isinstance(out_path, str)
+    for t in [in_tile, out_tile]:
+        if not isinstance(t, BufferedTile):
+            raise TypeError("in_tile and out_tile must be BufferedTile")
+    if not isinstance(in_data, ma.MaskedArray):
+        raise TypeError("in_data must be ma.MaskedArray")
+    if not isinstance(out_profile, dict):
+        raise TypeError("out_profile must be a dictionary")
+    if not isinstance(out_path, str):
+        raise TypeError("out_path must be a string")
     window_data = extract_from_array(
         in_raster=in_data,
         in_affine=in_tile.affine,
@@ -237,17 +226,11 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     if isinstance(in_raster, ReferencedRaster):
         in_affine = in_raster.affine
         in_raster = in_raster.data
-    left, bottom, right, top = out_tile.bounds
-    # determine output tile window in input data
-    window = from_bounds(
-        left, bottom, right, top, in_affine,
-        height=in_raster.shape[-2], width=in_raster.shape[-1], boundless=True
-    )
-    minrow = window.row_off
-    maxrow = window.row_off + window.num_rows
-    mincol = window.col_off
-    maxcol = window.col_off + window.num_cols
 
+    # get range within array
+    minrow, maxrow, mincol, maxcol = _bounds_to_ranges(
+        out_tile.bounds, in_affine, in_raster.shape
+    )
     # if output window is within input window
     if (
         minrow >= 0 and
@@ -393,14 +376,9 @@ def create_mosaic(tiles, nodata=0):
             if t_right > pyramid.right:
                 t_right -= pyramid.x_size
                 t_left -= pyramid.x_size
-        window = from_bounds(
-            t_left, t_bottom, t_right, t_top, affine, height=height,
-            width=width
+        minrow, maxrow, mincol, maxcol = _bounds_to_ranges(
+            (t_left, t_bottom, t_right, t_top), affine, (height, width)
         )
-        minrow = window.row_off
-        maxrow = window.row_off + window.num_rows
-        mincol = window.col_off
-        maxcol = window.col_off + window.num_cols
         mosaic[:, minrow:maxrow, mincol:maxcol] = data
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = data.mask
     if shift:
@@ -409,6 +387,15 @@ def create_mosaic(tiles, nodata=0):
             resolution, 0, m_left - pyramid.x_size / 2, 0, -resolution, m_top
         )
     return ReferencedRaster(data=mosaic, affine=affine)
+
+
+def _bounds_to_ranges(bounds, affine, shape):
+    return map(int, itertools.chain(
+            *from_bounds(
+                *bounds, transform=affine, height=shape[-2], width=shape[-1]
+            ).round_lengths().round_offsets().toranges()
+        )
+    )
 
 
 def _get_tiles_properties(tiles):
@@ -460,10 +447,6 @@ def prepare_array(data, masked=True, nodata=0, dtype="int16"):
     -------
     array : array
     """
-    # return if data is None
-    if data is None:
-        return
-
     # input is iterable
     if isinstance(data, (list, tuple)):
         return _prepare_iterable(data, masked, nodata, dtype)

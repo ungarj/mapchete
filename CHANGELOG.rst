@@ -18,6 +18,7 @@ Changelog
 * raster_file & geotiff Input cache removed
 * ``get_segmentize_value()`` function is now public
 * use ``rasterio.vrt.WarpedVRT`` class to read raster windows
+* source rasters without nodata value or mask are now handled properly (previously a default nodata value of 0 was assumed)
 
 ---
 0.9

@@ -1,10 +1,11 @@
 """Contour line extraction using matplotlib."""
 
 import matplotlib
+from shapely.geometry import LineString, mapping
+
 # Must be called before pyplot otherwise Travis fails
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from shapely.geometry import LineString, mapping
 
 
 def extract_contours(array, tile, interval=100, field='elev', base=0):
@@ -29,8 +30,10 @@ def extract_contours(array, tile, interval=100, field='elev', base=0):
     contours : iterable
         contours as GeoJSON-like pairs of properties and geometry
     """
+    print interval
     levels = _get_contour_values(
         array.min(), array.max(), interval=interval, base=base)
+    print levels
     if not levels:
         return []
     contours = plt.contour(array, levels)
@@ -43,9 +46,10 @@ def extract_contours(array, tile, interval=100, field='elev', base=0):
         for path in paths:
             out_coords = [
                 (
-                    tile.left+(i[1]*tile.pixel_x_size),
-                    tile.top-(i[0]*tile.pixel_y_size), )
-                for i in zip(path.vertices[:, 1], path.vertices[:, 0])
+                    tile.left + (y * tile.pixel_x_size),
+                    tile.top - (x * tile.pixel_y_size),
+                )
+                for x, y in zip(path.vertices[:, 1], path.vertices[:, 0])
             ]
             if len(out_coords) >= 2:
                 out_contours.append(
@@ -59,6 +63,7 @@ def extract_contours(array, tile, interval=100, field='elev', base=0):
 
 def _get_contour_values(min_val, max_val, base=0, interval=100):
     """Return a list of values between min and max within an interval."""
+    print min_val, max_val, base, interval
     i = base
     out = []
     if min_val < base:
