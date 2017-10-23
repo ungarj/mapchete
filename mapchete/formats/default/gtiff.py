@@ -306,7 +306,6 @@ class InputTile(base.InputTile):
         self.process = process
         self.pixelbuffer = None
         self.resampling = resampling
-        self._np_cache = None
 
     def read(self, indexes=None):
         """
@@ -322,10 +321,13 @@ class InputTile(base.InputTile):
         data : array
         """
         band_indexes = self._get_band_indexes(indexes)
+        arr = self.process.get_raw_output(self.tile)
         if len(band_indexes) == 1:
-            return self._from_cache(indexes=band_indexes).next()
+            return arr[band_indexes[0] - 1]
         else:
-            return self._from_cache(indexes=band_indexes)
+            return ma.concatenate([
+                ma.expand_dims(arr[i - 1], 0) for i in band_indexes
+            ])
 
     def is_empty(self, indexes=None):
         """
@@ -335,21 +337,10 @@ class InputTile(base.InputTile):
         -------
         is empty : bool
         """
-        band_indexes = self._get_band_indexes(indexes)
-        src_bbox = self.process.config.process_area()
-        tile_geom = self.tile.bbox
-
         # empty if tile does not intersect with file bounding box
-        if not tile_geom.intersects(src_bbox):
-            return True
-
-        # empty if source band(s) are empty
-        all_bands_empty = True
-        for band in self._from_cache(band_indexes):
-            if not band.mask.all():
-                all_bands_empty = False
-                break
-        return all_bands_empty
+        return not self.tile.bbox.intersects(
+            self.process.config.process_area()
+        )
 
     def _get_band_indexes(self, indexes=None):
         """Return valid band indexes."""
@@ -362,20 +353,13 @@ class InputTile(base.InputTile):
             return range(
                 1, self.process.config.output.profile(self.tile)["count"] + 1)
 
-    def _from_cache(self, indexes=None):
-        """Cache reprojected source data for multiple usage."""
-        for band_index in indexes:
-            if self._np_cache is None:
-                self._np_cache = self.process.get_raw_output(self.tile)
-            yield self._np_cache[band_index-1]
-
     def __enter__(self):
         """Enable context manager."""
         return self
 
     def __exit__(self, t, v, tb):
         """Clear cache on close."""
-        del self._np_cache
+        pass
 
 
 GTIFF_PROFILE = {

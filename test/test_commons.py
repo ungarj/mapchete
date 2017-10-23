@@ -64,15 +64,17 @@ def test_contours():
     tile = mp.get_process_tiles(zoom=4).next()
     tile_process = MapcheteProcess(tile, params=mp.config.at_zoom(4))
     with tile_process.open("file1") as dem:
-        contours = tile_process.contours(dem.read())
+        arr = dem.read()
+        # valid contours
+        contours = tile_process.contours(arr)
         assert contours
         assert isinstance(contours, list)
         # no contours
-        contours = tile_process.contours(dem.read(), interval=10000)
+        contours = tile_process.contours(arr, interval=10000)
         assert isinstance(contours, list)
         assert not contours
         # base bigger than values
-        contours = tile_process.contours(dem.read(), base=10000)
+        contours = tile_process.contours(arr, base=10000)
         assert isinstance(contours, list)
         assert contours
 

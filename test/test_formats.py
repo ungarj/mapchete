@@ -75,7 +75,7 @@ def test_mapchete_input():
     assert input_data.bbox()
     assert input_data.bbox(CRS.from_epsg(3857))
     mp_input = input_data.open(mp.get_process_tiles(5).next())
-    assert mp_input.is_empty()
+    assert not mp_input.is_empty()
 
 
 def test_base_format_classes():

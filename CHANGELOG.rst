@@ -7,14 +7,18 @@ Changelog
 ----
 * better memory handling by detatching process output data from ``BufferedTile`` objects
 * breaking API changes:
-  * Mapchete.execute() returns raw data instead of tile with data attribute
-  * Mapchete.read() returns raw data instead of tile with data attribute
-  * Mapchete.get_raw_output() returns raw data instead of tile with data attribute
-  * Mapchete.write() requires process_tile and data as arguments
-  * same valid for all other read() and write() functions in drivers & MapcheteProcess object
-* new MapcheteNodataTile exception to indicate an empty process output
-* raster_file Input cache removed
+  * ``Mapchete.execute()`` returns raw data instead of tile with data attribute
+  * ``Mapchete.read()`` returns raw data instead of tile with data attribute
+  * ``Mapchete.get_raw_output()`` returns raw data instead of tile with data attribute
+  * ``Mapchete.write()`` requires process_tile and data as arguments
+  * same valid for all other ``read()`` and ``write()`` functions in drivers & ``MapcheteProcess`` object
+  * formats ``is_empty()`` function makes just a basic intersection check but does not actually look into the data anymore
+  * formats ``read()`` functions are not generators anymore but follow the rasterio style (2D array when one band index is given, 3D arrays for multiple band indices)
+* new ``MapcheteNodataTile`` exception to indicate an empty process output
+* raster_file & geotiff Input cache removed
 * ``get_segmentize_value()`` function is now public
+* use ``rasterio.vrt.WarpedVRT`` class to read raster windows
+* source rasters without nodata value or mask are now handled properly (previously a default nodata value of 0 was assumed)
 
 ---
 0.9
