@@ -326,8 +326,7 @@ class InputTile(base.InputTile):
             return arr[band_indexes[0] - 1]
         else:
             return ma.concatenate([
-                arr[i - 1]
-                for i in band_indexes
+                ma.expand_dims(arr[i - 1], 0) for i in band_indexes
             ])
 
     def is_empty(self, indexes=None):
