@@ -148,7 +148,6 @@ class InputTile(base.InputTile):
         """Initialize."""
         self.tile = tile
         self.raster_file = raster_file
-        self._np_band_cache = {}
         self.resampling = resampling
 
     def read(self, indexes=None):
@@ -159,21 +158,12 @@ class InputTile(base.InputTile):
         -------
         data : array
         """
-        band_indexes = self._get_band_indexes(indexes)
-        if len(band_indexes) == 1:
-            return read_raster_window(
-                self.raster_file.path,
-                self.tile,
-                indexes=self._get_band_indexes(indexes),
-                resampling=self.resampling
-            ).next()
-        else:
-            return read_raster_window(
-                self.raster_file.path,
-                self.tile,
-                indexes=self._get_band_indexes(indexes),
-                resampling=self.resampling
-            )
+        return read_raster_window(
+            self.raster_file.path,
+            self.tile,
+            indexes=self._get_band_indexes(indexes),
+            resampling=self.resampling
+        )
 
     def is_empty(self, indexes=None):
         """

@@ -49,15 +49,15 @@ def test_read_raster_window():
         for band in raster.read_raster_window(dummy1, tile):
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
-        for index in range(4):
-            band = raster.read_raster_window(dummy1, tile, index).next()
+        for index in range(1, 4):
+            band = raster.read_raster_window(dummy1, tile, index)
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
     for resampling in [
         "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average",
         "mode"
     ]:
-        raster.read_raster_window(dummy1, tile, resampling=resampling).next()
+        raster.read_raster_window(dummy1, tile, resampling=resampling)
 
     # with reproject
     config_raw = yaml.load(open(
@@ -80,19 +80,19 @@ def test_read_raster_window():
         for band in raster.read_raster_window(dummy1, tile):
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == tile.shape
-        bands = raster.read_raster_window(dummy1, tile, [1]).next()
+        bands = raster.read_raster_window(dummy1, tile, [1])
         assert isinstance(bands, ma.MaskedArray)
         assert bands.shape == tile.shape
     for resampling in [
         "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average",
         "mode"
     ]:
-        raster.read_raster_window(dummy1, tile, resampling=resampling).next()
+        raster.read_raster_window(dummy1, tile, resampling=resampling)
     # errors
     with pytest.raises(IOError):
         raster.read_raster_window(
             "nonexisting_path", tile, resampling=resampling
-        ).next()
+        )
 
 
 def test_write_raster_window():
