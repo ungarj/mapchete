@@ -270,7 +270,7 @@ def test_baselevels_buffer_antimeridian():
         )
         mp_config.update(
             pixelbuffer=10, config_dir=os.path.join(SCRIPTDIR, "testdata"),
-            input_files=None
+            input=None
         )
         zoom = 5
         row = 0
@@ -412,7 +412,7 @@ def test_process_template():
     mp = mapchete.open(
         dict(
             process_file=process_template,
-            input_files=dict(file1=dummy1),
+            input=dict(file1=dummy1),
             output=dict(
                 format="GTiff",
                 path=".",
@@ -442,7 +442,7 @@ def test_count_tiles():
     mp_conf.update(
         process_maxzoom=maxzoom,
         process_bounds=[14.0625, 47.8125, 16.875, 50.625],
-        config_dir=TESTDATA_DIR, input_files=None, metatiling=8, pixelbuffer=5
+        config_dir=TESTDATA_DIR, input=None, metatiling=8, pixelbuffer=5
     )
     # for minzoom in range(0, 14):
     for minzoom in range(0, 14):

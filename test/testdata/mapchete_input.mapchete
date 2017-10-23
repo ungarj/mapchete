@@ -1,7 +1,7 @@
 # mapchete parameters
 process_file: ../example_process.py
 process_zoom: 5
-input_files:
+input:
     file1: dummy2.tif
     file2: zoom.mapchete
 

@@ -2,7 +2,7 @@
 process_file: ../example_process.py
 process_minzoom: 7
 process_maxzoom: 10
-input_files:
+input:
     greater_smaller:
         zoom<9: dummy1.tif
         zoom>=9: dummy2.tif

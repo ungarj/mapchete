@@ -131,7 +131,7 @@ def test_http_rasters():
     ) as src:
         config = yaml.load(src.read())
         config.update(
-            input_files=dict(file1=HTTP_RASTER),
+            input=dict(file1=HTTP_RASTER),
             config_dir=os.path.join(SCRIPTDIR, "testdata"),
             process_zoom=zoom
         )

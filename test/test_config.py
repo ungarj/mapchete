@@ -188,14 +188,14 @@ def test_read_baselevels():
         assert MapcheteConfig(config).baselevels["lower"] == "nearest"
 
 
-def test_empty_input_files():
+def test_empty_input():
     """Verify configuration gets parsed without input files."""
     with open(
         os.path.join(SCRIPTDIR, "testdata/file_groups.mapchete"), "r"
     ) as src:
         config = yaml.load(src.read())
         config.update(
-            input_files=None, config_dir=os.path.join(SCRIPTDIR, "testdata")
+            input=None, config_dir=os.path.join(SCRIPTDIR, "testdata")
         )
     assert mapchete.open(config)
 
@@ -217,7 +217,7 @@ def test_read_input_groups():
     assert "file2" in input_files["nested_group"]["group2"]
 
 
-def test_input_files_zooms():
+def test_input_zooms():
     """Read correct input file per zoom."""
     config = MapcheteConfig(
         os.path.join(SCRIPTDIR, "testdata/files_zooms.mapchete"))

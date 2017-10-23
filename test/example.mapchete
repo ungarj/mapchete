@@ -1,7 +1,7 @@
 # mandatory parameters
 ######################
 process_file: example_process.py
-input_files:
+input:
     file1:
         zoom>=10: testdata/dummy1.tif
     file2: testdata/dummy2.tif

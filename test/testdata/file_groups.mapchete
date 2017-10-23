@@ -2,7 +2,7 @@
 process_file: ../example_process.py
 process_minzoom: 0
 process_maxzoom: 5
-input_files:
+input:
     group1:
         file1: cleantopo_tl.tif
         file2: cleantopo_br.tif

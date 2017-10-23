@@ -39,7 +39,7 @@ def test_execute():
         os.path.join(SCRIPTDIR, "example.mapchete"), mode="readonly"
     ) as mp:
         with pytest.raises(ValueError):
-            mp.execute(mp.get_process_tiles().next())
+            mp.execute(mp.get_process_tiles())
     # wrong tile type
     with mapchete.open(os.path.join(SCRIPTDIR, "example.mapchete")) as mp:
         with pytest.raises(TypeError):
@@ -53,7 +53,7 @@ def test_read():
         os.path.join(SCRIPTDIR, "example.mapchete"), mode="memory"
     ) as mp:
         with pytest.raises(ValueError):
-            mp.read(mp.get_process_tiles().next())
+            mp.read(mp.get_process_tiles())
     # wrong tile type
     with mapchete.open(os.path.join(SCRIPTDIR, "example.mapchete")) as mp:
         with pytest.raises(TypeError):
@@ -107,7 +107,7 @@ def test_no_cli_input_file():
         with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
             config = copy(yaml.load(mc))
             config.update(
-                config_dir=SCRIPTDIR, input_files="from_command_line")
+                config_dir=SCRIPTDIR, input="from_command_line")
             MapcheteConfig(config)
 
 
@@ -127,13 +127,13 @@ def test_empty_input_files():
         with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
             config = copy(yaml.load(mc))
             config.update(config_dir=SCRIPTDIR)
-            del config["input_files"]
+            del config["input"]
             MapcheteConfig(config)
 
 
 def test_mandatory_params():
     """Check availability of mandatory parameters."""
-    for param in ["process_file", "input_files", "output"]:
+    for param in ["process_file", "input", "output"]:
         with pytest.raises(errors.MapcheteConfigError):
             with open(os.path.join(SCRIPTDIR, "example.mapchete")) as mc:
                 config = copy(yaml.load(mc))

@@ -38,11 +38,7 @@ def main(args=None):
         parsed.input_raster, parsed.output_dir, options)
 
 
-def raster2pyramid(
-    input_file,
-    output_dir,
-    options
-):
+def raster2pyramid(input_file, output_dir, options):
     """Create a tile pyramid out of an input raster dataset."""
     pyramid_type = options["pyramid_type"]
     scale_method = options["scale_method"]
@@ -62,12 +58,10 @@ def raster2pyramid(
         input_dtype = input_raster.dtypes[0]
         output_dtype = input_raster.dtypes[0]
         nodataval = input_raster.nodatavals[0]
-        if not nodataval:
-            nodataval = 0
-        if output_format == "PNG":
-            if output_bands > 3:
-                output_bands = 3
-                output_dtype = 'uint8'
+        nodataval = nodataval if nodataval else 0
+        if output_format == "PNG" and output_bands > 3:
+            output_bands = 3
+            output_dtype = 'uint8'
         scales_minmax = ()
         if scale_method == "dtype_scale":
             for index in range(1, output_bands+1):
@@ -97,7 +91,7 @@ def raster2pyramid(
             },
         scale_method=scale_method,
         scales_minmax=scales_minmax,
-        input_files={"raster": input_file},
+        input={"raster": input_file},
         config_dir=os.getcwd(),
         process_minzoom=minzoom,
         process_maxzoom=maxzoom,
