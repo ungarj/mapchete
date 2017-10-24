@@ -163,7 +163,8 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
                 )
                 LOGGER.debug("load input reader for file %s" % input_obj)
                 _input_reader = load_input_reader(dict(
-                    path=path, pyramid=pyramid, pixelbuffer=pixelbuffer
+                    path=path, pyramid=pyramid, pixelbuffer=pixelbuffer,
+                    delimiters=delimiters
                 ))
                 LOGGER.debug(
                     "input reader for file %s is %s" % (

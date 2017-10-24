@@ -49,7 +49,11 @@ class InputData(base.InputData):
         super(InputData, self).__init__(input_params)
         self.path = input_params["path"]
         if self.path:
-            self.process = Mapchete(MapcheteConfig(self.path, mode="readonly"))
+            self.process = Mapchete(MapcheteConfig(
+                self.path, mode="readonly",
+                bounds=input_params["delimiters"]["bounds"],
+                zoom=input_params["delimiters"]["zoom"]
+            ))
         self._bbox_cache = {}
 
     def open(self, tile, **kwargs):
