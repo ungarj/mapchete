@@ -55,7 +55,8 @@ def input_at_zoom(process, name, element, zoom):
             analyzed_inputs = {
                 key: input_obj_reader
                 for key, input_obj_reader in pool.imap_unordered(
-                    f, new_inputs, chunksize=8
+                    f, new_inputs,
+                    chunksize=int(1 + len(new_inputs) / cpu_count())
                 )
             }
         except KeyboardInterrupt:

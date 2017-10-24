@@ -100,7 +100,7 @@ def _run_with_multiprocessing(
             pool = Pool(multi)
             try:
                 for tile, output in pool.imap_unordered(
-                    f, process_tiles, chunksize=1
+                    f, process_tiles, chunksize=int(1 + total_tiles / multi)
                 ):
                     _write_worker(process, tile, output)
                     pbar.update()
