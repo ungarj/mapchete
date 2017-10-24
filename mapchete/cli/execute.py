@@ -28,7 +28,8 @@ def main(args=None):
         ).tile(*parsed.tile)
         with mapchete.open(
             parsed.mapchete_file, mode=mode, bounds=tile.bounds,
-            single_input_file=parsed.input_file, debug=parsed.debug
+            zoom=tile.zoom, single_input_file=parsed.input_file,
+            debug=parsed.debug
         ) as mp:
             mp.batch_process(
                 tile=parsed.tile, quiet=parsed.quiet, debug=parsed.debug
@@ -36,8 +37,8 @@ def main(args=None):
     # initialize and run process
     else:
         with mapchete.open(
-            parsed.mapchete_file, bounds=parsed.bounds, mode=mode,
-            single_input_file=parsed.input_file, debug=parsed.debug
+            parsed.mapchete_file, bounds=parsed.bounds, zoom=parsed.zoom,
+            mode=mode, single_input_file=parsed.input_file, debug=parsed.debug
         ) as mp:
             mp.batch_process(
                 multi=multi, quiet=parsed.quiet, debug=parsed.debug, zoom=zoom
