@@ -48,7 +48,7 @@ def input_at_zoom(process, name, element, zoom):
         start = time.time()
         f = partial(
             _input_worker, process.config_dir, process.process_pyramid,
-            process.pixelbuffer
+            process.pixelbuffer, process._delimiters
         )
         pool = Pool()
         try:
@@ -76,7 +76,7 @@ def input_at_zoom(process, name, element, zoom):
         analyzed_inputs = {
             k: _input_worker(
                 process.config_dir, process.process_pyramid,
-                process.pixelbuffer, (k, v)
+                process.pixelbuffer, process._delimiters, (k, v)
             )[1]
             for k, v in new_inputs
         }
@@ -147,7 +147,7 @@ def _unflatten_tree(flat):
     return tree
 
 
-def _input_worker(conf_dir, pyramid, pixelbuffer, kv):
+def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
     try:
         key, input_obj = kv
         if input_obj not in ["none", "None", None, ""]:
@@ -175,7 +175,8 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, kv):
                     "load input reader for abstract input %s" % input_obj
                 )
                 _input_reader = load_input_reader(dict(
-                    abstract=input_obj, pyramid=pyramid, pixelbuffer=pixelbuffer
+                    abstract=input_obj, pyramid=pyramid,
+                    pixelbuffer=pixelbuffer, delimiters=delimiters
                 ))
                 LOGGER.debug(
                     "input reader for abstract input %s is %s" % (
