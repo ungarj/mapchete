@@ -3,19 +3,16 @@
 import os
 import logging
 import warnings
-import pyproj
 import fiona
-from functools import partial
+from fiona.transform import transform_geom
 from rasterio.crs import CRS
 from shapely.geometry import (
     box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon, Polygon,
     LinearRing, LineString
 )
-from shapely.ops import transform
+from shapely.errors import TopologicalError
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
-
-from mapchete.tile import BufferedTile
 
 # suppress shapely warnings
 logging.getLogger("shapely").setLevel(logging.ERROR)
@@ -52,8 +49,8 @@ def reproject_geometry(
         raises a ``RuntimeError`` if a geometry is outside of CRS bounds
         (default: False)
     validity_check : bool
-        checks if reprojected geometry is valid and throws ``RuntimeError`` if
-        invalid (default: True)
+        checks if reprojected geometry is valid and throws ``TopologicalError``
+        if invalid (default: True)
 
     Returns
     -------
@@ -91,17 +88,11 @@ def reproject_geometry(
 def _reproject_geom(geometry, src_crs, dst_crs, validity_check=True):
     if geometry.is_empty or src_crs == dst_crs:
         return geometry.buffer(0)
-    project = partial(
-        pyproj.transform, pyproj.Proj(src_crs), pyproj.Proj(dst_crs))
-    out_geom = transform(project, geometry)
-    # try to repair geometry as there could be a lot of self-intersection
-    # errors after proj handled reprojection;
-    try:
-        out_geom = out_geom.buffer(0)
-    except Exception:
-        pass
+    out_geom = shape(
+        transform_geom(src_crs.to_dict(), dst_crs.to_dict(), mapping(geometry))
+    ).buffer(0)
     if validity_check and not out_geom.is_valid or out_geom.is_empty:
-        raise RuntimeError("invalid geometry after reprojection")
+        raise TopologicalError("invalid geometry after reprojection")
     return out_geom
 
 
