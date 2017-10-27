@@ -3,6 +3,16 @@ Changelog
 #########
 
 ----
+0.11
+----
+* ``vector.reproject_geometry()`` throws now ``shapely.errors.TopologicalError`` instead of ``RuntimeError`` if reprojected geometry is invalid
+* ``vector.reproject_geometry()`` now uses ``fiona.transform.transform_geom()`` internally
+* pass on delimiters (zoom levels & process bounds) to drivers ``InputData`` object
+* when a tile is specified in ``mapchete execute``, process bounds are clipped to tile bounds
+* better estimate ``chunksize`` for multiprocessing in tile processing & preparing inputs
+
+
+----
 0.10
 ----
 * better memory handling by detatching process output data from ``BufferedTile`` objects

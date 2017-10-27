@@ -551,6 +551,6 @@ def test_reproject_geometry():
         Polygon(), CRS().from_epsg(4326), CRS().from_epsg(4326)).is_empty
 
 
-# TODO vector.write_vector_window()
 # TODO vector.clean_geometry_type()
+# TODO vector.write_vector_window()
 # TODO vector.extract_from_tile()

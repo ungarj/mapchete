@@ -171,8 +171,8 @@ def read_vector_window(input_file, tile, validity_check=True):
         return features
 
 
-def write_vector_window(in_data=None, out_schema=None, out_tile=None,
-    out_path=None
+def write_vector_window(
+    in_data=None, out_schema=None, out_tile=None, out_path=None
 ):
     """
     Write features to GeoJSON file.
@@ -210,16 +210,15 @@ def write_vector_window(in_data=None, out_schema=None, out_tile=None,
         if out_geom:
             out_features.append(dict(
                 geometry=mapping(out_geom), properties=feature["properties"]))
-    # Return if clipped tile data is empty
-    if not out_features:
-        return
-    # Write data
-    with fiona.open(
-        out_path, 'w', schema=out_schema, driver="GeoJSON",
-        crs=out_tile.crs.to_dict()
-    ) as dst:
-        for feature in out_features:
-            dst.write(feature)
+
+    if out_features:
+        # Write data
+        with fiona.open(
+            out_path, 'w', schema=out_schema, driver="GeoJSON",
+            crs=out_tile.crs.to_dict()
+        ) as dst:
+            for feature in out_features:
+                dst.write(feature)
 
 
 def _get_reprojected_features(
@@ -253,7 +252,7 @@ def _get_reprojected_features(
                         geom = reproject_geometry(
                             geom, src_crs=vector_crs, dst_crs=dst_crs,
                             validity_check=validity_check)
-                    except ValueError:
+                    except TopologicalError:
                         warnings.warn("feature reprojection failed")
                 yield {
                     'properties': feature['properties'],
@@ -288,21 +287,19 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         "MultiLineString": MultiLineString,
         "MultiPolygon": MultiPolygon
     }
-    try:
-        multipart_geom = multipart_geoms[target_type]
-    except KeyError:
-        raise ValueError("target type is not supported: %s" % target_type)
-    assert geometry.is_valid
+    if target_type not in multipart_geoms.keys():
+        raise TypeError("target type is not supported: %s" % target_type)
 
+    multipart_geom = multipart_geoms[target_type]
     if geometry.geom_type == target_type:
         return geometry
     elif geometry.geom_type == "GeometryCollection":
-        subgeoms = [
+        return multipart_geom([
             clean_geometry_type(
-                subgeom, target_type, allow_multipart=allow_multipart)
-            for subgeom in geometry
-        ]
-        return multipart_geom(subgeoms)
+                g, target_type, allow_multipart=allow_multipart
+            )
+            for g in geometry
+        ])
     elif allow_multipart and isinstance(geometry, multipart_geom):
         return geometry
     elif multipart_geoms[geometry.geom_type] == multipart_geom:
