@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Functions to parse through input items."""
 
 import os
