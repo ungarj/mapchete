@@ -10,7 +10,7 @@ Changelog
 * pass on delimiters (zoom levels & process bounds) to drivers ``InputData`` object
 * when a tile is specified in ``mapchete execute``, process bounds are clipped to tile bounds
 * better estimate ``chunksize`` for multiprocessing in tile processing & preparing inputs
-
+* add nodata argument to ``read_raster_window()`` to fix ``rasterio.vrt.WarpedVRT`` resampling issue
 
 ----
 0.10
