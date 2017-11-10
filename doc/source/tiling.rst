@@ -15,7 +15,9 @@ Tile pyramids
 -------------
 
 .. figure:: img/mercator_pyramid.svg
-  standard ``mercator`` pyramid used in the web
+
+   standard ``mercator`` pyramid used in the web
+
 
 Every tiling a web framework uses is based on a pyramid of multiple zoom levels
 (tile matrices). Each tile matrix consists of tiles arranged in rows and
@@ -62,7 +64,8 @@ Metatiles
 ---------
 
 .. figure:: img/metatiling.svg
-  standard WMTS tiling versus ``metatiling=2``
+
+   standard WMTS tiling versus ``metatiling=2``
 
 Depending on the process it sometimes makes sense to increase the tile size.
 A ``metatiling`` setting of 2 means that a metatile consists of 2x2 WMTS tiles.
@@ -78,7 +81,8 @@ Buffers
 -------
 
 .. figure:: img/pixelbuffer.svg
-  example tile with ``pixelbuffer=5``
+
+   example tile with ``pixelbuffer=5``
 
 Sometimes there can be artefacts on tile borders. This can be if the process
 requires neighbor pixel values for every pixel (e.g. the hillshading algortihm)
