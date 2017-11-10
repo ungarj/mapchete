@@ -4,8 +4,8 @@ Tiling and projections
 This tool was intended to be used to preprocess data like creating hillshades
 which is used for web maps afterwards. Therefore the output projections
 supported are `Web Mercator`_ (``mercator``) and the geodetic projection based
-on WGS84_ (``geodetic``). For the tiles within these projections, a tiling scheme based on the
-WMTS_-tiling is used.
+on WGS84_ (``geodetic``). For the tiles within these projections, a tiling
+scheme based on the WMTS_-tiling is used.
 
 .. _`Web Mercator`: https://epsg.io/3857
 .. _WGS84: https://epsg.io/4326
@@ -13,6 +13,9 @@ WMTS_-tiling is used.
 
 Tile pyramids
 -------------
+
+.. image:: img/mercator_pyramid.svg
+  standard ``mercator`` pyramid used in the web
 
 Every tiling a web framework uses is based on a pyramid of multiple zoom levels
 (tile matrices). Each tile matrix consists of tiles arranged in rows and
@@ -22,9 +25,11 @@ Every tile within a tile pyramid can be described by three numbers: the zoom
 level, row and column. As these numbers are used in the WMTS protocol, Mapchete
 can easily map them to the desired tiles to be processed.
 
+
 Most web maps use the ``mercator`` scheme (or pyramid), the second most used
 scheme is the ``geodetic`` scheme which also covers the polar regions but shows
 distortions especially in higher lattitudes which are unfamiliar to most users.
+
 
 Properties of supported pyramids
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -56,6 +61,9 @@ but if there is demand and resources, tilematrix would be the starting point.
 Metatiles
 ---------
 
+.. image:: img/metatiling.svg
+  standard WMTS tiling versus ``metatiling=2``
+
 Depending on the process it sometimes makes sense to increase the tile size.
 A ``metatiling`` setting of 2 means that a metatile consists of 2x2 WMTS tiles.
 Increasing the metatile size often also increases performance as some overhead
@@ -69,6 +77,9 @@ output tile size cannot be bigger than the process tile size.
 Buffers
 -------
 
+.. image:: img/pixelbuffer.svg
+  example tile with ``pixelbuffer=5``
+
 Sometimes there can be artefacts on tile borders. This can be if the process
 requires neighbor pixel values for every pixel (e.g. the hillshading algortihm)
 or when reading raster data in some different projections.
@@ -79,5 +90,5 @@ process tiles and output tiles. By default, the output tiles pixelbuffer is set
 to 0, which means that when writing the process output, the buffer will be
 cropped.
 
-Please note that the output ``pixelbuffer`` cannot be larger than the process
-``pixelbuffer``.
+Please note that the **output** ``pixelbuffer`` cannot be larger than the
+**process** ``pixelbuffer``.
