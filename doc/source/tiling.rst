@@ -14,7 +14,7 @@ scheme based on the WMTS_-tiling is used.
 Tile pyramids
 -------------
 
-.. _image: img/mercator_pyramid.svg
+.. figure:: img/mercator_pyramid.svg
   standard ``mercator`` pyramid used in the web
 
 Every tiling a web framework uses is based on a pyramid of multiple zoom levels
@@ -61,7 +61,7 @@ but if there is demand and resources, tilematrix would be the starting point.
 Metatiles
 ---------
 
-.. _image: img/metatiling.svg
+.. figure:: img/metatiling.svg
   standard WMTS tiling versus ``metatiling=2``
 
 Depending on the process it sometimes makes sense to increase the tile size.
@@ -77,7 +77,7 @@ output tile size cannot be bigger than the process tile size.
 Buffers
 -------
 
-.. _image: img/pixelbuffer.svg
+.. figure:: img/pixelbuffer.svg
   example tile with ``pixelbuffer=5``
 
 Sometimes there can be artefacts on tile borders. This can be if the process
