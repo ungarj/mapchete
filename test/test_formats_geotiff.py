@@ -63,6 +63,11 @@ def test_output_data():
     assert isinstance(empty, ma.MaskedArray)
     assert not empty.any()
     # deflate with predictor
+    output_params.update(compress="deflate", predictor=2)
+    output = gtiff.OutputData(output_params)
+    assert output.profile(tile)["compress"] == "deflate"
+    assert output.profile(tile)["predictor"] == 2
+    # using deprecated "compression" property
     output_params.update(compression="deflate", predictor=2)
     output = gtiff.OutputData(output_params)
     assert output.profile(tile)["compress"] == "deflate"

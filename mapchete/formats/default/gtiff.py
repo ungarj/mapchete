@@ -34,6 +34,7 @@ import os
 import numpy as np
 import numpy.ma as ma
 import rasterio
+import warnings
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
@@ -235,7 +236,14 @@ class OutputData(base.OutputData):
         except KeyError:
             pass
         try:
-            dst_metadata.update(compress=self.output_params["compression"])
+            if "compression" in self.output_params:
+                warnings.warn(
+                    "use 'compress' instead of 'compression'",
+                    DeprecationWarning
+                )
+                dst_metadata.update(compress=self.output_params["compression"])
+            else:
+                dst_metadata.update(compress=self.output_params["compress"])
             dst_metadata.update(predictor=self.output_params["predictor"])
         except KeyError:
             pass
