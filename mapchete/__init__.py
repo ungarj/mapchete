@@ -35,7 +35,7 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 
 
-__version__ = "0.11"
+__version__ = "0.12"
 
 
 def open(

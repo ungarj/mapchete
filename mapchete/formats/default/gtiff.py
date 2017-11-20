@@ -89,10 +89,7 @@ class OutputData(base.OutputData):
         self.path = output_params["path"]
         self.file_extension = ".tif"
         self.output_params = output_params
-        try:
-            self.nodata = output_params["nodata"]
-        except KeyError:
-            self.nodata = GTIFF_PROFILE["nodata"]
+        self.nodata = output_params.get("nodata", GTIFF_PROFILE["nodata"])
 
     def read(self, output_tile):
         """

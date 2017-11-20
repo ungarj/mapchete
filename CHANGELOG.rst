@@ -3,6 +3,12 @@ Changelog
 #########
 
 ----
+0.12
+----
+* adapt chunksize formula to limit ``multiprocessing`` chunksize between 0 and 16; this resolves occuring ``MemoryError()`` and some performance impediments, closing #82
+* GeoTIFF output driver: use ``compress`` (like in rasterio) instead of ``compression`` & raise ``DeprecationWarning`` when latter is used
+
+----
 0.11
 ----
 * ``vector.reproject_geometry()`` throws now ``shapely.errors.TopologicalError`` instead of ``RuntimeError`` if reprojected geometry is invalid
