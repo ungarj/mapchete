@@ -185,13 +185,12 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
                     )
                 )
             else:
-                raise TypeError("invalid input type %s", type(input_obj))
+                raise MapcheteConfigError(
+                    "invalid input type %s", type(input_obj))
             # trigger input bounding box caches
             _input_reader.bbox(out_crs=pyramid.crs)
             return key, (input_obj, _input_reader)
         else:
             return key, (None, None)
     except Exception as e:
-        raise MapcheteDriverError(
-            "%s could not be read: %s" % (key, e)
-        )
+        raise MapcheteDriverError("%s could not be read: %s" % (key, e))

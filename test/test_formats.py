@@ -138,3 +138,14 @@ def test_http_rasters():
     # TODO make tests more performant
     with mapchete.open(config) as mp:
         assert mp.config.process_area(zoom).area > 0
+
+
+def test_invalid_input_type():
+    """Raise MapcheteDriverError."""
+    # invalid input type
+    config = yaml.load(open(
+        os.path.join(SCRIPTDIR, "example.mapchete")
+    ).read())
+    config.update(config_dir=SCRIPTDIR, input=dict(invalid_type=1))
+    with pytest.raises(errors.MapcheteDriverError):
+        mapchete.open(config)
