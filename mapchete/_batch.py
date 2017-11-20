@@ -12,6 +12,9 @@ from tilematrix import TilePyramid
 
 LOGGER = logging.getLogger(__name__)
 
+# maximum number of process tiles to be queued at each worker
+MAX_CHUNKSIZE = 16
+
 
 def batch_process(
     process, zoom=None, tile=None, multi=cpu_count(), quiet=False, debug=False
@@ -100,7 +103,11 @@ def _run_with_multiprocessing(
             pool = Pool(multi)
             try:
                 for tile, output in pool.imap_unordered(
-                    f, process_tiles, chunksize=int(1 + total_tiles / multi)
+                    f, process_tiles,
+                    # set chunksize to between 1 and MAX_CHUNKSIZE
+                    chunksize=min([
+                        max([total_tiles / multi, 1]), MAX_CHUNKSIZE
+                    ])
                 ):
                     _write_worker(process, tile, output)
                     pbar.update()
