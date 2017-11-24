@@ -7,7 +7,8 @@ import numpy as np
 import numpy.ma as ma
 from affine import Affine
 from collections import namedtuple
-from rasterio.warp import Resampling, reproject
+from rasterio.warp import reproject
+from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 from rasterio.vrt import WarpedVRT
 from shapely.ops import cascaded_union
@@ -27,7 +28,7 @@ RESAMPLING_METHODS = {
     "lanczos": Resampling.lanczos,
     "average": Resampling.average,
     "mode": Resampling.mode
-    }
+}
 
 
 ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
@@ -159,7 +160,8 @@ def _get_warped_array(
         src_nodata = src.nodata if src_nodata is None else src_nodata
         dst_nodata = src.nodata if dst_nodata is None else dst_nodata
         with WarpedVRT(
-            src, dst_crs=dst_crs, src_nodata=src_nodata, dst_nodata=dst_nodata
+            src, dst_crs=dst_crs, src_nodata=src_nodata, dst_nodata=dst_nodata,
+            resampling=RESAMPLING_METHODS[resampling]
         ) as vrt:
             return vrt.read(
                 window=vrt.window(
@@ -167,7 +169,6 @@ def _get_warped_array(
                     width=dst_shape[-1]
                 ).round_lengths().round_offsets(),
                 boundless=True,
-                resampling=RESAMPLING_METHODS[resampling],
                 out_shape=dst_shape,
                 indexes=indexes,
                 masked=True
