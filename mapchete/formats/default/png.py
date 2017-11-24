@@ -163,7 +163,7 @@ class OutputData(base.OutputData):
         """
         assert isinstance(config, dict)
         assert "path" in config
-        assert isinstance(config["path"], str)
+        assert isinstance(config["path"], basestring)
         return True
 
     def get_path(self, tile):

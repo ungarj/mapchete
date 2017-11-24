@@ -211,7 +211,7 @@ def write_raster_window(
         raise TypeError("in_data must be ma.MaskedArray")
     if not isinstance(out_profile, dict):
         raise TypeError("out_profile must be a dictionary")
-    if not isinstance(out_path, str):
+    if not isinstance(out_path, basestring):
         raise TypeError("out_path must be a string")
     window_data = extract_from_array(
         in_raster=in_data,

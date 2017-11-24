@@ -171,9 +171,9 @@ class OutputData(base.OutputData):
         assert "bands" in config
         assert isinstance(config["bands"], int)
         assert "path" in config
-        assert isinstance(config["path"], str)
+        assert isinstance(config["path"], basestring)
         assert "dtype" in config
-        assert isinstance(config["dtype"], str)
+        assert isinstance(config["dtype"], basestring)
         return True
 
     def get_path(self, tile):

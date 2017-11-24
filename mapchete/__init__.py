@@ -492,7 +492,7 @@ class Mapchete(object):
             return self.config.output.empty(process_tile)
 
     def _streamline_output(self, process_data):
-        if isinstance(process_data, str) and process_data == "empty":
+        if isinstance(process_data, basestring) and process_data == "empty":
             raise MapcheteNodataTile
         elif isinstance(process_data, (np.ndarray, ma.MaskedArray)):
             return process_data
@@ -650,7 +650,7 @@ class MapcheteProcess(object):
         tiled input data : InputTile
             reprojected input data within tile
         """
-        if not isinstance(input_id, str):
+        if not isinstance(input_id, basestring):
             return input_id.open(self.tile, **kwargs)
         if input_id not in self.params["input"]:
             raise ValueError(

@@ -154,7 +154,7 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
             # prepare input metadata
             LOGGER.debug("read metadata from %s" % input_obj)
             # for single file inputs
-            if isinstance(input_obj, (str, unicode)):
+            if isinstance(input_obj, basestring):
                 # get absolute paths if not remote
                 path = input_obj if input_obj.startswith(
                     ("s3://", "https://", "http://")) else os.path.normpath(

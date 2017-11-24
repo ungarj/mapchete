@@ -167,7 +167,7 @@ class OutputData(base.OutputData):
             "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
             "Polygon", "MultiPolygon"]
         assert "path" in config
-        assert isinstance(config["path"], str)
+        assert isinstance(config["path"], basestring)
         assert config["type"] == "geodetic"
         return True
 
