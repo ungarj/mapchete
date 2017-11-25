@@ -558,6 +558,17 @@ def test_reproject_geometry():
         Polygon(), CRS().from_epsg(4326), CRS().from_epsg(4326)).is_empty
 
 
+def test_segmentize_geometry():
+    """Segmentize function."""
+    # Polygon
+    polygon = box(-18, -9, 18, 9)
+    out = vector.segmentize_geometry(polygon, 1)
+    assert out.is_valid
+    # wrong type
+    with pytest.raises(TypeError):
+        vector.segmentize_geometry(polygon.centroid, 1)
+
+
 # TODO vector.clean_geometry_type()
 # TODO vector.write_vector_window()
 # TODO vector.extract_from_tile()
