@@ -81,11 +81,11 @@ def _get_mode(parsed):
 
 def _tile_response(mp, web_tile, debug):
     try:
-        LOGGER.debug("getting web tile %s" % str(web_tile.id))
+        LOGGER.debug("getting web tile %s", str(web_tile.id))
         return _valid_tile_response(mp, mp.get_raw_output(web_tile))
     except Exception:
         if debug:
-            LOGGER.debug("getting web tile %s failed" % str(web_tile.id))
+            LOGGER.debug("getting web tile %s failed", str(web_tile.id))
             for line in format_exc().split("\n"):
                 LOGGER.error(line)
             raise

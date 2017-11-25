@@ -12,14 +12,14 @@ from multiprocessing import cpu_count
 from multiprocessing.pool import Pool
 
 from mapchete.formats import load_input_reader
-from mapchete.errors import MapcheteDriverError
+from mapchete.errors import MapcheteDriverError, MapcheteConfigError
 
 LOGGER = logging.getLogger(__name__)
 
 
 def input_at_zoom(process, name, element, zoom):
     """Get readers and bounding boxes for input."""
-    LOGGER.debug("get input items metadata for zoom %s" % zoom)
+    LOGGER.debug("get input items metadata for zoom %s", zoom)
     # case where a single input file is provided by CLI
     if element == "from_command_line":
         element = {"input_file": None}
@@ -152,7 +152,7 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
         key, input_obj = kv
         if input_obj not in ["none", "None", None, ""]:
             # prepare input metadata
-            LOGGER.debug("read metadata from %s" % input_obj)
+            LOGGER.debug("read metadata from %s", input_obj)
             # for single file inputs
             if isinstance(input_obj, basestring):
                 # get absolute paths if not remote
@@ -160,29 +160,26 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
                     ("s3://", "https://", "http://")) else os.path.normpath(
                     os.path.join(conf_dir, input_obj)
                 )
-                LOGGER.debug("load input reader for file %s" % input_obj)
+                LOGGER.debug("load input reader for file %s",  input_obj)
                 _input_reader = load_input_reader(dict(
                     path=path, pyramid=pyramid, pixelbuffer=pixelbuffer,
                     delimiters=delimiters
                 ))
                 LOGGER.debug(
-                    "input reader for file %s is %s" % (
-                        input_obj, _input_reader
-                    )
+                    "input reader for file %s is %s", input_obj, _input_reader
                 )
             # for abstract inputs
             elif isinstance(input_obj, dict):
                 LOGGER.debug(
-                    "load input reader for abstract input %s" % input_obj
+                    "load input reader for abstract input %s", input_obj
                 )
                 _input_reader = load_input_reader(dict(
                     abstract=input_obj, pyramid=pyramid,
                     pixelbuffer=pixelbuffer, delimiters=delimiters
                 ))
                 LOGGER.debug(
-                    "input reader for abstract input %s is %s" % (
-                        input_obj, _input_reader
-                    )
+                    "input reader for abstract input %s is %s", input_obj,
+                    _input_reader
                 )
             else:
                 raise MapcheteConfigError(

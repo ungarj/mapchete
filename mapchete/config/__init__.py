@@ -117,7 +117,7 @@ class MapcheteConfig(object):
             LOGGER.setLevel(logging.DEBUG)
         if mode not in ["memory", "readonly", "continue", "overwrite"]:
             raise MapcheteConfigError("invalid process mode")
-        LOGGER.debug("zooms provided to config: %s" % zoom)
+        LOGGER.debug("zooms provided to config: %s", zoom)
         self.mode = mode
         # parse configuration
         LOGGER.debug("parse configuration ...")
@@ -285,7 +285,7 @@ class MapcheteConfig(object):
             zoom level dependent process configuration
         """
         if zoom not in self._at_zoom_cache:
-            LOGGER.debug("parse configuration for zoom %s..." % zoom)
+            LOGGER.debug("parse configuration for zoom %s...", zoom)
             self._at_zoom_cache[zoom] = self._at_zoom(zoom)
         return self._at_zoom_cache[zoom]
 
