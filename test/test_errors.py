@@ -60,6 +60,15 @@ def test_read():
             mp.read("invalid")
 
 
+def test_write():
+    """Test write function when passing an invalid process_tile."""
+    mp = mapchete.open(
+        os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
+    # process and save
+    with pytest.raises(ValueError):
+        mp.write("invalid tile", None)
+
+
 def test_get_raw_output():
     """Mapchete get_raw_output() errors."""
     with mapchete.open(os.path.join(SCRIPTDIR, "example.mapchete")) as mp:

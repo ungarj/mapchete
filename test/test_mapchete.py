@@ -55,6 +55,11 @@ def test_read_existing_output():
             assert data.any()
             assert isinstance(data, ma.masked_array)
             assert not data.mask.all()
+            # read data from Mapchete class
+            data = mp.read(tile)
+            assert data.any()
+            assert isinstance(data, ma.masked_array)
+            assert not data.mask.all()
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
     # raster data process buffer > output buffer
