@@ -67,11 +67,11 @@ def test_read_raster_window():
             "average", "mode"
         ]
     ]
-    # TODO resampling test:
-    # assert any([
-    #     not np.array_equal(w, v)
-    #     for v, w in zip(outputs[:-1], outputs[1:])
-    # ])
+    # resampling test:
+    assert any([
+        not np.array_equal(w, v)
+        for v, w in zip(outputs[:-1], outputs[1:])
+    ])
 
 
 def test_read_raster_window_reproject():
