@@ -36,7 +36,7 @@ ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
 
 def read_raster_window(
     input_file, tile, indexes=None, resampling="nearest", src_nodata=None,
-    dst_nodata=None
+    dst_nodata=None, masked=True
 ):
     """
     Return NumPy arrays from an input raster.
@@ -60,6 +60,8 @@ def read_raster_window(
         if not set, the nodata value from the source dataset will be used
     dst_nodata : int or float, optional
         if not set, the nodata value from the source dataset will be used
+    masked : bool
+        return as MaskedArray (default: True)
 
     Returns
     -------
@@ -79,7 +81,7 @@ def read_raster_window(
         return _get_warped_edge_array(
             tile=tile, input_file=input_file, indexes=indexes,
             dst_shape=dst_shape, resampling=resampling, src_nodata=src_nodata,
-            dst_nodata=dst_nodata
+            dst_nodata=dst_nodata, masked=masked
         )
 
     # If tile boundaries don't exceed pyramid boundaries, simply read window
@@ -88,13 +90,13 @@ def read_raster_window(
         return _get_warped_array(
             input_file=input_file, indexes=indexes, dst_bounds=tile.bounds,
             dst_shape=dst_shape, dst_crs=tile.crs, resampling=resampling,
-            src_nodata=src_nodata, dst_nodata=dst_nodata
+            src_nodata=src_nodata, dst_nodata=dst_nodata, masked=masked
         )
 
 
 def _get_warped_edge_array(
     tile=None, input_file=None, indexes=None, dst_shape=None, resampling=None,
-    src_nodata=None, dst_nodata=None
+    src_nodata=None, dst_nodata=None, masked=None
 ):
     LOGGER.debug("read array at pyramid edge")
     tile_boxes = clip_geometry_to_srs_bounds(
@@ -140,7 +142,8 @@ def _get_warped_edge_array(
             dst_crs=tile.crs,
             resampling=resampling,
             src_nodata=src_nodata,
-            dst_nodata=dst_nodata
+            dst_nodata=dst_nodata,
+            masked=masked
         )
         for part in ["none", "left", "middle", "right"]
         if parts_metadata[part]
@@ -149,7 +152,8 @@ def _get_warped_edge_array(
 
 def _get_warped_array(
     input_file=None, indexes=None, dst_bounds=None, dst_shape=None,
-    dst_crs=None, resampling=None, src_nodata=None, dst_nodata=None
+    dst_crs=None, resampling=None, src_nodata=None, dst_nodata=None,
+    masked=None
 ):
     """Extract a numpy array from a raster file."""
     LOGGER.debug("read array using rasterio")
@@ -167,7 +171,8 @@ def _get_warped_array(
                 window=vrt.window(*dst_bounds),
                 out_shape=dst_shape,
                 indexes=indexes,
-                masked=True,
+                boundless=True,
+                masked=masked,
                 resampling=RESAMPLING_METHODS[resampling]
             )
 
