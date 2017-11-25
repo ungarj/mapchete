@@ -60,11 +60,18 @@ def test_read_raster_window():
             assert isinstance(band, ma.MaskedArray)
             assert band.ndim == 3
             assert band.shape == (3, width, height)
-    for resampling in [
-        "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average",
-        "mode"
-    ]:
-        raster.read_raster_window(dummy1, tile, resampling=resampling)
+    outputs = [
+        raster.read_raster_window( dummy1, tile, resampling=resampling)
+        for resampling in [
+            "nearest", "bilinear", "cubic", "cubic_spline", "lanczos",
+            "average", "mode"
+        ]
+    ]
+    # TODO resampling test:
+    # assert any([
+    #     not np.array_equal(w, v)
+    #     for v, w in zip(outputs[:-1], outputs[1:])
+    # ])
 
 
 def test_read_raster_window_reproject():
