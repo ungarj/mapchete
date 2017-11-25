@@ -164,14 +164,11 @@ def _get_warped_array(
             resampling=RESAMPLING_METHODS[resampling]
         ) as vrt:
             return vrt.read(
-                window=vrt.window(
-                    *dst_bounds, precision=21, height=dst_shape[-2],
-                    width=dst_shape[-1]
-                ).round_lengths().round_offsets(),
-                boundless=True,
+                window=vrt.window(*dst_bounds),
                 out_shape=dst_shape,
                 indexes=indexes,
-                masked=True
+                masked=True,
+                resampling=RESAMPLING_METHODS[resampling]
             )
 
 
