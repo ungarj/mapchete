@@ -496,10 +496,8 @@ class Mapchete(object):
             raise MapcheteNodataTile
         elif isinstance(process_data, (np.ndarray, ma.MaskedArray)):
             return process_data
-        elif isinstance(process_data, types.GeneratorType):
+        elif isinstance(process_data, (list, types.GeneratorType)):
             return list(process_data)
-        elif isinstance(process_data, list):
-            return process_data
         elif not process_data:
             raise MapcheteProcessOutputError("process output is empty")
         else:
