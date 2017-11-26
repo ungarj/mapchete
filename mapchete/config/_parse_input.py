@@ -58,10 +58,6 @@ def input_at_zoom(process, name, element, zoom):
                     chunksize=int(1 + len(new_inputs) / cpu_count())
                 )
             }
-        except KeyboardInterrupt:
-            LOGGER.info(
-                "Caught KeyboardInterrupt, terminating workers")
-            pool.terminate()
         except Exception:
             pool.terminate()
             raise
