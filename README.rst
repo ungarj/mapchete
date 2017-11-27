@@ -21,6 +21,8 @@ Tile-based geodata processing.
     :target: http://mapchete.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
+.. image:: https://img.shields.io/pypi/pyversions/mapchete.svg
+
 Developing a script which does some geoprocessing is usually an iterative
 process where modifying code, running the script and inspecting the output
 repeat until the desired result. This can take a long time as processing and
