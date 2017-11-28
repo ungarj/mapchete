@@ -97,10 +97,8 @@ class InputData(base.InputData):
                 return Polygon()
         # If soucre and target CRSes differ, segmentize and reproject
         if inp_crs != out_crs:
-            return reproject_geometry(
-                segmentize_geometry(bbox, self.pyramid.tile_size / 10),
-                src_crs=inp_crs, dst_crs=out_crs
-            )
+            # TODO find a way to get a good segmentize value in bbox source CRS
+            return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
         else:
             return bbox
 

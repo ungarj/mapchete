@@ -17,29 +17,30 @@ TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
 def test_input_data_read():
     """Check GeoJSON as input data."""
     try:
-        mp = mapchete.open(os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
-        for tile in mp.get_process_tiles():
-            assert isinstance(tile, BufferedTile)
-            input_tile = geojson.InputTile(tile, mp)
-            assert isinstance(input_tile.read(), list)
-            for feature in input_tile.read():
-                assert isinstance(feature, dict)
-
+        with mapchete.open(
+            os.path.join(SCRIPTDIR, "testdata/geojson.mapchete")
+        ) as mp:
+            for tile in mp.get_process_tiles():
+                assert isinstance(tile, BufferedTile)
+                input_tile = geojson.InputTile(tile, mp)
+                assert isinstance(input_tile.read(), list)
+                for feature in input_tile.read():
+                    assert isinstance(feature, dict)
         # reprojected GeoJSON
         with open(os.path.join(SCRIPTDIR, "testdata/geojson.mapchete")) as src:
             config = yaml.load(src.read())
             config["input"].update(
                 file1=os.path.join(TESTDATA_DIR, "landpoly_3857.geojson"))
             config.update(config_dir=TESTDATA_DIR)
-        mp = mapchete.open(config, mode="readonly")
-        for tile in mp.get_process_tiles(4):
-            assert isinstance(tile, BufferedTile)
-            with mp.config.output.open(tile, mp) as input_tile:
-                # input_tile = geojson.InputTile(tile, mp)
-                assert input_tile.is_empty() in [False]
-                assert isinstance(input_tile.read(), list)
-                for feature in input_tile.read():
-                    assert isinstance(feature, dict)
+        with mapchete.open(config, mode="readonly") as mp:
+            for tile in mp.get_process_tiles(4):
+                assert isinstance(tile, BufferedTile)
+                with mp.config.output.open(tile, mp) as input_tile:
+                    # input_tile = geojson.InputTile(tile, mp)
+                    assert input_tile.is_empty() in [False]
+                    assert isinstance(input_tile.read(), list)
+                    for feature in input_tile.read():
+                        assert isinstance(feature, dict)
     finally:
         shutil.rmtree(TEMP_DIR, ignore_errors=True)
 
