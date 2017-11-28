@@ -40,7 +40,6 @@ def input_at_zoom(process, name, element, zoom, readonly):
             cached_inputs[name] = process._input_cache[str(input_obj)]
         else:
             new_inputs.append((name, input_obj))
-
     LOGGER.debug("%s new inputs to analyze", len(new_inputs))
     if len(new_inputs) >= cpu_count():
         # analyze inputs in parallel
@@ -86,7 +85,6 @@ def input_at_zoom(process, name, element, zoom, readonly):
         analyzed_readers[name] = reader
     analyzed_readers.update(cached_inputs)
     input_ = _unflatten_tree(analyzed_readers)
-
     # collect bounding boxes of inputs
     input_areas = [
         reader.bbox(out_crs=process.crs)
