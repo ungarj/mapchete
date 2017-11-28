@@ -35,7 +35,7 @@ class InputData(object):
         "mode": "r"
     }
 
-    def __init__(self, input_params):
+    def __init__(self, input_params, **kwargs):
         """Initialize relevant input information."""
         self.pyramid = input_params["pyramid"]
         self.pixelbuffer = input_params["pixelbuffer"]

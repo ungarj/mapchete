@@ -124,7 +124,8 @@ class MapcheteConfig(object):
         self._input_cache = {}
         self._process_area_cache = {}
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
-            input_config, single_input_file=single_input_file)
+            input_config, single_input_file=single_input_file, mode=mode
+        )
         # set process delimiters
         self._delimiters = dict(zoom=zoom, bounds=bounds)
         # helper caches
@@ -163,11 +164,12 @@ class MapcheteConfig(object):
         writer = load_output_writer(output_params)
         try:
             writer.is_valid_with_config(output_params)
-        except Exception:
+        except Exception as e:
             raise MapcheteConfigError(
-                "driver %s not compatible with configuration" % (
-                    writer.METADATA["driver_name"])
+                "driver %s not compatible with configuration: %s" % (
+                    writer.METADATA["driver_name"], e
                 )
+            )
         return writer
 
     @cached_property
@@ -241,18 +243,13 @@ class MapcheteConfig(object):
                         minmax.values()
                     )
                 )
-        base_min = minmax["min"] if "min" in minmax else min(self.zoom_levels)
-        base_max = minmax["max"] if "max" in minmax else max(self.zoom_levels)
-        resampling_lower = (
-            baselevels["lower"] if "lower" in baselevels else "nearest"
-        )
-        resampling_higher = (
-            baselevels["higher"] if "higher" in baselevels else "nearest"
-        )
         return dict(
-            zooms=range(base_min, base_max+1),
-            lower=resampling_lower,
-            higher=resampling_higher,
+            zooms=range(
+                minmax.get("min", min(self.zoom_levels)),
+                minmax.get("max", max(self.zoom_levels))+1
+            ),
+            lower=baselevels.get("lower", "nearest"),
+            higher=baselevels.get("higher", "nearest"),
             tile_pyramid=BufferedTilePyramid(
                 self.output_pyramid.type,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
@@ -332,14 +329,14 @@ class MapcheteConfig(object):
         for zoom in self.zoom_levels:
             self.at_zoom(zoom)
 
-    def _parse_config(self, input_config, single_input_file):
+    def _parse_config(self, input_config, single_input_file, mode):
         # from configuration dictionary
         if isinstance(input_config, dict):
             raw = input_config
             mapchete_file = None
-            try:
+            if "config_dir" in input_config:
                 config_dir = input_config["config_dir"]
-            except KeyError:
+            else:
                 raise MapcheteConfigError("config_dir parameter missing")
         # from Mapchete file
         elif os.path.splitext(input_config)[1] == ".mapchete":
@@ -377,7 +374,7 @@ class MapcheteConfig(object):
             path=os.path.normpath(os.path.join(
                 config_dir, raw["output"]["path"]))
         )
-        # determine input files
+        # determine inputs
         if raw["input"] == "from_command_line" and (
             self.mode in ["memory", "continue", "overwrite"]
         ):
@@ -385,26 +382,19 @@ class MapcheteConfig(object):
                 raise MapcheteConfigError(
                     "please provide an input file via command line")
             else:
-                raw.update(input={"input_file": single_input_file})
+                raw.update(input={"input": single_input_file})
 
         # return parsed configuration
         return raw, mapchete_file, config_dir
 
     def _set_pixelbuffer(self, config_dict):
-        if "pixelbuffer" in config_dict:
-            if not isinstance(config_dict["pixelbuffer"], int) or (
-                config_dict["pixelbuffer"] < 0
-            ):
-                raise MapcheteConfigError("pixelbuffer must be an integer > 0")
-            return config_dict["pixelbuffer"]
-        else:
-            return 0
+        pixelbuffer = config_dict.get("pixelbuffer", 0)
+        if not isinstance(pixelbuffer, int) or pixelbuffer < 0:
+            raise MapcheteConfigError("pixelbuffer must be an integer > 0")
+        return pixelbuffer
 
     def _set_metatiling(self, config_dict, default=1):
-        if "metatiling" in config_dict:
-            return config_dict["metatiling"]
-        else:
-            return default
+        return config_dict.get("metatiling", default)
 
     def _at_zoom(self, zoom):
         """
@@ -414,19 +404,17 @@ class MapcheteConfig(object):
         respective InputData class.
         """
         params = {}
-        input_ = {}
+        ip = {}
         for name, element in self.raw.iteritems():
             if name not in _RESERVED_PARAMETERS:
                 out_element = self._element_at_zoom(name, element, zoom)
                 if out_element is not None:
                     params[name] = out_element
             if name == "input":
-                input_, process_area = input_at_zoom(
-                    self, name, element, zoom
+                ip, process_area = input_at_zoom(
+                    self, name, element, zoom, readonly=self.mode == "readonly"
                 )
-        params.update(
-            input=input_, output=self.output,
-            process_area=process_area)
+        params.update(input=ip, output=self.output, process_area=process_area)
         return params
 
     def _process_area(self, user_bounds, zoom):

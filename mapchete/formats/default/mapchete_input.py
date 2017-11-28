@@ -44,17 +44,15 @@ class InputData(base.InputData):
         "file_extensions": ["mapchete"]
     }
 
-    def __init__(self, input_params):
+    def __init__(self, input_params, **kwargs):
         """Initialize."""
-        super(InputData, self).__init__(input_params)
+        super(InputData, self).__init__(input_params, **kwargs)
         self.path = input_params["path"]
-        if self.path:
-            self.process = Mapchete(MapcheteConfig(
-                self.path, mode="readonly",
-                bounds=input_params["delimiters"]["bounds"],
-                zoom=input_params["delimiters"]["zoom"]
-            ))
-        self._bbox_cache = {}
+        self.process = Mapchete(MapcheteConfig(
+            self.path, mode="readonly",
+            bounds=input_params["delimiters"]["bounds"],
+            zoom=input_params["delimiters"]["zoom"]
+        ))
 
     def open(self, tile, **kwargs):
         """
@@ -85,12 +83,8 @@ class InputData(base.InputData):
         bounding box : geometry
             Shapely geometry object
         """
-        if out_crs is None:
-            out_crs = self.pyramid.crs
-        if str(out_crs) not in self._bbox_cache:
-            self._bbox_cache[str(out_crs)] = reproject_geometry(
-                self.process.config.process_area(),
-                src_crs=self.process.config.crs,
-                dst_crs=out_crs)
-
-        return self._bbox_cache[str(out_crs)]
+        return reproject_geometry(
+            self.process.config.process_area(),
+            src_crs=self.process.config.crs,
+            dst_crs=self.pyramid.crs if out_crs is None else out_crs
+        )
