@@ -9,9 +9,7 @@ from shapely.geometry import box, Polygon
 from rasterio.crs import CRS
 
 from mapchete.formats import base
-from mapchete.io.vector import (
-    reproject_geometry, read_vector_window, segmentize_geometry
-)
+from mapchete.io.vector import reproject_geometry, read_vector_window
 
 
 METADATA = {
@@ -162,5 +160,6 @@ class InputTile(base.InputTile):
         if checked not in self._cache:
             self._cache[checked] = list(read_vector_window(
                 self.vector_file.path, self.tile,
-                validity_check=validity_check))
+                validity_check=validity_check)
+            )
         return self._cache[checked]

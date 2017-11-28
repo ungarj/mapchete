@@ -16,15 +16,16 @@ from itertools import chain
 
 # suppress shapely warnings
 logging.getLogger("shapely").setLevel(logging.ERROR)
+logging.getLogger("Fiona").setLevel(logging.ERROR)
 
 CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/wgs-84/
-    'epsg:4326': (-180.0000, -90.0000, 180.0000, 90.0000),
+    'epsg:4326': (-180., -90., 180., 90.),
     # unknown source
-    'epsg:3857': (-180, -85.0511, 180, 85.0511),
+    'epsg:3857': (-180., -85.0511, 180., 85.0511),
     # http://spatialreference.org/ref/epsg/3035/
     'epsg:3035': (-10.6700, 34.5000, 31.5500, 71.0500)
-    }
+}
 
 
 def reproject_geometry(
@@ -158,16 +159,19 @@ def read_vector_window(input_file, tile, validity_check=True):
     is_on_edge = touches_left or touches_bottom or touches_right or touches_top
     if tile.pixelbuffer and is_on_edge:
         tile_boxes = clip_geometry_to_srs_bounds(
-            tile.bbox, tile.tile_pyramid, multipart=True)
+            tile.bbox, tile.tile_pyramid, multipart=True
+        )
         return chain.from_iterable(
             _get_reprojected_features(
                 input_file=input_file, dst_bounds=bbox.bounds,
-                dst_crs=tile.crs, validity_check=validity_check)
+                dst_crs=tile.crs, validity_check=validity_check
+            )
             for bbox in tile_boxes)
     else:
         features = _get_reprojected_features(
             input_file=input_file, dst_bounds=tile.bounds, dst_crs=tile.crs,
-            validity_check=validity_check)
+            validity_check=validity_check
+        )
         return features
 
 
@@ -208,8 +212,10 @@ def write_vector_window(
                 warnings.warn("failed geometry cleaning during writing")
                 continue
         if out_geom:
-            out_features.append(dict(
-                geometry=mapping(out_geom), properties=feature["properties"]))
+            out_features.append({
+                "geometry": mapping(out_geom),
+                "properties": feature["properties"]
+            })
 
     if out_features:
         # Write data
@@ -222,7 +228,7 @@ def write_vector_window(
 
 
 def _get_reprojected_features(
-    input_file=None, dst_bounds=None, dst_crs=None, validity_check=None
+    input_file=None, dst_bounds=None, dst_crs=None, validity_check=False
 ):
     with fiona.open(input_file, 'r') as vector:
         vector_crs = CRS(vector.crs)
@@ -232,17 +238,21 @@ def _get_reprojected_features(
         else:
             dst_bbox = reproject_geometry(
                 box(*dst_bounds), src_crs=dst_crs, dst_crs=vector_crs,
-                validity_check=True)
+                validity_check=True
+            )
         for feature in vector.filter(bbox=dst_bbox.bounds):
             feature_geom = shape(feature['geometry'])
             if not feature_geom.is_valid:
                 feature_geom = feature_geom.buffer(0)
+                # skip feature if geometry cannot be repaired
                 if not feature_geom.is_valid:
-                    warnings.warn(
-                        "irreparable geometry found in vector input file")
+                    warnings.warn("feature omitted: broken geometry")
                     continue
+            # only return feature if geometry type stayed the same after
+            # reprojecction
             geom = clean_geometry_type(
-                feature_geom.intersection(dst_bbox), feature_geom.geom_type)
+                feature_geom.intersection(dst_bbox), feature_geom.geom_type
+            )
             if geom:
                 # Reproject each feature to tile CRS
                 if vector_crs == dst_crs and validity_check:
@@ -253,11 +263,15 @@ def _get_reprojected_features(
                             geom, src_crs=vector_crs, dst_crs=dst_crs,
                             validity_check=validity_check)
                     except TopologicalError:
-                        warnings.warn("feature reprojection failed")
+                        warnings.warn("feature omitted: reprojection failed")
                 yield {
                     'properties': feature['properties'],
                     'geometry': mapping(geom)
                 }
+            else:
+                warnings.warn(
+                    "feature omitted: geometry type changed after reprojection"
+                )
 
 
 def clean_geometry_type(geometry, target_type, allow_multipart=True):

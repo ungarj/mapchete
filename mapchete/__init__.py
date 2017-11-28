@@ -413,7 +413,7 @@ class Mapchete(object):
             return [
                 feature
                 for feature in in_data
-                if shape(feature["geometry"]).touches(out_tile.bbox)
+                if shape(feature["geometry"]).intersects(out_tile.bbox)
             ]
 
     def _execute(self, process_tile):

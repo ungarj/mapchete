@@ -109,13 +109,12 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
+        if data is None or len(data) == 0:
+            return
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        if data is None:
-            return
         assert isinstance(data, (list, types.GeneratorType))
-        if isinstance(data, types.GeneratorType):
-            data = list(data)
+        data = list(data)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
