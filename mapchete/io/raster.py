@@ -12,6 +12,7 @@ from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 from rasterio.vrt import WarpedVRT
 from shapely.ops import cascaded_union
+from shapely.geometry import box
 from tilematrix import clip_geometry_to_srs_bounds
 from types import GeneratorType
 
@@ -170,8 +171,8 @@ def _get_warped_array(
             return vrt.read(
                 window=vrt.window(*dst_bounds),
                 out_shape=dst_shape,
-                indexes=indexes,
                 boundless=True,
+                indexes=indexes,
                 masked=masked,
                 resampling=RESAMPLING_METHODS[resampling]
             )

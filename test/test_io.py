@@ -60,18 +60,27 @@ def test_read_raster_window():
             assert isinstance(band, ma.MaskedArray)
             assert band.ndim == 3
             assert band.shape == (3, width, height)
-    outputs = [
-        raster.read_raster_window( dummy1, tile, resampling=resampling)
-        for resampling in [
-            "nearest", "bilinear", "cubic", "cubic_spline", "lanczos",
-            "average", "mode"
+
+
+def test_read_raster_window_resampling():
+    """Assert various resampling options work."""
+    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
+    tp = BufferedTilePyramid("geodetic")
+    with rasterio.open(dummy1, "r") as src:
+        tiles = tp.tiles_from_bounds(src.bounds, 5)
+    for tile in tiles:
+        outputs = [
+            raster.read_raster_window(dummy1, tile, resampling=resampling)
+            for resampling in [
+                "nearest", "bilinear", "cubic", "cubic_spline", "lanczos",
+                "average", "mode"
+            ]
         ]
-    ]
-    # resampling test:
-    assert any([
-        not np.array_equal(w, v)
-        for v, w in zip(outputs[:-1], outputs[1:])
-    ])
+        # resampling test:
+        assert any([
+            not np.array_equal(w, v)
+            for v, w in zip(outputs[:-1], outputs[1:])
+        ])
 
 
 def test_read_raster_window_reproject():
@@ -105,11 +114,6 @@ def test_read_raster_window_reproject():
         bands = raster.read_raster_window(dummy1, tile, [1])
         assert isinstance(bands, ma.MaskedArray)
         assert bands.shape == tile.shape
-    for resampling in [
-        "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average",
-        "mode"
-    ]:
-        raster.read_raster_window(dummy1, tile, resampling=resampling)
     # errors
     with pytest.raises(IOError):
         raster.read_raster_window(
