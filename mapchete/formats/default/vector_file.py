@@ -50,11 +50,10 @@ class InputData(base.InputData):
         "file_extensions": ["shp", "geojson"]
     }
 
-    def __init__(self, input_params):
+    def __init__(self, input_params, **kwargs):
         """Initialize."""
-        super(InputData, self).__init__(input_params)
+        super(InputData, self).__init__(input_params, **kwargs)
         self.path = input_params["path"]
-        self._bbox_cache = {}
 
     def open(self, tile, **kwargs):
         """
@@ -85,28 +84,21 @@ class InputData(base.InputData):
         bounding box : geometry
             Shapely geometry object
         """
-        if out_crs is None:
-            out_crs = self.pyramid.crs
-        if str(out_crs) not in self._bbox_cache:
-            with fiona.open(self.path) as inp:
-                inp_crs = CRS(inp.crs)
-                try:
-                    assert inp_crs.is_valid
-                except AssertionError:
-                    raise IOError("CRS could not be read from %s" % self.path)
-                bbox = box(*inp.bounds)
+        out_crs = self.pyramid.crs if out_crs is None else out_crs
+        with fiona.open(self.path) as inp:
+            inp_crs = CRS(inp.crs)
+            if not inp_crs.is_valid:
+                raise IOError("CRS could not be read from %s" % self.path)
+            bbox = box(*inp.bounds)
             # Check if file bounding box is empty.
             if len(set(inp.bounds)) == 1:
-                self._bbox_cache[str(out_crs)] = Polygon()
-            # If soucre and target CRSes differ, segmentize and reproject
-            if inp_crs != out_crs:
-                self._bbox_cache[str(out_crs)] = reproject_geometry(
-                    bbox, src_crs=inp_crs, dst_crs=out_crs
-                )
-            else:
-                self._bbox_cache[str(out_crs)] = bbox
-
-        return self._bbox_cache[str(out_crs)]
+                return Polygon()
+        # If soucre and target CRSes differ, segmentize and reproject
+        if inp_crs != out_crs:
+            # TODO find a way to get a good segmentize value in bbox source CRS
+            return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
+        else:
+            return bbox
 
 
 class InputTile(base.InputTile):
@@ -168,5 +160,6 @@ class InputTile(base.InputTile):
         if checked not in self._cache:
             self._cache[checked] = list(read_vector_window(
                 self.vector_file.path, self.tile,
-                validity_check=validity_check))
+                validity_check=validity_check)
+            )
         return self._cache[checked]

@@ -56,9 +56,9 @@ class InputData(base.InputData):
         "file_extensions": ["tif", "vrt", "png", "jp2"]
     }
 
-    def __init__(self, input_params):
+    def __init__(self, input_params, **kwargs):
         """Initialize."""
-        super(InputData, self).__init__(input_params)
+        super(InputData, self).__init__(input_params, **kwargs)
         self.path = input_params["path"]
 
     @cached_property
@@ -96,8 +96,7 @@ class InputData(base.InputData):
         bounding box : geometry
             Shapely geometry object
         """
-        if out_crs is None:
-            out_crs = self.pyramid.crs
+        out_crs = self.pyramid.crs if out_crs is None else out_crs
         with rasterio.open(self.path) as inp:
             inp_crs = inp.crs
             out_bbox = bbox = box(*inp.bounds)

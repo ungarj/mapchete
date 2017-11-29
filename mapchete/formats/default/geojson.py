@@ -30,6 +30,7 @@ import fiona
 from mapchete.tile import BufferedTile
 from mapchete.formats import base
 from mapchete.io.vector import write_vector_window
+from mapchete.config import validate_values
 
 
 METADATA = {
@@ -108,13 +109,12 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
+        if data is None or len(data) == 0:
+            return
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        if data is None:
-            return
         assert isinstance(data, (list, types.GeneratorType))
-        if isinstance(data, types.GeneratorType):
-            data = list(data)
+        data = list(data)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -157,18 +157,17 @@ class OutputData(base.OutputData):
         -------
         is_valid : bool
         """
-        assert isinstance(config, dict)
-        assert "schema" in config
-        assert isinstance(config["schema"], dict)
-        assert "properties" in config["schema"]
-        assert isinstance(config["schema"]["properties"], dict)
-        assert "geometry" in config["schema"]
-        assert config["schema"]["geometry"] in [
+        validate_values(config, [("schema", dict), ("path", basestring)])
+        validate_values(
+            config["schema"], [("properties", dict), ("geometry", basestring)]
+        )
+        if config["schema"]["geometry"] not in [
             "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
-            "Polygon", "MultiPolygon"]
-        assert "path" in config
-        assert isinstance(config["path"], basestring)
-        assert config["type"] == "geodetic"
+            "Polygon", "MultiPolygon"
+        ]:
+            raise TypeError("invalid geometry type")
+        if config["type"] != "geodetic":
+            raise ValueError("output pyramid has to be geodetic")
         return True
 
     def get_path(self, tile):
@@ -281,10 +280,7 @@ class InputTile(base.InputTile):
         -------
         is empty : bool
         """
-        if self._from_cache(validity_check=validity_check) == []:
-            return False
-        else:
-            return True
+        return len(self._from_cache(validity_check=validity_check)) == 0
 
     def _from_cache(self, validity_check=True):
         if validity_check not in self._cache:
@@ -299,4 +295,4 @@ class InputTile(base.InputTile):
 
     def __exit__(self, t, v, tb):
         """Clear cache on close."""
-        del self._cache
+        self._cache = {}

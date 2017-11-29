@@ -39,6 +39,7 @@ import warnings
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
 from mapchete.io.raster import write_raster_window, prepare_array
+from mapchete.config import validate_values
 
 
 METADATA = {
@@ -167,14 +168,10 @@ class OutputData(base.OutputData):
         -------
         is_valid : bool
         """
-        assert isinstance(config, dict)
-        assert "bands" in config
-        assert isinstance(config["bands"], int)
-        assert "path" in config
-        assert isinstance(config["path"], basestring)
-        assert "dtype" in config
-        assert isinstance(config["dtype"], basestring)
-        return True
+        return validate_values(
+            config,
+            [("bands", int), ("path", basestring), ("dtype", basestring)]
+        )
 
     def get_path(self, tile):
         """

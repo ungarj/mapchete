@@ -17,12 +17,12 @@ from mapchete.errors import MapcheteDriverError, MapcheteConfigError
 LOGGER = logging.getLogger(__name__)
 
 
-def input_at_zoom(process, name, element, zoom):
+def input_at_zoom(process, name, element, zoom, readonly):
     """Get readers and bounding boxes for input."""
     LOGGER.debug("get input items metadata for zoom %s", zoom)
     # case where a single input file is provided by CLI
     if element == "from_command_line":
-        element = {"input_file": None}
+        element = {"input": None}
     elif element is None:
         return dict(), box(
             process.process_pyramid.left, process.process_pyramid.bottom,
@@ -40,14 +40,13 @@ def input_at_zoom(process, name, element, zoom):
             cached_inputs[name] = process._input_cache[str(input_obj)]
         else:
             new_inputs.append((name, input_obj))
-
     LOGGER.debug("%s new inputs to analyze", len(new_inputs))
     if len(new_inputs) >= cpu_count():
         # analyze inputs in parallel
         start = time.time()
         f = partial(
             _input_worker, process.config_dir, process.process_pyramid,
-            process.pixelbuffer, process._delimiters
+            process.pixelbuffer, process._delimiters, readonly
         )
         pool = Pool()
         try:
@@ -58,10 +57,6 @@ def input_at_zoom(process, name, element, zoom):
                     chunksize=int(1 + len(new_inputs) / cpu_count())
                 )
             }
-        except KeyboardInterrupt:
-            LOGGER.info(
-                "Caught KeyboardInterrupt, terminating workers")
-            pool.terminate()
         except Exception:
             pool.terminate()
             raise
@@ -76,7 +71,7 @@ def input_at_zoom(process, name, element, zoom):
         analyzed_inputs = {
             k: _input_worker(
                 process.config_dir, process.process_pyramid,
-                process.pixelbuffer, process._delimiters, (k, v)
+                process.pixelbuffer, process._delimiters, readonly, (k, v)
             )[1]
             for k, v in new_inputs
         }
@@ -90,7 +85,6 @@ def input_at_zoom(process, name, element, zoom):
         analyzed_readers[name] = reader
     analyzed_readers.update(cached_inputs)
     input_ = _unflatten_tree(analyzed_readers)
-
     # collect bounding boxes of inputs
     input_areas = [
         reader.bbox(out_crs=process.crs)
@@ -147,7 +141,7 @@ def _unflatten_tree(flat):
     return tree
 
 
-def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
+def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, readonly, kv):
     try:
         key, input_obj = kv
         if input_obj not in ["none", "None", None, ""]:
@@ -161,10 +155,13 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
                     os.path.join(conf_dir, input_obj)
                 )
                 LOGGER.debug("load input reader for file %s",  input_obj)
-                _input_reader = load_input_reader(dict(
-                    path=path, pyramid=pyramid, pixelbuffer=pixelbuffer,
-                    delimiters=delimiters
-                ))
+                _input_reader = load_input_reader(
+                    dict(
+                        path=path, pyramid=pyramid, pixelbuffer=pixelbuffer,
+                        delimiters=delimiters
+                    ),
+                    readonly
+                )
                 LOGGER.debug(
                     "input reader for file %s is %s", input_obj, _input_reader
                 )
@@ -173,10 +170,13 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, kv):
                 LOGGER.debug(
                     "load input reader for abstract input %s", input_obj
                 )
-                _input_reader = load_input_reader(dict(
-                    abstract=input_obj, pyramid=pyramid,
-                    pixelbuffer=pixelbuffer, delimiters=delimiters
-                ))
+                _input_reader = load_input_reader(
+                    dict(
+                        abstract=input_obj, pyramid=pyramid,
+                        pixelbuffer=pixelbuffer, delimiters=delimiters
+                    ),
+                    readonly
+                )
                 LOGGER.debug(
                     "input reader for abstract input %s is %s", input_obj,
                     _input_reader

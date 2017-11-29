@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.13
+----
+* driver using ``InputData`` function must now accept ``**kwargs``
+
+----
 0.12
 ----
 * adapt chunksize formula to limit ``multiprocessing`` chunksize between 0 and 16; this resolves occuring ``MemoryError()`` and some performance impediments, closing #82

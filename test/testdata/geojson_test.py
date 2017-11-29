@@ -8,16 +8,12 @@ def execute(mp):
     """User defined process."""
     # Reading and writing data works like this:
     with mp.open(mp.params["input"]["file1"]) as vector_file:
-        if vector_file.is_empty():
-            # This assures a transparent tile instead of a pink error tile
-            # is returned when using mapchete serve.
-            return "empty"
         return [
             dict(
                 geometry=feature["geometry"],
                 properties=dict(
-                    name=feature["properties"]["NAME_0"],
-                    id=feature["properties"]["ID_0"],
+                    name=feature["properties"].get("NAME_0", None),
+                    id=feature["properties"].get("ID_0", None),
                     area=shape(feature["geometry"]).area
                 )
             )

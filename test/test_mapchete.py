@@ -175,7 +175,8 @@ def test_get_raw_output_readonly():
 
 
 def test_get_raw_output_continue():
-    """Get raw process output using memory flag."""
+    """Get raw process output using continue flag."""
+    # raster
     try:
         mp = mapchete.open(
             os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
@@ -185,6 +186,18 @@ def test_get_raw_output_continue():
         mp.write(tile, mp.get_raw_output(tile))
         # read written data
         assert not mp.get_raw_output(tile).mask.all()
+    finally:
+        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    # vector
+    try:
+        mp = mapchete.open(
+            os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
+        assert mp.config.mode == "continue"
+        tile = mp.get_process_tiles(4).next()
+        # process and save
+        mp.write(tile, mp.get_raw_output(tile))
+        # read written data
+        assert mp.get_raw_output(tile)
     finally:
         shutil.rmtree(OUT_DIR, ignore_errors=True)
 
