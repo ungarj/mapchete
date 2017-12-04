@@ -1,5 +1,5 @@
 numpy
-rasterio>=1.0a10
+rasterio>=1.0a12
 tilematrix>=0.6
 fiona
 shapely
