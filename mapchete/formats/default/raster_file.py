@@ -148,6 +148,14 @@ class InputTile(base.InputTile):
         self.tile = tile
         self.raster_file = raster_file
         self.resampling = resampling
+        if raster_file.path.startswith("http://"):
+            file_ext = os.path.splitext(raster_file.path)[1]
+            self.gdal_opts = {
+                "GDAL_DISABLE_READDIR_ON_OPEN": True,
+                "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext
+            }
+        else:
+            self.gdal_opts = {}
 
     def read(self, indexes=None):
         """
@@ -161,7 +169,8 @@ class InputTile(base.InputTile):
             self.raster_file.path,
             self.tile,
             indexes=self._get_band_indexes(indexes),
-            resampling=self.resampling
+            resampling=self.resampling,
+            gdal_opts=self.gdal_opts
         )
 
     def is_empty(self, indexes=None):

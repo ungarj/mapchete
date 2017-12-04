@@ -36,7 +36,7 @@ ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
 
 def read_raster_window(
     input_file, tile, indexes=None, resampling="nearest", src_nodata=None,
-    dst_nodata=None
+    dst_nodata=None, gdal_opts={}
 ):
     """
     Return NumPy arrays from an input raster.
@@ -60,6 +60,8 @@ def read_raster_window(
         if not set, the nodata value from the source dataset will be used
     dst_nodata : int or float, optional
         if not set, the nodata value from the source dataset will be used
+    gdal_opts : dict
+        GDAL options passed on to rasterio.Env()
 
     Returns
     -------
@@ -79,7 +81,7 @@ def read_raster_window(
         return _get_warped_edge_array(
             tile=tile, input_file=input_file, indexes=indexes,
             dst_shape=dst_shape, resampling=resampling, src_nodata=src_nodata,
-            dst_nodata=dst_nodata
+            dst_nodata=dst_nodata, gdal_opts=gdal_opts
         )
 
     # If tile boundaries don't exceed pyramid boundaries, simply read window
@@ -88,13 +90,13 @@ def read_raster_window(
         return _get_warped_array(
             input_file=input_file, indexes=indexes, dst_bounds=tile.bounds,
             dst_shape=dst_shape, dst_crs=tile.crs, resampling=resampling,
-            src_nodata=src_nodata, dst_nodata=dst_nodata
+            src_nodata=src_nodata, dst_nodata=dst_nodata, gdal_opts=gdal_opts
         )
 
 
 def _get_warped_edge_array(
     tile=None, input_file=None, indexes=None, dst_shape=None, resampling=None,
-    src_nodata=None, dst_nodata=None
+    src_nodata=None, dst_nodata=None, gdal_opts=None
 ):
     LOGGER.debug("read array at pyramid edge")
     tile_boxes = clip_geometry_to_srs_bounds(
@@ -133,14 +135,11 @@ def _get_warped_edge_array(
     # which in case of rasterio arrays always is the width (West-East).
     return ma.concatenate([
         _get_warped_array(
-            input_file=input_file,
-            indexes=indexes,
+            input_file=input_file, indexes=indexes,
             dst_bounds=parts_metadata[part]["bounds"],
             dst_shape=parts_metadata[part]["shape"],
-            dst_crs=tile.crs,
-            resampling=resampling,
-            src_nodata=src_nodata,
-            dst_nodata=dst_nodata
+            dst_crs=tile.crs, resampling=resampling, src_nodata=src_nodata,
+            dst_nodata=dst_nodata, gdal_opts=gdal_opts
         )
         for part in ["none", "left", "middle", "right"]
         if parts_metadata[part]
@@ -149,27 +148,30 @@ def _get_warped_edge_array(
 
 def _get_warped_array(
     input_file=None, indexes=None, dst_bounds=None, dst_shape=None,
-    dst_crs=None, resampling=None, src_nodata=None, dst_nodata=None
+    dst_crs=None, resampling=None, src_nodata=None, dst_nodata=None,
+    gdal_opts=None
 ):
     """Extract a numpy array from a raster file."""
     LOGGER.debug("read array using rasterio")
-    with rasterio.open(input_file, "r") as src:
-        if indexes is None:
-            dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
-            indexes = list(src.indexes)
-        src_nodata = src.nodata if src_nodata is None else src_nodata
-        dst_nodata = src.nodata if dst_nodata is None else dst_nodata
-        with WarpedVRT(
-            src, dst_crs=dst_crs, src_nodata=src_nodata, dst_nodata=dst_nodata,
-        ) as vrt:
-            return vrt.read(
-                window=vrt.window(*dst_bounds),
-                resampling=RESAMPLING_METHODS[resampling],
-                boundless=True,
-                out_shape=dst_shape,
-                indexes=indexes,
-                masked=True
-            )
+    with rasterio.Env(**gdal_opts):
+        with rasterio.open(input_file, "r") as src:
+            if indexes is None:
+                dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
+                indexes = list(src.indexes)
+            src_nodata = src.nodata if src_nodata is None else src_nodata
+            dst_nodata = src.nodata if dst_nodata is None else dst_nodata
+            with WarpedVRT(
+                src, dst_crs=dst_crs, src_nodata=src_nodata,
+                dst_nodata=dst_nodata
+            ) as vrt:
+                return vrt.read(
+                    window=vrt.window(*dst_bounds),
+                    resampling=RESAMPLING_METHODS[resampling],
+                    boundless=True,
+                    out_shape=dst_shape,
+                    indexes=indexes,
+                    masked=True
+                )
 
 
 def _is_on_edge(tile):
