@@ -161,13 +161,10 @@ def _get_warped_array(
         dst_nodata = src.nodata if dst_nodata is None else dst_nodata
         with WarpedVRT(
             src, dst_crs=dst_crs, src_nodata=src_nodata, dst_nodata=dst_nodata,
-            resampling=RESAMPLING_METHODS[resampling]
         ) as vrt:
             return vrt.read(
-                window=vrt.window(
-                    *dst_bounds, precision=21, height=dst_shape[-2],
-                    width=dst_shape[-1]
-                ).round_lengths().round_offsets(),
+                window=vrt.window(*dst_bounds),
+                resampling=RESAMPLING_METHODS[resampling],
                 boundless=True,
                 out_shape=dst_shape,
                 indexes=indexes,
