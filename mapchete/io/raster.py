@@ -98,7 +98,6 @@ def _get_warped_edge_array(
     tile=None, input_file=None, indexes=None, dst_shape=None, resampling=None,
     src_nodata=None, dst_nodata=None, gdal_opts=None
 ):
-    LOGGER.debug("read array at pyramid edge")
     tile_boxes = clip_geometry_to_srs_bounds(
         tile.bbox, tile.tile_pyramid, multipart=True)
     parts_metadata = dict(left=None, middle=None, right=None, none=None)
@@ -152,7 +151,6 @@ def _get_warped_array(
     gdal_opts=None
 ):
     """Extract a numpy array from a raster file."""
-    LOGGER.debug("read array using rasterio")
     with rasterio.Env(**gdal_opts):
         with rasterio.open(input_file, "r") as src:
             if indexes is None:

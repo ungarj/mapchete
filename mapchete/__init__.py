@@ -34,6 +34,9 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 
+# suppress rasterio logging
+logging.getLogger("rasterio").setLevel(logging.ERROR)
+
 
 __version__ = "0.12"
 
