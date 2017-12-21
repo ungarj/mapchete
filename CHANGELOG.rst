@@ -6,6 +6,10 @@ Changelog
 0.13
 ----
 * driver using ``InputData`` function must now accept ``**kwargs``
+* fixed ``resampling`` issue introduced with inapropriate usage of ``WarpedVRT`` in ``read_raster_window()``
+* ``str`` checks now use ``basestring`` to also cover ``unicode`` encodings
+* ``read_raster_window()`` now accepts GDAL options which get passed on to ``rasterio.Env()``
+* all resampling methods from ``rasterio.enums.Resampling`` are now available (#88)
 
 ----
 0.12
