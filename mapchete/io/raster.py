@@ -20,17 +20,6 @@ from mapchete.tile import BufferedTile
 
 LOGGER = logging.getLogger(__name__)
 
-RESAMPLING_METHODS = {
-    "nearest": Resampling.nearest,
-    "bilinear": Resampling.bilinear,
-    "cubic": Resampling.cubic,
-    "cubic_spline": Resampling.cubic_spline,
-    "lanczos": Resampling.lanczos,
-    "average": Resampling.average,
-    "mode": Resampling.mode
-}
-
-
 ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
 
 
@@ -171,7 +160,7 @@ def _get_warped_array(
                     (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
                     dst_bounds[3]
                 ),
-                resampling=RESAMPLING_METHODS[resampling]
+                resampling=Resampling[resampling]
             ) as vrt:
                 return vrt.read(
                     window=vrt.window(*dst_bounds),
@@ -321,7 +310,7 @@ def resample_from_array(
     reproject(
         in_raster, dst_data, src_transform=in_affine, src_crs=out_tile.crs,
         dst_transform=out_tile.affine, dst_crs=out_tile.crs,
-        resampling=RESAMPLING_METHODS[resampling])
+        resampling=Resampling[resampling])
     return ma.MaskedArray(dst_data, mask=dst_data == nodataval)
 
 
