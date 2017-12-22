@@ -62,8 +62,7 @@ def create_app(args):
     def get(zoom, row, col):
         """Return processed, empty or error (in pink color) tile."""
         # convert zoom, row, col into tile object using web pyramid
-        web_tile = web_pyramid.tile(zoom, row, col)
-        return _tile_response(mp, web_tile, args.debug)
+        return _tile_response(mp, web_pyramid.tile(zoom, row, col), args.debug)
 
     return app
 

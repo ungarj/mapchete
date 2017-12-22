@@ -364,7 +364,8 @@ class Mapchete(object):
     def _read_existing_output(self, tile, output_tiles):
         if self.config.output.METADATA["data_type"] == "raster":
             mosaic, affine = raster.create_mosaic([
-                (tile, self.read(output_tile)) for output_tile in output_tiles
+                (output_tile, self.read(output_tile))
+                for output_tile in output_tiles
             ])
             return raster.extract_from_array(mosaic, affine, tile)
         elif self.config.output.METADATA["data_type"] == "vector":
