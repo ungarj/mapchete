@@ -3,7 +3,6 @@
 import os
 import logging
 import time
-from sets import ImmutableSet
 from shapely.geometry import box
 from shapely.ops import cascaded_union
 from shapely.wkt import dumps
@@ -93,7 +92,7 @@ def input_at_zoom(process, name, element, zoom, readonly):
     ]
     if input_areas:
         LOGGER.debug("union input bounding boxes")
-        id_ = ImmutableSet([dumps(i) for i in input_areas])
+        id_ = frozenset([dumps(i) for i in input_areas])
         if id_ not in process._process_area_cache:
             process._process_area_cache[id_] = cascaded_union(input_areas)
         process_area = process._process_area_cache[id_]

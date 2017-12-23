@@ -3,7 +3,7 @@
 
 import os
 import shutil
-import commands
+import subprocess
 import yaml
 import rasterio
 import numpy as np
@@ -16,29 +16,37 @@ SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
 
 
+def _getstatusoutput(command):
+    sp = subprocess.Popen(
+        command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    output = "".join([i for i in iter(sp.stdout.readline, "")])
+    status = sp.wait()
+    return status, output
+
+
 def test_main():
     """Main CLI."""
     for command in [
             "mapchete", "mapchete create", "mapchete execute", "mapchete serve"
     ]:
-        status, output = commands.getstatusoutput(command)
-        assert status == 512
+        status, output = _getstatusoutput(command)
+        assert status == 2
         assert "too few arguments" in output
 
-    status = commands.getstatusoutput("mapchete formats")[0]
+    status = _getstatusoutput("mapchete formats")[0]
     assert status == 0
 
-    status, output = commands.getstatusoutput("mapchete wrong_command")
-    assert status == 512
+    status, output = _getstatusoutput("mapchete wrong_command")
+    assert status == 2
     assert "unrecognized command" in output
 
 
 def test_missing_input_file():
     """Check if IOError is raised if input_file is invalid."""
-    status, output = commands.getstatusoutput(
+    status, output = _getstatusoutput(
         "mapchete execute process.mapchete --input_file invalid.tif"
     )
-    assert status == 256
+    assert status == 1
     assert "IOError: input_file invalid.tif not found"
 
 

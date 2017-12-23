@@ -9,7 +9,10 @@ import rasterio
 import numpy as np
 import numpy.ma as ma
 import pkg_resources
-from cPickle import dumps
+try:
+    from cPickle import dumps
+except ImportError:
+    from pickle import dumps
 from functools import partial
 from multiprocessing import Pool
 from shapely.geometry import shape
