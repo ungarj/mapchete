@@ -3,12 +3,14 @@ sudo: required
 language: python
 python:
 - '2.7'
+- '3.6'
 virtualenv:
   system_site_packages: true
 before_install:
 - sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
 - sudo apt-get -y update
 - sudo apt-get install -y gdal-bin python-tk libopenjpeg-dev python-numpy libgdal-dev
+- "pip install --no-binary :all: rasterio==1.0a12"
 install:
 - pip install -r requirements.txt
 - pip install pytest coveralls
