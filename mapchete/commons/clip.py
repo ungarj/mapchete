@@ -39,6 +39,8 @@ def clip_array_with_vector(
         except AttributeError:
             if feature["geometry"].is_empty:
                 break
+        except IndexError:
+            break
         # for GeometryCollections
         except ValueError:
             if feature["geometry"].geom_type == "GeometryCollection":
