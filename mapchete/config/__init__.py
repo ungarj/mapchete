@@ -231,14 +231,14 @@ class MapcheteConfig(object):
             return {}
         baselevels = self.raw["baselevels"]
         minmax = {
-            k: v for k, v in baselevels.items() if k in ["min", "max"]
+            k: v for k, v in six.iteritems(baselevels) if k in ["min", "max"]
         }
         if not minmax:
             raise MapcheteConfigError(
                 "no min and max values given for baselevels"
             )
         for v in minmax.values():
-            if v < 0 or not isinstance(v, int):
+            if not isinstance(v, int) or v < 0:
                 raise MapcheteConfigError(
                     "invalid baselevel zoom parameter given: %s" % (
                         minmax.values()
@@ -406,7 +406,7 @@ class MapcheteConfig(object):
         """
         params = {}
         ip = {}
-        for name, element in self.raw.items():
+        for name, element in six.iteritems(self.raw):
             if name not in _RESERVED_PARAMETERS:
                 out_element = self._element_at_zoom(name, element, zoom)
                 if out_element is not None:
@@ -461,7 +461,7 @@ class MapcheteConfig(object):
             if "format" in element:
                 return element
             out_elements = {}
-            for sub_name, sub_element in element.items():
+            for sub_name, sub_element in six.iteritems(element):
                 out_element = self._element_at_zoom(
                     sub_name, sub_element, zoom)
                 if name == "input":
@@ -471,7 +471,7 @@ class MapcheteConfig(object):
             # If there is only one subelement, collapse unless it is
             # input. In such case, return a dictionary.
             if len(out_elements) == 1 and name != "input":
-                return out_elements.itervalues().next()
+                return next(six.itervalues(out_elements))
             # If subelement is empty, return None
             if len(out_elements) == 0:
                 return None
