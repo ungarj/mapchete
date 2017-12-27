@@ -16,7 +16,7 @@ def test_clip():
     """Clip an array with a vector."""
     mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
-    tile = mp.get_process_tiles(zoom=4).next()
+    tile = next(mp.get_process_tiles(zoom=4))
     tile_process = MapcheteProcess(tile, params=mp.config.at_zoom(4))
     with tile_process.open("file1") as vector_file:
         test_array = ma.masked_array(np.ones(tile_process.tile.shape))
@@ -61,7 +61,7 @@ def test_contours():
     """Extract contours from array."""
     mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
-    tile = mp.get_process_tiles(zoom=4).next()
+    tile = next(mp.get_process_tiles(zoom=4))
     tile_process = MapcheteProcess(tile, params=mp.config.at_zoom(4))
     with tile_process.open("file1") as dem:
         arr = dem.read()
@@ -83,7 +83,7 @@ def test_hillshade():
     """Render hillshade from array."""
     mp = mapchete.open(
         os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
-    tile = mp.get_process_tiles(zoom=4).next()
+    tile = next(mp.get_process_tiles(zoom=4))
     tile_process = MapcheteProcess(tile, params=mp.config.at_zoom(4))
     with tile_process.open("file1") as dem:
         shade = tile_process.hillshade(dem.read())

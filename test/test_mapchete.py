@@ -73,7 +73,7 @@ def test_read_existing_output():
         config.update(config_dir=TESTDATA_DIR)
         config["output"].update(pixelbuffer=0)
         with mapchete.open(config) as mp:
-            tile = mp.get_process_tiles(5).next()
+            tile = next(mp.get_process_tiles(5))
             # process and save
             mp.get_raw_output(tile)
             # read written data from within MapcheteProcess object
@@ -93,7 +93,7 @@ def test_read_existing_output():
         with mapchete.open(
             os.path.join(SCRIPTDIR, "testdata/geojson.mapchete")
         ) as mp:
-            tile = mp.get_process_tiles(4).next()
+            tile = next(mp.get_process_tiles(4))
             # process and save
             mp.write(tile, mp.get_raw_output(tile))
             # read written data from within MapcheteProcess object
@@ -196,7 +196,7 @@ def test_get_raw_output_continue():
         mp = mapchete.open(
             os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
         assert mp.config.mode == "continue"
-        tile = mp.get_process_tiles(4).next()
+        tile = next(mp.get_process_tiles(4))
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read written data
@@ -238,7 +238,7 @@ def test_baselevels():
             assert not mp.get_raw_output(tile.get_parent()).mask.all()
 
         # get tile from higher zoom level
-        tile = mp.get_process_tiles(6).next()
+        tile = next(mp.get_process_tiles(6))
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read from baselevel
@@ -262,7 +262,7 @@ def test_baselevels_buffer():
             )
         mp = mapchete.open(config, mode="continue")
         # get tile from lower zoom level
-        lower_tile = mp.get_process_tiles(4).next()
+        lower_tile = next(mp.get_process_tiles(4))
         # process and save
         for tile in lower_tile.get_children():
             mp.write(tile, mp.get_raw_output(tile))
@@ -270,7 +270,7 @@ def test_baselevels_buffer():
         assert not mp.get_raw_output(lower_tile).mask.all()
 
         # get tile from higher zoom level
-        tile = mp.get_process_tiles(6).next()
+        tile = next(mp.get_process_tiles(6))
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read from baselevel
@@ -483,7 +483,7 @@ def test_process_template():
             config_dir=".",
             process_zoom=4
         ))
-    process_tile = mp.get_process_tiles(zoom=4).next()
+    process_tile = next(mp.get_process_tiles(zoom=4))
     # Mapchete throws a RuntimeError if process output is empty
     try:
         mp.execute(process_tile)
