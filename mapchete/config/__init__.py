@@ -230,7 +230,7 @@ class MapcheteConfig(object):
             return {}
         baselevels = self.raw["baselevels"]
         minmax = {
-            k: v for k, v in baselevels.iteritems() if k in ["min", "max"]
+            k: v for k, v in baselevels.items() if k in ["min", "max"]
         }
         if not minmax:
             raise MapcheteConfigError(
@@ -405,7 +405,7 @@ class MapcheteConfig(object):
         """
         params = {}
         ip = {}
-        for name, element in self.raw.iteritems():
+        for name, element in self.raw.items():
             if name not in _RESERVED_PARAMETERS:
                 out_element = self._element_at_zoom(name, element, zoom)
                 if out_element is not None:
@@ -460,7 +460,7 @@ class MapcheteConfig(object):
             if "format" in element:
                 return element
             out_elements = {}
-            for sub_name, sub_element in element.iteritems():
+            for sub_name, sub_element in element.items():
                 out_element = self._element_at_zoom(
                     sub_name, sub_element, zoom)
                 if name == "input":

@@ -79,7 +79,7 @@ def input_at_zoom(process, name, element, zoom, readonly):
 
     # create original dicionary with input readers
     analyzed_readers = {}
-    for name, (input_obj, reader) in analyzed_inputs.iteritems():
+    for name, (input_obj, reader) in analyzed_inputs.items():
         process._input_cache[str(input_obj)] = reader
         analyzed_readers[name] = reader
     analyzed_readers.update(cached_inputs)
@@ -108,7 +108,7 @@ def input_at_zoom(process, name, element, zoom, readonly):
 def _flatten_tree(tree, old_path=None):
     """Flatten dict tree into dictionary where keys are paths of old dict."""
     flat_tree = []
-    for key, value in tree.iteritems():
+    for key, value in tree.items():
         new_path = "/".join([old_path, key]) if old_path else key
         if isinstance(value, dict) and "format" not in value:
             flat_tree.extend(_flatten_tree(value, old_path=new_path))
@@ -120,7 +120,7 @@ def _flatten_tree(tree, old_path=None):
 def _unflatten_tree(flat):
     """Reverse tree flattening."""
     tree = {}
-    for key, value in flat.iteritems():
+    for key, value in flat.items():
         path = key.split("/")
         # we are at the end of a branch
         if len(path) == 1:
