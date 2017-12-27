@@ -13,6 +13,7 @@ when initializing the configuration.
 import os
 import yaml
 import logging
+import six
 import warnings
 from cached_property import cached_property
 from shapely.geometry import box
@@ -476,7 +477,7 @@ class MapcheteConfig(object):
                 return None
             return out_elements
         # If element is a zoom level statement, filter element.
-        elif isinstance(name, basestring):
+        elif isinstance(name, six.string_types):
             if name.startswith("zoom"):
                 cleaned = name.strip("zoom").strip()
                 if cleaned.startswith("="):

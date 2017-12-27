@@ -26,6 +26,7 @@ schema: key-value pairs
 import os
 import types
 import fiona
+import six
 
 from mapchete.tile import BufferedTile
 from mapchete.formats import base
@@ -157,9 +158,9 @@ class OutputData(base.OutputData):
         -------
         is_valid : bool
         """
-        validate_values(config, [("schema", dict), ("path", basestring)])
+        validate_values(config, [("schema", dict), ("path", six.string_types)])
         validate_values(
-            config["schema"], [("properties", dict), ("geometry", basestring)]
+            config["schema"], [("properties", dict), ("geometry", six.string_types)]
         )
         if config["schema"]["geometry"] not in [
             "Geometry", "Point", "MultiPoint", "Line", "MultiLine",

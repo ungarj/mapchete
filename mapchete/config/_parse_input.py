@@ -2,6 +2,7 @@
 
 import os
 import logging
+import six
 import time
 from shapely.geometry import box
 from shapely.ops import cascaded_union
@@ -147,7 +148,7 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, readonly, kv):
             # prepare input metadata
             LOGGER.debug("read metadata from %s", input_obj)
             # for single file inputs
-            if isinstance(input_obj, basestring):
+            if isinstance(input_obj, six.string_types):
                 # get absolute paths if not remote
                 path = input_obj if input_obj.startswith(
                     ("s3://", "https://", "http://")) else os.path.normpath(
