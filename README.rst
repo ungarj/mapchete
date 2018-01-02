@@ -14,14 +14,16 @@ Tile-based geodata processing.
     :target: https://coveralls.io/github/ungarj/mapchete?branch=master
 
 .. image:: https://landscape.io/github/ungarj/mapchete/master/landscape.svg?style=flat
-       :target: https://landscape.io/github/ungarj/mapchete/master
-       :alt: Code Health
+    :target: https://landscape.io/github/ungarj/mapchete/master
+    :alt: Code Health
 
 .. image:: https://readthedocs.org/projects/mapchete/badge/?version=latest
     :target: http://mapchete.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
 .. image:: https://img.shields.io/pypi/pyversions/mapchete.svg
+    :target: https://pypi.python.org/pypi/mapchete
+
 
 Developing a script which does some geoprocessing is usually an iterative
 process where modifying code, running the script and inspecting the output
