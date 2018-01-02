@@ -12,7 +12,8 @@ virtualenv:
 before_install:
 - sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
 - sudo apt-get -y update
-- sudo apt-get install -y gdal-bin python-tk libopenjpeg-dev python-numpy libgdal-dev
+- sudo apt-get install -y gdal-bin python-tk libopenjpeg-dev libgdal-dev
+- pip install numpy
 - "pip install --no-binary :all: rasterio==1.0a12"
 install:
 - pip install -r requirements.txt
