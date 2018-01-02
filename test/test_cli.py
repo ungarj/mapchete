@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Test Mapchete main module and processing."""
 
+import pytest
 import os
 import shutil
 import subprocess
@@ -322,10 +323,8 @@ def test_pyramid_zoom():
 def test_serve_cli_params():
     """Test whether different CLI params pass."""
     # assert too few arguments error
-    try:
+    with pytest.raises(SystemExit):
         MapcheteCLI([None, 'serve'], _test_serve=True)
-    except SystemExit as exit_code:
-        assert exit_code.message == 2
 
     example_process = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
     for args in [
