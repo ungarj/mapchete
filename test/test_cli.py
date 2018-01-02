@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 """Test Mapchete main module and processing."""
 
+import pytest
 import os
 import shutil
-import commands
+import subprocess
 import yaml
 import rasterio
 import numpy as np
@@ -16,29 +17,44 @@ SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
 
 
+def _getstatusoutput(command):
+    sp = subprocess.Popen(
+        command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        universal_newlines=True
+    )
+    sp.wait()
+    return sp.returncode, sp.stdout.read()
+
+
 def test_main():
     """Main CLI."""
     for command in [
-            "mapchete", "mapchete create", "mapchete execute", "mapchete serve"
+            "mapchete create", "mapchete execute", "mapchete serve"
     ]:
-        status, output = commands.getstatusoutput(command)
-        assert status == 512
-        assert "too few arguments" in output
+        status, output = _getstatusoutput(command)
+        assert status == 2
+        assert any([
+            err in output
+            for err in [
+                "the following arguments are required",  # python 3
+                "too few arguments"  # python 2
+            ]
+        ])
 
-    status = commands.getstatusoutput("mapchete formats")[0]
+    status = _getstatusoutput("mapchete formats")[0]
     assert status == 0
 
-    status, output = commands.getstatusoutput("mapchete wrong_command")
-    assert status == 512
+    status, output = _getstatusoutput("mapchete wrong_command")
+    assert status == 2
     assert "unrecognized command" in output
 
 
 def test_missing_input_file():
     """Check if IOError is raised if input_file is invalid."""
-    status, output = commands.getstatusoutput(
+    status, output = _getstatusoutput(
         "mapchete execute process.mapchete --input_file invalid.tif"
     )
-    assert status == 256
+    assert status == 1
     assert "IOError: input_file invalid.tif not found"
 
 
@@ -307,10 +323,8 @@ def test_pyramid_zoom():
 def test_serve_cli_params():
     """Test whether different CLI params pass."""
     # assert too few arguments error
-    try:
+    with pytest.raises(SystemExit):
         MapcheteCLI([None, 'serve'], _test_serve=True)
-    except SystemExit as exit_code:
-        assert exit_code.message == 2
 
     example_process = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
     for args in [

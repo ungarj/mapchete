@@ -22,6 +22,7 @@ nodata: integer or float
 import os
 import io
 import rasterio
+import six
 from rasterio.errors import RasterioIOError
 import numpy as np
 import numpy.ma as ma
@@ -162,7 +163,7 @@ class OutputData(base.OutputData):
         -------
         is_valid : bool
         """
-        return validate_values(config, [("path", basestring)])
+        return validate_values(config, [("path", six.string_types)])
 
     def get_path(self, tile):
         """

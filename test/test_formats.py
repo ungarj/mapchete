@@ -74,7 +74,7 @@ def test_mapchete_input():
     input_data = config["input"]["file2"]
     assert input_data.bbox()
     assert input_data.bbox(CRS.from_epsg(3857))
-    mp_input = input_data.open(mp.get_process_tiles(5).next())
+    mp_input = input_data.open(next(mp.get_process_tiles(5)))
     assert not mp_input.is_empty()
 
 

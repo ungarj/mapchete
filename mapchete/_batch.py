@@ -106,7 +106,7 @@ def _run_with_multiprocessing(
                     f, process_tiles,
                     # set chunksize to between 1 and MAX_CHUNKSIZE
                     chunksize=min([
-                        max([total_tiles / multi, 1]), MAX_CHUNKSIZE
+                        max([total_tiles // multi, 1]), MAX_CHUNKSIZE
                     ])
                 ):
                     _write_worker(process, tile, output)

@@ -55,7 +55,7 @@ def test_output_data():
         shutil.rmtree(temp_dir, ignore_errors=True)
     # write half masked array
     try:
-        half_shape = (tile.shape[0], tile.shape[1]/2)
+        half_shape = (tile.shape[0], tile.shape[1]//2)
         data = ma.masked_array(
             data=np.ones(tile.shape)*128,
             mask=np.concatenate(

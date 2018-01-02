@@ -46,7 +46,7 @@ def create_app(args):
     def index():
         """Render and hosts the appropriate OpenLayers instance."""
         return render_template_string(
-            pkgutil.get_data('mapchete.static', 'index.html'),
+            pkgutil.get_data('mapchete.static', 'index.html').decode("utf-8"),
             srid=mp.config.process_pyramid.srid,
             process_bounds=",".join([
                 str(i) for i in mp.config.process_bounds()]),

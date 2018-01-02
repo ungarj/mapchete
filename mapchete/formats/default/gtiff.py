@@ -31,6 +31,7 @@ compress: string
 """
 
 import os
+import six
 import numpy as np
 import numpy.ma as ma
 import rasterio
@@ -170,7 +171,7 @@ class OutputData(base.OutputData):
         """
         return validate_values(
             config,
-            [("bands", int), ("path", basestring), ("dtype", basestring)]
+            [("bands", int), ("path", six.string_types), ("dtype", six.string_types)]
         )
 
     def get_path(self, tile):

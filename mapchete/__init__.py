@@ -6,6 +6,7 @@ import inspect
 import logging
 import warnings
 import imp
+import six
 import types
 import time
 import threading
@@ -496,7 +497,7 @@ class Mapchete(object):
             return self.config.output.empty(process_tile)
 
     def _streamline_output(self, process_data):
-        if isinstance(process_data, basestring) and process_data == "empty":
+        if isinstance(process_data, six.string_types) and process_data == "empty":
             raise MapcheteNodataTile
         elif isinstance(process_data, (np.ndarray, ma.MaskedArray)):
             return process_data
@@ -652,7 +653,7 @@ class MapcheteProcess(object):
         tiled input data : InputTile
             reprojected input data within tile
         """
-        if not isinstance(input_id, basestring):
+        if not isinstance(input_id, six.string_types):
             return input_id.open(self.tile, **kwargs)
         if input_id not in self.params["input"]:
             raise ValueError(
