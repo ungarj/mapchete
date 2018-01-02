@@ -18,20 +18,27 @@ OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
 
 def _getstatusoutput(command):
     sp = subprocess.Popen(
-        command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    output = "".join([i for i in iter(sp.stdout.readline, "")])
-    status = sp.wait()
-    return status, output
+        command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        universal_newlines=True
+    )
+    sp.wait()
+    return sp.returncode, sp.stdout.read()
 
 
 def test_main():
     """Main CLI."""
     for command in [
-            "mapchete", "mapchete create", "mapchete execute", "mapchete serve"
+            "mapchete create", "mapchete execute", "mapchete serve"
     ]:
         status, output = _getstatusoutput(command)
         assert status == 2
-        assert "too few arguments" in output
+        assert any([
+            err in output
+            for err in [
+                "the following arguments are required",  # python 3
+                "too few arguments"  # python 2
+            ]
+        ])
 
     status = _getstatusoutput("mapchete formats")[0]
     assert status == 0
