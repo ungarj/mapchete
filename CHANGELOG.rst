@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.14
+----
+* added python 3.4, 3.5 and 3.6 support
+
+----
 0.13
 ----
 * driver using ``InputData`` function must now accept ``**kwargs``
