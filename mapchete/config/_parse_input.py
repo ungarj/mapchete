@@ -17,7 +17,7 @@ from mapchete.errors import MapcheteDriverError, MapcheteConfigError
 LOGGER = logging.getLogger(__name__)
 
 
-def input_at_zoom(process, name, element, zoom, readonly):
+def input_at_zoom(config, name, element, zoom, readonly):
     """Get readers and bounding boxes for input."""
     LOGGER.debug("get input items metadata for zoom %s", zoom)
     # case where a single input file is provided by CLI
@@ -25,19 +25,19 @@ def input_at_zoom(process, name, element, zoom, readonly):
         element = {"input": None}
     elif element is None:
         return dict(), box(
-            process.process_pyramid.left, process.process_pyramid.bottom,
-            process.process_pyramid.right, process.process_pyramid.top
+            config.process_pyramid.left, config.process_pyramid.bottom,
+            config.process_pyramid.right, config.process_pyramid.top
         )
     # get inputs for current zoom level
-    input_tree = process._element_at_zoom(name, element, zoom)
+    input_tree = config._element_at_zoom(name, element, zoom)
     # convert tree to key-value object, where path within tree is the key
     input_flat = _flatten_tree(input_tree)
     # select inputs not yet cached
     new_inputs = []
     cached_inputs = {}
     for name, input_obj in input_flat:
-        if str(input_obj) in process._input_cache:
-            cached_inputs[name] = process._input_cache[str(input_obj)]
+        if str(input_obj) in config.inputs:
+            cached_inputs[name] = config.inputs[str(input_obj)]
         else:
             new_inputs.append((name, input_obj))
     LOGGER.debug("%s new inputs to analyze", len(new_inputs))
@@ -45,8 +45,8 @@ def input_at_zoom(process, name, element, zoom, readonly):
         # analyze inputs in parallel
         start = time.time()
         f = partial(
-            _input_worker, process.config_dir, process.process_pyramid,
-            process.pixelbuffer, process._delimiters, readonly
+            _input_worker, config.config_dir, config.process_pyramid,
+            config.pixelbuffer, config._delimiters, readonly
         )
         pool = Pool()
         try:
@@ -70,8 +70,8 @@ def input_at_zoom(process, name, element, zoom, readonly):
         start = time.time()
         analyzed_inputs = {
             k: _input_worker(
-                process.config_dir, process.process_pyramid,
-                process.pixelbuffer, process._delimiters, readonly, (k, v)
+                config.config_dir, config.process_pyramid,
+                config.pixelbuffer, config._delimiters, readonly, (k, v)
             )[1]
             for k, v in new_inputs
         }
@@ -81,27 +81,27 @@ def input_at_zoom(process, name, element, zoom, readonly):
     # create original dicionary with input readers
     analyzed_readers = {}
     for name, (input_obj, reader) in six.iteritems(analyzed_inputs):
-        process._input_cache[str(input_obj)] = reader
+        config.inputs[str(input_obj)] = reader
         analyzed_readers[name] = reader
     analyzed_readers.update(cached_inputs)
     input_ = _unflatten_tree(analyzed_readers)
     # collect bounding boxes of inputs
     input_areas = [
-        reader.bbox(out_crs=process.crs)
+        reader.bbox(out_crs=config.crs)
         for reader in analyzed_readers.values()
         if reader is not None
     ]
     if input_areas:
         LOGGER.debug("union input bounding boxes")
         id_ = frozenset([dumps(i) for i in input_areas])
-        if id_ not in process._process_area_cache:
-            process._process_area_cache[id_] = cascaded_union(input_areas)
-        process_area = process._process_area_cache[id_]
+        if id_ not in config._process_area_cache:
+            config._process_area_cache[id_] = cascaded_union(input_areas)
+        process_area = config._process_area_cache[id_]
     else:
         LOGGER.debug("assume global bounding box")
         process_area = box(
-            process.process_pyramid.left, process.process_pyramid.bottom,
-            process.process_pyramid.right, process.process_pyramid.top
+            config.process_pyramid.left, config.process_pyramid.bottom,
+            config.process_pyramid.right, config.process_pyramid.top
         )
     return input_, process_area
 
@@ -190,4 +190,5 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, readonly, kv):
         else:
             return key, (None, None)
     except Exception as e:
+        LOGGER.exception("input driver error")
         raise MapcheteDriverError("%s could not be read: %s" % (key, e))

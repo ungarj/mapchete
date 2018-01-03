@@ -39,7 +39,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger("rasterio").setLevel(logging.ERROR)
 
 
-__version__ = "0.14"
+__version__ = "0.15"
 
 
 def open(
@@ -551,7 +551,10 @@ class Mapchete(object):
         return self
 
     def __exit__(self, t, v, tb):
-        """Clear cache on close."""
+        """Cleanup on close."""
+        for ip in self.config.inputs.values():
+            if ip is not None:
+                ip.cleanup()
         if self.with_cache:
             self.process_tile_cache = None
             self.current_processes = None

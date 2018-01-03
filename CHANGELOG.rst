@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.15
+----
+* enabled optional ``cleanup()`` function for ``InputData`` objects when ``Mapchete`` is closed.
+
+----
 0.14
 ----
 * added python 3.4, 3.5 and 3.6 support

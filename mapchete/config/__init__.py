@@ -122,7 +122,7 @@ class MapcheteConfig(object):
         self.mode = mode
         # parse configuration
         LOGGER.debug("parse configuration ...")
-        self._input_cache = {}
+        self.inputs = {}
         self._process_area_cache = {}
         self.raw, self.mapchete_file, self.config_dir = self._parse_config(
             input_config, single_input_file=single_input_file, mode=mode
