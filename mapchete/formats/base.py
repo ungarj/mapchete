@@ -83,6 +83,10 @@ class InputData(object):
         """
         raise NotImplementedError
 
+    def cleanup(self):
+        """Optional cleanup function called when Mapchete exits."""
+        pass
+
 
 class InputTile(object):
     """
