@@ -190,4 +190,5 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, readonly, kv):
         else:
             return key, (None, None)
     except Exception as e:
+        LOGGER.exception("input driver error")
         raise MapcheteDriverError("%s could not be read: %s" % (key, e))
