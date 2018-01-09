@@ -86,6 +86,8 @@ class InputData(base.InputData):
         self._file_type = (
             "vector" if self._params["extension"] == "geojson" else "raster")
         if self._file_type == "raster":
+            self._params["count"] = self._params.get(
+                "count", self._params.get("bands", None))
             validate_values(self._params, [
                 ("dtype", six.string_types),
                 ("count", int)])
