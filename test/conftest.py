@@ -47,6 +47,20 @@ def mp_tmpdir():
 
 
 @pytest.fixture
+def cleantopo_br():
+    """Fixture for cleantopo_br.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "cleantopo_br.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def cleantopo_br_tiledir():
+    """Fixture for cleantopo_br_tiledir.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "cleantopo_br_tiledir.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def geojson():
     """Fixture for geojson.mapchete."""
     path = os.path.join(TESTDATA_DIR, "geojson.mapchete")

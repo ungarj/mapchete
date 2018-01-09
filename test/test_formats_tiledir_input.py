@@ -1,15 +1,10 @@
 """Test Mapchete default formats."""
 
-import pytest
 import os
-import yaml
-from tilematrix import TilePyramid
-from rasterio.crs import CRS
+import six
 from mapchete.formats import available_input_formats
-from mapchete.formats.default import tile_directory
 
 import mapchete
-from mapchete import errors
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -47,13 +42,21 @@ def test_read_vector_data(mp_tmpdir, geojson, geojson_tiledir):
     features = []
     with mapchete.open(geojson_tiledir.path) as mp:
         for tile in mp.get_process_tiles(4):
-            input_tile = mp.config.inputs.values()[0].open(tile)
+            input_tile = next(six.itervalues(mp.config.inputs)).open(tile)
             features.extend(input_tile.read())
     assert features
 
 
-def test_read_raster_data():
-    pass
+def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
+    """Read raster data."""
+    # prepare data
+    with mapchete.open(cleantopo_br.path) as mp:
+        mp.batch_process(zoom=4)
+    # read data
+    with mapchete.open(cleantopo_br_tiledir.path) as mp:
+        assert any([
+            mp.config.inputs.values()[0].open(tile).read().any()
+            for tile in mp.get_process_tiles(4)])
 
 
 def test_parse_errors():

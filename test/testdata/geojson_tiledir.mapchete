@@ -12,7 +12,7 @@ input:
 output:
     type: geodetic
     format: GeoJSON
-    path: tmp/out
+    path: tmp/tmp
     data_type: vector
     schema:
         properties:

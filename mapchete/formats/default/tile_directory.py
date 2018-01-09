@@ -1,6 +1,8 @@
 """Use a directory of zoom/row/column tiles as input."""
 
 from itertools import chain
+import numpy as np
+import numpy.ma as ma
 import os
 import six
 from shapely.geometry import box
@@ -10,6 +12,8 @@ from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry, read_vector_window
+from mapchete.io.raster import (
+    read_raster_window, create_mosaic, resample_from_array)
 
 
 METADATA = {
@@ -67,13 +71,8 @@ class InputData(base.InputData):
             raise MapcheteConfigError(
                 "invalid file extension given: %s" % self._params["extension"])
         self._ext = self._params["extension"]
-        if self._params["path"].startswith("http"):
-            self.path = self._params["path"]
-            self._remote = True
-        else:
-            self.path = os.path.abspath(
-                os.path.join(input_params["conf_dir"], self._params["path"]))
-            self._remote = False
+        self.path = _absolute_path(
+            input_params["conf_dir"], self._params["path"])
 
         # define pyramid
         self.td_pyramid = BufferedTilePyramid(
@@ -88,11 +87,14 @@ class InputData(base.InputData):
             "vector" if self._params["extension"] == "geojson" else "raster")
         if self._file_type == "raster":
             validate_values(self._params, [
-                ("dtype", six.string_types), ("nodata", (int, float))])
-            self.nodata = self._params("nodata")
-            self.dtype = input_params("dtype")
+                ("dtype", six.string_types),
+                ("count", int)])
+            self._profile = {
+                "nodata": self._params.get("nodata", 0),
+                "dtype": self._params["dtype"],
+                "count": self._params["count"]}
         else:
-            self.nodata, self.dtype = None, None
+            self._profile = None
 
     def open(self, tile, **kwargs):
         """
@@ -107,15 +109,18 @@ class InputData(base.InputData):
         input tile : ``InputTile``
             tile view of input data
         """
-        _paths = [
-            os.path.join(*([self.path] + map(str, t.id))) + "." + self._ext
-            for t in self.td_pyramid.tiles_from_bounds(tile.bounds, tile.zoom)
-        ]
         return InputTile(
             tile,
-            source_files=_paths if self._remote else [
-                _path for _path in _paths if os.path.exists(_path)],
+            tiles_paths=[
+                (_tile, _path) for _tile, _path in [
+                    (t, os.path.join(
+                        *([self.path] + map(str, t.id))) + "." + self._ext)
+                    for t in self.td_pyramid.tiles_from_bounds(
+                        tile.bounds, tile.zoom)
+                ]
+                if _path_exists(_path)],
             file_type=self._file_type,
+            profile=self._profile,
             **kwargs)
 
     def bbox(self, out_crs=None):
@@ -156,11 +161,14 @@ class InputTile(base.InputTile):
     def __init__(self, tile, **kwargs):
         """Initialize."""
         self.tile = tile
-        self._cache = {}
-        self._source_files = kwargs["source_files"]
+        self._tiles_paths = kwargs["tiles_paths"]
         self._file_type = kwargs["file_type"]
+        self._profile = kwargs["profile"]
 
-    def read(self, validity_check=False, **kwargs):
+    def read(
+        self, validity_check=False, indexes=None, resampling="nearest",
+        dst_nodata=None, gdal_opts={}
+    ):
         """
         Read reprojected & resampled input data.
 
@@ -170,18 +178,50 @@ class InputTile(base.InputTile):
             vector file: also run checks if reprojected geometry is valid,
             otherwise throw RuntimeError (default: True)
 
+        indexes : list or int
+            raster file: a list of band numbers; None will read all.
+        resampling : string
+            raster file: one of "nearest", "average", "bilinear" or "lanczos"
+        dst_nodata : int or float, optional
+            raster file: if not set, the nodata value from the source dataset
+            will be used
+        gdal_opts : dict
+            raster file: GDAL options passed on to rasterio.Env()
+
         Returns
         -------
         data : list for vector files or numpy array for raster files
         """
         if self._file_type == "vector":
+            if self.is_empty():
+                return []
             return list(chain.from_iterable([
                 read_vector_window(
                     _path, self.tile, validity_check=validity_check)
-                for _path in self._source_files
+                for _, _path in self._tiles_paths
             ]))
         else:
-            raise NotImplementedError
+            if self.is_empty():
+                count = (len(indexes) if indexes else self._profile["count"], )
+                return ma.masked_array(
+                    data=np.full(
+                        count + self.tile.shape, self._profile["nodata"],
+                        dtype=self._profile["dtype"]),
+                    mask=True
+                )
+            tiles = [
+                (_tile, read_raster_window(
+                    _path, _tile, indexes=indexes, resampling=resampling,
+                    src_nodata=self._profile["nodata"], dst_nodata=dst_nodata,
+                    gdal_opts=gdal_opts))
+                for _tile, _path in self._tiles_paths
+            ]
+            return resample_from_array(
+                in_raster=create_mosaic(
+                    tiles=tiles, nodata=self._profile["nodata"]),
+                out_tile=self.tile,
+                resampling=resampling,
+                nodataval=self._profile["nodata"])
 
     def is_empty(self):
         """
@@ -191,4 +231,18 @@ class InputTile(base.InputTile):
         -------
         is empty : bool
         """
-        return len(self._source_files) == 0
+        return len(self._tiles_paths) == 0
+
+
+def _absolute_path(directory, path):
+    """Return absolute path if local."""
+    return path if path.startswith(("http://", "https://")) else (
+        os.path.abspath(os.path.join(directory, path)))
+
+
+def _path_exists(path):
+    """Check if file exists either remote or local."""
+    if path.startswith(("http://", "https://")):
+        raise NotImplementedError
+    else:
+        return os.path.exists(path)
