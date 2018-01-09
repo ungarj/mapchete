@@ -1,5 +1,6 @@
 """Use a directory of zoom/row/column tiles as input."""
 
+from itertools import chain
 import os
 import six
 from shapely.geometry import box
@@ -8,7 +9,7 @@ from mapchete.tile import BufferedTilePyramid
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io.vector import reproject_geometry
+from mapchete.io.vector import reproject_geometry, read_vector_window
 
 
 METADATA = {
@@ -57,17 +58,22 @@ class InputData(base.InputData):
         # validate parameters
         validate_values(
             self._params, [
-                ("path", six.string_types), ("type", six.string_types),
+                ("path", six.string_types),
+                ("type", six.string_types),
                 ("extension", six.string_types)])
         if not self._params["extension"] in [
             "tif", "vrt", "png", "jpg", "mixed", "jp2", "geojson"
         ]:
             raise MapcheteConfigError(
                 "invalid file extension given: %s" % self._params["extension"])
-        self.path = self._params["path"]
-        if not self.path.startswith("http") and not os.path.exists(self.path):
-            raise MapcheteConfigError(
-                "path does not exist: %s" % self.path)
+        self._ext = self._params["extension"]
+        if self._params["path"].startswith("http"):
+            self.path = self._params["path"]
+            self._remote = True
+        else:
+            self.path = os.path.abspath(
+                os.path.join(input_params["conf_dir"], self._params["path"]))
+            self._remote = False
 
         # define pyramid
         self.td_pyramid = BufferedTilePyramid(
@@ -76,7 +82,7 @@ class InputData(base.InputData):
             tile_size=self._params.get("tile_size", 256),
             pixelbuffer=self._params.get("pixelbuffer", 0))
 
-        # ADDITIONAL PARAMS
+        # additional params
         self._bounds = self._params.get("bounds", self.td_pyramid.bounds)
         self._file_type = (
             "vector" if self._params["extension"] == "geojson" else "raster")
@@ -101,7 +107,16 @@ class InputData(base.InputData):
         input tile : ``InputTile``
             tile view of input data
         """
-        return self.process.config.output.open(tile, self.process, **kwargs)
+        _paths = [
+            os.path.join(*([self.path] + map(str, t.id))) + "." + self._ext
+            for t in self.td_pyramid.tiles_from_bounds(tile.bounds, tile.zoom)
+        ]
+        return InputTile(
+            tile,
+            source_files=_paths if self._remote else [
+                _path for _path in _paths if os.path.exists(_path)],
+            file_type=self._file_type,
+            **kwargs)
 
     def bbox(self, out_crs=None):
         """
@@ -121,3 +136,59 @@ class InputData(base.InputData):
             box(*self._bounds),
             src_crs=self.td_pyramid.crs,
             dst_crs=self.pyramid.crs if out_crs is None else out_crs)
+
+
+class InputTile(base.InputTile):
+    """
+    Target Tile representation of input data.
+
+    Parameters
+    ----------
+    tile : ``Tile``
+    kwargs : keyword arguments
+        driver specific parameters
+
+    Attributes
+    ----------
+    tile : tile : ``Tile``
+    """
+
+    def __init__(self, tile, **kwargs):
+        """Initialize."""
+        self.tile = tile
+        self._cache = {}
+        self._source_files = kwargs["source_files"]
+        self._file_type = kwargs["file_type"]
+
+    def read(self, validity_check=False, **kwargs):
+        """
+        Read reprojected & resampled input data.
+
+        Parameters
+        ----------
+        validity_check : bool
+            vector file: also run checks if reprojected geometry is valid,
+            otherwise throw RuntimeError (default: True)
+
+        Returns
+        -------
+        data : list for vector files or numpy array for raster files
+        """
+        if self._file_type == "vector":
+            return list(chain.from_iterable([
+                read_vector_window(
+                    _path, self.tile, validity_check=validity_check)
+                for _path in self._source_files
+            ]))
+        else:
+            raise NotImplementedError
+
+    def is_empty(self):
+        """
+        Check if there is data within this tile.
+
+        Returns
+        -------
+        is empty : bool
+        """
+        return len(self._source_files) == 0

@@ -1,13 +1,21 @@
 #!/usr/bin/env python
 """Fixtures such as Flask app for serve."""
 
+from collections import namedtuple
 import os
 import pytest
+import shutil
+import yaml
 
 from mapchete.cli.serve import create_app
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
+TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
+
+
+ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 
 class Namespace(object):
@@ -29,3 +37,30 @@ def app():
         debug=True
     )
     return create_app(args)
+
+
+@pytest.fixture
+def mp_tmpdir():
+    """Setup and teardown temporary directory."""
+    yield TEMP_DIR
+    shutil.rmtree(TEMP_DIR, ignore_errors=True)
+
+
+@pytest.fixture
+def geojson():
+    """Fixture for geojson.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "geojson.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def geojson_tiledir():
+    """Fixture for geojson_tiledir.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "geojson_tiledir.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+def _dict_from_mapchete(path):
+    config = yaml.load(open(path).read())
+    config.update(config_dir=os.path.dirname(path))
+    return config
