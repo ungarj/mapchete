@@ -55,7 +55,7 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     # read data
     with mapchete.open(cleantopo_br_tiledir.path) as mp:
         assert any([
-            mp.config.inputs.values()[0].open(tile).read().any()
+            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
             for tile in mp.get_process_tiles(4)])
 
 

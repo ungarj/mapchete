@@ -115,8 +115,9 @@ class InputData(base.InputData):
             tile,
             tiles_paths=[
                 (_tile, _path) for _tile, _path in [
-                    (t, os.path.join(
-                        *([self.path] + map(str, t.id))) + "." + self._ext)
+                    (t, os.path.join(*([
+                        self.path, str(t.zoom), str(t.row), str(t.col)
+                        ])) + "." + self._ext)
                     for t in self.td_pyramid.tiles_from_bounds(
                         tile.bounds, tile.zoom)
                 ]
