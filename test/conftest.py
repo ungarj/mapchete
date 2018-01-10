@@ -68,6 +68,42 @@ def dummy2_tif():
     return os.path.join(TESTDATA_DIR, "dummy2.tif")
 
 
+@pytest.fixture
+def import_error_py():
+    """Fixture for import_error.py"""
+    return os.path.join(TESTDATA_DIR, "import_error.py")
+
+
+@pytest.fixture
+def malformed_py():
+    """Fixture for malformed.py"""
+    return os.path.join(TESTDATA_DIR, "malformed.py")
+
+
+@pytest.fixture
+def syntax_error_py():
+    """Fixture for syntax_error.py"""
+    return os.path.join(TESTDATA_DIR, "syntax_error.py")
+
+
+@pytest.fixture
+def execute_params_error_py():
+    """Fixture for execute_params_error.py"""
+    return os.path.join(TESTDATA_DIR, "execute_params_error.py")
+
+
+@pytest.fixture
+def process_error_py():
+    """Fixture for process_error.py"""
+    return os.path.join(TESTDATA_DIR, "process_error.py")
+
+
+@pytest.fixture
+def output_error_py():
+    """Fixture for output_error.py"""
+    return os.path.join(TESTDATA_DIR, "output_error.py")
+
+
 # example mapchete configurations
 @pytest.fixture
 def abstract_input():
