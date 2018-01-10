@@ -11,10 +11,6 @@ from mapchete.errors import MapcheteDriverError
 import mapchete
 
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
-
-
 def test_driver_available():
     """Driver is correctly registered."""
     assert "TileDirectory" in available_input_formats()
@@ -22,7 +18,6 @@ def test_driver_available():
 
 def test_parse_bounds(geojson_tiledir):
     """Read and configure bounds."""
-    geojson_tiledir.dict["input"]["file1"].update(path=SCRIPTDIR)
     # fall back to pyramid bounds
     with mapchete.open(geojson_tiledir.dict) as mp:
         ip = mp.config.at_zoom(4)["input"]["file1"]
