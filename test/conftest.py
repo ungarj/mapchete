@@ -10,8 +10,8 @@ import yaml
 from mapchete.cli.serve import create_app
 
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
 TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
 
 
@@ -56,7 +56,82 @@ def cleantopo_br_tif():
     return os.path.join(TESTDATA_DIR, "cleantopo_br.tif")
 
 
+@pytest.fixture
+def dummy1_tif():
+    """Fixture for dummy1.tif"""
+    return os.path.join(TESTDATA_DIR, "dummy1.tif")
+
+
+@pytest.fixture
+def dummy2_tif():
+    """Fixture for dummy2.tif"""
+    return os.path.join(TESTDATA_DIR, "dummy2.tif")
+
+
 # example mapchete configurations
+@pytest.fixture
+def abstract_input():
+    """Fixture for abstract_input.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "abstract_input.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def files_zooms():
+    """Fixture for files_zooms.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "files_zooms.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def file_groups():
+    """Fixture for file_groups.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "file_groups.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def baselevels():
+    """Fixture for baselevels.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "baselevels.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def mapchete_input():
+    """Fixture for mapchete_input.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "mapchete_input.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def files_bounds():
+    """Fixture for files_bounds.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "files_bounds.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def example_mapchete():
+    """Fixture for example.mapchete."""
+    path = os.path.join(SCRIPT_DIR, "example.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def zoom_mapchete():
+    """Fixture for zoom.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "zoom.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def minmax_zoom():
+    """Fixture for minmax_zoom.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "minmax_zoom.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
 @pytest.fixture
 def cleantopo_tl():
     """Fixture for cleantopo_tl.mapchete."""
