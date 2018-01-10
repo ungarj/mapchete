@@ -57,6 +57,12 @@ def http_raster():
 
 
 @pytest.fixture
+def landpoly():
+    """Fixture for landpoly.geojson"""
+    return os.path.join(TESTDATA_DIR, "landpoly.geojson")
+
+
+@pytest.fixture
 def landpoly_3857():
     """Fixture for landpoly_3857.geojson"""
     return os.path.join(TESTDATA_DIR, "landpoly_3857.geojson")
@@ -66,6 +72,12 @@ def landpoly_3857():
 def cleantopo_br_tif():
     """Fixture for cleantopo_br.tif"""
     return os.path.join(TESTDATA_DIR, "cleantopo_br.tif")
+
+
+@pytest.fixture
+def dummy1_3857_tif():
+    """Fixture for dummy1_3857.tif"""
+    return os.path.join(TESTDATA_DIR, "dummy1_3857.tif")
 
 
 @pytest.fixture

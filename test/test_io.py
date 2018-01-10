@@ -20,24 +20,18 @@ from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
 from mapchete.io import raster, vector, get_best_zoom_level
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
-
-def test_best_zoom_level():
+def test_best_zoom_level(dummy1_tif):
     """Test best zoom level determination."""
-    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
-    assert get_best_zoom_level(dummy1, "geodetic")
-    assert get_best_zoom_level(dummy1, "mercator")
+    assert get_best_zoom_level(dummy1_tif, "geodetic")
+    assert get_best_zoom_level(dummy1_tif, "mercator")
 
 
-def test_read_raster_window():
+def test_read_raster_window(dummy1_tif, minmax_zoom):
     """Read array with read_raster_window."""
     zoom = 8
     # without reproject
-    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
-    config = MapcheteConfig(
-        os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete"))
+    config = MapcheteConfig(minmax_zoom.path)
     rasterfile = config.at_zoom(zoom)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
@@ -48,30 +42,26 @@ def test_read_raster_window():
     tiles.append(tile_pyramid.tile(8, 0, 0))
     for tile in tiles:
         width, height = tile.shape
-        for band in raster.read_raster_window(dummy1, tile):
+        for band in raster.read_raster_window(dummy1_tif, tile):
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
         for index in range(1, 4):
-            band = raster.read_raster_window(dummy1, tile, index)
+            band = raster.read_raster_window(dummy1_tif, tile, index)
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
         for index in [None, [1, 2, 3]]:
-            band = raster.read_raster_window(dummy1, tile, index)
+            band = raster.read_raster_window(dummy1_tif, tile, index)
             assert isinstance(band, ma.MaskedArray)
             assert band.ndim == 3
             assert band.shape == (3, width, height)
 
 
-def test_read_raster_window_reproject():
+def test_read_raster_window_reproject(dummy1_3857_tif, minmax_zoom):
     """Read array with read_raster_window."""
     zoom = 8
     # with reproject
-    config_raw = yaml.load(open(
-        os.path.join(SCRIPTDIR, "testdata/minmax_zoom.mapchete")
-    ).read())
-    dummy1 = os.path.join(TESTDATA_DIR, "dummy1_3857.tif")
-    config_raw["input"].update(file1="dummy1_3857.tif")
-    config_raw.update(config_dir=TESTDATA_DIR)
+    config_raw = minmax_zoom.dict
+    config_raw["input"].update(file1=dummy1_3857_tif)
     config = MapcheteConfig(config_raw)
     rasterfile = config.at_zoom(zoom)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
@@ -80,17 +70,18 @@ def test_read_raster_window_reproject():
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
     # target window out of CRS bounds
-    band = raster.read_raster_window(dummy1, tile_pyramid.tile(12, 0, 0))
+    band = raster.read_raster_window(
+        dummy1_3857_tif, tile_pyramid.tile(12, 0, 0))
     assert isinstance(band, ma.MaskedArray)
     assert band.mask.all()
     # not intersecting tile
     tiles.append(tile_pyramid.tile(zoom, 1, 1))   # out of CRS bounds
     tiles.append(tile_pyramid.tile(zoom, 16, 1))  # out of file bbox
     for tile in tiles:
-        for band in raster.read_raster_window(dummy1, tile):
+        for band in raster.read_raster_window(dummy1_3857_tif, tile):
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == tile.shape
-        bands = raster.read_raster_window(dummy1, tile, [1])
+        bands = raster.read_raster_window(dummy1_3857_tif, tile, [1])
         assert isinstance(bands, ma.MaskedArray)
         assert bands.shape == tile.shape
     # errors
@@ -98,15 +89,15 @@ def test_read_raster_window_reproject():
         raster.read_raster_window("nonexisting_path", tile)
 
 
-def test_read_raster_window_resampling():
+def test_read_raster_window_resampling(cleantopo_br_tif):
     """Assert various resampling options work."""
-    dummy1 = os.path.join(TESTDATA_DIR, "cleantopo_br.tif")
     tp = BufferedTilePyramid("geodetic")
-    with rasterio.open(dummy1, "r") as src:
+    with rasterio.open(cleantopo_br_tif, "r") as src:
         tiles = tp.tiles_from_bounds(src.bounds, 4)
     for tile in tiles:
         outputs = [
-            raster.read_raster_window(dummy1, tile, resampling=resampling)
+            raster.read_raster_window(
+                cleantopo_br_tif, tile, resampling=resampling)
             for resampling in [
                 "nearest", "bilinear", "cubic", "cubic_spline", "lanczos",
                 "average", "mode"
@@ -118,12 +109,10 @@ def test_read_raster_window_resampling():
         ])
 
 
-def test_read_raster_window_partly_overlapping():
+def test_read_raster_window_partly_overlapping(cleantopo_br_tif):
     """Read array with read_raster_window where window is bigger than file."""
     tile = BufferedTilePyramid("geodetic").tile(4, 15, 31)
-    data = raster.read_raster_window(
-        os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif"), tile
-    )
+    data = raster.read_raster_window(cleantopo_br_tif, tile)
     assert isinstance(data, ma.MaskedArray)
     assert data.mask.any()
 
@@ -477,11 +466,10 @@ def test_prepare_array_errors():
         pass
 
 
-def test_read_vector_window():
+def test_read_vector_window(geojson, landpoly_3857):
     """Read vector data from read_vector_window."""
     zoom = 4
-    config = MapcheteConfig(
-        os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
+    config = MapcheteConfig(geojson.path)
     vectorfile = config.at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
@@ -494,11 +482,8 @@ def test_read_vector_window():
             feature_count += 1
     assert feature_count
     # into different CRS
-    raw_config = yaml.load(
-        open(os.path.join(SCRIPTDIR, "testdata/geojson.mapchete")).read()
-    )
-    raw_config["input"].update(file1="landpoly_3857.geojson")
-    raw_config.update(config_dir=TESTDATA_DIR)
+    raw_config = geojson.dict
+    raw_config["input"].update(file1=landpoly_3857)
     config = MapcheteConfig(raw_config)
     vectorfile = config.at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
@@ -513,11 +498,9 @@ def test_read_vector_window():
     assert feature_count
 
 
-def test_reproject_geometry():
+def test_reproject_geometry(landpoly):
     """Reproject geometry."""
-    with fiona.open(
-        os.path.join(TESTDATA_DIR, "landpoly.geojson"), "r"
-    ) as src:
+    with fiona.open(landpoly, "r") as src:
         for feature in src:
 
             # WGS84 to Spherical Mercator
