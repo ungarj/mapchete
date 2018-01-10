@@ -10,32 +10,29 @@ import mapchete
 from mapchete.formats.default import gtiff
 from mapchete.tile import BufferedTilePyramid
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
 
-
-def test_output_data():
+def test_output_data(mp_tmpdir):
     """Check GeoTIFF as output data."""
     output_params = dict(
         type="geodetic",
         format="GeoTIFF",
-        path=OUT_DIR,
+        path=mp_tmpdir,
         pixelbuffer=0,
         metatiling=1,
         bands=1,
         dtype="int16"
     )
     output = gtiff.OutputData(output_params)
-    assert output.path == OUT_DIR
+    assert output.path == mp_tmpdir
     assert output.file_extension == ".tif"
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     # get_path
     assert output.get_path(tile) == os.path.join(*[
-        OUT_DIR, "5", "5", "5"+".tif"])
+        mp_tmpdir, "5", "5", "5"+".tif"])
     # prepare_path
     try:
-        temp_dir = os.path.join(*[OUT_DIR, "5", "5"])
+        temp_dir = os.path.join(*[mp_tmpdir, "5", "5"])
         output.prepare_path(tile)
         assert os.path.isdir(temp_dir)
     finally:
@@ -74,31 +71,30 @@ def test_output_data():
     assert output.profile(tile)["predictor"] == 2
 
 
-def test_input_data():
+def test_input_data(mp_tmpdir, cleantopo_br):
     """Check GeoTIFF proces output as input data."""
-    mp = mapchete.open(
-        os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete"))
-    tp = BufferedTilePyramid("geodetic")
-    # TODO tile with existing but empty data
-    tile = tp.tile(5, 5, 5)
-    output_params = dict(
-        type="geodetic",
-        format="GeoTIFF",
-        path=OUT_DIR,
-        pixelbuffer=0,
-        metatiling=1,
-        bands=2,
-        dtype="int16"
-    )
-    output = gtiff.OutputData(output_params)
-    with output.open(tile, mp, resampling="nearest") as input_tile:
-        assert input_tile.resampling == "nearest"
-        for data in [
-            input_tile.read(), input_tile.read(1), input_tile.read([1]),
-            # TODO assert valid indexes are passed input_tile.read([1, 2])
-        ]:
-            assert isinstance(data, ma.masked_array)
-            assert input_tile.is_empty()
-    # open without resampling
-    with output.open(tile, mp) as input_tile:
-        pass
+    with mapchete.open(cleantopo_br.path) as mp:
+        tp = BufferedTilePyramid("geodetic")
+        # TODO tile with existing but empty data
+        tile = tp.tile(5, 5, 5)
+        output_params = dict(
+            type="geodetic",
+            format="GeoTIFF",
+            path=mp_tmpdir,
+            pixelbuffer=0,
+            metatiling=1,
+            bands=2,
+            dtype="int16"
+        )
+        output = gtiff.OutputData(output_params)
+        with output.open(tile, mp, resampling="nearest") as input_tile:
+            assert input_tile.resampling == "nearest"
+            for data in [
+                input_tile.read(), input_tile.read(1), input_tile.read([1]),
+                # TODO assert valid indexes are passed input_tile.read([1, 2])
+            ]:
+                assert isinstance(data, ma.masked_array)
+                assert input_tile.is_empty()
+        # open without resampling
+        with output.open(tile, mp) as input_tile:
+            pass
