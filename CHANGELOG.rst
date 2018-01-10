@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.16
+----
+* Added ``TileDirectory`` as additional input option (#89)
+
+----
 0.15
 ----
 * enabled optional ``cleanup()`` function for ``InputData`` objects when ``Mapchete`` is closed.
