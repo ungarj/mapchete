@@ -1,0 +1,24 @@
+# mapchete parameters
+process_file: ../example_process.py
+process_minzoom: 0
+process_maxzoom: 5
+input:
+    file1:
+        format: TileDirectory
+        path: tmp
+        metatiling: 8
+        type: geodetic
+        extension: tif
+        dtype: uint16
+        count: 1
+
+output:
+    type: geodetic
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/tmp
+    pixelbuffer: 20
+
+pixelbuffer: 20
+metatiling: 4

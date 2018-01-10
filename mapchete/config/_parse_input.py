@@ -173,7 +173,8 @@ def _input_worker(conf_dir, pyramid, pixelbuffer, delimiters, readonly, kv):
                 _input_reader = load_input_reader(
                     dict(
                         abstract=input_obj, pyramid=pyramid,
-                        pixelbuffer=pixelbuffer, delimiters=delimiters
+                        pixelbuffer=pixelbuffer, delimiters=delimiters,
+                        conf_dir=conf_dir
                     ),
                     readonly
                 )

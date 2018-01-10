@@ -26,10 +26,14 @@ class BufferedTilePyramid(TilePyramid):
         tile buffer size in pixels
     """
 
-    def __init__(self, pyramid_type, metatiling=1, pixelbuffer=0):
+    def __init__(
+        self, pyramid_type, metatiling=1, tile_size=256, pixelbuffer=0
+    ):
         """Initialize."""
-        TilePyramid.__init__(self, pyramid_type, metatiling=metatiling)
-        self.tile_pyramid = TilePyramid(pyramid_type, metatiling=metatiling)
+        TilePyramid.__init__(
+            self, pyramid_type, metatiling=metatiling, tile_size=tile_size)
+        self.tile_pyramid = TilePyramid(
+            pyramid_type, metatiling=metatiling, tile_size=tile_size)
         self.metatiling = metatiling
         self.pixelbuffer = pixelbuffer
 

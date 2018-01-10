@@ -47,7 +47,8 @@ setup(
             'png_hillshade=mapchete.formats.default.png_hillshade',
             'png=mapchete.formats.default.png',
             'raster_file=mapchete.formats.default.raster_file',
-            'vector_file=mapchete.formats.default.vector_file'
+            'vector_file=mapchete.formats.default.vector_file',
+            'tile_directory=mapchete.formats.default.tile_directory'
         ]
     },
     package_dir={'static': 'static'},

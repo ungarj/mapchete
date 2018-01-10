@@ -544,13 +544,10 @@ def test_reproject_geometry():
         big_box, CRS().from_epsg(4326), CRS().from_epsg(3857))
 
     # WGS84 bounds to Spherical Mercator raising clip error
-    try:
+    with pytest.raises(RuntimeError):
         vector.reproject_geometry(
             big_box, CRS().from_epsg(4326), CRS().from_epsg(3857),
             error_on_clip=True)
-        raise Exception()
-    except RuntimeError:
-        pass
 
     # empty geometry
     assert vector.reproject_geometry(

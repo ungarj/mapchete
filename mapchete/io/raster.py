@@ -283,6 +283,9 @@ def resample_from_array(
         pass
     if isinstance(in_raster, np.ndarray):
         in_raster = ma.MaskedArray(in_raster, mask=in_raster == nodataval)
+    elif isinstance(in_raster, ReferencedRaster):
+        in_affine = in_raster.affine
+        in_raster = in_raster.data
     elif isinstance(in_raster, tuple):
         in_raster = ma.MaskedArray(
             data=np.stack(in_raster),
@@ -341,6 +344,8 @@ def create_mosaic(tiles, nodata=0):
         for tile, data in tiles
     ]):
         raise TypeError("tuples must be pairs of BufferedTile and array")
+    if len(tiles) == 0:
+        raise ValueError("tiles list is empty")
 
     # quick return if there is just one tile
     if len(tiles) == 1:

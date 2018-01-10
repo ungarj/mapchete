@@ -11,6 +11,7 @@ from shapely.geometry import (
     LinearRing, LineString
 )
 from shapely.errors import TopologicalError
+import six
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
@@ -42,9 +43,9 @@ def reproject_geometry(
     Parameters
     ----------
     geometry : ``shapely.geometry``
-    src_crs : ``rasterio.crs.CRS``
+    src_crs : ``rasterio.crs.CRS`` or EPSG code
         CRS of source data
-    dst_crs : ``rasterio.crs.CRS``
+    dst_crs : ``rasterio.crs.CRS`` or EPSG code
         target CRS
     error_on_clip : bool
         raises a ``RuntimeError`` if a geometry is outside of CRS bounds
@@ -57,6 +58,9 @@ def reproject_geometry(
     -------
     geometry : ``shapely.geometry``
     """
+    src_crs = _validated_crs(src_crs)
+    dst_crs = _validated_crs(dst_crs)
+
     # return repaired geometry if no reprojection needed
     if src_crs == dst_crs:
         return geometry.buffer(0)
@@ -95,6 +99,17 @@ def _reproject_geom(geometry, src_crs, dst_crs, validity_check=True):
     if validity_check and not out_geom.is_valid or out_geom.is_empty:
         raise TopologicalError("invalid geometry after reprojection")
     return out_geom
+
+
+def _validated_crs(crs):
+    if isinstance(crs, CRS):
+        return crs
+    elif isinstance(crs, six.string_types):
+        return CRS().from_epsg(int(crs))
+    elif isinstance(crs, int):
+        return CRS().from_epsg(crs)
+    else:
+        raise TypeError("invalid CRS given")
 
 
 def segmentize_geometry(geometry, segmentize_value):
