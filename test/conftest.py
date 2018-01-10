@@ -39,13 +39,24 @@ def app():
     return create_app(args)
 
 
+# temporary directory for I/O tests
 @pytest.fixture
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
+    shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    os.makedirs(TEMP_DIR)
     yield TEMP_DIR
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
 
 
+# example files
+@pytest.fixture
+def cleantopo_br_tif():
+    """Fixture for cleantopo_br.tif"""
+    return os.path.join(TESTDATA_DIR, "cleantopo_br.tif")
+
+
+# example mapchete configurations
 @pytest.fixture
 def cleantopo_br():
     """Fixture for cleantopo_br.mapchete."""
@@ -81,6 +92,7 @@ def geojson_tiledir():
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 
+# helper functions
 def _dict_from_mapchete(path):
     config = yaml.load(open(path).read())
     config.update(config_dir=os.path.dirname(path))
