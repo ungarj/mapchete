@@ -13,9 +13,6 @@ from PIL import Image
 from mapchete.cli.main import MapcheteCLI
 from mapchete.errors import MapcheteProcessOutputError
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
-
 
 def _getstatusoutput(command):
     sp = subprocess.Popen(
@@ -58,46 +55,34 @@ def test_missing_input_file():
     assert "IOError: input_file invalid.tif not found"
 
 
-def test_create_and_execute():
+def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
     """Run mapchete create and execute."""
-    temp_mapchete = "temp.mapchete"
-    temp_process = "temp.py"
+    temp_mapchete = os.path.join(mp_tmpdir, "temp.mapchete")
+    temp_process = os.path.join(mp_tmpdir, "temp.py")
     out_format = "GTiff"
-    try:
-        # create from template
-        args = [
-            None, 'create', temp_mapchete, temp_process, out_format,
-            "--pyramid_type", "geodetic"]
+    # create from template
+    args = [
+        None, 'create', temp_mapchete, temp_process, out_format,
+        "--pyramid_type", "geodetic"]
+    MapcheteCLI(args)
+    # edit configuration
+    with open(temp_mapchete, "r") as config_file:
+        config = yaml.load(config_file)
+        config["output"].update(bands=1, dtype="uint8", path=".")
+    with open(temp_mapchete, "w") as config_file:
+        config_file.write(yaml.dump(config, default_flow_style=False))
+    # run process for single tile
+    args = [
+        None, 'execute', temp_mapchete, '--tile', '6', '62', '124',
+        '--input_file', cleantopo_br_tif]
+    with pytest.raises(MapcheteProcessOutputError):
         MapcheteCLI(args)
-        # edit configuration
-        with open(temp_mapchete, "r") as config_file:
-            config = yaml.load(config_file)
-            config["output"].update(bands=1, dtype="uint8", path=".")
-        with open(temp_mapchete, "w") as config_file:
-            config_file.write(yaml.dump(config, default_flow_style=False))
-        # run process for single tile
-        input_file = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-        args = [
-            None, 'execute', temp_mapchete, '--tile', '6', '62', '124',
-            '--input_file', input_file]
-        try:
-            MapcheteCLI(args)
-        except MapcheteProcessOutputError:
-            pass
-    finally:
-        delete_files = [temp_mapchete, temp_process, "temp.pyc", "temp.log"]
-        for delete_file in delete_files:
-            try:
-                os.remove(delete_file)
-            except OSError:
-                pass
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
-def test_create_existing():
+def test_create_existing(mp_tmpdir):
     """Run mapchete create and execute."""
-    temp_mapchete = "temp.mapchete"
-    temp_process = "temp.py"
+    temp_mapchete = os.path.join(mp_tmpdir, "temp.mapchete")
+    temp_process = os.path.join(mp_tmpdir, "temp.py")
     out_format = "GTiff"
     # create files from template
     args = [
@@ -105,61 +90,35 @@ def test_create_existing():
         "--pyramid_type", "geodetic"]
     MapcheteCLI(args)
     # try to create again
-    try:
+    with pytest.raises(IOError):
         MapcheteCLI(args)
-    except IOError:
-        pass
-    finally:
-        delete_files = [temp_mapchete, temp_process]
-        for delete_file in delete_files:
-            try:
-                os.remove(delete_file)
-            except OSError:
-                pass
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
-def test_execute_multiprocessing():
+def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     """Run mapchete execute with multiple workers."""
-    temp_mapchete = "temp.mapchete"
-    temp_process = "temp.py"
+    temp_mapchete = os.path.join(mp_tmpdir, "temp.mapchete")
+    temp_process = os.path.join(mp_tmpdir, "temp.py")
     out_format = "GTiff"
-    try:
-        # create from template
-        args = [
-            None, 'create', temp_mapchete, temp_process, out_format,
-            "--pyramid_type", "geodetic"]
+    # create from template
+    args = [
+        None, 'create', temp_mapchete, temp_process, out_format,
+        "--pyramid_type", "geodetic"]
+    MapcheteCLI(args)
+    # edit configuration
+    with open(temp_mapchete, "r") as config_file:
+        config = yaml.load(config_file)
+        config["output"].update(bands=1, dtype="uint8", path=".")
+    with open(temp_mapchete, "w") as config_file:
+        config_file.write(yaml.dump(config, default_flow_style=False))
+    # run process with multiprocessing
+    args = [
+        None, 'execute', temp_mapchete, '--zoom', '6',
+        '--input_file', cleantopo_br_tif]
+    with pytest.raises(MapcheteProcessOutputError):
         MapcheteCLI(args)
-        # edit configuration
-        with open(temp_mapchete, "r") as config_file:
-            config = yaml.load(config_file)
-            config["output"].update(bands=1, dtype="uint8", path=".")
-        with open(temp_mapchete, "w") as config_file:
-            config_file.write(yaml.dump(config, default_flow_style=False))
-        # run process with multiprocessing
-        input_file = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-        args = [
-            None, 'execute', temp_mapchete, '--zoom', '6',
-            '--input_file', input_file]
-        try:
-            MapcheteCLI(args)
-        except MapcheteProcessOutputError:
-            pass
-        # run example process with multiprocessing
-        args = [
-            None, 'execute', os.path.join(
-                SCRIPTDIR, "testdata/cleantopo_br.mapchete"),
-            '--zoom', '8'
-        ]
-        MapcheteCLI(args)
-    finally:
-        delete_files = [temp_mapchete, temp_process, "temp.pyc", "temp.log"]
-        for delete_file in delete_files:
-            try:
-                os.remove(delete_file)
-            except OSError:
-                pass
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    # run example process with multiprocessing
+    args = [None, 'execute', cleantopo_br.path, '--zoom', '8']
+    MapcheteCLI(args)
 
 
 def test_formats(capfd):
@@ -175,206 +134,176 @@ def test_formats(capfd):
     assert not err
 
 
-def test_pyramid_geodetic():
+def test_pyramid_geodetic(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    test_raster = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-    try:
-        MapcheteCLI([
-            None, 'pyramid', test_raster, OUT_DIR, "-pt", "geodetic"])
-        for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
-            with rasterio.open(out_file, "r") as src:
-                assert src.meta["driver"] == "GTiff"
-                assert src.meta["dtype"] == "uint16"
-                data = src.read(masked=True)
-                assert data.mask.any()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    MapcheteCLI([
+        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-pt", "geodetic"])
+    for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint16"
+            data = src.read(masked=True)
+            assert data.mask.any()
 
 
-def test_pyramid_mercator():
+def test_pyramid_mercator(cleantopo_br_tif, mp_tmpdir):
     """Automatic mercator tile pyramid creation of raster files."""
-    test_raster = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-    try:
-        MapcheteCLI([None, 'pyramid', test_raster, OUT_DIR])
-        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
-            with rasterio.open(out_file, "r") as src:
-                assert src.meta["driver"] == "GTiff"
-                assert src.meta["dtype"] == "uint16"
-                data = src.read(masked=True)
-                assert data.mask.any()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    MapcheteCLI([None, 'pyramid', cleantopo_br_tif, mp_tmpdir])
+    for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint16"
+            data = src.read(masked=True)
+            assert data.mask.any()
 
 
-def test_pyramid_png():
+def test_pyramid_png(cleantopo_br_tif, mp_tmpdir):
     """Automatic PNG tile pyramid creation of raster files."""
-    test_raster = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-    try:
-        MapcheteCLI([None, 'pyramid', test_raster, OUT_DIR, "-of", "PNG"])
-        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".png"])
-            with rasterio.open(out_file, "r") as src:
-                assert src.meta["driver"] == "PNG"
-                assert src.meta["dtype"] == "uint8"
-                data = src.read(masked=True)
-                assert data.mask.any()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    MapcheteCLI([None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-of", "PNG"])
+    for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".png"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "PNG"
+            assert src.meta["dtype"] == "uint8"
+            data = src.read(masked=True)
+            assert data.mask.any()
 
 
-def test_pyramid_minmax():
+def test_pyramid_minmax(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using minmax scale."""
-    test_raster = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-    try:
-        MapcheteCLI([
-            None, 'pyramid', test_raster, OUT_DIR, "-s", "minmax_scale"])
-        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
-            with rasterio.open(out_file, "r") as src:
-                assert src.meta["driver"] == "GTiff"
-                assert src.meta["dtype"] == "uint16"
-                data = src.read(masked=True)
-                assert data.mask.any()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    MapcheteCLI([
+        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "minmax_scale"])
+    for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint16"
+            data = src.read(masked=True)
+            assert data.mask.any()
 
 
-def test_pyramid_dtype():
+def test_pyramid_dtype(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using dtype scale."""
-    test_raster = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-    try:
-        MapcheteCLI([
-            None, 'pyramid', test_raster, OUT_DIR, "-s", "dtype_scale"])
-        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
-            with rasterio.open(out_file, "r") as src:
-                assert src.meta["driver"] == "GTiff"
-                assert src.meta["dtype"] == "uint16"
-                data = src.read(masked=True)
-                assert data.mask.any()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    MapcheteCLI([
+        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "dtype_scale"])
+    for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint16"
+            data = src.read(masked=True)
+            assert data.mask.any()
 
 
-def test_pyramid_crop():
+def test_pyramid_crop(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation cropping data."""
-    test_raster = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-    try:
-        MapcheteCLI([
-            None, 'pyramid', test_raster, OUT_DIR, "-s", "crop"])
-        for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
-            with rasterio.open(out_file, "r") as src:
-                assert src.meta["driver"] == "GTiff"
-                assert src.meta["dtype"] == "uint16"
-                data = src.read(masked=True)
-                assert data.mask.any()
-                assert np.all(np.where(data <= 255, True, False))
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    MapcheteCLI([
+        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "crop"])
+    for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint16"
+            data = src.read(masked=True)
+            assert data.mask.any()
+            assert np.all(np.where(data <= 255, True, False))
 
 
-def test_pyramid_zoom():
+def test_pyramid_zoom(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using a specific zoom."""
-    test_raster = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.tif")
-    try:
-        MapcheteCLI([
-            None, 'pyramid', test_raster, OUT_DIR, "-z", "3"])
-        for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
-            assert not os.path.isfile(out_file)
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    MapcheteCLI([
+        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3"])
+    for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        assert not os.path.isfile(out_file)
 
-    try:
-        MapcheteCLI([
-            None, 'pyramid', test_raster, OUT_DIR, "-z", "3", "4"])
-        for zoom, row, col in [(2, 3, 0)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
-            assert not os.path.isfile(out_file)
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
-    try:
-        MapcheteCLI([
-            None, 'pyramid', test_raster, OUT_DIR, "-z", "4", "3"])
-        for zoom, row, col in [(2, 3, 0)]:
-            out_file = os.path.join(
-                *[OUT_DIR, str(zoom), str(row), str(col)+".tif"])
-            assert not os.path.isfile(out_file)
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+def test_pyramid_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
+    """Automatic tile pyramid creation using min max zoom."""
+    MapcheteCLI([
+        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3", "4"])
+    for zoom, row, col in [(2, 3, 0)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        assert not os.path.isfile(out_file)
+
+
+def test_pyramid_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
+    """Automatic tile pyramid creation using max min zoom."""
+    MapcheteCLI([
+        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "4", "3"])
+    for zoom, row, col in [(2, 3, 0)]:
+        out_file = os.path.join(
+            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        assert not os.path.isfile(out_file)
 
 
 # TODO pyramid specific bounds
 # TODO pyramid overwrite
 
 
-def test_serve_cli_params():
+def test_serve_cli_params(cleantopo_br):
     """Test whether different CLI params pass."""
     # assert too few arguments error
     with pytest.raises(SystemExit):
         MapcheteCLI([None, 'serve'], _test_serve=True)
 
-    example_process = os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
     for args in [
-            [None, 'serve', example_process],
-            [None, 'serve', example_process, "--port", "5001"],
-            [None, 'serve', example_process, "--internal_cache", "512"],
-            [None, 'serve', example_process, "--zoom", "5"],
-            [None, 'serve', example_process, "--bounds", "-1", "-1", "1", "1"],
-            [None, 'serve', example_process, "--overwrite"],
-            [None, 'serve', example_process, "--readonly"],
-            [None, 'serve', example_process, "--memory"],
-            [None, 'serve', example_process, "--input_file", example_process],
+        [None, 'serve', cleantopo_br.path],
+        [None, 'serve', cleantopo_br.path, "--port", "5001"],
+        [None, 'serve', cleantopo_br.path, "--internal_cache", "512"],
+        [None, 'serve', cleantopo_br.path, "--zoom", "5"],
+        [None, 'serve', cleantopo_br.path, "--bounds", "-1", "-1", "1", "1"],
+        [None, 'serve', cleantopo_br.path, "--overwrite"],
+        [None, 'serve', cleantopo_br.path, "--readonly"],
+        [None, 'serve', cleantopo_br.path, "--memory"],
+        [
+            None, 'serve', cleantopo_br.path, "--input_file",
+            cleantopo_br.path],
     ]:
         MapcheteCLI(args, _test_serve=True)
 
 
-def test_serve(client):
+def test_serve(client, mp_tmpdir):
     """Mapchete serve with default settings."""
     tile_base_url = '/wmts_simple/1.0.0/mapchete/default/WGS84/'
-    try:
-        for url in ["/"]:
-            response = client.get(url)
-            assert response.status_code == 200
-        for url in [
-            tile_base_url+"5/30/62.png",
-            tile_base_url+"5/30/63.png",
-            tile_base_url+"5/31/62.png",
-            tile_base_url+"5/31/63.png",
-        ]:
-            response = client.get(url)
-            assert response.status_code == 200
-            img = response.response.file
-            img.seek(0)
-            data = np.array(Image.open(img)).transpose(2, 0, 1)
-            # get alpha band and assert not all are masked
-            assert not data[3].all()
-        # test outside zoom range
-        response = client.get(tile_base_url+"6/31/63.png")
+    for url in ["/"]:
+        response = client.get(url)
+        assert response.status_code == 200
+    for url in [
+        tile_base_url+"5/30/62.png",
+        tile_base_url+"5/30/63.png",
+        tile_base_url+"5/31/62.png",
+        tile_base_url+"5/31/63.png",
+    ]:
+        response = client.get(url)
         assert response.status_code == 200
         img = response.response.file
         img.seek(0)
         data = np.array(Image.open(img)).transpose(2, 0, 1)
-        # all three bands have to be 0
-        assert not data[0].any()
-        assert not data[1].any()
-        assert not data[2].any()
-        # alpha band has to be filled with 0
-        assert not data[3].any()
-        # test invalid url
-        response = client.get(tile_base_url+"invalid_url")
-        assert response.status_code == 404
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+        # get alpha band and assert not all are masked
+        assert not data[3].all()
+    # test outside zoom range
+    response = client.get(tile_base_url+"6/31/63.png")
+    assert response.status_code == 200
+    img = response.response.file
+    img.seek(0)
+    data = np.array(Image.open(img)).transpose(2, 0, 1)
+    # all three bands have to be 0
+    assert not data[0].any()
+    assert not data[1].any()
+    assert not data[2].any()
+    # alpha band has to be filled with 0
+    assert not data[3].any()
+    # test invalid url
+    response = client.get(tile_base_url+"invalid_url")
+    assert response.status_code == 404

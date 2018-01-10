@@ -9,30 +9,27 @@ import numpy.ma as ma
 from mapchete.formats.default import png_hillshade
 from mapchete.tile import BufferedTilePyramid
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
 
-
-def test_output_data():
+def test_output_data(mp_tmpdir):
     """Check PNG_hillshade as output data."""
     output_params = dict(
         type="geodetic",
         format="PNG_hillshade",
-        path=OUT_DIR,
+        path=mp_tmpdir,
         pixelbuffer=0,
         metatiling=1
     )
     output = png_hillshade.OutputData(output_params)
-    assert output.path == OUT_DIR
+    assert output.path == mp_tmpdir
     assert output.file_extension == ".png"
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     # get_path
     assert output.get_path(tile) == os.path.join(*[
-        OUT_DIR, "5", "5", "5"+".png"])
+        mp_tmpdir, "5", "5", "5"+".png"])
     # prepare_path
     try:
-        temp_dir = os.path.join(*[OUT_DIR, "5", "5"])
+        temp_dir = os.path.join(*[mp_tmpdir, "5", "5"])
         output.prepare_path(tile)
         assert os.path.isdir(temp_dir)
         # create again to ensure, no OSError is being thrown

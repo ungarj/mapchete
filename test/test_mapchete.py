@@ -22,100 +22,80 @@ from mapchete.io.raster import create_mosaic
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete import _batch
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-OUT_DIR = os.path.join(SCRIPTDIR, "testdata/tmp")
-TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
-
-def test_empty_execute():
+def test_empty_execute(mp_tmpdir, cleantopo_br):
     """Execute process outside of defined zoom levels."""
-    try:
-        with mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
-        ) as mp:
-            assert mp.execute((6, 0, 0)).mask.all()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    with mapchete.open(cleantopo_br.path) as mp:
+        assert mp.execute((6, 0, 0)).mask.all()
 
 
-def test_read_existing_output():
+def test_read_existing_output(mp_tmpdir, cleantopo_tl):
     """Read existing process output."""
     # raster data
-    try:
-        tile = (5, 0, 0)
-        with mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete")
-        ) as mp:
-            # process and save
-            mp.get_raw_output(tile)
-            # read written data from within MapcheteProcess object
-            mp_tile = mapchete.MapcheteProcess(
-                mp.config.process_pyramid.tile(*tile),
-                config=mp.config,
-                params=mp.config.at_zoom(5)
-            )
-            data = mp_tile.read()
-            assert data.any()
-            assert isinstance(data, ma.masked_array)
-            assert not data.mask.all()
-            # read data from Mapchete class
-            data = mp.read(tile)
-            assert data.any()
-            assert isinstance(data, ma.masked_array)
-            assert not data.mask.all()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    tile = (5, 0, 0)
+    with mapchete.open(cleantopo_tl.path) as mp:
+        # process and save
+        mp.get_raw_output(tile)
+        # read written data from within MapcheteProcess object
+        mp_tile = mapchete.MapcheteProcess(
+            mp.config.process_pyramid.tile(*tile),
+            config=mp.config,
+            params=mp.config.at_zoom(5)
+        )
+        data = mp_tile.read()
+        assert data.any()
+        assert isinstance(data, ma.masked_array)
+        assert not data.mask.all()
+        # read data from Mapchete class
+        data = mp.read(tile)
+        assert data.any()
+        assert isinstance(data, ma.masked_array)
+        assert not data.mask.all()
+
+
+def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
+    """Read existing process output with process buffer."""
     # raster data process buffer > output buffer
-    try:
-        config = yaml.load(open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete")
-        ).read())
-        config.update(config_dir=TESTDATA_DIR)
-        config["output"].update(pixelbuffer=0)
-        with mapchete.open(config) as mp:
-            tile = next(mp.get_process_tiles(5))
-            # process and save
-            mp.get_raw_output(tile)
-            # read written data from within MapcheteProcess object
-            mp_tile = mapchete.MapcheteProcess(
-                mp.config.process_pyramid.tile(*tile.id),
-                config=mp.config,
-                params=mp.config.at_zoom(5)
-            )
-            data = mp_tile.read()
-            assert data.any()
-            assert isinstance(data, ma.masked_array)
-            assert not data.mask.all()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
-    # vector data
-    try:
-        with mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/geojson.mapchete")
-        ) as mp:
-            tile = next(mp.get_process_tiles(4))
-            # process and save
-            mp.write(tile, mp.get_raw_output(tile))
-            # read written data from within MapcheteProcess object
-            mp_tile = mapchete.MapcheteProcess(
-                tile,
-                config=mp.config,
-                params=mp.config.at_zoom(4)
-            )
-            data = mp_tile.read()
-            assert data
-            for feature in data:
-                assert shape(feature["geometry"]).is_valid
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    config = cleantopo_tl.dict
+    config["output"].update(pixelbuffer=0)
+    with mapchete.open(config) as mp:
+        tile = next(mp.get_process_tiles(5))
+        # process and save
+        mp.get_raw_output(tile)
+        # read written data from within MapcheteProcess object
+        mp_tile = mapchete.MapcheteProcess(
+            mp.config.process_pyramid.tile(*tile.id),
+            config=mp.config,
+            params=mp.config.at_zoom(5)
+        )
+        data = mp_tile.read()
+        assert data.any()
+        assert isinstance(data, ma.masked_array)
+        assert not data.mask.all()
 
 
-def test_open_data_error():
+def test_read_existing_output_vector(mp_tmpdir, geojson):
+    """Read existing process output with process buffer."""
+    with mapchete.open(geojson.path) as mp:
+        tile = next(mp.get_process_tiles(4))
+        # process and save
+        mp.write(tile, mp.get_raw_output(tile))
+        # read written data from within MapcheteProcess object
+        mp_tile = mapchete.MapcheteProcess(
+            tile,
+            config=mp.config,
+            params=mp.config.at_zoom(4)
+        )
+        data = mp_tile.read()
+        assert data
+        for feature in data:
+            assert shape(feature["geometry"]).is_valid
+
+
+def test_open_data_error(cleantopo_tl):
     """Try to open data not specified as input."""
     tile = (5, 0, 0)
-    with mapchete.open(
-        os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete")
-    ) as mp:
+    with mapchete.open(cleantopo_tl.path) as mp:
         # read written data from within MapcheteProcess object
         mp_tile = mapchete.MapcheteProcess(
             mp.config.process_pyramid.tile(*tile),
@@ -126,106 +106,75 @@ def test_open_data_error():
             mp_tile.open("invaild_input_id")
 
 
-def test_get_raw_output_outside():
+def test_get_raw_output_outside(mp_tmpdir, cleantopo_br):
     """Get raw process output outside of zoom levels."""
-    try:
-        with mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_br.mapchete")
-        ) as mp:
-            assert mp.get_raw_output((6, 0, 0)).mask.all()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    with mapchete.open(cleantopo_br.path) as mp:
+        assert mp.get_raw_output((6, 0, 0)).mask.all()
 
 
-def test_get_raw_output_memory():
+def test_get_raw_output_memory(mp_tmpdir, cleantopo_tl):
     """Get raw process output using memory flag."""
-    try:
-        with mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"),
-            mode="memory"
-        ) as mp:
-            assert mp.config.mode == "memory"
-            assert not mp.get_raw_output((5, 0, 0)).mask.all()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    with mapchete.open(cleantopo_tl.path, mode="memory") as mp:
+        assert mp.config.mode == "memory"
+        assert not mp.get_raw_output((5, 0, 0)).mask.all()
 
 
-def test_get_raw_output_readonly():
+def test_get_raw_output_readonly(mp_tmpdir, cleantopo_tl):
     """Get raw process output using readonly flag."""
-    try:
-        tile = (5, 0, 0)
-        readonly_mp = mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"),
-            mode="readonly")
-        write_mp = mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"),
-            mode="continue")
+    tile = (5, 0, 0)
+    readonly_mp = mapchete.open(cleantopo_tl.path, mode="readonly")
+    write_mp = mapchete.open(cleantopo_tl.path, mode="continue")
 
-        # read non-existing data (returns empty)
-        assert readonly_mp.get_raw_output(tile).mask.all()
+    # read non-existing data (returns empty)
+    assert readonly_mp.get_raw_output(tile).mask.all()
 
-        # try to process and save empty data
-        with pytest.raises(ValueError):
-            readonly_mp.write(tile, readonly_mp.get_raw_output(tile))
+    # try to process and save empty data
+    with pytest.raises(ValueError):
+        readonly_mp.write(tile, readonly_mp.get_raw_output(tile))
 
-        # actually process and save
-        write_mp.write(tile, write_mp.get_raw_output(tile))
+    # actually process and save
+    write_mp.write(tile, write_mp.get_raw_output(tile))
 
-        # read written output
-        assert not readonly_mp.get_raw_output(tile).mask.all()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    # read written output
+    assert not readonly_mp.get_raw_output(tile).mask.all()
 
 
-def test_get_raw_output_continue():
+def test_get_raw_output_continue_raster(mp_tmpdir, cleantopo_tl):
     """Get raw process output using continue flag."""
-    # raster
-    try:
-        mp = mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
+    with mapchete.open(cleantopo_tl.path) as mp:
         assert mp.config.mode == "continue"
         tile = (5, 0, 0)
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read written data
         assert not mp.get_raw_output(tile).mask.all()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
-    # vector
-    try:
-        mp = mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/geojson.mapchete"))
+
+
+def test_get_raw_output_continue_vector(mp_tmpdir, geojson):
+    """Get raw process output using continue flag."""
+    with mapchete.open(geojson.path) as mp:
         assert mp.config.mode == "continue"
         tile = next(mp.get_process_tiles(4))
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read written data
         assert mp.get_raw_output(tile)
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
-def test_get_raw_output_reproject():
+def test_get_raw_output_reproject(mp_tmpdir, cleantopo_tl):
     """Get process output from a different CRS."""
     try:
-        mp = mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
-        assert mp.config.mode == "continue"
-        # TODO implement function
-        mp.get_raw_output((5, 0, 0))
+        with mapchete.open(cleantopo_tl.path) as mp:
+            assert mp.config.mode == "continue"
+            # TODO implement function
+            mp.get_raw_output((5, 0, 0))
     except NotImplementedError:
         pass
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
-def test_baselevels():
+def test_baselevels(mp_tmpdir, baselevels):
     """Baselevel interpolation."""
-    try:
-        mp = mapchete.open(
-            os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete"),
-            mode="continue"
-        )
+    with mapchete.open(baselevels.path, mode="continue") as mp:
         # process data before getting baselevels
         mp.batch_process(quiet=True)
 
@@ -246,21 +195,13 @@ def test_baselevels():
             not mp.get_raw_output(upper_tile).mask.all()
             for upper_tile in tile.get_children()
         ])
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
-def test_baselevels_buffer():
+def test_baselevels_buffer(mp_tmpdir, baselevels):
     """Baselevel interpolation using buffers."""
-    try:
-        with open(
-            os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete"), "r"
-        ) as src:
-            config = yaml.load(src.read())
-            config.update(
-                pixelbuffer=10, config_dir=os.path.join(SCRIPTDIR, "testdata")
-            )
-        mp = mapchete.open(config, mode="continue")
+    config = baselevels.dict
+    config.update(pixelbuffer=10)
+    with mapchete.open(config, mode="continue") as mp:
         # get tile from lower zoom level
         lower_tile = next(mp.get_process_tiles(4))
         # process and save
@@ -278,126 +219,101 @@ def test_baselevels_buffer():
             not mp.get_raw_output(upper_tile).mask.all()
             for upper_tile in tile.get_children()
         ])
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
 
 
-def test_baselevels_buffer_antimeridian():
+def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):
     """Baselevel interpolation using buffers."""
-    try:
-        mp_config = yaml.load(open(
-            os.path.join(SCRIPTDIR, "testdata/baselevels.mapchete"),
-            "r").read()
+    config = baselevels.dict
+    config.update(pixelbuffer=10, input=None)
+    zoom = 5
+    row = 0
+    with mapchete.open(config) as mp:
+        # write data left and right of antimeridian
+        west = mp.config.process_pyramid.tile(zoom, row, 0)
+        shape = (3, ) + west.shape
+        mp.write(west, np.ones(shape) * 0)
+        east = mp.config.process_pyramid.tile(
+            zoom, row, mp.config.process_pyramid.matrix_width(zoom) - 1
         )
-        mp_config.update(
-            pixelbuffer=10, config_dir=os.path.join(SCRIPTDIR, "testdata"),
-            input=None
-        )
-        zoom = 5
-        row = 0
-        with mapchete.open(mp_config) as mp:
-            # write data left and right of antimeridian
-            west = mp.config.process_pyramid.tile(zoom, row, 0)
-            shape = (3, ) + west.shape
-            mp.write(west, np.ones(shape) * 0)
-            east = mp.config.process_pyramid.tile(
-                zoom, row, mp.config.process_pyramid.matrix_width(zoom) - 1
-            )
-            mp.write(east, np.ones(shape) * 10)
-            # use baselevel generation to interpolate tile and somehow
-            # assert no data from across the antimeridian is read.
-            lower_tile = mp.get_raw_output(west.get_parent())
-            assert np.where(lower_tile != 10, True, False).all()
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+        mp.write(east, np.ones(shape) * 10)
+        # use baselevel generation to interpolate tile and somehow
+        # assert no data from across the antimeridian is read.
+        lower_tile = mp.get_raw_output(west.get_parent())
+        assert np.where(lower_tile != 10, True, False).all()
 
 
-def test_processing():
+def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
     """Test correct processing (read and write) outputs."""
-    for cleantopo_process in [
-        "testdata/cleantopo_tl.mapchete", "testdata/cleantopo_br.mapchete"
-    ]:
-        mp = mapchete.open(os.path.join(SCRIPTDIR, cleantopo_process))
-        for zoom in range(6):
-            tiles = []
-            for tile in mp.get_process_tiles(zoom):
-                output = mp.execute(tile)
-                tiles.append((tile, output))
-                assert isinstance(output, ma.MaskedArray)
-                assert output.shape == output.shape
-                assert not ma.all(output.mask)
-                mp.write(tile, output)
-            mosaic, mosaic_affine = create_mosaic(tiles)
-            try:
-                temp_vrt = os.path.join(OUT_DIR, str(zoom)+".vrt")
-                gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-                    temp_vrt, OUT_DIR, zoom)
-                os.system(gdalbuildvrt)
-                with rasterio.open(temp_vrt, "r") as testfile:
-                    for file_item, mosaic_item in zip(
-                        testfile.meta["transform"], mosaic_affine
-                    ):
-                        assert file_item == mosaic_item
-                    band = testfile.read(1, masked=True)
-                    assert band.shape == mosaic.shape
-                    assert ma.allclose(band, mosaic)
-                    assert ma.allclose(band.mask, mosaic.mask)
-            finally:
-                shutil.rmtree(OUT_DIR, ignore_errors=True)
+    for cleantopo_process in [cleantopo_br.path, cleantopo_tl.path]:
+        with mapchete.open(cleantopo_process) as mp:
+            for zoom in range(6):
+                tiles = []
+                for tile in mp.get_process_tiles(zoom):
+                    output = mp.execute(tile)
+                    tiles.append((tile, output))
+                    assert isinstance(output, ma.MaskedArray)
+                    assert output.shape == output.shape
+                    assert not ma.all(output.mask)
+                    mp.write(tile, output)
+                mosaic, mosaic_affine = create_mosaic(tiles)
+                try:
+                    temp_vrt = os.path.join(mp_tmpdir, str(zoom)+".vrt")
+                    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
+                        temp_vrt, mp_tmpdir, zoom)
+                    os.system(gdalbuildvrt)
+                    with rasterio.open(temp_vrt, "r") as testfile:
+                        for file_item, mosaic_item in zip(
+                            testfile.meta["transform"], mosaic_affine
+                        ):
+                            assert file_item == mosaic_item
+                        band = testfile.read(1, masked=True)
+                        assert band.shape == mosaic.shape
+                        assert ma.allclose(band, mosaic)
+                        assert ma.allclose(band.mask, mosaic.mask)
+                finally:
+                    shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
 
-def test_processing_as_function():
+def test_processing_as_function(
+    mp_tmpdir, cleantopo_br, cleantopo_tl, process_as_function_py
+):
     """Test correct processing using execute() function."""
-    for cleantopo_process in [
-        "testdata/cleantopo_tl.mapchete", "testdata/cleantopo_br.mapchete"
-    ]:
-        mp_config = yaml.load(
-            open(os.path.join(SCRIPTDIR, cleantopo_process)).read()
-        )
-        mp_config.update(
-            process_file="../example_process_as_function.py",
-            config_dir=TESTDATA_DIR
-        )
-        mp = mapchete.open(mp_config)
-        for zoom in range(6):
-            tiles = []
-            for tile in mp.get_process_tiles(zoom):
-                output = mp.execute(tile)
-                tiles.append((tile, output))
-                assert isinstance(output, ma.MaskedArray)
-                assert output.shape == output.shape
-                assert not ma.all(output.mask)
-                mp.write(tile, output)
-            mosaic, mosaic_affine = create_mosaic(tiles)
-            try:
-                temp_vrt = os.path.join(OUT_DIR, str(zoom)+".vrt")
-                gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-                    temp_vrt, OUT_DIR, zoom)
-                os.system(gdalbuildvrt)
-                with rasterio.open(temp_vrt, "r") as testfile:
-                    for file_item, mosaic_item in zip(
-                        testfile.meta["transform"], mosaic_affine
-                    ):
-                        assert file_item == mosaic_item
-                    band = testfile.read(1, masked=True)
-                    assert band.shape == mosaic.shape
-                    assert ma.allclose(band, mosaic)
-                    assert ma.allclose(band.mask, mosaic.mask)
-            finally:
-                shutil.rmtree(OUT_DIR, ignore_errors=True)
+    for config in [cleantopo_br.dict, cleantopo_tl.dict]:
+        config.update(process_file=process_as_function_py)
+        with mapchete.open(config) as mp:
+            for zoom in range(6):
+                tiles = []
+                for tile in mp.get_process_tiles(zoom):
+                    output = mp.execute(tile)
+                    tiles.append((tile, output))
+                    assert isinstance(output, ma.MaskedArray)
+                    assert output.shape == output.shape
+                    assert not ma.all(output.mask)
+                    mp.write(tile, output)
+                mosaic, mosaic_affine = create_mosaic(tiles)
+                try:
+                    temp_vrt = os.path.join(mp_tmpdir, str(zoom)+".vrt")
+                    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
+                        temp_vrt, mp_tmpdir, zoom)
+                    os.system(gdalbuildvrt)
+                    with rasterio.open(temp_vrt, "r") as testfile:
+                        for file_item, mosaic_item in zip(
+                            testfile.meta["transform"], mosaic_affine
+                        ):
+                            assert file_item == mosaic_item
+                        band = testfile.read(1, masked=True)
+                        assert band.shape == mosaic.shape
+                        assert ma.allclose(band, mosaic)
+                        assert ma.allclose(band.mask, mosaic.mask)
+                finally:
+                    shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
 
-def test_old_style_process_class():
+def test_old_style_process_class(mp_tmpdir, cleantopo_tl, old_style_process_py):
     """Test correct processing using MapcheteProcess class."""
-    for cleantopo_process in ["testdata/cleantopo_tl.mapchete"]:
-        mp_config = yaml.load(
-            open(os.path.join(SCRIPTDIR, cleantopo_process)).read()
-        )
-        mp_config.update(
-            process_file="old_style_process.py",
-            config_dir=TESTDATA_DIR
-        )
-        mp = mapchete.open(mp_config)
+    config = cleantopo_tl.dict
+    config.update(process_file=old_style_process_py)
+    with mapchete.open(config) as mp:
         for zoom in range(6):
             tiles = []
             for tile in mp.get_process_tiles(zoom):
@@ -409,9 +325,9 @@ def test_old_style_process_class():
                 mp.write(tile, output)
             mosaic, mosaic_affine = create_mosaic(tiles)
             try:
-                temp_vrt = os.path.join(OUT_DIR, str(zoom)+".vrt")
+                temp_vrt = os.path.join(mp_tmpdir, str(zoom)+".vrt")
                 gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-                    temp_vrt, OUT_DIR, zoom)
+                    temp_vrt, mp_tmpdir, zoom)
                 os.system(gdalbuildvrt)
                 with rasterio.open(temp_vrt, "r") as testfile:
                     for file_item, mosaic_item in zip(
@@ -423,32 +339,30 @@ def test_old_style_process_class():
                     assert ma.allclose(band, mosaic)
                     assert ma.allclose(band.mask, mosaic.mask)
             finally:
-                shutil.rmtree(OUT_DIR, ignore_errors=True)
+                shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
 
-def test_multiprocessing():
+def test_multiprocessing(mp_tmpdir, cleantopo_tl):
     """Test parallel tile processing."""
-    mp = mapchete.open(
-        os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
-    assert dumps(mp)
-    assert dumps(mp.config)
-    assert dumps(mp.config.output)
-    for tile in mp.get_process_tiles():
-        assert dumps(tile)
-    f = partial(_worker, mp)
-    try:
-        pool = Pool()
-        for zoom in reversed(mp.config.zoom_levels):
-            for tile, raw_output in pool.imap_unordered(
-                f, mp.get_process_tiles(zoom), chunksize=8
-            ):
-                mp.write(tile, raw_output)
-    except KeyboardInterrupt:
-        pool.terminate()
-    finally:
-        pool.close()
-        pool.join()
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
+    with mapchete.open(cleantopo_tl.path) as mp:
+        assert dumps(mp)
+        assert dumps(mp.config)
+        assert dumps(mp.config.output)
+        for tile in mp.get_process_tiles():
+            assert dumps(tile)
+        f = partial(_worker, mp)
+        try:
+            pool = Pool()
+            for zoom in reversed(mp.config.zoom_levels):
+                for tile, raw_output in pool.imap_unordered(
+                    f, mp.get_process_tiles(zoom), chunksize=8
+                ):
+                    mp.write(tile, raw_output)
+        except KeyboardInterrupt:
+            pool.terminate()
+        finally:
+            pool.close()
+            pool.join()
 
 
 def _worker(mp, tile):
@@ -456,23 +370,21 @@ def _worker(mp, tile):
     return tile, mp.execute(tile)
 
 
-def test_write_empty():
+def test_write_empty(mp_tmpdir, cleantopo_tl):
     """Test write function when passing an empty process_tile."""
-    mp = mapchete.open(
-        os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
-    # process and save
-    mp.write(mp.config.process_pyramid.tile(5, 0, 0), None)
+    with mapchete.open(cleantopo_tl.path) as mp:
+        # process and save
+        mp.write(mp.config.process_pyramid.tile(5, 0, 0), None)
 
 
-def test_process_template():
+def test_process_template(dummy1_tif):
     """Template used to create an empty process."""
     process_template = pkg_resources.resource_filename(
         "mapchete.static", "process_template.py")
-    dummy1 = os.path.join(TESTDATA_DIR, "dummy1.tif")
     mp = mapchete.open(
         dict(
             process_file=process_template,
-            input=dict(file1=dummy1),
+            input=dict(file1=dummy1_tif),
             output=dict(
                 format="GTiff",
                 path=".",
@@ -485,40 +397,32 @@ def test_process_template():
         ))
     process_tile = next(mp.get_process_tiles(zoom=4))
     # Mapchete throws a RuntimeError if process output is empty
-    try:
+    with pytest.raises(MapcheteProcessOutputError):
         mp.execute(process_tile)
-        raise Exception()
-    except MapcheteProcessOutputError:
-        pass
 
 
-def test_count_tiles():
+def test_count_tiles(zoom_mapchete):
     """Count tiles function."""
     maxzoom = 13
-    mp_conf = yaml.load(open(
-        os.path.join(SCRIPTDIR, "testdata/zoom.mapchete"), "r").read()
-    )
-    del mp_conf["process_zoom"]
-    mp_conf.update(
+    conf = zoom_mapchete.dict
+    conf.pop("process_zoom")
+    conf.update(
         process_maxzoom=maxzoom,
-        process_bounds=[14.0625, 47.8125, 16.875, 50.625],
-        config_dir=TESTDATA_DIR, input=None, metatiling=8, pixelbuffer=5
+        process_bounds=[14.0625, 47.8125, 16.875, 50.625], input=None,
+        metatiling=8, pixelbuffer=5
     )
     # for minzoom in range(0, 14):
     for minzoom in range(0, 14):
-        mp_conf.update(process_minzoom=minzoom)
-        with mapchete.open(mp_conf) as mp:
+        conf.update(process_minzoom=minzoom)
+        with mapchete.open(conf) as mp:
             assert len(list(mp.get_process_tiles())) == _batch.count_tiles(
                 mp.config.process_area(), mp.config.process_pyramid, minzoom,
-                maxzoom
-            )
+                maxzoom)
 
 
-def test_batch_process():
+def test_batch_process(mp_tmpdir, cleantopo_tl):
     """Test batch_process function."""
-    mp = mapchete.open(
-        os.path.join(SCRIPTDIR, "testdata/cleantopo_tl.mapchete"))
-    try:
+    with mapchete.open(cleantopo_tl.path) as mp:
         # invalid parameters errors
         with pytest.raises(ValueError):
             mp.batch_process(zoom=1, tile=(1, 0, 0))
@@ -532,5 +436,3 @@ def test_batch_process():
         mp.batch_process(zoom=2, multi=2)
         # process without multiprocessing
         mp.batch_process(zoom=2, multi=1)
-    finally:
-        shutil.rmtree(OUT_DIR, ignore_errors=True)
