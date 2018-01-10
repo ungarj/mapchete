@@ -30,7 +30,7 @@ class Namespace(object):
 def app():
     """Dummy Flask app."""
     example_process = os.path.join(
-        SCRIPTDIR, "testdata/dem_to_hillshade.mapchete")
+        SCRIPT_DIR, "testdata/dem_to_hillshade.mapchete")
     args = Namespace(
         port=5000, mapchete_file=example_process, zoom=None, bounds=None,
         input_file=None, memory=None, readonly=False, overwrite=True,
