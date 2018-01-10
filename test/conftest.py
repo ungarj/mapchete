@@ -51,6 +51,12 @@ def mp_tmpdir():
 
 # example files
 @pytest.fixture
+def landpoly_3857():
+    """Fixture for landpoly_3857.geojson"""
+    return os.path.join(TESTDATA_DIR, "landpoly_3857.geojson")
+
+
+@pytest.fixture
 def cleantopo_br_tif():
     """Fixture for cleantopo_br.tif"""
     return os.path.join(TESTDATA_DIR, "cleantopo_br.tif")
