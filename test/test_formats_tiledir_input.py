@@ -1,8 +1,12 @@
 """Test Mapchete default formats."""
 
+from copy import deepcopy
 import os
+import pytest
 import six
+
 from mapchete.formats import available_input_formats
+from mapchete.errors import MapcheteDriverError
 
 import mapchete
 
@@ -52,12 +56,81 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     # prepare data
     with mapchete.open(cleantopo_br.path) as mp:
         mp.batch_process(zoom=4)
-    # read data
-    with mapchete.open(cleantopo_br_tiledir.path) as mp:
+    # read data with metatiling 1
+    example_metatiling = deepcopy(cleantopo_br_tiledir.dict)
+    example_metatiling["metatiling"] == 1
+    with mapchete.open(example_metatiling, mode="overwrite") as mp:
+        assert any([
+            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
+            for tile in mp.get_process_tiles(4)])
+    # read data with metatiling 2
+    example_metatiling = deepcopy(cleantopo_br_tiledir.dict)
+    example_metatiling["metatiling"] == 2
+    with mapchete.open(example_metatiling, mode="overwrite") as mp:
+        assert any([
+            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
+            for tile in mp.get_process_tiles(4)])
+    # read data with metatiling 4
+    example_metatiling = deepcopy(cleantopo_br_tiledir.dict)
+    example_metatiling["metatiling"] == 4
+    with mapchete.open(example_metatiling, mode="overwrite") as mp:
+        assert any([
+            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
+            for tile in mp.get_process_tiles(4)])
+    # read data with metatiling 8
+    example_metatiling = deepcopy(cleantopo_br_tiledir.dict)
+    example_metatiling["metatiling"] == 8
+    with mapchete.open(example_metatiling, mode="overwrite") as mp:
         assert any([
             next(six.itervalues(mp.config.inputs)).open(tile).read().any()
             for tile in mp.get_process_tiles(4)])
 
 
-def test_parse_errors():
-    pass
+def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):
+    """Read raster data."""
+    with mapchete.open(cleantopo_remote.path) as mp:
+        assert all([
+            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
+            for tile in mp.get_process_tiles(1)])
+
+
+def test_parse_errors(geojson_tiledir, cleantopo_br_tiledir):
+    """Different configuration exceptions."""
+    # without path
+    vector_type = deepcopy(geojson_tiledir.dict)
+    vector_type["input"]["file1"].pop("path")
+    with pytest.raises(MapcheteDriverError):
+        mapchete.open(vector_type)
+    # without type
+    vector_type = deepcopy(geojson_tiledir.dict)
+    vector_type["input"]["file1"].pop("type")
+    with pytest.raises(MapcheteDriverError):
+        mapchete.open(vector_type)
+    # wrong type
+    vector_type = deepcopy(geojson_tiledir.dict)
+    vector_type["input"]["file1"]["type"] = "invalid"
+    with pytest.raises(MapcheteDriverError):
+        mapchete.open(vector_type)
+    # without extension
+    vector_type = deepcopy(geojson_tiledir.dict)
+    vector_type["input"]["file1"].pop("extension")
+    with pytest.raises(MapcheteDriverError):
+        mapchete.open(vector_type)
+    # without invalid extension
+    vector_type = deepcopy(geojson_tiledir.dict)
+    vector_type["input"]["file1"]["extension"] = "invalid"
+    with pytest.raises(MapcheteDriverError):
+        mapchete.open(vector_type)
+
+    # raster type specific
+    ######################
+    # without count
+    raster_type = deepcopy(cleantopo_br_tiledir.dict)
+    raster_type["input"]["file1"].pop("count")
+    with pytest.raises(MapcheteDriverError):
+        mapchete.open(raster_type)
+    # without dtype
+    raster_type = deepcopy(cleantopo_br_tiledir.dict)
+    raster_type["input"]["file1"].pop("dtype")
+    with pytest.raises(MapcheteDriverError):
+        mapchete.open(raster_type)

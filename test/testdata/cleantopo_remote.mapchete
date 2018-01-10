@@ -1,0 +1,21 @@
+# mapchete parameters
+process_file: ../example_process.py
+process_minzoom: 0
+process_maxzoom: 4
+input:
+    file1:
+        format: TileDirectory
+        path: https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo
+        metatiling: 1
+        type: geodetic
+        extension: tif
+        dtype: uint16
+        count: 1
+
+output:
+    type: geodetic
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp
+    pixelbuffer: 20

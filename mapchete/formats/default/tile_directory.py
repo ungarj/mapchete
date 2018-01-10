@@ -6,6 +6,12 @@ import numpy.ma as ma
 import os
 import six
 from shapely.geometry import box
+# for Python 2 & 3 compatibility:
+try:
+    from urllib.request import urlopen
+    from urllib.error import HTTPError
+except ImportError:
+    from urllib2 import urlopen, HTTPError
 
 from mapchete.tile import BufferedTilePyramid
 from mapchete.config import validate_values
@@ -246,6 +252,13 @@ def _absolute_path(directory, path):
 def _path_exists(path):
     """Check if file exists either remote or local."""
     if path.startswith(("http://", "https://")):
-        raise NotImplementedError
+        try:
+            urlopen(path).info()
+            return True
+        except HTTPError as e:
+            if e.code == 404:
+                return False
+            else:
+                raise
     else:
         return os.path.exists(path)
