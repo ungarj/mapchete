@@ -58,6 +58,13 @@ def cleantopo_br_tif():
 
 # example mapchete configurations
 @pytest.fixture
+def cleantopo_tl():
+    """Fixture for cleantopo_tl.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "cleantopo_tl.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def cleantopo_br():
     """Fixture for cleantopo_br.mapchete."""
     path = os.path.join(TESTDATA_DIR, "cleantopo_br.mapchete")
