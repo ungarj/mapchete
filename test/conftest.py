@@ -128,6 +128,18 @@ def output_error_py():
     return os.path.join(TESTDATA_DIR, "output_error.py")
 
 
+@pytest.fixture
+def process_as_function_py():
+    """Fixture for process_as_function.py"""
+    return os.path.join(SCRIPT_DIR, "example_process_as_function.py")
+
+
+@pytest.fixture
+def old_style_process_py():
+    """Fixture for old_style_process.py"""
+    return os.path.join(TESTDATA_DIR, "old_style_process.py")
+
+
 # example mapchete configurations
 @pytest.fixture
 def abstract_input():
