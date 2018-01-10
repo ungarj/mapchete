@@ -15,13 +15,6 @@ from mapchete.formats import (
 from mapchete import errors
 
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
-HTTP_RASTER = (
-    "http://sentinel-s2-l1c.s3.amazonaws.com/tiles/33/T/WN/2016/4/3/0/B02.jp2"
-)
-
-
 def test_available_input_formats():
     """Check if default input formats can be listed."""
     assert set(['Mapchete', 'raster_file', 'vector_file']).issubset(
@@ -67,15 +60,15 @@ def test_driver_from_file_errors():
         driver_from_file("invalid_extension.exe")
 
 
-def test_mapchete_input():
+def test_mapchete_input(mapchete_input):
     """Mapchete process as input for other process."""
-    mp = mapchete.open(os.path.join(TESTDATA_DIR, "mapchete_input.mapchete"))
-    config = mp.config.at_zoom(5)
-    input_data = config["input"]["file2"]
-    assert input_data.bbox()
-    assert input_data.bbox(CRS.from_epsg(3857))
-    mp_input = input_data.open(next(mp.get_process_tiles(5)))
-    assert not mp_input.is_empty()
+    with mapchete.open(mapchete_input.path) as mp:
+        config = mp.config.at_zoom(5)
+        input_data = config["input"]["file2"]
+        assert input_data.bbox()
+        assert input_data.bbox(CRS.from_epsg(3857))
+        mp_input = input_data.open(next(mp.get_process_tiles(5)))
+        assert not mp_input.is_empty()
 
 
 def test_base_format_classes():
@@ -123,29 +116,20 @@ def test_base_format_classes():
         tmp.open(None, None)
 
 
-def test_http_rasters():
+def test_http_rasters(files_bounds, http_raster):
     """Raster file on remote server with http:// or https:// URLs."""
     zoom = 13
-    with open(
-        os.path.join(SCRIPTDIR, "testdata/files_bounds.mapchete"), "r"
-    ) as src:
-        config = yaml.load(src.read())
-        config.update(
-            input=dict(file1=HTTP_RASTER),
-            config_dir=os.path.join(SCRIPTDIR, "testdata"),
-            process_zoom=zoom
-        )
+    config = files_bounds.dict
+    config.update(input=dict(file1=http_raster), process_zoom=zoom)
     # TODO make tests more performant
     with mapchete.open(config) as mp:
         assert mp.config.process_area(zoom).area > 0
 
 
-def test_invalid_input_type():
+def test_invalid_input_type(example_mapchete):
     """Raise MapcheteDriverError."""
     # invalid input type
-    config = yaml.load(open(
-        os.path.join(SCRIPTDIR, "example.mapchete")
-    ).read())
-    config.update(config_dir=SCRIPTDIR, input=dict(invalid_type=1))
+    config = example_mapchete.dict
+    config.update(input=dict(invalid_type=1))
     with pytest.raises(errors.MapcheteDriverError):
         mapchete.open(config)

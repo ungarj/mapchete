@@ -51,6 +51,12 @@ def mp_tmpdir():
 
 # example files
 @pytest.fixture
+def http_raster():
+    """Fixture for HTTP raster."""
+    return "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/1/0/0.tif"
+
+
+@pytest.fixture
 def landpoly_3857():
     """Fixture for landpoly_3857.geojson"""
     return os.path.join(TESTDATA_DIR, "landpoly_3857.geojson")
