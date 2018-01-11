@@ -5,9 +5,10 @@ import logging
 import logging.config
 import os
 import pkgutil
+from rasterio.io import MemoryFile
 import six
 from flask import (
-    Flask, send_file, make_response, render_template_string, abort)
+    Flask, send_file, make_response, render_template_string, abort, jsonify)
 
 import mapchete
 from mapchete.tile import BufferedTilePyramid
@@ -112,9 +113,14 @@ def _tile_response(mp, web_tile, debug):
 
 
 def _valid_tile_response(mp, data):
-    memfile, mime_type = mp.config.output.for_web(data)
+    out_data, mime_type = mp.config.output.for_web(data)
     LOGGER.debug("create tile response %s", mime_type)
-    response = make_response(send_file(memfile, mime_type))
+    if isinstance(out_data, MemoryFile):
+        response = make_response(send_file(out_data, mime_type))
+    elif isinstance(out_data, list):
+        response = make_response(jsonify(data))
+    else:
+        raise TypeError("invalid response type for web: %" % type(out_data))
     response.headers['Content-Type'] = mime_type
     response.cache_control.no_write = True
     return response
