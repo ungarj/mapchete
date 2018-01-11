@@ -91,16 +91,18 @@
             var coastline_WGS84_wmts_layer = new OpenLayers.Layer.WMTS(options);
             map.addLayer(coastline_WGS84_wmts_layer);
 
-            var options = extend(defaults, {
-                url: "/wmts_simple",
-                name: "Mapchete Process",
-                layer: 'mapchete',
-                format: 'image/png',
-                requestEncoding: 'REST',
-                isBaseLayer:false,
-            });
-            var mapchete_process_layer = new OpenLayers.Layer.WMTS(options);
-            map.addLayer(mapchete_process_layer);
+            {% for process_name in process_names -%}
+                var options = extend(defaults, {
+                    url: "/wmts_simple",
+                    name: "Mapchete Process",
+                    layer: "{{process_name}}",
+                    format: 'image/png',
+                    requestEncoding: 'REST',
+                    isBaseLayer:false,
+                });
+                var {{process_name}}_layer = new OpenLayers.Layer.WMTS(options);
+                map.addLayer({{process_name}}_layer);
+                {%- endfor %}
 
             var options = extend(defaults, {
                 url: "http://tiles.maps.eox.at/wmts/",

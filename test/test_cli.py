@@ -275,7 +275,7 @@ def test_serve_cli_params(cleantopo_br):
 
 def test_serve(client, mp_tmpdir):
     """Mapchete serve with default settings."""
-    tile_base_url = '/wmts_simple/1.0.0/mapchete/default/WGS84/'
+    tile_base_url = '/wmts_simple/1.0.0/dem_to_hillshade/default/WGS84/'
     for url in ["/"]:
         response = client.get(url)
         assert response.status_code == 200
