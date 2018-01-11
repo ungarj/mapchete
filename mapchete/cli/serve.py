@@ -6,8 +6,8 @@ import logging.config
 import os
 import pkgutil
 import six
-from traceback import format_exc
-from flask import Flask, make_response, render_template_string, abort
+from flask import (
+    Flask, send_file, make_response, render_template_string, abort)
 
 import mapchete
 from mapchete.tile import BufferedTilePyramid
@@ -112,6 +112,9 @@ def _tile_response(mp, web_tile, debug):
 
 
 def _valid_tile_response(mp, data):
-    response = make_response(mp.config.output.for_web(data))
+    memfile, mime_type = mp.config.output.for_web(data)
+    LOGGER.debug("create tile response %s", mime_type)
+    response = make_response(send_file(memfile, mime_type))
+    response.headers['Content-Type'] = mime_type
     response.cache_control.no_write = True
     return response

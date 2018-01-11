@@ -21,14 +21,12 @@ nodata: integer or float
 """
 
 import os
-import io
 import six
 import rasterio
 from rasterio.errors import RasterioIOError
+from rasterio.io import MemoryFile
 import numpy as np
 import numpy.ma as ma
-from PIL import Image
-from flask import send_file
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
@@ -102,15 +100,6 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        data = prepare_array(data, dtype="uint8", masked=False, nodata=0)
-        if self.old_band_num:
-            data = np.stack((
-                np.zeros(process_tile.shape), np.zeros(process_tile.shape),
-                np.zeros(process_tile.shape), data[0]))
-        else:
-            data = np.stack((
-                np.zeros(process_tile.shape), data[0]))
-        data = prepare_array(data, dtype="uint8", masked=True, nodata=255)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -118,7 +107,7 @@ class OutputData(base.OutputData):
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
-                in_tile=process_tile, in_data=data,
+                in_tile=process_tile, in_data=self._prepare_array(data),
                 out_profile=self.profile(out_tile), out_tile=out_tile,
                 out_path=out_path
             )
@@ -211,7 +200,7 @@ class OutputData(base.OutputData):
         except OSError:
             pass
 
-    def profile(self, tile):
+    def profile(self, tile=None):
         """
         Create a metadata dictionary for rasterio.
 
@@ -226,12 +215,13 @@ class OutputData(base.OutputData):
         """
         dst_metadata = PNG_PROFILE
         dst_metadata.pop("transform", None)
-        dst_metadata.update(
-            width=tile.width,
-            height=tile.height,
-            affine=tile.affine, driver="PNG",
-            crs=tile.crs
-        )
+        if tile is not None:
+            dst_metadata.update(
+                width=tile.width,
+                height=tile.height,
+                affine=tile.affine, driver="PNG",
+                crs=tile.crs
+            )
         return dst_metadata
 
     def for_web(self, data):
@@ -246,15 +236,12 @@ class OutputData(base.OutputData):
         -------
         web data : array
         """
-        data = prepare_array(data, masked=False, dtype="uint8")[0]
-        zeros = np.zeros(data.shape)
-        out_rgb = (zeros, zeros, zeros, data)
-        reshaped = np.stack(out_rgb).transpose(1, 2, 0).astype("uint8")
-        empty_image = Image.fromarray(reshaped, mode='RGBA')
-        out_img = io.BytesIO()
-        empty_image.save(out_img, 'PNG')
-        out_img.seek(0)
-        return send_file(out_img, mimetype='image/png')
+        memfile = MemoryFile()
+        with memfile.open(
+            width=data.shape[-2], height=data.shape[-1], **self.profile()
+        ) as dataset:
+            dataset.write(self._prepare_array(data))
+        return memfile, "image/png"
 
     def empty(self, process_tile):
         """
@@ -272,6 +259,17 @@ class OutputData(base.OutputData):
             for vector data
         """
         return ma.masked_values(np.zeros(process_tile.shape), 0)
+
+    def _prepare_array(self, data):
+        data = prepare_array(data, dtype="uint8", masked=False, nodata=0)
+        if self.old_band_num:
+            data = np.stack((
+                np.zeros(data[0].shape), np.zeros(data[0].shape),
+                np.zeros(data[0].shape), data[0]))
+        else:
+            data = np.stack((
+                np.zeros(data[0].shape), data[0]))
+        return prepare_array(data, dtype="uint8", masked=True, nodata=255)
 
 
 PNG_PROFILE = {

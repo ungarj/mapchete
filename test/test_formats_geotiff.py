@@ -2,6 +2,8 @@
 """Test GeoTIFF as process output."""
 
 import os
+from PIL import Image
+from rasterio.io import MemoryFile
 import shutil
 import numpy as np
 import numpy.ma as ma
@@ -69,6 +71,26 @@ def test_output_data(mp_tmpdir):
     output = gtiff.OutputData(output_params)
     assert output.profile(tile)["compress"] == "deflate"
     assert output.profile(tile)["predictor"] == 2
+
+
+def test_for_web(client):
+    """Send GTiff via flask."""
+    tile_base_url = '/wmts_simple/1.0.0/cleantopo_br/default/WGS84/'
+    for url in ["/"]:
+        response = client.get(url)
+        assert response.status_code == 200
+    for url in [
+        tile_base_url+"5/30/62.tif",
+        tile_base_url+"5/30/63.tif",
+        tile_base_url+"5/31/62.tif",
+        tile_base_url+"5/31/63.tif",
+    ]:
+        response = client.get(url)
+        assert response.status_code == 200
+        img = response.response.file
+        with MemoryFile(img) as memfile:
+            with memfile.open() as dataset:
+                assert dataset.read().any()
 
 
 def test_input_data(mp_tmpdir, cleantopo_br):

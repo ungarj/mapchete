@@ -19,12 +19,11 @@ ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 
 @pytest.fixture
-def app(dem_to_hillshade, cleantopo_br):
+def app(mp_tmpdir, dem_to_hillshade, cleantopo_br):
     """Dummy Flask app."""
     return create_app(
         mapchete_files=[
-            dem_to_hillshade.path, cleantopo_br.path
-        ],
+            dem_to_hillshade.path, cleantopo_br.path],
         zoom=None, bounds=None, single_input_file=None, mode="overwrite",
         debug=True)
 

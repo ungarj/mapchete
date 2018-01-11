@@ -27,7 +27,6 @@ from rasterio.errors import RasterioIOError
 import numpy as np
 import numpy.ma as ma
 from PIL import Image
-from flask import send_file
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
@@ -237,7 +236,7 @@ class OutputData(base.OutputData):
         out_img = io.BytesIO()
         empty_image.save(out_img, 'PNG')
         out_img.seek(0)
-        return send_file(out_img, mimetype='image/png')
+        return out_img, 'image/png'
 
     def empty(self, process_tile):
         """

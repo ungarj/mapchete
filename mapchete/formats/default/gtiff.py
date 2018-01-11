@@ -30,6 +30,9 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
+from flask import send_file
+import io
+from rasterio.io import MemoryFile
 import os
 import six
 import numpy as np
@@ -205,7 +208,7 @@ class OutputData(base.OutputData):
         except OSError:
             pass
 
-    def profile(self, tile):
+    def profile(self, tile=None):
         """
         Create a metadata dictionary for rasterio.
 
@@ -221,15 +224,18 @@ class OutputData(base.OutputData):
         dst_metadata = GTIFF_PROFILE
         dst_metadata.pop("transform", None)
         dst_metadata.update(
-            crs=tile.crs, width=tile.width, height=tile.height,
-            affine=tile.affine, driver="GTiff",
             count=self.output_params["bands"],
-            dtype=self.output_params["dtype"]
-        )
-        try:
+            dtype=self.output_params["dtype"],
+            driver="GTiff")
+        if tile is not None:
+            dst_metadata.update(
+                crs=tile.crs, width=tile.width, height=tile.height,
+                affine=tile.affine)
+        else:
+            for k in ["crs", "width", "height", "affine"]:
+                dst_metadata.pop(k, None)
+        if "nodata" in self.output_params:
             dst_metadata.update(nodata=self.output_params["nodata"])
-        except KeyError:
-            pass
         try:
             if "compression" in self.output_params:
                 warnings.warn(
@@ -265,6 +271,26 @@ class OutputData(base.OutputData):
                 dtype=profile["dtype"]),
             mask=True
         )
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
+        data = np.expand_dims(data, axis=0) if data.ndim == 2 else data
+        memfile = MemoryFile()
+        with memfile.open(
+            width=data.shape[-2], height=data.shape[-1], **self.profile()
+        ) as dataset:
+            dataset.write(data)
+        return memfile, "image/tiff"
 
     def open(self, tile, process, **kwargs):
         """
