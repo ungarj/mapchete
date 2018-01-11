@@ -281,10 +281,9 @@ class OutputData(base.OutputData):
         -------
         web data : array
         """
-        data = np.expand_dims(data, axis=0) if data.ndim == 2 else data
-        # data = prepare_array(
-        #     data, masked=True, nodata=self.nodata,
-        #     dtype=self.profile(process_tile)["dtype"])
+        data = prepare_array(
+            data, masked=True, nodata=self.nodata,
+            dtype=self.profile()["dtype"])
         return memory_file(data, self.profile()), "image/tiff"
 
     def open(self, tile, process, **kwargs):
