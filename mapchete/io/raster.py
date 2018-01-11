@@ -8,10 +8,11 @@ import numpy as np
 import numpy.ma as ma
 from affine import Affine
 from collections import namedtuple
-from rasterio.warp import reproject
 from rasterio.enums import Resampling
-from rasterio.windows import from_bounds
+from rasterio.io import MemoryFile
 from rasterio.vrt import WarpedVRT
+from rasterio.warp import reproject
+from rasterio.windows import from_bounds
 from shapely.ops import cascaded_union
 from tilematrix import clip_geometry_to_srs_bounds
 from types import GeneratorType
@@ -438,6 +439,24 @@ def _shift_required(tiles):
         return True if not connected else False
     else:
         return False
+
+
+def memory_file(data=None, profile=None):
+    """
+    Return a rasterio.io.MemoryFile instance from input.
+
+    Parameters
+    ----------
+    data : array
+        array to be written
+    profile : dict
+        rasterio profile for MemoryFile
+    """
+    memfile = MemoryFile()
+    profile.update(width=data.shape[-2], height=data.shape[-1])
+    with memfile.open(**profile) as dataset:
+        dataset.write(data)
+    return memfile
 
 
 def prepare_array(data, masked=True, nodata=0, dtype="int16"):

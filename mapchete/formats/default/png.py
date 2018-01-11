@@ -20,17 +20,15 @@ nodata: integer or float
 """
 
 import os
-import io
 import rasterio
 import six
 from rasterio.errors import RasterioIOError
 import numpy as np
 import numpy.ma as ma
-from PIL import Image
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window, prepare_array
+from mapchete.io.raster import write_raster_window, prepare_array, memory_file
 from mapchete.config import validate_values
 
 
@@ -195,7 +193,7 @@ class OutputData(base.OutputData):
         except OSError:
             pass
 
-    def profile(self, tile):
+    def profile(self, tile=None):
         """
         Create a metadata dictionary for rasterio.
 
@@ -210,9 +208,10 @@ class OutputData(base.OutputData):
         """
         dst_metadata = PNG_PROFILE
         dst_metadata.pop("transform", None)
-        dst_metadata.update(
-            width=tile.width, height=tile.height, affine=tile.affine,
-            driver="PNG", crs=tile.crs)
+        if tile is not None:
+            dst_metadata.update(
+                width=tile.width, height=tile.height, affine=tile.affine,
+                crs=tile.crs)
         try:
             dst_metadata.update(count=self.output_params["count"])
         except KeyError:
@@ -232,11 +231,8 @@ class OutputData(base.OutputData):
         web data : array
         """
         rgba = self._prepare_array_for_png(data)
-        empty_image = Image.fromarray(rgba.transpose(1, 2, 0), mode='RGBA')
-        out_img = io.BytesIO()
-        empty_image.save(out_img, 'PNG')
-        out_img.seek(0)
-        return out_img, 'image/png'
+        data = ma.masked_where(rgba == self.nodata, rgba)
+        return memory_file(data, self.profile()), 'image/png'
 
     def empty(self, process_tile):
         """

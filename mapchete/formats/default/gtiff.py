@@ -30,9 +30,6 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
-from flask import send_file
-import io
-from rasterio.io import MemoryFile
 import os
 import six
 import numpy as np
@@ -42,7 +39,7 @@ import warnings
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window, prepare_array
+from mapchete.io.raster import write_raster_window, prepare_array, memory_file
 from mapchete.config import validate_values
 
 
@@ -285,12 +282,10 @@ class OutputData(base.OutputData):
         web data : array
         """
         data = np.expand_dims(data, axis=0) if data.ndim == 2 else data
-        memfile = MemoryFile()
-        with memfile.open(
-            width=data.shape[-2], height=data.shape[-1], **self.profile()
-        ) as dataset:
-            dataset.write(data)
-        return memfile, "image/tiff"
+        # data = prepare_array(
+        #     data, masked=True, nodata=self.nodata,
+        #     dtype=self.profile(process_tile)["dtype"])
+        return memory_file(data, self.profile()), "image/tiff"
 
     def open(self, tile, process, **kwargs):
         """

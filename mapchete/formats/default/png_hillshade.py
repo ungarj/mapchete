@@ -24,13 +24,12 @@ import os
 import six
 import rasterio
 from rasterio.errors import RasterioIOError
-from rasterio.io import MemoryFile
 import numpy as np
 import numpy.ma as ma
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window, prepare_array
+from mapchete.io.raster import write_raster_window, prepare_array, memory_file
 from mapchete.config import validate_values
 
 
@@ -234,14 +233,11 @@ class OutputData(base.OutputData):
 
         Returns
         -------
-        web data : array
+        MemoryFile(), MIME type
         """
-        memfile = MemoryFile()
-        with memfile.open(
-            width=data.shape[-2], height=data.shape[-1], **self.profile()
-        ) as dataset:
-            dataset.write(self._prepare_array(data))
-        return memfile, "image/png"
+        return (
+            memory_file(self._prepare_array(data), self.profile()),
+            "image/png")
 
     def empty(self, process_tile):
         """

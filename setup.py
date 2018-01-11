@@ -58,7 +58,6 @@ setup(
         'fiona',
         'pyyaml',
         'flask',
-        'Pillow',
         'rasterio>=1.0a12',
         'matplotlib',
         'cached_property',
