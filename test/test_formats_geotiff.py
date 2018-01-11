@@ -2,7 +2,6 @@
 """Test GeoTIFF as process output."""
 
 import os
-from PIL import Image
 from rasterio.io import MemoryFile
 import shutil
 import numpy as np

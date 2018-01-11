@@ -8,7 +8,6 @@ import yaml
 import rasterio
 from rasterio.io import MemoryFile
 import numpy as np
-from PIL import Image
 
 from mapchete.cli.main import MapcheteCLI
 from mapchete.errors import MapcheteProcessOutputError
@@ -288,26 +287,19 @@ def test_serve(client, mp_tmpdir):
         response = client.get(url)
         assert response.status_code == 200
         img = response.response.file
-        img.seek(0)
-        data = np.array(Image.open(img)).transpose(2, 0, 1)
-        # get alpha band and assert not all are masked
-        assert not data[3].all()
+        with MemoryFile(img) as memfile:
+            with memfile.open() as dataset:
+                data = dataset.read()
+                # get alpha band and assert not all are masked
+                assert not data[3].all()
     # test outside zoom range
     response = client.get(tile_base_url+"6/31/63.png")
     assert response.status_code == 200
     img = response.response.file
     with MemoryFile(img) as memfile:
         with memfile.open() as dataset:
-            data_array = dataset.read()
-            assert not data_array.any()
-        # img.seek(0)
-        # data = np.array(Image.open(img)).transpose(2, 0, 1)
-        # # all three bands have to be 0
-        # assert not data[0].any()
-        # assert not data[1].any()
-        # assert not data[2].any()
-        # # alpha band has to be filled with 0
-        # assert not data[3].any()
+            data = dataset.read()
+            assert not data.any()
     # test invalid url
     response = client.get(tile_base_url+"invalid_url")
     assert response.status_code == 404
