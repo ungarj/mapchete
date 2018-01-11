@@ -5,7 +5,9 @@ Changelog
 ----
 0.16
 ----
-* Added ``TileDirectory`` as additional input option (#89)
+* added ``TileDirectory`` as additional input option (#89)
+* make all default output formats available in ``serve`` (#63)
+* remove Pillow from dependencies (related to #63)
 
 ----
 0.15
