@@ -99,6 +99,7 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
+        data = self._prepare_array(data)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -106,10 +107,9 @@ class OutputData(base.OutputData):
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_raster_window(
-                in_tile=process_tile, in_data=self._prepare_array(data),
+                in_tile=process_tile, in_data=data,
                 out_profile=self.profile(out_tile), out_tile=out_tile,
-                out_path=out_path
-            )
+                out_path=out_path)
 
     def read(self, output_tile):
         """
@@ -124,13 +124,10 @@ class OutputData(base.OutputData):
         -------
         process output : ``BufferedTile`` with appended data
         """
-        if self.old_band_num:
-            band_num = 4
-        else:
-            band_num = 2
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
-                return ma.masked_values(src.read(band_num), 0)
+                return ma.masked_values(
+                    src.read(4 if self.old_band_num else 2), 0)
         except RasterioIOError:
             return self.empty(output_tile)
         return output_tile
@@ -150,8 +147,7 @@ class OutputData(base.OutputData):
         """
         return any(
             os.path.exists(self.get_path(tile))
-            for tile in self.pyramid.intersecting(process_tile)
-        )
+            for tile in self.pyramid.intersecting(process_tile))
 
     def is_valid_with_config(self, config):
         """
@@ -183,7 +179,7 @@ class OutputData(base.OutputData):
         """
         return os.path.join(*[
             self.path, str(tile.zoom), str(tile.row),
-            str(tile.col)+self.file_extension])
+            str(tile.col) + self.file_extension])
 
     def prepare_path(self, tile):
         """
@@ -236,8 +232,8 @@ class OutputData(base.OutputData):
         MemoryFile(), MIME type
         """
         return (
-            memory_file(self._prepare_array(data), self.profile()),
-            "image/png")
+            memory_file(self._prepare_array(data), self.profile()), "image/png"
+        )
 
     def empty(self, process_tile):
         """
@@ -257,14 +253,14 @@ class OutputData(base.OutputData):
         return ma.masked_values(np.zeros(process_tile.shape), 0)
 
     def _prepare_array(self, data):
-        data = prepare_array(data, dtype="uint8", masked=False, nodata=0)
+        data = prepare_array(
+            -(data - 255), dtype="uint8", masked=False, nodata=0)
         if self.old_band_num:
             data = np.stack((
                 np.zeros(data[0].shape), np.zeros(data[0].shape),
                 np.zeros(data[0].shape), data[0]))
         else:
-            data = np.stack((
-                np.zeros(data[0].shape), data[0]))
+            data = np.stack((np.zeros(data[0].shape), data[0]))
         return prepare_array(data, dtype="uint8", masked=True, nodata=255)
 
 
