@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 """Test GeoJSON as process output."""
 
-import os
-import shutil
-import yaml
+from shapely.geometry import shape
 
 import mapchete
 from mapchete import formats
@@ -41,6 +39,27 @@ def test_input_data_read(mp_tmpdir, geojson, landpoly_3857):
                 for feature in input_tile.read():
                     assert isinstance(feature, dict)
         assert any_data
+
+
+def test_for_web(client):
+    """Send GTiff via flask."""
+    tile_base_url = '/wmts_simple/1.0.0/geojson/default/WGS84/'
+    for url in ["/"]:
+        response = client.get(url)
+        assert response.status_code == 200
+    features = 0
+    for url in [
+        tile_base_url+"4/12/31.geojson",
+        tile_base_url+"4/12/30.geojson",
+        tile_base_url+"4/11/31.geojson",
+        tile_base_url+"4/11/30.geojson",
+    ]:
+        response = client.get(url)
+        assert response.status_code == 200
+        for feature in response.json:
+            assert shape(feature["geometry"]).is_valid
+            features += 1
+    assert features
 
 
 def test_output_data(mp_tmpdir, geojson):

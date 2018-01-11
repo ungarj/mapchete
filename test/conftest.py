@@ -18,25 +18,14 @@ TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
 ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 
-class Namespace(object):
-    """Dummy argparse class."""
-
-    def __init__(self, **kwargs):
-        """Initialize using a dictionary."""
-        self.__dict__.update(kwargs)
-
-
 @pytest.fixture
-def app():
+def app(mp_tmpdir, dem_to_hillshade, cleantopo_br, geojson):
     """Dummy Flask app."""
-    example_process = os.path.join(
-        SCRIPT_DIR, "testdata/dem_to_hillshade.mapchete")
-    args = Namespace(
-        port=5000, mapchete_file=example_process, zoom=None, bounds=None,
-        input_file=None, memory=None, readonly=False, overwrite=True,
-        debug=True
-    )
-    return create_app(args)
+    return create_app(
+        mapchete_files=[
+            dem_to_hillshade.path, cleantopo_br.path, geojson.path],
+        zoom=None, bounds=None, single_input_file=None, mode="overwrite",
+        debug=True)
 
 
 # temporary directory for I/O tests
@@ -173,6 +162,13 @@ def baselevels():
 def mapchete_input():
     """Fixture for mapchete_input.mapchete."""
     path = os.path.join(TESTDATA_DIR, "mapchete_input.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def dem_to_hillshade():
+    """Fixture for dem_to_hillshade.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "dem_to_hillshade.mapchete")
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 

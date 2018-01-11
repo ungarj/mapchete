@@ -5,7 +5,6 @@ fiona
 shapely
 pyyaml
 flask
-Pillow
 matplotlib
 cached_property
 pyproj

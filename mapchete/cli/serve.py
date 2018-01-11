@@ -3,9 +3,12 @@
 
 import logging
 import logging.config
+import os
 import pkgutil
-from traceback import format_exc
-from flask import Flask, make_response, render_template_string, abort
+from rasterio.io import MemoryFile
+import six
+from flask import (
+    Flask, send_file, make_response, render_template_string, abort, jsonify)
 
 import mapchete
 from mapchete.tile import BufferedTilePyramid
@@ -21,48 +24,67 @@ def main(args=None, _test=False):
     Creates the Mapchete host and serves both web page with OpenLayers and the
     WMTS simple REST endpoint.
     """
-    app = create_app(args)
+    app = create_app(
+        mapchete_files=[args.mapchete_file], zoom=args.zoom,
+        bounds=args.bounds, single_input_file=args.input_file,
+        mode=_get_mode(args), with_cache=True, debug=args.debug)
     if not _test:
         app.run(
             threaded=True, debug=True, port=args.port,
             extra_files=[args.mapchete_file])
 
 
-def create_app(args):
+def create_app(
+    mapchete_files=None, zoom=None, bounds=None, single_input_file=None,
+    mode="continue", with_cache=None, debug=None
+):
     """Configure and create Flask app."""
-    if args.debug:
+    if debug:
         LOGGER.setLevel(logging.DEBUG)
 
-    mp = mapchete.open(
-        args.mapchete_file, zoom=args.zoom, bounds=args.bounds,
-        single_input_file=args.input_file, mode=_get_mode(args),
-        with_cache=True, debug=args.debug
-    )
-
     app = Flask(__name__)
-    web_pyramid = BufferedTilePyramid(mp.config.raw["output"]["type"])
+
+    mapchete_processes = {
+        os.path.splitext(os.path.basename(mapchete_file))[0]: mapchete.open(
+            mapchete_file, zoom=zoom, bounds=bounds,
+            single_input_file=single_input_file, mode=mode, with_cache=True,
+            debug=debug)
+        for mapchete_file in mapchete_files
+    }
+
+    mp_name, mp = next(six.iteritems(mapchete_processes))
+    pyramid_type = mp.config.raw["output"]["type"]
+    pyramid_srid = mp.config.process_pyramid.srid
+    process_bounds = ",".join([str(i) for i in mp.config.process_bounds()])
+    grid = "g" if pyramid_srid == 3857 else "WGS84"
+    web_pyramid = BufferedTilePyramid(pyramid_type)
 
     @app.route('/', methods=['GET'])
     def index():
         """Render and hosts the appropriate OpenLayers instance."""
         return render_template_string(
-            pkgutil.get_data('mapchete.static', 'index.html').decode("utf-8"),
-            srid=mp.config.process_pyramid.srid,
-            process_bounds=",".join([
-                str(i) for i in mp.config.process_bounds()]),
-            is_mercator=(mp.config.process_pyramid.srid == 3857)
+            pkgutil.get_data(
+                'mapchete.static', 'index.html').decode("utf-8"),
+            srid=pyramid_srid,
+            process_bounds=process_bounds,
+            is_mercator=(pyramid_srid == 3857),
+            process_names=six.iterkeys(mapchete_processes)
         )
 
-    tile_base_url = '/wmts_simple/1.0.0/mapchete/default/'
-    is_mercator = mp.config.process_pyramid.srid == 3857
-    tile_base_url += "g/" if is_mercator else "WGS84/"
-
     @app.route(
-        tile_base_url+'<int:zoom>/<int:row>/<int:col>.png', methods=['GET'])
-    def get(zoom, row, col):
+        "/".join([
+            "", "wmts_simple", "1.0.0", "<string:mp_name>", "default",
+            grid, "<int:zoom>", "<int:row>", "<int:col>.<string:file_ext>"]),
+        methods=['GET'])
+    def get(mp_name, zoom, row, col, file_ext):
         """Return processed, empty or error (in pink color) tile."""
+        LOGGER.debug(
+            "received tile (%s, %s, %s) for process %s", zoom, row, col,
+            mp_name)
         # convert zoom, row, col into tile object using web pyramid
-        return _tile_response(mp, web_pyramid.tile(zoom, row, col), args.debug)
+        return _tile_response(
+            mapchete_processes[mp_name], web_pyramid.tile(zoom, row, col),
+            debug)
 
     return app
 
@@ -83,16 +105,22 @@ def _tile_response(mp, web_tile, debug):
         LOGGER.debug("getting web tile %s", str(web_tile.id))
         return _valid_tile_response(mp, mp.get_raw_output(web_tile))
     except Exception:
+        LOGGER.exception("getting web tile %s failed", str(web_tile.id))
         if debug:
-            LOGGER.debug("getting web tile %s failed", str(web_tile.id))
-            for line in format_exc().split("\n"):
-                LOGGER.error(line)
             raise
         else:
             abort(500)
 
 
 def _valid_tile_response(mp, data):
-    response = make_response(mp.config.output.for_web(data))
+    out_data, mime_type = mp.config.output.for_web(data)
+    LOGGER.debug("create tile response %s", mime_type)
+    if isinstance(out_data, MemoryFile):
+        response = make_response(send_file(out_data, mime_type))
+    elif isinstance(out_data, list):
+        response = make_response(jsonify(data))
+    else:
+        raise TypeError("invalid response type for web: %" % type(out_data))
+    response.headers['Content-Type'] = mime_type
     response.cache_control.no_write = True
     return response

@@ -21,18 +21,15 @@ nodata: integer or float
 """
 
 import os
-import io
 import six
 import rasterio
 from rasterio.errors import RasterioIOError
 import numpy as np
 import numpy.ma as ma
-from PIL import Image
-from flask import send_file
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window, prepare_array
+from mapchete.io.raster import write_raster_window, prepare_array, memory_file
 from mapchete.config import validate_values
 
 
@@ -102,15 +99,7 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        data = prepare_array(data, dtype="uint8", masked=False, nodata=0)
-        if self.old_band_num:
-            data = np.stack((
-                np.zeros(process_tile.shape), np.zeros(process_tile.shape),
-                np.zeros(process_tile.shape), data[0]))
-        else:
-            data = np.stack((
-                np.zeros(process_tile.shape), data[0]))
-        data = prepare_array(data, dtype="uint8", masked=True, nodata=255)
+        data = self._prepare_array(data)
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
             # skip if file exists and overwrite is not set
@@ -120,8 +109,7 @@ class OutputData(base.OutputData):
             write_raster_window(
                 in_tile=process_tile, in_data=data,
                 out_profile=self.profile(out_tile), out_tile=out_tile,
-                out_path=out_path
-            )
+                out_path=out_path)
 
     def read(self, output_tile):
         """
@@ -136,13 +124,10 @@ class OutputData(base.OutputData):
         -------
         process output : ``BufferedTile`` with appended data
         """
-        if self.old_band_num:
-            band_num = 4
-        else:
-            band_num = 2
         try:
             with rasterio.open(self.get_path(output_tile)) as src:
-                return ma.masked_values(src.read(band_num), 0)
+                return ma.masked_values(
+                    src.read(4 if self.old_band_num else 2), 0)
         except RasterioIOError:
             return self.empty(output_tile)
         return output_tile
@@ -162,8 +147,7 @@ class OutputData(base.OutputData):
         """
         return any(
             os.path.exists(self.get_path(tile))
-            for tile in self.pyramid.intersecting(process_tile)
-        )
+            for tile in self.pyramid.intersecting(process_tile))
 
     def is_valid_with_config(self, config):
         """
@@ -195,7 +179,7 @@ class OutputData(base.OutputData):
         """
         return os.path.join(*[
             self.path, str(tile.zoom), str(tile.row),
-            str(tile.col)+self.file_extension])
+            str(tile.col) + self.file_extension])
 
     def prepare_path(self, tile):
         """
@@ -211,7 +195,7 @@ class OutputData(base.OutputData):
         except OSError:
             pass
 
-    def profile(self, tile):
+    def profile(self, tile=None):
         """
         Create a metadata dictionary for rasterio.
 
@@ -226,12 +210,13 @@ class OutputData(base.OutputData):
         """
         dst_metadata = PNG_PROFILE
         dst_metadata.pop("transform", None)
-        dst_metadata.update(
-            width=tile.width,
-            height=tile.height,
-            affine=tile.affine, driver="PNG",
-            crs=tile.crs
-        )
+        if tile is not None:
+            dst_metadata.update(
+                width=tile.width,
+                height=tile.height,
+                affine=tile.affine, driver="PNG",
+                crs=tile.crs
+            )
         return dst_metadata
 
     def for_web(self, data):
@@ -244,17 +229,11 @@ class OutputData(base.OutputData):
 
         Returns
         -------
-        web data : array
+        MemoryFile(), MIME type
         """
-        data = prepare_array(data, masked=False, dtype="uint8")[0]
-        zeros = np.zeros(data.shape)
-        out_rgb = (zeros, zeros, zeros, data)
-        reshaped = np.stack(out_rgb).transpose(1, 2, 0).astype("uint8")
-        empty_image = Image.fromarray(reshaped, mode='RGBA')
-        out_img = io.BytesIO()
-        empty_image.save(out_img, 'PNG')
-        out_img.seek(0)
-        return send_file(out_img, mimetype='image/png')
+        return (
+            memory_file(self._prepare_array(data), self.profile()), "image/png"
+        )
 
     def empty(self, process_tile):
         """
@@ -272,6 +251,17 @@ class OutputData(base.OutputData):
             for vector data
         """
         return ma.masked_values(np.zeros(process_tile.shape), 0)
+
+    def _prepare_array(self, data):
+        data = prepare_array(
+            -(data - 255), dtype="uint8", masked=False, nodata=0)
+        if self.old_band_num:
+            data = np.stack((
+                np.zeros(data[0].shape), np.zeros(data[0].shape),
+                np.zeros(data[0].shape), data[0]))
+        else:
+            data = np.stack((np.zeros(data[0].shape), data[0]))
+        return prepare_array(data, dtype="uint8", masked=True, nodata=255)
 
 
 PNG_PROFILE = {

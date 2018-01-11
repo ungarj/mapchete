@@ -23,10 +23,10 @@ schema: key-value pairs
         Polygon, MultiPolygon)
 """
 
-import os
-import types
 import fiona
+import os
 import six
+import types
 
 from mapchete.tile import BufferedTile
 from mapchete.formats import base
@@ -142,8 +142,7 @@ class OutputData(base.OutputData):
         """
         return any(
             os.path.exists(self.get_path(tile))
-            for tile in self.pyramid.intersecting(process_tile)
-        )
+            for tile in self.pyramid.intersecting(process_tile))
 
     def is_valid_with_config(self, config):
         """
@@ -160,7 +159,8 @@ class OutputData(base.OutputData):
         """
         validate_values(config, [("schema", dict), ("path", six.string_types)])
         validate_values(
-            config["schema"], [("properties", dict), ("geometry", six.string_types)]
+            config["schema"], [
+                ("properties", dict), ("geometry", six.string_types)]
         )
         if config["schema"]["geometry"] not in [
             "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
@@ -218,6 +218,20 @@ class OutputData(base.OutputData):
         empty data : list
         """
         return []
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
+        return list(data), "application/json"
 
     def open(self, tile, process):
         """

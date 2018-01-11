@@ -87,18 +87,9 @@ class InputData(base.InputData):
         out_crs = self.pyramid.crs if out_crs is None else out_crs
         with fiona.open(self.path) as inp:
             inp_crs = CRS(inp.crs)
-            if not inp_crs.is_valid:
-                raise IOError("CRS could not be read from %s" % self.path)
             bbox = box(*inp.bounds)
-            # Check if file bounding box is empty.
-            if len(set(inp.bounds)) == 1:
-                return Polygon()
-        # If soucre and target CRSes differ, segmentize and reproject
-        if inp_crs != out_crs:
-            # TODO find a way to get a good segmentize value in bbox source CRS
-            return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
-        else:
-            return bbox
+        # TODO find a way to get a good segmentize value in bbox source CRS
+        return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
 
 
 class InputTile(base.InputTile):
@@ -138,7 +129,7 @@ class InputTile(base.InputTile):
         -------
         data : list
         """
-        return self._read_from_cache(validity_check)
+        return [] if self.is_empty() else self._read_from_cache(validity_check)
 
     def is_empty(self):
         """
@@ -150,10 +141,7 @@ class InputTile(base.InputTile):
         """
         if not self.tile.bbox.intersects(self.vector_file.bbox()):
             return True
-        if self.read():
-            return False
-        else:
-            return True
+        return len(self._read_from_cache(True)) == 0
 
     def _read_from_cache(self, validity_check):
         checked = "checked" if validity_check else "not_checked"

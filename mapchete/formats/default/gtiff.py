@@ -39,7 +39,7 @@ import warnings
 
 from mapchete.formats import base
 from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window, prepare_array
+from mapchete.io.raster import write_raster_window, prepare_array, memory_file
 from mapchete.config import validate_values
 
 
@@ -205,7 +205,7 @@ class OutputData(base.OutputData):
         except OSError:
             pass
 
-    def profile(self, tile):
+    def profile(self, tile=None):
         """
         Create a metadata dictionary for rasterio.
 
@@ -221,15 +221,18 @@ class OutputData(base.OutputData):
         dst_metadata = GTIFF_PROFILE
         dst_metadata.pop("transform", None)
         dst_metadata.update(
-            crs=tile.crs, width=tile.width, height=tile.height,
-            affine=tile.affine, driver="GTiff",
             count=self.output_params["bands"],
-            dtype=self.output_params["dtype"]
-        )
-        try:
+            dtype=self.output_params["dtype"],
+            driver="GTiff")
+        if tile is not None:
+            dst_metadata.update(
+                crs=tile.crs, width=tile.width, height=tile.height,
+                affine=tile.affine)
+        else:
+            for k in ["crs", "width", "height", "affine"]:
+                dst_metadata.pop(k, None)
+        if "nodata" in self.output_params:
             dst_metadata.update(nodata=self.output_params["nodata"])
-        except KeyError:
-            pass
         try:
             if "compression" in self.output_params:
                 warnings.warn(
@@ -265,6 +268,23 @@ class OutputData(base.OutputData):
                 dtype=profile["dtype"]),
             mask=True
         )
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
+        data = prepare_array(
+            data, masked=True, nodata=self.nodata,
+            dtype=self.profile()["dtype"])
+        return memory_file(data, self.profile()), "image/tiff"
 
     def open(self, tile, process, **kwargs):
         """
