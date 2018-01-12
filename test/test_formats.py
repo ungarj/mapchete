@@ -122,6 +122,13 @@ def test_http_rasters(files_bounds, http_raster):
     # TODO make tests more performant
     with mapchete.open(config) as mp:
         assert mp.config.process_area(zoom).area > 0
+        process_tile = next(mp.get_process_tiles(13))
+        process = MapcheteProcess(
+            config=mp.config, tile=process_tile,
+            params=mp.config.at_zoom(process_tile.zoom)
+        )
+        with process.open("file1") as f:
+            assert f.read().any()
 
 
 def test_read_from_raster_file(cleantopo_br):

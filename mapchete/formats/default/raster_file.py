@@ -148,12 +148,11 @@ class InputTile(base.InputTile):
         self.tile = tile
         self.raster_file = raster_file
         self.resampling = resampling
-        if raster_file.path.startswith("http://"):
+        if raster_file.path.startswith(("http://", "https://")):
             file_ext = os.path.splitext(raster_file.path)[1]
             self.gdal_opts = {
                 "GDAL_DISABLE_READDIR_ON_OPEN": True,
-                "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext
-            }
+                "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext}
         else:
             self.gdal_opts = {}
 
