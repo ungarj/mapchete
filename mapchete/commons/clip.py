@@ -1,9 +1,10 @@
 """Clip array using vector data."""
 import numpy as np
 import numpy.ma as ma
-from shapely.geometry import shape
 from shapely.ops import unary_union
 from rasterio.features import geometry_mask
+
+from mapchete.io.vector import to_shape
 
 
 def clip_array_with_vector(
@@ -33,10 +34,7 @@ def clip_array_with_vector(
     # buffer input geometries and clean up
     buffered_geometries = []
     for feature in geometries:
-        if isinstance(feature["geometry"], dict):
-            feature_geom = shape(feature["geometry"])
-        else:
-            feature_geom = feature["geometry"]
+        feature_geom = to_shape(feature["geometry"])
         if feature_geom.is_empty:
             continue
         if feature_geom.geom_type == "GeometryCollection":

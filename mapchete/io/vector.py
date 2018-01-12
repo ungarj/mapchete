@@ -94,7 +94,7 @@ def reproject_geometry(
 def _reproject_geom(geometry, src_crs, dst_crs, validity_check=True):
     if geometry.is_empty or src_crs == dst_crs:
         return geometry.buffer(0)
-    out_geom = shape(
+    out_geom = to_shape(
         transform_geom(src_crs.to_dict(), dst_crs.to_dict(), mapping(geometry))
     ).buffer(0)
     if validity_check and not out_geom.is_valid or out_geom.is_empty:
@@ -216,10 +216,11 @@ def write_vector_window(
     out_features = []
     for feature in in_data:
         try:
+            feature_geom = to_shape(feature["geometry"])
             # clip feature geometry to tile bounding box and append for writing
             # if clipped feature still
             out_geom = clean_geometry_type(
-                shape(feature["geometry"]).intersection(out_tile.bbox),
+                feature_geom.intersection(out_tile.bbox),
                 out_schema["geometry"])
             if out_geom:
                 out_features.append({
@@ -253,7 +254,7 @@ def _get_reprojected_features(
                 validity_check=True
             )
         for feature in vector.filter(bbox=dst_bbox.bounds):
-            feature_geom = shape(feature['geometry'])
+            feature_geom = to_shape(feature['geometry'])
             if not feature_geom.is_valid:
                 feature_geom = feature_geom.buffer(0)
                 # skip feature if geometry cannot be repaired
@@ -335,3 +336,18 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
             return geometry
     else:
         return None
+
+
+def to_shape(geom):
+    """
+    Convert geometry to shapely geometry if necessary.
+
+    Parameters:
+    -----------
+    geom : shapely geometry or GeoJSON mapping
+
+    Returns:
+    --------
+    shapely geometry
+    """
+    return shape(geom) if isinstance(geom, dict) else geom
