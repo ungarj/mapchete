@@ -2,15 +2,13 @@
 """Test Mapchete io module."""
 
 import pytest
-import os
 import shutil
 import rasterio
 import tempfile
 import numpy as np
 import numpy.ma as ma
 import fiona
-import yaml
-from shapely.geometry import shape, box, Polygon
+from shapely.geometry import shape, box, Polygon, MultiPolygon
 from shapely.ops import unary_union
 from rasterio.enums import Compression
 from rasterio.crs import CRS
@@ -18,7 +16,13 @@ from itertools import product
 
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
-from mapchete.io import raster, vector, get_best_zoom_level
+from mapchete.io import get_best_zoom_level
+from mapchete.io.raster import (
+    read_raster_window, write_raster_window, extract_from_array,
+    resample_from_array, create_mosaic, ReferencedRaster, prepare_array)
+from mapchete.io.vector import (
+    read_vector_window, reproject_geometry, clean_geometry_type,
+    segmentize_geometry)
 
 
 def test_best_zoom_level(dummy1_tif):
@@ -42,15 +46,15 @@ def test_read_raster_window(dummy1_tif, minmax_zoom):
     tiles.append(tile_pyramid.tile(8, 0, 0))
     for tile in tiles:
         width, height = tile.shape
-        for band in raster.read_raster_window(dummy1_tif, tile):
+        for band in read_raster_window(dummy1_tif, tile):
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
         for index in range(1, 4):
-            band = raster.read_raster_window(dummy1_tif, tile, index)
+            band = read_raster_window(dummy1_tif, tile, index)
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
         for index in [None, [1, 2, 3]]:
-            band = raster.read_raster_window(dummy1_tif, tile, index)
+            band = read_raster_window(dummy1_tif, tile, index)
             assert isinstance(band, ma.MaskedArray)
             assert band.ndim == 3
             assert band.shape == (3, width, height)
@@ -70,7 +74,7 @@ def test_read_raster_window_reproject(dummy1_3857_tif, minmax_zoom):
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
     # target window out of CRS bounds
-    band = raster.read_raster_window(
+    band = read_raster_window(
         dummy1_3857_tif, tile_pyramid.tile(12, 0, 0))
     assert isinstance(band, ma.MaskedArray)
     assert band.mask.all()
@@ -78,15 +82,15 @@ def test_read_raster_window_reproject(dummy1_3857_tif, minmax_zoom):
     tiles.append(tile_pyramid.tile(zoom, 1, 1))   # out of CRS bounds
     tiles.append(tile_pyramid.tile(zoom, 16, 1))  # out of file bbox
     for tile in tiles:
-        for band in raster.read_raster_window(dummy1_3857_tif, tile):
+        for band in read_raster_window(dummy1_3857_tif, tile):
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == tile.shape
-        bands = raster.read_raster_window(dummy1_3857_tif, tile, [1])
+        bands = read_raster_window(dummy1_3857_tif, tile, [1])
         assert isinstance(bands, ma.MaskedArray)
         assert bands.shape == tile.shape
     # errors
     with pytest.raises(IOError):
-        raster.read_raster_window("nonexisting_path", tile)
+        read_raster_window("nonexisting_path", tile)
 
 
 def test_read_raster_window_resampling(cleantopo_br_tif):
@@ -96,7 +100,7 @@ def test_read_raster_window_resampling(cleantopo_br_tif):
         tiles = tp.tiles_from_bounds(src.bounds, 4)
     for tile in tiles:
         outputs = [
-            raster.read_raster_window(
+            read_raster_window(
                 cleantopo_br_tif, tile, resampling=resampling)
             for resampling in [
                 "nearest", "bilinear", "cubic", "cubic_spline", "lanczos",
@@ -112,7 +116,7 @@ def test_read_raster_window_resampling(cleantopo_br_tif):
 def test_read_raster_window_partly_overlapping(cleantopo_br_tif):
     """Read array with read_raster_window where window is bigger than file."""
     tile = BufferedTilePyramid("geodetic").tile(4, 15, 31)
-    data = raster.read_raster_window(cleantopo_br_tif, tile)
+    data = read_raster_window(cleantopo_br_tif, tile)
     assert isinstance(data, ma.MaskedArray)
     assert data.mask.any()
 
@@ -137,7 +141,7 @@ def test_write_raster_window():
             width=tile.width, compress=None, affine=tile.affine),
     ]:
         try:
-            raster.write_raster_window(
+            write_raster_window(
                 in_tile=tile, in_data=data, out_profile=out_profile,
                 out_path=path
             )
@@ -159,7 +163,7 @@ def test_write_raster_window():
             height=out_tile.height, width=out_tile.width,
             affine=out_tile.affine)
     try:
-        raster.write_raster_window(
+        write_raster_window(
             in_tile=tile, in_data=data, out_profile=out_profile,
             out_tile=out_tile, out_path=path
         )
@@ -180,31 +184,31 @@ def test_write_raster_window_errors():
     path = ""
     # in_tile
     with pytest.raises(TypeError):
-        raster.write_raster_window(
+        write_raster_window(
             in_tile="invalid tile", in_data=data, out_profile=profile,
             out_tile=tile, out_path=path
         )
     # out_tile
     with pytest.raises(TypeError):
-        raster.write_raster_window(
+        write_raster_window(
             in_tile=tile, in_data=data, out_profile=profile,
             out_tile="invalid tile", out_path=path
         )
     # in_data
     with pytest.raises(TypeError):
-        raster.write_raster_window(
+        write_raster_window(
             in_tile=tile, in_data="invalid data", out_profile=profile,
             out_tile=tile, out_path=path
         )
     # out_profile
     with pytest.raises(TypeError):
-        raster.write_raster_window(
+        write_raster_window(
             in_tile=tile, in_data=data, out_profile="invalid profile",
             out_tile=tile, out_path=path
         )
     # out_path
     with pytest.raises(TypeError):
-        raster.write_raster_window(
+        write_raster_window(
             in_tile=tile, in_data=data, out_profile=profile,
             out_tile=tile, out_path=999
         )
@@ -219,14 +223,14 @@ def test_extract_from_array():
     )
     # intersecting at top
     out_tile = BufferedTilePyramid("geodetic").tile(5, 20, 20)
-    out_array = raster.extract_from_array(
+    out_array = extract_from_array(
         in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
     )
     assert isinstance(out_array, np.ndarray)
     assert np.all(np.where(out_array == 1, True, False))
     # intersecting at bottom
     out_tile = BufferedTilePyramid("geodetic").tile(5, 22, 20)
-    out_array = raster.extract_from_array(
+    out_array = extract_from_array(
         in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
     )
     assert isinstance(out_array, np.ndarray)
@@ -234,7 +238,7 @@ def test_extract_from_array():
     # not intersecting
     out_tile = BufferedTilePyramid("geodetic").tile(5, 15, 20)
     with pytest.raises(ValueError):
-        out_array = raster.extract_from_array(
+        out_array = extract_from_array(
             in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
         )
 
@@ -245,25 +249,25 @@ def test_resample_from_array():
     in_data = np.ones(in_tile.shape)
     # tile from next toom level
     out_tile = BufferedTilePyramid("geodetic").tile(6, 10, 10)
-    out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)
+    out_array = resample_from_array(in_data, in_tile.affine, out_tile)
     assert isinstance(out_array, ma.masked_array)
     assert np.all(np.where(out_array == 1, True, False))
     # not intersecting tile
     out_tile = BufferedTilePyramid("geodetic").tile(7, 0, 0)
-    out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)
+    out_array = resample_from_array(in_data, in_tile.affine, out_tile)
     assert isinstance(out_array, ma.masked_array)
     assert out_array.mask.all()
     # data as tuple
     in_data = (np.ones(in_tile.shape[1:]), )
     out_tile = BufferedTilePyramid("geodetic").tile(6, 10, 10)
-    out_array = raster.resample_from_array(in_data, in_tile.affine, out_tile)
+    out_array = resample_from_array(in_data, in_tile.affine, out_tile)
     # errors
     with pytest.raises(TypeError):
         in_data = "invalid_type"
-        raster.resample_from_array(in_data, in_tile.affine, out_tile)
+        resample_from_array(in_data, in_tile.affine, out_tile)
     with pytest.raises(TypeError):
         in_data = np.ones(in_tile.shape[0])
-        raster.resample_from_array(in_data, in_tile.affine, out_tile)
+        resample_from_array(in_data, in_tile.affine, out_tile)
 
 
 def test_create_mosaic_errors():
@@ -276,33 +280,33 @@ def test_create_mosaic_errors():
     mer_tile_data = np.ndarray(mer_tile.shape)
     # tiles error
     with pytest.raises(TypeError):
-        raster.create_mosaic("invalid tiles")
+        create_mosaic("invalid tiles")
     with pytest.raises(TypeError):
-        raster.create_mosaic(["invalid tiles"])
+        create_mosaic(["invalid tiles"])
     # CRS error
     with pytest.raises(ValueError):
-        raster.create_mosaic([
+        create_mosaic([
             (geo_tile, geo_tile_data), (mer_tile, mer_tile_data)
         ])
     # zoom error
     with pytest.raises(ValueError):
         diff_zoom = tp_geo.tile(2, 1, 0)
         diff_zoom_data = np.ndarray(diff_zoom.shape)
-        raster.create_mosaic([
+        create_mosaic([
             (geo_tile, geo_tile_data), (diff_zoom, diff_zoom_data)
         ])
     # tile data error
     with pytest.raises(TypeError):
         # for one tile
-        raster.create_mosaic([(geo_tile, None)])
+        create_mosaic([(geo_tile, None)])
     with pytest.raises(TypeError):
         # for multiple tiles
-        raster.create_mosaic([(geo_tile, None), (geo_tile, None)])
+        create_mosaic([(geo_tile, None), (geo_tile, None)])
     # tile data type error
     with pytest.raises(TypeError):
         diff_type = tp_geo.tile(1, 1, 0)
         diff_type_data = np.ndarray(diff_zoom.shape).astype("int")
-        raster.create_mosaic([
+        create_mosaic([
             (geo_tile, geo_tile_data), (diff_type, diff_type_data)
         ])
 
@@ -313,8 +317,8 @@ def test_create_mosaic():
     # quick return mosaic if there is just one tile
     tile = tp.tile(3, 3, 3)
     data = np.ones(tile.shape)
-    mosaic = raster.create_mosaic([(tile, data)])
-    assert isinstance(mosaic, raster.ReferencedRaster)
+    mosaic = create_mosaic([(tile, data)])
+    assert isinstance(mosaic, ReferencedRaster)
     assert np.array_equal(data, mosaic.data)
     assert tile.affine == mosaic.affine
     # multiple tiles
@@ -326,8 +330,8 @@ def test_create_mosaic():
         ]
         # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
         # also use tile generator
-        mosaic = raster.create_mosaic((t for t in tiles))
-        assert isinstance(mosaic, raster.ReferencedRaster)
+        mosaic = create_mosaic((t for t in tiles))
+        assert isinstance(mosaic, ReferencedRaster)
         assert np.all(np.where(mosaic.data == 1, True, False))
         mosaic_bbox = box(
             mosaic.affine[2],
@@ -347,11 +351,11 @@ def test_create_mosaic_antimeridian():
     tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     west = tp.tile(zoom, row, 0)
     east = tp.tile(zoom, row, tp.matrix_width(zoom)-1)
-    mosaic = raster.create_mosaic([
+    mosaic = create_mosaic([
         (west, np.ones(west.shape).astype("uint8")),
         (east, np.ones(east.shape).astype("uint8") * 2)
     ])
-    assert isinstance(mosaic, raster.ReferencedRaster)
+    assert isinstance(mosaic, ReferencedRaster)
     # Huge array gets initialized because the two tiles are on opposing sides
     # of the projection area. The below test should pass if the tiles are
     # stitched together next to each other.
@@ -366,32 +370,32 @@ def test_prepare_array_iterables():
     # iterable contains arrays
     data = [np.zeros((1, 1))]
     # output ndarray
-    output = raster.prepare_array(data, masked=False)
+    output = prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # output masked array
-    output = raster.prepare_array(data)
+    output = prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # iterable contains masked arrays
     data = [ma.empty((1, 1))]
-    output = raster.prepare_array(data, masked=False)
+    output = prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # output masked array
-    output = raster.prepare_array(data)
+    output = prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # iterable contains masked arrays with full mask
     data = [ma.masked_array(data=np.ones((1, 1)), mask=np.ones((1, 1)))]
-    output = raster.prepare_array(data, masked=False)
+    output = prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # output masked array
-    output = raster.prepare_array(data)
+    output = prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
 
@@ -401,23 +405,23 @@ def test_prepare_array_maskedarrays():
     # input is ma.masked_array
     data = ma.empty((1, 1, 1))
     # output ndarray
-    output = raster.prepare_array(data, masked=False)
+    output = prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # output masked array
-    output = raster.prepare_array(data)
+    output = prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # input is ma.masked_array with full mask
     data = ma.masked_array(data=np.ones((1, 1, 1)), mask=np.ones((1, 1, 1)))
     # output ndarray
-    output = raster.prepare_array(data, masked=False)
+    output = prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # output masked array
-    output = raster.prepare_array(data)
+    output = prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
 
@@ -427,23 +431,23 @@ def test_prepare_array_ndarrays():
     # input is np.ndarray
     data = np.zeros((1, 1, 1))
     # output ndarray
-    output = raster.prepare_array(data, masked=False)
+    output = prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # output masked array
-    output = raster.prepare_array(data)
+    output = prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # input is 2D np.ndarray
     data = np.zeros((1, 1))
     # output ndarray
-    output = raster.prepare_array(data, masked=False)
+    output = prepare_array(data, masked=False)
     assert isinstance(output, np.ndarray)
     assert not isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
     # output masked array
-    output = raster.prepare_array(data)
+    output = prepare_array(data)
     assert isinstance(output, ma.masked_array)
     assert output.shape == (1, 1, 1)
 
@@ -453,14 +457,14 @@ def test_prepare_array_errors():
     # input is iterable
     data = [None]
     try:
-        raster.prepare_array(data)
+        prepare_array(data)
         raise Exception()
     except ValueError:
         pass
     # input is not array
     data = 5
     try:
-        raster.prepare_array(data)
+        prepare_array(data)
         raise Exception()
     except ValueError:
         pass
@@ -476,7 +480,7 @@ def test_read_vector_window(geojson, landpoly_3857):
     tiles = tile_pyramid.tiles_from_geom(vectorfile.bbox(), zoom)
     feature_count = 0
     for tile in tiles:
-        for feature in vector.read_vector_window(vectorfile.path, tile):
+        for feature in read_vector_window(vectorfile.path, tile):
             assert "properties" in feature
             assert shape(feature["geometry"]).is_valid
             feature_count += 1
@@ -491,7 +495,7 @@ def test_read_vector_window(geojson, landpoly_3857):
     tiles = tile_pyramid.tiles_from_geom(vectorfile.bbox(), zoom)
     feature_count = 0
     for tile in tiles:
-        for feature in vector.read_vector_window(vectorfile.path, tile):
+        for feature in read_vector_window(vectorfile.path, tile):
             assert "properties" in feature
             assert shape(feature["geometry"]).is_valid
             feature_count += 1
@@ -504,52 +508,77 @@ def test_reproject_geometry(landpoly):
         for feature in src:
 
             # WGS84 to Spherical Mercator
-            out_geom = vector.reproject_geometry(
+            out_geom = reproject_geometry(
                 shape(feature["geometry"]), CRS(src.crs),
                 CRS().from_epsg(3857))
             assert out_geom.is_valid
 
             # WGS84 to LAEA
-            out_geom = vector.reproject_geometry(
+            out_geom = reproject_geometry(
                 shape(feature["geometry"]), CRS(src.crs),
                 CRS().from_epsg(3035))
             assert out_geom.is_valid
 
             # WGS84 to WGS84
-            out_geom = vector.reproject_geometry(
+            out_geom = reproject_geometry(
                 shape(feature["geometry"]), CRS(src.crs),
                 CRS().from_epsg(4326))
             assert out_geom.is_valid
 
     # WGS84 bounds to Spherical Mercator
     big_box = box(-180, -90, 180, 90)
-    vector.reproject_geometry(
+    reproject_geometry(
         big_box, CRS().from_epsg(4326), CRS().from_epsg(3857))
 
     # WGS84 bounds to Spherical Mercator raising clip error
     with pytest.raises(RuntimeError):
-        vector.reproject_geometry(
+        reproject_geometry(
             big_box, CRS().from_epsg(4326), CRS().from_epsg(3857),
             error_on_clip=True)
 
     # empty geometry
-    assert vector.reproject_geometry(
+    assert reproject_geometry(
         Polygon(), CRS().from_epsg(4326), CRS().from_epsg(3857)).is_empty
-    assert vector.reproject_geometry(
+    assert reproject_geometry(
         Polygon(), CRS().from_epsg(4326), CRS().from_epsg(4326)).is_empty
+
+    # CRS parameter
+    big_box = box(-180, -90, 180, 90)
+    assert reproject_geometry(
+        big_box, 4326, 3857) == reproject_geometry(
+        big_box, "4326", "3857")
+    with pytest.raises(TypeError):
+        reproject_geometry(big_box, 1.0, 1.0)
 
 
 def test_segmentize_geometry():
     """Segmentize function."""
     # Polygon
     polygon = box(-18, -9, 18, 9)
-    out = vector.segmentize_geometry(polygon, 1)
+    out = segmentize_geometry(polygon, 1)
     assert out.is_valid
     # wrong type
     with pytest.raises(TypeError):
-        vector.segmentize_geometry(polygon.centroid, 1)
+        segmentize_geometry(polygon.centroid, 1)
 
 
-# TODO vector.clean_geometry_type()
-# TODO vector.write_vector_window()
-# TODO vector.extract_from_tile()
+def test_clean_geometry_type():
+    """Filter and break up geometries."""
+    polygon = box(-18, -9, 18, 9)
+    # invalid type
+    with pytest.raises(TypeError):
+        clean_geometry_type(polygon, "invalid_type")
+
+    # don't return geometry
+    assert clean_geometry_type(polygon, "LineString") is None
+
+    # return geometry as is
+    assert clean_geometry_type(polygon, "Polygon").geom_type == "Polygon"
+    assert clean_geometry_type(polygon, "MultiPolygon").geom_type == "Polygon"
+
+    # don't allow multipart geometries
+    assert clean_geometry_type(
+        MultiPolygon([polygon]), "Polygon", allow_multipart=False) is None
+
+# TODO write_vector_window()
+# TODO extract_from_tile()

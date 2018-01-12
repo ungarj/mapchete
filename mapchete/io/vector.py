@@ -2,18 +2,19 @@
 
 import os
 import logging
-import warnings
 import fiona
 from fiona.transform import transform_geom
 from rasterio.crs import CRS
 from shapely.geometry import (
     box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon, Polygon,
-    LinearRing, LineString
-)
+    LinearRing, LineString)
 from shapely.errors import TopologicalError
+from shapely.validation import explain_validity
 import six
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
+
+LOGGER = logging.getLogger(__name__)
 
 # suppress shapely warnings
 logging.getLogger("shapely").setLevel(logging.ERROR)
@@ -211,26 +212,22 @@ def write_vector_window(
         os.remove(out_path)
     except OSError:
         pass
-    # Return if tile data is empty
-    if not in_data:
-        return
+
     out_features = []
     for feature in in_data:
-        feature_geom = shape(feature["geometry"])
-        clipped = feature_geom.intersection(out_tile.bbox)
-        out_geom = clipped
-        target_type = out_schema["geometry"]
-        if clipped.geom_type != target_type:
-            try:
-                out_geom = clean_geometry_type(clipped, target_type)
-            except Exception:
-                warnings.warn("failed geometry cleaning during writing")
-                continue
-        if out_geom:
-            out_features.append({
-                "geometry": mapping(out_geom),
-                "properties": feature["properties"]
-            })
+        try:
+            # clip feature geometry to tile bounding box and append for writing
+            # if clipped feature still
+            out_geom = clean_geometry_type(
+                shape(feature["geometry"]).intersection(out_tile.bbox),
+                out_schema["geometry"])
+            if out_geom:
+                out_features.append({
+                    "geometry": mapping(out_geom),
+                    "properties": feature["properties"]})
+        except Exception:
+            LOGGER.exception("failed to prepare geometry for writing")
+            continue
 
     if out_features:
         # Write data
@@ -261,30 +258,30 @@ def _get_reprojected_features(
                 feature_geom = feature_geom.buffer(0)
                 # skip feature if geometry cannot be repaired
                 if not feature_geom.is_valid:
-                    warnings.warn("feature omitted: broken geometry")
+                    LOGGER.exception(
+                        "feature omitted: %s", explain_validity(feature_geom))
                     continue
             # only return feature if geometry type stayed the same after
             # reprojecction
             geom = clean_geometry_type(
-                feature_geom.intersection(dst_bbox), feature_geom.geom_type
-            )
+                feature_geom.intersection(dst_bbox), feature_geom.geom_type)
             if geom:
                 # Reproject each feature to tile CRS
-                if vector_crs == dst_crs and validity_check:
-                    assert geom.is_valid
-                else:
-                    try:
-                        geom = reproject_geometry(
-                            geom, src_crs=vector_crs, dst_crs=dst_crs,
-                            validity_check=validity_check)
-                    except TopologicalError:
-                        warnings.warn("feature omitted: reprojection failed")
+                try:
+                    geom = reproject_geometry(
+                        geom, src_crs=vector_crs, dst_crs=dst_crs,
+                        validity_check=validity_check)
+                    if validity_check and not geom.is_valid:
+                        raise TopologicalError(
+                            "reprojected geometry invalid: %s" % (
+                                explain_validity(geom)))
+                except TopologicalError:
+                    LOGGER.exception("feature omitted: reprojection failed")
                 yield {
                     'properties': feature['properties'],
-                    'geometry': mapping(geom)
-                }
+                    'geometry': mapping(geom)}
             else:
-                warnings.warn(
+                LOGGER.exception(
                     "feature omitted: geometry type changed after reprojection"
                 )
 
@@ -293,7 +290,10 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
     """
     Return geometry of a specific type if possible.
 
-    Filters and splits up GeometryCollection into target types.
+    Filters and splits up GeometryCollection into target types. This is
+    necessary when after clipping and/or reprojecting the geometry types from
+    source geometries change (i.e. a Polygon becomes a LineString or a
+    LineString becomes Point) in some edge cases.
 
     Parameters
     ----------
@@ -314,24 +314,24 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         "Polygon": MultiPolygon,
         "MultiPoint": MultiPoint,
         "MultiLineString": MultiLineString,
-        "MultiPolygon": MultiPolygon
-    }
+        "MultiPolygon": MultiPolygon}
+
     if target_type not in multipart_geoms.keys():
         raise TypeError("target type is not supported: %s" % target_type)
 
-    multipart_geom = multipart_geoms[target_type]
     if geometry.geom_type == target_type:
         return geometry
-    elif geometry.geom_type == "GeometryCollection":
-        return multipart_geom([
-            clean_geometry_type(
-                g, target_type, allow_multipart=allow_multipart
-            )
-            for g in geometry
-        ])
-    elif allow_multipart and isinstance(geometry, multipart_geom):
-        return geometry
-    elif multipart_geoms[geometry.geom_type] == multipart_geom:
-        return geometry
+
+    elif allow_multipart:
+        target_multipart_type = multipart_geoms[target_type]
+        if geometry.geom_type == "GeometryCollection":
+            return target_multipart_type([
+                clean_geometry_type(g, target_type, allow_multipart)
+                for g in geometry])
+        elif any([
+            isinstance(geometry, target_multipart_type),
+            multipart_geoms[geometry.geom_type] == target_multipart_type
+        ]):
+            return geometry
     else:
         return None
