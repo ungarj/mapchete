@@ -30,25 +30,24 @@ def clip_array_with_vector(
     -------
     clipped array : array
     """
-    buffered_geometries = []
     # buffer input geometries and clean up
+    buffered_geometries = []
     for feature in geometries:
-        try:
-            geom = shape(feature['geometry']).buffer(clip_buffer)
-        # for empty Geometries
-        except AttributeError:
-            if feature["geometry"].is_empty:
-                break
-        except IndexError:
-            break
-        # for GeometryCollections
-        except ValueError:
-            if feature["geometry"].geom_type == "GeometryCollection":
-                geom = unary_union(
-                    [g.buffer(clip_buffer) for g in feature["geometry"]])
-        if geom.is_empty:
-            break
-        buffered_geometries.append(geom)
+        if isinstance(feature["geometry"], dict):
+            feature_geom = shape(feature["geometry"])
+        else:
+            feature_geom = feature["geometry"]
+        if feature_geom.is_empty:
+            continue
+        if feature_geom.geom_type == "GeometryCollection":
+            # for GeometryCollections apply buffer to every subgeometry
+            # and make union
+            buffered_geom = unary_union([
+                g.buffer(clip_buffer) for g in feature_geom])
+        else:
+            buffered_geom = feature_geom.buffer(clip_buffer)
+        if not buffered_geom.is_empty:
+            buffered_geometries.append(buffered_geom)
 
     # mask raster by buffered geometries
     if buffered_geometries:
@@ -62,8 +61,7 @@ def clip_array_with_vector(
                 buffered_geometries, (array.shape[1], array.shape[2]),
                 array_affine, invert=inverted)
             return ma.masked_array(
-                array, mask=np.stack((mask for band in array))
-            )
+                array, mask=np.stack((mask for band in array)))
 
     # if no geometries, return unmasked array
     else:
