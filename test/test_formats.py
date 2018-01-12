@@ -2,17 +2,15 @@
 """Test Mapchete default formats."""
 
 import pytest
-import os
-import yaml
 from tilematrix import TilePyramid
 from rasterio.crs import CRS
 
 import mapchete
+from mapchete import MapcheteProcess, errors
 from mapchete.formats import (
     available_input_formats, available_output_formats, driver_from_file, base,
     load_output_writer, load_input_reader
 )
-from mapchete import errors
 
 
 def test_available_input_formats():
@@ -124,6 +122,18 @@ def test_http_rasters(files_bounds, http_raster):
     # TODO make tests more performant
     with mapchete.open(config) as mp:
         assert mp.config.process_area(zoom).area > 0
+
+
+def test_read_from_raster_file(cleantopo_br):
+    """Read different bands from source raster."""
+    with mapchete.open(cleantopo_br.path) as mp:
+        process_tile = mp.config.process_pyramid.tile(5, 0, 0)
+        process = MapcheteProcess(
+            config=mp.config, tile=process_tile,
+            params=mp.config.at_zoom(process_tile.zoom)
+        )
+        with process.open("file1") as f:
+            assert f.read().shape == f.read([1]).shape == f.read(1).shape
 
 
 def test_invalid_input_type(example_mapchete):
