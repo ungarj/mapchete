@@ -15,7 +15,6 @@ def main(args=None):
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
     zoom = parsed.zoom if parsed.zoom else None
-
     # process single tile
     if parsed.tile:
         conf = yaml.load(open(parsed.mapchete_file, "r").read())
