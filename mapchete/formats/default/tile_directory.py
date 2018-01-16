@@ -176,7 +176,7 @@ class InputTile(base.InputTile):
 
     def read(
         self, validity_check=False, indexes=None, resampling="nearest",
-        dst_nodata=None, gdal_opts={}
+        dst_nodata=None, gdal_opts=None
     ):
         """
         Read reprojected & resampled input data.

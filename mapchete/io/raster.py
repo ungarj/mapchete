@@ -27,7 +27,7 @@ ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
 
 def read_raster_window(
     input_file, tile, indexes=None, resampling="nearest", src_nodata=None,
-    dst_nodata=None, gdal_opts={}
+    dst_nodata=None, gdal_opts=None
 ):
     """
     Return NumPy arrays from an input raster.
@@ -59,6 +59,7 @@ def read_raster_window(
     raster : MaskedArray
     """
     dst_shape = tile.shape
+    gdal_opts = {} if gdal_opts is None else gdal_opts
     if not isinstance(indexes, int):
         if indexes is None:
             dst_shape = (None,) + dst_shape

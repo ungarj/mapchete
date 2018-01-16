@@ -27,7 +27,7 @@ def main(args=None, _test=False):
     app = create_app(
         mapchete_files=[args.mapchete_file], zoom=args.zoom,
         bounds=args.bounds, single_input_file=args.input_file,
-        mode=_get_mode(args), with_cache=True, debug=args.debug)
+        mode=_get_mode(args), debug=args.debug)
     if not _test:
         app.run(
             threaded=True, debug=args.debug, port=args.port,
@@ -36,7 +36,7 @@ def main(args=None, _test=False):
 
 def create_app(
     mapchete_files=None, zoom=None, bounds=None, single_input_file=None,
-    mode="continue", with_cache=None, debug=None
+    mode="continue", debug=None
 ):
     """Configure and create Flask app."""
     if debug:
@@ -52,7 +52,7 @@ def create_app(
         for mapchete_file in mapchete_files
     }
 
-    mp_name, mp = next(six.iteritems(mapchete_processes))
+    mp = next(six.iteritems(mapchete_processes))[1]
     pyramid_type = mp.config.raw["output"]["type"]
     pyramid_srid = mp.config.process_pyramid.srid
     process_bounds = ",".join([str(i) for i in mp.config.process_bounds()])
@@ -120,7 +120,7 @@ def _valid_tile_response(mp, data):
     elif isinstance(out_data, list):
         response = make_response(jsonify(data))
     else:
-        raise TypeError("invalid response type for web: %" % type(out_data))
+        raise TypeError("invalid response type for web")
     response.headers['Content-Type'] = mime_type
     response.cache_control.no_write = True
     return response
