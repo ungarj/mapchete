@@ -171,9 +171,41 @@ def test_write_raster_window():
             assert src.shape == out_tile.shape
             assert src.read().any()
             assert src.meta["driver"] == out_profile["driver"]
-            assert src.transform == out_profile["affine"]
+            assert src.transform == out_profile["transform"]
     finally:
         shutil.rmtree(path, ignore_errors=True)
+
+
+def test_write_raster_window_memory():
+    """Basic output format writing."""
+    path = "memoryfile"
+    # standard tile
+    tp = BufferedTilePyramid("geodetic")
+    tile = tp.tile(5, 5, 5)
+    data = ma.masked_array(np.ones((2, ) + tile.shape))
+    for out_profile in [
+        dict(
+            driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
+            height=tile.height, width=tile.width, affine=tile.affine),
+        dict(
+            driver="GTiff", count=2, dtype="uint8", compress="deflate",
+            nodata=0, height=tile.height, width=tile.width,
+            affine=tile.affine),
+        dict(
+            driver="PNG", count=2, dtype="uint8", nodata=0, height=tile.height,
+            width=tile.width, compress=None, affine=tile.affine),
+    ]:
+        memfile = write_raster_window(
+            in_tile=tile, in_data=data, out_profile=out_profile, out_path=path)
+        # with rasterio.open(memfile, 'r') as src:
+        with memfile.open() as src:
+            assert src.read().any()
+            assert src.meta["driver"] == out_profile["driver"]
+            assert src.transform == tile.affine
+            if out_profile["compress"]:
+                assert src.compression == Compression(
+                    out_profile["compress"].upper())
+        memfile.close()
 
 
 def test_write_raster_window_errors():

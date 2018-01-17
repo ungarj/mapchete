@@ -199,7 +199,8 @@ def write_raster_window(
     out_tile : ``Tile``
         provides output boundaries; if None, in_tile is used
     out_path : string
-        output path
+        output path to write to; if output path is "memoryfile", a
+        rasterio.MemoryFile() is returned
     """
     out_tile = in_tile if out_tile is None else out_tile
     for t in [in_tile, out_tile]:
@@ -216,11 +217,21 @@ def write_raster_window(
         in_affine=in_tile.affine,
         out_tile=out_tile
     )
+    # use transform instead of affine
+    if "affine" in out_profile:
+        out_profile["transform"] = out_profile.pop("affine")
     # write if there is any band with non-masked data
     if window_data.all() is not ma.masked:
-        with rasterio.open(out_path, 'w', **out_profile) as dst:
-            for band, data in enumerate(window_data):
-                dst.write(data.astype(out_profile["dtype"]), band+1)
+        if out_path == "memoryfile":
+            memfile = MemoryFile()
+            with memfile.open(**out_profile) as dst:
+                for band, data in enumerate(window_data):
+                    dst.write(data.astype(out_profile["dtype"]), band+1)
+            return memfile
+        else:
+            with rasterio.open(out_path, 'w', **out_profile) as dst:
+                for band, data in enumerate(window_data):
+                    dst.write(data.astype(out_profile["dtype"]), band+1)
 
 
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):

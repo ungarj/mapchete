@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.17
+----
+* ``write_raster_window`` now returns a ``rasterio.MemoryFile()`` if path is ``"memoryfile"``
+
+----
 0.16
 ----
 * added ``TileDirectory`` as additional input option (#89)
