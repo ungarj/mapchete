@@ -128,7 +128,9 @@ class MapcheteConfig(object):
             input_config, single_input_file=single_input_file, mode=mode
         )
         # set process delimiters
-        self._delimiters = dict(zoom=zoom, bounds=bounds)
+        self._delimiters = dict(
+            zoom=zoom, bounds=bounds,
+            process_bounds=self.raw.get("process_bounds", None))
         # helper caches
         self._at_zoom_cache = {}
         self._global_process_area = None
