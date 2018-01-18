@@ -371,10 +371,13 @@ class MapcheteConfig(object):
             raise MapcheteConfigError(
                 "Process metatiles cannot be smaller than output metatiles.")
         # absolute output path
-        raw["output"].update(
-            path=os.path.normpath(os.path.join(
-                config_dir, raw["output"]["path"]))
-        )
+        if "path" in raw["output"]:
+            raw["output"].update(
+                path=os.path.normpath(os.path.join(
+                    config_dir, raw["output"]["path"]))
+            )
+        else:
+            raw["output"]["path"] = None
         # determine inputs
         if raw["input"] == "from_command_line" and (
             self.mode in ["memory", "continue", "overwrite"]
