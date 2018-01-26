@@ -30,7 +30,7 @@ def main(args=None, _test=False):
         mode=_get_mode(args), debug=args.debug)
     if not _test:
         app.run(
-            threaded=True, debug=args.debug, port=args.port,
+            threaded=True, debug=True, port=args.port, host='0.0.0.0',
             extra_files=[args.mapchete_file])
 
 

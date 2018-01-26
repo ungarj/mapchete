@@ -31,8 +31,7 @@ from mapchete.errors import (
 )
 
 logging.basicConfig(
-    level=logging.INFO, format='%(levelname)s %(name)s %(message)s'
-)
+    level=logging.INFO, format='%(levelname)s %(name)s %(message)s')
 LOGGER = logging.getLogger(__name__)
 
 # suppress rasterio logging
@@ -129,13 +128,13 @@ class Mapchete(object):
         else:
             self.with_cache = with_cache
         if self.with_cache:
-            self.process_tile_cache = LRUCache(maxsize=32)
+            self.process_tile_cache = LRUCache(maxsize=512)
             self.current_processes = {}
             self.process_lock = threading.Lock()
 
     def get_process_tiles(self, zoom=None):
         """
-        Return process tiles.
+        Yield process tiles.
 
         Tiles intersecting with the input data bounding boxes as well as
         process bounds, if provided, are considered process tiles. This is to
@@ -147,10 +146,9 @@ class Mapchete(object):
             zoom level process tiles should be returned from; if none is given,
             return all process tiles
 
-        Returns
-        -------
-        generator
-            iterable of BufferedTile objects
+        yields
+        ------
+        BufferedTile objects
         """
         if zoom or zoom == 0:
             for tile in self.config.process_pyramid.tiles_from_geom(
@@ -379,29 +377,28 @@ class Mapchete(object):
         try:
             return self.process_tile_cache[process_tile.id]
         except KeyError:
-            pass
-        # Lock process for Tile or wait.
-        with self.process_lock:
-            process_event = self.current_processes.get(process_tile.id)
-            if not process_event:
-                self.current_processes[process_tile.id] = threading.Event()
-        # Wait and return.
-        if process_event:
-            process_event.wait()
-            return self.process_tile_cache[process_tile.id]
-        else:
-            try:
-                output = self.execute(process_tile)
-                self.process_tile_cache[process_tile.id] = output
-                if self.config.mode in ["continue", "overwrite"]:
-                    self.write(process_tile, output)
+            # Lock process for Tile or wait.
+            with self.process_lock:
+                process_event = self.current_processes.get(process_tile.id)
+                if not process_event:
+                    self.current_processes[process_tile.id] = threading.Event()
+            # Wait and return.
+            if process_event:
+                process_event.wait()
                 return self.process_tile_cache[process_tile.id]
-            finally:
-                with self.process_lock:
-                    process_event = self.current_processes.get(
-                        process_tile.id)
-                    del self.current_processes[process_tile.id]
-                    process_event.set()
+            else:
+                try:
+                    output = self.execute(process_tile)
+                    self.process_tile_cache[process_tile.id] = output
+                    if self.config.mode in ["continue", "overwrite"]:
+                        self.write(process_tile, output)
+                    return self.process_tile_cache[process_tile.id]
+                finally:
+                    with self.process_lock:
+                        process_event = self.current_processes.get(
+                            process_tile.id)
+                        del self.current_processes[process_tile.id]
+                        process_event.set()
 
     def _extract(self, in_tile=None, in_data=None, out_tile=None):
         """Extract data from tile."""
@@ -495,7 +492,9 @@ class Mapchete(object):
             return self.config.output.empty(process_tile)
 
     def _streamline_output(self, process_data):
-        if isinstance(process_data, six.string_types) and process_data == "empty":
+        if isinstance(process_data, six.string_types) and (
+            process_data == "empty"
+        ):
             raise MapcheteNodataTile
         elif isinstance(process_data, (np.ndarray, ma.MaskedArray)):
             return process_data
@@ -505,8 +504,7 @@ class Mapchete(object):
             raise MapcheteProcessOutputError("process output is empty")
         else:
             raise MapcheteProcessOutputError(
-                "invalid output type: %s" % type(process_data)
-            )
+                "invalid output type: %s" % type(process_data))
 
     def _interpolate_from_baselevel(self, tile=None, baselevel=None):
         starttime = time.time()
