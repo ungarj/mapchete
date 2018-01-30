@@ -148,5 +148,5 @@ def test_invalid_input_type(example_mapchete):
     # invalid input type
     config = example_mapchete.dict
     config.update(input=dict(invalid_type=1))
-    with pytest.raises(errors.MapcheteDriverError):
+    with pytest.raises(errors.MapcheteConfigError):
         mapchete.open(config)

@@ -34,7 +34,11 @@ class BufferedTilePyramid(TilePyramid):
             self, pyramid_type, metatiling=metatiling, tile_size=tile_size)
         self.tile_pyramid = TilePyramid(
             pyramid_type, metatiling=metatiling, tile_size=tile_size)
+        if metatiling not in [1, 2, 4, 8, 16]:
+            raise ValueError("metatiling hast to be 1, 2, 4, 8 or 16")
         self.metatiling = metatiling
+        if any([not isinstance(pixelbuffer, int), pixelbuffer < 0]):
+            raise ValueError("pixelbuffer has to be a non-negative int")
         self.pixelbuffer = pixelbuffer
 
     def tile(self, zoom, row, col):

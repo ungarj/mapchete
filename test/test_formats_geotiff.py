@@ -72,7 +72,7 @@ def test_output_data(mp_tmpdir):
     assert output.profile(tile)["predictor"] == 2
 
 
-def test_for_web(client):
+def test_for_web(client, mp_tmpdir):
     """Send GTiff via flask."""
     tile_base_url = '/wmts_simple/1.0.0/cleantopo_br/default/WGS84/'
     for url in ["/"]:

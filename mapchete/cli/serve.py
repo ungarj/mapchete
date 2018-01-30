@@ -53,7 +53,7 @@ def create_app(
     }
 
     mp = next(six.iteritems(mapchete_processes))[1]
-    pyramid_type = mp.config.raw["output"]["type"]
+    pyramid_type = mp.config.process_pyramid.type
     pyramid_srid = mp.config.process_pyramid.srid
     process_bounds = ",".join([str(i) for i in mp.config.process_bounds()])
     grid = "g" if pyramid_srid == 3857 else "WGS84"

@@ -1,7 +1,6 @@
 """Main module managing processes."""
 
 import os
-import py_compile
 import inspect
 import logging
 import warnings
@@ -26,9 +25,8 @@ from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTile
 from mapchete.io import raster
 from mapchete.errors import (
-    MapcheteProcessSyntaxError, MapcheteProcessImportError,
-    MapcheteProcessException, MapcheteProcessOutputError, MapcheteNodataTile
-)
+    MapcheteProcessImportError, MapcheteProcessException,
+    MapcheteProcessOutputError, MapcheteNodataTile)
 
 logging.basicConfig(
     level=logging.INFO, format='%(levelname)s %(name)s %(message)s')
@@ -117,10 +115,6 @@ class Mapchete(object):
         if not isinstance(config, MapcheteConfig):
             raise TypeError("config must be MapcheteConfig object")
         self.config = config
-        try:
-            py_compile.compile(self.config.process_file, doraise=True)
-        except py_compile.PyCompileError as e:
-            raise MapcheteProcessSyntaxError(e)
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file))[0]
         if self.config.mode == "memory":

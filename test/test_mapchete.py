@@ -4,7 +4,6 @@
 import pytest
 import os
 import shutil
-import yaml
 import rasterio
 import numpy as np
 import numpy.ma as ma
@@ -66,8 +65,7 @@ def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
         mp_tile = mapchete.MapcheteProcess(
             mp.config.process_pyramid.tile(*tile.id),
             config=mp.config,
-            params=mp.config.at_zoom(5)
-        )
+            params=mp.config.at_zoom(5))
         data = mp_tile.read()
         assert data.any()
         assert isinstance(data, ma.masked_array)

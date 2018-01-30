@@ -84,7 +84,6 @@ class InputData(base.InputData):
             Shapely geometry object
         """
         return reproject_geometry(
-            self.process.config.process_area(),
-            src_crs=self.process.config.crs,
-            dst_crs=self.pyramid.crs if out_crs is None else out_crs
-        )
+            self.process.config.area_at_zoom(),
+            src_crs=self.process.config.process_pyramid.crs,
+            dst_crs=self.pyramid.crs if out_crs is None else out_crs)
