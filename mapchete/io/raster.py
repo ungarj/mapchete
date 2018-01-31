@@ -437,7 +437,6 @@ def _get_tiles_properties(tiles):
         if not isinstance(data, (np.ndarray, tuple)):
             raise TypeError("tile data has to be np.ndarray or tuple")
         if data[0].dtype != tiles[0][1][0].dtype:
-            print data[0].dtype, tiles[0][1][0].dtype
             raise TypeError("all tile data must have the same dtype")
     return tile.tile_pyramid, tile.pixel_x_size, data[0].dtype
 

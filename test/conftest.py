@@ -5,20 +5,26 @@ from collections import namedtuple
 import os
 import pytest
 import shutil
+import six
 import yaml
 
 from mapchete.cli.serve import create_app
 
+if six.PY2:
+    from pytest import yield_fixture
+else:
+    from pytest import fixture as yield_fixture
+
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
-TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
+TEMP_DIR = os.path.join(os.getcwd(), "tmp")
 
 
 ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 
-@pytest.fixture
+@yield_fixture
 def app(dem_to_hillshade, cleantopo_br, geojson):
     """Dummy Flask app."""
     return create_app(

@@ -19,7 +19,6 @@ from shapely.geometry import box
 from shapely.ops import cascaded_union
 import six
 from tilematrix._funcs import Bounds
-from types import NoneType
 import warnings
 import yaml
 
@@ -136,6 +135,8 @@ class MapcheteConfig(object):
         self._raw = _map_to_new_config(_config_to_dict(input_config))
         self._raw["init_zoom_levels"] = zoom
         self._raw["init_bounds"] = bounds
+        self._cache_area_at_zoom = {}
+        self._cache_full_process_area = None
 
         # (1) assert mandatory params are available
         try:
@@ -143,7 +144,7 @@ class MapcheteConfig(object):
                 self._raw, [
                     ("process_file", six.string_types),
                     ("pyramid", dict),
-                    ("input", (dict, NoneType)),
+                    ("input", (dict, type(None))),
                     ("output", dict),
                     ("zoom_levels", (int, dict))])
         except Exception as e:
@@ -156,9 +157,11 @@ class MapcheteConfig(object):
         # (3) set process and output pyramids
         try:
             process_metatiling = self._raw["pyramid"].get("metatiling", 1)
-            output_metatiling = self._raw["output"].get("metatiling", 1)
+            # output metatiling defaults to process metatiling if not set
+            output_metatiling = self._raw["output"].get(
+                "metatiling", process_metatiling)
             if output_metatiling > process_metatiling:
-                raise MapcheteConfigError(
+                raise ValueError(
                     "output metatiles must be smaller than process metatiles")
             self.process_pyramid = BufferedTilePyramid(
                 self._raw["pyramid"]["grid"],
@@ -185,21 +188,6 @@ class MapcheteConfig(object):
 
         # (7) initialize input items
         self.input
-
-        # (8) append inputs to user params
-
-        # (9) define process bounds (depends on inputs)
-        self._cache_area_at_zoom = {}
-        self._cache_full_process_area = None
-        #
-
-        # inputs : dictionary
-        # output : ``OutputData``
-        # zoom_levels : list
-        # bounds : tuple
-        # init_zoom_levels : list
-        # init_bounds : tuple
-        # baselevels : dictionary
 
     @cached_property
     def zoom_levels(self):
@@ -444,7 +432,7 @@ class MapcheteConfig(object):
         -------
         process area : shapely geometry
         """
-        if zoom:
+        if isinstance(zoom, int):
             if zoom not in self.init_zoom_levels:
                 raise ValueError(
                     "zoom level not available with current configuration")
@@ -510,6 +498,20 @@ class MapcheteConfig(object):
         """Deprecated."""
         warnings.warn("self.crs is now self.process_pyramid.crs.")
         return self.process_pyramid.crs
+
+    @cached_property
+    def metatiling(self):
+        """Deprecated."""
+        warnings.warn(
+            "self.metatiling is now self.process_pyramid.metatiling.")
+        return self.process_pyramid.metatiling
+
+    @cached_property
+    def pixelbuffer(self):
+        """Deprecated."""
+        warnings.warn(
+            "self.pixelbuffer is now self.process_pyramid.pixelbuffer.")
+        return self.process_pyramid.pixelbuffer
 
     @cached_property
     def inputs(self):
@@ -762,5 +764,4 @@ def _map_to_new_config(config):
     elif "input_files" in config:
         raise MapcheteConfigError(
             "'input' and 'input_files' are not allowed at the same time")
-
     return config
