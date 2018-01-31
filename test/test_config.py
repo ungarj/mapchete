@@ -51,7 +51,12 @@ def test_config_errors(example_mapchete):
     # wrong pixelbuffer type
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
-        config.update(pixelbuffer="wrong_type")
+        config["pyramid"].update(pixelbuffer="wrong_type")
+        mapchete.open(config)
+    # wrong metatiling type
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(config_orig)
+        config["pyramid"].update(metatiling="wrong_type")
         mapchete.open(config)
 
 

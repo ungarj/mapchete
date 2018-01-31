@@ -1,17 +1,16 @@
-# mapchete parameters
 process_file: ../example_process.py
-process_minzoom: 0
-process_maxzoom: 5
+zoom_levels:
+    min: 0
+    max: 5
+pyramid:
+    grid: geodetic
+    pixelbuffer: 20
+    metatiling: 8
 input:
     file1: cleantopo_br.tif
-
 output:
-    type: geodetic
     dtype: uint16
     bands: 1
     format: GTiff
     path: tmp
     pixelbuffer: 20
-
-pixelbuffer: 20
-metatiling: 8

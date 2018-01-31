@@ -143,7 +143,7 @@ def test_mandatory_params(example_mapchete):
 def test_invalid_output_params(example_mapchete):
     """Check on invalid configuration."""
     # missing or invalid params
-    for param in ["format", "type"]:
+    for param in ["format"]:
         config = deepcopy(example_mapchete.dict)
         with pytest.raises(errors.MapcheteConfigError):
             # invalid
@@ -160,22 +160,22 @@ def test_invalid_zoom_levels(example_mapchete):
     # no zoom levels given
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.pop("process_minzoom", "process_maxzoom")
+        config.pop("zoom_levels")
         MapcheteConfig(config)
     # invalid single zoom level
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.pop("process_minzoom", "process_maxzoom")
+        config.pop("zoom_levels")
         MapcheteConfig(config, zoom=-5)
     # invalid zoom level in pair
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.pop("process_minzoom", "process_maxzoom")
+        config.pop("zoom_levels")
         MapcheteConfig(config, zoom=[-5, 0])
     # invalid number of zoom levels
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.pop("process_minzoom", "process_maxzoom")
+        config.pop("zoom_levels")
         MapcheteConfig(config, zoom=[0, 5, 7])
 
 

@@ -118,7 +118,7 @@ def test_http_rasters(files_bounds, http_raster):
     """Raster file on remote server with http:// or https:// URLs."""
     zoom = 13
     config = files_bounds.dict
-    config.update(input=dict(file1=http_raster), process_zoom=zoom)
+    config.update(input=dict(file1=http_raster), zoom_levels=zoom)
     # TODO make tests more performant
     with mapchete.open(config) as mp:
         assert mp.config.process_area(zoom).area > 0

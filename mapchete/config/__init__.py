@@ -278,6 +278,7 @@ class MapcheteConfig(object):
         else:
             output_params.update(path=None)
         output_params.update(
+            type=self.output_pyramid.type,
             pixelbuffer=self.output_pyramid.pixelbuffer,
             metatiling=self.output_pyramid.metatiling)
         if "format" not in output_params:

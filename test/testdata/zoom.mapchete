@@ -1,7 +1,8 @@
-# mapchete parameters
 process_file: ../example_process.py
-process_zoom: 5
-process_bounds: [0.5, 1.5, 3.5, 3.5]
+zoom_levels: 5
+pyramid:
+    grid: geodetic
+bounds: [0.5, 1.5, 3.5, 3.5]
 input:
     file1: dummy1.tif
 output:
@@ -9,4 +10,3 @@ output:
     bands: 1
     path: tmp
     format: GTiff
-    type: geodetic

@@ -1,18 +1,19 @@
 # mandatory parameters
 ######################
 process_file: $process_file
+$pyramid
 input:
     # from_command_line --> use the -i switch in CLI and provide path to file
     # raster_file: path/to/raster
     # vector_file: path/to/vector
-
 $output
+
 
 # optional parameters
 #####################
-process_minzoom: 0
-process_maxzoom: 12
-metatiling: 1 # can be 1, 2, 4, 8, 16 (default 1)
+zoom_levels:
+    min: 0
+    max: 12
 
 # free parameters
 #################

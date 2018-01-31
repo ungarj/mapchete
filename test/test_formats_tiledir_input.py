@@ -45,7 +45,7 @@ def test_read_vector_data(mp_tmpdir, geojson, geojson_tiledir):
 
 def _run_tiledir_process_vector(conf_dict, metatiling, bounds):
     conf = deepcopy(conf_dict)
-    conf.update(metatiling=metatiling)
+    conf["pyramid"].update(metatiling=metatiling)
     features = []
     with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
         assert mp.config.metatiling == metatiling
@@ -68,7 +68,7 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
 
 def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
     conf = deepcopy(conf_dict)
-    conf.update(metatiling=metatiling)
+    conf["pyramid"].update(metatiling=metatiling)
     with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
         assert mp.config.metatiling == metatiling
         assert any([

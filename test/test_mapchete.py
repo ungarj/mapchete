@@ -198,7 +198,7 @@ def test_baselevels(mp_tmpdir, baselevels):
 def test_baselevels_buffer(mp_tmpdir, baselevels):
     """Baselevel interpolation using buffers."""
     config = baselevels.dict
-    config.update(pixelbuffer=10)
+    config["pyramid"].update(pixelbuffer=10)
     with mapchete.open(config, mode="continue") as mp:
         # get tile from lower zoom level
         lower_tile = next(mp.get_process_tiles(4))
@@ -222,7 +222,8 @@ def test_baselevels_buffer(mp_tmpdir, baselevels):
 def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):
     """Baselevel interpolation using buffers."""
     config = baselevels.dict
-    config.update(pixelbuffer=10, input=None)
+    config.update(input=None)
+    config["pyramid"].update(pixelbuffer=10)
     zoom = 5
     row = 0
     with mapchete.open(config) as mp:
@@ -382,16 +383,16 @@ def test_process_template(dummy1_tif):
     mp = mapchete.open(
         dict(
             process_file=process_template,
+            pyramid=dict(grid="geodetic"),
             input=dict(file1=dummy1_tif),
             output=dict(
                 format="GTiff",
                 path=".",
-                type="geodetic",
                 bands=1,
                 dtype="uint8"
             ),
             config_dir=".",
-            process_zoom=4
+            zoom_levels=4
         ))
     process_tile = next(mp.get_process_tiles(zoom=4))
     # Mapchete throws a RuntimeError if process output is empty
@@ -403,11 +404,10 @@ def test_count_tiles(zoom_mapchete):
     """Count tiles function."""
     maxzoom = 13
     conf = zoom_mapchete.dict
-    conf.pop("process_zoom")
     conf.update(
         zoom_levels=dict(max=maxzoom),
-        process_bounds=[14.0625, 47.8125, 16.875, 50.625], input=None,
-        metatiling=8, pixelbuffer=5)
+        bounds=[14.0625, 47.8125, 16.875, 50.625], input=None)
+    conf["pyramid"].update(metatiling=8, pixelbuffer=5)
     for minzoom in range(0, 14):
         conf["zoom_levels"].update(min=minzoom)
         with mapchete.open(conf) as mp:
