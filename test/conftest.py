@@ -24,7 +24,8 @@ TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
 ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 
-@yield_fixture
+# flask test app for mapchete serve
+@pytest.fixture
 def app(dem_to_hillshade, cleantopo_br, geojson):
     """Dummy Flask app."""
     return create_app(
@@ -35,7 +36,7 @@ def app(dem_to_hillshade, cleantopo_br, geojson):
 
 
 # temporary directory for I/O tests
-@pytest.fixture
+@yield_fixture
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
     # shutil.rmtree(TEMP_DIR, ignore_errors=True)
