@@ -215,4 +215,4 @@ def test_abstract_input(abstract_input):
 
 def test_init_zoom(cleantopo_br):
     with mapchete.open(cleantopo_br.dict, zoom=[3, 5]) as mp:
-        assert mp.config.init_zoom_levels == [3, 4, 5]
+        assert mp.config.init_zoom_levels == range(3, 6)
