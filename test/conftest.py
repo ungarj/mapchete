@@ -138,6 +138,13 @@ def old_style_process_py():
 
 # example mapchete configurations
 @pytest.fixture
+def custom_grid():
+    """Fixture for custom_grid.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "custom_grid.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def deprecated_params():
     """Fixture for deprecated_params.mapchete."""
     path = os.path.join(TESTDATA_DIR, "deprecated_params.mapchete")

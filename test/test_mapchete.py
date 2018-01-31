@@ -432,3 +432,9 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         mp.batch_process(zoom=2, multi=2)
         # process without multiprocessing
         mp.batch_process(zoom=2, multi=1)
+
+
+# def test_custom_grid(mp_tmpdir, custom_grid):
+#     """Cutom grid processing."""
+#     with mapchete.open(custom_grid.dict) as mp:
+#         mp.batch_process()

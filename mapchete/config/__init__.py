@@ -171,6 +171,7 @@ class MapcheteConfig(object):
                 metatiling=output_metatiling,
                 pixelbuffer=self._raw["output"].get("pixelbuffer", 0))
         except Exception as e:
+            LOGGER.exception(e)
             raise MapcheteConfigError(e)
 
         # (4) set mode
@@ -242,7 +243,7 @@ class MapcheteConfig(object):
                 path=os.path.normpath(
                     os.path.join(self.config_dir, output_params["path"])))
         output_params.update(
-            type=self.output_pyramid.type,
+            type=self.output_pyramid.grid,
             pixelbuffer=self.output_pyramid.pixelbuffer,
             metatiling=self.output_pyramid.metatiling)
         if "format" not in output_params:
@@ -358,7 +359,7 @@ class MapcheteConfig(object):
             lower=baselevels.get("lower", "nearest"),
             higher=baselevels.get("higher", "nearest"),
             tile_pyramid=BufferedTilePyramid(
-                self.output_pyramid.type,
+                self.output_pyramid.grid,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
                 metatiling=self.process_pyramid.metatiling))
 
