@@ -36,10 +36,19 @@ def test_read_vector_data(mp_tmpdir, geojson, geojson_tiledir):
     """Read vector data."""
     # prepare data
     with mapchete.open(geojson.path) as mp:
+        bounds = mp.config.bounds_at_zoom()
         mp.batch_process(zoom=4)
     # read data
+    for metatiling in [2, 4, 8]:
+        _run_tiledir_process_vector(geojson_tiledir.dict, metatiling, bounds)
+
+
+def _run_tiledir_process_vector(conf_dict, metatiling, bounds):
+    conf = deepcopy(conf_dict)
+    conf.update(metatiling=metatiling)
     features = []
-    with mapchete.open(geojson_tiledir.path) as mp:
+    with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
+        assert mp.config.metatiling == metatiling
         for tile in mp.get_process_tiles(4):
             input_tile = next(six.itervalues(mp.config.inputs)).open(tile)
             features.extend(input_tile.read())
@@ -50,32 +59,18 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     """Read raster data."""
     # prepare data
     with mapchete.open(cleantopo_br.path) as mp:
+        bounds = mp.config.bounds_at_zoom()
         mp.batch_process(zoom=4)
-    # read data with metatiling 1
-    example_metatiling = deepcopy(cleantopo_br_tiledir.dict)
-    example_metatiling["metatiling"] == 1
-    with mapchete.open(example_metatiling, mode="overwrite") as mp:
-        assert any([
-            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
-            for tile in mp.get_process_tiles(4)])
-    # read data with metatiling 2
-    example_metatiling = deepcopy(cleantopo_br_tiledir.dict)
-    example_metatiling["metatiling"] == 2
-    with mapchete.open(example_metatiling, mode="overwrite") as mp:
-        assert any([
-            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
-            for tile in mp.get_process_tiles(4)])
-    # read data with metatiling 4
-    example_metatiling = deepcopy(cleantopo_br_tiledir.dict)
-    example_metatiling["metatiling"] == 4
-    with mapchete.open(example_metatiling, mode="overwrite") as mp:
-        assert any([
-            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
-            for tile in mp.get_process_tiles(4)])
-    # read data with metatiling 8
-    example_metatiling = deepcopy(cleantopo_br_tiledir.dict)
-    example_metatiling["metatiling"] == 8
-    with mapchete.open(example_metatiling, mode="overwrite") as mp:
+    for metatiling in [1, 2, 4, 8]:
+        _run_tiledir_process_raster(
+            cleantopo_br_tiledir.dict, metatiling, bounds)
+
+
+def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
+    conf = deepcopy(conf_dict)
+    conf.update(metatiling=metatiling)
+    with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
+        assert mp.config.metatiling == metatiling
         assert any([
             next(six.itervalues(mp.config.inputs)).open(tile).read().any()
             for tile in mp.get_process_tiles(4)])

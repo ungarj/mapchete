@@ -18,7 +18,7 @@ else:
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
-TEMP_DIR = os.path.join(os.getcwd(), "tmp")
+TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
 
 
 ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
@@ -38,7 +38,7 @@ def app(dem_to_hillshade, cleantopo_br, geojson):
 @pytest.fixture
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
-    shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    # shutil.rmtree(TEMP_DIR, ignore_errors=True)
     os.makedirs(TEMP_DIR)
     yield TEMP_DIR
     shutil.rmtree(TEMP_DIR, ignore_errors=True)

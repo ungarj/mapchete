@@ -405,13 +405,11 @@ def test_count_tiles(zoom_mapchete):
     conf = zoom_mapchete.dict
     conf.pop("process_zoom")
     conf.update(
-        process_maxzoom=maxzoom,
+        zoom_levels=dict(max=maxzoom),
         process_bounds=[14.0625, 47.8125, 16.875, 50.625], input=None,
-        metatiling=8, pixelbuffer=5
-    )
-    # for minzoom in range(0, 14):
+        metatiling=8, pixelbuffer=5)
     for minzoom in range(0, 14):
-        conf.update(process_minzoom=minzoom)
+        conf["zoom_levels"].update(min=minzoom)
         with mapchete.open(conf) as mp:
             assert len(list(mp.get_process_tiles())) == _batch.count_tiles(
                 mp.config.process_area(), mp.config.process_pyramid, minzoom,

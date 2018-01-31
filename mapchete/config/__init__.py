@@ -158,11 +158,16 @@ class MapcheteConfig(object):
         try:
             process_metatiling = self._raw["pyramid"].get("metatiling", 1)
             # output metatiling defaults to process metatiling if not set
+            # explicitly
             output_metatiling = self._raw["output"].get(
                 "metatiling", process_metatiling)
+            # we cannot properly handle output tiles which are bigger than
+            # process tiles
             if output_metatiling > process_metatiling:
                 raise ValueError(
                     "output metatiles must be smaller than process metatiles")
+            # these two BufferedTilePyramid instances will help us with all
+            # the tile geometries etc.
             self.process_pyramid = BufferedTilePyramid(
                 self._raw["pyramid"]["grid"],
                 metatiling=process_metatiling,
@@ -179,14 +184,16 @@ class MapcheteConfig(object):
             raise MapcheteConfigError("unknown mode %s" % mode)
         self.mode = mode
 
-        # (5) prepare user params config per zoom level (i.e. without inputs)
-        self._params_at_zoom = _parse_raw_at_zoom(
-            self._raw, self.init_zoom_levels)
+        # (5) prepare process parameters per zoom level without initializing
+        # input and output classes
+        self._params_at_zoom = _raw_at_zoom(self._raw, self.init_zoom_levels)
 
         # (6) initialize output
         self.output
 
         # (7) initialize input items
+        # depending on the inputs this action takes the longest and is done
+        # in the end to let all other actions fail earlier if necessary
         self.input
 
     @cached_property
@@ -210,7 +217,12 @@ class MapcheteConfig(object):
 
     @cached_property
     def init_zoom_levels(self):
-        """Zoom levels as provided when initializing MapcheteConfig."""
+        """
+        Zoom levels this process is currently initialized with.
+
+        This gets triggered by using the ``zoom`` kwarg. If not set, it will
+        be equal to self.zoom_levels.
+        """
         iz = self._raw["init_zoom_levels"]
         if iz is None:
             return self.zoom_levels
@@ -239,34 +251,32 @@ class MapcheteConfig(object):
         """Process bounds as defined in the configuration."""
         if self._raw["bounds"] is None:
             return self.process_pyramid.bounds
-        elif any([
-            not isinstance(self._raw["bounds"], (list, tuple)),
-            len(self._raw["bounds"]) != 4,
-            any([not isinstance(i, (int, float)) for i in self._raw["bounds"]])
-        ]):
-            raise MapcheteConfigError("process bounds not properly set")
         else:
-            return Bounds(*self._raw["bounds"])
+            return Bounds(*_validate_bounds(self._raw["bounds"]))
 
     @cached_property
     def init_bounds(self):
-        """Process bounds as provided when initializing MapcheteConfig."""
+        """
+        Process bounds this process is currently initialized with.
+
+        This gets triggered by using the ``bounds`` kwarg. If not set, it will
+        be equal to self.bounds.
+        """
         if self._raw["init_bounds"] is None:
             return self.bounds
-        if any([
-            not isinstance(self._raw["init_bounds"], (list, tuple)),
-            len(self._raw["init_bounds"]) != 4,
-            any([
-                not isinstance(i, (int, float))
-                for i in self._raw["init_bounds"]])
-        ]):
-            raise MapcheteConfigError("process bounds not properly set")
-        return Bounds(*self._raw["init_bounds"])
+        else:
+            return Bounds(*_validate_bounds(self._raw["init_bounds"]))
 
     @cached_property
     def output(self):
         """Output object of driver."""
         output_params = self._raw["output"]
+        if "path" in output_params:
+            output_params.update(
+                path=os.path.normpath(
+                    os.path.join(self.config_dir, output_params["path"])))
+        else:
+            output_params.update(path=None)
         output_params.update(
             pixelbuffer=self.output_pyramid.pixelbuffer,
             metatiling=self.output_pyramid.metatiling)
@@ -358,6 +368,7 @@ class MapcheteConfig(object):
     def baselevels(self):
         """
         Optional baselevels configuration.
+
         baselevels:
             min: <zoom>
             max: <zoom>
@@ -603,7 +614,17 @@ def _validate_process_file(config):
     return abs_path
 
 
-def _parse_raw_at_zoom(config, zooms):
+def _validate_bounds(bounds):
+    if any([
+        not isinstance(bounds, (list, tuple)),
+        len(bounds) != 4,
+        any([not isinstance(i, (int, float)) for i in bounds])
+    ]):
+        raise MapcheteConfigError("bounds not valid")
+    return bounds
+
+
+def _raw_at_zoom(config, zooms):
     """Return parameter dictionary per zoom level."""
     params_per_zoom = {}
     for zoom in zooms:

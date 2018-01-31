@@ -135,8 +135,7 @@ class OutputData(base.OutputData):
             write_raster_window(
                 in_tile=process_tile, in_data=data,
                 out_profile=self.profile(out_tile), out_tile=out_tile,
-                out_path=out_path
-            )
+                out_path=out_path)
 
     def tiles_exist(self, process_tile):
         """

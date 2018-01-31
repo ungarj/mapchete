@@ -120,7 +120,8 @@ class InputData(base.InputData):
         return InputTile(
             tile,
             tiles_paths=[
-                (_tile, _path) for _tile, _path in [
+                (_tile, _path)
+                for _tile, _path in [
                     (t, os.path.join(*([
                         self.path, str(t.zoom), str(t.row), str(t.col)
                         ])) + "." + self._ext)
