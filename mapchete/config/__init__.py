@@ -31,18 +31,18 @@ from mapchete.errors import (
 
 LOGGER = logging.getLogger(__name__)
 
-# parameters to be provided in the process configuration
+# parameters whigh have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    "process_file",     # the Python file the process is defined in
-    "input",            # files & other types; can also be "from_command_line"
-    "output"            # process output format parameters
+    ("process_file", six.string_types),  # python file for process code
+    ("pyramid", dict),                   # process pyramid definition
+    ("input", (dict, type(None))),       # files & other types
+    ("output", dict),                    # process output parameters
+    ("zoom_levels", (int, dict, list))   # process zoom levels
 ]
 
 # parameters with special functions which cannot be used for user parameters
 _RESERVED_PARAMETERS = [
     "baselevels",       # enable interpolation from other zoom levels
-    "pyramid",          # process pyramid
-    "zoom_levels",      # process zoom levels
     "bounds",           # process bounds
     "process_file",     # process file with Python code
     "config_dir",       # configuration base directory
@@ -140,13 +140,7 @@ class MapcheteConfig(object):
 
         # (1) assert mandatory params are available
         try:
-            validate_values(
-                self._raw, [
-                    ("process_file", six.string_types),
-                    ("pyramid", dict),
-                    ("input", (dict, type(None))),
-                    ("output", dict),
-                    ("zoom_levels", (int, dict, list))])
+            validate_values(self._raw, _MANDATORY_PARAMETERS)
         except Exception as e:
             raise MapcheteConfigError(e)
 
@@ -581,7 +575,7 @@ def _validate_zooms(zooms):
     - int --> [int]
     - dict{min, max} --> range(min, max + 1)
     - [int] --> [int]
-    - [int, int] --> range(int, int + 1)
+    - [int, int] --> range(smaller int, bigger int + 1)
     """
     if isinstance(zooms, dict):
         if any([a not in zooms for a in ["min", "max"]]):
@@ -606,6 +600,7 @@ def _validate_zooms(zooms):
 
 
 def _validate_zoom(zoom):
+    """Assert zoom value is positive integer."""
     if any([not isinstance(zoom, int), zoom < 0]):
         raise MapcheteConfigError("zoom must be a positive integer")
     return zoom
