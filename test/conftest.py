@@ -138,6 +138,13 @@ def old_style_process_py():
 
 # example mapchete configurations
 @pytest.fixture
+def deprecated_params():
+    """Fixture for deprecated_params.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "deprecated_params.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def abstract_input():
     """Fixture for abstract_input.mapchete."""
     path = os.path.join(TESTDATA_DIR, "abstract_input.mapchete")

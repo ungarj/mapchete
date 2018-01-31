@@ -146,7 +146,7 @@ class MapcheteConfig(object):
                     ("pyramid", dict),
                     ("input", (dict, type(None))),
                     ("output", dict),
-                    ("zoom_levels", (int, dict))])
+                    ("zoom_levels", (int, dict, list))])
         except Exception as e:
             raise MapcheteConfigError(e)
 
@@ -199,21 +199,7 @@ class MapcheteConfig(object):
     @cached_property
     def zoom_levels(self):
         """Process zoom levels as defined in the configuration."""
-        raw_zooms = self._raw["zoom_levels"]
-        if isinstance(raw_zooms, int):
-            return [raw_zooms]
-        elif isinstance(raw_zooms, dict):
-            try:
-                validate_values(raw_zooms, [("min", int), ("max", int)])
-                if raw_zooms["min"] == raw_zooms["max"]:
-                    return [raw_zooms["min"]]
-                else:
-                    return range(raw_zooms["min"], raw_zooms["max"] + 1)
-            except Exception:
-                raise MapcheteConfigError(
-                    "provide minimum and maximum zoom level")
-        else:
-            raise MapcheteConfigError("process zoom levels not properly set")
+        return _validate_zooms(self._raw["zoom_levels"])
 
     @cached_property
     def init_zoom_levels(self):
@@ -223,28 +209,14 @@ class MapcheteConfig(object):
         This gets triggered by using the ``zoom`` kwarg. If not set, it will
         be equal to self.zoom_levels.
         """
-        iz = self._raw["init_zoom_levels"]
-        if iz is None:
+        if self._raw["init_zoom_levels"] is None:
             return self.zoom_levels
         else:
-            if isinstance(iz, int):
-                if iz not in self.zoom_levels:
-                    raise MapcheteConfigError(
-                        "configuration init zooms levels must be subset of "
-                        "process zooms: %s %s" % (iz, self.zoom_levels))
-                return [iz]
-            elif isinstance(iz, list) and len(iz) <= 2:
-                if any([
-                    min(iz) not in self.zoom_levels,
-                    max(iz) not in self.zoom_levels]
-                ):
-                    raise MapcheteConfigError(
-                        "configuration init zooms levels must be subset of "
-                        "process zooms: %s %s" % (iz, self.zoom_levels))
-                return range(min(iz), max(iz) + 1)
-            else:
+            init_zooms = _validate_zooms(self._raw["zoom_levels"])
+            if not set(init_zooms).issubset(self.zoom_levels):
                 raise MapcheteConfigError(
-                    "configuration init zooms not properly formated")
+                    "init zooms must be a subset of process zoom")
+            return init_zooms
 
     @cached_property
     def bounds(self):
@@ -505,46 +477,46 @@ class MapcheteConfig(object):
     # deprecated:
     #############
 
-    # @cached_property
-    # def crs(self):
-    #     """Deprecated."""
-    #     warnings.warn("self.crs is now self.process_pyramid.crs.")
-    #     return self.process_pyramid.crs
+    @cached_property
+    def crs(self):
+        """Deprecated."""
+        warnings.warn("self.crs is now self.process_pyramid.crs.")
+        return self.process_pyramid.crs
 
-    # @cached_property
-    # def metatiling(self):
-    #     """Deprecated."""
-    #     warnings.warn(
-    #         "self.metatiling is now self.process_pyramid.metatiling.")
-    #     return self.process_pyramid.metatiling
-    #
-    # @cached_property
-    # def pixelbuffer(self):
-    #     """Deprecated."""
-    #     warnings.warn(
-    #         "self.pixelbuffer is now self.process_pyramid.pixelbuffer.")
-    #     return self.process_pyramid.pixelbuffer
-    #
-    # @cached_property
-    # def inputs(self):
-    #     """Deprecated."""
-    #     warnings.warn("self.inputs renamed to self.input.")
-    #     return self.input
-    #
-    # def at_zoom(self, zoom):
-    #     """Deprecated."""
-    #     warnings.warn("Method renamed to self.params_at_zoom(zoom).")
-    #     return self.params_at_zoom(zoom)
-    #
-    # def process_area(self, zoom=None):
-    #     """Deprecated."""
-    #     warnings.warn("Method renamed to self.area_at_zoom(zoom).")
-    #     return self.area_at_zoom(zoom)
-    #
-    # def process_bounds(self, zoom=None):
-    #     """Deprecated."""
-    #     warnings.warn("Method renamed to self.bounds_at_zoom(zoom).")
-    #     return self.bounds_at_zoom(zoom)
+    @cached_property
+    def metatiling(self):
+        """Deprecated."""
+        warnings.warn(
+            "self.metatiling is now self.process_pyramid.metatiling.")
+        return self.process_pyramid.metatiling
+
+    @cached_property
+    def pixelbuffer(self):
+        """Deprecated."""
+        warnings.warn(
+            "self.pixelbuffer is now self.process_pyramid.pixelbuffer.")
+        return self.process_pyramid.pixelbuffer
+
+    @cached_property
+    def inputs(self):
+        """Deprecated."""
+        warnings.warn("self.inputs renamed to self.input.")
+        return self.input
+
+    def at_zoom(self, zoom):
+        """Deprecated."""
+        warnings.warn("Method renamed to self.params_at_zoom(zoom).")
+        return self.params_at_zoom(zoom)
+
+    def process_area(self, zoom=None):
+        """Deprecated."""
+        warnings.warn("Method renamed to self.area_at_zoom(zoom).")
+        return self.area_at_zoom(zoom)
+
+    def process_bounds(self, zoom=None):
+        """Deprecated."""
+        warnings.warn("Method renamed to self.bounds_at_zoom(zoom).")
+        return self.bounds_at_zoom(zoom)
 
 
 def validate_values(config, values):
@@ -613,6 +585,33 @@ def _validate_process_file(config):
     except py_compile.PyCompileError as e:
         raise MapcheteProcessSyntaxError(e)
     return abs_path
+
+
+def _validate_zooms(zooms):
+    """Return a range of zoom levels."""
+    if isinstance(zooms, dict):
+        if any([a not in zooms for a in ["min", "max"]]):
+            raise MapcheteConfigError("min and max zoom required")
+        zmin = _validate_zoom(zooms["min"])
+        zmax = _validate_zoom(zooms["max"])
+        if zmin > zmax:
+            raise MapcheteConfigError(
+                "max zoom must not be smaller than min zoom")
+        return range(zmin, zmax + 1)
+    elif isinstance(zooms, list):
+        if len(zooms) != 2:
+            raise MapcheteConfigError(
+                "when providing zooms as list, just min and max are allowed")
+        zmin, zmax = sorted([_validate_zoom(z) for z in zooms])
+        return range(zmin, zmax + 1)
+    else:
+        return [_validate_zoom(zooms)]
+
+
+def _validate_zoom(zoom):
+    if any([not isinstance(zoom, int), zoom < 0]):
+        raise MapcheteConfigError("zoom must be a positive integer")
+    return zoom
 
 
 def _validate_bounds(bounds):
@@ -748,8 +747,6 @@ def _unflatten_tree(flat):
 def _map_to_new_config(config):
     if "pyramid" not in config:
         warnings.warn("'pyramid' needs to be defined in root config element.")
-        if "output" not in config:
-            raise MapcheteConfigError("output not provided")
         config["pyramid"] = dict(
             grid=config["output"]["type"],
             metatiling=config.get("metatiling", 1),
