@@ -39,7 +39,7 @@ def test_read_existing_output(mp_tmpdir, cleantopo_tl):
         mp_tile = mapchete.MapcheteProcess(
             mp.config.process_pyramid.tile(*tile),
             config=mp.config,
-            params=mp.config.at_zoom(5)
+            params=mp.config.params_at_zoom(5)
         )
         data = mp_tile.read()
         assert data.any()
@@ -65,7 +65,7 @@ def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
         mp_tile = mapchete.MapcheteProcess(
             mp.config.process_pyramid.tile(*tile.id),
             config=mp.config,
-            params=mp.config.at_zoom(5))
+            params=mp.config.params_at_zoom(5))
         data = mp_tile.read()
         assert data.any()
         assert isinstance(data, ma.masked_array)
@@ -82,7 +82,7 @@ def test_read_existing_output_vector(mp_tmpdir, geojson):
         mp_tile = mapchete.MapcheteProcess(
             tile,
             config=mp.config,
-            params=mp.config.at_zoom(4)
+            params=mp.config.params_at_zoom(4)
         )
         data = mp_tile.read()
         assert data
@@ -98,7 +98,7 @@ def test_open_data_error(cleantopo_tl):
         mp_tile = mapchete.MapcheteProcess(
             mp.config.process_pyramid.tile(*tile),
             config=mp.config,
-            params=mp.config.at_zoom(5)
+            params=mp.config.params_at_zoom(5)
         )
         with pytest.raises(ValueError):
             mp_tile.open("invaild_input_id")
@@ -412,7 +412,7 @@ def test_count_tiles(zoom_mapchete):
         conf["zoom_levels"].update(min=minzoom)
         with mapchete.open(conf) as mp:
             assert len(list(mp.get_process_tiles())) == _batch.count_tiles(
-                mp.config.process_area(), mp.config.process_pyramid, minzoom,
+                mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom,
                 maxzoom)
 
 

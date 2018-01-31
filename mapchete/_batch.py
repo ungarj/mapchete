@@ -61,7 +61,7 @@ def batch_process(
         total_tiles = 0
     else:
         total_tiles = count_tiles(
-            process.config.process_area(),
+            process.config.area_at_zoom(),
             process.config.process_pyramid,
             min(zoom_levels),
             max(zoom_levels),

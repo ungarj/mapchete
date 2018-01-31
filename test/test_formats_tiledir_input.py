@@ -20,13 +20,13 @@ def test_parse_bounds(geojson_tiledir):
     """Read and configure bounds."""
     # fall back to pyramid bounds
     with mapchete.open(geojson_tiledir.dict) as mp:
-        ip = mp.config.at_zoom(4)["input"]["file1"]
+        ip = mp.config.params_at_zoom(4)["input"]["file1"]
         assert ip.bbox().bounds == (-180, -90, 180, 90)
     # user defined bounds
     user_bounds = (0, 0, 30, 30)
     geojson_tiledir.dict["input"]["file1"].update(bounds=user_bounds)
     with mapchete.open(geojson_tiledir.dict) as mp:
-        ip = mp.config.at_zoom(4)["input"]["file1"]
+        ip = mp.config.params_at_zoom(4)["input"]["file1"]
         assert ip.bbox().bounds == user_bounds
         # reproject
         assert ip.bbox(out_crs="3857")
@@ -48,9 +48,8 @@ def _run_tiledir_process_vector(conf_dict, metatiling, bounds):
     conf["pyramid"].update(metatiling=metatiling)
     features = []
     with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
-        assert mp.config.metatiling == metatiling
         for tile in mp.get_process_tiles(4):
-            input_tile = next(six.itervalues(mp.config.inputs)).open(tile)
+            input_tile = next(six.itervalues(mp.config.input)).open(tile)
             features.extend(input_tile.read())
     assert features
 
@@ -70,9 +69,8 @@ def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
     conf = deepcopy(conf_dict)
     conf["pyramid"].update(metatiling=metatiling)
     with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
-        assert mp.config.metatiling == metatiling
         assert any([
-            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
+            next(six.itervalues(mp.config.input)).open(tile).read().any()
             for tile in mp.get_process_tiles(4)])
 
 
@@ -80,7 +78,7 @@ def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):
     """Read raster data."""
     with mapchete.open(cleantopo_remote.path) as mp:
         assert all([
-            next(six.itervalues(mp.config.inputs)).open(tile).read().any()
+            next(six.itervalues(mp.config.input)).open(tile).read().any()
             for tile in mp.get_process_tiles(1)])
 
 

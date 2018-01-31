@@ -61,7 +61,7 @@ def test_driver_from_file_errors():
 def test_mapchete_input(mapchete_input):
     """Mapchete process as input for other process."""
     with mapchete.open(mapchete_input.path) as mp:
-        config = mp.config.at_zoom(5)
+        config = mp.config.params_at_zoom(5)
         input_data = config["input"]["file2"]
         assert input_data.bbox()
         assert input_data.bbox(CRS.from_epsg(3857))
@@ -121,11 +121,11 @@ def test_http_rasters(files_bounds, http_raster):
     config.update(input=dict(file1=http_raster), zoom_levels=zoom)
     # TODO make tests more performant
     with mapchete.open(config) as mp:
-        assert mp.config.process_area(zoom).area > 0
+        assert mp.config.area_at_zoom(zoom).area > 0
         process_tile = next(mp.get_process_tiles(13))
         process = MapcheteProcess(
             config=mp.config, tile=process_tile,
-            params=mp.config.at_zoom(process_tile.zoom)
+            params=mp.config.params_at_zoom(process_tile.zoom)
         )
         with process.open("file1") as f:
             assert f.read().any()
@@ -137,7 +137,7 @@ def test_read_from_raster_file(cleantopo_br):
         process_tile = mp.config.process_pyramid.tile(5, 0, 0)
         process = MapcheteProcess(
             config=mp.config, tile=process_tile,
-            params=mp.config.at_zoom(process_tile.zoom)
+            params=mp.config.params_at_zoom(process_tile.zoom)
         )
         with process.open("file1") as f:
             assert f.read().shape == f.read([1]).shape == f.read(1).shape

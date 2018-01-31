@@ -505,46 +505,46 @@ class MapcheteConfig(object):
     # deprecated:
     #############
 
-    @cached_property
-    def crs(self):
-        """Deprecated."""
-        warnings.warn("self.crs is now self.process_pyramid.crs.")
-        return self.process_pyramid.crs
+    # @cached_property
+    # def crs(self):
+    #     """Deprecated."""
+    #     warnings.warn("self.crs is now self.process_pyramid.crs.")
+    #     return self.process_pyramid.crs
 
-    @cached_property
-    def metatiling(self):
-        """Deprecated."""
-        warnings.warn(
-            "self.metatiling is now self.process_pyramid.metatiling.")
-        return self.process_pyramid.metatiling
-
-    @cached_property
-    def pixelbuffer(self):
-        """Deprecated."""
-        warnings.warn(
-            "self.pixelbuffer is now self.process_pyramid.pixelbuffer.")
-        return self.process_pyramid.pixelbuffer
-
-    @cached_property
-    def inputs(self):
-        """Deprecated."""
-        warnings.warn("self.inputs renamed to self.input.")
-        return self.input
-
-    def at_zoom(self, zoom):
-        """Deprecated."""
-        warnings.warn("Method renamed to self.params_at_zoom(zoom).")
-        return self.params_at_zoom(zoom)
-
-    def process_area(self, zoom=None):
-        """Deprecated."""
-        warnings.warn("Method renamed to self.area_at_zoom(zoom).")
-        return self.area_at_zoom(zoom)
-
-    def process_bounds(self, zoom=None):
-        """Deprecated."""
-        warnings.warn("Method renamed to self.bounds_at_zoom(zoom).")
-        return self.bounds_at_zoom(zoom)
+    # @cached_property
+    # def metatiling(self):
+    #     """Deprecated."""
+    #     warnings.warn(
+    #         "self.metatiling is now self.process_pyramid.metatiling.")
+    #     return self.process_pyramid.metatiling
+    #
+    # @cached_property
+    # def pixelbuffer(self):
+    #     """Deprecated."""
+    #     warnings.warn(
+    #         "self.pixelbuffer is now self.process_pyramid.pixelbuffer.")
+    #     return self.process_pyramid.pixelbuffer
+    #
+    # @cached_property
+    # def inputs(self):
+    #     """Deprecated."""
+    #     warnings.warn("self.inputs renamed to self.input.")
+    #     return self.input
+    #
+    # def at_zoom(self, zoom):
+    #     """Deprecated."""
+    #     warnings.warn("Method renamed to self.params_at_zoom(zoom).")
+    #     return self.params_at_zoom(zoom)
+    #
+    # def process_area(self, zoom=None):
+    #     """Deprecated."""
+    #     warnings.warn("Method renamed to self.area_at_zoom(zoom).")
+    #     return self.area_at_zoom(zoom)
+    #
+    # def process_bounds(self, zoom=None):
+    #     """Deprecated."""
+    #     warnings.warn("Method renamed to self.bounds_at_zoom(zoom).")
+    #     return self.bounds_at_zoom(zoom)
 
 
 def validate_values(config, values):

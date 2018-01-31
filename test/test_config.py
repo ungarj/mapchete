@@ -63,7 +63,7 @@ def test_config_errors(example_mapchete):
 def test_config_zoom7(example_mapchete, dummy2_tif):
     """Example configuration at zoom 5."""
     config = MapcheteConfig(example_mapchete.path)
-    zoom7 = config.at_zoom(7)
+    zoom7 = config.params_at_zoom(7)
     input_files = zoom7["input"]
     assert input_files["file1"] is None
     assert input_files["file2"].path == dummy2_tif
@@ -76,7 +76,7 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
 def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
     """Example configuration at zoom 11."""
     config = MapcheteConfig(example_mapchete.path)
-    zoom11 = config.at_zoom(11)
+    zoom11 = config.params_at_zoom(11)
     input_files = zoom11["input"]
     assert input_files["file1"].path == dummy1_tif
     assert input_files["file2"].path == dummy2_tif
@@ -111,7 +111,7 @@ def test_read_bounds(zoom_mapchete):
     config = MapcheteConfig(zoom_mapchete.path)
     test_polygon = Polygon([
         [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
-    assert config.process_area(5).equals(test_polygon)
+    assert config.area_at_zoom(5).equals(test_polygon)
 
 
 def test_override_bounds(zoom_mapchete):
@@ -119,7 +119,7 @@ def test_override_bounds(zoom_mapchete):
     config = MapcheteConfig(zoom_mapchete.path, bounds=[3, 2, 3.5, 1.5])
     test_polygon = Polygon([
         [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
-    assert config.process_area(5).equals(test_polygon)
+    assert config.area_at_zoom(5).equals(test_polygon)
 
 
 def test_bounds_from_input_files(files_bounds):
@@ -127,13 +127,13 @@ def test_bounds_from_input_files(files_bounds):
     config = MapcheteConfig(files_bounds.path)
     test_polygon = Polygon(
         [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]])
-    assert config.process_area(10).equals(test_polygon)
+    assert config.area_at_zoom(10).equals(test_polygon)
 
 
 def test_read_mapchete_input(mapchete_input):
     """Read Mapchete files as input files."""
     config = MapcheteConfig(mapchete_input.path)
-    area = config.process_area(5)
+    area = config.area_at_zoom(5)
     testpolygon = "POLYGON ((4 1, 3 1, 2 1, 2 4, 3 4, 3 2, 4 2, 4 1))"
     assert area.equals(loads(testpolygon))
 
@@ -169,7 +169,7 @@ def test_empty_input(file_groups):
 def test_read_input_groups(file_groups):
     """Read input data groups."""
     config = MapcheteConfig(file_groups.path)
-    input_files = config.at_zoom(0)["input"]
+    input_files = config.params_at_zoom(0)["input"]
     assert "file1" in input_files["group1"]
     assert "file2" in input_files["group1"]
     assert "file1" in input_files["group2"]
@@ -186,22 +186,22 @@ def test_input_zooms(files_zooms):
     """Read correct input file per zoom."""
     config = MapcheteConfig(files_zooms.path)
     # zoom 7
-    input_files = config.at_zoom(7)["input"]
+    input_files = config.params_at_zoom(7)["input"]
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy1.tif"
     assert os.path.basename(input_files["equals"].path) == "dummy1.tif"
     # zoom 8
-    input_files = config.at_zoom(8)["input"]
+    input_files = config.params_at_zoom(8)["input"]
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy1.tif"
     assert os.path.basename(input_files["equals"].path) == "dummy2.tif"
     # zoom 9
-    input_files = config.at_zoom(9)["input"]
+    input_files = config.params_at_zoom(9)["input"]
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy2.tif"
     assert os.path.basename(input_files["equals"].path) == "cleantopo_br.tif"
     # zoom 10
-    input_files = config.at_zoom(10)["input"]
+    input_files = config.params_at_zoom(10)["input"]
     assert os.path.basename(
         input_files["greater_smaller"].path) == "dummy2.tif"
     assert os.path.basename(input_files["equals"].path) == "cleantopo_tl.tif"

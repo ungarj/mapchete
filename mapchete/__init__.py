@@ -145,13 +145,13 @@ class Mapchete(object):
         """
         if zoom or zoom == 0:
             for tile in self.config.process_pyramid.tiles_from_geom(
-                self.config.process_area(zoom), zoom
+                self.config.area_at_zoom(zoom), zoom
             ):
                 yield tile
         else:
             for zoom in reversed(self.config.zoom_levels):
                 for tile in self.config.process_pyramid.tiles_from_geom(
-                    self.config.process_area(zoom), zoom
+                    self.config.area_at_zoom(zoom), zoom
                 ):
                     yield tile
 
@@ -436,7 +436,7 @@ class Mapchete(object):
                 process_is_function = True
                 tile_process = MapcheteProcess(
                     config=self.config, tile=process_tile,
-                    params=self.config.at_zoom(process_tile.zoom)
+                    params=self.config.params_at_zoom(process_tile.zoom)
                 )
                 user_execute = user_process_py.execute
                 if len(inspect.getargspec(user_execute).args) != 1:
@@ -451,7 +451,7 @@ class Mapchete(object):
                 process_is_function = False
                 tile_process = user_process_py.Process(
                     config=self.config, tile=process_tile,
-                    params=self.config.at_zoom(process_tile.zoom)
+                    params=self.config.params_at_zoom(process_tile.zoom)
                 )
             else:
                 raise ImportError(
@@ -541,7 +541,7 @@ class Mapchete(object):
 
     def __exit__(self, t, v, tb):
         """Cleanup on close."""
-        for ip in self.config.inputs.values():
+        for ip in self.config.input.values():
             if ip is not None:
                 ip.cleanup()
         if self.with_cache:

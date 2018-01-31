@@ -361,7 +361,7 @@ class InputTile(base.InputTile):
         """
         # empty if tile does not intersect with file bounding box
         return not self.tile.bbox.intersects(
-            self.process.config.process_area()
+            self.process.config.area_at_zoom()
         )
 
     def _get_band_indexes(self, indexes=None):
