@@ -218,6 +218,13 @@ def test_validate_values():
         validate_values(None, None)
 
 
+def test_input_error(cleantopo_br_tiledir):
+    config = deepcopy(cleantopo_br_tiledir.dict)
+    config["input"].update(file1=dict(format="TileDirectory"))
+    with pytest.raises(errors.MapcheteDriverError):
+        MapcheteConfig(config)
+
+
 def test_import_error(mp_tmpdir, cleantopo_br, import_error_py):
     """Assert import error is raised."""
     config = cleantopo_br.dict

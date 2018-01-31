@@ -212,8 +212,8 @@ class MapcheteConfig(object):
         if self._raw["init_zoom_levels"] is None:
             return self.zoom_levels
         else:
-            init_zooms = _validate_zooms(self._raw["zoom_levels"])
-            if not set(init_zooms).issubset(self.zoom_levels):
+            init_zooms = _validate_zooms(self._raw["init_zoom_levels"])
+            if not set(init_zooms).issubset(set(self.zoom_levels)):
                 raise MapcheteConfigError(
                     "init zooms must be a subset of process zoom")
             return init_zooms
@@ -247,8 +247,6 @@ class MapcheteConfig(object):
             output_params.update(
                 path=os.path.normpath(
                     os.path.join(self.config_dir, output_params["path"])))
-        else:
-            output_params.update(path=None)
         output_params.update(
             type=self.output_pyramid.type,
             pixelbuffer=self.output_pyramid.pixelbuffer,
@@ -286,8 +284,6 @@ class MapcheteConfig(object):
         for zoom in self.init_zoom_levels:
             if "input" in self._params_at_zoom[zoom]:
                 input_at_zoom = self._params_at_zoom[zoom]["input"]
-                if input_at_zoom is None:
-                    continue
                 # to preserve file groups, "flatten" the input tree and use
                 # the tree paths as keys
                 for key, v in _flatten_tree(input_at_zoom):
@@ -416,12 +412,7 @@ class MapcheteConfig(object):
         -------
         process area : shapely geometry
         """
-        if isinstance(zoom, int):
-            if zoom not in self.init_zoom_levels:
-                raise ValueError(
-                    "zoom level not available with current configuration")
-            return self._area_at_zoom(zoom)
-        elif zoom is None:
+        if zoom is None:
             if not self._cache_full_process_area:
                 LOGGER.debug("calculate process area ...")
                 self._cache_full_process_area = cascaded_union([
@@ -429,7 +420,10 @@ class MapcheteConfig(object):
                 ).buffer(0)
             return self._cache_full_process_area
         else:
-            raise ValueError("zoom must be an integer")
+            if zoom not in self.init_zoom_levels:
+                raise ValueError(
+                    "zoom level not available with current configuration")
+            return self._area_at_zoom(zoom)
 
     def _area_at_zoom(self, zoom):
         if zoom not in self._cache_area_at_zoom:
@@ -465,14 +459,6 @@ class MapcheteConfig(object):
         """
         return () if self.area_at_zoom(zoom).is_empty else Bounds(
             *self.area_at_zoom(zoom).bounds)
-
-    def update(
-        self, input_config, zoom=None, bounds=None, single_input_file=None,
-        mode="continue", debug=False
-    ):
-        """Update MapcheteConfig with new parameters."""
-        raise NotImplementedError(
-            "updating MapcheteConfig not yet implemented")
 
     # deprecated:
     #############
@@ -588,7 +574,15 @@ def _validate_process_file(config):
 
 
 def _validate_zooms(zooms):
-    """Return a range of zoom levels."""
+    """
+    Return a list of zoom levels.
+
+    Following inputs are converted:
+    - int --> [int]
+    - dict{min, max} --> range(min, max + 1)
+    - [int] --> [int]
+    - [int, int] --> range(int, int + 1)
+    """
     if isinstance(zooms, dict):
         if any([a not in zooms for a in ["min", "max"]]):
             raise MapcheteConfigError("min and max zoom required")
@@ -599,11 +593,14 @@ def _validate_zooms(zooms):
                 "max zoom must not be smaller than min zoom")
         return range(zmin, zmax + 1)
     elif isinstance(zooms, list):
-        if len(zooms) != 2:
+        if len(zooms) == 1:
+            return zooms
+        elif len(zooms) == 2:
+            zmin, zmax = sorted([_validate_zoom(z) for z in zooms])
+            return range(zmin, zmax + 1)
+        else:
             raise MapcheteConfigError(
                 "when providing zooms as list, just min and max are allowed")
-        zmin, zmax = sorted([_validate_zoom(z) for z in zooms])
-        return range(zmin, zmax + 1)
     else:
         return [_validate_zoom(zooms)]
 
