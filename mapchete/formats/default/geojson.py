@@ -167,7 +167,7 @@ class OutputData(base.OutputData):
             "Polygon", "MultiPolygon"
         ]:
             raise TypeError("invalid geometry type")
-        if config["type"] != "geodetic":
+        if config["type"].type != "geodetic":
             raise ValueError("output pyramid has to be geodetic")
         return True
 

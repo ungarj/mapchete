@@ -85,20 +85,18 @@ def raster2pyramid(input_file, output_dir, options):
         output={
             "path": output_dir,
             "format": output_format,
-            "type": pyramid_type,
             "bands": output_bands,
             "dtype": output_dtype
             },
+        pyramid=dict(pixelbuffer=5, grid=pyramid_type),
         scale_method=scale_method,
         scales_minmax=scales_minmax,
         input={"raster": input_file},
         config_dir=os.getcwd(),
-        process_minzoom=minzoom,
-        process_maxzoom=maxzoom,
+        zoom_levels=dict(min=minzoom, max=maxzoom),
         nodataval=nodataval,
         resampling=resampling,
         bounds=bounds,
-        pixelbuffer=5,
         baselevel={"zoom": maxzoom, "resampling": resampling},
         mode=mode
     )

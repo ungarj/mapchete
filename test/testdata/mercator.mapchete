@@ -1,7 +1,9 @@
-# mapchete parameters
 process_file: ../example_process.py
-process_minzoom: 7
-process_maxzoom: 10
+zoom_levels:
+    min: 7
+    max: 10
+pyramid:
+    grid: mercator
 input:
     file1:
         zoom>=10: dummy1.tif
@@ -9,4 +11,3 @@ input:
 output:
     path: tmp
     format: PNG_hillshade
-    type: mercator

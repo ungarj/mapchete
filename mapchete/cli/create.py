@@ -73,14 +73,15 @@ def create_empty_process(args):
 
     output_options = {
         'format': args.out_format,
-        'path': out_path,
-        'type': args.pyramid_type
-        }
+        'path': out_path}
     output_options.update(FORMAT_MANDATORY[args.out_format])
+
+    pyramid_options = {'grid': args.pyramid_type}
 
     substitute_elements = {
         'process_file': process_file,
-        'output': dump({'output': output_options}, default_flow_style=False)
+        'output': dump({'output': output_options}, default_flow_style=False),
+        'pyramid': dump({'pyramid': pyramid_options}, default_flow_style=False)
         }
     with open(mapchete_template, 'r') as config_template:
         config = Template(config_template.read())

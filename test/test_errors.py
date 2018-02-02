@@ -9,7 +9,7 @@ import shutil
 from copy import deepcopy
 
 import mapchete
-from mapchete.config import MapcheteConfig
+from mapchete.config import MapcheteConfig, validate_values
 from mapchete.tile import BufferedTilePyramid
 from mapchete import errors
 
@@ -93,7 +93,7 @@ def test_metatiles(example_mapchete):
     """Assert metatile sizes are checked."""
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.update(metatiling=1)
+        config["pyramid"].update(metatiling=1)
         config["output"].update(metatiling=2)
         MapcheteConfig(config)
 
@@ -143,7 +143,7 @@ def test_mandatory_params(example_mapchete):
 def test_invalid_output_params(example_mapchete):
     """Check on invalid configuration."""
     # missing or invalid params
-    for param in ["format", "type"]:
+    for param in ["format"]:
         config = deepcopy(example_mapchete.dict)
         with pytest.raises(errors.MapcheteConfigError):
             # invalid
@@ -157,26 +157,72 @@ def test_invalid_output_params(example_mapchete):
 
 def test_invalid_zoom_levels(example_mapchete):
     """Check on invalid zoom configuration."""
+    # process zooms
     # no zoom levels given
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.pop("process_minzoom", "process_maxzoom")
+        config.pop("zoom_levels")
         MapcheteConfig(config)
     # invalid single zoom level
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.pop("process_minzoom", "process_maxzoom")
-        MapcheteConfig(config, zoom=-5)
+        config.update(zoom_levels=-5)
+        MapcheteConfig(config)
     # invalid zoom level in pair
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.pop("process_minzoom", "process_maxzoom")
-        MapcheteConfig(config, zoom=[-5, 0])
+        config.update(zoom_levels=[-5, 0])
+        MapcheteConfig(config)
     # invalid number of zoom levels
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.pop("process_minzoom", "process_maxzoom")
+        config.update(zoom_levels=[0, 5, 7])
+        MapcheteConfig(config)
+    # min or max missing
+    config = deepcopy(example_mapchete.dict)
+    config.update(zoom_levels=dict(min=0))
+    with pytest.raises(errors.MapcheteConfigError):
+        MapcheteConfig(config)
+    config.update(zoom_levels=dict(max=5))
+    with pytest.raises(errors.MapcheteConfigError):
+        MapcheteConfig(config)
+    # min bigger than max
+    config = deepcopy(example_mapchete.dict)
+    config.update(zoom_levels=dict(min=5, max=0))
+
+    # init zooms
+    # invalid single zoom level
+    with pytest.raises(errors.MapcheteConfigError):
+        MapcheteConfig(config, zoom=-5)
+    # invalid zoom level in pair
+    with pytest.raises(errors.MapcheteConfigError):
+        MapcheteConfig(config, zoom=[-5, 0])
+    # invalid number of zoom levels
+    with pytest.raises(errors.MapcheteConfigError):
         MapcheteConfig(config, zoom=[0, 5, 7])
+    # not a subset
+    with pytest.raises(errors.MapcheteConfigError):
+        MapcheteConfig(config, zoom=[0, 20])
+
+
+def test_zoom_dependend_functions(cleantopo_br):
+    with mapchete.open(cleantopo_br.dict) as mp:
+        with pytest.raises(ValueError):
+            mp.config.params_at_zoom(20)
+        with pytest.raises(ValueError):
+            mp.config.area_at_zoom(20)
+
+
+def test_validate_values():
+    with pytest.raises(TypeError):
+        validate_values(None, None)
+
+
+def test_input_error(cleantopo_br_tiledir):
+    config = deepcopy(cleantopo_br_tiledir.dict)
+    config["input"].update(file1=dict(format="TileDirectory"))
+    with pytest.raises(errors.MapcheteDriverError):
+        MapcheteConfig(config)
 
 
 def test_import_error(mp_tmpdir, cleantopo_br, import_error_py):

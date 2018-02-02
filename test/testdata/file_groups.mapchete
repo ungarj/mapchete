@@ -1,7 +1,11 @@
-# mapchete parameters
 process_file: ../example_process.py
-process_minzoom: 0
-process_maxzoom: 5
+zoom_levels:
+    min: 0
+    max: 5
+pyramid:
+    grid: geodetic
+    pixelbuffer: 10
+    metatiling: 8
 input:
     group1:
         file1: cleantopo_tl.tif
@@ -16,15 +20,8 @@ input:
         group2:
             file1: dummy1.tif
             file2: dummy2.tif
-
 output:
-    type: geodetic
     dtype: uint16
     bands: 1
     format: GTiff
     path: tmp
-    pixelbuffer: 10
-    # metatiling: 1
-
-pixelbuffer: 10
-metatiling: 8

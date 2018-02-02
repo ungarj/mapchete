@@ -111,12 +111,12 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
         config_file.write(yaml.dump(config, default_flow_style=False))
     # run process with multiprocessing
     args = [
-        None, 'execute', temp_mapchete, '--zoom', '6',
+        None, 'execute', temp_mapchete, '--zoom', '5',
         '--input_file', cleantopo_br_tif]
     with pytest.raises(MapcheteProcessOutputError):
         MapcheteCLI(args)
     # run example process with multiprocessing
-    args = [None, 'execute', cleantopo_br.path, '--zoom', '8']
+    args = [None, 'execute', cleantopo_br.path, '--zoom', '5']
     MapcheteCLI(args)
 
 

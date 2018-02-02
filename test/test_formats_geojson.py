@@ -41,7 +41,7 @@ def test_input_data_read(mp_tmpdir, geojson, landpoly_3857):
         assert any_data
 
 
-def test_for_web(client):
+def test_for_web(client, mp_tmpdir):
     """Send GTiff via flask."""
     tile_base_url = '/wmts_simple/1.0.0/geojson/default/WGS84/'
     for url in ["/"]:

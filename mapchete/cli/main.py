@@ -6,8 +6,9 @@ Structure inspired by
 http://chase-seibert.github.io/blog/2014/03/21/python-multilevel-argparse.html
 """
 
-import sys
 import argparse
+import sys
+import tilematrix
 
 import mapchete
 from mapchete.cli.execute import main as execute
@@ -83,7 +84,7 @@ class MapcheteCLI(object):
             metavar="<path>")
         parser.add_argument(
             "--pyramid_type", "-pt", type=str,
-            choices=mapchete.config.TILING_TYPES, default="geodetic",
+            choices=tilematrix._conf.PYRAMID_PARAMS.keys(), default="geodetic",
             help="output pyramid type")
         parser.add_argument(
             "--force", "-f", action="store_true",
