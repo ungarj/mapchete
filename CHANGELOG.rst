@@ -6,6 +6,27 @@ Changelog
 0.17
 ----
 * ``write_raster_window`` now returns a ``rasterio.MemoryFile()`` if path is ``"memoryfile"``
+* refactoring of ``MapcheteConfig`` (#99):
+  * mapchete configuration changes:
+    * ``process_zoom`` and ``process_minzoom``, ``process_maxzoom`` now have to be set via ``zoom_levels`` parameter
+    * process pyramid now has to be set via a ``pyramid`` dictionary at root element (#78)
+    * pyramid type is now called ``grid`` instead of ``type``
+    * tile pyramids can now have custom grids (see https://github.com/ungarj/tilematrix/blob/master/doc/tilematrix.md#tilepyramid)
+    * ``process_bounds`` are now called ``bounds``
+  * API changes:
+    * new attributes:
+      * ``init_zoom_levels`` is a subset of ``zoom_levels`` and indicates initialization zoom levels via the ``zoom`` kwarg
+      * ``init_bounds`` is a subset of ``bounds`` and indicates initialization bounds via the ``bounds`` kwarg
+    * deprecated attributes:
+      * ``crs`` is now found at ``process_pyramid.crs``
+      * ``metatiling`` is now found at ``process_pyramid.metatiling``
+      * ``pixelbuffer`` is now found at ``process_pyramid.pixelbuffer``
+      * ``inputs`` was renamed to ``input``
+      * ``process_bounds`` was renamed to ``bounds``
+    * deprecated methods:
+      * ``at_zoom()`` now called ``params_at_zoom()``
+      * ``process_area()`` now called ``area_at_zoom()``
+      * ``process_bounds()`` now called ``bounds_at_zoom()``
 
 ----
 0.16
