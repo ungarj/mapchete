@@ -1,12 +1,13 @@
-# mapchete parameters
 process_file: ../example_process.py
-process_minzoom: 7
-process_maxzoom: 10
-process_bounds: [-180, -90, 180, 90]
+zoom_levels:
+    min: 7
+    max: 10
+pyramid:
+    grid: geodetic
+bounds: [-180, -90, 180, 90]
 input:
     file1: dummy1.tif
 output:
     bands: 1
     path: tmp
     format: PNG
-    type: geodetic

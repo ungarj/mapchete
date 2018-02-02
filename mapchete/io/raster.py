@@ -215,8 +215,7 @@ def write_raster_window(
     window_data = extract_from_array(
         in_raster=in_data,
         in_affine=in_tile.affine,
-        out_tile=out_tile
-    )
+        out_tile=out_tile)
     # use transform instead of affine
     if "affine" in out_profile:
         out_profile["transform"] = out_profile.pop("affine")
@@ -226,12 +225,12 @@ def write_raster_window(
             memfile = MemoryFile()
             with memfile.open(**out_profile) as dst:
                 for band, data in enumerate(window_data):
-                    dst.write(data.astype(out_profile["dtype"]), band+1)
+                    dst.write(data.astype(out_profile["dtype"]), band + 1)
             return memfile
         else:
             with rasterio.open(out_path, 'w', **out_profile) as dst:
                 for band, data in enumerate(window_data):
-                    dst.write(data.astype(out_profile["dtype"]), band+1)
+                    dst.write(data.astype(out_profile["dtype"]), band + 1)
 
 
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):

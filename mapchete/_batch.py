@@ -61,7 +61,7 @@ def batch_process(
         total_tiles = 0
     else:
         total_tiles = count_tiles(
-            process.config.process_area(),
+            process.config.area_at_zoom(),
             process.config.process_pyramid,
             min(zoom_levels),
             max(zoom_levels),
@@ -210,7 +210,7 @@ def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
         raise ValueError("invalid zoom levels given")
     # tile buffers are not being taken into account
     unbuffered_pyramid = TilePyramid(
-        pyramid.type, tile_size=pyramid.tile_size,
+        pyramid.grid, tile_size=pyramid.tile_size,
         metatiling=pyramid.metatiling
     )
     # make sure no rounding errors occur

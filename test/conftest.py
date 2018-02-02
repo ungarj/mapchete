@@ -5,9 +5,15 @@ from collections import namedtuple
 import os
 import pytest
 import shutil
+import six
 import yaml
 
 from mapchete.cli.serve import create_app
+
+if six.PY2:
+    from pytest import yield_fixture
+else:
+    from pytest import fixture as yield_fixture
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -18,8 +24,9 @@ TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
 ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 
+# flask test app for mapchete serve
 @pytest.fixture
-def app(mp_tmpdir, dem_to_hillshade, cleantopo_br, geojson):
+def app(dem_to_hillshade, cleantopo_br, geojson):
     """Dummy Flask app."""
     return create_app(
         mapchete_files=[
@@ -29,10 +36,10 @@ def app(mp_tmpdir, dem_to_hillshade, cleantopo_br, geojson):
 
 
 # temporary directory for I/O tests
-@pytest.fixture
+@yield_fixture
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
-    shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    # shutil.rmtree(TEMP_DIR, ignore_errors=True)
     os.makedirs(TEMP_DIR)
     yield TEMP_DIR
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
@@ -130,6 +137,20 @@ def old_style_process_py():
 
 
 # example mapchete configurations
+@pytest.fixture
+def custom_grid():
+    """Fixture for custom_grid.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "custom_grid.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def deprecated_params():
+    """Fixture for deprecated_params.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "deprecated_params.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
 @pytest.fixture
 def abstract_input():
     """Fixture for abstract_input.mapchete."""

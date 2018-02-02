@@ -1,6 +1,8 @@
-# mapchete parameters
 process_file: geojson_test.py
-process_zoom: 4
+zoom_levels: 4
+pyramid:
+    grid: geodetic
+    metatiling: 4
 input:
     file1:
         format: TileDirectory
@@ -8,9 +10,7 @@ input:
         metatiling: 2
         type: geodetic
         extension: geojson
-
 output:
-    type: geodetic
     format: GeoJSON
     path: tmp/tmp
     data_type: vector
@@ -21,5 +21,3 @@ output:
             area: float
         geometry: Polygon
     metatiling: 2
-
-metatiling: 4

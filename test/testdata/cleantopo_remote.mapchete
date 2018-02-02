@@ -1,7 +1,9 @@
-# mapchete parameters
 process_file: ../example_process.py
-process_minzoom: 0
-process_maxzoom: 4
+zoom_levels:
+    min: 0
+    max: 4
+pyramid:
+    grid: geodetic
 input:
     file1:
         format: TileDirectory
@@ -11,9 +13,7 @@ input:
         extension: tif
         dtype: uint16
         count: 1
-
 output:
-    type: geodetic
     dtype: uint16
     bands: 1
     format: GTiff

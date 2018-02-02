@@ -36,7 +36,7 @@ def test_read_raster_window(dummy1_tif, minmax_zoom):
     zoom = 8
     # without reproject
     config = MapcheteConfig(minmax_zoom.path)
-    rasterfile = config.at_zoom(zoom)["input"]["file1"]
+    rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
     pixelbuffer = 5
@@ -67,7 +67,7 @@ def test_read_raster_window_reproject(dummy1_3857_tif, minmax_zoom):
     config_raw = minmax_zoom.dict
     config_raw["input"].update(file1=dummy1_3857_tif)
     config = MapcheteConfig(config_raw)
-    rasterfile = config.at_zoom(zoom)["input"]["file1"]
+    rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
     pixelbuffer = 5
@@ -506,7 +506,7 @@ def test_read_vector_window(geojson, landpoly_3857):
     """Read vector data from read_vector_window."""
     zoom = 4
     config = MapcheteConfig(geojson.path)
-    vectorfile = config.at_zoom(zoom)["input"]["file1"]
+    vectorfile = config.params_at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     tiles = tile_pyramid.tiles_from_geom(vectorfile.bbox(), zoom)
@@ -521,7 +521,7 @@ def test_read_vector_window(geojson, landpoly_3857):
     raw_config = geojson.dict
     raw_config["input"].update(file1=landpoly_3857)
     config = MapcheteConfig(raw_config)
-    vectorfile = config.at_zoom(zoom)["input"]["file1"]
+    vectorfile = config.params_at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     tiles = tile_pyramid.tiles_from_geom(vectorfile.bbox(), zoom)

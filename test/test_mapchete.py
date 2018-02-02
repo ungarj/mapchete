@@ -4,7 +4,6 @@
 import pytest
 import os
 import shutil
-import yaml
 import rasterio
 import numpy as np
 import numpy.ma as ma
@@ -40,7 +39,7 @@ def test_read_existing_output(mp_tmpdir, cleantopo_tl):
         mp_tile = mapchete.MapcheteProcess(
             mp.config.process_pyramid.tile(*tile),
             config=mp.config,
-            params=mp.config.at_zoom(5)
+            params=mp.config.params_at_zoom(5)
         )
         data = mp_tile.read()
         assert data.any()
@@ -66,8 +65,7 @@ def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
         mp_tile = mapchete.MapcheteProcess(
             mp.config.process_pyramid.tile(*tile.id),
             config=mp.config,
-            params=mp.config.at_zoom(5)
-        )
+            params=mp.config.params_at_zoom(5))
         data = mp_tile.read()
         assert data.any()
         assert isinstance(data, ma.masked_array)
@@ -84,7 +82,7 @@ def test_read_existing_output_vector(mp_tmpdir, geojson):
         mp_tile = mapchete.MapcheteProcess(
             tile,
             config=mp.config,
-            params=mp.config.at_zoom(4)
+            params=mp.config.params_at_zoom(4)
         )
         data = mp_tile.read()
         assert data
@@ -100,7 +98,7 @@ def test_open_data_error(cleantopo_tl):
         mp_tile = mapchete.MapcheteProcess(
             mp.config.process_pyramid.tile(*tile),
             config=mp.config,
-            params=mp.config.at_zoom(5)
+            params=mp.config.params_at_zoom(5)
         )
         with pytest.raises(ValueError):
             mp_tile.open("invaild_input_id")
@@ -200,7 +198,7 @@ def test_baselevels(mp_tmpdir, baselevels):
 def test_baselevels_buffer(mp_tmpdir, baselevels):
     """Baselevel interpolation using buffers."""
     config = baselevels.dict
-    config.update(pixelbuffer=10)
+    config["pyramid"].update(pixelbuffer=10)
     with mapchete.open(config, mode="continue") as mp:
         # get tile from lower zoom level
         lower_tile = next(mp.get_process_tiles(4))
@@ -224,7 +222,8 @@ def test_baselevels_buffer(mp_tmpdir, baselevels):
 def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):
     """Baselevel interpolation using buffers."""
     config = baselevels.dict
-    config.update(pixelbuffer=10, input=None)
+    config.update(input=None)
+    config["pyramid"].update(pixelbuffer=10)
     zoom = 5
     row = 0
     with mapchete.open(config) as mp:
@@ -384,16 +383,16 @@ def test_process_template(dummy1_tif):
     mp = mapchete.open(
         dict(
             process_file=process_template,
+            pyramid=dict(grid="geodetic"),
             input=dict(file1=dummy1_tif),
             output=dict(
                 format="GTiff",
                 path=".",
-                type="geodetic",
                 bands=1,
                 dtype="uint8"
             ),
             config_dir=".",
-            process_zoom=4
+            zoom_levels=4
         ))
     process_tile = next(mp.get_process_tiles(zoom=4))
     # Mapchete throws a RuntimeError if process output is empty
@@ -405,18 +404,15 @@ def test_count_tiles(zoom_mapchete):
     """Count tiles function."""
     maxzoom = 13
     conf = zoom_mapchete.dict
-    conf.pop("process_zoom")
     conf.update(
-        process_maxzoom=maxzoom,
-        process_bounds=[14.0625, 47.8125, 16.875, 50.625], input=None,
-        metatiling=8, pixelbuffer=5
-    )
-    # for minzoom in range(0, 14):
+        zoom_levels=dict(max=maxzoom),
+        bounds=[14.0625, 47.8125, 16.875, 50.625], input=None)
+    conf["pyramid"].update(metatiling=8, pixelbuffer=5)
     for minzoom in range(0, 14):
-        conf.update(process_minzoom=minzoom)
+        conf["zoom_levels"].update(min=minzoom)
         with mapchete.open(conf) as mp:
             assert len(list(mp.get_process_tiles())) == _batch.count_tiles(
-                mp.config.process_area(), mp.config.process_pyramid, minzoom,
+                mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom,
                 maxzoom)
 
 
@@ -436,3 +432,19 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         mp.batch_process(zoom=2, multi=2)
         # process without multiprocessing
         mp.batch_process(zoom=2, multi=1)
+
+
+def test_custom_grid(mp_tmpdir, custom_grid):
+    """Cutom grid processing."""
+    # process and save
+    with mapchete.open(custom_grid.dict) as mp:
+        mp.batch_process()
+    # read written output
+    with mapchete.open(custom_grid.dict, mode="readonly") as mp:
+        for tile in mp.get_process_tiles(5):
+            mp_tile = mapchete.MapcheteProcess(
+                tile, config=mp.config, params=mp.config.params_at_zoom(5))
+            data = mp_tile.read()
+            assert data.any()
+            assert isinstance(data, ma.masked_array)
+            assert not data.mask.all()
