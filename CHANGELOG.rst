@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.18
+----
+* verstion 0.17 was not properly deployed, therefore nev version
+
+----
 0.17
 ----
 * ``write_raster_window`` now returns a ``rasterio.MemoryFile()`` if path is ``"memoryfile"``
