@@ -434,7 +434,17 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         mp.batch_process(zoom=2, multi=1)
 
 
-# def test_custom_grid(mp_tmpdir, custom_grid):
-#     """Cutom grid processing."""
-#     with mapchete.open(custom_grid.dict) as mp:
-#         mp.batch_process()
+def test_custom_grid(mp_tmpdir, custom_grid):
+    """Cutom grid processing."""
+    # process and save
+    with mapchete.open(custom_grid.dict) as mp:
+        mp.batch_process()
+    # read written output
+    with mapchete.open(custom_grid.dict, mode="readonly") as mp:
+        for tile in mp.get_process_tiles(5):
+            mp_tile = mapchete.MapcheteProcess(
+                tile, config=mp.config, params=mp.config.params_at_zoom(5))
+            data = mp_tile.read()
+            assert data.any()
+            assert isinstance(data, ma.masked_array)
+            assert not data.mask.all()
