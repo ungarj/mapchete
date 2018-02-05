@@ -11,7 +11,6 @@ when initializing the configuration.
 """
 
 from cached_property import cached_property
-import json
 import logging
 import os
 import py_compile
@@ -535,7 +534,7 @@ def get_hash(x):
     if isinstance(x, six.string_types):
         return hash(x)
     elif isinstance(x, dict):
-        return hash(json.dumps(x))
+        return hash(yaml.dump(x))
 
 
 def _config_to_dict(input_config):
