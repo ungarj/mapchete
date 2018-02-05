@@ -11,6 +11,7 @@ when initializing the configuration.
 """
 
 from cached_property import cached_property
+from copy import deepcopy
 import logging
 import os
 import py_compile
@@ -296,7 +297,7 @@ class MapcheteConfig(object):
                 try:
                     reader = load_input_reader(
                         dict(
-                            path=path, pyramid=self.process_pyramid,
+                            path=deepcopy(path), pyramid=self.process_pyramid,
                             pixelbuffer=self.process_pyramid.pixelbuffer,
                             delimiters=delimiters
                         ), self.mode == "readonly")
@@ -312,7 +313,7 @@ class MapcheteConfig(object):
                 try:
                     reader = load_input_reader(
                         dict(
-                            abstract=v, pyramid=self.process_pyramid,
+                            abstract=deepcopy(v), pyramid=self.process_pyramid,
                             pixelbuffer=self.process_pyramid.pixelbuffer,
                             delimiters=delimiters, conf_dir=self.config_dir
                         ), self.mode == "readonly")
