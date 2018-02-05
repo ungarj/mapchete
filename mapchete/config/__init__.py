@@ -383,7 +383,7 @@ class MapcheteConfig(object):
             raise ValueError(
                 "zoom level not available with current configuration")
         out = dict(**self._params_at_zoom[zoom])
-        out.update(input={})
+        out.update(input={}, output=self.output)
         if "input" in self._params_at_zoom[zoom]:
             flat_inputs = {}
             for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"]):
@@ -651,6 +651,7 @@ def _element_at_zoom(name, element, zoom):
         # If element is a dictionary, analyze subitems.
         if isinstance(element, dict):
             if "format" in element:
+                # we have an input or output driver here
                 return element
             out_elements = {}
             for sub_name, sub_element in six.iteritems(element):
