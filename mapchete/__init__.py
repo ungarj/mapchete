@@ -36,7 +36,7 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger("rasterio").setLevel(logging.ERROR)
 
 
-__version__ = "0.18"
+__version__ = "0.19"
 
 
 def open(
