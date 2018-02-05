@@ -546,7 +546,7 @@ def _config_to_dict(input_config):
     # from Mapchete file
     elif os.path.splitext(input_config)[1] == ".mapchete":
         with open(input_config, "r") as config_file:
-            raw = yaml.load(config_file.read())
+            raw = yaml.safe_load(config_file.read())
         raw.update(
             config_dir=os.path.dirname(os.path.realpath(input_config)),
             mapchete_file=input_config)
