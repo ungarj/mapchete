@@ -13,6 +13,7 @@ when initializing the configuration.
 from cached_property import cached_property
 from copy import deepcopy
 import logging
+import operator
 import os
 import py_compile
 from shapely.geometry import box
@@ -275,17 +276,17 @@ class MapcheteConfig(object):
             zoom=self.init_zoom_levels, bounds=self.init_bounds,
             process_bounds=self.bounds)
 
-        raw_inputs = {}
-        # get input itemss only of initialized zoom levels
-        for zoom in self.init_zoom_levels:
-            if "input" in self._params_at_zoom[zoom]:
-                input_at_zoom = self._params_at_zoom[zoom]["input"]
-                # to preserve file groups, "flatten" the input tree and use
-                # the tree paths as keys
-                for key, v in _flatten_tree(input_at_zoom):
-                    if v is not None:
-                        # convert input definition to hash
-                        raw_inputs[get_hash(v)] = v
+        # get input items only of initialized zoom levels
+        raw_inputs = {
+            # convert input definition to hash
+            get_hash(v): v
+            for zoom in self.init_zoom_levels
+            if "input" in self._params_at_zoom[zoom]
+            # to preserve file groups, "flatten" the input tree and use
+            # the tree paths as keys
+            for key, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
+            if v is not None
+        }
         initalized_inputs = {}
         for k, v in six.iteritems(raw_inputs):
             if isinstance(v, six.string_types):
@@ -635,6 +636,7 @@ def _raw_at_zoom(config, zooms):
 def _element_at_zoom(name, element, zoom):
         """
         Return the element filtered by zoom level.
+
         - An input integer or float gets returned as is.
         - An input string is checked whether it starts with "zoom". Then, the
           provided zoom level gets parsed and compared with the actual zoom
@@ -668,24 +670,9 @@ def _element_at_zoom(name, element, zoom):
         # If element is a zoom level statement, filter element.
         elif isinstance(name, six.string_types):
             if name.startswith("zoom"):
-                cleaned = name.strip("zoom").strip()
-                if cleaned.startswith("="):
-                    if zoom == _strip_zoom(cleaned, "="):
-                        return element
-                elif cleaned.startswith("<="):
-                    if zoom <= _strip_zoom(cleaned, "<="):
-                        return element
-                elif cleaned.startswith(">="):
-                    if zoom >= _strip_zoom(cleaned, ">="):
-                        return element
-                elif cleaned.startswith("<"):
-                    if zoom < _strip_zoom(cleaned, "<"):
-                        return element
-                elif cleaned.startswith(">"):
-                    if zoom > _strip_zoom(cleaned, ">"):
-                        return element
-                else:
-                    return None
+                return _filter_by_zoom(
+                    conf_string=name.strip("zoom").strip(), zoom=zoom,
+                    element=element)
             # If element is a string but not a zoom level statement, return
             # element.
             else:
@@ -693,6 +680,26 @@ def _element_at_zoom(name, element, zoom):
         # Return all other types as they are.
         else:
             return element
+
+
+def _filter_by_zoom(element=None, conf_string=None, zoom=None):
+    """Return element only if zoom condition matches with config string."""
+    for op_str, op_func in [
+        ("=", operator.eq),
+        ("<=", operator.le),
+        (">=", operator.ge),
+        ("<", operator.lt),
+        (">", operator.gt),
+    ]:
+        if conf_string.startswith(op_str):
+            if op_func(zoom, _strip_zoom(conf_string, op_str)):
+                return element
+            else:
+                # order of operators is important:
+                # prematurely return in cases of "<=" or ">=", otherwise
+                # _strip_zoom() cannot parse config strings starting with "<"
+                # or ">"
+                return None
 
 
 def _strip_zoom(input_string, strip_string):
