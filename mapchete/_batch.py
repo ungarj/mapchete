@@ -84,7 +84,6 @@ def _run_on_single_tile(process, tile):
     tile, output = _process_worker(
         process, process.config.process_pyramid.tile(*tuple(tile))
     )
-    _write_worker(process, tile, output)
     LOGGER.info("1 tile iterated")
 
 
@@ -109,7 +108,6 @@ def _run_with_multiprocessing(
                         max([total_tiles // multi, 1]), MAX_CHUNKSIZE
                     ])
                 ):
-                    _write_worker(process, tile, output)
                     pbar.update()
                     num_processed += 1
             except KeyboardInterrupt:
@@ -139,7 +137,6 @@ def _run_without_multiprocessing(
         for zoom in zoom_levels:
             for process_tile in process.get_process_tiles(zoom):
                 tile, output = _process_worker(process, process_tile)
-                _write_worker(process, tile, output)
                 pbar.update()
                 num_processed += 1
     LOGGER.info("%s tile(s) iterated", (str(num_processed)))
@@ -170,9 +167,8 @@ def _process_worker(process, process_tile):
         output = process.execute(process_tile)
         LOGGER.debug((
             process_tile.id, "processed in %ss" % (
-                round(time.time() - start, 3)
-            )
-        ))
+                round(time.time() - start, 3))))
+        _write_worker(process, process_tile, output)
         return process_tile, output
 
 

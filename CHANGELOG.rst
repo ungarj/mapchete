@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.19
+----
+* on batch process, writing output is now handled by workers instead by main process
+
+----
 0.18
 ----
 * verstion 0.17 was not properly deployed, therefore nev version
