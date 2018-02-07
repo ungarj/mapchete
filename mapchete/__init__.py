@@ -28,12 +28,11 @@ from mapchete.errors import (
     MapcheteProcessImportError, MapcheteProcessException,
     MapcheteProcessOutputError, MapcheteNodataTile)
 
-logging.basicConfig(
-    level=logging.INFO, format='%(levelname)s %(name)s %(message)s')
 LOGGER = logging.getLogger(__name__)
+LOGGER.addHandler(logging.NullHandler())
 
 # suppress rasterio logging
-logging.getLogger("rasterio").setLevel(logging.ERROR)
+# logging.getLogger("rasterio").setLevel(logging.ERROR)
 
 
 __version__ = "0.19"
@@ -156,7 +155,8 @@ class Mapchete(object):
                     yield tile
 
     def batch_process(
-        self, zoom=None, tile=None, multi=cpu_count(), quiet=False, debug=False
+        self, zoom=None, tile=None, multi=cpu_count(), quiet=False,
+        debug=False, logfile=None
     ):
         """
         Process a large batch of tiles.
@@ -179,7 +179,7 @@ class Mapchete(object):
             set log level to "debug" and disable progress bar (cannot be used
             with quiet)
         """
-        batch_process(self, zoom, tile, multi, quiet, debug)
+        batch_process(self, zoom, tile, multi, quiet, debug, logfile)
 
     def execute(self, process_tile):
         """

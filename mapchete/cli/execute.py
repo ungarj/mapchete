@@ -1,17 +1,24 @@
 #!/usr/bin/env python
 """Command line utility to execute a Mapchete process."""
 
-import yaml
+import logging
 from multiprocessing import cpu_count
+import yaml
 
 import mapchete
 from mapchete.errors import MapcheteConfigError
 from mapchete.tile import BufferedTilePyramid
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s %(message)s')
+LOGGER = logging.getLogger(__name__)
+
 
 def main(args=None):
     """Execute a Mapchete process."""
     parsed = args
+
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
     # process single tile
@@ -32,7 +39,8 @@ def main(args=None):
             debug=parsed.debug
         ) as mp:
             mp.batch_process(
-                tile=parsed.tile, quiet=parsed.quiet, debug=parsed.debug
+                tile=parsed.tile, quiet=parsed.quiet, debug=parsed.debug,
+                logfile=parsed.logfile
             )
     # initialize and run process
     else:
@@ -42,4 +50,4 @@ def main(args=None):
         ) as mp:
             mp.batch_process(
                 multi=multi, quiet=parsed.quiet, debug=parsed.debug,
-                zoom=parsed.zoom)
+                zoom=parsed.zoom, logfile=parsed.logfile)

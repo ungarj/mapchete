@@ -6,6 +6,7 @@ Changelog
 0.19
 ----
 * on batch process, writing output is now handled by workers instead by main process
+* ``mapchete execute`` now can write log files using the ``--logfile`` option
 
 ----
 0.18

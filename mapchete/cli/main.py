@@ -158,22 +158,11 @@ class MapcheteCLI(object):
             "--tile", "-t", type=int, nargs=3,
             help="zoom, row, column of single tile", metavar="<int>")
         parser.add_argument(
-            "--failed_from_log", type=str,
-            help="process failed tiles from log file", metavar="<path>")
-        parser.add_argument(
-            "--failed_since", type=str,
-            help="furthermore filter failed tiles by time (e.g. 2016-09-20)",
-            metavar="<date>")
-        parser.add_argument(
             "--overwrite", "-o", action="store_true",
             help="overwrite if tile(s) already exist(s)")
         parser.add_argument(
             "--multi", "-m", type=int, help="number of concurrent processes",
             metavar="<int>")
-        parser.add_argument(
-            "--create_vrt", action="store_true",
-            help="if raster output, this option creates a VRT for each zoom \
-                level")
         parser.add_argument(
             "--input_file", "-i", type=str,
             help="specify an input file via command line (in apchete file, \
@@ -185,6 +174,9 @@ class MapcheteCLI(object):
         parser.add_argument(
             "--debug", "-d", action="store_true",
             help="show log output and disable progress bar")
+        parser.add_argument(
+            "--logfile", "-l", type=str, metavar="<path>",
+            help="write debug log infos into file")
 
         args = parser.parse_args(self.args[2:])
         execute(args)

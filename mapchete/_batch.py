@@ -17,7 +17,8 @@ MAX_CHUNKSIZE = 16
 
 
 def batch_process(
-    process, zoom=None, tile=None, multi=cpu_count(), quiet=False, debug=False
+    process, zoom=None, tile=None, multi=cpu_count(), quiet=False, debug=False,
+    logfile=None
 ):
     """
     Process a large batch of tiles.
@@ -47,6 +48,13 @@ def batch_process(
         LOGGER.setLevel(logging.ERROR)
     if debug:
         LOGGER.setLevel(logging.DEBUG)
+    if logfile:
+        fh = logging.FileHandler(logfile)
+        fh.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+            '%(asctime)s %(levelname)s %(name)s %(message)s')
+        fh.setFormatter(formatter)
+        LOGGER.addHandler(fh)
 
     # process single tile
     if tile:
