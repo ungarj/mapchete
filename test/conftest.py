@@ -53,8 +53,19 @@ def http_raster():
 
 
 @pytest.fixture
+def s2_band():
+    """
+    Fixture for Sentinel-2 raster band.
+
+    Original file:
+    http://sentinel-s2-l1c.s3.amazonaws.com/tiles/33/T/WN/2016/4/3/0/B02.jp2
+    """
+    return os.path.join(TESTDATA_DIR, "s2_band.tif")
+
+
+@pytest.fixture
 def landpoly():
-    """Fixture for landpoly.geojson"""
+    """Fixture for landpoly.geojson."""
     return os.path.join(TESTDATA_DIR, "landpoly.geojson")
 
 
