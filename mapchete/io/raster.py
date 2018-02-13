@@ -18,11 +18,15 @@ from tilematrix import clip_geometry_to_srs_bounds
 from types import GeneratorType
 
 from mapchete.tile import BufferedTile
+from mapchete.io import path_is_remote
 
 
 LOGGER = logging.getLogger(__name__)
 
 ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
+GDAL_HTTP_OPTS = dict(
+    GDAL_DISABLE_READDIR_ON_OPEN=True,
+    GDAL_HTTP_TIMEOUT=30)
 
 
 def read_raster_window(
@@ -59,7 +63,13 @@ def read_raster_window(
     raster : MaskedArray
     """
     dst_shape = tile.shape
-    gdal_opts = {} if gdal_opts is None else gdal_opts
+    user_opts = {} if gdal_opts is None else dict(**gdal_opts)
+    if path_is_remote(input_file):
+        gdal_opts = dict(**GDAL_HTTP_OPTS)
+        gdal_opts.update(**user_opts)
+    else:
+        gdal_opts = user_opts
+
     if not isinstance(indexes, int):
         if indexes is None:
             dst_shape = (None,) + dst_shape
