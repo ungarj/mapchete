@@ -7,6 +7,11 @@ Changelog
 ----
 * on batch process, writing output is now handled by workers instead by main process
 * ``mapchete execute`` now can write log files using the ``--logfile`` option
+* ``get_segmentize_value()`` moved from ``mapchete.formats.defaults.raster_file`` to ``mapchete.io``
+* use GDAL options for remote files (closing #103) per default:
+  * GDAL_DISABLE_READDIR_ON_OPEN=True
+  * GDAL_HTTP_TIMEOUT=30
+* introduced ``mapchete.io.path_is_remote()``
 
 ----
 0.18
