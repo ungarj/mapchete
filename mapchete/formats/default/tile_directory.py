@@ -17,6 +17,7 @@ from mapchete.tile import BufferedTilePyramid
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
+from mapchete.io import path_is_remote
 from mapchete.io.vector import reproject_geometry, read_vector_window
 from mapchete.io.raster import (
     read_raster_window, create_mosaic, resample_from_array)
@@ -246,13 +247,13 @@ class InputTile(base.InputTile):
 
 def _absolute_path(directory, path):
     """Return absolute path if local."""
-    return path if path.startswith(("http://", "https://")) else (
-        os.path.abspath(os.path.join(directory, path)))
+    return path if path_is_remote(path) else os.path.abspath(
+        os.path.join(directory, path))
 
 
 def _path_exists(path):
     """Check if file exists either remote or local."""
-    if path.startswith(("http://", "https://")):
+    if path_is_remote(path):
         try:
             urlopen(path).info()
             return True

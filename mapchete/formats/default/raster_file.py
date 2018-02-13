@@ -10,10 +10,12 @@ import rasterio
 from shapely.geometry import box
 from cached_property import cached_property
 from copy import deepcopy
+import warnings
 
 from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
 from mapchete.io.raster import read_raster_window
+from mapchete import io
 
 
 METADATA = {
@@ -148,7 +150,7 @@ class InputTile(base.InputTile):
         self.tile = tile
         self.raster_file = raster_file
         self.resampling = resampling
-        if raster_file.path.startswith(("http://", "https://")):
+        if io.path_is_remote(raster_file.path):
             file_ext = os.path.splitext(raster_file.path)[1]
             self.gdal_opts = {
                 "GDAL_DISABLE_READDIR_ON_OPEN": True,
@@ -215,6 +217,5 @@ def get_segmentize_value(input_file=None, tile_pyramid=None):
     segmenize value : float
         length suggested of line segmentation to reproject file bounds
     """
-    with rasterio.open(input_file, "r") as input_raster:
-        pixelsize = input_raster.transform[0]
-    return pixelsize * tile_pyramid.tile_size
+    warnings.warn("get_segmentize_value() has moved to mapchete.io")
+    return io.get_segmentize_value(input_file, tile_pyramid)

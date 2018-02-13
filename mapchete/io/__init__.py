@@ -4,7 +4,6 @@ import rasterio
 from shapely.geometry import box
 from tilematrix import TilePyramid
 
-from mapchete.formats.default import raster_file
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
 
 
@@ -32,7 +31,7 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
                     src.bounds.left, src.bounds.bottom, src.bounds.right,
                     src.bounds.top
                 ),
-                raster_file.get_segmentize_value(input_file, tile_pyramid)
+                get_segmentize_value(input_file, tile_pyramid)
             ),
             src_crs=src.crs, dst_crs=tile_pyramid.crs
         ).bounds
@@ -47,3 +46,42 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     for zoom in range(0, 40):
         if tile_pyramid.pixel_x_size(zoom) <= avg_resolution:
             return zoom-1
+
+
+def get_segmentize_value(input_file=None, tile_pyramid=None):
+    """
+    Return the recommended segmentation value in input file units.
+
+    It is calculated by multiplyling raster pixel size with tile shape in
+    pixels.
+
+    Parameters
+    ----------
+    input_file : str
+        location of a file readable by rasterio
+    tile_pyramied : ``TilePyramid`` or ``BufferedTilePyramid``
+        tile pyramid to estimate target tile size
+
+    Returns
+    -------
+    segmenize value : float
+        length suggested of line segmentation to reproject file bounds
+    """
+    with rasterio.open(input_file, "r") as input_raster:
+        pixelsize = input_raster.transform[0]
+    return pixelsize * tile_pyramid.tile_size
+
+
+def path_is_remote(path):
+    """
+    Determine whether file path is remote or local.
+
+    Parameters
+    ----------
+    path : path to file
+
+    Returns
+    -------
+    is_remote : bool
+    """
+    return path.startswith(("http://", "https://"))

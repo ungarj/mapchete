@@ -32,7 +32,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 # suppress rasterio logging
-# logging.getLogger("rasterio").setLevel(logging.ERROR)
+logging.getLogger("rasterio").setLevel(logging.ERROR)
 
 
 __version__ = "0.19"
