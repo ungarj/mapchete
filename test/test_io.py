@@ -125,7 +125,7 @@ def test_read_raster_window_mask(s2_band):
     """No resampling artefacts on mask edges."""
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     data = read_raster_window(
-        s2_band, tile, resampling="cubic" src_nodata=0, dst_nodata=0)
+        s2_band, tile, resampling="cubic", src_nodata=0, dst_nodata=0)
     assert data.any()
     assert not np.where(data == 1, True, False).any()
 
