@@ -14,7 +14,7 @@ import mapchete
 from mapchete.tile import BufferedTilePyramid
 
 logging.basicConfig(level=logging.INFO)
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def main(args=None, _test=False):
@@ -40,7 +40,7 @@ def create_app(
 ):
     """Configure and create Flask app."""
     if debug:
-        LOGGER.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
 
     app = Flask(__name__)
 
@@ -78,7 +78,7 @@ def create_app(
         methods=['GET'])
     def get(mp_name, zoom, row, col, file_ext):
         """Return processed, empty or error (in pink color) tile."""
-        LOGGER.debug(
+        logger.debug(
             "received tile (%s, %s, %s) for process %s", zoom, row, col,
             mp_name)
         # convert zoom, row, col into tile object using web pyramid
@@ -102,10 +102,10 @@ def _get_mode(parsed):
 
 def _tile_response(mp, web_tile, debug):
     try:
-        LOGGER.debug("getting web tile %s", str(web_tile.id))
+        logger.debug("getting web tile %s", str(web_tile.id))
         return _valid_tile_response(mp, mp.get_raw_output(web_tile))
     except Exception:
-        LOGGER.exception("getting web tile %s failed", str(web_tile.id))
+        logger.exception("getting web tile %s failed", str(web_tile.id))
         if debug:
             raise
         else:
@@ -114,7 +114,7 @@ def _tile_response(mp, web_tile, debug):
 
 def _valid_tile_response(mp, data):
     out_data, mime_type = mp.config.output.for_web(data)
-    LOGGER.debug("create tile response %s", mime_type)
+    logger.debug("create tile response %s", mime_type)
     if isinstance(out_data, MemoryFile):
         response = make_response(send_file(out_data, mime_type))
     elif isinstance(out_data, list):

@@ -423,11 +423,9 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         with pytest.raises(ValueError):
             mp.batch_process(zoom=1, tile=(1, 0, 0))
         with pytest.raises(ValueError):
-            mp.batch_process(debug=True, quiet=True)
+            mp.batch_process()
         # process single tile
         mp.batch_process(tile=(2, 0, 0))
-        mp.batch_process(tile=(2, 0, 0), quiet=True)
-        mp.batch_process(tile=(2, 0, 0), debug=True)
         # process using multiprocessing
         mp.batch_process(zoom=2, multi=2)
         # process without multiprocessing

@@ -30,7 +30,7 @@ from mapchete.errors import (
     MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteDriverError)
 
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 # parameters whigh have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
@@ -146,10 +146,12 @@ class MapcheteConfig(object):
             raise MapcheteConfigError(e)
 
         # (2) check .py file
+        logger.debug("validating process file")
         self.process_file = _validate_process_file(self._raw)
         self.config_dir = self._raw["config_dir"]
 
         # (3) set process and output pyramids
+        logger.debug("initializing pyramids")
         try:
             process_metatiling = self._raw["pyramid"].get("metatiling", 1)
             # output metatiling defaults to process metatiling if not set
@@ -172,7 +174,7 @@ class MapcheteConfig(object):
                 metatiling=output_metatiling,
                 pixelbuffer=self._raw["output"].get("pixelbuffer", 0))
         except Exception as e:
-            LOGGER.exception(e)
+            logger.exception(e)
             raise MapcheteConfigError(e)
 
         # (4) set mode
@@ -182,14 +184,17 @@ class MapcheteConfig(object):
 
         # (5) prepare process parameters per zoom level without initializing
         # input and output classes
+        logger.debug("preparing process parameters")
         self._params_at_zoom = _raw_at_zoom(self._raw, self.init_zoom_levels)
 
         # (6) initialize output
+        logger.debug("initializing output")
         self.output
 
         # (7) initialize input items
         # depending on the inputs this action takes the longest and is done
         # in the end to let all other actions fail earlier if necessary
+        logger.debug("initializing input")
         self.input
 
     @cached_property
@@ -257,7 +262,7 @@ class MapcheteConfig(object):
         try:
             writer.is_valid_with_config(output_params)
         except Exception as e:
-            LOGGER.exception(e)
+            logger.exception(e)
             raise MapcheteConfigError(
                 "driver %s not compatible with configuration: %s" % (
                     writer.METADATA["driver_name"], e))
@@ -294,7 +299,7 @@ class MapcheteConfig(object):
                 path = v if v.startswith(
                     ("s3://", "https://", "http://")) else os.path.normpath(
                     os.path.join(self.config_dir, v))
-                LOGGER.debug("load input reader for file %s",  v)
+                logger.debug("load input reader for file %s",  v)
                 try:
                     reader = load_input_reader(
                         dict(
@@ -303,13 +308,13 @@ class MapcheteConfig(object):
                             delimiters=delimiters
                         ), self.mode == "readonly")
                 except Exception as e:
-                    LOGGER.exception(e)
+                    logger.exception(e)
                     raise MapcheteDriverError(e)
-                LOGGER.debug(
+                logger.debug(
                     "input reader for file %s is %s", v, reader)
             # for abstract inputs
             elif isinstance(v, dict):
-                LOGGER.debug(
+                logger.debug(
                     "load input reader for abstract input %s", v)
                 try:
                     reader = load_input_reader(
@@ -319,9 +324,9 @@ class MapcheteConfig(object):
                             delimiters=delimiters, conf_dir=self.config_dir
                         ), self.mode == "readonly")
                 except Exception as e:
-                    LOGGER.exception(e)
+                    logger.exception(e)
                     raise MapcheteDriverError(e)
-                LOGGER.debug(
+                logger.debug(
                     "input reader for abstract input %s is %s", v, reader)
             else:
                 raise MapcheteConfigError("invalid input type %s", type(v))
@@ -411,7 +416,7 @@ class MapcheteConfig(object):
         """
         if zoom is None:
             if not self._cache_full_process_area:
-                LOGGER.debug("calculate process area ...")
+                logger.debug("calculate process area ...")
                 self._cache_full_process_area = cascaded_union([
                     self._area_at_zoom(z) for z in self.init_zoom_levels]
                 ).buffer(0)

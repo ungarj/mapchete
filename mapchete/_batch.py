@@ -1,7 +1,6 @@
 """Processing of larger batches."""
 
 import logging
-import tqdm
 import time
 from functools import partial
 from itertools import product
@@ -10,7 +9,7 @@ from multiprocessing.pool import Pool
 from tilematrix import TilePyramid
 
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 # maximum number of process tiles to be queued at each worker
 MAX_CHUNKSIZE = 16
@@ -21,7 +20,7 @@ def batch_process(
     logfile=None
 ):
     """
-    Process a large batch of tiles.
+    Process a large batch of tiles quietly.
 
     Parameters
     ----------
@@ -34,120 +33,99 @@ def batch_process(
         zoom, row and column of tile to be processed (cannot be used with zoom)
     multi : int
         number of workers (default: number of CPU cores)
-    quiet : bool
-        set log level to "warning" and disable progress bar
-    debug : bool
-        set log level to "debug" and disable progress bar (cannot be used with
-        quiet)
+    """
+    list(batch_processor(process, zoom=zoom, tile=tile, multi=cpu_count()))
+
+
+def batch_processor(process, zoom=None, tile=None, multi=cpu_count()):
+    """
+    Process a large batch of tiles and yield report messages per tile.
+
+    Parameters
+    ----------
+    process : MapcheteProcess
+        process to be run
+    zoom : list or int
+        either single zoom level or list of minimum and maximum zoom level;
+        None processes all (default: None)
+    tile : tuple
+        zoom, row and column of tile to be processed (cannot be used with zoom)
+    multi : int
+        number of workers (default: number of CPU cores)
     """
     if zoom and tile:
         raise ValueError("use either zoom or tile")
-    if quiet and debug:
-        raise ValueError("use either quiet or debug")
-    if quiet:
-        LOGGER.setLevel(logging.ERROR)
-    if debug:
-        LOGGER.setLevel(logging.DEBUG)
-    if logfile:
-        fh = logging.FileHandler(logfile)
-        fh.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(
-            '%(asctime)s %(levelname)s %(name)s %(message)s')
-        fh.setFormatter(formatter)
-        LOGGER.addHandler(fh)
 
-    # process single tile
+    # run single tile
     if tile:
-        _run_on_single_tile(process, tile)
-        return
-
-    # prepare batch
-    zoom_levels = list(_get_zoom_level(zoom, process))
-
-    # estimate process tiles
-    if (quiet or debug):
-        total_tiles = 0
-    else:
-        total_tiles = count_tiles(
-            process.config.area_at_zoom(),
-            process.config.process_pyramid,
-            min(zoom_levels),
-            max(zoom_levels),
-            init_zoom=0
-        )
-
+        yield _run_on_single_tile(process, tile)
     # run using multiprocessing
-    if multi > 1:
-        _run_with_multiprocessing(
-            process, total_tiles, zoom_levels, multi, quiet, debug)
-
+    elif multi > 1:
+        for result in _run_with_multiprocessing(
+            process, list(_get_zoom_level(zoom, process)), multi
+        ):
+            yield result
     # run without multiprocessing
-    if multi == 1:
-        _run_without_multiprocessing(
-            process, total_tiles, zoom_levels, quiet, debug)
+    elif multi == 1:
+        for result in _run_without_multiprocessing(
+            process, list(_get_zoom_level(zoom, process))
+        ):
+            yield result
 
 
 def _run_on_single_tile(process, tile):
-    LOGGER.debug("run on single tile")
-    tile, output = _process_worker(
-        process, process.config.process_pyramid.tile(*tuple(tile))
-    )
-    LOGGER.info("1 tile iterated")
+    logger.debug("run on single tile")
+    tile, message = _process_worker(
+        process, process.config.process_pyramid.tile(*tuple(tile)))
+    return {"process_tile": tile, "success": True, "message": message}
 
 
-def _run_with_multiprocessing(
-    process, total_tiles, zoom_levels, multi, quiet, debug
-):
-    LOGGER.debug("run with multiprocessing")
+def _run_with_multiprocessing(process, zoom_levels, multi):
+    logger.debug("run with multiprocessing")
     num_processed = 0
-    LOGGER.info("run process using %s workers", multi)
+    logger.info("run process using %s workers", multi)
     f = partial(_process_worker, process)
-    with tqdm.tqdm(
-        total=total_tiles, unit="tiles", disable=(quiet or debug)
-    ) as pbar:
-        for zoom in zoom_levels:
-            process_tiles = process.get_process_tiles(zoom)
-            pool = Pool(multi)
-            try:
-                for tile, output in pool.imap_unordered(
-                    f, process_tiles,
-                    # set chunksize to between 1 and MAX_CHUNKSIZE
-                    chunksize=min([
-                        max([total_tiles // multi, 1]), MAX_CHUNKSIZE
-                    ])
-                ):
-                    pbar.update()
-                    num_processed += 1
-            except KeyboardInterrupt:
-                LOGGER.info(
-                    "Caught KeyboardInterrupt, terminating workers")
-                pool.terminate()
-                break
-            except Exception:
-                pool.terminate()
-                raise
-            finally:
-                pool.close()
-                pool.join()
-                process_tiles = None
-    LOGGER.info("%s tile(s) iterated", (str(num_processed)))
-
-
-def _run_without_multiprocessing(
-    process, total_tiles, zoom_levels, quiet, debug
-):
-    LOGGER.debug("run without multiprocessing")
-    num_processed = 0
-    LOGGER.info("run process using 1 worker")
-    with tqdm.tqdm(
-        total=total_tiles, unit="tiles", disable=(quiet or debug)
-    ) as pbar:
-        for zoom in zoom_levels:
-            for process_tile in process.get_process_tiles(zoom):
-                tile, output = _process_worker(process, process_tile)
-                pbar.update()
+    for zoom in zoom_levels:
+        process_tiles = process.get_process_tiles(zoom)
+        pool = Pool(multi)
+        try:
+            for tile, message in pool.imap_unordered(
+                f,
+                process_tiles,
+                # set chunksize to between 1 and MAX_CHUNKSIZE
+                chunksize=min([
+                    max([process.count_tiles(
+                        min(zoom_levels), max(zoom_levels)) // multi, 1]),
+                    MAX_CHUNKSIZE])
+            ):
                 num_processed += 1
-    LOGGER.info("%s tile(s) iterated", (str(num_processed)))
+                yield {
+                    "process_tile": tile, "success": True, "message": message}
+        except KeyboardInterrupt:
+            logger.info(
+                "Caught KeyboardInterrupt, terminating workers")
+            pool.terminate()
+            break
+        except Exception:
+            pool.terminate()
+            raise
+        finally:
+            pool.close()
+            pool.join()
+            process_tiles = None
+    logger.info("%s tile(s) iterated", (str(num_processed)))
+
+
+def _run_without_multiprocessing(process, zoom_levels):
+    logger.debug("run without multiprocessing")
+    num_processed = 0
+    logger.info("run process using 1 worker")
+    for zoom in zoom_levels:
+        for process_tile in process.get_process_tiles(zoom):
+            tile, message = _process_worker(process, process_tile)
+            num_processed += 1
+            yield {"process_tile": tile, "success": True, "message": message}
+    logger.info("%s tile(s) iterated", (str(num_processed)))
 
 
 def _get_zoom_level(zoom, process):
@@ -168,30 +146,30 @@ def _process_worker(process, process_tile):
     if process.config.mode == "continue" and (
         process.config.output.tiles_exist(process_tile)
     ):
-        LOGGER.debug((process_tile.id, "tile exists, skipping"))
-        return process_tile, None
+        logger.debug((process_tile.id, "tile exists, skipping"))
+        return process_tile, "output exists"
     else:
         start = time.time()
         output = process.execute(process_tile)
-        LOGGER.debug((
-            process_tile.id, "processed in %ss" % (
-                round(time.time() - start, 3))))
-        _write_worker(process, process_tile, output)
-        return process_tile, output
+        logger.debug((
+            process_tile.id,
+            "processed in %ss" % (round(time.time() - start, 3))))
+        message = _write_worker(process, process_tile, output)
+        return process_tile, message
 
 
 def _write_worker(process, process_tile, data):
     """Worker function writing process outputs."""
     if data is None:
-        LOGGER.debug("%s nothing written, tile data empty", process_tile.id)
+        logger.debug("%s nothing written, tile data empty", process_tile.id)
+        return "process output empty"
     else:
         start = time.time()
         process.write(process_tile, data)
-        LOGGER.debug((
-            process_tile.id, "output written in %ss" % (
-                round(time.time() - start, 3)
-            )
-        ))
+        logger.debug((
+            process_tile.id,
+            "output written in %ss" % (round(time.time() - start, 3))))
+        return "output written"
 
 
 def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):

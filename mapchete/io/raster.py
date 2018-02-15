@@ -21,7 +21,7 @@ from mapchete.tile import BufferedTile
 from mapchete.io import path_is_remote
 
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
 GDAL_HTTP_OPTS = dict(
