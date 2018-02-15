@@ -109,7 +109,7 @@ class Mapchete(object):
         with_cache : bool
             cache processed output data in memory (default: False)
         """
-        logger.info("preparing process ...")
+        logger.debug("initialize process")
         if not isinstance(config, MapcheteConfig):
             raise TypeError("config must be MapcheteConfig object")
         self.config = config
@@ -156,8 +156,7 @@ class Mapchete(object):
                     yield tile
 
     def batch_process(
-        self, zoom=None, tile=None, multi=cpu_count(), quiet=False,
-        debug=False, logfile=None
+        self, zoom=None, tile=None, multi=cpu_count(), max_chunksize=16
     ):
         """
         Process a large batch of tiles.
@@ -180,9 +179,11 @@ class Mapchete(object):
             set log level to "debug" and disable progress bar (cannot be used
             with quiet)
         """
-        batch_process(self, zoom, tile, multi, quiet, debug, logfile)
+        batch_process(self, zoom, tile, multi, max_chunksize)
 
-    def batch_processor(self, zoom=None, tile=None, multi=cpu_count()):
+    def batch_processor(
+        self, zoom=None, tile=None, multi=cpu_count(), max_chunksize=16
+    ):
         """
         Process a large batch of tiles and yield report messages per tile.
 
@@ -197,7 +198,7 @@ class Mapchete(object):
         multi : int
             number of workers (default: number of CPU cores)
         """
-        for r in batch_processor(self, zoom=zoom, tile=tile, multi=multi):
+        for r in batch_processor(self, zoom, tile, multi, max_chunksize):
             yield r
 
     def count_tiles(self, minzoom, maxzoom, init_zoom=0):

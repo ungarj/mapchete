@@ -7,39 +7,15 @@ import tqdm
 import yaml
 
 import mapchete
-from mapchete.errors import MapcheteConfigError
+from mapchete.config import _map_to_new_config
 from mapchete.tile import BufferedTilePyramid
 
-class _TqdmLoggingHandler(logging.Handler):
-    """
-    Progress bar logging handler.
 
-    This handler just passes on log messages and uses its own write() function
-    to print to stdout so that progress bar would not be interrupted.
-    """
-
-    def __init__(self, level=logging.NOTSET):
-        super(self.__class__, self).__init__(level)
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            tqdm.tqdm.write(msg)
-            self.flush()
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except Exception:
-            self.handleError(record)
-
-
-# set root logger to CRITICAL
-logging.getLogger().setLevel(logging.CRITICAL)
+# lower stream output log level
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.ERROR)
+logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
-# use custom progress bar handler to print log output
-tqdm_logger = _TqdmLoggingHandler()
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
-tqdm_logger.setFormatter(formatter)
-logging.getLogger().addHandler(tqdm_logger)
 
 
 def main(args=None):
@@ -48,49 +24,60 @@ def main(args=None):
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
 
-    if parsed.debug:
+    if parsed.logfile:
+        file_handler = logging.FileHandler(parsed.logfile)
+        formatter = logging.Formatter(
+            '%(asctime)s %(levelname)s %(name)s %(message)s')
+        file_handler.setFormatter(formatter)
+        logging.getLogger().addHandler(file_handler)
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
-    else:
-        logging.getLogger("mapchete").setLevel(logging.INFO)
 
     # process single tile
     if parsed.tile:
-        conf = yaml.load(open(parsed.mapchete_file, "r").read())
-        if "output" not in conf:
-            raise MapcheteConfigError("output definition missing")
-        if "pyramid" not in conf or "grid" not in conf["pyramid"]:
-            raise MapcheteConfigError("pyramid definition missing")
-
+        conf = _map_to_new_config(
+            yaml.load(open(parsed.mapchete_file, "r").read()))
         tile = BufferedTilePyramid(
             conf["pyramid"]["grid"],
             metatiling=conf["pyramid"].get("metatiling", 1),
             pixelbuffer=conf["pyramid"].get("pixelbuffer", 0)
         ).tile(*parsed.tile)
-
+        tqdm.tqdm.write("preparing process")
         with mapchete.open(
             parsed.mapchete_file, mode=mode, bounds=tile.bounds,
-            zoom=tile.zoom, single_input_file=parsed.input_file,
-            debug=parsed.debug
+            zoom=tile.zoom, single_input_file=parsed.input_file
         ) as mp:
-            for restult in mp.batch_processor(tile=parsed.tile):
-                pass
+            tqdm.tqdm.write("processing 1 tile")
+            for result in mp.batch_processor(tile=parsed.tile):
+                if parsed.verbose:
+                    _write_verbose_msg(result)
 
     # initialize and run process
     else:
+        tqdm.tqdm.write("preparing process")
         with mapchete.open(
             parsed.mapchete_file, bounds=parsed.bounds, zoom=parsed.zoom,
-            mode=mode, single_input_file=parsed.input_file, debug=parsed.debug
+            mode=mode, single_input_file=parsed.input_file
         ) as mp:
+            tiles_count = mp.count_tiles(
+                min(mp.config.init_zoom_levels),
+                max(mp.config.init_zoom_levels))
+            tqdm.tqdm.write("processing %s tile(s) on %s worker(s)" % (
+                tiles_count, multi
+            ))
             for result in tqdm.tqdm(
-                mp.batch_processor(multi=multi, zoom=parsed.zoom),
-                total=mp.count_tiles(
-                    min(mp.config.init_zoom_levels),
-                    max(mp.config.init_zoom_levels)),
+                mp.batch_processor(
+                    multi=multi, zoom=parsed.zoom,
+                    max_chunksize=parsed.max_chunksize),
+                total=tiles_count,
                 unit="tile"
             ):
-                if result["success"] is True:
-                    logger.info((
-                        result["process_tile"].id, result["message"]))
-                else:
-                    logger.error((
-                        result["process_tile"].id, result["message"]))
+                if parsed.verbose:
+                    _write_verbose_msg(result)
+    tqdm.tqdm.write("process finished")
+
+
+def _write_verbose_msg(result):
+    msg = "Tile %s: %s, %s" % (
+        tuple(result["process_tile"].id), result["process"],
+        result["write"])
+    tqdm.tqdm.write(msg)

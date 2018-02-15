@@ -174,7 +174,7 @@ def test_baselevels(mp_tmpdir, baselevels):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.path, mode="continue") as mp:
         # process data before getting baselevels
-        mp.batch_process(quiet=True)
+        mp.batch_process()
 
         # get tile from lower zoom level
         for tile in mp.get_process_tiles(4):
@@ -422,8 +422,6 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         # invalid parameters errors
         with pytest.raises(ValueError):
             mp.batch_process(zoom=1, tile=(1, 0, 0))
-        with pytest.raises(ValueError):
-            mp.batch_process()
         # process single tile
         mp.batch_process(tile=(2, 0, 0))
         # process using multiprocessing
