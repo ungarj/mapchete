@@ -19,7 +19,6 @@ from shapely.geometry import shape
 import mapchete
 from mapchete.io.raster import create_mosaic
 from mapchete.errors import MapcheteProcessOutputError
-from mapchete import _batch
 
 
 def test_empty_execute(mp_tmpdir, cleantopo_br):
@@ -411,7 +410,7 @@ def test_count_tiles(zoom_mapchete):
     for minzoom in range(0, 14):
         conf["zoom_levels"].update(min=minzoom)
         with mapchete.open(conf) as mp:
-            assert len(list(mp.get_process_tiles())) == _batch.count_tiles(
+            assert len(list(mp.get_process_tiles())) == mapchete.count_tiles(
                 mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom,
                 maxzoom)
 
