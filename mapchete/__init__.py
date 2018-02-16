@@ -486,7 +486,7 @@ class Mapchete(object):
         # Otherwise, load process source and execute.
         try:
             user_process_py = imp.load_source(
-                self.process_name + "process_file", self.config.process_file)
+                self.process_name, self.config.process_file)
             if hasattr(user_process_py, "execute"):
                 process_is_function = True
                 tile_process = MapcheteProcess(

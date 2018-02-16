@@ -169,7 +169,6 @@ class InputTile(base.InputTile):
         -------
         data : array
         """
-        # logger.debug("read from %s", self.raster_file.path)
         return read_raster_window(
             self.raster_file.path,
             self.tile,

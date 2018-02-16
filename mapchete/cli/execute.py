@@ -27,7 +27,10 @@ def main(args=None):
     multi = parsed.multi if parsed.multi else cpu_count()
     mode = "overwrite" if parsed.overwrite else "continue"
     # send verbose output to /dev/null if not activated
-    verbose_dst = sys.stdout if parsed.verbose else open(os.devnull, 'w')
+    if parsed.debug or not parsed.verbose:
+        verbose_dst = open(os.devnull, 'w')
+    else:
+        verbose_dst = sys.stdout
 
     if parsed.logfile:
         file_handler = logging.FileHandler(parsed.logfile)
