@@ -120,6 +120,34 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     MapcheteCLI(args)
 
 
+def test_execute_debug(mp_tmpdir, example_mapchete):
+    """Using debug output."""
+    args = [
+        None, 'execute', example_mapchete.path, "-t", "10", "500", "1040",
+        "--debug"]
+    MapcheteCLI(args)
+
+
+def test_execute_verbose(mp_tmpdir, example_mapchete):
+    """Using verbose output."""
+    args = [
+        None, 'execute', example_mapchete.path, "-t", "10", "500", "1040",
+        "--verbose"]
+    MapcheteCLI(args)
+
+
+def test_execute_logfile(mp_tmpdir, example_mapchete):
+    """Using logfile."""
+    logfile = os.path.join(mp_tmpdir, "temp.log")
+    args = [
+        None, 'execute', example_mapchete.path, "-t", "10", "500", "1040",
+        "--logfile", logfile]
+    MapcheteCLI(args)
+    assert os.path.isfile(logfile)
+    with open(logfile) as log:
+        assert "DEBUG" in log.read()
+
+
 def test_formats(capfd):
     """Output of mapchete formats command."""
     MapcheteCLI([None, 'formats'])

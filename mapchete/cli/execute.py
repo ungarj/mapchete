@@ -60,7 +60,7 @@ def main(args=None):
             tqdm.tqdm.write("processing 1 tile", file=verbose_dst)
             for result in mp.batch_processor(tile=parsed.tile):
                 if parsed.verbose:
-                    _write_verbose_msg(result)
+                    _write_verbose_msg(result, dst=verbose_dst)
 
     # initialize and run process
     else:
