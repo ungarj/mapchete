@@ -169,14 +169,18 @@ class MapcheteCLI(object):
                 set 'input_file' parameter to 'from_command_line')",
             metavar="<path>")
         parser.add_argument(
-            "--quiet", "-q", action="store_true",
-            help="suppress progress bar and log output")
-        parser.add_argument(
-            "--debug", "-d", action="store_true",
-            help="show log output and disable progress bar")
-        parser.add_argument(
             "--logfile", "-l", type=str, metavar="<path>",
             help="write debug log infos into file")
+        parser.add_argument(
+            "--verbose", "-v", action="store_true",
+            help="print info for each process tile")
+        parser.add_argument(
+            "--debug", "-d", action="store_true",
+            help="deactivate progress bar and print debug log output")
+        parser.add_argument(
+            "--max_chunksize", "-c", type=int, metavar="<int>", default=16,
+            help="maximum number of process tiles to be queued for each \
+                worker; (default: 16)")
 
         args = parser.parse_args(self.args[2:])
         execute(args)

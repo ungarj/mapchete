@@ -19,7 +19,6 @@ from shapely.geometry import shape
 import mapchete
 from mapchete.io.raster import create_mosaic
 from mapchete.errors import MapcheteProcessOutputError
-from mapchete import _batch
 
 
 def test_empty_execute(mp_tmpdir, cleantopo_br):
@@ -174,7 +173,7 @@ def test_baselevels(mp_tmpdir, baselevels):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.path, mode="continue") as mp:
         # process data before getting baselevels
-        mp.batch_process(quiet=True)
+        mp.batch_process()
 
         # get tile from lower zoom level
         for tile in mp.get_process_tiles(4):
@@ -411,7 +410,7 @@ def test_count_tiles(zoom_mapchete):
     for minzoom in range(0, 14):
         conf["zoom_levels"].update(min=minzoom)
         with mapchete.open(conf) as mp:
-            assert len(list(mp.get_process_tiles())) == _batch.count_tiles(
+            assert len(list(mp.get_process_tiles())) == mapchete.count_tiles(
                 mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom,
                 maxzoom)
 
@@ -422,12 +421,8 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         # invalid parameters errors
         with pytest.raises(ValueError):
             mp.batch_process(zoom=1, tile=(1, 0, 0))
-        with pytest.raises(ValueError):
-            mp.batch_process(debug=True, quiet=True)
         # process single tile
         mp.batch_process(tile=(2, 0, 0))
-        mp.batch_process(tile=(2, 0, 0), quiet=True)
-        mp.batch_process(tile=(2, 0, 0), debug=True)
         # process using multiprocessing
         mp.batch_process(zoom=2, multi=2)
         # process without multiprocessing

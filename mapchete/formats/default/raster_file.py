@@ -5,11 +5,12 @@ Currently limited by extensions .tif, .vrt., .png and .jp2 but could be
 extended easily.
 """
 
+from cached_property import cached_property
+from copy import deepcopy
+import logging
 import os
 import rasterio
 from shapely.geometry import box
-from cached_property import cached_property
-from copy import deepcopy
 import warnings
 
 from mapchete.formats import base
@@ -17,6 +18,8 @@ from mapchete.io.vector import reproject_geometry, segmentize_geometry
 from mapchete.io.raster import read_raster_window
 from mapchete import io
 
+
+logger = logging.getLogger(__name__)
 
 METADATA = {
     "driver_name": "raster_file",

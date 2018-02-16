@@ -14,7 +14,7 @@ import six
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 # suppress shapely warnings
 logging.getLogger("shapely").setLevel(logging.ERROR)
@@ -227,7 +227,7 @@ def write_vector_window(
                     "geometry": mapping(out_geom),
                     "properties": feature["properties"]})
         except Exception:
-            LOGGER.exception("failed to prepare geometry for writing")
+            logger.exception("failed to prepare geometry for writing")
             continue
 
     if out_features:
@@ -259,7 +259,7 @@ def _get_reprojected_features(
                 feature_geom = feature_geom.buffer(0)
                 # skip feature if geometry cannot be repaired
                 if not feature_geom.is_valid:
-                    LOGGER.exception(
+                    logger.exception(
                         "feature omitted: %s", explain_validity(feature_geom))
                     continue
             # only return feature if geometry type stayed the same after
@@ -277,12 +277,12 @@ def _get_reprojected_features(
                             "reprojected geometry invalid: %s" % (
                                 explain_validity(geom)))
                 except TopologicalError:
-                    LOGGER.exception("feature omitted: reprojection failed")
+                    logger.exception("feature omitted: reprojection failed")
                 yield {
                     'properties': feature['properties'],
                     'geometry': mapping(geom)}
             else:
-                LOGGER.exception(
+                logger.exception(
                     "feature omitted: geometry type changed after reprojection"
                 )
 

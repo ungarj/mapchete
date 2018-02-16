@@ -1,23 +1,25 @@
 """Main module managing processes."""
 
-import os
-import inspect
-import logging
-import warnings
+from cachetools import LRUCache
+from functools import partial
 import imp
-import six
-import types
-import time
-import threading
+import inspect
+from itertools import chain, product
+import logging
+from multiprocessing import cpu_count, current_process
+from multiprocessing.pool import Pool
 import numpy as np
 import numpy.ma as ma
-from traceback import format_exc
-from multiprocessing import cpu_count
-from cachetools import LRUCache
+import os
 from shapely.geometry import shape
-from itertools import chain
+import six
+import threading
+from tilematrix import TilePyramid
+import time
+from traceback import format_exc
+import types
+import warnings
 
-from mapchete._batch import batch_process
 from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
@@ -28,8 +30,8 @@ from mapchete.errors import (
     MapcheteProcessImportError, MapcheteProcessException,
     MapcheteProcessOutputError, MapcheteNodataTile)
 
-LOGGER = logging.getLogger(__name__)
-LOGGER.addHandler(logging.NullHandler())
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 # suppress rasterio logging
 logging.getLogger("rasterio").setLevel(logging.ERROR)
@@ -109,7 +111,7 @@ class Mapchete(object):
         with_cache : bool
             cache processed output data in memory (default: False)
         """
-        LOGGER.info("preparing process ...")
+        logger.debug("initialize process")
         if not isinstance(config, MapcheteConfig):
             raise TypeError("config must be MapcheteConfig object")
         self.config = config
@@ -123,6 +125,7 @@ class Mapchete(object):
             self.process_tile_cache = LRUCache(maxsize=512)
             self.current_processes = {}
             self.process_lock = threading.Lock()
+        self._count_tiles_cache = {}
 
     def get_process_tiles(self, zoom=None):
         """
@@ -155,8 +158,7 @@ class Mapchete(object):
                     yield tile
 
     def batch_process(
-        self, zoom=None, tile=None, multi=cpu_count(), quiet=False,
-        debug=False, logfile=None
+        self, zoom=None, tile=None, multi=cpu_count(), max_chunksize=16
     ):
         """
         Process a large batch of tiles.
@@ -173,13 +175,72 @@ class Mapchete(object):
             zoom)
         multi : int
             number of workers (default: number of CPU cores)
-        quiet : bool
-            set log level to "warning" and disable progress bar
-        debug : bool
-            set log level to "debug" and disable progress bar (cannot be used
-            with quiet)
+        max_chunksize : int
+            maximum number of process tiles to be queued for each worker;
+            (default: 16)
         """
-        batch_process(self, zoom, tile, multi, quiet, debug, logfile)
+        list(self.batch_processor(zoom, tile, multi, max_chunksize))
+
+    def batch_processor(
+        self, zoom=None, tile=None, multi=cpu_count(), max_chunksize=16
+    ):
+        """
+        Process a large batch of tiles and yield report messages per tile.
+
+        Parameters
+        ----------
+        zoom : list or int
+            either single zoom level or list of minimum and maximum zoom level;
+            None processes all (default: None)
+        tile : tuple
+            zoom, row and column of tile to be processed (cannot be used with
+            zoom)
+        multi : int
+            number of workers (default: number of CPU cores)
+        max_chunksize : int
+            maximum number of process tiles to be queued for each worker;
+            (default: 16)
+        """
+        if zoom and tile:
+            raise ValueError("use either zoom or tile")
+
+        # run single tile
+        if tile:
+            yield _run_on_single_tile(self, tile)
+        # run using multiprocessing
+        elif multi > 1:
+            for result in _run_with_multiprocessing(
+                self, list(_get_zoom_level(zoom, self)), multi, max_chunksize
+            ):
+                yield result
+        # run without multiprocessing
+        elif multi == 1:
+            for result in _run_without_multiprocessing(
+                self, list(_get_zoom_level(zoom, self))
+            ):
+                yield result
+
+    def count_tiles(self, minzoom, maxzoom, init_zoom=0):
+        """
+        Count number of tiles intersecting with geometry.
+
+        Parameters
+        ----------
+        geometry : shapely geometry
+        pyramid : TilePyramid
+        minzoom : int
+        maxzoom : int
+        init_zoom : int
+
+        Returns
+        -------
+        number of tiles
+        """
+        if (minzoom, maxzoom) not in self._count_tiles_cache:
+            self._count_tiles_cache[(minzoom, maxzoom)] = count_tiles(
+                self.config.area_at_zoom(), self.config.process_pyramid,
+                minzoom, maxzoom, init_zoom=0)
+        return self._count_tiles_cache[(minzoom, maxzoom)]
 
     def execute(self, process_tile):
         """
@@ -252,22 +313,25 @@ class Mapchete(object):
             process_tile = self.config.process_pyramid.tile(*process_tile)
         elif not isinstance(process_tile, BufferedTile):
             raise ValueError(
-                "invalid process_tile type: %s" % type(process_tile)
-            )
+                "invalid process_tile type: %s" % type(process_tile))
         if self.config.mode not in ["continue", "overwrite"]:
             raise ValueError("process mode must be continue or overwrite")
-        if data is None:
-            LOGGER.debug((process_tile.id, "nothing to write"))
+        if self.config.mode == "continue" and (
+            self.config.output.tiles_exist(process_tile)
+        ):
+            message = "output exists, not overwritten"
+            logger.debug((process_tile.id, message))
+            return message
         else:
-            if self.config.mode == "continue" and (
-                self.config.output.tiles_exist(process_tile)
-            ):
-                LOGGER.debug((process_tile.id, "exists, not overwritten"))
-            else:
-                starttime = time.time()
-                self.config.output.write(process_tile=process_tile, data=data)
-                elapsed = "%ss" % (round((time.time() - starttime), 3))
-                LOGGER.debug((process_tile.id, "output written", elapsed))
+            if data is None:
+                message = "output empty, nothing written"
+                logger.debug((process_tile.id), message)
+                return message
+            start = time.time()
+            self.config.output.write(process_tile=process_tile, data=data)
+            message = "output written in %ss" % round(time.time() - start, 3)
+            logger.debug((process_tile.id, message))
+            return message
 
     def get_raw_output(self, tile, _baselevel_readonly=False):
         """
@@ -289,11 +353,8 @@ class Mapchete(object):
         """
         if not isinstance(tile, (BufferedTile, tuple)):
             raise TypeError("'tile' must be a tuple or BufferedTile")
-        tile = (
-            self.config.output_pyramid.tile(*tile)
-            if isinstance(tile, tuple)
-            else tile
-        )
+        if isinstance(tile, tuple):
+            tile = self.config.output_pyramid.tile(*tile)
         if _baselevel_readonly:
             tile = self.config.baselevels["tile_pyramid"].tile(*tile.id)
 
@@ -304,8 +365,7 @@ class Mapchete(object):
         # TODO implement reprojection
         if tile.crs != self.config.process_pyramid.crs:
             raise NotImplementedError(
-                "reprojection between processes not yet implemented"
-            )
+                "reprojection between processes not yet implemented")
 
         if self.config.mode == "memory":
             # Determine affected process Tile and check whether it is already
@@ -418,26 +478,20 @@ class Mapchete(object):
             if process_tile.zoom < min(self.config.baselevels["zooms"]):
                 return self._streamline_output(
                     self._interpolate_from_baselevel(
-                        process_tile, "lower"
-                    )
-                )
+                        process_tile, "lower"))
             elif process_tile.zoom > max(self.config.baselevels["zooms"]):
                 return self._streamline_output(
                     self._interpolate_from_baselevel(
-                        process_tile, "higher"
-                    )
-                )
+                        process_tile, "higher"))
         # Otherwise, load process source and execute.
         try:
             user_process_py = imp.load_source(
-                self.process_name + "process_file", self.config.process_file
-            )
+                self.process_name, self.config.process_file)
             if hasattr(user_process_py, "execute"):
                 process_is_function = True
                 tile_process = MapcheteProcess(
                     config=self.config, tile=process_tile,
-                    params=self.config.params_at_zoom(process_tile.zoom)
-                )
+                    params=self.config.params_at_zoom(process_tile.zoom))
                 user_execute = user_process_py.execute
                 if len(inspect.getargspec(user_execute).args) != 1:
                     raise ImportError(
@@ -446,8 +500,7 @@ class Mapchete(object):
             elif hasattr(user_process_py, "Process"):
                 warnings.warn(
                     """instanciating MapcheteProcess will be deprecated, """
-                    """provide execute() function instead"""
-                )
+                    """provide execute() function instead""")
                 process_is_function = False
                 tile_process = user_process_py.Process(
                     config=self.config, tile=process_tile,
@@ -471,13 +524,13 @@ class Mapchete(object):
         except Exception as e:
             # Log process time
             elapsed = "%ss" % (round((time.time() - starttime), 3))
-            LOGGER.exception(
+            logger.exception(
                 (process_tile.id, "exception in user process", e, elapsed))
             raise MapcheteProcessException(format_exc())
         finally:
             tile_process = None
         elapsed = "%ss" % (round((time.time() - starttime), 3))
-        LOGGER.debug((process_tile.id, "processed", elapsed))
+        logger.debug((process_tile.id, "processed", elapsed))
         # Analyze proess output.
         try:
             return self._streamline_output(process_data)
@@ -532,7 +585,7 @@ class Mapchete(object):
                 nodataval=self.config.output.nodata
             )
         elapsed = "%ss" % (round((time.time() - starttime), 3))
-        LOGGER.debug((tile.id, "generated from baselevel", elapsed))
+        logger.debug((tile.id, "generated from baselevel", elapsed))
         return process_data
 
     def __enter__(self):
@@ -728,3 +781,159 @@ class MapcheteProcess(object):
         return commons_clip.clip_array_with_vector(
             array, self.tile.affine, geometries,
             inverted=inverted, clip_buffer=clip_buffer*self.tile.pixel_x_size)
+
+
+def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
+    """
+    Count number of tiles intersecting with geometry.
+
+    Parameters
+    ----------
+    geometry : shapely geometry
+    pyramid : TilePyramid
+    minzoom : int
+    maxzoom : int
+    init_zoom : int
+
+    Returns
+    -------
+    number of tiles
+    """
+    if not 0 <= init_zoom <= minzoom <= maxzoom:
+        raise ValueError("invalid zoom levels given")
+    # tile buffers are not being taken into account
+    unbuffered_pyramid = TilePyramid(
+        pyramid.grid, tile_size=pyramid.tile_size,
+        metatiling=pyramid.metatiling
+    )
+    # make sure no rounding errors occur
+    geometry = geometry.buffer(-0.000000001)
+    return _count_tiles(
+        [
+            unbuffered_pyramid.tile(*tile_id)
+            for tile_id in product(
+                [init_zoom],
+                range(pyramid.matrix_height(init_zoom)),
+                range(pyramid.matrix_width(init_zoom))
+            )
+        ], geometry, minzoom, maxzoom
+    )
+
+
+def _count_tiles(tiles, geometry, minzoom, maxzoom):
+    count = 0
+    for tile in tiles:
+        # determine data covered by tile
+        tile_intersection = tile.bbox().intersection(geometry)
+        # skip if there is no data
+        if tile_intersection.is_empty:
+            continue
+        # increase counter as tile contains data
+        elif tile.zoom >= minzoom:
+            count += 1
+        # if there are further zoom levels, analyze descendants
+        if tile.zoom < maxzoom:
+            # if tile is full, all of its descendants will be full as well
+            if tile.zoom >= minzoom and tile_intersection.equals(tile.bbox()):
+                # sum up tiles for each remaining zoom level
+                count += sum([
+                     4**z_diff
+                     for z_diff in range(1, (maxzoom - tile.zoom) + 1)
+                ])
+            # if tile is half full, analyze each descendant
+            else:
+                count += _count_tiles(
+                    tile.get_children(), tile_intersection, minzoom, maxzoom
+                )
+    return count
+
+
+# helper functions for batch_processor #
+########################################
+def _run_on_single_tile(process, tile):
+    logger.debug("run process on single tile")
+    tile, message = _process_worker(
+        process, process.config.process_pyramid.tile(*tuple(tile)))
+    return dict(process_tile=tile, **message)
+
+
+def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
+    logger.debug("run with multiprocessing")
+    num_processed = 0
+    total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
+    logger.debug(
+        "run process on %s tiles using %s workers", total_tiles, multi)
+    f = partial(_process_worker, process)
+    for zoom in zoom_levels:
+        process_tiles = process.get_process_tiles(zoom)
+        pool = Pool(multi)
+        try:
+            for tile, message in pool.imap_unordered(
+                f,
+                process_tiles,
+                # set chunksize to between 1 and max_chunksize
+                chunksize=min([max([total_tiles // multi, 1]), max_chunksize])
+            ):
+                num_processed += 1
+                logger.debug("tile %s/%s finished", num_processed, total_tiles)
+                yield dict(process_tile=tile, **message)
+        except KeyboardInterrupt:
+            logger.error("Caught KeyboardInterrupt, terminating workers")
+            pool.terminate()
+            break
+        except Exception:
+            pool.terminate()
+            raise
+        finally:
+            pool.close()
+            pool.join()
+            process_tiles = None
+    logger.debug("%s tile(s) iterated", (str(num_processed)))
+
+
+def _run_without_multiprocessing(process, zoom_levels):
+    logger.debug("run without multiprocessing")
+    num_processed = 0
+    total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
+    logger.debug("run process on %s tiles using 1 worker", total_tiles)
+    for zoom in zoom_levels:
+        for process_tile in process.get_process_tiles(zoom):
+            tile, message = _process_worker(process, process_tile)
+            num_processed += 1
+            logger.debug("tile %s/%s finished", num_processed, total_tiles)
+            yield dict(process_tile=tile, **message)
+    logger.debug("%s tile(s) iterated", (str(num_processed)))
+
+
+def _get_zoom_level(zoom, process):
+    """Determine zoom levels."""
+    if zoom is None:
+        return reversed(process.config.zoom_levels)
+    if isinstance(zoom, int):
+        return [zoom]
+    elif len(zoom) == 2:
+        return reversed(range(min(zoom), max(zoom)+1))
+    elif len(zoom) == 1:
+        return zoom
+
+
+def _process_worker(process, process_tile):
+    """Worker function running the process."""
+    logger.debug((process_tile.id, "running on %s" % current_process().name))
+    # Skip execution if overwrite is disabled and tile exists
+    if process.config.mode == "continue" and (
+        process.config.output.tiles_exist(process_tile)
+    ):
+        logger.debug((process_tile.id, "tile exists, skipping"))
+        return process_tile, dict(
+            process="output already exists",
+            write="nothing written")
+    else:
+        start = time.time()
+        output = process.execute(process_tile)
+        processor_message = "processed in %ss" % round(time.time() - start, 3)
+        logger.debug((process_tile.id, processor_message))
+        writer_message = process.write(process_tile, output)
+        return process_tile, dict(
+            process=processor_message,
+            write=writer_message)
