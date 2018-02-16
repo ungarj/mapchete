@@ -5,13 +5,23 @@ Changelog
 ----
 0.19
 ----
-* on batch process, writing output is now handled by workers instead by main process
-* ``mapchete execute`` now can write log files using the ``--logfile`` option
+* made logging functionality now library friendly (#102)
+* added ``mapchete.log`` module with functions simplifying logging for user processes and driver plugins
+* ``mapchete execute``
+  * ``--logfile`` flag writes log files with debug level
+  * ``--debug`` disables progress bar & prints debug log output
+  * ``--verbose`` enables printing of process tile information while showing the progress bar
+  * ``--max_chunksize`` lets user decide which maximum chunk size is used by ``multiprocessing``
+* batch processing module
+    * ``mapchete._batch`` functionality absorbed into main module
+    * writing output is now handled by workers instead by main process
+    * new function ``Mapchete.batch_processor()`` is a generator which processes all of the process tiles and returns information (i.e. processing & write times)
+    * ``Mapchete.batch_process()`` consumes ``Mapchete.batch_processor()`` without returning anything
+    * ``quiet`` and ``debug`` flags are deprecated and removed
 * ``get_segmentize_value()`` moved from ``mapchete.formats.defaults.raster_file`` to ``mapchete.io``
 * use GDAL options for remote files (closing #103) per default:
   * ``GDAL_DISABLE_READDIR_ON_OPEN=True``
   * ``GDAL_HTTP_TIMEOUT=30``
-
 * introduced ``mapchete.io.path_is_remote()``
 
 ----
