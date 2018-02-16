@@ -173,7 +173,10 @@ class MapcheteCLI(object):
             help="write debug log infos into file")
         parser.add_argument(
             "--verbose", "-v", action="store_true",
-            help="print process info")
+            help="print info for each process tile")
+        parser.add_argument(
+            "--debug", "-d", action="store_true",
+            help="deactivate progress bar and print debug log output")
         parser.add_argument(
             "--max_chunksize", "-c", type=int, metavar="<int>", default=16,
             help="maximum number of process tiles to be queued for each \

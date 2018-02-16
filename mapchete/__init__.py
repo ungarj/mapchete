@@ -173,11 +173,9 @@ class Mapchete(object):
             zoom)
         multi : int
             number of workers (default: number of CPU cores)
-        quiet : bool
-            set log level to "warning" and disable progress bar
-        debug : bool
-            set log level to "debug" and disable progress bar (cannot be used
-            with quiet)
+        max_chunksize : int
+            maximum number of process tiles to be queued for each worker;
+            (default: 16)
         """
         batch_process(self, zoom, tile, multi, max_chunksize)
 
@@ -197,6 +195,9 @@ class Mapchete(object):
             zoom)
         multi : int
             number of workers (default: number of CPU cores)
+        max_chunksize : int
+            maximum number of process tiles to be queued for each worker;
+            (default: 16)
         """
         for r in batch_processor(self, zoom, tile, multi, max_chunksize):
             yield r
@@ -294,23 +295,25 @@ class Mapchete(object):
             process_tile = self.config.process_pyramid.tile(*process_tile)
         elif not isinstance(process_tile, BufferedTile):
             raise ValueError(
-                "invalid process_tile type: %s" % type(process_tile)
-            )
+                "invalid process_tile type: %s" % type(process_tile))
         if self.config.mode not in ["continue", "overwrite"]:
             raise ValueError("process mode must be continue or overwrite")
-        if data is None:
-            logger.debug((process_tile.id, "nothing to write"))
+        if self.config.mode == "continue" and (
+            self.config.output.tiles_exist(process_tile)
+        ):
+            message = "output exists, not overwritten"
+            logger.debug((process_tile.id, message))
+            return message
         else:
-            if self.config.mode == "continue" and (
-                self.config.output.tiles_exist(process_tile)
-            ):
-                logger.debug((process_tile.id, "exists, not overwritten"))
-                pass
-            else:
-                starttime = time.time()
-                self.config.output.write(process_tile=process_tile, data=data)
-                elapsed = "%ss" % (round((time.time() - starttime), 3))
-                logger.debug((process_tile.id, "output written", elapsed))
+            if data is None:
+                message = "output empty, nothing written"
+                logger.debug((process_tile.id), message)
+                return message
+            start = time.time()
+            self.config.output.write(process_tile=process_tile, data=data)
+            message = "output written in %ss" % round(time.time() - start, 3)
+            logger.debug((process_tile.id, message))
+            return message
 
     def get_raw_output(self, tile, _baselevel_readonly=False):
         """
