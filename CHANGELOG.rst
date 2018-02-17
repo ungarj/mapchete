@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.20
+----
+* added ``RasterWindowMemoryFile()`` context manager around ``rasterio.io.MemoryFile``
+
+----
 0.19
 ----
 * made logging functionality now library friendly (#102)

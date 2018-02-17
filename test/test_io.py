@@ -19,7 +19,8 @@ from mapchete.tile import BufferedTilePyramid
 from mapchete.io import get_best_zoom_level
 from mapchete.io.raster import (
     read_raster_window, write_raster_window, extract_from_array,
-    resample_from_array, create_mosaic, ReferencedRaster, prepare_array)
+    resample_from_array, create_mosaic, ReferencedRaster, prepare_array,
+    RasterWindowMemoryFile)
 from mapchete.io.vector import (
     read_vector_window, reproject_geometry, clean_geometry_type,
     segmentize_geometry)
@@ -215,6 +216,35 @@ def test_write_raster_window_memory():
                 assert src.compression == Compression(
                     out_profile["compress"].upper())
         memfile.close()
+
+
+def test_raster_window_memoryfile():
+    """Use context manager for rasterio MemoryFile."""
+    tp = BufferedTilePyramid("geodetic")
+    tile = tp.tile(5, 5, 5)
+    data = ma.masked_array(np.ones((2, ) + tile.shape))
+    for out_profile in [
+        dict(
+            driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
+            height=tile.height, width=tile.width, affine=tile.affine),
+        dict(
+            driver="GTiff", count=2, dtype="uint8", compress="deflate",
+            nodata=0, height=tile.height, width=tile.width,
+            affine=tile.affine),
+        dict(
+            driver="PNG", count=2, dtype="uint8", nodata=0, height=tile.height,
+            width=tile.width, compress=None, affine=tile.affine),
+    ]:
+        with RasterWindowMemoryFile(
+            in_tile=tile, in_data=data, out_profile=out_profile
+        ) as memfile:
+            with memfile.open() as src:
+                assert src.read().any()
+                assert src.meta["driver"] == out_profile["driver"]
+                assert src.transform == tile.affine
+                if out_profile["compress"]:
+                    assert src.compression == Compression(
+                        out_profile["compress"].upper())
 
 
 def test_write_raster_window_errors():

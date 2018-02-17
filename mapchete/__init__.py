@@ -37,7 +37,7 @@ logger.addHandler(logging.NullHandler())
 logging.getLogger("rasterio").setLevel(logging.ERROR)
 
 
-__version__ = "0.19"
+__version__ = "0.20"
 
 
 def open(

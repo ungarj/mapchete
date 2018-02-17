@@ -193,6 +193,37 @@ def _is_on_edge(tile):
     ])
 
 
+class RasterWindowMemoryFile():
+    """Context manager around rasterio.io.MemoryFile."""
+
+    def __init__(
+        self, in_tile=None, in_data=None, out_profile=None, out_tile=None
+    ):
+        """Prepare data & profile."""
+        out_tile = in_tile if out_tile is None else out_tile
+        _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
+        self.data = extract_from_array(
+            in_raster=in_data,
+            in_affine=in_tile.affine,
+            out_tile=out_tile)
+        # use transform instead of affine
+        if "affine" in out_profile:
+            out_profile["transform"] = out_profile.pop("affine")
+        self.profile = out_profile
+
+    def __enter__(self):
+        """Open MemoryFile, write data and return."""
+        self.rio_memfile = MemoryFile()
+        with self.rio_memfile.open(**self.profile) as dst:
+            for b, d in enumerate(self.data):
+                dst.write(d.astype(self.profile["dtype"]), b + 1)
+        return self.rio_memfile
+
+    def __exit__(self, *args):
+        """Make sure MemoryFile is closed."""
+        self.rio_memfile.close()
+
+
 def write_raster_window(
     in_tile=None, in_data=None, out_profile=None, out_tile=None, out_path=None
 ):
@@ -213,13 +244,7 @@ def write_raster_window(
         rasterio.MemoryFile() is returned
     """
     out_tile = in_tile if out_tile is None else out_tile
-    for t in [in_tile, out_tile]:
-        if not isinstance(t, BufferedTile):
-            raise TypeError("in_tile and out_tile must be BufferedTile")
-    if not isinstance(in_data, ma.MaskedArray):
-        raise TypeError("in_data must be ma.MaskedArray")
-    if not isinstance(out_profile, dict):
-        raise TypeError("out_profile must be a dictionary")
+    _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
     if not isinstance(out_path, six.string_types):
         raise TypeError("out_path must be a string")
     window_data = extract_from_array(
@@ -241,6 +266,15 @@ def write_raster_window(
             with rasterio.open(out_path, 'w', **out_profile) as dst:
                 for band, data in enumerate(window_data):
                     dst.write(data.astype(out_profile["dtype"]), band + 1)
+
+
+def _validate_write_window_params(in_tile, out_tile, in_data, out_profile):
+    if any([not isinstance(t, BufferedTile) for t in [in_tile, out_tile]]):
+        raise TypeError("in_tile and out_tile must be BufferedTile")
+    if not isinstance(in_data, ma.MaskedArray):
+        raise TypeError("in_data must be ma.MaskedArray")
+    if not isinstance(out_profile, dict):
+        raise TypeError("out_profile must be a dictionary")
 
 
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
