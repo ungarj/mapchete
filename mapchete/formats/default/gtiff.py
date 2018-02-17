@@ -122,6 +122,12 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
+        if all([
+            isinstance(data, tuple), len(data) == 2, isinstance(data[1], dict)
+        ]):
+            data, tags = data
+        else:
+            data, tags = data, {}
         data = prepare_array(
             data, masked=True, nodata=self.nodata,
             dtype=self.profile(process_tile)["dtype"])
@@ -135,7 +141,7 @@ class OutputData(base.OutputData):
             write_raster_window(
                 in_tile=process_tile, in_data=data,
                 out_profile=self.profile(out_tile), out_tile=out_tile,
-                out_path=out_path)
+                out_path=out_path, tags=tags)
 
     def tiles_exist(self, process_tile):
         """

@@ -197,7 +197,8 @@ class RasterWindowMemoryFile():
     """Context manager around rasterio.io.MemoryFile."""
 
     def __init__(
-        self, in_tile=None, in_data=None, out_profile=None, out_tile=None
+        self, in_tile=None, in_data=None, out_profile=None, out_tile=None,
+        tags=None
     ):
         """Prepare data & profile."""
         out_tile = in_tile if out_tile is None else out_tile
@@ -210,6 +211,7 @@ class RasterWindowMemoryFile():
         if "affine" in out_profile:
             out_profile["transform"] = out_profile.pop("affine")
         self.profile = out_profile
+        self.tags = tags
 
     def __enter__(self):
         """Open MemoryFile, write data and return."""
@@ -217,6 +219,7 @@ class RasterWindowMemoryFile():
         with self.rio_memfile.open(**self.profile) as dst:
             for b, d in enumerate(self.data):
                 dst.write(d.astype(self.profile["dtype"]), b + 1)
+                _write_tags(dst, self.tags)
         return self.rio_memfile
 
     def __exit__(self, *args):
@@ -225,7 +228,8 @@ class RasterWindowMemoryFile():
 
 
 def write_raster_window(
-    in_tile=None, in_data=None, out_profile=None, out_tile=None, out_path=None
+    in_tile=None, in_data=None, out_profile=None, out_tile=None, out_path=None,
+    tags=None
 ):
     """
     Write a window from a numpy array to an output file.
@@ -261,11 +265,24 @@ def write_raster_window(
             with memfile.open(**out_profile) as dst:
                 for band, data in enumerate(window_data):
                     dst.write(data.astype(out_profile["dtype"]), band + 1)
+                    _write_tags(dst, tags)
             return memfile
         else:
             with rasterio.open(out_path, 'w', **out_profile) as dst:
                 for band, data in enumerate(window_data):
                     dst.write(data.astype(out_profile["dtype"]), band + 1)
+                    _write_tags(dst, tags)
+
+
+def _write_tags(dst, tags):
+    if tags:
+        for k, v in six.iteritems(tags):
+            # for band specific tags
+            if isinstance(k, int):
+                dst.update_tags(k, **v)
+            # for filewide tags
+            else:
+                dst.update_tags(**{k: v})
 
 
 def _validate_write_window_params(in_tile, out_tile, in_data, out_profile):

@@ -119,3 +119,25 @@ def test_input_data(mp_tmpdir, cleantopo_br):
         # open without resampling
         with output.open(tile, mp) as input_tile:
             pass
+
+
+def test_write_geotiff_tags(
+    mp_tmpdir, cleantopo_br, write_rasterfile_tags_py
+):
+    """Pass on metadata tags from user process to rasterio."""
+    conf = dict(**cleantopo_br.dict)
+    conf.update(process_file=write_rasterfile_tags_py)
+    import rasterio
+    with mapchete.open(conf) as mp:
+        for tile in mp.get_process_tiles():
+            data, tags = mp.execute(tile)
+            assert data.any()
+            assert isinstance(tags, dict)
+            mp.write(process_tile=tile, data=(data, tags))
+            # read data
+            out_path = mp.config.output.get_path(tile)
+            with rasterio.open(out_path) as src:
+                assert "filewide_tag" in src.tags()
+                assert src.tags()["filewide_tag"] == "value"
+                assert "band_tag" in src.tags(1)
+                assert src.tags(1)["band_tag"] == "True"

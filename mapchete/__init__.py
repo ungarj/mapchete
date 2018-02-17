@@ -546,6 +546,15 @@ class Mapchete(object):
             return process_data
         elif isinstance(process_data, (list, types.GeneratorType)):
             return list(process_data)
+        # for data, metadata tuples
+        elif isinstance(process_data, tuple):
+            if not all([
+                len(process_data) == 2,
+                isinstance(process_data[1], dict),
+            ]):
+                raise MapcheteProcessOutputError("malformed process output")
+            data, metadata = process_data
+            return self._streamline_output(data), metadata
         elif not process_data:
             raise MapcheteProcessOutputError("process output is empty")
         else:

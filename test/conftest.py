@@ -100,6 +100,12 @@ def dummy2_tif():
 
 
 @pytest.fixture
+def write_rasterfile_tags_py():
+    """Fixture for write_rasterfile_tags.py"""
+    return os.path.join(TESTDATA_DIR, "write_rasterfile_tags.py")
+
+
+@pytest.fixture
 def import_error_py():
     """Fixture for import_error.py"""
     return os.path.join(TESTDATA_DIR, "import_error.py")
