@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """Test GeoTIFF as process output."""
 
-import os
-from rasterio.io import MemoryFile
-import shutil
 import numpy as np
 import numpy.ma as ma
+import os
+import rasterio
+from rasterio.io import MemoryFile
+import shutil
 
 import mapchete
 from mapchete.formats.default import gtiff
@@ -127,7 +128,6 @@ def test_write_geotiff_tags(
     """Pass on metadata tags from user process to rasterio."""
     conf = dict(**cleantopo_br.dict)
     conf.update(process_file=write_rasterfile_tags_py)
-    import rasterio
     with mapchete.open(conf) as mp:
         for tile in mp.get_process_tiles():
             data, tags = mp.execute(tile)
