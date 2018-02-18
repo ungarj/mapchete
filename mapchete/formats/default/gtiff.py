@@ -122,12 +122,14 @@ class OutputData(base.OutputData):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        if all([
-            isinstance(data, tuple), len(data) == 2, isinstance(data[1], dict)
-        ]):
+        if (
+            isinstance(data, tuple) and
+            len(data) == 2 and
+            isinstance(data[1], dict)
+        ):
             data, tags = data
         else:
-            data, tags = data, {}
+            tags = {}
         data = prepare_array(
             data, masked=True, nodata=self.nodata,
             dtype=self.profile(process_tile)["dtype"])

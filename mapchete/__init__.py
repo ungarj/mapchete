@@ -547,11 +547,11 @@ class Mapchete(object):
         elif isinstance(process_data, (list, types.GeneratorType)):
             return list(process_data)
         # for data, metadata tuples
-        elif all([
-            isinstance(process_data, tuple),
-            len(process_data) == 2,
+        elif (
+            isinstance(process_data, tuple) and
+            len(process_data) == 2 and
             isinstance(process_data[1], dict)
-        ]):
+        ):
             data, metadata = process_data
             return self._streamline_output(data), metadata
         elif not process_data:
