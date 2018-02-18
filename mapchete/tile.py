@@ -1,6 +1,7 @@
 """Mapchtete handling tiles."""
-from tilematrix import Tile, TilePyramid
 from cached_property import cached_property
+from shapely.geometry import box
+from tilematrix import Tile, TilePyramid
 
 
 class BufferedTilePyramid(TilePyramid):
@@ -35,9 +36,10 @@ class BufferedTilePyramid(TilePyramid):
         self.tile_pyramid = TilePyramid(
             pyramid_type, metatiling=metatiling, tile_size=tile_size)
         self.metatiling = metatiling
-        if any([not isinstance(pixelbuffer, int), pixelbuffer < 0]):
+        if isinstance(pixelbuffer, int) and pixelbuffer >= 0:
+            self.pixelbuffer = pixelbuffer
+        else:
             raise ValueError("pixelbuffer has to be a non-negative int")
-        self.pixelbuffer = pixelbuffer
 
     def tile(self, zoom, row, col):
         """
@@ -78,7 +80,7 @@ class BufferedTilePyramid(TilePyramid):
         intersecting tiles : generator
             generates ``BufferedTiles``
         """
-        for tile in self.tile_pyramid.tiles_from_bounds(bounds, zoom):
+        for tile in self.tiles_from_bbox(box(*bounds), zoom):
             yield self.tile(*tile.id)
 
     def tiles_from_bbox(self, geometry, zoom):
@@ -127,8 +129,7 @@ class BufferedTilePyramid(TilePyramid):
         """
         return [
             self.tile(*intersecting_tile.id)
-            for intersecting_tile in self.tile_pyramid.intersecting(tile)
-        ]
+            for intersecting_tile in self.tile_pyramid.intersecting(tile)]
 
 
 class BufferedTile(Tile):
@@ -171,11 +172,12 @@ class BufferedTile(Tile):
     @cached_property
     def profile(self):
         """Return a rasterio profile dictionary."""
-        out_meta = self.output.profile
-        out_meta.update(
-            width=self.width, height=self.height, transform=None,
+        return dict(
+            self.output.profile,
+            width=self.width,
+            height=self.height,
+            transform=None,
             affine=self.affine)
-        return out_meta
 
     @cached_property
     def height(self):
@@ -218,8 +220,7 @@ class BufferedTile(Tile):
         """
         return [
             BufferedTile(tile, self.pixelbuffer)
-            for tile in self._tile.get_children()
-        ]
+            for tile in self._tile.get_children()]
 
     def get_parent(self):
         """
