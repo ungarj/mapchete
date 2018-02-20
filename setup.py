@@ -59,12 +59,12 @@ setup(
         'pyyaml',
         'flask',
         'rasterio>=1.0a12',
-        'matplotlib',
         'cached_property',
         'pyproj',
         'cachetools',
         'tqdm'
     ] if not on_rtd else [],
+    extra_require={'contours': ['matplotlib']},
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
