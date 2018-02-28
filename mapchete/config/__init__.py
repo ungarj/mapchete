@@ -546,22 +546,20 @@ def get_hash(x):
 
 def _config_to_dict(input_config):
     if isinstance(input_config, dict):
-        raw = input_config
-        raw.update(mapchete_file=None)
         if "config_dir" not in input_config:
             raise MapcheteConfigError("config_dir parameter missing")
+        return dict(input_config, mapchete_file=None)
     # from Mapchete file
     elif os.path.splitext(input_config)[1] == ".mapchete":
         with open(input_config, "r") as config_file:
-            raw = yaml.safe_load(config_file.read())
-        raw.update(
-            config_dir=os.path.dirname(os.path.realpath(input_config)),
-            mapchete_file=input_config)
+            return dict(
+                yaml.safe_load(config_file.read()),
+                config_dir=os.path.dirname(os.path.realpath(input_config)),
+                mapchete_file=input_config)
     # throw error if unknown object
     else:
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file.")
-    return raw
 
 
 def _validate_process_file(config):
