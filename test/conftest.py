@@ -45,6 +45,12 @@ def mp_tmpdir():
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
 
 
+@pytest.fixture
+def wkt_geom():
+    """Example WKT geometry."""
+    return "Polygon ((2.8125 11.25, 2.8125 14.0625, 0 14.0625, 0 11.25, 2.8125 11.25))"
+
+
 # example files
 @pytest.fixture
 def http_raster():

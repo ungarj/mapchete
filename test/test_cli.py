@@ -148,6 +148,14 @@ def test_execute_logfile(mp_tmpdir, example_mapchete):
         assert "DEBUG" in log.read()
 
 
+def test_execute_wkt_bounds(mp_tmpdir, example_mapchete, wkt_geom):
+    """Using bounds from WKT."""
+    args = [
+        None, 'execute', example_mapchete.path,
+        "--wkt_geometry", wkt_geom]
+    MapcheteCLI(args)
+
+
 def test_formats(capfd):
     """Output of mapchete formats command."""
     MapcheteCLI([None, 'formats'])

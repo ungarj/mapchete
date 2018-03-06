@@ -4,6 +4,7 @@
 import logging
 from multiprocessing import cpu_count
 import os
+from shapely import wkt
 import sys
 import tqdm
 import yaml
@@ -64,8 +65,12 @@ def main(args=None):
 
     # initialize and run process
     else:
+        if parsed.wkt_geometry:
+            bounds = wkt.loads(parsed.wkt_geometry).bounds
+        else:
+            bounds = parsed.bounds
         with mapchete.open(
-            parsed.mapchete_file, bounds=parsed.bounds, zoom=parsed.zoom,
+            parsed.mapchete_file, bounds=bounds, zoom=parsed.zoom,
             mode=mode, single_input_file=parsed.input_file
         ) as mp:
             tiles_count = mp.count_tiles(

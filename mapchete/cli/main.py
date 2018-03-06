@@ -155,6 +155,10 @@ class MapcheteCLI(object):
             help="left, bottom, right, top bounds in tile pyramid CRS",
             metavar="<float>")
         parser.add_argument(
+            "--wkt_geometry", "-g", type=str,
+            help="take boundaries from WKT geometry in tile pyramid CRS",
+            metavar="<str>")
+        parser.add_argument(
             "--tile", "-t", type=int, nargs=3,
             help="zoom, row, column of single tile", metavar="<int>")
         parser.add_argument(

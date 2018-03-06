@@ -7,6 +7,7 @@ Changelog
 ----
 * added ``RasterWindowMemoryFile()`` context manager around ``rasterio.io.MemoryFile`` (#105)
 * passing on dictionary together with numpy array from user process will write the dictionary as GeoTIFF tag (#101)
+* added ``--wkt_geometry`` to ``execute`` which enables providing process bounds via WKT
 
 ----
 0.19
