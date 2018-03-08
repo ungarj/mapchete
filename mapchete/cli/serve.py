@@ -13,7 +13,12 @@ from flask import (
 import mapchete
 from mapchete.tile import BufferedTilePyramid
 
-logging.basicConfig(level=logging.INFO)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+stream_handler.setLevel(logging.ERROR)
+logging.getLogger().addHandler(stream_handler)
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,10 +45,10 @@ def create_app(
 ):
     """Configure and create Flask app."""
     if debug:
-        logger.setLevel(logging.DEBUG)
+        logging.getLogger("mapchete").setLevel(logging.DEBUG)
+        stream_handler.setLevel(logging.DEBUG)
 
     app = Flask(__name__)
-
     mapchete_processes = {
         os.path.splitext(os.path.basename(mapchete_file))[0]: mapchete.open(
             mapchete_file, zoom=zoom, bounds=bounds,
