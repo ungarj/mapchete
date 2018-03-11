@@ -180,8 +180,8 @@ class GeoJSONWriter():
         exists = len(
             list(filter(
                 lambda f: f['properties']['tile_id'] == str(tile.id),
-                self.existing)
-            )) > 0
+                self.existing
+            ))) > 0
         logger.debug("%s exists: %s", tile, exists)
         return exists
 

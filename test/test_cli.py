@@ -367,3 +367,36 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         for f in src:
             assert "new_fieldname" in f["properties"]
+
+
+def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
+    # execute process for single tile
+    MapcheteCLI([
+        None, 'execute', cleantopo_tl.path, '-t', '3', '0', '0', '--debug'])
+    # generate index
+    MapcheteCLI([
+        None, 'index', cleantopo_tl.path, '-t', '3', '0', '0', '--geojson',
+        '--debug'])
+    with mapchete.open(cleantopo_tl.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert len(files) == 2
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        assert list(src)
+
+
+def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
+    # execute process at zoom 3
+    MapcheteCLI([
+        None, 'execute', cleantopo_br.path, '--debug',
+        "--wkt_geometry", wkt_geom])
+
+    # generate index for zoom 3
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '--geojson', '--debug',
+        "--wkt_geometry", wkt_geom])
+
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert len(files) == 6
+        assert "3.geojson" in files
