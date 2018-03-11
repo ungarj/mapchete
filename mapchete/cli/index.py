@@ -1,10 +1,14 @@
 """Create index for process output."""
 
 import logging
+from shapely import wkt
 import tqdm
+import yaml
 
 import mapchete
+from mapchete.config import _map_to_new_config
 from mapchete.index import zoom_index_gen
+from mapchete.tile import BufferedTilePyramid
 
 
 # lower stream output log level
@@ -26,23 +30,29 @@ def index(args):
             "one of 'geojson', 'shapefile' or 'vrt' must be provided")
     if args.vrt:
         raise NotImplementedError("writing VRTs is not yet enabled")
-    logger.debug("open mapchete file")
-    with mapchete.open(
-        args.mapchete_file,
-        mode="readonly",
-        zoom=args.zoom,
-        bounds=args.bounds
-    ) as mp:
-        out_dir = args.out_dir if args.out_dir else mp.config.output.path
-        logger.debug("process bounds: %s", mp.config.bounds)
-        logger.debug("process zooms: %s", mp.config.init_zoom_levels)
-        logger.debug("fieldname: %s", args.fieldname)
-        for z in mp.config.init_zoom_levels:
-            logger.debug("zoom %s", z)
+    if args.wkt_geometry:
+        bounds = wkt.loads(args.wkt_geometry).bounds
+    else:
+        bounds = args.bounds
+
+    # process single tile
+    if args.tile:
+        conf = _map_to_new_config(
+            yaml.load(open(args.mapchete_file, "r").read()))
+        tile = BufferedTilePyramid(
+            conf["pyramid"]["grid"],
+            metatiling=conf["pyramid"].get("metatiling", 1),
+            pixelbuffer=conf["pyramid"].get("pixelbuffer", 0)
+        ).tile(*args.tile)
+        with mapchete.open(
+            args.mapchete_file, mode="readonly", bounds=tile.bounds,
+            zoom=tile.zoom
+        ) as mp:
+            out_dir = args.out_dir if args.out_dir else mp.config.output.path
             for tile in tqdm.tqdm(
                 zoom_index_gen(
                     mp=mp,
-                    zoom=z,
+                    zoom=tile.zoom,
                     out_dir=out_dir,
                     geojson=args.geojson,
                     shapefile=args.shapefile,
@@ -50,8 +60,35 @@ def index(args):
                     vrt=args.vrt,
                     fieldname=args.fieldname,
                     overwrite=args.overwrite),
-                total=mp.count_tiles(z, z),
+                total=mp.count_tiles(tile.zoom, tile.zoom),
                 unit="tile",
                 disable=args.debug
             ):
                 logger.debug(tile)
+
+    else:
+        with mapchete.open(
+            args.mapchete_file, mode="readonly", zoom=args.zoom, bounds=bounds
+        ) as mp:
+            out_dir = args.out_dir if args.out_dir else mp.config.output.path
+            logger.debug("process bounds: %s", mp.config.init_bounds)
+            logger.debug("process zooms: %s", mp.config.init_zoom_levels)
+            logger.debug("fieldname: %s", args.fieldname)
+            for z in mp.config.init_zoom_levels:
+                logger.debug("zoom %s", z)
+                for tile in tqdm.tqdm(
+                    zoom_index_gen(
+                        mp=mp,
+                        zoom=z,
+                        out_dir=out_dir,
+                        geojson=args.geojson,
+                        shapefile=args.shapefile,
+                        txt=args.txt,
+                        vrt=args.vrt,
+                        fieldname=args.fieldname,
+                        overwrite=args.overwrite),
+                    total=mp.count_tiles(z, z),
+                    unit="tile",
+                    disable=args.debug
+                ):
+                    logger.debug(tile)

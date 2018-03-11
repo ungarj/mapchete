@@ -178,10 +178,10 @@ class GeoJSONWriter():
 
     def entry_exists(self, tile):
         exists = len(
-            filter(
+            list(filter(
                 lambda f: f['properties']['tile_id'] == str(tile.id),
                 self.existing)
-            ) > 0
+            )) > 0
         logger.debug("%s exists: %s", tile, exists)
         return exists
 
