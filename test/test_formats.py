@@ -103,8 +103,6 @@ def test_base_format_classes():
     with pytest.raises(NotImplementedError):
         tmp.write(None)
     with pytest.raises(NotImplementedError):
-        tmp.tiles_exist(None)
-    with pytest.raises(NotImplementedError):
         tmp.is_valid_with_config(None)
     with pytest.raises(NotImplementedError):
         tmp.for_web(None)

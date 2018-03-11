@@ -5,7 +5,7 @@ Currently limited by extensions .shp and .geojson but could be extended easily.
 """
 
 import fiona
-from shapely.geometry import box, Polygon
+from shapely.geometry import box
 from rasterio.crs import CRS
 
 from mapchete.formats import base
