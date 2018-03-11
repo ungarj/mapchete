@@ -400,3 +400,30 @@ def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
         files = os.listdir(mp.config.output.path)
         assert len(files) == 6
         assert "3.geojson" in files
+
+
+def test_index_shapefile(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    # generate index for zoom 3
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--shapefile', '--debug'
+    ])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "3.shp" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.shp")) as src:
+        for f in src:
+            assert "location" in f["properties"]
+
+    # write again and see that 'a' mode is applied correctly
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--shapefile', '--debug'
+    ])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "3.shp" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.shp")) as src:
+        for f in src:
+            assert "location" in f["properties"]

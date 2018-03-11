@@ -94,6 +94,14 @@ def zoom_index_gen(
                     overwrite=overwrite,
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
+        if shapefile:
+            index_writers.append(
+                ShapefileWriter(
+                    basepath=_get_index_path(out_dir, zoom, "shp"),
+                    overwrite=overwrite,
+                    crs=mp.config.output_pyramid.crs,
+                    fieldname=fieldname))
+
         logger.debug(index_writers)
 
         # iterate through output tiles
@@ -139,29 +147,8 @@ def _get_index_path(out_dir, zoom, ext):
     return os.path.join(out_dir, str(zoom) + "." + ext)
 
 
-class GeoJSONWriter():
-    """Writer for GeoJSON index file."""
-    def __init__(
-        self, basepath=None, overwrite=False, crs=None, fieldname=None,
-    ):
-        logger.debug("initialize GeoJSON writer")
-        self.path = basepath
-        if os.path.isfile(self.path):
-            with fiona.open(self.path) as src:
-                self.existing = list(src)
-            os.remove(self.path)
-        else:
-            self.existing = []
-        self.new_entries = 0
-        self.fieldname = fieldname
-        schema = deepcopy(spatial_schema)
-        schema["properties"][fieldname] = "str:254"
-        self.file_obj = fiona.open(
-            self.path,
-            "w",
-            driver="GeoJSON",
-            crs=crs,
-            schema=schema)
+class VectorFileWriter():
+    """Base class for GeoJSONWriter and ShapefileWriter."""
 
     def write(self, tile, path):
         logger.debug("write %s to %s", path, self)
@@ -189,5 +176,59 @@ class GeoJSONWriter():
         logger.debug("%s new entries in %s", self.new_entries, self)
         self.file_obj.close()
 
+
+class GeoJSONWriter(VectorFileWriter):
+    """Writer for GeoJSON index file."""
+    def __init__(
+        self, basepath=None, overwrite=False, crs=None, fieldname=None,
+    ):
+        logger.debug("initialize GeoJSON writer")
+        self.path = basepath
+        if os.path.isfile(self.path):
+            with fiona.open(self.path) as src:
+                self.existing = list(src)
+            os.remove(self.path)
+        else:
+            self.existing = []
+        self.new_entries = 0
+        self.fieldname = fieldname
+        schema = deepcopy(spatial_schema)
+        schema["properties"][fieldname] = "str:254"
+        self.file_obj = fiona.open(
+            self.path,
+            "w",
+            driver="GeoJSON",
+            crs=crs,
+            schema=schema)
+
     def __repr__(self):
         return "GeoJSONWriter(%s)" % self.path
+
+
+class ShapefileWriter(VectorFileWriter):
+    """Writer for Shapefile index file."""
+    def __init__(
+        self, basepath=None, overwrite=False, crs=None, fieldname=None,
+    ):
+        logger.debug("initialize Shapefile writer")
+        self.path = basepath
+        if os.path.isfile(self.path):
+            with fiona.open(self.path) as src:
+                self.existing = list(src)
+            mode = "a"
+        else:
+            self.existing = []
+            mode = "w"
+        self.new_entries = 0
+        self.fieldname = fieldname
+        schema = deepcopy(spatial_schema)
+        schema["properties"][fieldname] = "str:254"
+        self.file_obj = fiona.open(
+            self.path,
+            mode,
+            driver="ESRI Shapefile",
+            crs=crs,
+            schema=schema)
+
+    def __repr__(self):
+        return "ShapefileWriter(%s)" % self.path
