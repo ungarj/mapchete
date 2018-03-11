@@ -1,14 +1,15 @@
-#!/usr/bin/env python
 """Test Mapchete main module and processing."""
 
-import pytest
+import fiona
+import numpy as np
 import os
+import pytest
 import subprocess
-import yaml
 import rasterio
 from rasterio.io import MemoryFile
-import numpy as np
+import yaml
 
+import mapchete
 from mapchete.cli.main import MapcheteCLI
 from mapchete.errors import MapcheteProcessOutputError
 
@@ -339,3 +340,30 @@ def test_serve(client, mp_tmpdir):
     # test invalid url
     response = client.get(tile_base_url+"invalid_url")
     assert response.status_code == 404
+
+
+def test_index_geojson(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    # generate index for zoom 3
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert len(files) == 2
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        for f in src:
+            assert "location" in f["properties"]
+
+    # overwrite index and rename "location" to "new_fieldname"
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--overwrite', '--fieldname', 'new_fieldname'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        for f in src:
+            assert "new_fieldname" in f["properties"]

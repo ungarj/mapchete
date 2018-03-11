@@ -11,11 +11,12 @@ import sys
 import tilematrix
 
 import mapchete
-from mapchete.cli.execute import main as execute
-from mapchete.cli.serve import main as serve
-from mapchete.cli.pyramid import main as pyramid
 from mapchete.cli.create import create_empty_process
+from mapchete.cli.execute import main as execute
 from mapchete.cli.formats import list_formats
+from mapchete.cli.index import index
+from mapchete.cli.pyramid import main as pyramid
+from mapchete.cli.serve import main as serve
 from mapchete.formats import available_output_formats
 
 
@@ -33,7 +34,7 @@ class MapcheteCLI(object):
         self.args = args
         self._test_serve = _test_serve
         parser = argparse.ArgumentParser(
-            description="tile-based geodata processing with Python",
+            description="Tile-based geodata processing with Python.",
             usage=(
                 """mapchete <command> [<args>]"""
                 """\n"""
@@ -45,6 +46,8 @@ class MapcheteCLI(object):
                 """serve          Serve a process for inspection."""
                 """\n  """
                 """execute        Execute a process."""
+                """\n  """
+                """index          Create index for process output."""
                 """\n  """
                 """pyramid        Create a tile pyramid from an input raster."""
                 """\n  """
@@ -67,7 +70,7 @@ class MapcheteCLI(object):
     def create(self):
         """Parse params and run create command."""
         parser = argparse.ArgumentParser(
-            description="Creates an empty process and configuration file",
+            description="Create an empty process and configuration file.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             usage=(
                 """mapchete create <mapchete_file> <process_file> """
@@ -89,13 +92,12 @@ class MapcheteCLI(object):
         parser.add_argument(
             "--force", "-f", action="store_true",
             help="overwrite if Mapchete and process files already exist")
-        args = parser.parse_args(self.args[2:])
-        create_empty_process(args)
+        create_empty_process(parser.parse_args(self.args[2:]))
 
     def serve(self):
         """Parse params and run serve command."""
         parser = argparse.ArgumentParser(
-            description="Serves a process on localhost",
+            description="Serve a process on localhost.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             usage="mapchete serve <mapchete_file>")
         parser.add_argument(
@@ -136,13 +138,12 @@ class MapcheteCLI(object):
                 """specify an input file via command line (in Mapchete file, """
                 """set 'input_file' parameter to 'from_command_line')"""),
             metavar="<path>")
-        args = parser.parse_args(self.args[2:])
-        serve(args, _test=self._test_serve)
+        serve(parser.parse_args(self.args[2:]), _test=self._test_serve)
 
     def execute(self):
         """Parse params and run execute command."""
         parser = argparse.ArgumentParser(
-            description="Executes a process",
+            description="Execute a process.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             usage="mapchete execute <mapchete_file>")
         parser.add_argument("mapchete_file", type=str, help="Mapchete file")
@@ -185,14 +186,12 @@ class MapcheteCLI(object):
             "--max_chunksize", "-c", type=int, metavar="<int>", default=16,
             help="maximum number of process tiles to be queued for each \
                 worker; (default: 16)")
-
-        args = parser.parse_args(self.args[2:])
-        execute(args)
+        execute(parser.parse_args(self.args[2:]))
 
     def pyramid(self):
         """Parse params and run pyramid command."""
         parser = argparse.ArgumentParser(
-            description="Creates a tile pyramid from an input raster dataset",
+            description="Create a tile pyramid from an input raster dataset.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             usage="mapchete pyramid <raster_file>")
         parser.add_argument("input_raster", type=str, help="input raster file")
@@ -228,13 +227,12 @@ class MapcheteCLI(object):
         parser.add_argument(
             "--overwrite", "-o", action="store_true",
             help="overwrite if tile(s) already exist(s)")
-        args = parser.parse_args(self.args[2:])
-        pyramid(args)
+        pyramid(parser.parse_args(self.args[2:]))
 
     def formats(self):
         """Parse arguments and run formats command."""
         parser = argparse.ArgumentParser(
-            description="Lists available input and/or outpup formats",
+            description="List available input and/or outpup formats.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             usage="mapchete formats")
         parser.add_argument(
@@ -243,8 +241,59 @@ class MapcheteCLI(object):
         parser.add_argument(
             "--output_formats", "-o", action="store_true",
             help="show only output formats")
-        args = parser.parse_args(self.args[2:])
-        list_formats(args)
+        list_formats(parser.parse_args(self.args[2:]))
+
+    def index(self):
+        """Parse params and run index command."""
+        parser = argparse.ArgumentParser(
+            description="Create index of output tiles.",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+            usage="mapchete index <mapchete_file> <index_type>")
+        parser.add_argument("mapchete_file", type=str, help="Mapchete file")
+        parser.add_argument(
+            "--out_dir", type=str,
+            help="output directory (default: output path in mapchete file")
+        parser.add_argument(
+            "--geojson", action="store_true",
+            help="write GeoJSON index")
+        parser.add_argument(
+            "--shapefile", action="store_true",
+            help="write Shapefile index")
+        parser.add_argument(
+            "--vrt", action="store_true",
+            help="write VRT index")
+        parser.add_argument(
+            "--txt", action="store_true",
+            help="write text file with paths")
+        parser.add_argument(
+            "--fieldname", type=str, default="location",
+            help="take boundaries from WKT geometry in tile pyramid CRS",
+            metavar="<str>")
+        parser.add_argument(
+            "--zoom", "-z", type=int, nargs='*',
+            help="either minimum and maximum zoom level or just one zoom level",
+            metavar="<int>")
+        parser.add_argument(
+            "--bounds", "-b", type=float, nargs=4,
+            help="left, bottom, right, top bounds in tile pyramid CRS",
+            metavar="<float>")
+        parser.add_argument(
+            "--wkt_geometry", "-g", type=str,
+            help="take boundaries from WKT geometry in tile pyramid CRS",
+            metavar="<str>")
+        parser.add_argument(
+            "--tile", "-t", type=int, nargs=3,
+            help="zoom, row, column of single tile", metavar="<int>")
+        parser.add_argument(
+            "--overwrite", "-o", action="store_true",
+            help="overwrite if tile(s) already exist(s)")
+        parser.add_argument(
+            "--verbose", "-v", action="store_true",
+            help="print info for each process tile")
+        parser.add_argument(
+            "--debug", "-d", action="store_true",
+            help="deactivate progress bar and print debug log output")
+        index(parser.parse_args(self.args[2:]))
 
 
 if __name__ == "__main__":
