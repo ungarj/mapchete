@@ -376,6 +376,44 @@ def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
 
+def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    basepath = 'http://localhost'
+    # index and rename "location" to "new_fieldname"
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--basepath', basepath])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        for f in src:
+            assert f["properties"]["location"].startswith(basepath)
+        assert len(list(src)) == 1
+
+
+def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    basepath = 'http://localhost'
+    # index and rename "location" to "new_fieldname"
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--basepath', basepath, '--for_gdal'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        for f in src:
+            assert f["properties"]["location"].startswith(
+                "/vsicurl/" + basepath)
+        assert len(list(src)) == 1
+
+
+
 def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     # execute process for single tile
     MapcheteCLI([

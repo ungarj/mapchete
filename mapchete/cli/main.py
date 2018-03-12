@@ -270,6 +270,13 @@ class MapcheteCLI(object):
             help="take boundaries from WKT geometry in tile pyramid CRS",
             metavar="<str>")
         parser.add_argument(
+            "--basepath", type=str,
+            help="use other base path than process output path",
+            metavar="<str>")
+        parser.add_argument(
+            "--for_gdal", action="store_true",
+            help="make remote paths readable by GDAL (i.e. add '/vsucurl/')")
+        parser.add_argument(
             "--zoom", "-z", type=int, nargs='*',
             help="either minimum and maximum zoom level or just one zoom level",
             metavar="<int>")

@@ -58,7 +58,9 @@ def index(args):
                     gpkg=args.gpkg,
                     txt=args.txt,
                     vrt=args.vrt,
-                    fieldname=args.fieldname),
+                    fieldname=args.fieldname,
+                    basepath=args.basepath,
+                    for_gdal=args.for_gdal),
                 total=mp.count_tiles(tile.zoom, tile.zoom),
                 unit="tile",
                 disable=args.debug
@@ -84,7 +86,9 @@ def index(args):
                         gpkg=args.gpkg,
                         txt=args.txt,
                         vrt=args.vrt,
-                        fieldname=args.fieldname),
+                        fieldname=args.fieldname,
+                        basepath=args.basepath,
+                        for_gdal=args.for_gdal),
                     total=mp.count_tiles(z, z),
                     unit="tile",
                     disable=args.debug

@@ -22,6 +22,8 @@ import logging
 import os
 from shapely.geometry import mapping
 
+from mapchete.io import path_is_remote
+
 logger = logging.getLogger(__name__)
 
 spatial_schema = {
@@ -85,14 +87,14 @@ def zoom_index_gen(
             index_writers.append(
                 VectorFileWriter(
                     driver="GeoJSON",
-                    basepath=_get_index_path(out_dir, zoom, "geojson"),
+                    out_path=_index_file_path(out_dir, zoom, "geojson"),
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
         if gpkg:
             index_writers.append(
                 VectorFileWriter(
                     driver="GPKG",
-                    basepath=_get_index_path(out_dir, zoom, "gpkg"),
+                    out_path=_index_file_path(out_dir, zoom, "gpkg"),
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
 
@@ -104,7 +106,9 @@ def zoom_index_gen(
         ):
             logger.debug("analyze tile %s", tile)
             # TODO: generate tile_path depending on basepath & for_gdal option
-            tile_path = mp.config.output.get_path(tile)
+            tile_path = _tile_path(
+                orig_path=mp.config.output.get_path(tile),
+                basepath=basepath, for_gdal=for_gdal)
 
             # check whether output tile exists and pass on to writers
             if mp.config.output.tiles_exist(output_tile=tile):
@@ -123,34 +127,44 @@ def zoom_index_gen(
                     "writer %s could not be closed: %s", e, str(writer))
 
 
-def _get_index_path(out_dir, zoom, ext):
+def _index_file_path(out_dir, zoom, ext):
     return os.path.join(out_dir, str(zoom) + "." + ext)
+
+
+def _tile_path(orig_path, basepath, for_gdal):
+    path = (
+        os.path.join(basepath, "/".join(orig_path.split("/")[-3:])) if basepath
+        else orig_path)
+    if for_gdal and path_is_remote(path):
+        return "/vsicurl/" + path
+    else:
+        return path
 
 
 class VectorFileWriter():
     """Base class for GeoJSONWriter and GeoPackageWriter."""
 
     def __init__(
-        self, basepath=None, crs=None, fieldname=None, driver=None
+        self, out_path=None, crs=None, fieldname=None, driver=None
     ):
         logger.debug("initialize %s writer", driver)
-        self.path = basepath
+        self.path = out_path
         if driver not in ["GeoJSON", "GPKG"]:
             raise ValueError("only GeoJSON and GPKG are allowed")
         self.driver = driver
         if os.path.isfile(self.path):
             with fiona.open(self.path) as src:
-                self.existing = list(src)
+                self.existing = {f["properties"]["tile_id"]: f for f in src}
             os.remove(self.path)
         else:
-            self.existing = []
+            self.existing = {}
         self.new_entries = 0
         self.fieldname = fieldname
         schema = deepcopy(spatial_schema)
         schema["properties"][fieldname] = "str:254"
         self.file_obj = fiona.open(
             self.path, "w", driver=self.driver, crs=crs, schema=schema)
-        self.file_obj.writerecords(self.existing)
+        self.file_obj.writerecords(self.existing.values())
 
     def __repr__(self):
         return "VectorFileWriter(%s, %s)" % (self.driver, self.path)
@@ -170,13 +184,7 @@ class VectorFileWriter():
         self.new_entries += 1
 
     def entry_exists(self, tile):
-        for i in filter(
-            lambda f: f['properties']['tile_id'] == str(tile.id), self.existing
-        ):
-            exists = True
-            break
-        else:
-            exists = False
+        exists = str(tile.id) in self.existing.keys()
         logger.debug("%s exists: %s", tile, exists)
         return exists
 
