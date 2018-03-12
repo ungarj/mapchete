@@ -356,17 +356,24 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         for f in src:
             assert "location" in f["properties"]
+        assert len(list(src)) == 1
 
-    # overwrite index and rename "location" to "new_fieldname"
+
+def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    # index and rename "location" to "new_fieldname"
     MapcheteCLI([
         None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
-        '--overwrite', '--fieldname', 'new_fieldname'])
+        '--fieldname', 'new_fieldname'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "3.geojson" in files
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         for f in src:
             assert "new_fieldname" in f["properties"]
+        assert len(list(src)) == 1
 
 
 def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
@@ -382,7 +389,7 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
         assert len(files) == 2
         assert "3.geojson" in files
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
-        assert list(src)
+        assert len(list(src)) == 1
 
 
 def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
@@ -403,27 +410,27 @@ def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
 
 
 def test_index_gpkg(mp_tmpdir, cleantopo_br):
-    # execute process at zoom 3
+    # execute process
     MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '5', '--debug'])
 
-    # generate index for zoom 3
+    # generate index
     MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'
-    ])
+        None, 'index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
     with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
         for f in src:
             assert "location" in f["properties"]
+        assert len(list(src)) == 1
 
-    # write again
+    # write again and assert there is no new entry because there is already one
     MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'
-    ])
+        None, 'index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
     with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
         for f in src:
             assert "location" in f["properties"]
+        assert len(list(src)) == 1

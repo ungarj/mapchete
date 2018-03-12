@@ -43,8 +43,7 @@ def zoom_index_gen(
     vrt=False,
     fieldname=None,
     basepath=None,
-    for_gdal=True,
-    overwrite=False
+    for_gdal=True
 ):
     """
     Generate indexes for given zoom level.
@@ -72,9 +71,6 @@ def zoom_index_gen(
     for_gdal : bool
         use GDAL compatible remote paths, i.e. add "/vsicurl/" before path
         (default: True)
-    overwrite : bool
-        don't check if tile index already exists (default False)
-
     """
     if not any([geojson, gpkg, vrt]):
         raise ValueError(
@@ -87,16 +83,16 @@ def zoom_index_gen(
         index_writers = []
         if geojson:
             index_writers.append(
-                GeoJSONWriter(
+                VectorFileWriter(
+                    driver="GeoJSON",
                     basepath=_get_index_path(out_dir, zoom, "geojson"),
-                    overwrite=overwrite,
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
         if gpkg:
             index_writers.append(
-                GeoPackageWriter(
+                VectorFileWriter(
+                    driver="GPKG",
                     basepath=_get_index_path(out_dir, zoom, "gpkg"),
-                    overwrite=overwrite,
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
 
@@ -110,24 +106,10 @@ def zoom_index_gen(
             # TODO: generate tile_path depending on basepath & for_gdal option
             tile_path = mp.config.output.get_path(tile)
 
-            # in overwrite mode, simply check whether output tile exists
-            # and pass on to writers
-            if overwrite and mp.config.output.tiles_exist(output_tile=tile):
+            # check whether output tile exists and pass on to writers
+            if mp.config.output.tiles_exist(output_tile=tile):
                 for index in index_writers:
                     index.write(tile, tile_path)
-
-            # not in overwrite, first check whether entry already exists
-            # in index files and only call output.tiles_exist() if
-            # necessary
-            else:
-                not_yet_added = [
-                    index for index in index_writers
-                    if not index.entry_exists(tile)]
-                if not_yet_added and mp.config.output.tiles_exist(
-                    output_tile=tile
-                ):
-                    for index in not_yet_added:
-                        index.write(tile, tile_path)
 
             yield tile
 
@@ -148,40 +130,14 @@ def _get_index_path(out_dir, zoom, ext):
 class VectorFileWriter():
     """Base class for GeoJSONWriter and GeoPackageWriter."""
 
-    def write(self, tile, path):
-        logger.debug("write %s to %s", path, self)
-        self.file_obj.write(
-            {
-                "geometry": mapping(tile.bbox),
-                "properties": {
-                    "tile_id": str(tile.id),
-                    "zoom": str(tile.zoom),
-                    "row": str(tile.row),
-                    "col": str(tile.col),
-                    self.fieldname: path}})
-        self.new_entries += 1
-
-    def entry_exists(self, tile):
-        exists = len(
-            list(filter(
-                lambda f: f['properties']['tile_id'] == str(tile.id),
-                self.existing
-            ))) > 0
-        logger.debug("%s exists: %s", tile, exists)
-        return exists
-
-    def close(self):
-        logger.debug("%s new entries in %s", self.new_entries, self)
-        self.file_obj.close()
-
-
-class GeoJSONWriter(VectorFileWriter):
-    """Writer for GeoJSON index file."""
     def __init__(
-        self, basepath=None, overwrite=False, crs=None, fieldname=None,
+        self, basepath=None, crs=None, fieldname=None, driver=None
     ):
-        logger.debug("initialize GeoJSON writer")
+        logger.debug("initialize %s writer", driver)
         self.path = basepath
+        if driver not in ["GeoJSON", "GPKG"]:
+            raise ValueError("only GeoJSON and GPKG are allowed")
+        self.driver = driver
         if os.path.isfile(self.path):
             with fiona.open(self.path) as src:
                 self.existing = list(src)
@@ -193,40 +149,37 @@ class GeoJSONWriter(VectorFileWriter):
         schema = deepcopy(spatial_schema)
         schema["properties"][fieldname] = "str:254"
         self.file_obj = fiona.open(
-            self.path,
-            "w",
-            driver="GeoJSON",
-            crs=crs,
-            schema=schema)
+            self.path, "w", driver=self.driver, crs=crs, schema=schema)
+        self.file_obj.writerecords(self.existing)
 
     def __repr__(self):
-        return "GeoJSONWriter(%s)" % self.path
+        return "VectorFileWriter(%s, %s)" % (self.driver, self.path)
 
+    def write(self, tile, path):
+        logger.debug("write %s to %s", path, self)
+        if self.entry_exists(tile):
+            return
+        self.file_obj.write({
+            "geometry": mapping(tile.bbox),
+            "properties": {
+                "tile_id": str(tile.id),
+                "zoom": str(tile.zoom),
+                "row": str(tile.row),
+                "col": str(tile.col),
+                self.fieldname: path}})
+        self.new_entries += 1
 
-class GeoPackageWriter(VectorFileWriter):
-    """Writer for GeoPackage index file."""
-    def __init__(
-        self, basepath=None, overwrite=False, crs=None, fieldname=None,
-    ):
-        logger.debug("initialize GeoPackage writer")
-        self.path = basepath
-        if os.path.isfile(self.path):
-            with fiona.open(self.path) as src:
-                self.existing = list(src)
-            mode = "w"
+    def entry_exists(self, tile):
+        for i in filter(
+            lambda f: f['properties']['tile_id'] == str(tile.id), self.existing
+        ):
+            exists = True
+            break
         else:
-            self.existing = []
-            mode = "w"
-        self.new_entries = 0
-        self.fieldname = fieldname
-        schema = deepcopy(spatial_schema)
-        schema["properties"][fieldname] = "str:254"
-        self.file_obj = fiona.open(
-            self.path,
-            mode,
-            driver="GPKG",
-            crs=crs,
-            schema=schema)
+            exists = False
+        logger.debug("%s exists: %s", tile, exists)
+        return exists
 
-    def __repr__(self):
-        return "GeoPackageWriter(%s)" % self.path
+    def close(self):
+        logger.debug("%s new entries in %s", self.new_entries, self)
+        self.file_obj.close()

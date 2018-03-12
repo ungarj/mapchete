@@ -285,9 +285,6 @@ class MapcheteCLI(object):
             "--tile", "-t", type=int, nargs=3,
             help="zoom, row, column of single tile", metavar="<int>")
         parser.add_argument(
-            "--overwrite", "-o", action="store_true",
-            help="overwrite if tile(s) already exist(s)")
-        parser.add_argument(
             "--verbose", "-v", action="store_true",
             help="print info for each process tile")
         parser.add_argument(
