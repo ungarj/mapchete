@@ -1,14 +1,15 @@
-#!/usr/bin/env python
 """Test Mapchete main module and processing."""
 
-import pytest
+import fiona
+import numpy as np
 import os
+import pytest
 import subprocess
-import yaml
 import rasterio
 from rasterio.io import MemoryFile
-import numpy as np
+import yaml
 
+import mapchete
 from mapchete.cli.main import MapcheteCLI
 from mapchete.errors import MapcheteProcessOutputError
 
@@ -339,3 +340,170 @@ def test_serve(client, mp_tmpdir):
     # test invalid url
     response = client.get(tile_base_url+"invalid_url")
     assert response.status_code == 404
+
+
+def test_index_geojson(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    # generate index for zoom 3
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert len(files) == 2
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+
+def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    # index and rename "location" to "new_fieldname"
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--fieldname', 'new_fieldname'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        for f in src:
+            assert "new_fieldname" in f["properties"]
+        assert len(list(src)) == 1
+
+
+def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    basepath = 'http://localhost'
+    # index and rename "location" to "new_fieldname"
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--basepath', basepath])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        for f in src:
+            assert f["properties"]["location"].startswith(basepath)
+        assert len(list(src)) == 1
+
+
+def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
+    # execute process at zoom 3
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+
+    basepath = 'http://localhost'
+    # index and rename "location" to "new_fieldname"
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--basepath', basepath, '--for_gdal'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        for f in src:
+            assert f["properties"]["location"].startswith(
+                "/vsicurl/" + basepath)
+        assert len(list(src)) == 1
+
+
+
+def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
+    # execute process for single tile
+    MapcheteCLI([
+        None, 'execute', cleantopo_tl.path, '-t', '3', '0', '0', '--debug'])
+    # generate index
+    MapcheteCLI([
+        None, 'index', cleantopo_tl.path, '-t', '3', '0', '0', '--geojson',
+        '--debug'])
+    with mapchete.open(cleantopo_tl.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert len(files) == 2
+        assert "3.geojson" in files
+    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        assert len(list(src)) == 1
+
+
+def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
+    # execute process at zoom 3
+    MapcheteCLI([
+        None, 'execute', cleantopo_br.path, '--debug',
+        "--wkt_geometry", wkt_geom])
+
+    # generate index for zoom 3
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '--geojson', '--debug',
+        "--wkt_geometry", wkt_geom])
+
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert len(files) == 6
+        assert "3.geojson" in files
+
+
+def test_index_gpkg(mp_tmpdir, cleantopo_br):
+    # execute process
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '5', '--debug'])
+
+    # generate index
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.gpkg" in files
+    with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+    # write again and assert there is no new entry because there is already one
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.gpkg" in files
+    with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+
+def test_index_text(mp_tmpdir, cleantopo_br):
+    # execute process
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '5', '--debug'])
+
+    # generate index
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '5', '--txt', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.txt" in files
+    with open(os.path.join(mp.config.output.path, "5.txt")) as src:
+        lines = list(src)
+        assert len(lines) == 1
+        for l in lines:
+            assert l.endswith("7.tif")
+
+    # write again and assert there is no new entry because there is already one
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '5', '--txt', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.txt" in files
+    with open(os.path.join(mp.config.output.path, "5.txt")) as src:
+        lines = list(src)
+        assert len(lines) == 1
+        for l in lines:
+            assert l.endswith("7.tif")
+
+
+def test_index_errors(mp_tmpdir, cleantopo_br):
+    with pytest.raises(ValueError):
+        MapcheteCLI([
+            None, 'index', cleantopo_br.path,  '-z', '5', '--debug'])

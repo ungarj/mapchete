@@ -127,23 +127,6 @@ class OutputData(base.OutputData):
                 out_tile=out_tile, out_path=out_path
             )
 
-    def tiles_exist(self, process_tile):
-        """
-        Check whether output tiles of a process tile exist.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-
-        Returns
-        -------
-        exists : bool
-        """
-        return any(
-            os.path.exists(self.get_path(tile))
-            for tile in self.pyramid.intersecting(process_tile))
-
     def is_valid_with_config(self, config):
         """
         Check if output format is valid with other process parameters.
