@@ -260,9 +260,6 @@ class MapcheteCLI(object):
             "--gpkg", action="store_true",
             help="write GeoPackage index")
         parser.add_argument(
-            "--vrt", action="store_true",
-            help="write VRT index")
-        parser.add_argument(
             "--txt", action="store_true",
             help="write text file with paths")
         parser.add_argument(

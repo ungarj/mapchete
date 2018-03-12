@@ -25,11 +25,9 @@ def index(args):
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
         stream_handler.setLevel(logging.DEBUG)
 
-    if not any([args.geojson, args.gpkg, args.vrt, args.txt]):
+    if not any([args.geojson, args.gpkg, args.txt]):
         raise ValueError(
-            "one of 'geojson', 'gpkg', 'vrt' or 'txt' must be provided")
-    if args.vrt:
-        raise NotImplementedError("writing VRTs is not yet enabled")
+            "one of 'geojson', 'gpkg', or 'txt' must be provided")
     if args.wkt_geometry:
         bounds = wkt.loads(args.wkt_geometry).bounds
     else:
@@ -57,7 +55,6 @@ def index(args):
                     geojson=args.geojson,
                     gpkg=args.gpkg,
                     txt=args.txt,
-                    vrt=args.vrt,
                     fieldname=args.fieldname,
                     basepath=args.basepath,
                     for_gdal=args.for_gdal),
@@ -85,7 +82,6 @@ def index(args):
                         geojson=args.geojson,
                         gpkg=args.gpkg,
                         txt=args.txt,
-                        vrt=args.vrt,
                         fieldname=args.fieldname,
                         basepath=args.basepath,
                         for_gdal=args.for_gdal),

@@ -501,3 +501,9 @@ def test_index_text(mp_tmpdir, cleantopo_br):
         assert len(lines) == 1
         for l in lines:
             assert l.endswith("7.tif")
+
+
+def test_index_errors(mp_tmpdir, cleantopo_br):
+    with pytest.raises(ValueError):
+        MapcheteCLI([
+            None, 'index', cleantopo_br.path,  '-z', '5', '--debug'])

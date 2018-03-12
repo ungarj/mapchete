@@ -2,8 +2,6 @@
 Create various index files for a process output.
 
 Available index types:
-- VRT (Virtual Raster Dataset)
-    A .vrt file can be loaded into QGIS
 - GeoPackage and GeoJSON index:
     Works like gdaltindex command and is useful when using process output with
     Mapserver later on.
@@ -11,8 +9,8 @@ Available index types:
     If process output is online (e.g. a public endpoint of an S3 container),
     this file can be passed on to wget to download all process output.
 
-All index types are generated once per zoom level. For example VRT will
-generate VRT files 3.vrt, 4.vrt and 5.vrt for zoom levels 3, 4 and 5.
+All index types are generated once per zoom level. For example GeoPackage will
+generate GPKG files 3.gpkg, 4.gpkg and 5.gpkg for zoom levels 3, 4 and 5.
 
 """
 
@@ -42,7 +40,6 @@ def zoom_index_gen(
     geojson=False,
     gpkg=False,
     txt=False,
-    vrt=False,
     fieldname=None,
     basepath=None,
     for_gdal=True
@@ -58,8 +55,6 @@ def zoom_index_gen(
         optionally override process output directory
     zoom : int
         zoom level to be processed
-    vrt : bool
-        generate VRT file (default: False)
     geojson : bool
         generate GeoJSON index (default: False)
     gpkg : bool
@@ -74,12 +69,6 @@ def zoom_index_gen(
         use GDAL compatible remote paths, i.e. add "/vsicurl/" before path
         (default: True)
     """
-    if not any([geojson, gpkg, vrt, txt]):
-        raise ValueError(
-            "one of 'geojson', 'gpkg', 'vrt' or 'txt' must be provided")
-    if vrt:
-        raise NotImplementedError("writing VRTs is not yet enabled")
-
     try:
         # get index writers for all enabled formats
         index_writers = []
@@ -97,7 +86,6 @@ def zoom_index_gen(
                     out_path=_index_file_path(out_dir, zoom, "gpkg"),
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
-
         if txt:
             index_writers.append(
                 TextFileWriter(
@@ -115,9 +103,16 @@ def zoom_index_gen(
                 orig_path=mp.config.output.get_path(tile),
                 basepath=basepath, for_gdal=for_gdal)
 
-            # check whether output tile exists and pass on to writers
-            if mp.config.output.tiles_exist(output_tile=tile):
-                for index in index_writers:
+            # check if tile was not already inserted into all available writers
+            # and write into indexes if output tile exists
+            not_yet_added = [
+                index for index in index_writers
+                if not index.entry_exists(tile=tile, path=tile_path)]
+            if (
+                not_yet_added and
+                mp.config.output.tiles_exist(output_tile=tile)
+            ):
+                for index in not_yet_added:
                     index.write(tile, tile_path)
 
             yield tile
@@ -205,9 +200,9 @@ class TextFileWriter():
         logger.debug("initialize TXT writer")
         if os.path.isfile(self.path):
             with open(self.path) as src:
-                self.existing = set(l for l in src)
+                self.existing = [l for l in src]
         else:
-            self.existing = set([])
+            self.existing = []
         self.new_entries = 0
         self.file_obj = open(self.path, "w")
         for l in self.existing:
