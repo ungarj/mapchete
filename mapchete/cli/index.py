@@ -28,10 +28,6 @@ def index(args):
     if not any([args.geojson, args.gpkg, args.txt]):
         raise ValueError(
             "one of 'geojson', 'gpkg', or 'txt' must be provided")
-    if args.wkt_geometry:
-        bounds = wkt.loads(args.wkt_geometry).bounds
-    else:
-        bounds = args.bounds
 
     # process single tile
     if args.tile:
@@ -65,6 +61,10 @@ def index(args):
                 logger.debug(tile)
 
     else:
+        if args.wkt_geometry:
+            bounds = wkt.loads(args.wkt_geometry).bounds
+        else:
+            bounds = args.bounds
         with mapchete.open(
             args.mapchete_file, mode="readonly", zoom=args.zoom, bounds=bounds
         ) as mp:
