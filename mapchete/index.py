@@ -149,8 +149,6 @@ class VectorFileWriter():
     ):
         logger.debug("initialize %s writer", driver)
         self.path = out_path
-        if driver not in ["GeoJSON", "GPKG"]:
-            raise ValueError("only GeoJSON and GPKG are allowed")
         self.driver = driver
         if os.path.isfile(self.path):
             with fiona.open(self.path) as src:
