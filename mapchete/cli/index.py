@@ -25,9 +25,9 @@ def index(args):
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
         stream_handler.setLevel(logging.DEBUG)
 
-    if not any([args.geojson, args.shapefile, args.vrt]):
+    if not any([args.geojson, args.gpkg, args.vrt]):
         raise ValueError(
-            "one of 'geojson', 'shapefile' or 'vrt' must be provided")
+            "one of 'geojson', 'gpkg' or 'vrt' must be provided")
     if args.vrt:
         raise NotImplementedError("writing VRTs is not yet enabled")
     if args.wkt_geometry:
@@ -55,7 +55,7 @@ def index(args):
                     zoom=tile.zoom,
                     out_dir=out_dir,
                     geojson=args.geojson,
-                    shapefile=args.shapefile,
+                    gpkg=args.gpkg,
                     txt=args.txt,
                     vrt=args.vrt,
                     fieldname=args.fieldname,
@@ -82,7 +82,7 @@ def index(args):
                         zoom=z,
                         out_dir=out_dir,
                         geojson=args.geojson,
-                        shapefile=args.shapefile,
+                        gpkg=args.gpkg,
                         txt=args.txt,
                         vrt=args.vrt,
                         fieldname=args.fieldname,

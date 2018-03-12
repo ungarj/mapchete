@@ -257,8 +257,8 @@ class MapcheteCLI(object):
             "--geojson", action="store_true",
             help="write GeoJSON index")
         parser.add_argument(
-            "--shapefile", action="store_true",
-            help="write Shapefile index")
+            "--gpkg", action="store_true",
+            help="write GeoPackage index")
         parser.add_argument(
             "--vrt", action="store_true",
             help="write VRT index")

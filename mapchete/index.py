@@ -4,11 +4,9 @@ Create various index files for a process output.
 Available index types:
 - VRT (Virtual Raster Dataset)
     A .vrt file can be loaded into QGIS
-- Shapeindex:
+- GeoPackage and GeoJSON index:
     Works like gdaltindex command and is useful when using process output with
     Mapserver later on.
-- GeoJSON index:
-    Is the same as Shapeindex, just in GeoJSON format.
 - textfile with tiles list
     If process output is online (e.g. a public endpoint of an S3 container),
     this file can be passed on to wget to download all process output.
@@ -40,7 +38,7 @@ def zoom_index_gen(
     out_dir=None,
     zoom=None,
     geojson=False,
-    shapefile=False,
+    gpkg=False,
     txt=False,
     vrt=False,
     fieldname=None,
@@ -63,8 +61,8 @@ def zoom_index_gen(
         generate VRT file (default: False)
     geojson : bool
         generate GeoJSON index (default: False)
-    shapefile : bool
-        generate Shapefile index (default: False)
+    gpkg : bool
+        generate GeoPackage index (default: False)
     txt : bool
         generate tile path list textfile (default: False)
     fieldname : str
@@ -78,9 +76,9 @@ def zoom_index_gen(
         don't check if tile index already exists (default False)
 
     """
-    if not any([geojson, shapefile, vrt]):
+    if not any([geojson, gpkg, vrt]):
         raise ValueError(
-            "one of 'geojson', 'shapefile' or 'vrt' must be provided")
+            "one of 'geojson', 'gpkg' or 'vrt' must be provided")
     if vrt:
         raise NotImplementedError("writing VRTs is not yet enabled")
 
@@ -94,10 +92,10 @@ def zoom_index_gen(
                     overwrite=overwrite,
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
-        if shapefile:
+        if gpkg:
             index_writers.append(
-                ShapefileWriter(
-                    basepath=_get_index_path(out_dir, zoom, "shp"),
+                GeoPackageWriter(
+                    basepath=_get_index_path(out_dir, zoom, "gpkg"),
                     overwrite=overwrite,
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
@@ -148,7 +146,7 @@ def _get_index_path(out_dir, zoom, ext):
 
 
 class VectorFileWriter():
-    """Base class for GeoJSONWriter and ShapefileWriter."""
+    """Base class for GeoJSONWriter and GeoPackageWriter."""
 
     def write(self, tile, path):
         logger.debug("write %s to %s", path, self)
@@ -205,17 +203,17 @@ class GeoJSONWriter(VectorFileWriter):
         return "GeoJSONWriter(%s)" % self.path
 
 
-class ShapefileWriter(VectorFileWriter):
-    """Writer for Shapefile index file."""
+class GeoPackageWriter(VectorFileWriter):
+    """Writer for GeoPackage index file."""
     def __init__(
         self, basepath=None, overwrite=False, crs=None, fieldname=None,
     ):
-        logger.debug("initialize Shapefile writer")
+        logger.debug("initialize GeoPackage writer")
         self.path = basepath
         if os.path.isfile(self.path):
             with fiona.open(self.path) as src:
                 self.existing = list(src)
-            mode = "a"
+            mode = "w"
         else:
             self.existing = []
             mode = "w"
@@ -226,9 +224,9 @@ class ShapefileWriter(VectorFileWriter):
         self.file_obj = fiona.open(
             self.path,
             mode,
-            driver="ESRI Shapefile",
+            driver="GPKG",
             crs=crs,
             schema=schema)
 
     def __repr__(self):
-        return "ShapefileWriter(%s)" % self.path
+        return "GeoPackageWriter(%s)" % self.path
