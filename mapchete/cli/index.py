@@ -25,9 +25,9 @@ def index(args):
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
         stream_handler.setLevel(logging.DEBUG)
 
-    if not any([args.geojson, args.gpkg, args.vrt]):
+    if not any([args.geojson, args.gpkg, args.vrt, args.txt]):
         raise ValueError(
-            "one of 'geojson', 'gpkg' or 'vrt' must be provided")
+            "one of 'geojson', 'gpkg', 'vrt' or 'txt' must be provided")
     if args.vrt:
         raise NotImplementedError("writing VRTs is not yet enabled")
     if args.wkt_geometry:

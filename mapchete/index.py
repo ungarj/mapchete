@@ -74,9 +74,9 @@ def zoom_index_gen(
         use GDAL compatible remote paths, i.e. add "/vsicurl/" before path
         (default: True)
     """
-    if not any([geojson, gpkg, vrt]):
+    if not any([geojson, gpkg, vrt, txt]):
         raise ValueError(
-            "one of 'geojson', 'gpkg' or 'vrt' must be provided")
+            "one of 'geojson', 'gpkg', 'vrt' or 'txt' must be provided")
     if vrt:
         raise NotImplementedError("writing VRTs is not yet enabled")
 
@@ -97,6 +97,11 @@ def zoom_index_gen(
                     out_path=_index_file_path(out_dir, zoom, "gpkg"),
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
+
+        if txt:
+            index_writers.append(
+                TextFileWriter(
+                    out_path=_index_file_path(out_dir, zoom, "txt")))
 
         logger.debug(index_writers)
 
@@ -167,11 +172,11 @@ class VectorFileWriter():
         self.file_obj.writerecords(self.existing.values())
 
     def __repr__(self):
-        return "VectorFileWriter(%s, %s)" % (self.driver, self.path)
+        return "VectorFileWriter(%s)" % self.path
 
     def write(self, tile, path):
         logger.debug("write %s to %s", path, self)
-        if self.entry_exists(tile):
+        if self.entry_exists(tile=tile):
             return
         self.file_obj.write({
             "geometry": mapping(tile.bbox),
@@ -183,8 +188,43 @@ class VectorFileWriter():
                 self.fieldname: path}})
         self.new_entries += 1
 
-    def entry_exists(self, tile):
+    def entry_exists(self, tile=None, path=None):
         exists = str(tile.id) in self.existing.keys()
+        logger.debug("%s exists: %s", tile, exists)
+        return exists
+
+    def close(self):
+        logger.debug("%s new entries in %s", self.new_entries, self)
+        self.file_obj.close()
+
+
+class TextFileWriter():
+    """Writes tile paths into text file."""
+    def __init__(self, out_path=None):
+        self.path = out_path
+        logger.debug("initialize TXT writer")
+        if os.path.isfile(self.path):
+            with open(self.path) as src:
+                self.existing = set(l for l in src)
+        else:
+            self.existing = set([])
+        self.new_entries = 0
+        self.file_obj = open(self.path, "w")
+        for l in self.existing:
+            self.file_obj.write(l)
+
+    def __repr__(self):
+        return "TextFileWriter(%s)" % self.path
+
+    def write(self, tile, path):
+        logger.debug("write %s to %s", path, self)
+        if self.entry_exists(path=path):
+            return
+        self.file_obj.write(path)
+        self.new_entries += 1
+
+    def entry_exists(self, tile=None, path=None):
+        exists = path in self.existing
         logger.debug("%s exists: %s", tile, exists)
         return exists
 

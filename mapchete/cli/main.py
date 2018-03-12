@@ -275,7 +275,7 @@ class MapcheteCLI(object):
             metavar="<str>")
         parser.add_argument(
             "--for_gdal", action="store_true",
-            help="make remote paths readable by GDAL (i.e. add '/vsucurl/')")
+            help="make remote paths readable by GDAL (not applied for txt output)")
         parser.add_argument(
             "--zoom", "-z", type=int, nargs='*',
             help="either minimum and maximum zoom level or just one zoom level",

@@ -472,3 +472,32 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
+
+
+def test_index_text(mp_tmpdir, cleantopo_br):
+    # execute process
+    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '5', '--debug'])
+
+    # generate index
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '5', '--txt', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.txt" in files
+    with open(os.path.join(mp.config.output.path, "5.txt")) as src:
+        lines = list(src)
+        assert len(lines) == 1
+        for l in lines:
+            assert l.endswith("7.tif")
+
+    # write again and assert there is no new entry because there is already one
+    MapcheteCLI([
+        None, 'index', cleantopo_br.path,  '-z', '5', '--txt', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.txt" in files
+    with open(os.path.join(mp.config.output.path, "5.txt")) as src:
+        lines = list(src)
+        assert len(lines) == 1
+        for l in lines:
+            assert l.endswith("7.tif")
