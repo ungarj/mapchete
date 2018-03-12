@@ -213,7 +213,7 @@ class TextFileWriter():
         logger.debug("write %s to %s", path, self)
         if self.entry_exists(path=path):
             return
-        self.file_obj.write(path)
+        self.file_obj.write(path + "\n")
         self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
