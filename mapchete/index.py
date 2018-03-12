@@ -217,7 +217,7 @@ class TextFileWriter():
         self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
-        exists = path in self.existing
+        exists = path + "\n" in self.existing
         logger.debug("%s exists: %s", tile, exists)
         return exists
 

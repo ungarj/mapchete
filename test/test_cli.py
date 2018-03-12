@@ -488,7 +488,7 @@ def test_index_text(mp_tmpdir, cleantopo_br):
         lines = list(src)
         assert len(lines) == 1
         for l in lines:
-            assert l.endswith("7.tif")
+            assert l.endswith("7.tif\n")
 
     # write again and assert there is no new entry because there is already one
     MapcheteCLI([
@@ -500,7 +500,7 @@ def test_index_text(mp_tmpdir, cleantopo_br):
         lines = list(src)
         assert len(lines) == 1
         for l in lines:
-            assert l.endswith("7.tif")
+            assert l.endswith("7.tif\n")
 
 
 def test_index_errors(mp_tmpdir, cleantopo_br):
