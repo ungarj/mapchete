@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Command line utility to execute a Mapchete process."""
 
 import logging

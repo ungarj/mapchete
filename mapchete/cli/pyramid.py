@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Utility to create tile pyramids out of an input raster.
 

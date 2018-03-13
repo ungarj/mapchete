@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Mapchete command line tool with subcommands.
 

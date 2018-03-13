@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """Create dummy Mapchete and python process files."""
 
 import os

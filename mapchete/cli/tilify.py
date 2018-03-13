@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Internal process used by mapchete pyramid command."""
 
 
