@@ -84,7 +84,7 @@ def main(args=None):
                     max_chunksize=parsed.max_chunksize),
                 total=tiles_count,
                 unit="tile",
-                disable=parsed.debug
+                disable=parsed.debug or parsed.no_pbar
             ):
                 _write_verbose_msg(result, dst=verbose_dst)
 

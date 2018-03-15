@@ -179,6 +179,9 @@ class MapcheteCLI(object):
             "--verbose", "-v", action="store_true",
             help="print info for each process tile")
         parser.add_argument(
+            "--no-pbar", action="store_true",
+            help="don't show progress bar")
+        parser.add_argument(
             "--debug", "-d", action="store_true",
             help="deactivate progress bar and print debug log output")
         parser.add_argument(
