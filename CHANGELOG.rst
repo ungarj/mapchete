@@ -9,6 +9,7 @@ Changelog
 * added ``RasterWindowMemoryFile()`` context manager around ``rasterio.io.MemoryFile`` (#105)
 * passing on dictionary together with numpy array from user process will write the dictionary as GeoTIFF tag (#101)
 * added ``--wkt_geometry`` to ``execute`` which enables providing process bounds via WKT
+* added ``--point`` to ``execute`` which enables providing a point location to be processed
 * added ``--no_pbar`` to ``execute`` to disable progress bar
 * ``mapchete index`` command now can create vector index files (``GeoJSON`` and ``GeoPackage``) and a text file containing output tile paths
 * ``output.tiles_exist()`` now has two keyword arguments ``process_tile`` and ``output_tile`` to enable check for both tile types

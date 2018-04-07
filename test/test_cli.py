@@ -4,6 +4,7 @@ import fiona
 import numpy as np
 import os
 import pytest
+from shapely import wkt
 import subprocess
 import rasterio
 from rasterio.io import MemoryFile
@@ -154,6 +155,15 @@ def test_execute_wkt_bounds(mp_tmpdir, example_mapchete, wkt_geom):
     args = [
         None, 'execute', example_mapchete.path,
         "--wkt_geometry", wkt_geom]
+    MapcheteCLI(args)
+
+
+def test_execute_point(mp_tmpdir, example_mapchete, wkt_geom):
+    """Using bounds from WKT."""
+    g = wkt.loads(wkt_geom)
+    args = [
+        None, 'execute', example_mapchete.path,
+        "--point", str(g.centroid.x), str(g.centroid.y)]
     MapcheteCLI(args)
 
 
@@ -411,7 +421,6 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
             assert f["properties"]["location"].startswith(
                 "/vsicurl/" + basepath)
         assert len(list(src)) == 1
-
 
 
 def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):

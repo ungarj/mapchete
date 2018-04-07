@@ -48,11 +48,12 @@ def main(args=None):
     if parsed.tile:
         conf = _map_to_new_config(
             yaml.load(open(parsed.mapchete_file, "r").read()))
-        tile = BufferedTilePyramid(
+        tp = BufferedTilePyramid(
             conf["pyramid"]["grid"],
             metatiling=conf["pyramid"].get("metatiling", 1),
             pixelbuffer=conf["pyramid"].get("pixelbuffer", 0)
-        ).tile(*parsed.tile)
+        )
+        tile = tp.tile(*parsed.tile)
         with mapchete.open(
             parsed.mapchete_file, mode=mode, bounds=tile.bounds,
             zoom=tile.zoom, single_input_file=parsed.input_file
@@ -66,6 +67,9 @@ def main(args=None):
     else:
         if parsed.wkt_geometry:
             bounds = wkt.loads(parsed.wkt_geometry).bounds
+        elif parsed.point:
+            x, y = parsed.point
+            bounds = [x, y, x, y]
         else:
             bounds = parsed.bounds
         with mapchete.open(
