@@ -56,15 +56,17 @@ You need a ``.mapchete`` file for the process configuration:
 .. code-block:: yaml
 
     process_file: my_python_process.py
-    process_minzoom: 0
-    process_maxzoom: 12
+    zoom_levels:
+        min: 0
+        max: 12
     input:
         dem: /path/to/dem.tif
         land_polygons: /path/to/polygon/file.geojson
     output:
         format: PNG_hillshade
         path: /output/path
-        type: mercator
+    pyramid:
+        grid: mercator
 
 
 And a ``.py`` file where you specify the process itself:
@@ -127,6 +129,6 @@ License
 
 MIT License
 
-Copyright (c) 2015, 2016, 2017 `EOX IT Services`_
+Copyright (c) 2015 - 2018 `EOX IT Services`_
 
 .. _`EOX IT Services`: https://eox.at/
