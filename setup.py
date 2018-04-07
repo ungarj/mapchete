@@ -30,7 +30,6 @@ setup(
         'mapchete',
         'mapchete.cli',
         'mapchete.commons',
-        'mapchete.config',
         'mapchete.formats',
         'mapchete.formats.default',
         'mapchete.io',
