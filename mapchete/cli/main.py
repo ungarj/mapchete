@@ -253,7 +253,7 @@ class MapcheteCLI(object):
         parser = argparse.ArgumentParser(
             description="Create index of output tiles.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            usage="mapchete index <mapchete_file> <index_type>")
+            usage="mapchete index <mapchete_file>")
         parser.add_argument("mapchete_file", type=str, help="Mapchete file")
         parser.add_argument(
             "--out_dir", type=str,
