@@ -210,14 +210,10 @@ class MapcheteConfig(object):
         This gets triggered by using the ``zoom`` kwarg. If not set, it will
         be equal to self.zoom_levels.
         """
-        if self._raw["init_zoom_levels"] is None:
-            return self.zoom_levels
-        else:
-            init_zooms = _validate_zooms(self._raw["init_zoom_levels"])
-            if not set(init_zooms).issubset(set(self.zoom_levels)):
-                raise MapcheteConfigError(
-                    "init zooms must be a subset of process zoom")
-            return init_zooms
+        return get_zoom_levels(
+            process_zoom_levels=self._raw["zoom_levels"],
+            init_zoom_levels=self._raw["init_zoom_levels"]
+        )
 
     @cached_property
     def bounds(self):
@@ -542,6 +538,19 @@ def get_hash(x):
         return hash(x)
     elif isinstance(x, dict):
         return hash(yaml.dump(x))
+
+
+def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
+    """Validate and return zoom levels."""
+    process_zoom_levels = _validate_zooms(process_zoom_levels)
+    if init_zoom_levels is None:
+        return process_zoom_levels
+    else:
+        init_zoom_levels = _validate_zooms(init_zoom_levels)
+        if not set(init_zoom_levels).issubset(set(process_zoom_levels)):
+            raise MapcheteConfigError(
+                "init zooms must be a subset of process zoom")
+        return init_zoom_levels
 
 
 def _config_to_dict(input_config):

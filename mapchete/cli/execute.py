@@ -9,7 +9,7 @@ import tqdm
 import yaml
 
 import mapchete
-from mapchete.config import _map_to_new_config
+from mapchete.config import get_zoom_levels, _map_to_new_config
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -44,16 +44,21 @@ def main(args=None):
 
     tqdm.tqdm.write("preparing process", file=verbose_dst)
 
+    def _raw_conf():
+        return _map_to_new_config(
+            yaml.load(open(parsed.mapchete_file, "r").read())
+        )
+
+    def _tp():
+        return BufferedTilePyramid(
+            _raw_conf()["pyramid"]["grid"],
+            metatiling=_raw_conf()["pyramid"].get("metatiling", 1),
+            pixelbuffer=_raw_conf()["pyramid"].get("pixelbuffer", 0)
+        )
+
     # process single tile
     if parsed.tile:
-        conf = _map_to_new_config(
-            yaml.load(open(parsed.mapchete_file, "r").read()))
-        tp = BufferedTilePyramid(
-            conf["pyramid"]["grid"],
-            metatiling=conf["pyramid"].get("metatiling", 1),
-            pixelbuffer=conf["pyramid"].get("pixelbuffer", 0)
-        )
-        tile = tp.tile(*parsed.tile)
+        tile = _tp().tile(*parsed.tile)
         with mapchete.open(
             parsed.mapchete_file, mode=mode, bounds=tile.bounds,
             zoom=tile.zoom, single_input_file=parsed.input_file
@@ -69,7 +74,11 @@ def main(args=None):
             bounds = wkt.loads(parsed.wkt_geometry).bounds
         elif parsed.point:
             x, y = parsed.point
-            bounds = [x, y, x, y]
+            zoom_levels = get_zoom_levels(
+                process_zoom_levels=_raw_conf()["zoom_levels"],
+                init_zoom_levels=parsed.zoom
+            )
+            bounds = _tp().tile_from_xy(x, y, max(zoom_levels)).bounds
         else:
             bounds = parsed.bounds
         with mapchete.open(

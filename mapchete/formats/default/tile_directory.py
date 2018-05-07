@@ -95,9 +95,7 @@ class InputData(base.InputData):
         if self._file_type == "raster":
             self._params["count"] = self._params.get(
                 "count", self._params.get("bands", None))
-            validate_values(self._params, [
-                ("dtype", six.string_types),
-                ("count", int)])
+            validate_values(self._params, [("dtype", six.string_types), ("count", int)])
             self._profile = {
                 "nodata": self._params.get("nodata", 0),
                 "dtype": self._params["dtype"],

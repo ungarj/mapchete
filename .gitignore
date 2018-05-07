@@ -9,3 +9,4 @@ venv/
 .coverage
 .eggs/
 htmlcov/
+.pytest*

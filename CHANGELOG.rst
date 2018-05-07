@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.21
+----
+* fixed ``execute --point``
+
+----
 0.20
 ----
 * fixed geometry reprojection for LineString and MultiLineString geometries (use buffer buffer to repair geometries does not work for these types)
