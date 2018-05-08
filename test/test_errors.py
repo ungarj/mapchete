@@ -3,9 +3,6 @@
 
 
 import pytest
-import os
-import yaml
-import shutil
 from copy import deepcopy
 
 import mapchete
@@ -229,9 +226,8 @@ def test_import_error(mp_tmpdir, cleantopo_br, import_error_py):
     """Assert import error is raised."""
     config = cleantopo_br.dict
     config.update(process_file=import_error_py)
-    with mapchete.open(config) as mp:
-        with pytest.raises(errors.MapcheteProcessImportError):
-            mp.execute((5, 0, 0))
+    with pytest.raises(errors.MapcheteProcessImportError):
+        mapchete.open(config)
 
 
 def test_malformed_process_file(cleantopo_br, malformed_py):

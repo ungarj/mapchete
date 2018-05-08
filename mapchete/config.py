@@ -12,6 +12,7 @@ when initializing the configuration.
 
 from cached_property import cached_property
 from copy import deepcopy
+import imp
 import logging
 import operator
 import os
@@ -24,10 +25,13 @@ import warnings
 import yaml
 
 from mapchete.formats import (
-    load_output_writer, available_output_formats, load_input_reader)
+    load_output_writer, available_output_formats, load_input_reader
+)
 from mapchete.tile import BufferedTilePyramid
 from mapchete.errors import (
-    MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteDriverError)
+    MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteProcessImportError,
+    MapcheteDriverError
+)
 
 
 logger = logging.getLogger(__name__)
@@ -577,8 +581,11 @@ def _validate_process_file(config):
         raise MapcheteConfigError("%s is not available" % abs_path)
     try:
         py_compile.compile(abs_path, doraise=True)
+        imp.load_source(os.path.splitext(os.path.basename(abs_path))[0], abs_path)
     except py_compile.PyCompileError as e:
         raise MapcheteProcessSyntaxError(e)
+    except ImportError as e:
+        raise MapcheteProcessImportError(e)
     return abs_path
 
 

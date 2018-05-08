@@ -6,6 +6,7 @@ Changelog
 0.21
 ----
 * fixed ``execute --point``
+* when validating, import process_file to quickly reveal ``ImporError``
 
 ----
 0.20
