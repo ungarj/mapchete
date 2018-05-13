@@ -117,7 +117,6 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
         '--input_file', cleantopo_br_tif, '-m', '2']
     with pytest.raises(MapcheteProcessOutputError):
         MapcheteCLI(args)
-    1/0
     # run example process with multiprocessing
     args = [None, 'execute', cleantopo_br.path, '--zoom', '5', '-m', '2']
     MapcheteCLI(args)
