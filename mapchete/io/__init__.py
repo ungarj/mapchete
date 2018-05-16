@@ -72,7 +72,7 @@ def get_segmentize_value(input_file=None, tile_pyramid=None):
     return pixelsize * tile_pyramid.tile_size
 
 
-def path_is_remote(path):
+def path_is_remote(path, s3=False):
     """
     Determine whether file path is remote or local.
 
@@ -84,4 +84,7 @@ def path_is_remote(path):
     -------
     is_remote : bool
     """
-    return path.startswith(("http://", "https://"))
+    prefixes = ("http://", "https://")
+    if s3:
+        prefixes += ("s3://", )
+    return path.startswith(prefixes)

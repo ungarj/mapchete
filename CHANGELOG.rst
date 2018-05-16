@@ -7,6 +7,7 @@ Changelog
 ----
 * fixed ``execute --point``
 * when validating, import process_file to quickly reveal ``ImporError``
+* also check for ``s3`` URLs when adding GDAL HTTP options
 
 ----
 0.20

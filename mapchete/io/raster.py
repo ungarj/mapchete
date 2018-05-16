@@ -64,7 +64,7 @@ def read_raster_window(
     """
     dst_shape = tile.shape
     user_opts = {} if gdal_opts is None else dict(**gdal_opts)
-    if path_is_remote(input_file):
+    if path_is_remote(input_file, s3=True):
         gdal_opts = dict(**GDAL_HTTP_OPTS)
         gdal_opts.update(**user_opts)
     else:
