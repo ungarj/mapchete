@@ -106,6 +106,12 @@ def dummy2_tif():
 
 
 @pytest.fixture
+def execute_kwargs_py():
+    """Fixture for execute_kwargs.py"""
+    return os.path.join(TESTDATA_DIR, "execute_kwargs.py")
+
+
+@pytest.fixture
 def write_rasterfile_tags_py():
     """Fixture for write_rasterfile_tags.py"""
     return os.path.join(TESTDATA_DIR, "write_rasterfile_tags.py")
@@ -145,12 +151,6 @@ def process_error_py():
 def output_error_py():
     """Fixture for output_error.py"""
     return os.path.join(TESTDATA_DIR, "output_error.py")
-
-
-@pytest.fixture
-def process_as_function_py():
-    """Fixture for process_as_function.py"""
-    return os.path.join(SCRIPT_DIR, "example_process_as_function.py")
 
 
 @pytest.fixture

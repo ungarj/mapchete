@@ -2,7 +2,7 @@
 """Example process file."""
 
 
-def execute(mp):
+def execute(mp, **kwargs):
     """User defined process."""
     # Reading and writing data works like this:
     with mp.open("file1", resampling="bilinear") as raster_file:

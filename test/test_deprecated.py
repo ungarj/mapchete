@@ -1,6 +1,5 @@
 """Test deprecated items."""
 
-from copy import deepcopy
 import mapchete
 
 

@@ -5,8 +5,12 @@ Changelog
 ----
 0.21
 ----
-* fixed ``execute --point``
+* breaking change:
+  * old-style Process classes are not supported anymore
+* user process accepts kwargs from custom process parameters
+* process_file is imported once when initializing the process
 * when validating, import process_file to quickly reveal ``ImporError``
+* fixed ``execute --point``
 * also check for ``s3`` URLs when adding GDAL HTTP options
 
 ----

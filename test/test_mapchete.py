@@ -272,74 +272,6 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                     shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
 
-def test_processing_as_function(
-    mp_tmpdir, cleantopo_br, cleantopo_tl, process_as_function_py
-):
-    """Test correct processing using execute() function."""
-    for config in [cleantopo_br.dict, cleantopo_tl.dict]:
-        config.update(process_file=process_as_function_py)
-        with mapchete.open(config) as mp:
-            for zoom in range(6):
-                tiles = []
-                for tile in mp.get_process_tiles(zoom):
-                    output = mp.execute(tile)
-                    tiles.append((tile, output))
-                    assert isinstance(output, ma.MaskedArray)
-                    assert output.shape == output.shape
-                    assert not ma.all(output.mask)
-                    mp.write(tile, output)
-                mosaic, mosaic_affine = create_mosaic(tiles)
-                try:
-                    temp_vrt = os.path.join(mp_tmpdir, str(zoom)+".vrt")
-                    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-                        temp_vrt, mp_tmpdir, zoom)
-                    os.system(gdalbuildvrt)
-                    with rasterio.open(temp_vrt, "r") as testfile:
-                        for file_item, mosaic_item in zip(
-                            testfile.meta["transform"], mosaic_affine
-                        ):
-                            assert file_item == mosaic_item
-                        band = testfile.read(1, masked=True)
-                        assert band.shape == mosaic.shape
-                        assert ma.allclose(band, mosaic)
-                        assert ma.allclose(band.mask, mosaic.mask)
-                finally:
-                    shutil.rmtree(mp_tmpdir, ignore_errors=True)
-
-
-def test_old_style_process_class(mp_tmpdir, cleantopo_tl, old_style_process_py):
-    """Test correct processing using MapcheteProcess class."""
-    config = cleantopo_tl.dict
-    config.update(process_file=old_style_process_py)
-    with mapchete.open(config) as mp:
-        for zoom in range(6):
-            tiles = []
-            for tile in mp.get_process_tiles(zoom):
-                output = mp.execute(tile)
-                tiles.append((tile, output))
-                assert isinstance(output, ma.MaskedArray)
-                assert output.shape == output.shape
-                assert not ma.all(output.mask)
-                mp.write(tile, output)
-            mosaic, mosaic_affine = create_mosaic(tiles)
-            try:
-                temp_vrt = os.path.join(mp_tmpdir, str(zoom)+".vrt")
-                gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-                    temp_vrt, mp_tmpdir, zoom)
-                os.system(gdalbuildvrt)
-                with rasterio.open(temp_vrt, "r") as testfile:
-                    for file_item, mosaic_item in zip(
-                        testfile.meta["transform"], mosaic_affine
-                    ):
-                        assert file_item == mosaic_item
-                    band = testfile.read(1, masked=True)
-                    assert band.shape == mosaic.shape
-                    assert ma.allclose(band, mosaic)
-                    assert ma.allclose(band.mask, mosaic.mask)
-            finally:
-                shutil.rmtree(mp_tmpdir, ignore_errors=True)
-
-
 def test_multiprocessing(mp_tmpdir, cleantopo_tl):
     """Test parallel tile processing."""
     with mapchete.open(cleantopo_tl.path) as mp:
@@ -443,3 +375,12 @@ def test_custom_grid(mp_tmpdir, custom_grid):
             assert data.any()
             assert isinstance(data, ma.masked_array)
             assert not data.mask.all()
+
+
+def test_execute_kwargs(example_mapchete, execute_kwargs_py):
+    config = example_mapchete.dict
+    config.update(process_file=execute_kwargs_py)
+    zoom = 7
+    with mapchete.open(config) as mp:
+        tile = next(mp.get_process_tiles(zoom))
+        mp.execute(tile)

@@ -13,6 +13,7 @@ when initializing the configuration.
 from cached_property import cached_property
 from copy import deepcopy
 import imp
+import inspect
 import logging
 import operator
 import os
@@ -153,6 +154,7 @@ class MapcheteConfig(object):
         logger.debug("validating process file")
         self.process_file = _validate_process_file(self._raw)
         self.config_dir = self._raw["config_dir"]
+        self.process_func
 
         # (3) set process and output pyramids
         logger.debug("initializing pyramids")
@@ -369,6 +371,31 @@ class MapcheteConfig(object):
                 self.output_pyramid.grid,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
                 metatiling=self.process_pyramid.metatiling))
+
+    @cached_property
+    def process_func(self):
+        try:
+            user_process_py = imp.load_source(
+                os.path.splitext(os.path.basename(self.process_file))[0],
+                self.process_file
+            )
+            if hasattr(user_process_py, "Process"):
+                logger.error(
+                    """instanciating MapcheteProcess is deprecated, """
+                    """provide execute() function instead""")
+            if hasattr(user_process_py, "execute"):
+                user_execute = user_process_py.execute
+                if len(inspect.getargspec(user_execute).args) == 0:
+                    raise ImportError(
+                        "execute() function has to accept at least one argument"
+                    )
+                return user_execute
+            else:
+                raise ImportError(
+                    "No execute() function found in %s" % self.process_file
+                )
+        except ImportError as e:
+            raise MapcheteProcessImportError(e)
 
     def params_at_zoom(self, zoom):
         """
