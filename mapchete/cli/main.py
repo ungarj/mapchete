@@ -190,7 +190,7 @@ class MapcheteCLI(object):
         parser.add_argument(
             "--max_chunksize", "-c", type=int, metavar="<int>", default=16,
             help="maximum number of process tiles to be queued for each \
-                worker; (default: 16)")
+                worker; (default: 1)")
         execute(parser.parse_args(self.args[2:]))
 
     def pyramid(self):

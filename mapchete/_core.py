@@ -156,7 +156,7 @@ class Mapchete(object):
                     yield tile
 
     def batch_process(
-        self, zoom=None, tile=None, multi=cpu_count(), max_chunksize=16
+        self, zoom=None, tile=None, multi=cpu_count(), max_chunksize=1
     ):
         """
         Process a large batch of tiles.
@@ -175,12 +175,12 @@ class Mapchete(object):
             number of workers (default: number of CPU cores)
         max_chunksize : int
             maximum number of process tiles to be queued for each worker;
-            (default: 16)
+            (default: 1)
         """
         list(self.batch_processor(zoom, tile, multi, max_chunksize))
 
     def batch_processor(
-        self, zoom=None, tile=None, multi=cpu_count(), max_chunksize=16
+        self, zoom=None, tile=None, multi=cpu_count(), max_chunksize=1
     ):
         """
         Process a large batch of tiles and yield report messages per tile.
@@ -197,7 +197,7 @@ class Mapchete(object):
             number of workers (default: number of CPU cores)
         max_chunksize : int
             maximum number of process tiles to be queued for each worker;
-            (default: 16)
+            (default: 1)
         """
         if zoom and tile:
             raise ValueError("use either zoom or tile")
@@ -859,7 +859,7 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
                 f,
                 process.get_process_tiles(zoom),
                 # set chunksize to between 1 and max_chunksize
-                chunksize=min([max([total_tiles // multi, 1]), max_chunksize])
+                chunksize=max_chunksize
             ):
                 num_processed += 1
                 logger.debug("tile %s/%s finished", num_processed, total_tiles)

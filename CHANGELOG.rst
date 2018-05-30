@@ -8,10 +8,11 @@ Changelog
 * breaking change:
   * old-style Process classes are not supported anymore
 * user process accepts kwargs from custom process parameters
-* process_file is imported once when initializing the process
+* process_file is imported once when initializing the process (#114)
 * when validating, import process_file to quickly reveal ``ImporError``
 * fixed ``execute --point``
 * also check for ``s3`` URLs when adding GDAL HTTP options
+* default ``max_chunksize`` to 1 (#113)
 
 ----
 0.20
