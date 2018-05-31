@@ -9,4 +9,4 @@ logger.addHandler(logging.NullHandler())
 logging.getLogger("rasterio").setLevel(logging.ERROR)
 
 
-__version__ = "0.22"
+__version__ = "0.23"
