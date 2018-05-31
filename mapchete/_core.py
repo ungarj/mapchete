@@ -497,7 +497,9 @@ class Mapchete(object):
                     tile_process,
                     **{
                         k: v for k, v in six.iteritems(params)
-                        if k not in ["input", "output", "pyramid", "zoom_levels"]
+                        if k not in [
+                            "input", "output", "pyramid", "zoom_levels", "mapchete_file"
+                        ]
                     }
                 )
         except Exception as e:
