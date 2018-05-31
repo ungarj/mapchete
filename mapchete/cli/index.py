@@ -11,6 +11,9 @@ from mapchete.index import zoom_index_gen
 from mapchete.tile import BufferedTilePyramid
 
 
+# workaround for https://github.com/tqdm/tqdm/issues/481
+tqdm.monitor_interval = 0
+
 # lower stream output log level
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
 stream_handler = logging.StreamHandler()
