@@ -3,6 +3,12 @@ Changelog
 #########
 
 ----
+0.22
+----
+* don't pass on ``mapchete_file`` to ``execute()`` kwargs
+* apply workaround for tqdm: https://github.com/tqdm/tqdm/issues/481
+
+----
 0.21
 ----
 * breaking change:

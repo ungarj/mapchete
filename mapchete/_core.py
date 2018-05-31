@@ -36,9 +36,6 @@ logger.addHandler(logging.NullHandler())
 logging.getLogger("rasterio").setLevel(logging.ERROR)
 
 
-__version__ = "0.20"
-
-
 def open(
     config, mode="continue", zoom=None, bounds=None, single_input_file=None,
     with_cache=False, debug=False
