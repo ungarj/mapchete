@@ -217,9 +217,8 @@ class RasterWindowMemoryFile():
         """Open MemoryFile, write data and return."""
         self.rio_memfile = MemoryFile()
         with self.rio_memfile.open(**self.profile) as dst:
-            for b, d in enumerate(self.data):
-                dst.write(d.astype(self.profile["dtype"]), b + 1)
-                _write_tags(dst, self.tags)
+            dst.write(self.data.astype(self.profile["dtype"]))
+            _write_tags(dst, self.tags)
         return self.rio_memfile
 
     def __exit__(self, *args):
@@ -244,9 +243,13 @@ def write_raster_window(
     out_tile : ``Tile``
         provides output boundaries; if None, in_tile is used
     out_path : string
-        output path to write to; if output path is "memoryfile", a
-        rasterio.MemoryFile() is returned
+        output path to write to
     """
+    if out_path == "memoryfile":
+        raise DeprecationWarning(
+            "Writing to memoryfile with write_raster_window() is deprecated. "
+            "Please use RasterWindowMemoryFile."
+        )
     out_tile = in_tile if out_tile is None else out_tile
     _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
     if not isinstance(out_path, six.string_types):
@@ -260,18 +263,9 @@ def write_raster_window(
         out_profile["transform"] = out_profile.pop("affine")
     # write if there is any band with non-masked data
     if window_data.all() is not ma.masked:
-        if out_path == "memoryfile":
-            memfile = MemoryFile()
-            with memfile.open(**out_profile) as dst:
-                for band, data in enumerate(window_data):
-                    dst.write(data.astype(out_profile["dtype"]), band + 1)
-                    _write_tags(dst, tags)
-            return memfile
-        else:
-            with rasterio.open(out_path, 'w', **out_profile) as dst:
-                for band, data in enumerate(window_data):
-                    dst.write(data.astype(out_profile["dtype"]), band + 1)
-                    _write_tags(dst, tags)
+        with rasterio.open(out_path, 'w', **out_profile) as dst:
+            dst.write(window_data.astype(out_profile["dtype"]))
+            _write_tags(dst, tags)
 
 
 def _write_tags(dst, tags):

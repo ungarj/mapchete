@@ -205,17 +205,9 @@ def test_write_raster_window_memory():
             driver="PNG", count=2, dtype="uint8", nodata=0, height=tile.height,
             width=tile.width, compress=None, affine=tile.affine),
     ]:
-        memfile = write_raster_window(
-            in_tile=tile, in_data=data, out_profile=out_profile, out_path=path)
-        # with rasterio.open(memfile, 'r') as src:
-        with memfile.open() as src:
-            assert src.read().any()
-            assert src.meta["driver"] == out_profile["driver"]
-            assert src.transform == tile.affine
-            if out_profile["compress"]:
-                assert src.compression == Compression(
-                    out_profile["compress"].upper())
-        memfile.close()
+        with pytest.raises(DeprecationWarning):
+            write_raster_window(
+                in_tile=tile, in_data=data, out_profile=out_profile, out_path=path)
 
 
 def test_raster_window_memoryfile():
