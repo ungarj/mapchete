@@ -496,7 +496,7 @@ class Mapchete(object):
                         k: v for k, v in six.iteritems(params)
                         if k not in [
                             "input", "output", "pyramid", "zoom_levels", "mapchete_file",
-                            "init_bounds"
+                            "init_bounds", "init_zoom_levels"
                         ]
                     }
                 )
