@@ -188,7 +188,7 @@ class MapcheteCLI(object):
             "--debug", "-d", action="store_true",
             help="deactivate progress bar and print debug log output")
         parser.add_argument(
-            "--max_chunksize", "-c", type=int, metavar="<int>", default=16,
+            "--max_chunksize", "-c", type=int, metavar="<int>", default=1,
             help="maximum number of process tiles to be queued for each \
                 worker; (default: 1)")
         execute(parser.parse_args(self.args[2:]))
