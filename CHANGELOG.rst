@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.23
+----
+* remove deprecated ``memoryfile`` usage for ``write_raster_window()``
+
+----
 0.22
 ----
 * don't pass on ``mapchete_file`` to ``execute()`` kwargs
