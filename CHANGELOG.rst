@@ -6,6 +6,7 @@ Changelog
 0.23
 ----
 * remove deprecated ``memoryfile`` usage for ``write_raster_window()``
+* fix ``s3`` path for ``mapchete index``
 
 ----
 0.22

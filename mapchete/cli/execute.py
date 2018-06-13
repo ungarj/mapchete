@@ -43,7 +43,6 @@ def main(args=None):
     if parsed.debug:
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
         stream_handler.setLevel(logging.DEBUG)
-        # logging.getLogger().addHandler(stream_handler)
 
     tqdm.tqdm.write("preparing process", file=verbose_dst)
 

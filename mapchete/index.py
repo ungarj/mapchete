@@ -20,8 +20,6 @@ import logging
 import os
 from shapely.geometry import mapping
 
-from mapchete.io import path_is_remote
-
 logger = logging.getLogger(__name__)
 
 spatial_schema = {
@@ -98,10 +96,12 @@ def zoom_index_gen(
             mp.config.area_at_zoom(zoom), zoom
         ):
             logger.debug("analyze tile %s", tile)
-            # TODO: generate tile_path depending on basepath & for_gdal option
+            # generate tile_path depending on basepath & for_gdal option
             tile_path = _tile_path(
                 orig_path=mp.config.output.get_path(tile),
-                basepath=basepath, for_gdal=for_gdal)
+                basepath=basepath, for_gdal=for_gdal
+            )
+            logger.debug(tile_path)
 
             # check if tile was not already inserted into all available writers
             # and write into indexes if output tile exists
@@ -134,9 +134,12 @@ def _index_file_path(out_dir, zoom, ext):
 def _tile_path(orig_path, basepath, for_gdal):
     path = (
         os.path.join(basepath, "/".join(orig_path.split("/")[-3:])) if basepath
-        else orig_path)
-    if for_gdal and path_is_remote(path):
+        else orig_path
+    )
+    if for_gdal and path.startswith(("http://", "https://")):
         return "/vsicurl/" + path
+    elif for_gdal and path.startswith("s3://"):
+        return path.replace("s3://", "/vsis3/")
     else:
         return path
 
