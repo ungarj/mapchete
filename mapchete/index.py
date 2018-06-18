@@ -37,6 +37,7 @@ def zoom_index_gen(
     zoom=None,
     geojson=False,
     gpkg=False,
+    shapefile=False,
     txt=False,
     fieldname=None,
     basepath=None,
@@ -82,6 +83,13 @@ def zoom_index_gen(
                 VectorFileWriter(
                     driver="GPKG",
                     out_path=_index_file_path(out_dir, zoom, "gpkg"),
+                    crs=mp.config.output_pyramid.crs,
+                    fieldname=fieldname))
+        if shapefile:
+            index_writers.append(
+                VectorFileWriter(
+                    driver="ESRI Shapefile",
+                    out_path=_index_file_path(out_dir, zoom, "shp"),
                     crs=mp.config.output_pyramid.crs,
                     fieldname=fieldname))
         if txt:
@@ -156,7 +164,7 @@ class VectorFileWriter():
         if os.path.isfile(self.path):
             with fiona.open(self.path) as src:
                 self.existing = {f["properties"]["tile_id"]: f for f in src}
-            os.remove(self.path)
+            fiona.remove(self.path, driver=driver)
         else:
             self.existing = {}
         self.new_entries = 0

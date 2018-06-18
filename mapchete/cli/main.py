@@ -265,6 +265,9 @@ class MapcheteCLI(object):
             "--gpkg", action="store_true",
             help="write GeoPackage index")
         parser.add_argument(
+            "--shp", action="store_true",
+            help="write Shapefile index")
+        parser.add_argument(
             "--txt", action="store_true",
             help="write text file with paths")
         parser.add_argument(

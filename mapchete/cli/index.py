@@ -28,9 +28,9 @@ def index(args):
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
         stream_handler.setLevel(logging.DEBUG)
 
-    if not any([args.geojson, args.gpkg, args.txt]):
+    if not any([args.geojson, args.gpkg, args.shp, args.txt]):
         raise ValueError(
-            "one of 'geojson', 'gpkg', or 'txt' must be provided")
+            "one of 'geojson', 'gpkg', 'shp', or 'txt' must be provided")
 
     # process single tile
     if args.tile:
@@ -53,6 +53,7 @@ def index(args):
                     out_dir=out_dir,
                     geojson=args.geojson,
                     gpkg=args.gpkg,
+                    shapefile=args.shp,
                     txt=args.txt,
                     fieldname=args.fieldname,
                     basepath=args.basepath,
@@ -84,6 +85,7 @@ def index(args):
                         out_dir=out_dir,
                         geojson=args.geojson,
                         gpkg=args.gpkg,
+                        shapefile=args.shp,
                         txt=args.txt,
                         fieldname=args.fieldname,
                         basepath=args.basepath,
