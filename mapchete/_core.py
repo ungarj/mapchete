@@ -505,7 +505,9 @@ class Mapchete(object):
             elapsed = "%ss" % (round((time.time() - starttime), 3))
             logger.exception(
                 (process_tile.id, "exception in user process", e, elapsed))
-            raise MapcheteProcessException(format_exc())
+            new = MapcheteProcessException(format_exc())
+            new.old = e
+            raise new
         finally:
             tile_process = None
         # Analyze proess output.
