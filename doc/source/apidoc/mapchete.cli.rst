@@ -1,5 +1,5 @@
-mapchete\.cli package
-=====================
+mapchete.cli package
+====================
 
 Submodules
 ----------
@@ -9,6 +9,7 @@ Submodules
    mapchete.cli.create
    mapchete.cli.execute
    mapchete.cli.formats
+   mapchete.cli.index
    mapchete.cli.main
    mapchete.cli.pyramid
    mapchete.cli.serve

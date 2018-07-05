@@ -18,7 +18,6 @@
 #
 import os
 import sys
-from mock import Mock as MagicMock
 
 sys.path.insert(0, os.path.abspath('../../'))
 
@@ -47,7 +46,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Mapchete'
-copyright = u'2015, 2016, 2017, EOX IT Services'
+copyright = u'2015, 2016, 2017, 2018, EOX IT Services'
 author = u'Joachim Ungar'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -160,20 +159,7 @@ texinfo_documents = [
 # numpydoc fix
 numpydoc_show_class_members = False
 
-
-# Mocking packages:
-
-
-class Mock(MagicMock):
-    """Pretend the dependencies are installed when building docs."""
-
-    @classmethod
-    def __getattr__(cls, name):
-        """Need to put a docstring here, otherwise my linter cries."""
-        return MagicMock()
-
-
-MOCK_MODULES = [
+autodoc_mock_imports = [
     'tilematrix',
     'fiona',
     'pyyaml',
@@ -187,7 +173,7 @@ MOCK_MODULES = [
     'rasterio.io'
     'matplotlib',
     'matplotlib.pyplot',
-    'numpy',
+    'numpy==1.7.1',
     'numpy.ma',
     'cached_property',
     'pyproj',
@@ -201,4 +187,3 @@ MOCK_MODULES = [
     'affine',
     'tqdm'
 ]
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)

@@ -1,5 +1,5 @@
-mapchete\.formats package
-=========================
+mapchete.formats package
+========================
 
 Subpackages
 -----------

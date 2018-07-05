@@ -1,7 +1,7 @@
-mapchete.io.raster module
+mapchete.cli.index module
 =========================
 
-.. automodule:: mapchete.io.raster
+.. automodule:: mapchete.cli.index
     :members:
     :undoc-members:
     :show-inheritance:

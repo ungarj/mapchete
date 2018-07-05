@@ -1,5 +1,5 @@
-mapchete\.formats\.drivers module
-=================================
+mapchete.formats.drivers module
+===============================
 
 .. automodule:: mapchete.formats.drivers
     :members:

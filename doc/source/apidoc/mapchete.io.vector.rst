@@ -1,5 +1,5 @@
-mapchete\.io\.vector module
-===========================
+mapchete.io.vector module
+=========================
 
 .. automodule:: mapchete.io.vector
     :members:

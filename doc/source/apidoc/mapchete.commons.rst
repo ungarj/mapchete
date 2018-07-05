@@ -1,5 +1,5 @@
-mapchete\.commons package
-=========================
+mapchete.commons package
+========================
 
 Submodules
 ----------

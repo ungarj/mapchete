@@ -1,5 +1,5 @@
-mapchete\.errors module
-=======================
+mapchete.errors module
+======================
 
 .. automodule:: mapchete.errors
     :members:

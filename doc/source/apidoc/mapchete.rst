@@ -8,17 +8,18 @@ Subpackages
 
     mapchete.cli
     mapchete.commons
-    mapchete.config
     mapchete.formats
     mapchete.io
-    mapchete.static
 
 Submodules
 ----------
 
 .. toctree::
 
+   mapchete.config
    mapchete.errors
+   mapchete.index
+   mapchete.log
    mapchete.tile
 
 Module contents

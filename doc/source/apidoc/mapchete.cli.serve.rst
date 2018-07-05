@@ -1,5 +1,5 @@
-mapchete\.cli\.serve module
-===========================
+mapchete.cli.serve module
+=========================
 
 .. automodule:: mapchete.cli.serve
     :members:

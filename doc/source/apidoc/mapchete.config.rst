@@ -1,8 +1,5 @@
-mapchete\.config package
-========================
-
-Module contents
----------------
+mapchete.config module
+======================
 
 .. automodule:: mapchete.config
     :members:

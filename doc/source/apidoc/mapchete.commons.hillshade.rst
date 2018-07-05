@@ -1,5 +1,5 @@
-mapchete\.commons\.hillshade module
-===================================
+mapchete.commons.hillshade module
+=================================
 
 .. automodule:: mapchete.commons.hillshade
     :members:

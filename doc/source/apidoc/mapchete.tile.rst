@@ -1,5 +1,5 @@
-mapchete\.tile module
-=====================
+mapchete.tile module
+====================
 
 .. automodule:: mapchete.tile
     :members:
