@@ -1,5 +1,5 @@
-mapchete\.formats\.default\.geojson module
-==========================================
+mapchete.formats.default.geojson module
+=======================================
 
 .. automodule:: mapchete.formats.default.geojson
     :members:

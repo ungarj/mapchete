@@ -1,5 +1,5 @@
-mapchete\.formats\.default package
-==================================
+mapchete.formats.default package
+================================
 
 Submodules
 ----------
@@ -12,6 +12,7 @@ Submodules
    mapchete.formats.default.png
    mapchete.formats.default.png_hillshade
    mapchete.formats.default.raster_file
+   mapchete.formats.default.tile_directory
    mapchete.formats.default.vector_file
 
 Module contents

@@ -1,8 +1,5 @@
-mapchete.log package
-====================
-
-Module contents
----------------
+mapchete.log module
+===================
 
 .. automodule:: mapchete.log
     :members:

@@ -1,5 +1,5 @@
-mapchete\.io package
-====================
+mapchete.io package
+===================
 
 Submodules
 ----------

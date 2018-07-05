@@ -1,7 +1,7 @@
-mapchete.formats.default.mapchete\_input module
+mapchete.formats.default.tile\_directory module
 ===============================================
 
-.. automodule:: mapchete.formats.default.mapchete_input
+.. automodule:: mapchete.formats.default.tile_directory
     :members:
     :undoc-members:
     :show-inheritance:
