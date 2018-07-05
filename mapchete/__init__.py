@@ -2,6 +2,10 @@ import logging
 
 from mapchete._core import open, count_tiles, Mapchete, MapcheteProcess
 
+
+__all__ = ['open', 'count_tiles', 'Mapchete', 'MapcheteProcess']
+
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
