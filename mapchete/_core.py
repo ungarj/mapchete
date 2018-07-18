@@ -45,7 +45,7 @@ def open(
 
     Parameters
     ----------
-    config : MapcheteConfig pr dict
+    config : MapcheteConfig object, config dict or path to mapchete file
         Mapchete process configuration
     mode : string
         * ``memory``: Generate process output on demand without reading
