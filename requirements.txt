@@ -1,6 +1,6 @@
 numpy
 rasterio>=1.0a12
-tilematrix>=0.12
+tilematrix>=0.15
 fiona
 shapely
 pyyaml

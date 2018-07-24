@@ -53,7 +53,7 @@ setup(
     package_dir={'static': 'static'},
     package_data={'mapchete.static': ['*']},
     install_requires=[
-        'tilematrix>=0.12',
+        'tilematrix>=0.15',
         'fiona',
         'pyyaml',
         'flask',

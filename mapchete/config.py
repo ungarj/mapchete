@@ -234,13 +234,33 @@ class MapcheteConfig(object):
         """
         Process bounds this process is currently initialized with.
 
-        This gets triggered by using the ``bounds`` kwarg. If not set, it will
+        This gets triggered by using the ``init_bounds`` kwarg. If not set, it will
         be equal to self.bounds.
         """
         if self._raw["init_bounds"] is None:
             return self.bounds
         else:
             return Bounds(*_validate_bounds(self._raw["init_bounds"]))
+
+    @cached_property
+    def effective_bounds(self):
+        """
+        Effective process bounds required to initialize inputs.
+
+        Process bounds sometimes have to be larger, because all intersecting process
+        tiles have to be covered as well.
+        """
+        if self.baselevels:
+            lowest_non_baselevel = min(
+                set(self.init_zoom_levels).difference(set(self.baselevels["zooms"]))
+            )
+        else:
+            lowest_non_baselevel = min(self.init_zoom_levels)
+        return snap_bounds(
+            bounds=clip_bounds(bounds=self.init_bounds, clip=self.process_pyramid.bounds),
+            pyramid=self.process_pyramid,
+            zoom=lowest_non_baselevel
+        )
 
     @cached_property
     def output(self):
@@ -281,7 +301,8 @@ class MapcheteConfig(object):
         # the delimiters are used by some input drivers
         delimiters = dict(
             zoom=self.init_zoom_levels, bounds=self.init_bounds,
-            process_bounds=self.bounds)
+            process_bounds=self.bounds, effective_bounds=self.effective_bounds
+        )
 
         # get input items only of initialized zoom levels
         raw_inputs = {
@@ -362,9 +383,9 @@ class MapcheteConfig(object):
                     "invalid baselevel zoom parameter given: %s" % (
                         minmax.values()))
         return dict(
-            zooms=range(
+            zooms=list(range(
                 minmax.get("min", min(self.zoom_levels)),
-                minmax.get("max", max(self.zoom_levels)) + 1),
+                minmax.get("max", max(self.zoom_levels)) + 1)),
             lower=baselevels.get("lower", "nearest"),
             higher=baselevels.get("higher", "nearest"),
             tile_pyramid=BufferedTilePyramid(
@@ -584,6 +605,57 @@ def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
         return init_zoom_levels
 
 
+def snap_bounds(bounds=None, pyramid=None, zoom=None):
+    """
+    Snaps bounds to tiles boundaries of specific zoom level.
+
+    Parameters
+    ----------
+    bounds : bounds to be snapped
+    pyramid : TilePyramid
+    zoom : int
+
+    Returns
+    -------
+    Bounds(left, bottom, right, top)
+    """
+    if not isinstance(bounds, (tuple, list)):
+        raise TypeError("bounds must be either a tuple or a list")
+    if len(bounds) != 4:
+        raise ValueError("bounds has to have exactly four values")
+    if not isinstance(pyramid, BufferedTilePyramid):
+        raise TypeError("pyramid has to be a BufferedTilePyramid")
+
+    bounds = Bounds(*bounds)
+    lb = pyramid.tile_from_xy(bounds.left, bounds.bottom, zoom, on_edge_use="rt").bounds
+    rt = pyramid.tile_from_xy(bounds.right, bounds.top, zoom, on_edge_use="lb").bounds
+    return Bounds(lb.left, lb.bottom, rt.right, rt.top)
+
+
+def clip_bounds(bounds=None, clip=None):
+    """
+    Clips bounds by clip.
+
+    Parameters
+    ----------
+    bounds : bounds to be clipped
+    clip : clip bounds
+
+    Returns
+    -------
+    Bounds(left, bottom, right, top)
+    """
+    bounds = Bounds(*bounds)
+    clip = Bounds(*clip)
+    return Bounds(
+        max(bounds.left, clip.left),
+        max(bounds.bottom, clip.bottom),
+        min(bounds.right, clip.right),
+        min(bounds.top, clip.top)
+    )
+
+
+
 def _config_to_dict(input_config):
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
@@ -634,13 +706,13 @@ def _validate_zooms(zooms):
         if zmin > zmax:
             raise MapcheteConfigError(
                 "max zoom must not be smaller than min zoom")
-        return range(zmin, zmax + 1)
+        return list(range(zmin, zmax + 1))
     elif isinstance(zooms, list):
         if len(zooms) == 1:
             return zooms
         elif len(zooms) == 2:
             zmin, zmax = sorted([_validate_zoom(z) for z in zooms])
-            return range(zmin, zmax + 1)
+            return list(range(zmin, zmax + 1))
         else:
             raise MapcheteConfigError(
                 "when providing zooms as list, just min and max are allowed")
