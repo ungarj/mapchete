@@ -144,6 +144,13 @@ def test_effective_bounds(files_bounds, baselevels):
         bounds=config.init_bounds, pyramid=config.process_pyramid, zoom=7
     )
 
+    with pytest.raises(MapcheteConfigError):
+        MapcheteConfig(dict(
+            baselevels.dict,
+            zoom_levels=dict(min=7, max=7),
+            baselevels=dict(lower="cubic", max=7)
+        ))
+
 
 def test_read_mapchete_input(mapchete_input):
     """Read Mapchete files as input files."""
