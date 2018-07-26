@@ -141,7 +141,7 @@ def test_effective_bounds(files_bounds, baselevels):
     )
     assert config.effective_bounds != config.init_bounds
     assert config.effective_bounds == snap_bounds(
-        bounds=config.init_bounds, pyramid=config.process_pyramid, zoom=7
+        bounds=config.init_bounds, pyramid=config.process_pyramid, zoom=5
     )
 
     with pytest.raises(MapcheteConfigError):

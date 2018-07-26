@@ -250,16 +250,14 @@ class MapcheteConfig(object):
         Process bounds sometimes have to be larger, because all intersecting process
         tiles have to be covered as well.
         """
-        if self.baselevels:
-            lowest_non_baselevel = min(
-                set(self.init_zoom_levels).difference(set(self.baselevels["zooms"]))
-            )
-        else:
-            lowest_non_baselevel = min(self.init_zoom_levels)
         return snap_bounds(
             bounds=clip_bounds(bounds=self.init_bounds, clip=self.process_pyramid.bounds),
             pyramid=self.process_pyramid,
-            zoom=lowest_non_baselevel
+            zoom=min(
+                self.baselevels["zooms"]
+            ) if self.baselevels else min(
+                self.init_zoom_levels
+            )
         )
 
     @cached_property
