@@ -15,7 +15,6 @@ import signal
 import six
 import threading
 from tilematrix import TilePyramid
-from tilematrix._funcs import Bounds
 import time
 from traceback import format_exc
 import types
@@ -24,7 +23,7 @@ from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import MapcheteConfig
-from mapchete.tile import BufferedTile, BufferedTilePyramid
+from mapchete.tile import BufferedTile
 from mapchete.io import raster
 from mapchete.errors import (
     MapcheteProcessException, MapcheteProcessOutputError, MapcheteNodataTile
@@ -113,10 +112,7 @@ class Mapchete(object):
         self.config = config
         self.process_name = os.path.splitext(
             os.path.basename(self.config.process_file))[0]
-        if self.config.mode == "memory":
-            self.with_cache = True
-        else:
-            self.with_cache = with_cache
+        self.with_cache = True if self.config.mode == "memory" else with_cache
         if self.with_cache:
             self.process_tile_cache = LRUCache(maxsize=512)
             self.current_processes = {}
@@ -324,9 +320,9 @@ class Mapchete(object):
                 message = "output empty, nothing written"
                 logger.debug((process_tile.id, message))
                 return message
-            start = time.time()
-            self.config.output.write(process_tile=process_tile, data=data)
-            message = "output written in %ss" % round(time.time() - start, 3)
+            with Timer() as t:
+                self.config.output.write(process_tile=process_tile, data=data)
+            message = "output written in %s" % t.interval
             logger.debug((process_tile.id, message))
             return message
 
@@ -486,26 +482,26 @@ class Mapchete(object):
             config=self.config, tile=process_tile, params=params
         )
         try:
-            starttime = time.time()
-            # Actually run process.
-            if len(inspect.getargspec(self.config.process_func).args) == 1:
-                process_data = self.config.process_func(tile_process)
-            else:
-                process_data = self.config.process_func(
-                    tile_process,
-                    **{
-                        k: v for k, v in six.iteritems(params)
-                        if k not in [
-                            "input", "output", "pyramid", "zoom_levels", "mapchete_file",
-                            "init_bounds", "init_zoom_levels"
-                        ]
-                    }
-                )
+            with Timer() as t:
+                # Actually run process.
+                if len(inspect.getargspec(self.config.process_func).args) == 1:
+                    process_data = self.config.process_func(tile_process)
+                else:
+                    process_data = self.config.process_func(
+                        tile_process,
+                        **{
+                            k: v for k, v in six.iteritems(params)
+                            if k not in [
+                                "input", "output", "pyramid", "zoom_levels",
+                                "mapchete_file", "init_bounds", "init_zoom_levels"
+                            ]
+                        }
+                    )
         except Exception as e:
             # Log process time
-            elapsed = "%ss" % (round((time.time() - starttime), 3))
             logger.exception(
-                (process_tile.id, "exception in user process", e, elapsed))
+                (process_tile.id, "exception in user process", e, t.interval)
+            )
             new = MapcheteProcessException(format_exc())
             new.old = e
             raise new
@@ -544,40 +540,37 @@ class Mapchete(object):
                 "invalid output type: %s" % type(process_data))
 
     def _interpolate_from_baselevel(self, tile=None, baselevel=None):
-        starttime = time.time()
-        # resample from parent tile
-        if baselevel == "higher":
-            parent_tile = tile.get_parent()
-            process_data = raster.resample_from_array(
-                in_raster=self.get_raw_output(
-                    parent_tile, _baselevel_readonly=True
-                ),
-                in_affine=parent_tile.affine,
-                out_tile=tile,
-                resampling=self.config.baselevels["higher"],
-                nodataval=self.config.output.nodata
-            )
-        # resample from children tiles
-        elif baselevel == "lower":
-            mosaic, mosaic_affine = raster.create_mosaic([
-                (
-                    child_tile,
-                    self.get_raw_output(child_tile, _baselevel_readonly=True)
+        with Timer() as t:
+            # resample from parent tile
+            if baselevel == "higher":
+                parent_tile = tile.get_parent()
+                process_data = raster.resample_from_array(
+                    in_raster=self.get_raw_output(parent_tile, _baselevel_readonly=True),
+                    in_affine=parent_tile.affine,
+                    out_tile=tile,
+                    resampling=self.config.baselevels["higher"],
+                    nodataval=self.config.output.nodata
                 )
-                for child_tile in self.config.baselevels["tile_pyramid"].tile(
-                    *tile.id
-                ).get_children()
-            ])
-            process_data = raster.resample_from_array(
-                in_raster=mosaic,
-                in_affine=mosaic_affine,
-                out_tile=tile,
-                resampling=self.config.baselevels["lower"],
-                nodataval=self.config.output.nodata
-            )
-        elapsed = "%ss" % (round((time.time() - starttime), 3))
-        logger.debug((tile.id, "generated from baselevel", elapsed))
-        return process_data
+            # resample from children tiles
+            elif baselevel == "lower":
+                mosaic, mosaic_affine = raster.create_mosaic([
+                    (
+                        child_tile,
+                        self.get_raw_output(child_tile, _baselevel_readonly=True)
+                    )
+                    for child_tile in self.config.baselevels["tile_pyramid"].tile(
+                        *tile.id
+                    ).get_children()
+                ])
+                process_data = raster.resample_from_array(
+                    in_raster=mosaic,
+                    in_affine=mosaic_affine,
+                    out_tile=tile,
+                    resampling=self.config.baselevels["lower"],
+                    nodataval=self.config.output.nodata
+                )
+            logger.debug((tile.id, "generated from baselevel", t))
+            return process_data
 
     def __enter__(self):
         """Enable context manager."""
@@ -774,6 +767,29 @@ class MapcheteProcess(object):
             inverted=inverted, clip_buffer=clip_buffer*self.tile.pixel_x_size)
 
 
+class Timer:
+    """
+    Context manager to facilitate timing code.
+
+    based on http://preshing.com/20110924/timing-your-code-using-pythons-with-statement/
+    """
+    def __enter__(self):
+        self.start = time.clock()
+        return self
+
+    def __exit__(self, *args):
+        self.end = time.clock()
+        self.interval = round(self.end - self.start, 3)
+        minutes, seconds = divmod(self.interval, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            self.elapsed = "%sh %sm %ss" % hours, minutes, seconds
+        elif minutes:
+            self.elapsed = "%sm %ss" % minutes, seconds
+        else:
+            self.elapsed = "%ss" % seconds
+
+
 def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
     """
     Count number of tiles intersecting with geometry.
@@ -844,7 +860,8 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 def _run_on_single_tile(process, tile):
     logger.debug("run process on single tile")
     tile, message = _process_worker(
-        process, process.config.process_pyramid.tile(*tuple(tile)))
+        process, process.config.process_pyramid.tile(*tuple(tile))
+    )
     return dict(process_tile=tile, **message)
 
 
@@ -852,32 +869,32 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
     logger.debug("run with multiprocessing")
     num_processed = 0
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
-    logger.debug(
-        "run process on %s tiles using %s workers", total_tiles, multi)
-    f = partial(_process_worker, process)
-    for zoom in zoom_levels:
-        pool = Pool(multi, _worker_sigint_handler)
-        try:
-            for tile, message in pool.imap_unordered(
-                f,
-                process.get_process_tiles(zoom),
-                # set chunksize to between 1 and max_chunksize
-                chunksize=max_chunksize
-            ):
-                num_processed += 1
-                logger.debug("tile %s/%s finished", num_processed, total_tiles)
-                yield dict(process_tile=tile, **message)
-        except KeyboardInterrupt:
-            logger.error("Caught KeyboardInterrupt, terminating workers")
-            pool.terminate()
-            raise
-        except Exception:
-            pool.terminate()
-            raise
-        finally:
-            pool.close()
-            pool.join()
-    logger.debug("%s tile(s) iterated", (str(num_processed)))
+    logger.debug("run process on %s tiles using %s workers", total_tiles, multi)
+    with Timer() as t:
+        f = partial(_process_worker, process)
+        for zoom in zoom_levels:
+            pool = Pool(multi, _worker_sigint_handler)
+            try:
+                for tile, message in pool.imap_unordered(
+                    f,
+                    process.get_process_tiles(zoom),
+                    # set chunksize to between 1 and max_chunksize
+                    chunksize=max_chunksize
+                ):
+                    num_processed += 1
+                    logger.debug("tile %s/%s finished", num_processed, total_tiles)
+                    yield dict(process_tile=tile, **message)
+            except KeyboardInterrupt:
+                logger.error("Caught KeyboardInterrupt, terminating workers")
+                pool.terminate()
+                raise
+            except Exception:
+                pool.terminate()
+                raise
+            finally:
+                pool.close()
+                pool.join()
+    logger.debug("%s tile(s) iterated in %sm", str(num_processed), t.elapsed)
 
 
 def _run_without_multiprocessing(process, zoom_levels):
@@ -885,13 +902,14 @@ def _run_without_multiprocessing(process, zoom_levels):
     num_processed = 0
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     logger.debug("run process on %s tiles using 1 worker", total_tiles)
-    for zoom in zoom_levels:
-        for process_tile in process.get_process_tiles(zoom):
-            tile, message = _process_worker(process, process_tile)
-            num_processed += 1
-            logger.debug("tile %s/%s finished", num_processed, total_tiles)
-            yield dict(process_tile=tile, **message)
-    logger.debug("%s tile(s) iterated", (str(num_processed)))
+    with Timer() as t:
+        for zoom in zoom_levels:
+            for process_tile in process.get_process_tiles(zoom):
+                tile, message = _process_worker(process, process_tile)
+                num_processed += 1
+                logger.debug("tile %s/%s finished", num_processed, total_tiles)
+                yield dict(process_tile=tile, **message)
+    logger.debug("%s tile(s) iterated in %sm", str(num_processed), t.elapsed)
 
 
 def _get_zoom_level(zoom, process):
@@ -911,27 +929,30 @@ def _process_worker(process, process_tile):
     logger.debug((process_tile.id, "running on %s" % current_process().name))
 
     # skip execution if overwrite is disabled and tile exists
-    if process.config.mode == "continue" and (
+    if (
+        process.config.mode == "continue" and
         process.config.output.tiles_exist(process_tile)
     ):
         logger.debug((process_tile.id, "tile exists, skipping"))
         return process_tile, dict(
             process="output already exists",
-            write="nothing written")
+            write="nothing written"
+        )
 
     # execute on process tile
     else:
-        start = time.time()
-        try:
-            output = process.execute(process_tile, raise_nodata=True)
-        except MapcheteNodataTile:
-            output = None
-        processor_message = "processed in %ss" % round(time.time() - start, 3)
+        with Timer() as t:
+            try:
+                output = process.execute(process_tile, raise_nodata=True)
+            except MapcheteNodataTile:
+                output = None
+        processor_message = "processed in %s" % t.elapsed
         logger.debug((process_tile.id, processor_message))
         writer_message = process.write(process_tile, output)
         return process_tile, dict(
             process=processor_message,
-            write=writer_message)
+            write=writer_message
+        )
 
 
 def _worker_sigint_handler():
