@@ -1,6 +1,7 @@
 """Main module managing processes."""
 
 from cachetools import LRUCache
+from collections import namedtuple
 from functools import partial
 import inspect
 from itertools import chain, product
@@ -72,6 +73,9 @@ def open(
             config, mode=mode, zoom=zoom, bounds=bounds,
             single_input_file=single_input_file, debug=debug),
         with_cache=with_cache)
+
+
+ProcessInfo = namedtuple('ProcessInfo', 'tile processed process_msg written write_msg')
 
 
 class Mapchete(object):
@@ -201,16 +205,16 @@ class Mapchete(object):
             yield _run_on_single_tile(self, tile)
         # run using multiprocessing
         elif multi > 1:
-            for result in _run_with_multiprocessing(
+            for process_info in _run_with_multiprocessing(
                 self, list(_get_zoom_level(zoom, self)), multi, max_chunksize
             ):
-                yield result
+                yield process_info
         # run without multiprocessing
         elif multi == 1:
-            for result in _run_without_multiprocessing(
+            for process_info in _run_without_multiprocessing(
                 self, list(_get_zoom_level(zoom, self))
             ):
-                yield result
+                yield process_info
 
     def count_tiles(self, minzoom, maxzoom, init_zoom=0):
         """
@@ -314,17 +318,35 @@ class Mapchete(object):
         ):
             message = "output exists, not overwritten"
             logger.debug((process_tile.id, message))
-            return message
+            return ProcessInfo(
+                tile=process_tile,
+                processed=False,
+                process_msg=None,
+                written=False,
+                write_msg=message
+            )
         else:
             if data is None:
                 message = "output empty, nothing written"
                 logger.debug((process_tile.id, message))
-                return message
+                return ProcessInfo(
+                    tile=process_tile,
+                    processed=False,
+                    process_msg=None,
+                    written=False,
+                    write_msg=message
+                )
             with Timer() as t:
                 self.config.output.write(process_tile=process_tile, data=data)
             message = "output written in %s" % t.interval
             logger.debug((process_tile.id, message))
-            return message
+            return ProcessInfo(
+                tile=process_tile,
+                processed=False,
+                process_msg=None,
+                written=True,
+                write_msg=message
+            )
 
     def get_raw_output(self, tile, _baselevel_readonly=False):
         """
@@ -859,10 +881,10 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 ########################################
 def _run_on_single_tile(process, tile):
     logger.debug("run process on single tile")
-    tile, message = _process_worker(
+    process_info = _process_worker(
         process, process.config.process_pyramid.tile(*tuple(tile))
     )
-    return dict(process_tile=tile, **message)
+    return process_info
 
 
 def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
@@ -875,7 +897,7 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
         for zoom in zoom_levels:
             pool = Pool(multi, _worker_sigint_handler)
             try:
-                for tile, message in pool.imap_unordered(
+                for process_info in pool.imap_unordered(
                     f,
                     process.get_process_tiles(zoom),
                     # set chunksize to between 1 and max_chunksize
@@ -883,7 +905,7 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
                 ):
                     num_processed += 1
                     logger.debug("tile %s/%s finished", num_processed, total_tiles)
-                    yield dict(process_tile=tile, **message)
+                    yield process_info
             except KeyboardInterrupt:
                 logger.error("Caught KeyboardInterrupt, terminating workers")
                 pool.terminate()
@@ -894,7 +916,7 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
             finally:
                 pool.close()
                 pool.join()
-    logger.debug("%s tile(s) iterated in %sm", str(num_processed), t.elapsed)
+    logger.debug("%s tile(s) iterated in %s", str(num_processed), t.elapsed)
 
 
 def _run_without_multiprocessing(process, zoom_levels):
@@ -905,11 +927,11 @@ def _run_without_multiprocessing(process, zoom_levels):
     with Timer() as t:
         for zoom in zoom_levels:
             for process_tile in process.get_process_tiles(zoom):
-                tile, message = _process_worker(process, process_tile)
+                process_info = _process_worker(process, process_tile)
                 num_processed += 1
                 logger.debug("tile %s/%s finished", num_processed, total_tiles)
-                yield dict(process_tile=tile, **message)
-    logger.debug("%s tile(s) iterated in %sm", str(num_processed), t.elapsed)
+                yield process_info
+    logger.debug("%s tile(s) iterated in %s", str(num_processed), t.elapsed)
 
 
 def _get_zoom_level(zoom, process):
@@ -934,9 +956,12 @@ def _process_worker(process, process_tile):
         process.config.output.tiles_exist(process_tile)
     ):
         logger.debug((process_tile.id, "tile exists, skipping"))
-        return process_tile, dict(
-            process="output already exists",
-            write="nothing written"
+        return ProcessInfo(
+            tile=process_tile,
+            processed=False,
+            process_msg="output already exists",
+            written=False,
+            write_msg="nothing written"
         )
 
     # execute on process tile
@@ -948,10 +973,13 @@ def _process_worker(process, process_tile):
                 output = None
         processor_message = "processed in %s" % t.elapsed
         logger.debug((process_tile.id, processor_message))
-        writer_message = process.write(process_tile, output)
-        return process_tile, dict(
-            process=processor_message,
-            write=writer_message
+        writer_info = process.write(process_tile, output)
+        return ProcessInfo(
+            tile=process_tile,
+            processed=True,
+            process_msg=processor_message,
+            written=writer_info.written,
+            write_msg=writer_info.write_msg
         )
 
 

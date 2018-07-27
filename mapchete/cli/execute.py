@@ -93,7 +93,7 @@ def main(args=None):
             tqdm.tqdm.write("processing %s tile(s) on %s worker(s)" % (
                 tiles_count, multi
             ), file=verbose_dst)
-            for result in tqdm.tqdm(
+            for process_info in tqdm.tqdm(
                 mp.batch_processor(
                     multi=multi, zoom=parsed.zoom,
                     max_chunksize=parsed.max_chunksize),
@@ -101,13 +101,15 @@ def main(args=None):
                 unit="tile",
                 disable=parsed.debug or parsed.no_pbar
             ):
-                _write_verbose_msg(result, dst=verbose_dst)
+                _write_verbose_msg(process_info, dst=verbose_dst)
 
     tqdm.tqdm.write("process finished", file=verbose_dst)
 
 
-def _write_verbose_msg(result, dst):
-    msg = "Tile %s: %s, %s" % (
-        tuple(result["process_tile"].id), result["process"],
-        result["write"])
-    tqdm.tqdm.write(msg, file=dst)
+def _write_verbose_msg(process_info, dst):
+    tqdm.tqdm.write(
+        "Tile %s: %s, %s" % (
+            tuple(process_info.tile.id), process_info.process_msg, process_info.write_msg
+        ),
+        file=dst
+    )
