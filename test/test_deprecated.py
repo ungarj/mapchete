@@ -18,4 +18,4 @@ def test_parse_deprecated_zooms(deprecated_params):
     deprecated_params.dict.pop("process_zoom")
     deprecated_params.dict.update(process_minzoom=0, process_maxzoom=5)
     with mapchete.open(deprecated_params.dict) as mp:
-        assert mp.config.zoom_levels == range(0, 6)
+        assert mp.config.zoom_levels == list(range(0, 6))

@@ -1,6 +1,6 @@
 import logging
 
-from mapchete._core import open, count_tiles, Mapchete, MapcheteProcess
+from mapchete._core import (open, count_tiles, Mapchete, MapcheteProcess)
 
 
 __all__ = ['open', 'count_tiles', 'Mapchete', 'MapcheteProcess']

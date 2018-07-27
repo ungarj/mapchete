@@ -15,6 +15,7 @@ import signal
 import six
 import threading
 from tilematrix import TilePyramid
+from tilematrix._funcs import Bounds
 import time
 from traceback import format_exc
 import types
@@ -23,7 +24,7 @@ from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import MapcheteConfig
-from mapchete.tile import BufferedTile
+from mapchete.tile import BufferedTile, BufferedTilePyramid
 from mapchete.io import raster
 from mapchete.errors import (
     MapcheteProcessException, MapcheteProcessOutputError, MapcheteNodataTile

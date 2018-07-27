@@ -15,10 +15,12 @@ except ImportError:
 from functools import partial
 from multiprocessing import Pool
 from shapely.geometry import shape
+from shapely.ops import unary_union
 
 import mapchete
 from mapchete.io.raster import create_mosaic
 from mapchete.errors import MapcheteProcessOutputError
+from mapchete.tile import BufferedTilePyramid
 
 
 def test_empty_execute(mp_tmpdir, cleantopo_br):
@@ -384,3 +386,22 @@ def test_execute_kwargs(example_mapchete, execute_kwargs_py):
     with mapchete.open(config) as mp:
         tile = next(mp.get_process_tiles(zoom))
         mp.execute(tile)
+
+
+def test_snap_bounds_to_zoom():
+    bounds = (-180, -90, -60, -30)
+    for pixelbuffer in [0, 5, 10]:
+        for metatiling in [1, 2, 4]:
+            pyramid = BufferedTilePyramid(
+                "geodetic", pixelbuffer=pixelbuffer, metatiling=metatiling
+            )
+            for zoom in range(3, 5):
+                snapped_bounds = mapchete.config.snap_bounds(
+                    bounds=bounds,
+                    pyramid=pyramid,
+                    zoom=zoom
+                )
+                control_bounds = unary_union([
+                    t.bbox for t in pyramid.tiles_from_bounds(bounds, zoom)
+                ]).bounds
+                assert snapped_bounds == control_bounds

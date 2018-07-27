@@ -8,7 +8,7 @@ from shapely.wkt import loads
 from copy import deepcopy
 
 import mapchete
-from mapchete.config import MapcheteConfig
+from mapchete.config import MapcheteConfig, snap_bounds
 from mapchete.errors import MapcheteDriverError, MapcheteConfigError
 
 
@@ -130,6 +130,28 @@ def test_bounds_from_input_files(files_bounds):
     assert config.area_at_zoom(10).equals(test_polygon)
 
 
+def test_effective_bounds(files_bounds, baselevels):
+    config = MapcheteConfig(files_bounds.dict)
+    assert config.effective_bounds == snap_bounds(
+        bounds=config.bounds, pyramid=config.process_pyramid, zoom=min(config.zoom_levels)
+    )
+
+    config = MapcheteConfig(
+        baselevels.dict, zoom=[5, 7], bounds=(0, 1, 2, 3)
+    )
+    assert config.effective_bounds != config.init_bounds
+    assert config.effective_bounds == snap_bounds(
+        bounds=config.init_bounds, pyramid=config.process_pyramid, zoom=5
+    )
+
+    with pytest.raises(MapcheteConfigError):
+        MapcheteConfig(dict(
+            baselevels.dict,
+            zoom_levels=dict(min=7, max=7),
+            baselevels=dict(lower="cubic", max=7)
+        ))
+
+
 def test_read_mapchete_input(mapchete_input):
     """Read Mapchete files as input files."""
     config = MapcheteConfig(mapchete_input.path)
@@ -215,4 +237,4 @@ def test_abstract_input(abstract_input):
 
 def test_init_zoom(cleantopo_br):
     with mapchete.open(cleantopo_br.dict, zoom=[3, 5]) as mp:
-        assert mp.config.init_zoom_levels == range(3, 6)
+        assert mp.config.init_zoom_levels == list(range(3, 6))
