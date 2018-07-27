@@ -805,9 +805,9 @@ class Timer:
         minutes, seconds = divmod(self.interval, 60)
         hours, minutes = divmod(minutes, 60)
         if hours:
-            self.elapsed = "%sh %sm %ss" % hours, minutes, seconds
+            self.elapsed = "%sh %sm %ss" % (hours, minutes, seconds)
         elif minutes:
-            self.elapsed = "%sm %ss" % minutes, seconds
+            self.elapsed = "%sm %ss" % (minutes, seconds)
         else:
             self.elapsed = "%ss" % seconds
 
