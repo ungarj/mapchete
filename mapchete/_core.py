@@ -256,16 +256,17 @@ class Mapchete(object):
             process output
         """
         if self.config.mode not in ["memory", "continue", "overwrite"]:
-            raise ValueError(
-                "process mode must be memory, continue or overwrite")
+            raise ValueError("process mode must be memory, continue or overwrite")
         if isinstance(process_tile, tuple):
             process_tile = self.config.process_pyramid.tile(*process_tile)
         elif isinstance(process_tile, BufferedTile):
             pass
         else:
             raise TypeError("process_tile must be tuple or BufferedTile")
+
         if process_tile.zoom not in self.config.zoom_levels:
             return self.config.output.empty(process_tile)
+
         return self._execute(process_tile, raise_nodata=raise_nodata)
 
     def read(self, output_tile):
@@ -284,14 +285,14 @@ class Mapchete(object):
             process output
         """
         if self.config.mode not in ["readonly", "continue", "overwrite"]:
-            raise ValueError(
-                "process mode must be readonly, continue or overwrite")
+            raise ValueError("process mode must be readonly, continue or overwrite")
         if isinstance(output_tile, tuple):
             output_tile = self.config.output_pyramid.tile(*output_tile)
         elif isinstance(output_tile, BufferedTile):
             pass
         else:
             raise TypeError("output_tile must be tuple or BufferedTile")
+
         return self.config.output.read(output_tile)
 
     def write(self, process_tile, data):
@@ -308,11 +309,10 @@ class Mapchete(object):
         if isinstance(process_tile, tuple):
             process_tile = self.config.process_pyramid.tile(*process_tile)
         elif not isinstance(process_tile, BufferedTile):
-            raise ValueError(
-                "invalid process_tile type: %s" % type(process_tile))
+            raise ValueError("invalid process_tile type: %s" % type(process_tile))
         if self.config.mode not in ["continue", "overwrite"]:
-            raise ValueError(
-                "cannot write output in current process mode")
+            raise ValueError("cannot write output in current process mode")
+
         if self.config.mode == "continue" and (
             self.config.output.tiles_exist(process_tile)
         ):
@@ -325,17 +325,17 @@ class Mapchete(object):
                 written=False,
                 write_msg=message
             )
+        elif data is None:
+            message = "output empty, nothing written"
+            logger.debug((process_tile.id, message))
+            return ProcessInfo(
+                tile=process_tile,
+                processed=False,
+                process_msg=None,
+                written=False,
+                write_msg=message
+            )
         else:
-            if data is None:
-                message = "output empty, nothing written"
-                logger.debug((process_tile.id, message))
-                return ProcessInfo(
-                    tile=process_tile,
-                    processed=False,
-                    process_msg=None,
-                    written=False,
-                    write_msg=message
-                )
             with Timer() as t:
                 self.config.output.write(process_tile=process_tile, data=data)
             message = "output written in %s" % t.interval
@@ -380,7 +380,8 @@ class Mapchete(object):
         # TODO implement reprojection
         if tile.crs != self.config.process_pyramid.crs:
             raise NotImplementedError(
-                "reprojection between processes not yet implemented")
+                "reprojection between processes not yet implemented"
+            )
 
         if self.config.mode == "memory":
             # Determine affected process Tile and check whether it is already
@@ -492,12 +493,12 @@ class Mapchete(object):
         if self.config.baselevels:
             if process_tile.zoom < min(self.config.baselevels["zooms"]):
                 return self._streamline_output(
-                    self._interpolate_from_baselevel(
-                        process_tile, "lower"))
+                    self._interpolate_from_baselevel(process_tile, "lower")
+                )
             elif process_tile.zoom > max(self.config.baselevels["zooms"]):
                 return self._streamline_output(
-                    self._interpolate_from_baselevel(
-                        process_tile, "higher"))
+                    self._interpolate_from_baselevel(process_tile, "higher")
+                )
         # Otherwise, execute from process file.
         params = self.config.params_at_zoom(process_tile.zoom)
         tile_process = MapcheteProcess(
