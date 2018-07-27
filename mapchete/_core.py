@@ -801,15 +801,15 @@ class Timer:
 
     def __exit__(self, *args):
         self.end = time.clock()
-        self.interval = round(self.end - self.start, 3)
+        self.interval = self.end - self.start
         minutes, seconds = divmod(self.interval, 60)
         hours, minutes = divmod(minutes, 60)
         if hours:
-            self.elapsed = "%sh %sm %ss" % (hours, minutes, seconds)
+            self.elapsed = "%sh %sm %ss" % (int(hours), int(minutes), int(seconds))
         elif minutes:
-            self.elapsed = "%sm %ss" % (minutes, seconds)
+            self.elapsed = "%sm %ss" % (int(minutes), int(seconds))
         else:
-            self.elapsed = "%ss" % seconds
+            self.elapsed = "%ss" % round(seconds, 3)
 
 
 def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
