@@ -338,7 +338,7 @@ class Mapchete(object):
         else:
             with Timer() as t:
                 self.config.output.write(process_tile=process_tile, data=data)
-            message = "output written in %s" % t.interval
+            message = "output written in %s" % t.elapsed
             logger.debug((process_tile.id, message))
             return ProcessInfo(
                 tile=process_tile,
@@ -523,7 +523,7 @@ class Mapchete(object):
         except Exception as e:
             # Log process time
             logger.exception(
-                (process_tile.id, "exception in user process", e, t.interval)
+                (process_tile.id, "exception in user process", e, t.elapsed)
             )
             new = MapcheteProcessException(format_exc())
             new.old = e
