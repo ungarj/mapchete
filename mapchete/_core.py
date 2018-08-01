@@ -592,7 +592,7 @@ class Mapchete(object):
                     resampling=self.config.baselevels["lower"],
                     nodataval=self.config.output.nodata
                 )
-            logger.debug((tile.id, "generated from baselevel", t))
+            logger.debug((tile.id, "generated from baselevel", t.elapsed))
             return process_data
 
     def __enter__(self):
