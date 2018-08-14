@@ -8,6 +8,8 @@ Changelog
 * remove deprecated ``memoryfile`` usage for ``write_raster_window()``
 * fix ``s3`` path for ``mapchete index``
 * add ``snap_bounds``, ``clip_bounds`` functions & ``effective_bounds`` to config
+* changed ``process_file`` paremeter to ``process``
+* made user processes importable as modules (#115)
 
 ----
 0.22
