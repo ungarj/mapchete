@@ -13,6 +13,7 @@ when initializing the configuration.
 from cached_property import cached_property
 from copy import deepcopy
 import imp
+import importlib
 import inspect
 import logging
 import operator
@@ -39,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 # parameters whigh have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process_file", six.string_types),  # python file for process code
+    ("process", six.string_types),       # path to .py file or module path
     ("pyramid", dict),                   # process pyramid definition
     ("input", (dict, type(None))),       # files & other types
     ("output", dict),                    # process output parameters
@@ -50,7 +51,7 @@ _MANDATORY_PARAMETERS = [
 _RESERVED_PARAMETERS = [
     "baselevels",       # enable interpolation from other zoom levels
     "bounds",           # process bounds
-    "process_file",     # process file with Python code
+    "process",     # path to .py file or module path
     "config_dir",       # configuration base directory
     "process_minzoom",  # minimum zoom where process is valid (deprecated)
     "process_maxzoom",  # maximum zoom where process is valid (deprecated)
@@ -91,7 +92,7 @@ class MapcheteConfig(object):
     ----------
     mode : string
         process mode
-    process_file : string
+    process : string
         absolute path to process file
     config_dir : string
         path to configuration directory
@@ -150,10 +151,10 @@ class MapcheteConfig(object):
         except Exception as e:
             raise MapcheteConfigError(e)
 
-        # (2) check .py file
-        logger.debug("validating process file")
-        self.process_file = _validate_process_file(self._raw)
+        # (2) check user process
+        logger.debug("validating process code")
         self.config_dir = self._raw["config_dir"]
+        self.process_name = self._raw["process"]
         self.process_func
 
         # (3) set process and output pyramids
@@ -396,17 +397,14 @@ class MapcheteConfig(object):
 
     @cached_property
     def process_func(self):
+        process_module = _load_process_module(self._raw)
         try:
-            user_process_py = imp.load_source(
-                os.path.splitext(os.path.basename(self.process_file))[0],
-                self.process_file
-            )
-            if hasattr(user_process_py, "Process"):
+            if hasattr(process_module, "Process"):
                 logger.error(
                     """instanciating MapcheteProcess is deprecated, """
                     """provide execute() function instead""")
-            if hasattr(user_process_py, "execute"):
-                user_execute = user_process_py.execute
+            if hasattr(process_module, "execute"):
+                user_execute = process_module.execute
                 if len(inspect.getargspec(user_execute).args) == 0:
                     raise ImportError(
                         "execute() function has to accept at least one argument"
@@ -414,7 +412,7 @@ class MapcheteConfig(object):
                 return user_execute
             else:
                 raise ImportError(
-                    "No execute() function found in %s" % self.process_file
+                    "No execute() function found in %s" % self._raw["process"]
                 )
         except ImportError as e:
             raise MapcheteProcessImportError(e)
@@ -539,6 +537,12 @@ class MapcheteConfig(object):
         """Deprecated."""
         warnings.warn("self.inputs renamed to self.input.")
         return self.input
+
+    @cached_property
+    def process_file(self):
+        """Deprecated."""
+        warnings.warn("'self.process_file' is deprecated")
+        return os.path.join(self._raw["config_dir"], self._raw["process"])
 
     def at_zoom(self, zoom):
         """Deprecated."""
@@ -675,18 +679,26 @@ def _config_to_dict(input_config):
             "Configuration has to be a dictionary or a .mapchete file.")
 
 
-def _validate_process_file(config):
-    abs_path = os.path.join(config["config_dir"], config["process_file"])
-    if not os.path.isfile(abs_path):
-        raise MapcheteConfigError("%s is not available" % abs_path)
-    try:
-        py_compile.compile(abs_path, doraise=True)
-        imp.load_source(os.path.splitext(os.path.basename(abs_path))[0], abs_path)
-    except py_compile.PyCompileError as e:
-        raise MapcheteProcessSyntaxError(e)
-    except ImportError as e:
-        raise MapcheteProcessImportError(e)
-    return abs_path
+def _load_process_module(config):
+    if config["process"].endswith(".py"):
+        abs_path = os.path.join(config["config_dir"], config["process"])
+        if not os.path.isfile(abs_path):
+            raise MapcheteConfigError("%s is not available" % abs_path)
+        try:
+            py_compile.compile(abs_path, doraise=True)
+            module = imp.load_source(
+                os.path.splitext(os.path.basename(abs_path))[0], abs_path
+            )
+        except py_compile.PyCompileError as e:
+            raise MapcheteProcessSyntaxError(e)
+        except ImportError as e:
+            raise MapcheteProcessImportError(e)
+    else:
+        try:
+            module = importlib.import_module(config["process"])
+        except ImportError as e:
+            raise MapcheteProcessImportError(e)
+    return module
 
 
 def _validate_zooms(zooms):
@@ -901,4 +913,8 @@ def _map_to_new_config(config):
     elif "input_files" in config:
         raise MapcheteConfigError(
             "'input' and 'input_files' are not allowed at the same time")
+    if "process_file" in config:
+        warnings.warn("'process_file' is deprecated and renamed to 'process'")
+        config["process"] = config.pop("process_file")
+
     return config

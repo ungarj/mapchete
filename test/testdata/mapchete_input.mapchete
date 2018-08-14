@@ -1,4 +1,4 @@
-process_file: ../example_process.py
+process: ../example_process.py
 zoom_levels: 5
 pyramid:
     grid: geodetic

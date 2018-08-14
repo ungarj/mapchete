@@ -48,7 +48,8 @@ setup(
             'raster_file=mapchete.formats.default.raster_file',
             'vector_file=mapchete.formats.default.vector_file',
             'tile_directory=mapchete.formats.default.tile_directory'
-        ]
+        ],
+        'mapchete.processes': []
     },
     package_dir={'static': 'static'},
     package_data={'mapchete.static': ['*']},

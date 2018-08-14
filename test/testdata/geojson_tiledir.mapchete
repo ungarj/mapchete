@@ -1,4 +1,4 @@
-process_file: geojson_test.py
+process: geojson_test.py
 zoom_levels: 4
 pyramid:
     grid: geodetic

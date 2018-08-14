@@ -286,6 +286,13 @@ def geojson_tiledir():
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 
+@pytest.fixture
+def process_module():
+    """Fixture for process_module.mapchete"""
+    path = os.path.join(TESTDATA_DIR, "process_module.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
 # helper functions
 def _dict_from_mapchete(path):
     config = yaml.load(open(path).read())

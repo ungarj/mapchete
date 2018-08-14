@@ -114,8 +114,7 @@ class Mapchete(object):
         if not isinstance(config, MapcheteConfig):
             raise TypeError("config must be MapcheteConfig object")
         self.config = config
-        self.process_name = os.path.splitext(
-            os.path.basename(self.config.process_file))[0]
+        self.process_name = self.config.process_name
         self.with_cache = True if self.config.mode == "memory" else with_cache
         if self.with_cache:
             self.process_tile_cache = LRUCache(maxsize=512)

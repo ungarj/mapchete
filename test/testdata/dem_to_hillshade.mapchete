@@ -1,4 +1,4 @@
-process_file: dem_to_hillshade.py
+process: dem_to_hillshade.py
 zoom_levels:
     min: 0
     max: 5
