@@ -338,7 +338,7 @@ class Mapchete(object):
         else:
             with Timer() as t:
                 self.config.output.write(process_tile=process_tile, data=data)
-            message = "output written in %s" % t.elapsed
+            message = "output written in %s" % t
             logger.debug((process_tile.id, message))
             return ProcessInfo(
                 tile=process_tile,
@@ -523,7 +523,7 @@ class Mapchete(object):
         except Exception as e:
             # Log process time
             logger.exception(
-                (process_tile.id, "exception in user process", e, t.elapsed)
+                (process_tile.id, "exception in user process", e, t)
             )
             new = MapcheteProcessException(format_exc())
             new.old = e
@@ -592,7 +592,7 @@ class Mapchete(object):
                     resampling=self.config.baselevels["lower"],
                     nodataval=self.config.output.nodata
                 )
-        logger.debug((tile.id, "generated from baselevel", t.elapsed))
+        logger.debug((tile.id, "generated from baselevel", t))
         return process_data
 
     def __enter__(self):
@@ -796,21 +796,62 @@ class Timer:
 
     based on http://preshing.com/20110924/timing-your-code-using-pythons-with-statement/
     """
+    def __init__(self, elapsed=0., str_round=3):
+        self._elapsed = elapsed
+        self._str_round = str_round
+        self.start = None
+        self.end = None
+
     def __enter__(self):
         self.start = time.clock()
         return self
 
     def __exit__(self, *args):
         self.end = time.clock()
-        self.interval = self.end - self.start
-        minutes, seconds = divmod(self.interval, 60)
+        self._elapsed = self.end - self.start
+
+    def __lt__(self, other):
+        return self._elapsed < other._elapsed
+
+    def __le__(self, other):
+        return self._elapsed <= other._elapsed
+
+    def __eq__(self, other):
+        return self._elapsed == other._elapsed
+
+    def __ne__(self, other):
+        return self._elapsed != other._elapsed
+
+    def __ge__(self, other):
+        return self._elapsed >= other._elapsed
+
+    def __gt__(self, other):
+        return self._elapsed > other._elapsed
+
+    def __add__(self, other):
+        return Timer(elapsed=self._elapsed + other._elapsed)
+
+    def __sub__(self, other):
+        return Timer(elapsed=self._elapsed - other._elapsed)
+
+    def __repr__(self):
+        return "Timer(start=%s, end=%s, elapsed=%s)" % (
+            self.start, self.end, self.__str__()
+        )
+
+    def __str__(self):
+        minutes, seconds = divmod(self.elapsed, 60)
         hours, minutes = divmod(minutes, 60)
         if hours:
-            self.elapsed = "%sh %sm %ss" % (int(hours), int(minutes), int(seconds))
+            return "%sh %sm %ss" % (int(hours), int(minutes), int(seconds))
         elif minutes:
-            self.elapsed = "%sm %ss" % (int(minutes), int(seconds))
+            return "%sm %ss" % (int(minutes), int(seconds))
         else:
-            self.elapsed = "%ss" % round(seconds, 3)
+            return "%ss" % round(seconds, self._str_round)
+
+    @property
+    def elapsed(self):
+        return time.clock() - self.start if self.start and not self.end else self._elapsed
 
 
 def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
@@ -864,7 +905,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
         # if there are further zoom levels, analyze descendants
         if tile.zoom < maxzoom:
             # if tile is full, all of its descendants will be full as well
-            if tile.zoom >= minzoom and tile_intersection.equals(tile.bbox()):
+            if tile.zoom >= minzoom and not tile_intersection.area < tile.bbox().area:
                 # sum up tiles for each remaining zoom level
                 count += sum([
                      4**z_diff
@@ -917,7 +958,7 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
             finally:
                 pool.close()
                 pool.join()
-    logger.debug("%s tile(s) iterated in %s", str(num_processed), t.elapsed)
+    logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 
 
 def _run_without_multiprocessing(process, zoom_levels):
@@ -932,7 +973,7 @@ def _run_without_multiprocessing(process, zoom_levels):
                 num_processed += 1
                 logger.debug("tile %s/%s finished", num_processed, total_tiles)
                 yield process_info
-    logger.debug("%s tile(s) iterated in %s", str(num_processed), t.elapsed)
+    logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 
 
 def _get_zoom_level(zoom, process):
@@ -972,7 +1013,7 @@ def _process_worker(process, process_tile):
                 output = process.execute(process_tile, raise_nodata=True)
             except MapcheteNodataTile:
                 output = None
-        processor_message = "processed in %s" % t.elapsed
+        processor_message = "processed in %s" % t
         logger.debug((process_tile.id, processor_message))
         writer_info = process.write(process_tile, output)
         return ProcessInfo(
