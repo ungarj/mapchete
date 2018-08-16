@@ -12,10 +12,10 @@ Mandatory parameters
 --------------------
 
 
-process_file
-============
+process
+=======
 
-Path to python file, relative from the Mapchete file.
+Path to python file, relative from the Mapchete file or module path from within python.
 
 
 input

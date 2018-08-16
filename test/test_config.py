@@ -21,7 +21,7 @@ def test_config_errors(example_mapchete):
     # wrong config type
     with pytest.raises(MapcheteConfigError):
         mapchete.open("not_a_config")
-    # missing process_file
+    # missing process
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
         config.pop("process")

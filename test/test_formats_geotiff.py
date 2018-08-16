@@ -127,7 +127,7 @@ def test_write_geotiff_tags(
 ):
     """Pass on metadata tags from user process to rasterio."""
     conf = dict(**cleantopo_br.dict)
-    conf.update(process_file=write_rasterfile_tags_py)
+    conf.update(process=write_rasterfile_tags_py)
     with mapchete.open(conf) as mp:
         for tile in mp.get_process_tiles():
             data, tags = mp.execute(tile)

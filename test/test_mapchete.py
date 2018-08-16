@@ -315,7 +315,7 @@ def test_process_template(dummy1_tif):
         "mapchete.static", "process_template.py")
     mp = mapchete.open(
         dict(
-            process_file=process_template,
+            process=process_template,
             pyramid=dict(grid="geodetic"),
             input=dict(file1=dummy1_tif),
             output=dict(
@@ -381,7 +381,7 @@ def test_custom_grid(mp_tmpdir, custom_grid):
 
 def test_execute_kwargs(example_mapchete, execute_kwargs_py):
     config = example_mapchete.dict
-    config.update(process_file=execute_kwargs_py)
+    config.update(process=execute_kwargs_py)
     zoom = 7
     with mapchete.open(config) as mp:
         tile = next(mp.get_process_tiles(zoom))
