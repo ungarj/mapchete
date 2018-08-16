@@ -411,7 +411,7 @@ def test_snap_bounds_errors():
     bounds = (-180, -90, -60, -30)
     with pytest.raises(TypeError):
         mapchete.config.snap_bounds(bounds="invalid")
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         mapchete.config.snap_bounds(bounds=(0, 1, ))
     with pytest.raises(TypeError):
         mapchete.config.snap_bounds(bounds=bounds, pyramid="invalid")
