@@ -405,3 +405,13 @@ def test_snap_bounds_to_zoom():
                     t.bbox for t in pyramid.tiles_from_bounds(bounds, zoom)
                 ]).bounds
                 assert snapped_bounds == control_bounds
+
+
+def test_snap_bounds_errors():
+    bounds = (-180, -90, -60, -30)
+    with pytest.raises(TypeError):
+        mapchete.config.snap_bounds(bounds="invalid")
+    with pytest.raises(TypeError):
+        mapchete.config.snap_bounds(bounds=(0, 1, ))
+    with pytest.raises(TypeError):
+        mapchete.config.snap_bounds(bounds=bounds, pyramid="invalid")
