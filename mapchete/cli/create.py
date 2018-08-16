@@ -77,10 +77,10 @@ def create_empty_process(args):
     pyramid_options = {'grid': args.pyramid_type}
 
     substitute_elements = {
-        'process': process_file,
+        'process_file': process_file,
         'output': dump({'output': output_options}, default_flow_style=False),
         'pyramid': dump({'pyramid': pyramid_options}, default_flow_style=False)
-        }
+    }
     with open(mapchete_template, 'r') as config_template:
         config = Template(config_template.read())
         customized_config = config.substitute(substitute_elements)
