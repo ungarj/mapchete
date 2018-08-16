@@ -49,9 +49,6 @@ def raster2pyramid(input_file, output_dir, options):
 
     # Prepare process parameters
     minzoom, maxzoom = _get_zoom(zoom, input_file, pyramid_type)
-    process_file = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "tilify.py")
-
     with rasterio.open(input_file, "r") as input_raster:
         output_bands = input_raster.count
         input_dtype = input_raster.dtypes[0]
@@ -80,7 +77,7 @@ def raster2pyramid(input_file, output_dir, options):
 
     # Create configuration
     config = dict(
-        process_file=process_file,
+        process="mapchete.processes.pyramid.tilify",
         output={
             "path": output_dir,
             "format": output_format,

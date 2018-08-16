@@ -1,7 +1,7 @@
 # mandatory parameters
 ######################
 # this is the location of user python code:
-process_file: example_process.py
+process: example_process.py
 
 # zoom level range:
 zoom_levels:

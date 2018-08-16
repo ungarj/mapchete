@@ -21,10 +21,10 @@ def test_config_errors(example_mapchete):
     # wrong config type
     with pytest.raises(MapcheteConfigError):
         mapchete.open("not_a_config")
-    # missing process_file
+    # missing process
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
-        config.pop("process_file")
+        config.pop("process")
         MapcheteConfig(config)
     # using input and input_files
     with pytest.raises(MapcheteConfigError):
@@ -238,3 +238,8 @@ def test_abstract_input(abstract_input):
 def test_init_zoom(cleantopo_br):
     with mapchete.open(cleantopo_br.dict, zoom=[3, 5]) as mp:
         assert mp.config.init_zoom_levels == list(range(3, 6))
+
+
+def test_process_module(process_module):
+    with mapchete.open(process_module.dict) as mp:
+        pass

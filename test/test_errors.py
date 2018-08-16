@@ -82,7 +82,7 @@ def test_process_tile_open(example_mapchete):
     config = MapcheteConfig(example_mapchete.path)
     tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
     process_tile = mapchete.MapcheteProcess(tile, config)
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         process_tile.open("nonexisting_id")
 
 
@@ -119,7 +119,7 @@ def test_empty_input_files(example_mapchete):
 
 def test_mandatory_params(example_mapchete):
     """Check availability of mandatory parameters."""
-    for param in ["process_file", "input", "output"]:
+    for param in ["process", "input", "output"]:
         with pytest.raises(errors.MapcheteConfigError):
             config = deepcopy(example_mapchete.dict)
             del config[param]
@@ -127,14 +127,14 @@ def test_mandatory_params(example_mapchete):
     # invalid path
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
-        config.update(process_file="invalid/path.py")
-        MapcheteConfig(config).process_file
+        config.update(process="invalid/path.py")
+        MapcheteConfig(config).process
 
     # no config dir given
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
         config.pop("config_dir")
-        MapcheteConfig(config).process_file
+        MapcheteConfig(config).process
 
 
 def test_invalid_output_params(example_mapchete):
@@ -225,15 +225,15 @@ def test_input_error(cleantopo_br_tiledir):
 def test_import_error(mp_tmpdir, cleantopo_br, import_error_py):
     """Assert import error is raised."""
     config = cleantopo_br.dict
-    config.update(process_file=import_error_py)
+    config.update(process=import_error_py)
     with pytest.raises(errors.MapcheteProcessImportError):
         mapchete.open(config)
 
 
-def test_malformed_process_file(cleantopo_br, malformed_py):
+def test_malformed_process(cleantopo_br, malformed_py):
     """Assert import error is raised."""
     config = cleantopo_br.dict
-    config.update(process_file=malformed_py)
+    config.update(process=malformed_py)
     with pytest.raises(errors.MapcheteProcessImportError):
         mapchete.open(config)
 
@@ -241,7 +241,7 @@ def test_malformed_process_file(cleantopo_br, malformed_py):
 def test_execute_params(cleantopo_br, execute_params_error_py):
     """Assert import error is raised."""
     config = cleantopo_br.dict
-    config.update(process_file=execute_params_error_py)
+    config.update(process=execute_params_error_py)
     with pytest.raises(errors.MapcheteProcessImportError):
         mapchete.open(config)
 
@@ -249,7 +249,7 @@ def test_execute_params(cleantopo_br, execute_params_error_py):
 def test_syntax_error(mp_tmpdir, cleantopo_br, syntax_error_py):
     """Assert syntax error is raised."""
     config = cleantopo_br.dict
-    config.update(process_file=syntax_error_py)
+    config.update(process=syntax_error_py)
     with pytest.raises(errors.MapcheteProcessSyntaxError):
         mapchete.open(config)
 
@@ -257,7 +257,7 @@ def test_syntax_error(mp_tmpdir, cleantopo_br, syntax_error_py):
 def test_process_exception(mp_tmpdir, cleantopo_br, process_error_py):
     """Assert process exception is raised."""
     config = cleantopo_br.dict
-    config.update(process_file=process_error_py)
+    config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(errors.MapcheteProcessException):
             mp.execute((5, 0, 0))
@@ -266,7 +266,7 @@ def test_process_exception(mp_tmpdir, cleantopo_br, process_error_py):
 def test_output_error(mp_tmpdir, cleantopo_br, output_error_py):
     """Assert output error is raised."""
     config = cleantopo_br.dict
-    config.update(process_file=output_error_py)
+    config.update(process=output_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(errors.MapcheteProcessOutputError):
             mp.execute((5, 0, 0))

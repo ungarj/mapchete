@@ -88,6 +88,12 @@ def cleantopo_br_tif():
 
 
 @pytest.fixture
+def cleantopo_tl_tif():
+    """Fixture for cleantopo_tl.tif"""
+    return os.path.join(TESTDATA_DIR, "cleantopo_tl.tif")
+
+
+@pytest.fixture
 def dummy1_3857_tif():
     """Fixture for dummy1_3857.tif"""
     return os.path.join(TESTDATA_DIR, "dummy1_3857.tif")
@@ -283,6 +289,13 @@ def geojson():
 def geojson_tiledir():
     """Fixture for geojson_tiledir.mapchete."""
     path = os.path.join(TESTDATA_DIR, "geojson_tiledir.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def process_module():
+    """Fixture for process_module.mapchete"""
+    path = os.path.join(TESTDATA_DIR, "process_module.mapchete")
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 
