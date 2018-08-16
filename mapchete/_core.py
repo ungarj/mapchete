@@ -500,9 +500,7 @@ class Mapchete(object):
                 )
         # Otherwise, execute from process file.
         params = self.config.params_at_zoom(process_tile.zoom)
-        tile_process = MapcheteProcess(
-            config=self.config, tile=process_tile, params=params
-        )
+        tile_process = MapcheteProcess(config=self.config, tile=process_tile)
         try:
             with Timer() as t:
                 # Actually run process.
@@ -653,7 +651,7 @@ class MapcheteProcess(object):
         self.abstract = ""
         self.tile = tile
         self.tile_pyramid = tile.tile_pyramid
-        self.params = params
+        self.params = params if params else config.params_at_zoom(tile.zoom)
         self.config = config
 
     def write(self, data, **kwargs):
@@ -707,8 +705,7 @@ class MapcheteProcess(object):
         if not isinstance(input_id, six.string_types):
             return input_id.open(self.tile, **kwargs)
         if input_id not in self.params["input"]:
-            raise ValueError(
-                "%s not found in config as input file" % input_id)
+            raise ValueError("%s not found in config as input file" % input_id)
         return self.params["input"][input_id].open(self.tile, **kwargs)
 
     def hillshade(

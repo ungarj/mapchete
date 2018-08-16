@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Test Mapchete commons module."""
 
-import os
 import numpy as np
 import numpy.ma as ma
 from shapely.geometry import Point, GeometryCollection

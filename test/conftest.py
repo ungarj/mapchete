@@ -88,6 +88,12 @@ def cleantopo_br_tif():
 
 
 @pytest.fixture
+def cleantopo_tl_tif():
+    """Fixture for cleantopo_tl.tif"""
+    return os.path.join(TESTDATA_DIR, "cleantopo_tl.tif")
+
+
+@pytest.fixture
 def dummy1_3857_tif():
     """Fixture for dummy1_3857.tif"""
     return os.path.join(TESTDATA_DIR, "dummy1_3857.tif")

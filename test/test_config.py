@@ -24,7 +24,7 @@ def test_config_errors(example_mapchete):
     # missing process_file
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
-        config.pop("process_file")
+        config.pop("process")
         MapcheteConfig(config)
     # using input and input_files
     with pytest.raises(MapcheteConfigError):

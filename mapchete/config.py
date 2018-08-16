@@ -660,7 +660,6 @@ def clip_bounds(bounds=None, clip=None):
     )
 
 
-
 def _config_to_dict(input_config):
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
