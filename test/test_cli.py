@@ -98,7 +98,7 @@ def test_create_existing(mp_tmpdir):
     ]
     run_cli(args)
     # try to create again
-    with pytest.raises(OSError):
+    with pytest.raises((IOError, OSError)):  # for python 2 and 3
         run_cli(args, expected_exit_code=-1)
 
 
