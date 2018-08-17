@@ -1,59 +1,60 @@
 """Test Mapchete main module and processing."""
 
+from click.testing import CliRunner
 import fiona
 import numpy as np
 import os
 import pytest
 from shapely import wkt
-import subprocess
 import rasterio
 from rasterio.io import MemoryFile
 import yaml
 
 import mapchete
-from mapchete.cli.main import MapcheteCLI
+from mapchete.cli.main import main as mapchete_cli
 from mapchete.errors import MapcheteProcessOutputError
 
 
-def _getstatusoutput(command):
-    sp = subprocess.Popen(
-        command.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        universal_newlines=True
-    )
-    sp.wait()
-    return sp.returncode, sp.stdout.read()
+def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
+    result = CliRunner(env=dict(MAPCHETE_TEST="TRUE")).invoke(mapchete_cli, args)
+    if output_contains:
+        assert output_contains in result.output
+    if raise_exc and result.exception:
+        raise result.exception
+    assert result.exit_code == expected_exit_code
 
 
 def test_main():
-    """Main CLI."""
-    for command in [
-            "mapchete create", "mapchete execute", "mapchete serve"
-    ]:
-        status, output = _getstatusoutput(command)
-        assert status == 2
-        assert any([
-            err in output
-            for err in [
-                "the following arguments are required",  # python 3
-                "too few arguments"  # python 2
-            ]
-        ])
+    # """Main CLI."""
+    for command in ["create", "execute", "create"]:
+        run_cli(
+            [command],
+            expected_exit_code=2,
+            output_contains="Error: Missing argument",
+            raise_exc=False
+        )
 
-    status = _getstatusoutput("mapchete formats")[0]
-    assert status == 0
+    run_cli(
+        ["formats"],
+        expected_exit_code=0
+    )
 
-    status, output = _getstatusoutput("mapchete wrong_command")
-    assert status == 2
-    assert "unrecognized command" in output
+    run_cli(
+        ["invalid_command"],
+        expected_exit_code=2,
+        output_contains="Error: No such command",
+        raise_exc=False
+    )
 
 
 def test_missing_input_file():
     """Check if IOError is raised if input_file is invalid."""
-    status, output = _getstatusoutput(
-        "mapchete execute process.mapchete --input_file invalid.tif"
+    run_cli(
+        ["execute", "process.mapchete", "--input_file", "invalid.tif"],
+        expected_exit_code=2,
+        output_contains='Path "process.mapchete" does not exist.',
+        raise_exc=False
     )
-    assert status == 1
-    assert "IOError: input_file invalid.tif not found"
 
 
 def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
@@ -62,22 +63,28 @@ def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
     temp_process = os.path.join(mp_tmpdir, "temp.py")
     out_format = "GTiff"
     # create from template
-    args = [
-        None, 'create', temp_mapchete, temp_process, out_format,
-        "--pyramid_type", "geodetic"]
-    MapcheteCLI(args)
+    run_cli(
+        [
+            'create', temp_mapchete, temp_process, out_format,
+            "--pyramid_type", "geodetic"
+        ],
+        expected_exit_code=0
+    )
     # edit configuration
     with open(temp_mapchete, "r") as config_file:
         config = yaml.load(config_file)
         config["output"].update(bands=1, dtype="uint8", path=".")
     with open(temp_mapchete, "w") as config_file:
         config_file.write(yaml.dump(config, default_flow_style=False))
-    # run process for single tile
-    args = [
-        None, 'execute', temp_mapchete, '--tile', '6', '62', '124',
-        '--input_file', cleantopo_br_tif]
+    # run process for single tile, this creates an empty output error
     with pytest.raises(MapcheteProcessOutputError):
-        MapcheteCLI(args)
+        run_cli(
+            [
+                'execute', temp_mapchete, '--tile', '6', '62', '124',
+                '--input_file', cleantopo_br_tif, '-d'
+            ],
+            expected_exit_code=-1
+        )
 
 
 def test_create_existing(mp_tmpdir):
@@ -87,12 +94,12 @@ def test_create_existing(mp_tmpdir):
     out_format = "GTiff"
     # create files from template
     args = [
-        None, 'create', temp_mapchete, temp_process, out_format,
-        "--pyramid_type", "geodetic"]
-    MapcheteCLI(args)
+        'create', temp_mapchete, temp_process, out_format, "--pyramid_type", "geodetic"
+    ]
+    run_cli(args)
     # try to create again
-    with pytest.raises(IOError):
-        MapcheteCLI(args)
+    with pytest.raises((IOError, OSError)):  # for python 2 and 3
+        run_cli(args, expected_exit_code=-1)
 
 
 def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
@@ -101,10 +108,9 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     temp_process = os.path.join(mp_tmpdir, "temp.py")
     out_format = "GTiff"
     # create from template
-    args = [
-        None, 'create', temp_mapchete, temp_process, out_format,
-        "--pyramid_type", "geodetic"]
-    MapcheteCLI(args)
+    run_cli([
+        'create', temp_mapchete, temp_process, out_format, "--pyramid_type", "geodetic"
+    ])
     # edit configuration
     with open(temp_mapchete, "r") as config_file:
         config = yaml.load(config_file)
@@ -112,39 +118,36 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     with open(temp_mapchete, "w") as config_file:
         config_file.write(yaml.dump(config, default_flow_style=False))
     # run process with multiprocessing
-    args = [
-        None, 'execute', temp_mapchete, '--zoom', '5',
-        '--input_file', cleantopo_br_tif, '-m', '2']
     with pytest.raises(MapcheteProcessOutputError):
-        MapcheteCLI(args)
+        run_cli([
+            'execute', temp_mapchete, '--zoom', '5', '--input_file', cleantopo_br_tif,
+            '-m', '2', '-d'
+        ])
     # run example process with multiprocessing
-    args = [None, 'execute', cleantopo_br.path, '--zoom', '5', '-m', '2']
-    MapcheteCLI(args)
+    run_cli(['execute', cleantopo_br.path, '--zoom', '5', '-m', '2', '-d'])
 
 
 def test_execute_debug(mp_tmpdir, example_mapchete):
     """Using debug output."""
-    args = [
-        None, 'execute', example_mapchete.path, "-t", "10", "500", "1040",
-        "--debug"]
-    MapcheteCLI(args)
+    run_cli(
+        [
+            'execute', example_mapchete.path, "-t", "10", "500", "1040",
+            "--debug"
+        ]
+    )
 
 
 def test_execute_verbose(mp_tmpdir, example_mapchete):
     """Using verbose output."""
-    args = [
-        None, 'execute', example_mapchete.path, "-t", "10", "500", "1040",
-        "--verbose"]
-    MapcheteCLI(args)
+    run_cli(['execute', example_mapchete.path, "-t", "10", "500", "1040", "--verbose"])
 
 
 def test_execute_logfile(mp_tmpdir, example_mapchete):
     """Using logfile."""
     logfile = os.path.join(mp_tmpdir, "temp.log")
-    args = [
-        None, 'execute', example_mapchete.path, "-t", "10", "500", "1040",
-        "--logfile", logfile]
-    MapcheteCLI(args)
+    run_cli([
+        'execute', example_mapchete.path, "-t", "10", "500", "1040", "--logfile", logfile
+    ])
     assert os.path.isfile(logfile)
     with open(logfile) as log:
         assert "DEBUG" in log.read()
@@ -152,38 +155,34 @@ def test_execute_logfile(mp_tmpdir, example_mapchete):
 
 def test_execute_wkt_bounds(mp_tmpdir, example_mapchete, wkt_geom):
     """Using bounds from WKT."""
-    args = [
-        None, 'execute', example_mapchete.path,
-        "--wkt_geometry", wkt_geom]
-    MapcheteCLI(args)
+    run_cli(['execute', example_mapchete.path, "--wkt_geometry", wkt_geom])
 
 
 def test_execute_point(mp_tmpdir, example_mapchete, wkt_geom):
     """Using bounds from WKT."""
     g = wkt.loads(wkt_geom)
-    args = [
-        None, 'execute', example_mapchete.path,
-        "--point", str(g.centroid.x), str(g.centroid.y)]
-    MapcheteCLI(args)
+    run_cli([
+        'execute', example_mapchete.path,
+        "--point", str(g.centroid.x), str(g.centroid.y)
+    ])
 
 
 def test_formats(capfd):
     """Output of mapchete formats command."""
-    MapcheteCLI([None, 'formats'])
+    run_cli(['formats'])
     err = capfd.readouterr()[1]
     assert not err
-    MapcheteCLI([None, 'formats', '-i'])
+    run_cli(['formats', '-i'])
     err = capfd.readouterr()[1]
     assert not err
-    MapcheteCLI([None, 'formats', '-o'])
+    run_cli(['formats', '-o'])
     err = capfd.readouterr()[1]
     assert not err
 
 
 def test_pyramid_geodetic(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    MapcheteCLI([
-        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-pt", "geodetic"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-pt", "geodetic"])
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -196,10 +195,9 @@ def test_pyramid_geodetic(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_mercator(cleantopo_br_tif, mp_tmpdir):
     """Automatic mercator tile pyramid creation of raster files."""
-    MapcheteCLI([None, 'pyramid', cleantopo_br_tif, mp_tmpdir])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, '-d'])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-        out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
         with rasterio.open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
@@ -209,7 +207,7 @@ def test_pyramid_mercator(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_png(cleantopo_br_tif, mp_tmpdir):
     """Automatic PNG tile pyramid creation of raster files."""
-    MapcheteCLI([None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-of", "PNG"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-of", "PNG"])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".png"])
@@ -222,8 +220,7 @@ def test_pyramid_png(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_minmax(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using minmax scale."""
-    MapcheteCLI([
-        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "minmax_scale"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "minmax_scale"])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -236,8 +233,7 @@ def test_pyramid_minmax(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_dtype(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using dtype scale."""
-    MapcheteCLI([
-        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "dtype_scale"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "dtype_scale"])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -250,8 +246,7 @@ def test_pyramid_dtype(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_crop(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation cropping data."""
-    MapcheteCLI([
-        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "crop"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "crop"])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -265,8 +260,7 @@ def test_pyramid_crop(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_zoom(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using a specific zoom."""
-    MapcheteCLI([
-        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3"])
     for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -275,8 +269,7 @@ def test_pyramid_zoom(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using min max zoom."""
-    MapcheteCLI([
-        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3", "4"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3,4"])
     for zoom, row, col in [(2, 3, 0)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -285,8 +278,7 @@ def test_pyramid_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using max min zoom."""
-    MapcheteCLI([
-        None, 'pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "4", "3"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "4,3"])
     for zoom, row, col in [(2, 3, 0)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -301,22 +293,20 @@ def test_serve_cli_params(cleantopo_br):
     """Test whether different CLI params pass."""
     # assert too few arguments error
     with pytest.raises(SystemExit):
-        MapcheteCLI([None, 'serve'], _test_serve=True)
+        run_cli(['serve'])
 
     for args in [
-        [None, 'serve', cleantopo_br.path],
-        [None, 'serve', cleantopo_br.path, "--port", "5001"],
-        [None, 'serve', cleantopo_br.path, "--internal_cache", "512"],
-        [None, 'serve', cleantopo_br.path, "--zoom", "5"],
-        [None, 'serve', cleantopo_br.path, "--bounds", "-1", "-1", "1", "1"],
-        [None, 'serve', cleantopo_br.path, "--overwrite"],
-        [None, 'serve', cleantopo_br.path, "--readonly"],
-        [None, 'serve', cleantopo_br.path, "--memory"],
-        [
-            None, 'serve', cleantopo_br.path, "--input_file",
-            cleantopo_br.path],
+        ['serve', cleantopo_br.path],
+        ['serve', cleantopo_br.path, "--port", "5001"],
+        ['serve', cleantopo_br.path, "--internal_cache", "512"],
+        ['serve', cleantopo_br.path, "--zoom", "5"],
+        ['serve', cleantopo_br.path, "--bounds", "-1", "-1", "1", "1"],
+        ['serve', cleantopo_br.path, "--overwrite"],
+        ['serve', cleantopo_br.path, "--readonly"],
+        ['serve', cleantopo_br.path, "--memory"],
+        ['serve', cleantopo_br.path, "--input_file", cleantopo_br.path],
     ]:
-        MapcheteCLI(args, _test_serve=True)
+        run_cli(args)
 
 
 def test_serve(client, mp_tmpdir):
@@ -354,11 +344,10 @@ def test_serve(client, mp_tmpdir):
 
 def test_index_geojson(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+    run_cli(['execute', cleantopo_br.path, '-z', '3', '--debug'])
 
     # generate index for zoom 3
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug'])
+    run_cli(['index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert len(files) == 2
@@ -371,12 +360,13 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+    run_cli(['execute', cleantopo_br.path, '-z', '3', '--debug'])
 
     # index and rename "location" to "new_fieldname"
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
-        '--fieldname', 'new_fieldname'])
+    run_cli([
+        'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--fieldname', 'new_fieldname'
+    ])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "3.geojson" in files
@@ -388,13 +378,14 @@ def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+    run_cli(['execute', cleantopo_br.path, '-z', '3', '--debug'])
 
     basepath = 'http://localhost'
     # index and rename "location" to "new_fieldname"
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
-        '--basepath', basepath])
+    run_cli([
+        'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--basepath', basepath
+    ])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "3.geojson" in files
@@ -406,13 +397,14 @@ def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '3', '--debug'])
+    run_cli(['execute', cleantopo_br.path, '-z', '3', '--debug'])
 
     basepath = 'http://localhost'
     # index and rename "location" to "new_fieldname"
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
-        '--basepath', basepath, '--for_gdal'])
+    run_cli([
+        'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
+        '--basepath', basepath, '--for_gdal'
+    ])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "3.geojson" in files
@@ -425,12 +417,9 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     # execute process for single tile
-    MapcheteCLI([
-        None, 'execute', cleantopo_tl.path, '-t', '3', '0', '0', '--debug'])
+    run_cli(['execute', cleantopo_tl.path, '-t', '3', '0', '0', '--debug'])
     # generate index
-    MapcheteCLI([
-        None, 'index', cleantopo_tl.path, '-t', '3', '0', '0', '--geojson',
-        '--debug'])
+    run_cli(['index', cleantopo_tl.path, '-t', '3', '0', '0', '--geojson', '--debug'])
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert len(files) == 2
@@ -441,14 +430,12 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
 
 def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
     # execute process at zoom 3
-    MapcheteCLI([
-        None, 'execute', cleantopo_br.path, '--debug',
-        "--wkt_geometry", wkt_geom])
+    run_cli(['execute', cleantopo_br.path, '--debug', "--wkt_geometry", wkt_geom])
 
     # generate index for zoom 3
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '--geojson', '--debug',
-        "--wkt_geometry", wkt_geom])
+    run_cli([
+        'index', cleantopo_br.path, '--geojson', '--debug', "--wkt_geometry", wkt_geom
+    ])
 
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -458,11 +445,10 @@ def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
 
 def test_index_gpkg(mp_tmpdir, cleantopo_br):
     # execute process
-    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '5', '--debug'])
+    run_cli(['execute', cleantopo_br.path, '-z', '5', '--debug'])
 
     # generate index
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'])
+    run_cli(['index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
@@ -472,8 +458,7 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'])
+    run_cli(['index', cleantopo_br.path,  '-z', '5', '--gpkg', '--debug'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
@@ -485,11 +470,10 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
 
 def test_index_text(mp_tmpdir, cleantopo_br):
     # execute process
-    MapcheteCLI([None, 'execute', cleantopo_br.path, '-z', '5', '--debug'])
+    run_cli(['execute', cleantopo_br.path, '-z', '5', '--debug'])
 
     # generate index
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '5', '--txt', '--debug'])
+    run_cli(['index', cleantopo_br.path,  '-z', '5', '--txt', '--debug'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.txt" in files
@@ -500,8 +484,7 @@ def test_index_text(mp_tmpdir, cleantopo_br):
             assert l.endswith("7.tif\n")
 
     # write again and assert there is no new entry because there is already one
-    MapcheteCLI([
-        None, 'index', cleantopo_br.path,  '-z', '5', '--txt', '--debug'])
+    run_cli(['index', cleantopo_br.path,  '-z', '5', '--txt', '--debug'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.txt" in files
@@ -513,6 +496,5 @@ def test_index_text(mp_tmpdir, cleantopo_br):
 
 
 def test_index_errors(mp_tmpdir, cleantopo_br):
-    with pytest.raises(ValueError):
-        MapcheteCLI([
-            None, 'index', cleantopo_br.path,  '-z', '5', '--debug'])
+    with pytest.raises(SystemExit):
+        run_cli(['index', cleantopo_br.path,  '-z', '5', '--debug'])

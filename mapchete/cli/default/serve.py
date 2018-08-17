@@ -1,28 +1,47 @@
 #!/usr/bin/env python
 """Command line utility to serve a Mapchete process."""
 
+import click
 import logging
 import logging.config
 import os
 import pkgutil
 from rasterio.io import MemoryFile
 import six
-from flask import (
-    Flask, send_file, make_response, render_template_string, abort, jsonify)
+from flask import (Flask, send_file, make_response, render_template_string, abort, jsonify)
 
 import mapchete
+from mapchete.cli import utils
 from mapchete.tile import BufferedTilePyramid
-
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.ERROR)
-logging.getLogger().addHandler(stream_handler)
 
 logger = logging.getLogger(__name__)
 
 
-def main(args=None, _test=False):
+@click.command(help="Serve a process on localhost.")
+@utils.arg_mapchete_file
+@utils.opt_port
+@utils.opt_internal_cache
+@utils.opt_zoom
+@utils.opt_bounds
+@utils.opt_overwrite
+@utils.opt_readonly
+@utils.opt_memory
+@utils.opt_input_file
+@utils.opt_debug
+@utils.opt_logfile
+def serve(
+    mapchete_file,
+    port=None,
+    internal_cache=None,
+    zoom=None,
+    bounds=None,
+    overwrite=False,
+    readonly=False,
+    memory=False,
+    input_file=None,
+    debug=False,
+    logfile=None
+):
     """
     Serve a Mapchete process.
 
@@ -30,13 +49,17 @@ def main(args=None, _test=False):
     WMTS simple REST endpoint.
     """
     app = create_app(
-        mapchete_files=[args.mapchete_file], zoom=args.zoom,
-        bounds=args.bounds, single_input_file=args.input_file,
-        mode=_get_mode(args), debug=args.debug)
-    if not _test:
+        mapchete_files=[mapchete_file], zoom=zoom,
+        bounds=bounds, single_input_file=input_file,
+        mode=_get_mode(memory, readonly, overwrite), debug=debug
+    )
+    if os.environ.get("MAPCHETE_TEST") == "TRUE":
+        logger.debug("don't run flask app, MAPCHETE_TEST environment detected")
+    else:
         app.run(
-            threaded=True, debug=True, port=args.port, host='0.0.0.0',
-            extra_files=[args.mapchete_file])
+            threaded=True, debug=True, port=port, host='0.0.0.0',
+            extra_files=[mapchete_file]
+        )
 
 
 def create_app(
@@ -44,10 +67,6 @@ def create_app(
     mode="continue", debug=None
 ):
     """Configure and create Flask app."""
-    if debug:
-        logging.getLogger("mapchete").setLevel(logging.DEBUG)
-        stream_handler.setLevel(logging.DEBUG)
-
     app = Flask(__name__)
     mapchete_processes = {
         os.path.splitext(os.path.basename(mapchete_file))[0]: mapchete.open(
@@ -94,12 +113,12 @@ def create_app(
     return app
 
 
-def _get_mode(parsed):
-    if parsed.memory:
+def _get_mode(memory, readonly, overwrite):
+    if memory:
         return "memory"
-    elif parsed.readonly:
+    elif readonly:
         return "readonly"
-    elif parsed.overwrite:
+    elif overwrite:
         return "overwrite"
     else:
         return "continue"

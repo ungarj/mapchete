@@ -740,11 +740,11 @@ def _validate_zoom(zoom):
 
 
 def _validate_bounds(bounds):
-    if any([
-        not isinstance(bounds, (list, tuple)),
-        len(bounds) != 4,
+    if (
+        not isinstance(bounds, (list, tuple)) or
+        len(bounds) != 4 or
         any([not isinstance(i, (int, float)) for i in bounds])
-    ]):
+    ):
         raise MapcheteConfigError("bounds not valid")
     return bounds
 

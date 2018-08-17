@@ -8,7 +8,7 @@ import shutil
 import six
 import yaml
 
-from mapchete.cli.serve import create_app
+from mapchete.cli.default.serve import create_app
 
 if six.PY2:
     from pytest import yield_fixture

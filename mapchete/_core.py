@@ -10,7 +10,6 @@ from multiprocessing import cpu_count, current_process
 from multiprocessing.pool import Pool
 import numpy as np
 import numpy.ma as ma
-import os
 from shapely.geometry import shape
 import signal
 import six
@@ -31,10 +30,6 @@ from mapchete.errors import (
 )
 
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
-
-# suppress rasterio logging
-logging.getLogger("rasterio").setLevel(logging.ERROR)
 
 
 def open(
@@ -234,7 +229,8 @@ class Mapchete(object):
         if (minzoom, maxzoom) not in self._count_tiles_cache:
             self._count_tiles_cache[(minzoom, maxzoom)] = count_tiles(
                 self.config.area_at_zoom(), self.config.process_pyramid,
-                minzoom, maxzoom, init_zoom=0)
+                minzoom, maxzoom, init_zoom=0
+            )
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
     def execute(self, process_tile, raise_nodata=False):
@@ -589,7 +585,7 @@ class Mapchete(object):
                     resampling=self.config.baselevels["lower"],
                     nodataval=self.config.output.nodata
                 )
-        logger.debug((tile.id, "generated from baselevel", t))
+        logger.debug((tile.id, "generated from baselevel", str(t)))
         return process_data
 
     def __enter__(self):

@@ -5,11 +5,14 @@ Changelog
 ----
 0.23
 ----
+* breaking change:
+  * for CLI utilities when providing minimum and maximum zoom, it has to have the form of ``5,6`` instead of ``5 6``
 * remove deprecated ``memoryfile`` usage for ``write_raster_window()``
 * fix ``s3`` path for ``mapchete index``
 * add ``snap_bounds``, ``clip_bounds`` functions & ``effective_bounds`` to config
 * changed ``process_file`` paremeter to ``process``
 * made user processes importable as modules (#115)
+* ``execute`` and ``index`` commands accept now more than one mapchete files
 
 ----
 0.22
