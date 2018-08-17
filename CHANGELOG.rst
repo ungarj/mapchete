@@ -10,9 +10,13 @@ Changelog
 * remove deprecated ``memoryfile`` usage for ``write_raster_window()``
 * fix ``s3`` path for ``mapchete index``
 * add ``snap_bounds``, ``clip_bounds`` functions & ``effective_bounds`` to config
-* changed ``process_file`` paremeter to ``process``
 * made user processes importable as modules (#115)
+* changed ``process_file`` paremeter to ``process``
+* added ``mapchete.processes`` entry point to allow other packages add their processes
+* switched from argparse to click
 * ``execute`` and ``index`` commands accept now more than one mapchete files
+* added ``mapchete.cli.commands`` entry point to allow other packages have ``mapchete`` subcommands
+
 
 ----
 0.22

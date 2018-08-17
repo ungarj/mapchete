@@ -55,7 +55,7 @@ You need a ``.mapchete`` file for the process configuration:
 
 .. code-block:: yaml
 
-    process_file: my_python_process.py
+    process: my_python_process.py
     zoom_levels:
         min: 0
         max: 12
@@ -68,14 +68,17 @@ You need a ``.mapchete`` file for the process configuration:
     pyramid:
         grid: mercator
 
+    # process specific parameters
+    resampling: cubic_spline
+
 
 And a ``.py`` file where you specify the process itself:
 
 .. code-block:: python
 
-    def execute(mp):
+    def execute(mp, resampling="nearest", **kwargs):
         # Open elevation model.
-        with mp.open("dem", resampling="cubic_spline") as src:
+        with mp.open("dem", resampling=resampling) as src:
             # Skip tile if there is no data available.
             if src.is_empty(1):
                 return "empty"
