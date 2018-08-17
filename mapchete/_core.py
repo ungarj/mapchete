@@ -229,7 +229,8 @@ class Mapchete(object):
         if (minzoom, maxzoom) not in self._count_tiles_cache:
             self._count_tiles_cache[(minzoom, maxzoom)] = count_tiles(
                 self.config.area_at_zoom(), self.config.process_pyramid,
-                minzoom, maxzoom, init_zoom=0)
+                minzoom, maxzoom, init_zoom=0
+            )
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
     def execute(self, process_tile, raise_nodata=False):

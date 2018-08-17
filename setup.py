@@ -74,7 +74,7 @@ setup(
         'tilematrix>=0.17',
         'tqdm'
     ] if not on_rtd else [],
-    extra_require={'contours': ['matplotlib']},
+    extras_require={'contours': ['matplotlib']},
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

@@ -12,6 +12,7 @@ Changelog
 * add ``snap_bounds``, ``clip_bounds`` functions & ``effective_bounds`` to config
 * changed ``process_file`` paremeter to ``process``
 * made user processes importable as modules (#115)
+* ``execute`` and ``index`` commands accept now more than one mapchete files
 
 ----
 0.22

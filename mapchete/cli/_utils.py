@@ -2,9 +2,19 @@ import click
 import logging
 import os
 import tilematrix
+import tqdm
 
 from mapchete.formats import available_output_formats
 from mapchete.log import set_log_level, setup_logfile
+
+
+def write_verbose_msg(process_info, dst):
+    tqdm.tqdm.write(
+        "Tile %s: %s, %s" % (
+            tuple(process_info.tile.id), process_info.process_msg, process_info.write_msg
+        ),
+        file=dst
+    )
 
 
 def _validate_zoom(ctx, param, zoom):
@@ -31,6 +41,12 @@ def _validate_bounds(ctx, param, bounds):
         return bounds
 
 
+def _validate_mapchete_files(ctx, param, mapchete_files):
+    if len(mapchete_files) == 0:
+        raise click.MissingParameter("at least one mapchete file required")
+    return mapchete_files
+
+
 def _set_debug_log_level(ctx, param, debug):
     if debug:
         set_log_level(logging.DEBUG)
@@ -46,6 +62,10 @@ def _setup_logfile(ctx, param, logfile):
 # arguments
 arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
 arg_create_mapchete_file = click.argument("mapchete_file", type=click.Path())
+arg_mapchete_files = click.argument(
+    "mapchete_files", type=click.Path(exists=True), nargs=-1,
+    callback=_validate_mapchete_files
+)
 arg_process_file = click.argument("process_file", type=click.Path())
 arg_out_format = click.argument(
     "out_format", type=click.Choice(available_output_formats())
