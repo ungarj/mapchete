@@ -71,7 +71,7 @@ setup(
         'pyproj',
         'pyyaml',
         'rasterio>=1.0a12',
-        'tilematrix>=0.15',
+        'tilematrix>=0.17',
         'tqdm'
     ] if not on_rtd else [],
     extra_require={'contours': ['matplotlib']},

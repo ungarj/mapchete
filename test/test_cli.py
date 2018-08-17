@@ -16,7 +16,7 @@ from mapchete.errors import MapcheteProcessOutputError
 
 
 def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
-    result = CliRunner().invoke(mapchete_cli, args)
+    result = CliRunner(env=dict(MAPCHETE_TEST="TRUE")).invoke(mapchete_cli, args)
     if output_contains:
         assert output_contains in result.output
     if raise_exc and result.exception:
@@ -269,7 +269,7 @@ def test_pyramid_zoom(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using min max zoom."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3", "4"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3,4"])
     for zoom, row, col in [(2, 3, 0)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -278,7 +278,7 @@ def test_pyramid_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
 
 def test_pyramid_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using max min zoom."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "4", "3"])
+    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "4,3"])
     for zoom, row, col in [(2, 3, 0)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
@@ -293,22 +293,20 @@ def test_serve_cli_params(cleantopo_br):
     """Test whether different CLI params pass."""
     # assert too few arguments error
     with pytest.raises(SystemExit):
-        run_cli(['serve'], _test_serve=True)
+        run_cli(['serve'])
 
     for args in [
-        [None, 'serve', cleantopo_br.path],
-        [None, 'serve', cleantopo_br.path, "--port", "5001"],
-        [None, 'serve', cleantopo_br.path, "--internal_cache", "512"],
-        [None, 'serve', cleantopo_br.path, "--zoom", "5"],
-        [None, 'serve', cleantopo_br.path, "--bounds", "-1", "-1", "1", "1"],
-        [None, 'serve', cleantopo_br.path, "--overwrite"],
-        [None, 'serve', cleantopo_br.path, "--readonly"],
-        [None, 'serve', cleantopo_br.path, "--memory"],
-        [
-            None, 'serve', cleantopo_br.path, "--input_file",
-            cleantopo_br.path],
+        ['serve', cleantopo_br.path],
+        ['serve', cleantopo_br.path, "--port", "5001"],
+        ['serve', cleantopo_br.path, "--internal_cache", "512"],
+        ['serve', cleantopo_br.path, "--zoom", "5"],
+        ['serve', cleantopo_br.path, "--bounds", "-1", "-1", "1", "1"],
+        ['serve', cleantopo_br.path, "--overwrite"],
+        ['serve', cleantopo_br.path, "--readonly"],
+        ['serve', cleantopo_br.path, "--memory"],
+        ['serve', cleantopo_br.path, "--input_file", cleantopo_br.path],
     ]:
-        MapcheteCLI(args, _test_serve=True)
+        run_cli(args)
 
 
 def test_serve(client, mp_tmpdir):

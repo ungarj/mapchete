@@ -919,7 +919,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 def _run_on_single_tile(process, tile):
     logger.debug("run process on single tile")
     process_info = _process_worker(
-        process, process.config.process_pyramid.tile(*tuple(tile.id))
+        process, process.config.process_pyramid.tile(*tuple(tile))
     )
     return process_info
 

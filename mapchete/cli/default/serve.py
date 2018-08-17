@@ -8,8 +8,7 @@ import os
 import pkgutil
 from rasterio.io import MemoryFile
 import six
-from flask import (
-    Flask, send_file, make_response, render_template_string, abort, jsonify)
+from flask import (Flask, send_file, make_response, render_template_string, abort, jsonify)
 
 import mapchete
 from mapchete.cli import _utils
@@ -45,8 +44,7 @@ def serve(
     readonly=False,
     memory=False,
     input_file=None,
-    debug=False,
-    _test=False
+    debug=False
 ):
     """
     Serve a Mapchete process.
@@ -59,7 +57,9 @@ def serve(
         bounds=bounds, single_input_file=input_file,
         mode=_get_mode(memory, readonly, overwrite), debug=debug
     )
-    if not _test:
+    if os.environ.get("MAPCHETE_TEST") == "TRUE":
+        logger.debug("don't run flask app, MAPCHETE_TEST environment detected")
+    else:
         app.run(
             threaded=True, debug=True, port=port, host='0.0.0.0',
             extra_files=[mapchete_file])

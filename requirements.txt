@@ -10,5 +10,5 @@ pyproj
 pyyaml
 rasterio>=1.0a12
 shapely
-tilematrix>=0.15
+tilematrix>=0.17
 tqdm
