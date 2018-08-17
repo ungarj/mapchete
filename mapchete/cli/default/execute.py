@@ -1,5 +1,6 @@
 """Command line utility to execute a Mapchete process."""
 
+import click
 import logging
 from multiprocessing import cpu_count
 import os
@@ -9,6 +10,7 @@ import tqdm
 import yaml
 
 import mapchete
+from mapchete.cli import _utils
 from mapchete.config import get_zoom_levels, _map_to_new_config
 from mapchete.tile import BufferedTilePyramid
 
@@ -23,24 +25,55 @@ stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.ERROR)
 logging.getLogger().addHandler(stream_handler)
 
+logger = logging.getLogger(__name__)
 
-def main(args=None):
+
+@click.command(help="Execute a process.")
+@_utils.arg_mapchete_file
+@_utils.opt_zoom
+@_utils.opt_bounds
+@_utils.opt_point
+@_utils.opt_wkt_geometry
+@_utils.opt_tile
+@_utils.opt_overwrite
+@_utils.opt_multi
+@_utils.opt_input_file
+@_utils.opt_logfile
+@_utils.opt_verbose
+@_utils.opt_no_pbar
+@_utils.opt_debug
+@_utils.opt_max_chunksize
+def execute(
+    mapchete_file,
+    zoom=None,
+    bounds=None,
+    point=None,
+    wkt_geometry=None,
+    tile=None,
+    overwrite=False,
+    multi=None,
+    input_file=None,
+    logfile=None,
+    verbose=False,
+    no_pbar=False,
+    debug=False,
+    max_chunksize=None
+):
     """Execute a Mapchete process."""
-    parsed = args
-    multi = parsed.multi if parsed.multi else cpu_count()
-    mode = "overwrite" if parsed.overwrite else "continue"
+    multi = multi if multi else cpu_count()
+    mode = "overwrite" if overwrite else "continue"
     # send verbose output to /dev/null if not activated
-    if parsed.debug or not parsed.verbose:
+    if debug or not verbose:
         verbose_dst = open(os.devnull, 'w')
     else:
         verbose_dst = sys.stdout
 
-    if parsed.logfile:
-        file_handler = logging.FileHandler(parsed.logfile)
+    if logfile:
+        file_handler = logging.FileHandler(logfile)
         file_handler.setFormatter(formatter)
         logging.getLogger().addHandler(file_handler)
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
-    if parsed.debug:
+    if debug:
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
         stream_handler.setLevel(logging.DEBUG)
 
@@ -48,7 +81,7 @@ def main(args=None):
 
     def _raw_conf():
         return _map_to_new_config(
-            yaml.load(open(parsed.mapchete_file, "r").read())
+            yaml.load(open(mapchete_file, "r").read())
         )
 
     def _tp():
@@ -59,33 +92,33 @@ def main(args=None):
         )
 
     # process single tile
-    if parsed.tile:
-        tile = _tp().tile(*parsed.tile)
+    if tile:
+        tile = _tp().tile(*tile)
         with mapchete.open(
-            parsed.mapchete_file, mode=mode, bounds=tile.bounds,
-            zoom=tile.zoom, single_input_file=parsed.input_file
+            mapchete_file, mode=mode, bounds=tile.bounds,
+            zoom=tile.zoom, single_input_file=input_file
         ) as mp:
             tqdm.tqdm.write("processing 1 tile", file=verbose_dst)
-            for result in mp.batch_processor(tile=parsed.tile):
-                if parsed.verbose:
+            for result in mp.batch_processor(tile=tile):
+                if verbose:
                     _write_verbose_msg(result, dst=verbose_dst)
 
     # initialize and run process
     else:
-        if parsed.wkt_geometry:
-            bounds = wkt.loads(parsed.wkt_geometry).bounds
-        elif parsed.point:
-            x, y = parsed.point
+        if wkt_geometry:
+            bounds = wkt.loads(wkt_geometry).bounds
+        elif point:
+            x, y = point
             zoom_levels = get_zoom_levels(
                 process_zoom_levels=_raw_conf()["zoom_levels"],
-                init_zoom_levels=parsed.zoom
+                init_zoom_levels=zoom
             )
             bounds = _tp().tile_from_xy(x, y, max(zoom_levels)).bounds
         else:
-            bounds = parsed.bounds
+            bounds = bounds
         with mapchete.open(
-            parsed.mapchete_file, bounds=bounds, zoom=parsed.zoom,
-            mode=mode, single_input_file=parsed.input_file
+            mapchete_file, bounds=bounds, zoom=zoom,
+            mode=mode, single_input_file=input_file
         ) as mp:
             tiles_count = mp.count_tiles(
                 min(mp.config.init_zoom_levels),
@@ -95,11 +128,11 @@ def main(args=None):
             ), file=verbose_dst)
             for process_info in tqdm.tqdm(
                 mp.batch_processor(
-                    multi=multi, zoom=parsed.zoom,
-                    max_chunksize=parsed.max_chunksize),
+                    multi=multi, zoom=zoom,
+                    max_chunksize=max_chunksize),
                 total=tiles_count,
                 unit="tile",
-                disable=parsed.debug or parsed.no_pbar
+                disable=debug or no_pbar
             ):
                 _write_verbose_msg(process_info, dst=verbose_dst)
 

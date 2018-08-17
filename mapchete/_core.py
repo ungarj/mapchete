@@ -10,7 +10,6 @@ from multiprocessing import cpu_count, current_process
 from multiprocessing.pool import Pool
 import numpy as np
 import numpy.ma as ma
-import os
 from shapely.geometry import shape
 import signal
 import six
@@ -920,7 +919,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 def _run_on_single_tile(process, tile):
     logger.debug("run process on single tile")
     process_info = _process_worker(
-        process, process.config.process_pyramid.tile(*tuple(tile))
+        process, process.config.process_pyramid.tile(*tuple(tile.id))
     )
     return process_info
 

@@ -39,6 +39,14 @@ setup(
         'console_scripts': [
             'mapchete=mapchete.cli.main:main'
         ],
+        'mapchete.cli.commands': [
+            'create=mapchete.cli.default.create:create',
+            'execute=mapchete.cli.default.execute:execute',
+            'formats=mapchete.cli.default.formats:formats',
+            'index=mapchete.cli.default.index:index',
+            'pyramid=mapchete.cli.default.pyramid:pyramid',
+            'serve=mapchete.cli.default.serve:serve',
+        ],
         'mapchete.formats.drivers': [
             'geojson=mapchete.formats.default.geojson',
             'gtiff=mapchete.formats.default.gtiff',
@@ -54,14 +62,16 @@ setup(
     package_dir={'static': 'static'},
     package_data={'mapchete.static': ['*']},
     install_requires=[
-        'tilematrix>=0.15',
-        'fiona',
-        'pyyaml',
-        'flask',
-        'rasterio>=1.0a12',
-        'cached_property',
-        'pyproj',
         'cachetools',
+        'cached_property',
+        'click',
+        'click-plugins',
+        'fiona',
+        'flask',
+        'pyproj',
+        'pyyaml',
+        'rasterio>=1.0a12',
+        'tilematrix>=0.15',
         'tqdm'
     ] if not on_rtd else [],
     extra_require={'contours': ['matplotlib']},

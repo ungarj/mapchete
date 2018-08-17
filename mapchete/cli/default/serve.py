@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Command line utility to serve a Mapchete process."""
 
+import click
 import logging
 import logging.config
 import os
@@ -11,6 +12,7 @@ from flask import (
     Flask, send_file, make_response, render_template_string, abort, jsonify)
 
 import mapchete
+from mapchete.cli import _utils
 from mapchete.tile import BufferedTilePyramid
 
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
@@ -22,7 +24,30 @@ logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 
-def main(args=None, _test=False):
+@click.command(help="Serve a process on localhost.")
+@_utils.arg_mapchete_file
+@_utils.opt_port
+@_utils.opt_internal_cache
+@_utils.opt_zoom
+@_utils.opt_bounds
+@_utils.opt_overwrite
+@_utils.opt_readonly
+@_utils.opt_memory
+@_utils.opt_input_file
+@_utils.opt_debug
+def serve(
+    mapchete_file,
+    port=None,
+    internal_cache=None,
+    zoom=None,
+    bounds=None,
+    overwrite=False,
+    readonly=False,
+    memory=False,
+    input_file=None,
+    debug=False,
+    _test=False
+):
     """
     Serve a Mapchete process.
 
@@ -30,13 +55,14 @@ def main(args=None, _test=False):
     WMTS simple REST endpoint.
     """
     app = create_app(
-        mapchete_files=[args.mapchete_file], zoom=args.zoom,
-        bounds=args.bounds, single_input_file=args.input_file,
-        mode=_get_mode(args), debug=args.debug)
+        mapchete_files=[mapchete_file], zoom=zoom,
+        bounds=bounds, single_input_file=input_file,
+        mode=_get_mode(memory, readonly, overwrite), debug=debug
+    )
     if not _test:
         app.run(
-            threaded=True, debug=True, port=args.port, host='0.0.0.0',
-            extra_files=[args.mapchete_file])
+            threaded=True, debug=True, port=port, host='0.0.0.0',
+            extra_files=[mapchete_file])
 
 
 def create_app(
@@ -94,12 +120,12 @@ def create_app(
     return app
 
 
-def _get_mode(parsed):
-    if parsed.memory:
+def _get_mode(memory, readonly, overwrite):
+    if memory:
         return "memory"
-    elif parsed.readonly:
+    elif readonly:
         return "readonly"
-    elif parsed.overwrite:
+    elif overwrite:
         return "overwrite"
     else:
         return "continue"

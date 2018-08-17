@@ -4,10 +4,12 @@ Utility to create tile pyramids out of an input raster.
 Also provides various options to rescale data if necessary
 """
 
+import click
 import os
 import rasterio
 
 import mapchete
+from mapchete.cli import _utils
 from mapchete.io import get_best_zoom_level
 
 # ranges from rasterio
@@ -23,18 +25,41 @@ DTYPE_RANGES = {
 }
 
 
-def main(args=None):
+@click.command(help="Create a tile pyramid from an input raster dataset.")
+@_utils.arg_input_raster
+@_utils.arg_out_dir
+@_utils.opt_pyramid_type_mercator
+@_utils.opt_output_format
+@_utils.opt_resampling_method
+@_utils.opt_scale_method
+@_utils.opt_zoom
+@_utils.opt_bounds
+@_utils.opt_overwrite
+@_utils.opt_debug
+def pyramid(
+    input_raster,
+    output_dir,
+    pyramid_type=None,
+    output_format=None,
+    resampling_method=None,
+    scale_method=None,
+    zoom=None,
+    bounds=None,
+    overwrite=False,
+    debug=False
+):
     """Create tile pyramid out of input raster."""
-    parsed = args
-    options = {}
-    bounds = parsed.bounds if ("bounds" in parsed) else None
-    options.update(
-        pyramid_type=parsed.pyramid_type, scale_method=parsed.scale_method,
-        output_format=parsed.output_format,
-        resampling=parsed.resampling_method, zoom=parsed.zoom, bounds=bounds,
-        overwrite=parsed.overwrite)
-    raster2pyramid(
-        parsed.input_raster, parsed.output_dir, options)
+    bounds = bounds if bounds else None
+    options = dict(
+        pyramid_type=pyramid_type,
+        scale_method=scale_method,
+        output_format=output_format,
+        resampling=resampling_method,
+        zoom=zoom,
+        bounds=bounds,
+        overwrite=overwrite
+    )
+    raster2pyramid(input_raster, output_dir, options)
 
 
 def raster2pyramid(input_file, output_dir, options):
@@ -122,3 +147,4 @@ def _get_zoom(zoom, input_raster, pyramid_type):
             minzoom = zoom[1]
             maxzoom = zoom[0]
     return minzoom, maxzoom
+

@@ -1,11 +1,13 @@
 """Create index for process output."""
 
+import click
 import logging
 from shapely import wkt
 import tqdm
 import yaml
 
 import mapchete
+from mapchete.cli import _utils
 from mapchete.config import _map_to_new_config
 from mapchete.index import zoom_index_gen
 from mapchete.tile import BufferedTilePyramid
@@ -23,59 +25,90 @@ logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 
-def index(args):
-    if args.debug:
+@click.command(help="Create index of output tiles.")
+@_utils.arg_mapchete_file
+@_utils.opt_out_dir
+@_utils.opt_geojson
+@_utils.opt_gpkg
+@_utils.opt_shp
+@_utils.opt_txt
+@_utils.opt_fieldname
+@_utils.opt_basepath
+@_utils.opt_for_gdal
+@_utils.opt_zoom
+@_utils.opt_bounds
+@_utils.opt_wkt_geometry
+@_utils.opt_tile
+@_utils.opt_verbose
+@_utils.opt_debug
+def index(
+    mapchete_file,
+    out_dir=None,
+    geojson=False,
+    gpkg=False,
+    shp=False,
+    txt=False,
+    fieldname=None,
+    basepath=None,
+    for_gdal=False,
+    zoom=None,
+    bounds=None,
+    wkt_geometry=None,
+    tile=None,
+    verbose=False,
+    debug=False,
+):
+    if debug:
         logging.getLogger("mapchete").setLevel(logging.DEBUG)
         stream_handler.setLevel(logging.DEBUG)
 
-    if not any([args.geojson, args.gpkg, args.shp, args.txt]):
-        raise ValueError(
-            "one of 'geojson', 'gpkg', 'shp', or 'txt' must be provided")
+    if not any([geojson, gpkg, shp, txt]):
+        raise ValueError("one of 'geojson', 'gpkg', 'shp', or 'txt' must be provided")
 
     # process single tile
-    if args.tile:
+    if tile:
         conf = _map_to_new_config(
-            yaml.load(open(args.mapchete_file, "r").read()))
+            yaml.load(open(mapchete_file, "r").read()))
         tile = BufferedTilePyramid(
             conf["pyramid"]["grid"],
             metatiling=conf["pyramid"].get("metatiling", 1),
             pixelbuffer=conf["pyramid"].get("pixelbuffer", 0)
-        ).tile(*args.tile)
+        ).tile(*tile)
         with mapchete.open(
-            args.mapchete_file, mode="readonly", bounds=tile.bounds,
+            mapchete_file, mode="readonly", bounds=tile.bounds,
             zoom=tile.zoom
         ) as mp:
-            out_dir = args.out_dir if args.out_dir else mp.config.output.path
+            out_dir = out_dir if out_dir else mp.config.output.path
             for tile in tqdm.tqdm(
                 zoom_index_gen(
                     mp=mp,
                     zoom=tile.zoom,
                     out_dir=out_dir,
-                    geojson=args.geojson,
-                    gpkg=args.gpkg,
-                    shapefile=args.shp,
-                    txt=args.txt,
-                    fieldname=args.fieldname,
-                    basepath=args.basepath,
-                    for_gdal=args.for_gdal),
+                    geojson=geojson,
+                    gpkg=gpkg,
+                    shapefile=shp,
+                    txt=txt,
+                    fieldname=fieldname,
+                    basepath=basepath,
+                    for_gdal=for_gdal),
                 total=mp.count_tiles(tile.zoom, tile.zoom),
                 unit="tile",
-                disable=args.debug
+                disable=debug
             ):
                 logger.debug(tile)
 
     else:
-        if args.wkt_geometry:
-            bounds = wkt.loads(args.wkt_geometry).bounds
+        if wkt_geometry:
+            bounds = wkt.loads(wkt_geometry).bounds
         else:
-            bounds = args.bounds
+            bounds = bounds
         with mapchete.open(
-            args.mapchete_file, mode="readonly", zoom=args.zoom, bounds=bounds
+            mapchete_file, mode="readonly", zoom=zoom, bounds=bounds
         ) as mp:
-            out_dir = args.out_dir if args.out_dir else mp.config.output.path
+            out_dir = out_dir if out_dir else mp.config.output.path
             logger.debug("process bounds: %s", mp.config.init_bounds)
             logger.debug("process zooms: %s", mp.config.init_zoom_levels)
-            logger.debug("fieldname: %s", args.fieldname)
+            logger.debug("fieldname: %s", fieldname)
             for z in mp.config.init_zoom_levels:
                 logger.debug("zoom %s", z)
                 for tile in tqdm.tqdm(
@@ -83,15 +116,15 @@ def index(args):
                         mp=mp,
                         zoom=z,
                         out_dir=out_dir,
-                        geojson=args.geojson,
-                        gpkg=args.gpkg,
-                        shapefile=args.shp,
-                        txt=args.txt,
-                        fieldname=args.fieldname,
-                        basepath=args.basepath,
-                        for_gdal=args.for_gdal),
+                        geojson=geojson,
+                        gpkg=gpkg,
+                        shapefile=shp,
+                        txt=txt,
+                        fieldname=fieldname,
+                        basepath=basepath,
+                        for_gdal=for_gdal),
                     total=mp.count_tiles(z, z),
                     unit="tile",
-                    disable=args.debug
+                    disable=debug
                 ):
                     logger.debug(tile)
