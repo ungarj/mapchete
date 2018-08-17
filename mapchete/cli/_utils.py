@@ -1,8 +1,10 @@
 import click
+import logging
 import os
 import tilematrix
 
 from mapchete.formats import available_output_formats
+from mapchete.log import set_log_level, setup_logfile
 
 
 def _validate_zoom(ctx, param, zoom):
@@ -27,6 +29,18 @@ def _validate_bounds(ctx, param, bounds):
         ):
             raise click.BadParameter("bounds not valid")
         return bounds
+
+
+def _set_debug_log_level(ctx, param, debug):
+    if debug:
+        set_log_level(logging.DEBUG)
+    return debug
+
+
+def _setup_logfile(ctx, param, logfile):
+    if logfile:
+        setup_logfile(logfile)
+    return logfile
 
 
 # arguments
@@ -88,7 +102,7 @@ opt_force = click.option(
     help="Overwrite if files already exist."
 )
 opt_logfile = click.option(
-    "--logfile", "-l", type=click.Path(),
+    "--logfile", "-l", type=click.Path(), callback=_setup_logfile,
     help="Write debug log infos into file."
 )
 opt_verbose = click.option(
@@ -100,7 +114,7 @@ opt_no_pbar = click.option(
     help="Deactivate progress bar."
 )
 opt_debug = click.option(
-    "--debug", "-d", is_flag=True,
+    "--debug", "-d", is_flag=True, callback=_set_debug_log_level,
     help="Deactivate progress bar and print debug log output."
 )
 opt_max_chunksize = click.option(

@@ -14,12 +14,6 @@ import mapchete
 from mapchete.cli import _utils
 from mapchete.tile import BufferedTilePyramid
 
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.ERROR)
-logging.getLogger().addHandler(stream_handler)
-
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +28,7 @@ logger = logging.getLogger(__name__)
 @_utils.opt_memory
 @_utils.opt_input_file
 @_utils.opt_debug
+@_utils.opt_logfile
 def serve(
     mapchete_file,
     port=None,
@@ -44,7 +39,8 @@ def serve(
     readonly=False,
     memory=False,
     input_file=None,
-    debug=False
+    debug=False,
+    logfile=None
 ):
     """
     Serve a Mapchete process.
@@ -62,7 +58,8 @@ def serve(
     else:
         app.run(
             threaded=True, debug=True, port=port, host='0.0.0.0',
-            extra_files=[mapchete_file])
+            extra_files=[mapchete_file]
+        )
 
 
 def create_app(
@@ -70,10 +67,6 @@ def create_app(
     mode="continue", debug=None
 ):
     """Configure and create Flask app."""
-    if debug:
-        logging.getLogger("mapchete").setLevel(logging.DEBUG)
-        stream_handler.setLevel(logging.DEBUG)
-
     app = Flask(__name__)
     mapchete_processes = {
         os.path.splitext(os.path.basename(mapchete_file))[0]: mapchete.open(

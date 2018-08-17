@@ -16,12 +16,6 @@ from mapchete.tile import BufferedTilePyramid
 # workaround for https://github.com/tqdm/tqdm/issues/481
 tqdm.monitor_interval = 0
 
-# lower stream output log level
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.ERROR)
-logging.getLogger().addHandler(stream_handler)
 logger = logging.getLogger(__name__)
 
 
@@ -41,6 +35,7 @@ logger = logging.getLogger(__name__)
 @_utils.opt_tile
 @_utils.opt_verbose
 @_utils.opt_debug
+@_utils.opt_logfile
 def index(
     mapchete_file,
     out_dir=None,
@@ -57,11 +52,8 @@ def index(
     tile=None,
     verbose=False,
     debug=False,
+    logfile=None
 ):
-    if debug:
-        logging.getLogger("mapchete").setLevel(logging.DEBUG)
-        stream_handler.setLevel(logging.DEBUG)
-
     if not any([geojson, gpkg, shp, txt]):
         raise ValueError("one of 'geojson', 'gpkg', 'shp', or 'txt' must be provided")
 

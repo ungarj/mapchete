@@ -18,13 +18,6 @@ from mapchete.tile import BufferedTilePyramid
 # workaround for https://github.com/tqdm/tqdm/issues/481
 tqdm.monitor_interval = 0
 
-# lower stream output log level
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.ERROR)
-logging.getLogger().addHandler(stream_handler)
-
 logger = logging.getLogger(__name__)
 
 
@@ -67,15 +60,6 @@ def execute(
         verbose_dst = open(os.devnull, 'w')
     else:
         verbose_dst = sys.stdout
-
-    if logfile:
-        file_handler = logging.FileHandler(logfile)
-        file_handler.setFormatter(formatter)
-        logging.getLogger().addHandler(file_handler)
-        logging.getLogger("mapchete").setLevel(logging.DEBUG)
-    if debug:
-        logging.getLogger("mapchete").setLevel(logging.DEBUG)
-        stream_handler.setLevel(logging.DEBUG)
 
     tqdm.tqdm.write("preparing process", file=verbose_dst)
 
