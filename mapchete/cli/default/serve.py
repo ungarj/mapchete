@@ -11,24 +11,24 @@ import six
 from flask import (Flask, send_file, make_response, render_template_string, abort, jsonify)
 
 import mapchete
-from mapchete.cli import _utils
+from mapchete.cli import utils
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
 
 
 @click.command(help="Serve a process on localhost.")
-@_utils.arg_mapchete_file
-@_utils.opt_port
-@_utils.opt_internal_cache
-@_utils.opt_zoom
-@_utils.opt_bounds
-@_utils.opt_overwrite
-@_utils.opt_readonly
-@_utils.opt_memory
-@_utils.opt_input_file
-@_utils.opt_debug
-@_utils.opt_logfile
+@utils.arg_mapchete_file
+@utils.opt_port
+@utils.opt_internal_cache
+@utils.opt_zoom
+@utils.opt_bounds
+@utils.opt_overwrite
+@utils.opt_readonly
+@utils.opt_memory
+@utils.opt_input_file
+@utils.opt_debug
+@utils.opt_logfile
 def serve(
     mapchete_file,
     port=None,

@@ -10,7 +10,7 @@ import tqdm
 import yaml
 
 import mapchete
-from mapchete.cli import _utils
+from mapchete.cli import utils
 from mapchete.config import get_zoom_levels, _map_to_new_config
 from mapchete.tile import BufferedTilePyramid
 
@@ -22,20 +22,20 @@ logger = logging.getLogger(__name__)
 
 
 @click.command(help="Execute a process.")
-@_utils.arg_mapchete_files
-@_utils.opt_zoom
-@_utils.opt_bounds
-@_utils.opt_point
-@_utils.opt_wkt_geometry
-@_utils.opt_tile
-@_utils.opt_overwrite
-@_utils.opt_multi
-@_utils.opt_input_file
-@_utils.opt_logfile
-@_utils.opt_verbose
-@_utils.opt_no_pbar
-@_utils.opt_debug
-@_utils.opt_max_chunksize
+@utils.arg_mapchete_files
+@utils.opt_zoom
+@utils.opt_bounds
+@utils.opt_point
+@utils.opt_wkt_geometry
+@utils.opt_tile
+@utils.opt_overwrite
+@utils.opt_multi
+@utils.opt_input_file
+@utils.opt_logfile
+@utils.opt_verbose
+@utils.opt_no_pbar
+@utils.opt_debug
+@utils.opt_max_chunksize
 def execute(
     mapchete_files,
     zoom=None,
@@ -85,7 +85,7 @@ def execute(
             ) as mp:
                 tqdm.tqdm.write("processing 1 tile", file=verbose_dst)
                 for result in mp.batch_processor(tile=tile):
-                    _utils.write_verbose_msg(result, dst=verbose_dst)
+                    utils.write_verbose_msg(result, dst=verbose_dst)
 
         # initialize and run process
         else:
@@ -118,6 +118,6 @@ def execute(
                     unit="tile",
                     disable=debug or no_pbar
                 ):
-                    _utils.write_verbose_msg(process_info, dst=verbose_dst)
+                    utils.write_verbose_msg(process_info, dst=verbose_dst)
 
         tqdm.tqdm.write("process finished", file=verbose_dst)

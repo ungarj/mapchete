@@ -9,7 +9,7 @@ import tqdm
 import yaml
 
 import mapchete
-from mapchete.cli import _utils
+from mapchete.cli import utils
 from mapchete.config import _map_to_new_config
 from mapchete.index import zoom_index_gen
 from mapchete.tile import BufferedTilePyramid
@@ -22,22 +22,22 @@ logger = logging.getLogger(__name__)
 
 
 @click.command(help="Create index of output tiles.")
-@_utils.arg_mapchete_files
-@_utils.opt_out_dir
-@_utils.opt_geojson
-@_utils.opt_gpkg
-@_utils.opt_shp
-@_utils.opt_txt
-@_utils.opt_fieldname
-@_utils.opt_basepath
-@_utils.opt_for_gdal
-@_utils.opt_zoom
-@_utils.opt_bounds
-@_utils.opt_wkt_geometry
-@_utils.opt_tile
-@_utils.opt_verbose
-@_utils.opt_debug
-@_utils.opt_logfile
+@utils.arg_mapchete_files
+@utils.opt_out_dir
+@utils.opt_geojson
+@utils.opt_gpkg
+@utils.opt_shp
+@utils.opt_txt
+@utils.opt_fieldname
+@utils.opt_basepath
+@utils.opt_for_gdal
+@utils.opt_zoom
+@utils.opt_bounds
+@utils.opt_wkt_geometry
+@utils.opt_tile
+@utils.opt_verbose
+@utils.opt_debug
+@utils.opt_logfile
 def index(
     mapchete_files,
     out_dir=None,

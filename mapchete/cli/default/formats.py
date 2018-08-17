@@ -2,13 +2,13 @@
 
 import click
 
-from mapchete.cli import _utils
+from mapchete.cli import utils
 from mapchete.formats import available_input_formats, available_output_formats
 
 
 @click.command(help="List available input and/or output formats.")
-@_utils.opt_input_formats
-@_utils.opt_output_formats
+@utils.opt_input_formats
+@utils.opt_output_formats
 def formats(input_formats, output_formats):
     """List input and/or output formats."""
     if input_formats == output_formats:

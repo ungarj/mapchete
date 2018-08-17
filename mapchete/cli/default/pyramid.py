@@ -9,7 +9,7 @@ import os
 import rasterio
 
 import mapchete
-from mapchete.cli import _utils
+from mapchete.cli import utils
 from mapchete.io import get_best_zoom_level
 
 # ranges from rasterio
@@ -26,16 +26,16 @@ DTYPE_RANGES = {
 
 
 @click.command(help="Create a tile pyramid from an input raster dataset.")
-@_utils.arg_input_raster
-@_utils.arg_out_dir
-@_utils.opt_pyramid_type_mercator
-@_utils.opt_output_format
-@_utils.opt_resampling_method
-@_utils.opt_scale_method
-@_utils.opt_zoom
-@_utils.opt_bounds
-@_utils.opt_overwrite
-@_utils.opt_debug
+@utils.arg_input_raster
+@utils.arg_out_dir
+@utils.opt_pyramid_type_mercator
+@utils.opt_output_format
+@utils.opt_resampling_method
+@utils.opt_scale_method
+@utils.opt_zoom
+@utils.opt_bounds
+@utils.opt_overwrite
+@utils.opt_debug
 def pyramid(
     input_raster,
     output_dir,

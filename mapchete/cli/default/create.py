@@ -7,7 +7,7 @@ from shutil import copyfile
 from yaml import dump
 import pkg_resources
 
-from mapchete.cli import _utils
+from mapchete.cli import utils
 
 FORMAT_MANDATORY = {
     "GTiff": {
@@ -40,12 +40,12 @@ FORMAT_MANDATORY = {
 
 
 @click.command(help="Create a new process.")
-@_utils.arg_create_mapchete_file
-@_utils.arg_process_file
-@_utils.arg_out_format
-@_utils.opt_out_path
-@_utils.opt_pyramid_type
-@_utils.opt_force
+@utils.arg_create_mapchete_file
+@utils.arg_process_file
+@utils.arg_out_format
+@utils.opt_out_path
+@utils.opt_pyramid_type
+@utils.opt_force
 def create(
     mapchete_file,
     process_file,
