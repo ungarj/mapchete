@@ -162,12 +162,12 @@ def _get_warped_array(
             dst_nodata = src.nodata if dst_nodata is None else dst_nodata
             with WarpedVRT(
                 src,
-                dst_crs=dst_crs,
+                crs=dst_crs,
                 src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-                dst_width=dst_shape[-2],
-                dst_height=dst_shape[-1],
-                dst_transform=Affine(
+                nodata=dst_nodata,
+                width=dst_shape[-2],
+                height=dst_shape[-1],
+                transform=Affine(
                     (dst_bounds[2] - dst_bounds[0]) / dst_shape[-2],
                     0, dst_bounds[0], 0,
                     (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
