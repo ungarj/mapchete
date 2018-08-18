@@ -173,15 +173,7 @@ def read_vector_window(input_file, tile, validity_check=True):
     features : list
       a list of reprojected GeoJSON-like features
     """
-    # Check if potentially tile boundaries exceed tile matrix boundaries on
-    # the antimeridian, the northern or the southern boundary.
-    tile_left, tile_bottom, tile_right, tile_top = tile.bounds
-    touches_left = tile_left <= tile.tile_pyramid.left
-    touches_bottom = tile_bottom <= tile.tile_pyramid.bottom
-    touches_right = tile_right >= tile.tile_pyramid.right
-    touches_top = tile_top >= tile.tile_pyramid.top
-    is_on_edge = touches_left or touches_bottom or touches_right or touches_top
-    if tile.pixelbuffer and is_on_edge:
+    if tile.pixelbuffer and tile.is_on_edge():
         tile_boxes = clip_geometry_to_srs_bounds(
             tile.bbox, tile.tile_pyramid, multipart=True
         )

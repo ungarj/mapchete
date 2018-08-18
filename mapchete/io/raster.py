@@ -79,7 +79,7 @@ def read_raster_window(
             dst_shape = (len(indexes),) + dst_shape
     # Check if potentially tile boundaries exceed tile matrix boundaries on
     # the antimeridian, the northern or the southern boundary.
-    if tile.pixelbuffer and _is_on_edge(tile):
+    if tile.pixelbuffer and tile.is_on_edge():
         return _get_warped_edge_array(
             tile=tile, input_file=input_file, indexes=indexes,
             dst_shape=dst_shape, resampling=resampling, src_nodata=src_nodata,
@@ -181,16 +181,6 @@ def _get_warped_array(
                     indexes=indexes,
                     masked=True
                 )
-
-
-def _is_on_edge(tile):
-    """Determine whether tile touches or goes over pyramid edge."""
-    return any([
-        tile.left <= tile.tile_pyramid.left,        # touches_left
-        tile.bottom <= tile.tile_pyramid.bottom,    # touches_bottom
-        tile.right >= tile.tile_pyramid.right,      # touches_right
-        tile.top >= tile.tile_pyramid.top           # touches_top
-    ])
 
 
 class RasterWindowMemoryFile():
