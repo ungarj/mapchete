@@ -70,7 +70,7 @@ setup(
         'flask',
         'pyproj',
         'pyyaml',
-        'rasterio>=1.0a12',
+        'rasterio>=1.0.2',
         'tilematrix>=0.17',
         'tqdm'
     ] if not on_rtd else [],

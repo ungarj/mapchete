@@ -516,7 +516,7 @@ class Mapchete(object):
         except Exception as e:
             # Log process time
             logger.exception(
-                (process_tile.id, "exception in user process", e, t)
+                (process_tile.id, "exception in user process", e, str(t))
             )
             new = MapcheteProcessException(format_exc())
             new.old = e
