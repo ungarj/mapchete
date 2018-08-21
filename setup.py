@@ -18,10 +18,15 @@ with open('mapchete/__init__.py') as f:
             version = version.strip("'")
             continue
 
+# use README.rst for project long_description
+with open('README.rst') as f:
+    readme = f.read()
+
 setup(
     name='mapchete',
     version=version,
     description='tile-based geodata processing',
+    long_description=readme,
     author='Joachim Ungar',
     author_email='joachim.ungar@gmail.com',
     url='https://github.com/ungarj/mapchete',
