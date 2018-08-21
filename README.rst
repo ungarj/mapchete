@@ -51,11 +51,11 @@ maps.
 Usage
 -----
 
-You need a ``.mapchete`` file for the process configuration:
+You need a ``.mapchete`` file for the process configuration
 
 .. code-block:: yaml
 
-    process: my_python_process.py
+    process: my_python_process.py  # or a Python module path: mypythonpackage.myprocess
     zoom_levels:
         min: 0
         max: 12
@@ -72,7 +72,7 @@ You need a ``.mapchete`` file for the process configuration:
     resampling: cubic_spline
 
 
-And a ``.py`` file where you specify the process itself:
+and a ``.py`` file or a Python module path where you specify the process itself
 
 .. code-block:: python
 
@@ -90,7 +90,7 @@ And a ``.py`` file where you specify the process itself:
             return mp.clip(hillshade, land_file.read())
 
 
-You can then interactively inspect the process output direcly on a map in a
+You can then interactively inspect the process output directly on a map in a
 browser (go to ``localhost:5000``):
 
 .. code-block:: shell
