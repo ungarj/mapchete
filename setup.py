@@ -74,7 +74,7 @@ setup(
         'fiona',
         'flask',
         'pyproj',
-        'pyyaml',
+        'oyaml',
         'rasterio>=1.0.2',
         'tilematrix>=0.17',
         'tqdm'
