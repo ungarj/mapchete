@@ -49,6 +49,7 @@ setup(
             'execute=mapchete.cli.default.execute:execute',
             'formats=mapchete.cli.default.formats:formats',
             'index=mapchete.cli.default.index:index',
+            'processes=mapchete.cli.default.processes:processes',
             'pyramid=mapchete.cli.default.pyramid:pyramid',
             'serve=mapchete.cli.default.serve:serve',
         ],
