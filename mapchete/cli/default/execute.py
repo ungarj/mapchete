@@ -7,7 +7,7 @@ import os
 from shapely import wkt
 import sys
 import tqdm
-import oyaml as yaml
+import yaml
 
 import mapchete
 from mapchete.cli import utils

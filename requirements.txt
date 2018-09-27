@@ -7,7 +7,7 @@ flask
 matplotlib
 numpy
 pyproj
-oyaml
+pyyaml
 rasterio>=1.0.2
 shapely
 tilematrix>=0.17

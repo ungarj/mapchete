@@ -24,7 +24,7 @@ from shapely.ops import cascaded_union
 import six
 from tilematrix._funcs import Bounds
 import warnings
-import oyaml as yaml
+import yaml
 
 from mapchete.formats import (
     load_output_writer, available_output_formats, load_input_reader
