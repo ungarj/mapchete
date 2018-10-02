@@ -405,7 +405,7 @@ class MapcheteConfig(object):
                     """provide execute() function instead""")
             if hasattr(process_module, "execute"):
                 user_execute = process_module.execute
-                if len(inspect.getargspec(user_execute).args) == 0:
+                if len(inspect.signature(user_execute).parameters) == 0:
                     raise ImportError(
                         "execute() function has to accept at least one argument"
                     )
