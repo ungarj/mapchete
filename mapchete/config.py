@@ -726,8 +726,7 @@ def _validate_zooms(zooms):
             zmin, zmax = sorted([_validate_zoom(z) for z in zooms])
             return list(range(zmin, zmax + 1))
         else:
-            raise MapcheteConfigError(
-                "when providing zooms as list, just min and max are allowed")
+            return zooms
     else:
         return [_validate_zoom(zooms)]
 
