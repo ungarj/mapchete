@@ -170,11 +170,6 @@ def test_invalid_zoom_levels(example_mapchete):
         config = deepcopy(example_mapchete.dict)
         config.update(zoom_levels=[-5, 0])
         MapcheteConfig(config)
-    # invalid number of zoom levels
-    with pytest.raises(errors.MapcheteConfigError):
-        config = deepcopy(example_mapchete.dict)
-        config.update(zoom_levels=[0, 5, 7])
-        MapcheteConfig(config)
     # min or max missing
     config = deepcopy(example_mapchete.dict)
     config.update(zoom_levels=dict(min=0))
@@ -194,9 +189,6 @@ def test_invalid_zoom_levels(example_mapchete):
     # invalid zoom level in pair
     with pytest.raises(errors.MapcheteConfigError):
         MapcheteConfig(config, zoom=[-5, 0])
-    # invalid number of zoom levels
-    with pytest.raises(errors.MapcheteConfigError):
-        MapcheteConfig(config, zoom=[0, 5, 7])
     # not a subset
     with pytest.raises(errors.MapcheteConfigError):
         MapcheteConfig(config, zoom=[0, 20])
