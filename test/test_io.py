@@ -16,7 +16,7 @@ from itertools import product
 
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
-from mapchete.io import get_best_zoom_level
+from mapchete.io import get_best_zoom_level, path_exists
 from mapchete.io.raster import (
     read_raster_window, write_raster_window, extract_from_array,
     resample_from_array, create_mosaic, ReferencedRaster, prepare_array,
@@ -642,6 +642,11 @@ def test_clean_geometry_type():
     # don't allow multipart geometries
     assert clean_geometry_type(
         MultiPolygon([polygon]), "Polygon", allow_multipart=False) is None
+
+
+def test_s3_path_exists(s2_band_remote):
+    assert path_exists(s2_band_remote)
+
 
 # TODO write_vector_window()
 # TODO extract_from_tile()

@@ -64,9 +64,17 @@ def s2_band():
     Fixture for Sentinel-2 raster band.
 
     Original file:
-    http://sentinel-s2-l1c.s3.amazonaws.com/tiles/33/T/WN/2016/4/3/0/B02.jp2
+    s3://sentinel-s2-l1c/tiles/33/T/WN/2016/4/3/0/B02.jp2
     """
     return os.path.join(TESTDATA_DIR, "s2_band.tif")
+
+
+@pytest.fixture
+def s2_band_remote():
+    """
+    Fixture for remote file on S3 bucket.
+    """
+    return "s3://test-gtiff/2142.tif"
 
 
 @pytest.fixture

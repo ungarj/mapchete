@@ -6,17 +6,11 @@ import numpy.ma as ma
 import os
 import six
 from shapely.geometry import box
-# for Python 2 & 3 compatibility:
-try:
-    from urllib.request import urlopen
-    from urllib.error import HTTPError
-except ImportError:
-    from urllib2 import urlopen, HTTPError
 
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import path_is_remote
+from mapchete.io import path_is_remote, path_exists, absolute_path
 from mapchete.io.vector import reproject_geometry, read_vector_window
 from mapchete.io.raster import read_raster_window, create_mosaic, resample_from_array
 from mapchete.tile import BufferedTilePyramid
@@ -79,7 +73,7 @@ class InputData(base.InputData):
 
         if self._params["path"].startswith("s3://"):
             raise NotImplementedError("TileDirectory from S3 buckets not available")
-        self.path = _absolute_path(input_params["conf_dir"], self._params["path"])
+        self.path = absolute_path(input_params["conf_dir"], self._params["path"])
 
         # define pyramid
         self.td_pyramid = BufferedTilePyramid(
@@ -131,7 +125,7 @@ class InputData(base.InputData):
                     for t in self.td_pyramid.tiles_from_bounds(
                         tile.bounds, tile.zoom)
                 ]
-                if _path_exists(_path)
+                if path_exists(_path)
             ],
             file_type=self._file_type,
             profile=self._profile,
@@ -252,26 +246,3 @@ class InputTile(base.InputTile):
         is empty : bool
         """
         return len(self._tiles_paths) == 0
-
-
-def _absolute_path(directory, path):
-    """Return absolute path if local."""
-    if path_is_remote(path, s3=True):
-        return path
-    else:
-        return os.path.abspath(os.path.join(directory, path))
-
-
-def _path_exists(path):
-    """Check if file exists either remote or local."""
-    if path_is_remote(path, s3=True):
-        try:
-            urlopen(path).info()
-            return True
-        except HTTPError as e:
-            if e.code == 404:
-                return False
-            else:
-                raise
-    else:
-        return os.path.exists(path)

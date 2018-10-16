@@ -1,8 +1,13 @@
 """Functions for reading and writing data."""
 
+import boto3
+import os
 import rasterio
 from shapely.geometry import box
 from tilematrix import TilePyramid
+from urllib.request import urlopen
+from urllib.error import HTTPError
+
 
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
 
@@ -72,7 +77,7 @@ def get_segmentize_value(input_file=None, tile_pyramid=None):
     return pixelsize * tile_pyramid.tile_size
 
 
-def path_is_remote(path, s3=False):
+def path_is_remote(path, s3=True):
     """
     Determine whether file path is remote or local.
 
@@ -88,3 +93,44 @@ def path_is_remote(path, s3=False):
     if s3:
         prefixes += ("s3://", )
     return path.startswith(prefixes)
+
+
+def path_exists(path):
+    """
+    Check if file exists either remote or local.
+
+    Parameters:
+    -----------
+    path : path to file
+
+    Returns:
+    --------
+    exists : bool
+    """
+    if path.startswith(("http://", "https://")):
+        try:
+            urlopen(path).info()
+            return True
+        except HTTPError as e:
+            if e.code == 404:
+                return False
+            else:
+                raise
+    elif path.startswith("s3://"):
+        bucket_name = path.split("/")[2]
+        key = "/".join(path.split("/")[3:])
+        for obj in boto3.resource('s3').Bucket(bucket_name).objects.filter(Prefix=key):
+            if obj.key == key:
+                return True
+        else:
+            return False
+    else:
+        return os.path.exists(path)
+
+
+def absolute_path(directory, path):
+    """Return absolute path if local."""
+    if path_is_remote(path):
+        return path
+    else:
+        return os.path.abspath(os.path.join(directory, path))
