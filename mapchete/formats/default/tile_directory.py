@@ -13,14 +13,13 @@ try:
 except ImportError:
     from urllib2 import urlopen, HTTPError
 
-from mapchete.tile import BufferedTilePyramid
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import path_is_remote
 from mapchete.io.vector import reproject_geometry, read_vector_window
-from mapchete.io.raster import (
-    read_raster_window, create_mosaic, resample_from_array)
+from mapchete.io.raster import read_raster_window, create_mosaic, resample_from_array
+from mapchete.tile import BufferedTilePyramid
 
 
 METADATA = {
@@ -54,12 +53,7 @@ class InputData(base.InputData):
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    METADATA = {
-        "driver_name": "TileDirectory",
-        "data_type": None,
-        "mode": "r",
-        "file_extensions": None
-    }
+    METADATA = METADATA
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
@@ -68,38 +62,48 @@ class InputData(base.InputData):
 
         # validate parameters
         validate_values(
-            self._params, [
+            self._params,
+            [
                 ("path", six.string_types),
                 ("type", six.string_types),
-                ("extension", six.string_types)])
+                ("extension", six.string_types)
+            ]
+        )
         if not self._params["extension"] in [
             "tif", "vrt", "png", "jpg", "mixed", "jp2", "geojson"
         ]:
             raise MapcheteConfigError(
-                "invalid file extension given: %s" % self._params["extension"])
+                "invalid file extension given: %s" % self._params["extension"]
+            )
         self._ext = self._params["extension"]
-        self.path = _absolute_path(
-            input_params["conf_dir"], self._params["path"])
+
+        if self._params["path"].startswith("s3://"):
+            raise NotImplementedError("TileDirectory from S3 buckets not available")
+        self.path = _absolute_path(input_params["conf_dir"], self._params["path"])
 
         # define pyramid
         self.td_pyramid = BufferedTilePyramid(
             self._params["type"],
             metatiling=self._params.get("metatiling", 1),
             tile_size=self._params.get("tile_size", 256),
-            pixelbuffer=self._params.get("pixelbuffer", 0))
+            pixelbuffer=self._params.get("pixelbuffer", 0)
+        )
 
         # additional params
         self._bounds = self._params.get("bounds", self.td_pyramid.bounds)
         self._file_type = (
-            "vector" if self._params["extension"] == "geojson" else "raster")
+            "vector" if self._params["extension"] == "geojson" else "raster"
+        )
         if self._file_type == "raster":
             self._params["count"] = self._params.get(
-                "count", self._params.get("bands", None))
+                "count", self._params.get("bands", None)
+            )
             validate_values(self._params, [("dtype", six.string_types), ("count", int)])
             self._profile = {
                 "nodata": self._params.get("nodata", 0),
                 "dtype": self._params["dtype"],
-                "count": self._params["count"]}
+                "count": self._params["count"]
+            }
         else:
             self._profile = None
 
@@ -127,10 +131,12 @@ class InputData(base.InputData):
                     for t in self.td_pyramid.tiles_from_bounds(
                         tile.bounds, tile.zoom)
                 ]
-                if _path_exists(_path)],
+                if _path_exists(_path)
+            ],
             file_type=self._file_type,
             profile=self._profile,
-            **kwargs)
+            **kwargs
+        )
 
     def bbox(self, out_crs=None):
         """
@@ -149,7 +155,8 @@ class InputData(base.InputData):
         return reproject_geometry(
             box(*self._bounds),
             src_crs=self.td_pyramid.crs,
-            dst_crs=self.pyramid.crs if out_crs is None else out_crs)
+            dst_crs=self.pyramid.crs if out_crs is None else out_crs
+        )
 
 
 class InputTile(base.InputTile):
@@ -219,18 +226,22 @@ class InputTile(base.InputTile):
                     mask=True
                 )
             tiles = [
-                (_tile, read_raster_window(
-                    _path, _tile, indexes=indexes, resampling=resampling,
-                    src_nodata=self._profile["nodata"], dst_nodata=dst_nodata,
-                    gdal_opts=gdal_opts))
+                (
+                    _tile,
+                    read_raster_window(
+                        _path, _tile, indexes=indexes, resampling=resampling,
+                        src_nodata=self._profile["nodata"], dst_nodata=dst_nodata,
+                        gdal_opts=gdal_opts
+                    )
+                )
                 for _tile, _path in self._tiles_paths
             ]
             return resample_from_array(
-                in_raster=create_mosaic(
-                    tiles=tiles, nodata=self._profile["nodata"]),
+                in_raster=create_mosaic(tiles=tiles, nodata=self._profile["nodata"]),
                 out_tile=self.tile,
                 resampling=resampling,
-                nodataval=self._profile["nodata"])
+                nodataval=self._profile["nodata"]
+            )
 
     def is_empty(self):
         """
@@ -245,13 +256,15 @@ class InputTile(base.InputTile):
 
 def _absolute_path(directory, path):
     """Return absolute path if local."""
-    return path if path_is_remote(path) else os.path.abspath(
-        os.path.join(directory, path))
+    if path_is_remote(path, s3=True):
+        return path
+    else:
+        return os.path.abspath(os.path.join(directory, path))
 
 
 def _path_exists(path):
     """Check if file exists either remote or local."""
-    if path_is_remote(path):
+    if path_is_remote(path, s3=True):
         try:
             urlopen(path).info()
             return True
