@@ -1,3 +1,4 @@
+boto3
 cachetools
 cached_property
 click
