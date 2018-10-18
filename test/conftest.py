@@ -74,7 +74,7 @@ def s2_band_remote():
     """
     Fixture for remote file on S3 bucket.
     """
-    return "s3://test-gtiff/2142.tif"
+    return "s3://mapchete-test/4band_test.tif"
 
 
 @pytest.fixture
