@@ -648,5 +648,9 @@ def test_s3_path_exists(s2_band_remote):
     assert path_exists(s2_band_remote)
 
 
+def test_s3_read_raster_window(s2_band_remote):
+    tile = BufferedTilePyramid("geodetic").tile(10, 276, 1071)
+    assert read_raster_window(s2_band_remote, tile).any()
+
 # TODO write_vector_window()
 # TODO extract_from_tile()

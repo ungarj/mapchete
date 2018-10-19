@@ -68,11 +68,7 @@ class OutputData(base.OutputData):
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    METADATA = {
-        "driver_name": "PNG",
-        "data_type": "raster",
-        "mode": "w"
-    }
+    METADATA = METADATA
 
     def __init__(self, output_params):
         """Initialize."""

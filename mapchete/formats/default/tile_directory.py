@@ -71,8 +71,6 @@ class InputData(base.InputData):
             )
         self._ext = self._params["extension"]
 
-        if self._params["path"].startswith("s3://"):
-            raise NotImplementedError("TileDirectory from S3 buckets not available")
         self.path = absolute_path(input_params["conf_dir"], self._params["path"])
 
         # define pyramid

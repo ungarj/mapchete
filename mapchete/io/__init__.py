@@ -1,6 +1,7 @@
 """Functions for reading and writing data."""
 
 import boto3
+import logging
 import os
 import rasterio
 from shapely.geometry import box
@@ -8,8 +9,17 @@ from tilematrix import TilePyramid
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
-
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
+
+
+logger = logging.getLogger(__name__)
+
+
+GDAL_HTTP_OPTS = dict(
+    GDAL_DISABLE_READDIR_ON_OPEN=True,
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2",
+    GDAL_HTTP_TIMEOUT=30
+)
 
 
 def get_best_zoom_level(input_file, tile_pyramid_type):
@@ -118,9 +128,11 @@ def path_exists(path):
                 raise
     elif path.startswith("s3://"):
         bucket_name = path.split("/")[2]
+        bucket = boto3.resource('s3').Bucket(bucket_name)
         key = "/".join(path.split("/")[3:])
-        for obj in boto3.resource('s3').Bucket(bucket_name).objects.filter(Prefix=key):
+        for obj in bucket.objects.filter(Prefix=key):
             if obj.key == key:
+                logger.debug("path exists")
                 return True
         else:
             return False
@@ -134,3 +146,11 @@ def absolute_path(directory, path):
         return path
     else:
         return os.path.abspath(os.path.join(directory, path))
+
+
+def makedirs(path):
+    if not path_is_remote(path):
+        try:
+            os.makedirs(path)
+        except OSError:
+            pass

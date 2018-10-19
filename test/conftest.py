@@ -1,6 +1,6 @@
-#!/usr/bin/env python
 """Fixtures such as Flask app for serve."""
 
+import boto3
 from collections import namedtuple
 import os
 import pytest
@@ -307,8 +307,32 @@ def process_module():
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 
+@pytest.fixture
+def gtiff_s3():
+    """Fixture for gtiff_s3.mapchete"""
+    path = os.path.join(TESTDATA_DIR, "gtiff_s3.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def s3_example_tile(gtiff_s3):
+    """Example tile for fixture."""
+    zoom, row, col = (5, 15, 32)
+    # _delete_tile(zoom, row, col, gtiff_s3)
+    yield (zoom, row, col)
+    _delete_tile(zoom, row, col, gtiff_s3)
+
+
 # helper functions
 def _dict_from_mapchete(path):
     config = yaml.load(open(path).read())
     config.update(config_dir=os.path.dirname(path))
     return config
+
+
+def _delete_tile(zoom, row, col, gtiff_s3):
+    client = boto3.client('s3')
+    client.delete_object(
+        Bucket=gtiff_s3.dict["output"]["path"].split("/")[2],
+        Key="_tmp/%s/%s/%s.tif" % (zoom, row, col)
+    )

@@ -18,15 +18,12 @@ from tilematrix import clip_geometry_to_srs_bounds
 from types import GeneratorType
 
 from mapchete.tile import BufferedTile
-from mapchete.io import path_is_remote
+from mapchete.io import path_is_remote, GDAL_HTTP_OPTS
 
 
 logger = logging.getLogger(__name__)
 
 ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
-GDAL_HTTP_OPTS = dict(
-    GDAL_DISABLE_READDIR_ON_OPEN=True,
-    GDAL_HTTP_TIMEOUT=30)
 
 
 def read_raster_window(
@@ -65,8 +62,7 @@ def read_raster_window(
     dst_shape = tile.shape
     user_opts = {} if gdal_opts is None else dict(**gdal_opts)
     if path_is_remote(input_file, s3=True):
-        gdal_opts = dict(**GDAL_HTTP_OPTS)
-        gdal_opts.update(**user_opts)
+        gdal_opts = dict(GDAL_HTTP_OPTS, **user_opts)
     else:
         gdal_opts = user_opts
 
@@ -218,7 +214,7 @@ class RasterWindowMemoryFile():
 
 def write_raster_window(
     in_tile=None, in_data=None, out_profile=None, out_tile=None, out_path=None,
-    tags=None
+    tags=None, bucket_resource=None
 ):
     """
     Write a window from a numpy array to an output file.
@@ -234,6 +230,8 @@ def write_raster_window(
         provides output boundaries; if None, in_tile is used
     out_path : string
         output path to write to
+    tags : optional tags to be added to GeoTIFF file
+    bucket_resource : boto3 bucket resource to write to in case of S3 output
     """
     if out_path == "memoryfile":
         raise DeprecationWarning(
@@ -244,18 +242,39 @@ def write_raster_window(
     _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
     if not isinstance(out_path, six.string_types):
         raise TypeError("out_path must be a string")
+
+    # extract data
     window_data = extract_from_array(
         in_raster=in_data,
         in_affine=in_tile.affine,
-        out_tile=out_tile)
+        out_tile=out_tile
+    )
+
     # use transform instead of affine
     if "affine" in out_profile:
         out_profile["transform"] = out_profile.pop("affine")
+
     # write if there is any band with non-masked data
     if window_data.all() is not ma.masked:
-        with rasterio.open(out_path, 'w', **out_profile) as dst:
-            dst.write(window_data.astype(out_profile["dtype"]))
-            _write_tags(dst, tags)
+
+        if out_path.startswith("s3://"):
+            with RasterWindowMemoryFile(
+                in_tile=out_tile,
+                in_data=window_data,
+                out_profile=out_profile,
+                out_tile=out_tile,
+                tags=tags
+            ) as memfile:
+                logger.debug((out_tile.id, "upload tile", out_path))
+                bucket_resource.put_object(
+                    Key="/".join(out_path.split("/")[3:]),
+                    Body=memfile
+                )
+        else:
+            with rasterio.open(out_path, 'w', **out_profile) as dst:
+                logger.debug((out_tile.id, "write tile", out_path))
+                dst.write(window_data.astype(out_profile["dtype"]))
+                _write_tags(dst, tags)
 
 
 def _write_tags(dst, tags):
