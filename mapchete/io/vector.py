@@ -4,6 +4,7 @@ import os
 import logging
 import fiona
 from fiona.transform import transform_geom
+from fiona.io import MemoryFile
 from rasterio.crs import CRS
 from shapely.geometry import (
     box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon, Polygon,
@@ -192,7 +193,7 @@ def read_vector_window(input_file, tile, validity_check=True):
 
 
 def write_vector_window(
-    in_data=None, out_schema=None, out_tile=None, out_path=None
+    in_data=None, out_schema=None, out_tile=None, out_path=None, bucket_resource=None
 ):
     """
     Write features to GeoJSON file.
@@ -209,7 +210,7 @@ def write_vector_window(
     """
     # Delete existing file.
     try:
-        os.remove(out_path)
+        fiona.remove(out_path, "GeoJSON")
     except OSError:
         pass
 
@@ -220,24 +221,69 @@ def write_vector_window(
             # clip feature geometry to tile bounding box and append for writing
             # if clipped feature still
             out_geom = clean_geometry_type(
-                feature_geom.intersection(out_tile.bbox),
-                out_schema["geometry"])
+                feature_geom.intersection(out_tile.bbox), out_schema["geometry"]
+            )
             if out_geom:
                 out_features.append({
                     "geometry": mapping(out_geom),
-                    "properties": feature["properties"]})
+                    "properties": feature["properties"]
+                })
         except Exception:
             logger.exception("failed to prepare geometry for writing")
             continue
 
+    # write if there are output features
     if out_features:
-        # Write data
-        with fiona.open(
-            out_path, 'w', schema=out_schema, driver="GeoJSON",
-            crs=out_tile.crs.to_dict()
+
+        if out_path.startswith("s3://"):
+            # write data to remote file
+            with VectorWindowMemoryFile(
+                tile=out_tile,
+                features=out_features,
+                schema=out_schema,
+                driver="GeoJSON"
+            ) as memfile:
+                logger.debug((out_tile.id, "upload tile", out_path))
+                bucket_resource.put_object(
+                    Key="/".join(out_path.split("/")[3:]),
+                    Body=memfile
+                )
+        else:
+            # write data to local file
+            with fiona.open(
+                out_path, 'w', schema=out_schema, driver="GeoJSON",
+                crs=out_tile.crs.to_dict()
+            ) as dst:
+                logger.debug((out_tile.id, "write tile", out_path))
+                dst.writerecords(out_features)
+
+
+class VectorWindowMemoryFile():
+    """Context manager around fiona.io.MemoryFile."""
+
+    def __init__(
+        self, tile=None, features=None, schema=None, driver=None
+    ):
+        """Prepare data & profile."""
+        self.tile = tile
+        self.schema = schema
+        self.driver = driver
+        self.features = features
+
+    def __enter__(self):
+        """Open MemoryFile, write data and return."""
+        self.fio_memfile = MemoryFile()
+        with self.fio_memfile.open(
+            schema=self.schema,
+            driver=self.driver,
+            crs=self.tile.crs
         ) as dst:
-            for feature in out_features:
-                dst.write(feature)
+            dst.writerecords(self.features)
+        return self.fio_memfile
+
+    def __exit__(self, *args):
+        """Make sure MemoryFile is closed."""
+        self.fio_memfile.close()
 
 
 def _get_reprojected_features(
