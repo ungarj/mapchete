@@ -8,7 +8,8 @@ from fiona.io import MemoryFile
 from rasterio.crs import CRS
 from shapely.geometry import (
     box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon, Polygon,
-    LinearRing, LineString)
+    LinearRing, LineString, base
+)
 from shapely.errors import TopologicalError
 from shapely.validation import explain_validity
 import six
@@ -210,20 +211,21 @@ def write_vector_window(
     """
     # Delete existing file.
     try:
-        fiona.remove(out_path, "GeoJSON")
+        os.remove(out_path)
     except OSError:
         pass
 
     out_features = []
     for feature in in_data:
         try:
-            feature_geom = to_shape(feature["geometry"])
             # clip feature geometry to tile bounding box and append for writing
             # if clipped feature still
-            out_geom = clean_geometry_type(
-                feature_geom.intersection(out_tile.bbox), out_schema["geometry"]
-            )
-            if out_geom:
+            for out_geom in multipart_to_singleparts(
+                clean_geometry_type(
+                    to_shape(feature["geometry"]).intersection(out_tile.bbox),
+                    out_schema["geometry"]
+                )
+            ):
                 out_features.append({
                     "geometry": mapping(out_geom),
                     "properties": feature["properties"]
@@ -361,7 +363,8 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         "Polygon": MultiPolygon,
         "MultiPoint": MultiPoint,
         "MultiLineString": MultiLineString,
-        "MultiPolygon": MultiPolygon}
+        "MultiPolygon": MultiPolygon
+    }
 
     if target_type not in multipart_geoms.keys():
         raise TypeError("target type is not supported: %s" % target_type)
@@ -397,3 +400,23 @@ def to_shape(geom):
     shapely geometry
     """
     return shape(geom) if isinstance(geom, dict) else geom
+
+
+def multipart_to_singleparts(geom):
+    """
+    Yield single part geometries if geom is multipart, otherwise yield geom.
+
+    Parameters:
+    -----------
+    geom : shapely geometry
+
+    Returns:
+    --------
+    shapely single part geometries
+    """
+    if isinstance(geom, base.BaseGeometry):
+        if hasattr(geom, "geoms"):
+            for subgeom in geom:
+                yield subgeom
+        else:
+            yield geom
