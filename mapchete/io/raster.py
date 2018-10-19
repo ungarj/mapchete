@@ -192,7 +192,8 @@ class RasterWindowMemoryFile():
         self.data = extract_from_array(
             in_raster=in_data,
             in_affine=in_tile.affine,
-            out_tile=out_tile)
+            out_tile=out_tile
+        )
         # use transform instead of affine
         if "affine" in out_profile:
             out_profile["transform"] = out_profile.pop("affine")
@@ -202,6 +203,8 @@ class RasterWindowMemoryFile():
     def __enter__(self):
         """Open MemoryFile, write data and return."""
         self.rio_memfile = MemoryFile()
+        print(self.profile)
+        print(self.data.shape)
         with self.rio_memfile.open(**self.profile) as dst:
             dst.write(self.data.astype(self.profile["dtype"]))
             _write_tags(dst, self.tags)
@@ -275,6 +278,8 @@ def write_raster_window(
                 logger.debug((out_tile.id, "write tile", out_path))
                 dst.write(window_data.astype(out_profile["dtype"]))
                 _write_tags(dst, tags)
+    else:
+        logger.debug((out_tile.id, "array window empty", out_path))
 
 
 def _write_tags(dst, tags):

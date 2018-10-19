@@ -8,4 +8,4 @@ output:
     dtype: float32
     bands: 3
     format: GTiff
-    path: s3://mapchete-test/_tmp
+    path: s3://mapchete-test/tmp

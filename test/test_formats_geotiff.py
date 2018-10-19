@@ -143,7 +143,7 @@ def test_write_geotiff_tags(
                 assert src.tags(1)["band_tag"] == "True"
 
 
-def test_s3_write_output_data(gtiff_s3, s3_example_tile):
+def test_s3_write_output_data(gtiff_s3, s3_example_tile, mp_s3_tmpdir):
     """Write and read output."""
     with mapchete.open(gtiff_s3.dict) as mp:
         process_tile = mp.config.process_pyramid.tile(*s3_example_tile)
@@ -151,11 +151,6 @@ def test_s3_write_output_data(gtiff_s3, s3_example_tile):
         assert mp.config.output.profile()
         assert mp.config.output.empty(process_tile).mask.all()
         assert mp.config.output.get_path(process_tile)
-        # # read empty
-        # data = mp.config.output.read(process_tile)
-        # assert isinstance(data, np.ndarray)
-        # assert data.mask.all()
-
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write

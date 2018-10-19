@@ -19,23 +19,33 @@ nodata: integer or float
     nodata value used for writing
 """
 
-import os
-import rasterio
-import six
-from rasterio.errors import RasterioIOError
+import boto3
+import logging
 import numpy as np
 import numpy.ma as ma
+import os
+import rasterio
+from rasterio.errors import RasterioIOError
+import six
 
-from mapchete.formats import base
-from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window, prepare_array, memory_file
 from mapchete.config import validate_values
+from mapchete.formats import base
+from mapchete.io import GDAL_HTTP_OPTS, makedirs
+from mapchete.io.raster import write_raster_window, prepare_array, memory_file
+from mapchete.tile import BufferedTile
 
 
+logger = logging.getLogger(__name__)
 METADATA = {
     "driver_name": "PNG",
     "data_type": "raster",
     "mode": "w"
+}
+PNG_DEFAULT_PROFILE = {
+    "dtype": "uint8",
+    "driver": "PNG",
+    "count": 4,
+    "nodata": 0
 }
 
 
@@ -76,11 +86,9 @@ class OutputData(base.OutputData):
         self.path = output_params["path"]
         self.file_extension = ".png"
         self.output_params = output_params
-        self.output_params["dtype"] = PNG_PROFILE["dtype"]
-        try:
-            self.nodata = output_params["nodata"]
-        except KeyError:
-            self.nodata = PNG_PROFILE["nodata"]
+        self.output_params["dtype"] = PNG_DEFAULT_PROFILE["dtype"]
+        self.nodata = output_params.get("nodata", PNG_DEFAULT_PROFILE["nodata"])
+        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
     def write(self, process_tile, data):
         """
@@ -93,18 +101,30 @@ class OutputData(base.OutputData):
         """
         rgba = self._prepare_array_for_png(data)
         data = ma.masked_where(rgba == self.nodata, rgba)
-        # Convert from process_tile to output_tiles
-        for tile in self.pyramid.intersecting(process_tile):
-            # skip if file exists and overwrite is not set
-            self.prepare_path(tile)
-            out_tile = BufferedTile(tile, self.pixelbuffer)
-            write_raster_window(
-                in_tile=process_tile,
-                in_data=data,
-                out_tile=BufferedTile(tile, self.pixelbuffer),
-                out_profile=self.profile(out_tile),
-                out_path=self.get_path(tile)
+
+        if data.mask.all():
+            logger.debug("data empty, nothing to write")
+        else:
+            # in case of S3 output, create an boto3 resource
+            bucket_resource = (
+                boto3.resource('s3').Bucket(self._bucket)
+                if self._bucket
+                else None
             )
+
+            # Convert from process_tile to output_tiles and write
+            for tile in self.pyramid.intersecting(process_tile):
+                out_path = self.get_path(tile)
+                self.prepare_path(tile)
+                out_tile = BufferedTile(tile, self.pixelbuffer)
+                write_raster_window(
+                    in_tile=process_tile,
+                    in_data=data,
+                    out_profile=self.profile(out_tile),
+                    out_tile=out_tile,
+                    out_path=out_path,
+                    bucket_resource=bucket_resource
+                )
 
     def read(self, output_tile):
         """
@@ -119,11 +139,17 @@ class OutputData(base.OutputData):
         -------
         process output : ``BufferedTile`` with appended data
         """
+        path = self.get_path(output_tile)
         try:
-            with rasterio.open(self.get_path(output_tile)) as src:
-                return src.read(masked=True)
-        except RasterioIOError:
-            return self.empty(output_tile)
+            with rasterio.Env(**GDAL_HTTP_OPTS):
+                with rasterio.open(path, "r") as src:
+                    return src.read(masked=True)
+        except RasterioIOError as e:
+            for i in ("does not exist in the file system", "No such file or directory"):
+                if i in str(e):
+                    return self.empty(output_tile)
+            else:
+                raise
 
     def is_valid_with_config(self, config):
         """
@@ -166,10 +192,7 @@ class OutputData(base.OutputData):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        try:
-            os.makedirs(os.path.dirname(self.get_path(tile)))
-        except OSError:
-            pass
+        makedirs(os.path.dirname(self.get_path(tile)))
 
     def profile(self, tile=None):
         """
@@ -184,7 +207,7 @@ class OutputData(base.OutputData):
         metadata : dictionary
             output profile dictionary used for rasterio.
         """
-        dst_metadata = PNG_PROFILE
+        dst_metadata = PNG_DEFAULT_PROFILE
         dst_metadata.pop("transform", None)
         if tile is not None:
             dst_metadata.update(
@@ -229,12 +252,12 @@ class OutputData(base.OutputData):
         bands = (
             self.output_params["bands"]
             if "bands" in self.output_params
-            else PNG_PROFILE["count"]
+            else PNG_DEFAULT_PROFILE["count"]
         )
         return ma.masked_array(
             data=ma.zeros((bands, ) + process_tile.shape),
             mask=ma.zeros((bands, ) + process_tile.shape),
-            dtype=PNG_PROFILE["dtype"]
+            dtype=PNG_DEFAULT_PROFILE["dtype"]
         )
 
     def _prepare_array_for_png(self, data):
@@ -260,11 +283,3 @@ class OutputData(base.OutputData):
         else:
             raise TypeError("invalid number of bands: %s" % len(data))
         return rgba
-
-
-PNG_PROFILE = {
-    "dtype": "uint8",
-    "driver": "PNG",
-    "count": 4,
-    "nodata": 0
-}

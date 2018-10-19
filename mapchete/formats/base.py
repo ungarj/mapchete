@@ -212,8 +212,7 @@ class OutputData(object):
         exists : bool
         """
         if process_tile and output_tile:
-            raise ValueError(
-                "just one of 'process_tile' and 'output_tile' allowed")
+            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
         if process_tile:
             return any(
                 path_exists(self.get_path(tile))

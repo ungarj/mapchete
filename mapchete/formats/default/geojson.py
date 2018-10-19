@@ -68,16 +68,16 @@ class OutputData(base.OutputData):
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    METADATA = {
-        "driver_name": "GeoJSON",
-        "data_type": "vector",
-        "mode": "rw"
-    }
+    METADATA = METADATA
 
     def __init__(self, output_params):
         """Initialize."""
         super(OutputData, self).__init__(output_params)
         self.path = output_params["path"]
+        if self.path.startswith("s3://"):
+            raise NotImplementedError(
+                "writing and reading of vector datasets not yet implemented"
+            )
         self.file_extension = ".geojson"
         self.output_params = output_params
 

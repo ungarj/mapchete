@@ -40,11 +40,11 @@ import rasterio
 from rasterio.errors import RasterioIOError
 import warnings
 
+from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.tile import BufferedTile
 from mapchete.io import makedirs, GDAL_HTTP_OPTS
 from mapchete.io.raster import write_raster_window, prepare_array, memory_file
-from mapchete.config import validate_values
+from mapchete.tile import BufferedTile
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,15 @@ METADATA = {
     "driver_name": "GTiff",
     "data_type": "raster",
     "mode": "rw"
+}
+GTIFF_DEFAULT_PROFILE = {
+    "blockysize": 256,
+    "blockxsize": 256,
+    "tiled": True,
+    "dtype": "uint8",
+    "compress": "lzw",
+    "interleave": "band",
+    "nodata": 0
 }
 
 
@@ -90,10 +99,10 @@ class OutputData(base.OutputData):
         """Initialize."""
         super(OutputData, self).__init__(output_params)
         self.path = output_params["path"]
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
         self.file_extension = ".tif"
         self.output_params = output_params
-        self.nodata = output_params.get("nodata", GTIFF_PROFILE["nodata"])
+        self.nodata = output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
+        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
     def read(self, output_tile):
         """
@@ -233,7 +242,7 @@ class OutputData(base.OutputData):
         metadata : dictionary
             output profile dictionary used for rasterio.
         """
-        dst_metadata = GTIFF_PROFILE
+        dst_metadata = GTIFF_DEFAULT_PROFILE
         dst_metadata.pop("transform", None)
         dst_metadata.update(
             count=self.output_params["bands"],
@@ -393,14 +402,3 @@ class InputTile(base.InputTile):
     def __exit__(self, t, v, tb):
         """Clear cache on close."""
         pass
-
-
-GTIFF_PROFILE = {
-    "blockysize": 256,
-    "blockxsize": 256,
-    "tiled": True,
-    "dtype": "uint8",
-    "compress": "lzw",
-    "interleave": "band",
-    "nodata": 0
-}

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 GDAL_HTTP_OPTS = dict(
     GDAL_DISABLE_READDIR_ON_OPEN=True,
-    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2",
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2, .png",
     GDAL_HTTP_TIMEOUT=30
 )
 
@@ -132,7 +132,6 @@ def path_exists(path):
         key = "/".join(path.split("/")[3:])
         for obj in bucket.objects.filter(Prefix=key):
             if obj.key == key:
-                logger.debug("path exists")
                 return True
         else:
             return False

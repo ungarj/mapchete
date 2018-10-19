@@ -19,6 +19,7 @@ else:
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
 TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
+S3_TEMP_DIR = "s3://mapchete-test/tmp"
 
 
 ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
@@ -43,6 +44,17 @@ def mp_tmpdir():
     os.makedirs(TEMP_DIR)
     yield TEMP_DIR
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
+
+
+# temporary directory for I/O tests
+@yield_fixture
+def mp_s3_tmpdir():
+    """Setup and teardown temporary directory."""
+    yield S3_TEMP_DIR
+    for obj in boto3.resource('s3').Bucket(S3_TEMP_DIR.split("/")[2]).objects.filter(
+        Prefix=S3_TEMP_DIR.split("/")[-1]
+    ):
+        obj.delete()
 
 
 @pytest.fixture
@@ -317,10 +329,7 @@ def gtiff_s3():
 @pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
-    zoom, row, col = (5, 15, 32)
-    # _delete_tile(zoom, row, col, gtiff_s3)
-    yield (zoom, row, col)
-    _delete_tile(zoom, row, col, gtiff_s3)
+    return (5, 15, 32)
 
 
 # helper functions
@@ -328,11 +337,3 @@ def _dict_from_mapchete(path):
     config = yaml.load(open(path).read())
     config.update(config_dir=os.path.dirname(path))
     return config
-
-
-def _delete_tile(zoom, row, col, gtiff_s3):
-    client = boto3.client('s3')
-    client.delete_object(
-        Bucket=gtiff_s3.dict["output"]["path"].split("/")[2],
-        Key="_tmp/%s/%s/%s.tif" % (zoom, row, col)
-    )

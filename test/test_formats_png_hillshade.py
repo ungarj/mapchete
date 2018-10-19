@@ -91,3 +91,33 @@ def test_output_data(mp_tmpdir):
     data = output.read(tile)
     assert data.mask.all()
     # TODO for_web
+
+
+def test_s3_write_output_data(mp_s3_tmpdir):
+    """Write and read output."""
+    output_params = dict(
+        type="geodetic",
+        format="PNG_hillshade",
+        path=mp_s3_tmpdir,
+        pixelbuffer=0,
+        metatiling=1
+    )
+    output = png_hillshade.OutputData(output_params)
+    assert output.path == mp_s3_tmpdir
+    assert output.file_extension == ".png"
+    tp = BufferedTilePyramid("geodetic")
+    tile = tp.tile(5, 5, 5)
+    # get_path
+    assert output.get_path(tile) == os.path.join(*[
+        mp_s3_tmpdir, "5", "5", "5"+".png"])
+    # profile
+    assert isinstance(output.profile(tile), dict)
+    # write full array
+    data = np.ones(tile.shape) * 128
+    output.write(tile, data)
+    # tiles_exist
+    assert output.tiles_exist(tile)
+    # read
+    data = output.read(tile)
+    assert isinstance(data, np.ndarray)
+    assert not data.mask.any()
