@@ -124,6 +124,10 @@ class OutputData(base.OutputData):
             )
 
         data = list(data)
+
+        if not len(data):
+            logger.debug("no features to write")
+            return
         # in case of S3 output, create an boto3 resource
         bucket_resource = (
             boto3.resource('s3').Bucket(self._bucket)

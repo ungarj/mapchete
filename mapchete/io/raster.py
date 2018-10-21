@@ -203,8 +203,6 @@ class RasterWindowMemoryFile():
     def __enter__(self):
         """Open MemoryFile, write data and return."""
         self.rio_memfile = MemoryFile()
-        print(self.profile)
-        print(self.data.shape)
         with self.rio_memfile.open(**self.profile) as dst:
             dst.write(self.data.astype(self.profile["dtype"]))
             _write_tags(dst, self.tags)

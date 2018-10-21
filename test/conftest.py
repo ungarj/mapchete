@@ -306,6 +306,13 @@ def geojson():
 
 
 @pytest.fixture
+def geojson_s3():
+    """Fixture for geojson_s3.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "geojson_s3.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def geojson_tiledir():
     """Fixture for geojson_tiledir.mapchete."""
     path = os.path.join(TESTDATA_DIR, "geojson_tiledir.mapchete")

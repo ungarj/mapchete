@@ -258,6 +258,8 @@ def write_vector_window(
             ) as dst:
                 logger.debug((out_tile.id, "write tile", out_path))
                 dst.writerecords(out_features)
+    else:
+        logger.debug((out_tile.id, "nothing to write", out_path))
 
 
 class VectorWindowMemoryFile():
