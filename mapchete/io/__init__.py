@@ -117,6 +117,7 @@ def path_exists(path):
     --------
     exists : bool
     """
+    logger.debug("check if path exists: %s", path)
     if path.startswith(("http://", "https://")):
         try:
             urlopen(path).info()
