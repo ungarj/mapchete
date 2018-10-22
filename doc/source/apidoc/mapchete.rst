@@ -10,6 +10,7 @@ Subpackages
     mapchete.commons
     mapchete.formats
     mapchete.io
+    mapchete.processes
 
 Submodules
 ----------

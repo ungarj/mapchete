@@ -88,6 +88,10 @@ deviating from global process settings) can be set.
         # plus format specific parameters
 
 
+Default formats can also read and write from and to S3 Object Storages. This is simply
+achieved by providing the full S3 path, i.e. ``s3://my_output_bucket/process_output``.
+
+
 Default output formats
 ----------------------
 
