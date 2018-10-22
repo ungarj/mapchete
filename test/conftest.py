@@ -6,6 +6,7 @@ import os
 import pytest
 import shutil
 import six
+import uuid
 import yaml
 
 from mapchete.cli.default.serve import create_app
@@ -19,7 +20,7 @@ else:
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
 TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
-S3_TEMP_DIR = "s3://mapchete-test/tmp"
+S3_TEMP_DIR = "s3://mapchete-test/tmp/" + uuid.uuid4().hex
 
 
 ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
@@ -52,7 +53,7 @@ def mp_s3_tmpdir():
     """Setup and teardown temporary directory."""
     yield S3_TEMP_DIR
     for obj in boto3.resource('s3').Bucket(S3_TEMP_DIR.split("/")[2]).objects.filter(
-        Prefix=S3_TEMP_DIR.split("/")[-1]
+        Prefix="/".join(S3_TEMP_DIR.split("/")[-2:])
     ):
         obj.delete()
 
@@ -307,9 +308,11 @@ def geojson():
 
 @pytest.fixture
 def geojson_s3():
-    """Fixture for geojson_s3.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "geojson_s3.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    """Fixture for geojson.mapchete with updated output path."""
+    path = os.path.join(TESTDATA_DIR, "geojson.mapchete")
+    config = _dict_from_mapchete(path)
+    config["output"].update(path=S3_TEMP_DIR)
+    return ExampleConfig(path=None, dict=config)
 
 
 @pytest.fixture
@@ -328,9 +331,11 @@ def process_module():
 
 @pytest.fixture
 def gtiff_s3():
-    """Fixture for gtiff_s3.mapchete"""
-    path = os.path.join(TESTDATA_DIR, "gtiff_s3.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    """Fixture for gtiff.mapchete with updated output path."""
+    path = os.path.join(TESTDATA_DIR, "gtiff.mapchete")
+    config = _dict_from_mapchete(path)
+    config["output"].update(path=S3_TEMP_DIR)
+    return ExampleConfig(path=None, dict=config)
 
 
 @pytest.fixture
