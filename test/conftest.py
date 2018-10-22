@@ -331,11 +331,9 @@ def process_module():
 
 @pytest.fixture
 def gtiff_s3():
-    """Fixture for gtiff.mapchete with updated output path."""
-    path = os.path.join(TESTDATA_DIR, "gtiff.mapchete")
-    config = _dict_from_mapchete(path)
-    config["output"].update(path=S3_TEMP_DIR)
-    return ExampleConfig(path=None, dict=config)
+    """Fixture for gtiff_s3.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "gtiff_s3.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 
 @pytest.fixture
