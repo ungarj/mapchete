@@ -5,7 +5,7 @@ When writing a new driver, please inherit from these classes and implement the
 respective interfaces.
 """
 
-from mapchete.io import path_exists
+from mapchete.io import path_exists, write_output_metadata
 from tilematrix import TilePyramid
 
 
@@ -169,6 +169,7 @@ class OutputData(object):
         self.crs = self.pyramid.crs
         self.srid = self.pyramid.srid
         self._bucket = None
+        write_output_metadata(output_params)
 
     def read(self, output_tile):
         """

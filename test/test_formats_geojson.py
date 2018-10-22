@@ -105,6 +105,8 @@ def test_s3_output_data(mp_s3_tmpdir, geojson_s3):
     assert output.file_extension == ".geojson"
     assert isinstance(output_params, dict)
 
+
+def test_s3_output_data_rw(mp_s3_tmpdir, geojson_s3):
     with mapchete.open(geojson_s3.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty

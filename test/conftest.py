@@ -28,11 +28,10 @@ ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 # flask test app for mapchete serve
 @pytest.fixture
-def app(dem_to_hillshade, cleantopo_br, geojson):
+def app(dem_to_hillshade, cleantopo_br, geojson, mp_tmpdir):
     """Dummy Flask app."""
     return create_app(
-        mapchete_files=[
-            dem_to_hillshade.path, cleantopo_br.path, geojson.path],
+        mapchete_files=[dem_to_hillshade.path, cleantopo_br.path, geojson.path],
         zoom=None, bounds=None, single_input_file=None, mode="overwrite",
         debug=True)
 
@@ -51,11 +50,16 @@ def mp_tmpdir():
 @yield_fixture
 def mp_s3_tmpdir():
     """Setup and teardown temporary directory."""
+
+    def _cleanup():
+        for obj in boto3.resource('s3').Bucket(S3_TEMP_DIR.split("/")[2]).objects.filter(
+            Prefix="/".join(S3_TEMP_DIR.split("/")[-2:])
+        ):
+            obj.delete()
+
+    _cleanup()
     yield S3_TEMP_DIR
-    for obj in boto3.resource('s3').Bucket(S3_TEMP_DIR.split("/")[2]).objects.filter(
-        Prefix="/".join(S3_TEMP_DIR.split("/")[-2:])
-    ):
-        obj.delete()
+    _cleanup()
 
 
 @pytest.fixture
