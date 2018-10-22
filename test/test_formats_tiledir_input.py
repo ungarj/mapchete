@@ -74,6 +74,17 @@ def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
         shutil.rmtree(mp.config.output.path, ignore_errors=True)
 
 
+def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
+    """Read raster data."""
+    # prepare data
+    with mapchete.open(cleantopo_br.path) as mp:
+        bounds = mp.config.bounds_at_zoom()
+        mp.batch_process(zoom=4)
+    config = dict(cleantopo_br_tiledir.dict, input=dict(file1="tmp/cleantopo_br"))
+    _run_tiledir_process_raster(config, 4, bounds)
+
+
+
 def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):
     """Read raster data."""
     with mapchete.open(cleantopo_remote.path) as mp:

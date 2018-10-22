@@ -80,7 +80,7 @@ class OutputData(base.OutputData):
 
     METADATA = METADATA
 
-    def __init__(self, output_params):
+    def __init__(self, output_params, **kwargs):
         """Initialize."""
         super(OutputData, self).__init__(output_params)
         self.path = output_params["path"]

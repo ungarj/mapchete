@@ -1,6 +1,7 @@
 """Use a directory of zoom/row/column tiles as input."""
 
 from itertools import chain
+import logging
 import numpy as np
 import numpy.ma as ma
 import os
@@ -9,13 +10,14 @@ from shapely.geometry import box
 
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
-from mapchete.formats import base
-from mapchete.io import path_exists, absolute_path
+from mapchete.formats import base, load_output_writer
+from mapchete.io import path_exists, absolute_path, read_json, path_is_remote
 from mapchete.io.vector import reproject_geometry, read_vector_window
 from mapchete.io.raster import read_raster_window, create_mosaic, resample_from_array
 from mapchete.tile import BufferedTilePyramid
 
 
+logger = logging.getLogger(__name__)
 METADATA = {
     "driver_name": "TileDirectory",
     "data_type": None,
@@ -52,7 +54,57 @@ class InputData(base.InputData):
     def __init__(self, input_params, **kwargs):
         """Initialize."""
         super(InputData, self).__init__(input_params, **kwargs)
-        self._params = input_params["abstract"]
+
+        if "abstract" in input_params:
+            self._params = input_params["abstract"]
+            self.path = absolute_path(input_params["conf_dir"], self._params["path"])
+            # define pyramid
+            self.td_pyramid = BufferedTilePyramid(
+                self._params["type"],
+                metatiling=self._params.get("metatiling", 1),
+                tile_size=self._params.get("tile_size", 256),
+                pixelbuffer=self._params.get("pixelbuffer", 0)
+            )
+
+        elif "path" in input_params:
+            self.path = absolute_path(input_params.get("conf_dir"), input_params["path"])
+            try:
+                params = read_json(os.path.join(self.path, "metadata.json"))
+            except FileNotFoundError:
+                raise MapcheteConfigError(
+                    "Cannot find metadata.json in %s" % input_params["path"]
+                )
+            # define pyramid
+            self.td_pyramid = BufferedTilePyramid(
+                params["pyramid"]["grid"]["type"],
+                metatiling=params["pyramid"].get("metatiling", 1),
+                tile_size=params["pyramid"].get("tile_size", 256),
+                pixelbuffer=params["pyramid"].get("pixelbuffer", 0)
+            )
+
+            output = load_output_writer(
+                dict(
+                    params["driver"],
+                    metatiling=self.td_pyramid.metatiling,
+                    pixelbuffer=self.td_pyramid.pixelbuffer,
+                    pyramid=self.td_pyramid,
+                    type=self.td_pyramid.type,
+                    path=self.path
+                ),
+                readonly=True
+            )
+            logger.debug(output)
+            self._params = dict(
+                path=self.path,
+                type=params["pyramid"]["grid"]["type"],
+                metatiling=params["pyramid"].get("metatiling", 1),
+                pixelbuffer=params["pyramid"].get("pixelbuffer", 0),
+                tile_size=params["pyramid"].get("tile_size", 256),
+                extension=output.file_extension.split(".")[-1],
+                **params["driver"]
+            )
+        else:
+            raise MapcheteConfigError("not enough parameters to initialize TileDirectory")
 
         # validate parameters
         validate_values(
@@ -70,16 +122,6 @@ class InputData(base.InputData):
                 "invalid file extension given: %s" % self._params["extension"]
             )
         self._ext = self._params["extension"]
-
-        self.path = absolute_path(input_params["conf_dir"], self._params["path"])
-
-        # define pyramid
-        self.td_pyramid = BufferedTilePyramid(
-            self._params["type"],
-            metatiling=self._params.get("metatiling", 1),
-            tile_size=self._params.get("tile_size", 256),
-            pixelbuffer=self._params.get("pixelbuffer", 0)
-        )
 
         # additional params
         self._bounds = self._params.get("bounds", self.td_pyramid.bounds)

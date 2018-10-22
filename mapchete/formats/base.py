@@ -160,7 +160,7 @@ class OutputData(object):
         "mode": "w"
     }
 
-    def __init__(self, output_params):
+    def __init__(self, output_params, readonly=False):
         """Initialize."""
         self.pixelbuffer = output_params["pixelbuffer"]
         self.pyramid = TilePyramid(
@@ -169,7 +169,8 @@ class OutputData(object):
         self.crs = self.pyramid.crs
         self.srid = self.pyramid.srid
         self._bucket = None
-        write_output_metadata(output_params)
+        if not readonly:
+            write_output_metadata(output_params)
 
     def read(self, output_tile):
         """

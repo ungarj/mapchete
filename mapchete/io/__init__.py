@@ -159,7 +159,7 @@ def makedirs(path):
 
 
 def write_output_metadata(output_params):
-    """Dump output metadata.json and verify parameters if output metadata exist."""
+    """Dump output JSON and verify parameters if output metadata exist."""
     logger.debug(output_params)
     if "path" in output_params:
         metadata_path = os.path.join(output_params["path"], "metadata.json")
@@ -169,7 +169,10 @@ def write_output_metadata(output_params):
             logger.debug("%s exists", metadata_path)
             logger.debug("existing output parameters: %s", existing_params)
             current_params = params_to_dump(output_params)
-            if existing_params != current_params:
+            if (
+                existing_params["pyramid"] != current_params["pyramid"] or
+                existing_params["driver"]["format"] != current_params["driver"]["format"]
+            ):
                 raise MapcheteConfigError(
                     "process output definition differs from existing output: %s != %s" % (
                         existing_params, current_params
