@@ -6,13 +6,13 @@ pyramid:
 input:
     file1:
         format: TileDirectory
-        path: tmp
+        path: tmp/geojson
         metatiling: 2
         type: geodetic
         extension: geojson
 output:
     format: GeoJSON
-    path: tmp/tmp
+    path: tmp/geojson_tiledir
     data_type: vector
     schema:
         properties:

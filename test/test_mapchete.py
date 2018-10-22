@@ -259,7 +259,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                 try:
                     temp_vrt = os.path.join(mp_tmpdir, str(zoom)+".vrt")
                     gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-                        temp_vrt, mp_tmpdir, zoom)
+                        temp_vrt, mp.config.output.path, zoom)
                     os.system(gdalbuildvrt)
                     with rasterio.open(temp_vrt, "r") as testfile:
                         for file_item, mosaic_item in zip(
@@ -309,7 +309,7 @@ def test_write_empty(mp_tmpdir, cleantopo_tl):
         mp.write(mp.config.process_pyramid.tile(5, 0, 0), None)
 
 
-def test_process_template(dummy1_tif):
+def test_process_template(dummy1_tif, mp_tmpdir):
     """Template used to create an empty process."""
     process_template = pkg_resources.resource_filename(
         "mapchete.static", "process_template.py")
@@ -320,11 +320,11 @@ def test_process_template(dummy1_tif):
             input=dict(file1=dummy1_tif),
             output=dict(
                 format="GTiff",
-                path=".",
+                path=mp_tmpdir,
                 bands=1,
                 dtype="uint8"
             ),
-            config_dir=".",
+            config_dir=mp_tmpdir,
             zoom_levels=4
         ))
     process_tile = next(mp.get_process_tiles(zoom=4))

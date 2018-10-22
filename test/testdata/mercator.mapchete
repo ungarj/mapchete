@@ -9,5 +9,5 @@ input:
         zoom>=10: dummy1.tif
     file2: dummy2.tif
 output:
-    path: tmp
+    path: tmp/mercator
     format: PNG_hillshade

@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 # suppress spammy loggers
-# logging.getLogger("rasterio").setLevel(logging.ERROR)
-# logging.getLogger("fiona").setLevel(logging.ERROR)
+logging.getLogger("rasterio").setLevel(logging.ERROR)
+logging.getLogger("fiona").setLevel(logging.ERROR)
 
 
 __version__ = "0.24"

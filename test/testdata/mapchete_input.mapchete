@@ -8,5 +8,5 @@ input:
 output:
     dtype: float32
     bands: 1
-    path: tmp
+    path: tmp/mapchete_input
     format: GTiff

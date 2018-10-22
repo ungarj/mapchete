@@ -49,7 +49,7 @@ def test_output_data(mp_tmpdir):
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # write half masked array
     try:
         half_shape = (tile.shape[0], tile.shape[1]//2)
@@ -66,7 +66,8 @@ def test_output_data(mp_tmpdir):
         assert not data.mask.all()
         assert data.mask.any()
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
+
     # old_band_num
     output_params.update(old_band_num=True)
     output = png_hillshade.OutputData(output_params)
@@ -82,7 +83,7 @@ def test_output_data(mp_tmpdir):
         assert isinstance(data, np.ndarray)
         assert not data.mask.any()
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # empty
     empty = output.empty(tile)
     assert isinstance(empty, ma.MaskedArray)

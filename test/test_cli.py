@@ -24,7 +24,7 @@ def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
     assert result.exit_code == expected_exit_code
 
 
-def test_main():
+def test_main(mp_tmpdir):
     # """Main CLI."""
     for command in ["create", "execute", "create"]:
         run_cli(
@@ -47,7 +47,7 @@ def test_main():
     )
 
 
-def test_missing_input_file():
+def test_missing_input_file(mp_tmpdir):
     """Check if IOError is raised if input_file is invalid."""
     run_cli(
         ["execute", "process.mapchete", "--input_file", "invalid.tif"],
@@ -73,7 +73,7 @@ def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
     # edit configuration
     with open(temp_mapchete, "r") as config_file:
         config = yaml.load(config_file)
-        config["output"].update(bands=1, dtype="uint8", path=".")
+        config["output"].update(bands=1, dtype="uint8", path=mp_tmpdir)
     with open(temp_mapchete, "w") as config_file:
         config_file.write(yaml.dump(config, default_flow_style=False))
     # run process for single tile, this creates an empty output error
@@ -114,7 +114,7 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     # edit configuration
     with open(temp_mapchete, "r") as config_file:
         config = yaml.load(config_file)
-        config["output"].update(bands=1, dtype="uint8", path=".")
+        config["output"].update(bands=1, dtype="uint8", path=mp_tmpdir)
     with open(temp_mapchete, "w") as config_file:
         config_file.write(yaml.dump(config, default_flow_style=False))
     # run process with multiprocessing
@@ -289,7 +289,7 @@ def test_pyramid_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
 # TODO pyramid overwrite
 
 
-def test_serve_cli_params(cleantopo_br):
+def test_serve_cli_params(cleantopo_br, mp_tmpdir):
     """Test whether different CLI params pass."""
     # assert too few arguments error
     with pytest.raises(SystemExit):
@@ -350,7 +350,7 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
     run_cli(['index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug'])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 2
+        assert len(files) == 3
         assert "3.geojson" in files
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         for f in src:
@@ -422,7 +422,7 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     run_cli(['index', cleantopo_tl.path, '-t', '3', '0', '0', '--geojson', '--debug'])
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 2
+        assert len(files) == 3
         assert "3.geojson" in files
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         assert len(list(src)) == 1
@@ -439,7 +439,7 @@ def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
 
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 6
+        assert len(files) == 7
         assert "3.geojson" in files
 
 

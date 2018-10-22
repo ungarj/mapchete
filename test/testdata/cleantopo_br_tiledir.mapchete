@@ -9,7 +9,7 @@ pyramid:
 input:
     file1:
         format: TileDirectory
-        path: tmp
+        path: tmp/cleantopo_br
         metatiling: 8
         type: geodetic
         extension: tif
@@ -20,4 +20,4 @@ output:
     dtype: uint16
     bands: 1
     format: GTiff
-    path: tmp/tmp
+    path: tmp/cleantopo_br_tiledir

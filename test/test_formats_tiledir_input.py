@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import pytest
+import shutil
 import six
 
 from mapchete.formats import available_input_formats
@@ -60,8 +61,7 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
         bounds = mp.config.bounds_at_zoom()
         mp.batch_process(zoom=4)
     for metatiling in [1, 2, 4, 8]:
-        _run_tiledir_process_raster(
-            cleantopo_br_tiledir.dict, metatiling, bounds)
+        _run_tiledir_process_raster(cleantopo_br_tiledir.dict, metatiling, bounds)
 
 
 def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
@@ -71,6 +71,7 @@ def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
         assert any([
             next(six.itervalues(mp.config.input)).open(tile).read().any()
             for tile in mp.get_process_tiles(4)])
+        shutil.rmtree(mp.config.output.path, ignore_errors=True)
 
 
 def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):

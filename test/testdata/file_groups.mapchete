@@ -24,4 +24,4 @@ output:
     dtype: uint16
     bands: 1
     format: GTiff
-    path: tmp
+    path: tmp/file_groups

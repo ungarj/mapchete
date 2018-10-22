@@ -19,14 +19,21 @@ def test_output_data(mp_tmpdir):
         pixelbuffer=0,
         metatiling=1
     )
-    output = png.OutputData(output_params)
-    assert output.path == mp_tmpdir
-    assert output.file_extension == ".png"
-    tp = BufferedTilePyramid("geodetic")
-    tile = tp.tile(5, 5, 5)
+    try:
+        output = png.OutputData(output_params)
+        assert output.path == mp_tmpdir
+        assert output.file_extension == ".png"
+        tp = BufferedTilePyramid("geodetic")
+        tile = tp.tile(5, 5, 5)
+    finally:
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
+
     # get_path
-    assert output.get_path(tile) == os.path.join(*[
-        mp_tmpdir, "5", "5", "5"+".png"])
+    try:
+        assert output.get_path(tile) == os.path.join(*[mp_tmpdir, "5", "5", "5"+".png"])
+    finally:
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
+
     # prepare_path
     try:
         temp_dir = os.path.join(*[mp_tmpdir, "5", "5"])
@@ -34,8 +41,10 @@ def test_output_data(mp_tmpdir):
         assert os.path.isdir(temp_dir)
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
     # profile
     assert isinstance(output.profile(tile), dict)
+
     # write
     try:
         data = np.ones((1, ) + tile.shape)*128
@@ -49,6 +58,7 @@ def test_output_data(mp_tmpdir):
         assert not data[0].mask.any()
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
     # empty
     empty = output.empty(tile)
     assert isinstance(empty, ma.MaskedArray)
