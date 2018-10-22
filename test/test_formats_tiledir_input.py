@@ -1,7 +1,6 @@
 """Test Mapchete default formats."""
 
 from copy import deepcopy
-import os
 import pytest
 import six
 

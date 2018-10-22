@@ -5,7 +5,7 @@ When writing a new driver, please inherit from these classes and implement the
 respective interfaces.
 """
 
-import os
+from mapchete.io import path_exists
 from tilematrix import TilePyramid
 
 
@@ -164,9 +164,11 @@ class OutputData(object):
         """Initialize."""
         self.pixelbuffer = output_params["pixelbuffer"]
         self.pyramid = TilePyramid(
-            output_params["type"], metatiling=output_params["metatiling"])
+            output_params["type"], metatiling=output_params["metatiling"]
+        )
         self.crs = self.pyramid.crs
         self.srid = self.pyramid.srid
+        self._bucket = None
 
     def read(self, output_tile):
         """
@@ -210,14 +212,14 @@ class OutputData(object):
         exists : bool
         """
         if process_tile and output_tile:
-            raise ValueError(
-                "just one of 'process_tile' and 'output_tile' allowed")
+            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
         if process_tile:
             return any(
-                os.path.exists(self.get_path(tile))
-                for tile in self.pyramid.intersecting(process_tile))
+                path_exists(self.get_path(tile))
+                for tile in self.pyramid.intersecting(process_tile)
+            )
         if output_tile:
-            return os.path.exists(self.get_path(output_tile))
+            return path_exists(self.get_path(output_tile))
 
     def is_valid_with_config(self, config):
         """

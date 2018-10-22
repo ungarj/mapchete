@@ -4,10 +4,12 @@ import os
 import logging
 import fiona
 from fiona.transform import transform_geom
+from fiona.io import MemoryFile
 from rasterio.crs import CRS
 from shapely.geometry import (
     box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon, Polygon,
-    LinearRing, LineString)
+    LinearRing, LineString, base
+)
 from shapely.errors import TopologicalError
 from shapely.validation import explain_validity
 import six
@@ -192,7 +194,7 @@ def read_vector_window(input_file, tile, validity_check=True):
 
 
 def write_vector_window(
-    in_data=None, out_schema=None, out_tile=None, out_path=None
+    in_data=None, out_schema=None, out_tile=None, out_path=None, bucket_resource=None
 ):
     """
     Write features to GeoJSON file.
@@ -216,28 +218,76 @@ def write_vector_window(
     out_features = []
     for feature in in_data:
         try:
-            feature_geom = to_shape(feature["geometry"])
             # clip feature geometry to tile bounding box and append for writing
             # if clipped feature still
-            out_geom = clean_geometry_type(
-                feature_geom.intersection(out_tile.bbox),
-                out_schema["geometry"])
-            if out_geom:
+            for out_geom in multipart_to_singleparts(
+                clean_geometry_type(
+                    to_shape(feature["geometry"]).intersection(out_tile.bbox),
+                    out_schema["geometry"]
+                )
+            ):
                 out_features.append({
                     "geometry": mapping(out_geom),
-                    "properties": feature["properties"]})
+                    "properties": feature["properties"]
+                })
         except Exception:
             logger.exception("failed to prepare geometry for writing")
             continue
 
+    # write if there are output features
     if out_features:
-        # Write data
-        with fiona.open(
-            out_path, 'w', schema=out_schema, driver="GeoJSON",
-            crs=out_tile.crs.to_dict()
+
+        if out_path.startswith("s3://"):
+            # write data to remote file
+            with VectorWindowMemoryFile(
+                tile=out_tile,
+                features=out_features,
+                schema=out_schema,
+                driver="GeoJSON"
+            ) as memfile:
+                logger.debug((out_tile.id, "upload tile", out_path))
+                bucket_resource.put_object(
+                    Key="/".join(out_path.split("/")[3:]),
+                    Body=memfile
+                )
+        else:
+            # write data to local file
+            with fiona.open(
+                out_path, 'w', schema=out_schema, driver="GeoJSON",
+                crs=out_tile.crs.to_dict()
+            ) as dst:
+                logger.debug((out_tile.id, "write tile", out_path))
+                dst.writerecords(out_features)
+    else:
+        logger.debug((out_tile.id, "nothing to write", out_path))
+
+
+class VectorWindowMemoryFile():
+    """Context manager around fiona.io.MemoryFile."""
+
+    def __init__(
+        self, tile=None, features=None, schema=None, driver=None
+    ):
+        """Prepare data & profile."""
+        self.tile = tile
+        self.schema = schema
+        self.driver = driver
+        self.features = features
+
+    def __enter__(self):
+        """Open MemoryFile, write data and return."""
+        self.fio_memfile = MemoryFile()
+        with self.fio_memfile.open(
+            schema=self.schema,
+            driver=self.driver,
+            crs=self.tile.crs
         ) as dst:
-            for feature in out_features:
-                dst.write(feature)
+            dst.writerecords(self.features)
+        return self.fio_memfile
+
+    def __exit__(self, *args):
+        """Make sure MemoryFile is closed."""
+        self.fio_memfile.close()
 
 
 def _get_reprojected_features(
@@ -315,7 +365,8 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         "Polygon": MultiPolygon,
         "MultiPoint": MultiPoint,
         "MultiLineString": MultiLineString,
-        "MultiPolygon": MultiPolygon}
+        "MultiPolygon": MultiPolygon
+    }
 
     if target_type not in multipart_geoms.keys():
         raise TypeError("target type is not supported: %s" % target_type)
@@ -351,3 +402,23 @@ def to_shape(geom):
     shapely geometry
     """
     return shape(geom) if isinstance(geom, dict) else geom
+
+
+def multipart_to_singleparts(geom):
+    """
+    Yield single part geometries if geom is multipart, otherwise yield geom.
+
+    Parameters:
+    -----------
+    geom : shapely geometry
+
+    Returns:
+    --------
+    shapely single part geometries
+    """
+    if isinstance(geom, base.BaseGeometry):
+        if hasattr(geom, "geoms"):
+            for subgeom in geom:
+                yield subgeom
+        else:
+            yield geom

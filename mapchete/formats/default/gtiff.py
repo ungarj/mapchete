@@ -30,24 +30,38 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
+import boto3
+import logging
 import os
 import six
 import numpy as np
 import numpy.ma as ma
 import rasterio
+from rasterio.errors import RasterioIOError
 import warnings
 
-from mapchete.formats import base
-from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window, prepare_array, memory_file
 from mapchete.config import validate_values
+from mapchete.formats import base
+from mapchete.io import makedirs, GDAL_HTTP_OPTS
+from mapchete.io.raster import write_raster_window, prepare_array, memory_file
+from mapchete.tile import BufferedTile
 
 
+logger = logging.getLogger(__name__)
 METADATA = {
     "driver_name": "GTiff",
     "data_type": "raster",
     "mode": "rw"
-    }
+}
+GTIFF_DEFAULT_PROFILE = {
+    "blockysize": 256,
+    "blockxsize": 256,
+    "tiled": True,
+    "dtype": "uint8",
+    "compress": "lzw",
+    "interleave": "band",
+    "nodata": 0
+}
 
 
 class OutputData(base.OutputData):
@@ -79,11 +93,7 @@ class OutputData(base.OutputData):
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    METADATA = {
-        "driver_name": "GTiff",
-        "data_type": "raster",
-        "mode": "rw"
-    }
+    METADATA = METADATA
 
     def __init__(self, output_params):
         """Initialize."""
@@ -91,7 +101,8 @@ class OutputData(base.OutputData):
         self.path = output_params["path"]
         self.file_extension = ".tif"
         self.output_params = output_params
-        self.nodata = output_params.get("nodata", GTIFF_PROFILE["nodata"])
+        self.nodata = output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
+        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
     def read(self, output_tile):
         """
@@ -107,11 +118,16 @@ class OutputData(base.OutputData):
         process output : ``BufferedTile`` with appended data
         """
         path = self.get_path(output_tile)
-        if os.path.isfile(path):
-            with rasterio.open(path, "r") as src:
-                return src.read(masked=True)
-        else:
-            return self.empty(output_tile)
+        try:
+            with rasterio.Env(**GDAL_HTTP_OPTS):
+                with rasterio.open(path, "r") as src:
+                    return src.read(masked=True)
+        except RasterioIOError as e:
+            for i in ("does not exist in the file system", "No such file or directory"):
+                if i in str(e):
+                    return self.empty(output_tile)
+            else:
+                raise
 
     def write(self, process_tile, data):
         """
@@ -131,19 +147,36 @@ class OutputData(base.OutputData):
         else:
             tags = {}
         data = prepare_array(
-            data, masked=True, nodata=self.nodata,
-            dtype=self.profile(process_tile)["dtype"])
+            data,
+            masked=True,
+            nodata=self.nodata,
+            dtype=self.profile(process_tile)["dtype"]
+        )
+
         if data.mask.all():
-            return
-        # Convert from process_tile to output_tiles
-        for tile in self.pyramid.intersecting(process_tile):
-            out_path = self.get_path(tile)
-            self.prepare_path(tile)
-            out_tile = BufferedTile(tile, self.pixelbuffer)
-            write_raster_window(
-                in_tile=process_tile, in_data=data,
-                out_profile=self.profile(out_tile), out_tile=out_tile,
-                out_path=out_path, tags=tags)
+            logger.debug("data empty, nothing to write")
+        else:
+            # in case of S3 output, create an boto3 resource
+            bucket_resource = (
+                boto3.resource('s3').Bucket(self._bucket)
+                if self._bucket
+                else None
+            )
+
+            # Convert from process_tile to output_tiles and write
+            for tile in self.pyramid.intersecting(process_tile):
+                out_path = self.get_path(tile)
+                self.prepare_path(tile)
+                out_tile = BufferedTile(tile, self.pixelbuffer)
+                write_raster_window(
+                    in_tile=process_tile,
+                    in_data=data,
+                    out_profile=self.profile(out_tile),
+                    out_tile=out_tile,
+                    out_path=out_path,
+                    tags=tags,
+                    bucket_resource=bucket_resource
+                )
 
     def is_valid_with_config(self, config):
         """
@@ -179,8 +212,11 @@ class OutputData(base.OutputData):
         path : string
         """
         return os.path.join(*[
-            self.path, str(tile.zoom), str(tile.row),
-            str(tile.col) + self.file_extension])
+            self.path,
+            str(tile.zoom),
+            str(tile.row),
+            str(tile.col) + self.file_extension
+        ])
 
     def prepare_path(self, tile):
         """
@@ -191,10 +227,7 @@ class OutputData(base.OutputData):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        try:
-            os.makedirs(os.path.dirname(self.get_path(tile)))
-        except OSError:
-            pass
+        makedirs(os.path.dirname(self.get_path(tile)))
 
     def profile(self, tile=None):
         """
@@ -209,12 +242,13 @@ class OutputData(base.OutputData):
         metadata : dictionary
             output profile dictionary used for rasterio.
         """
-        dst_metadata = GTIFF_PROFILE
+        dst_metadata = GTIFF_DEFAULT_PROFILE
         dst_metadata.pop("transform", None)
         dst_metadata.update(
             count=self.output_params["bands"],
             dtype=self.output_params["dtype"],
-            driver="GTiff")
+            driver="GTiff"
+        )
         if tile is not None:
             dst_metadata.update(
                 crs=tile.crs, width=tile.width, height=tile.height,
@@ -227,8 +261,7 @@ class OutputData(base.OutputData):
         try:
             if "compression" in self.output_params:
                 warnings.warn(
-                    "use 'compress' instead of 'compression'",
-                    DeprecationWarning
+                    "use 'compress' instead of 'compression'", DeprecationWarning
                 )
                 dst_metadata.update(compress=self.output_params["compression"])
             else:
@@ -272,10 +305,12 @@ class OutputData(base.OutputData):
         -------
         web data : array
         """
-        data = prepare_array(
-            data, masked=True, nodata=self.nodata,
-            dtype=self.profile()["dtype"])
-        return memory_file(data, self.profile()), "image/tiff"
+        return memory_file(
+            prepare_array(
+                data, masked=True, nodata=self.nodata, dtype=self.profile()["dtype"]
+            ),
+            self.profile()
+        ), "image/tiff"
 
     def open(self, tile, process, **kwargs):
         """
@@ -287,11 +322,7 @@ class OutputData(base.OutputData):
         process : ``MapcheteProcess``
         kwargs : keyword arguments
         """
-        try:
-            resampling = kwargs["resampling"]
-        except KeyError:
-            resampling = None
-        return InputTile(tile, process, resampling)
+        return InputTile(tile, process, kwargs.get("resampling", None))
 
 
 class InputTile(base.InputTile):
@@ -352,9 +383,7 @@ class InputTile(base.InputTile):
         is empty : bool
         """
         # empty if tile does not intersect with file bounding box
-        return not self.tile.bbox.intersects(
-            self.process.config.area_at_zoom()
-        )
+        return not self.tile.bbox.intersects(self.process.config.area_at_zoom())
 
     def _get_band_indexes(self, indexes=None):
         """Return valid band indexes."""
@@ -364,8 +393,7 @@ class InputTile(base.InputTile):
             else:
                 return [indexes]
         else:
-            return range(
-                1, self.process.config.output.profile(self.tile)["count"] + 1)
+            return range(1, self.process.config.output.profile(self.tile)["count"] + 1)
 
     def __enter__(self):
         """Enable context manager."""
@@ -374,14 +402,3 @@ class InputTile(base.InputTile):
     def __exit__(self, t, v, tb):
         """Clear cache on close."""
         pass
-
-
-GTIFF_PROFILE = {
-    "blockysize": 256,
-    "blockxsize": 256,
-    "tiled": True,
-    "dtype": "uint8",
-    "compress": "lzw",
-    "interleave": "band",
-    "nodata": 0
-}

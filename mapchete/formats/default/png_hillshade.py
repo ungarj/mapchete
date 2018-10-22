@@ -20,23 +20,33 @@ nodata: integer or float
     nodata value used for writing
 """
 
-import os
-import six
-import rasterio
-from rasterio.errors import RasterioIOError
+import boto3
+import logging
 import numpy as np
 import numpy.ma as ma
+import os
+import rasterio
+from rasterio.errors import RasterioIOError
+import six
 
-from mapchete.formats import base
-from mapchete.tile import BufferedTile
-from mapchete.io.raster import write_raster_window, prepare_array, memory_file
 from mapchete.config import validate_values
+from mapchete.formats import base
+from mapchete.io import GDAL_HTTP_OPTS, makedirs
+from mapchete.io.raster import write_raster_window, prepare_array, memory_file
+from mapchete.tile import BufferedTile
 
 
+logger = logging.getLogger(__name__)
 METADATA = {
     "driver_name": "PNG_hillshade",
     "data_type": "raster",
     "mode": "w"
+}
+PNG_DEFAULT_PROFILE = {
+    "dtype": "uint8",
+    "driver": "PNG",
+    "count": 2,
+    "nodata": 255
 }
 
 
@@ -70,11 +80,7 @@ class OutputData(base.OutputData):
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    METADATA = {
-        "driver_name": "PNG_hillshade",
-        "data_type": "raster",
-        "mode": "w"
-    }
+    METADATA = METADATA
 
     def __init__(self, output_params):
         """Initialize."""
@@ -82,13 +88,15 @@ class OutputData(base.OutputData):
         self.path = output_params["path"]
         self.file_extension = ".png"
         self.output_params = output_params
-        self.nodata = PNG_PROFILE["nodata"]
+        self._profile = dict(PNG_DEFAULT_PROFILE)
+        self.nodata = self._profile["nodata"]
         try:
             self.old_band_num = output_params["old_band_num"]
-            PNG_PROFILE.update(count=4)
+            self._profile.update(count=4)
         except KeyError:
             self.old_band_num = False
-        self.output_params.update(dtype=PNG_PROFILE["dtype"])
+        self.output_params.update(dtype=self._profile["dtype"])
+        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
     def write(self, process_tile, data):
         """
@@ -100,16 +108,30 @@ class OutputData(base.OutputData):
             must be member of process ``TilePyramid``
         """
         data = self._prepare_array(data)
-        # Convert from process_tile to output_tiles
-        for tile in self.pyramid.intersecting(process_tile):
-            # skip if file exists and overwrite is not set
-            out_path = self.get_path(tile)
-            self.prepare_path(tile)
-            out_tile = BufferedTile(tile, self.pixelbuffer)
-            write_raster_window(
-                in_tile=process_tile, in_data=data,
-                out_profile=self.profile(out_tile), out_tile=out_tile,
-                out_path=out_path)
+
+        if data.mask.all():
+            logger.debug("data empty, nothing to write")
+        else:
+            # in case of S3 output, create an boto3 resource
+            bucket_resource = (
+                boto3.resource('s3').Bucket(self._bucket)
+                if self._bucket
+                else None
+            )
+
+            # Convert from process_tile to output_tiles and write
+            for tile in self.pyramid.intersecting(process_tile):
+                out_path = self.get_path(tile)
+                self.prepare_path(tile)
+                out_tile = BufferedTile(tile, self.pixelbuffer)
+                write_raster_window(
+                    in_tile=process_tile,
+                    in_data=data,
+                    out_profile=self.profile(out_tile),
+                    out_tile=out_tile,
+                    out_path=out_path,
+                    bucket_resource=bucket_resource
+                )
 
     def read(self, output_tile):
         """
@@ -124,13 +146,17 @@ class OutputData(base.OutputData):
         -------
         process output : ``BufferedTile`` with appended data
         """
+        path = self.get_path(output_tile)
         try:
-            with rasterio.open(self.get_path(output_tile)) as src:
-                return ma.masked_values(
-                    src.read(4 if self.old_band_num else 2), 0)
-        except RasterioIOError:
-            return self.empty(output_tile)
-        return output_tile
+            with rasterio.Env(**GDAL_HTTP_OPTS):
+                with rasterio.open(path, "r") as src:
+                    return ma.masked_values(src.read(4 if self.old_band_num else 2), 0)
+        except RasterioIOError as e:
+            for i in ("does not exist in the file system", "No such file or directory"):
+                if i in str(e):
+                    return self.empty(output_tile)
+            else:
+                raise
 
     def is_valid_with_config(self, config):
         """
@@ -162,7 +188,8 @@ class OutputData(base.OutputData):
         """
         return os.path.join(*[
             self.path, str(tile.zoom), str(tile.row),
-            str(tile.col) + self.file_extension])
+            str(tile.col) + self.file_extension]
+        )
 
     def prepare_path(self, tile):
         """
@@ -173,10 +200,7 @@ class OutputData(base.OutputData):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        try:
-            os.makedirs(os.path.dirname(self.get_path(tile)))
-        except OSError:
-            pass
+        makedirs(os.path.dirname(self.get_path(tile)))
 
     def profile(self, tile=None):
         """
@@ -191,8 +215,7 @@ class OutputData(base.OutputData):
         metadata : dictionary
             output profile dictionary used for rasterio.
         """
-        dst_metadata = PNG_PROFILE
-        dst_metadata.pop("transform", None)
+        dst_metadata = dict(self._profile)
         if tile is not None:
             dst_metadata.update(
                 width=tile.width,
@@ -245,11 +268,3 @@ class OutputData(base.OutputData):
         else:
             data = np.stack((np.zeros(data[0].shape), data[0]))
         return prepare_array(data, dtype="uint8", masked=True, nodata=255)
-
-
-PNG_PROFILE = {
-    "dtype": "uint8",
-    "driver": "PNG",
-    "count": 2,
-    "nodata": 255
-}

@@ -1,0 +1,11 @@
+process: ../example_process.py
+zoom_levels: 5
+pyramid:
+    grid: geodetic
+input:
+    file1: dummy1.tif
+output:
+    dtype: float32
+    bands: 3
+    format: GTiff
+    path: s3://mapchete-test/tmp

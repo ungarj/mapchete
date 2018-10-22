@@ -26,14 +26,15 @@ from tilematrix._funcs import Bounds
 import warnings
 import yaml
 
-from mapchete.formats import (
-    load_output_writer, available_output_formats, load_input_reader
-)
-from mapchete.tile import BufferedTilePyramid
 from mapchete.errors import (
     MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteProcessImportError,
     MapcheteDriverError
 )
+from mapchete.formats import (
+    load_output_writer, available_output_formats, load_input_reader
+)
+from mapchete.io import absolute_path
+from mapchete.tile import BufferedTilePyramid
 
 
 logger = logging.getLogger(__name__)
@@ -267,8 +268,8 @@ class MapcheteConfig(object):
         output_params = self._raw["output"]
         if "path" in output_params:
             output_params.update(
-                path=os.path.normpath(
-                    os.path.join(self.config_dir, output_params["path"])))
+                path=absolute_path(self.config_dir, output_params["path"])
+            )
         output_params.update(
             type=self.output_pyramid.grid,
             pixelbuffer=self.output_pyramid.pixelbuffer,
@@ -318,9 +319,7 @@ class MapcheteConfig(object):
         for k, v in six.iteritems(raw_inputs):
             if isinstance(v, six.string_types):
                 # get absolute paths if not remote
-                path = v if v.startswith(
-                    ("s3://", "https://", "http://")) else os.path.normpath(
-                    os.path.join(self.config_dir, v))
+                path = absolute_path(self.config_dir, v)
                 logger.debug("load input reader for file %s",  v)
                 try:
                     reader = load_input_reader(

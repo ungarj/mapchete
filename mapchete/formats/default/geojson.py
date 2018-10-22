@@ -23,17 +23,22 @@ schema: key-value pairs
         Polygon, MultiPolygon)
 """
 
+import boto3
 import fiona
+from fiona.errors import DriverError
+import logging
 import os
 import six
 import types
 
-from mapchete.tile import BufferedTile
-from mapchete.formats import base
-from mapchete.io.vector import write_vector_window
 from mapchete.config import validate_values
+from mapchete.formats import base
+from mapchete.io import makedirs
+from mapchete.io.vector import write_vector_window
+from mapchete.tile import BufferedTile
 
 
+logger = logging.getLogger(__name__)
 METADATA = {
     "driver_name": "GeoJSON",
     "data_type": "vector",
@@ -68,11 +73,7 @@ class OutputData(base.OutputData):
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    METADATA = {
-        "driver_name": "GeoJSON",
-        "data_type": "vector",
-        "mode": "rw"
-    }
+    METADATA = METADATA
 
     def __init__(self, output_params):
         """Initialize."""
@@ -80,6 +81,7 @@ class OutputData(base.OutputData):
         self.path = output_params["path"]
         self.file_extension = ".geojson"
         self.output_params = output_params
+        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
     def read(self, output_tile):
         """
@@ -95,11 +97,15 @@ class OutputData(base.OutputData):
         process output : list
         """
         path = self.get_path(output_tile)
-        if os.path.isfile(path):
+        try:
             with fiona.open(path, "r") as src:
                 return list(src)
-        else:
-            return self.empty(output_tile)
+        except DriverError as e:
+            for i in ("does not exist in the file system", "No such file or directory"):
+                if i in str(e):
+                    return self.empty(output_tile)
+            else:
+                raise
 
     def write(self, process_tile, data):
         """
@@ -112,19 +118,34 @@ class OutputData(base.OutputData):
         """
         if data is None or len(data) == 0:
             return
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-        assert isinstance(data, (list, types.GeneratorType))
+        if not isinstance(data, (list, types.GeneratorType)):
+            raise TypeError(
+                "GeoJSON driver data has to be a list or generator of GeoJSON objects"
+            )
+
         data = list(data)
+
+        if not len(data):
+            logger.debug("no features to write")
+            return
+        # in case of S3 output, create an boto3 resource
+        bucket_resource = (
+            boto3.resource('s3').Bucket(self._bucket)
+            if self._bucket
+            else None
+        )
+
         # Convert from process_tile to output_tiles
         for tile in self.pyramid.intersecting(process_tile):
-            # skip if file exists and overwrite is not set
             out_path = self.get_path(tile)
             self.prepare_path(tile)
             out_tile = BufferedTile(tile, self.pixelbuffer)
             write_vector_window(
-                in_data=data, out_schema=self.output_params["schema"],
-                out_tile=out_tile, out_path=out_path
+                in_data=data,
+                out_schema=self.output_params["schema"],
+                out_tile=out_tile,
+                out_path=out_path,
+                bucket_resource=bucket_resource
             )
 
     def is_valid_with_config(self, config):
@@ -167,9 +188,10 @@ class OutputData(base.OutputData):
         -------
         path : string
         """
-        zoomdir = os.path.join(self.path, str(tile.zoom))
-        rowdir = os.path.join(zoomdir, str(tile.row))
-        return os.path.join(rowdir, str(tile.col) + self.file_extension)
+        return os.path.join(*[
+            self.path, str(tile.zoom), str(tile.row),
+            str(tile.col) + self.file_extension]
+        )
 
     def prepare_path(self, tile):
         """
@@ -180,12 +202,7 @@ class OutputData(base.OutputData):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        zoomdir = os.path.join(self.path, str(tile.zoom))
-        if not os.path.exists(zoomdir):
-            os.makedirs(zoomdir)
-        rowdir = os.path.join(zoomdir, str(tile.row))
-        if not os.path.exists(rowdir):
-            os.makedirs(rowdir)
+        makedirs(os.path.dirname(self.get_path(tile)))
 
     def empty(self, process_tile=None):
         """

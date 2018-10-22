@@ -72,7 +72,7 @@ setup(
         'cached_property',
         'click',
         'click-plugins',
-        'fiona',
+        'fiona>=1.8b1',
         'flask',
         'pyproj',
         'pyyaml',

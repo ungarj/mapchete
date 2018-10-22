@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.24
+----
+* default drivers now can handle S3 bucket outputs
+
+----
 0.23
 ----
 * breaking change:

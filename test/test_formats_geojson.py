@@ -78,15 +78,41 @@ def test_output_data(mp_tmpdir, geojson):
     assert isinstance(output_params, dict)
 
     with mapchete.open(geojson.path) as mp:
-        for tile in mp.get_process_tiles(4):
-            # write empty
-            # mp.write(tile, None)
-            # write data
-            raw_output = mp.get_raw_output(tile)
-            mp.write(tile, raw_output)
-            # read data
-            read_output = mp.config.output.read(tile)
-            assert isinstance(read_output, list)
-            # TODO
-            # if raw_output:
-            #     assert read_output
+        tile = mp.config.process_pyramid.tile(4, 3, 7)
+        # write empty
+        mp.write(tile, None)
+        # write data
+        raw_output = mp.get_raw_output(tile)
+        mp.write(tile, raw_output)
+        # read data
+        read_output = mp.get_raw_output(tile)
+        assert isinstance(read_output, list)
+        assert len(read_output)
+
+
+def test_s3_output_data(mp_s3_tmpdir, geojson_s3):
+    """Check GeoJSON as output data."""
+    output_params = dict(
+        type="geodetic",
+        format="GeoJSON",
+        path=mp_s3_tmpdir,
+        schema=dict(properties=dict(id="int"), geometry="Polygon"),
+        pixelbuffer=0,
+        metatiling=1
+    )
+    output = formats.default.geojson.OutputData(output_params)
+    assert output.path == mp_s3_tmpdir
+    assert output.file_extension == ".geojson"
+    assert isinstance(output_params, dict)
+
+    with mapchete.open(geojson_s3.dict) as mp:
+        tile = mp.config.process_pyramid.tile(4, 3, 7)
+        # write empty
+        mp.write(tile, None)
+        # write data
+        raw_output = mp.execute(tile)
+        mp.write(tile, raw_output)
+        # read data
+        read_output = mp.get_raw_output(tile)
+        assert isinstance(read_output, list)
+        assert len(read_output)

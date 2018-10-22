@@ -1,19 +1,20 @@
 mapchete.cli package
 ====================
 
+Subpackages
+-----------
+
+.. toctree::
+
+    mapchete.cli.default
+
 Submodules
 ----------
 
 .. toctree::
 
-   mapchete.cli.create
-   mapchete.cli.execute
-   mapchete.cli.formats
-   mapchete.cli.index
    mapchete.cli.main
-   mapchete.cli.pyramid
-   mapchete.cli.serve
-   mapchete.cli.tilify
+   mapchete.cli.utils
 
 Module contents
 ---------------

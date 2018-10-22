@@ -1,11 +1,12 @@
-#!/usr/bin/env python
 """Fixtures such as Flask app for serve."""
 
+import boto3
 from collections import namedtuple
 import os
 import pytest
 import shutil
 import six
+import uuid
 import yaml
 
 from mapchete.cli.default.serve import create_app
@@ -19,6 +20,7 @@ else:
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
 TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
+S3_TEMP_DIR = "s3://mapchete-test/tmp/" + uuid.uuid4().hex
 
 
 ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
@@ -45,6 +47,17 @@ def mp_tmpdir():
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
 
 
+# temporary directory for I/O tests
+@yield_fixture
+def mp_s3_tmpdir():
+    """Setup and teardown temporary directory."""
+    yield S3_TEMP_DIR
+    for obj in boto3.resource('s3').Bucket(S3_TEMP_DIR.split("/")[2]).objects.filter(
+        Prefix="/".join(S3_TEMP_DIR.split("/")[-2:])
+    ):
+        obj.delete()
+
+
 @pytest.fixture
 def wkt_geom():
     """Example WKT geometry."""
@@ -64,9 +77,17 @@ def s2_band():
     Fixture for Sentinel-2 raster band.
 
     Original file:
-    http://sentinel-s2-l1c.s3.amazonaws.com/tiles/33/T/WN/2016/4/3/0/B02.jp2
+    s3://sentinel-s2-l1c/tiles/33/T/WN/2016/4/3/0/B02.jp2
     """
     return os.path.join(TESTDATA_DIR, "s2_band.tif")
+
+
+@pytest.fixture
+def s2_band_remote():
+    """
+    Fixture for remote file on S3 bucket.
+    """
+    return "s3://mapchete-test/4band_test.tif"
 
 
 @pytest.fixture
@@ -286,6 +307,15 @@ def geojson():
 
 
 @pytest.fixture
+def geojson_s3():
+    """Fixture for geojson.mapchete with updated output path."""
+    path = os.path.join(TESTDATA_DIR, "geojson.mapchete")
+    config = _dict_from_mapchete(path)
+    config["output"].update(path=S3_TEMP_DIR)
+    return ExampleConfig(path=None, dict=config)
+
+
+@pytest.fixture
 def geojson_tiledir():
     """Fixture for geojson_tiledir.mapchete."""
     path = os.path.join(TESTDATA_DIR, "geojson_tiledir.mapchete")
@@ -297,6 +327,21 @@ def process_module():
     """Fixture for process_module.mapchete"""
     path = os.path.join(TESTDATA_DIR, "process_module.mapchete")
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def gtiff_s3():
+    """Fixture for gtiff_s3.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "gtiff_s3.mapchete")
+    config = _dict_from_mapchete(path)
+    config["output"].update(path=S3_TEMP_DIR)
+    return ExampleConfig(path=None, dict=config)
+
+
+@pytest.fixture
+def s3_example_tile(gtiff_s3):
+    """Example tile for fixture."""
+    return (5, 15, 32)
 
 
 # helper functions
