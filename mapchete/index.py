@@ -15,6 +15,7 @@ generate GPKG files 3.gpkg, 4.gpkg and 5.gpkg for zoom levels 3, 4 and 5.
 """
 
 import concurrent.futures
+from contextlib import ExitStack
 from copy import deepcopy
 import fiona
 import logging
@@ -74,39 +75,47 @@ def zoom_index_gen(
         use GDAL compatible remote paths, i.e. add "/vsicurl/" before path
         (default: True)
     """
-    try:
+    with ExitStack() as es:
         # get index writers for all enabled formats
         index_writers = []
         if geojson:
             index_writers.append(
-                VectorFileWriter(
-                    driver="GeoJSON",
-                    out_path=_index_file_path(out_dir, zoom, "geojson"),
-                    crs=mp.config.output_pyramid.crs,
-                    fieldname=fieldname
+                es.enter_context(
+                    VectorFileWriter(
+                        driver="GeoJSON",
+                        out_path=_index_file_path(out_dir, zoom, "geojson"),
+                        crs=mp.config.output_pyramid.crs,
+                        fieldname=fieldname
+                    )
                 )
             )
         if gpkg:
             index_writers.append(
-                VectorFileWriter(
-                    driver="GPKG",
-                    out_path=_index_file_path(out_dir, zoom, "gpkg"),
-                    crs=mp.config.output_pyramid.crs,
-                    fieldname=fieldname
+                es.enter_context(
+                    VectorFileWriter(
+                        driver="GPKG",
+                        out_path=_index_file_path(out_dir, zoom, "gpkg"),
+                        crs=mp.config.output_pyramid.crs,
+                        fieldname=fieldname
+                    )
                 )
             )
         if shapefile:
             index_writers.append(
-                VectorFileWriter(
-                    driver="ESRI Shapefile",
-                    out_path=_index_file_path(out_dir, zoom, "shp"),
-                    crs=mp.config.output_pyramid.crs,
-                    fieldname=fieldname
+                es.enter_context(
+                    VectorFileWriter(
+                        driver="ESRI Shapefile",
+                        out_path=_index_file_path(out_dir, zoom, "shp"),
+                        crs=mp.config.output_pyramid.crs,
+                        fieldname=fieldname
+                    )
                 )
             )
         if txt:
             index_writers.append(
-                TextFileWriter(out_path=_index_file_path(out_dir, zoom, "txt"))
+                es.enter_context(
+                    TextFileWriter(out_path=_index_file_path(out_dir, zoom, "txt"))
+                )
             )
 
         logger.debug("use the following index writers: %s", index_writers)
@@ -145,14 +154,6 @@ def zoom_index_gen(
                         index.write(tile, tile_path)
                 # yield tile for progress information
                 yield tile
-
-    finally:
-        for writer in index_writers:
-            logger.debug("close %s", writer)
-            try:
-                writer.close()
-            except Exception as e:
-                logger.error("writer %s could not be closed: %s", e, str(writer))
 
 
 def _index_file_path(out_dir, zoom, ext):
@@ -221,20 +222,19 @@ class VectorFileWriter():
         self.close()
 
     def write(self, tile, path):
-        if self.entry_exists(tile=tile):
-            return
-        logger.debug("write %s to %s", path, self)
-        self.file_obj.write({
-            "geometry": mapping(tile.bbox),
-            "properties": {
-                "tile_id": str(tile.id),
-                "zoom": str(tile.zoom),
-                "row": str(tile.row),
-                "col": str(tile.col),
-                self.fieldname: path
-            }
-        })
-        self.new_entries += 1
+        if not self.entry_exists(tile=tile):
+            logger.debug("write %s to %s", path, self)
+            self.file_obj.write({
+                "geometry": mapping(tile.bbox),
+                "properties": {
+                    "tile_id": str(tile.id),
+                    "zoom": str(tile.zoom),
+                    "row": str(tile.row),
+                    "col": str(tile.col),
+                    self.fieldname: path
+                }
+            })
+            self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
         exists = str(tile.id) in self._existing.keys()
@@ -271,11 +271,10 @@ class TextFileWriter():
         self.close()
 
     def write(self, tile, path):
-        if self.entry_exists(path=path):
-            return
-        logger.debug("write %s to %s", path, self)
-        self.file_obj.write(path + "\n")
-        self.new_entries += 1
+        if not self.entry_exists(path=path):
+            logger.debug("write %s to %s", path, self)
+            self.file_obj.write(path + "\n")
+            self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
         exists = path + "\n" in self._existing
