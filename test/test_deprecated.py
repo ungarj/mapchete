@@ -15,6 +15,7 @@ def test_parse_deprecated(deprecated_params):
         assert mp.config.crs == mp.config.process_pyramid.crs
         assert mp.config.metatiling == mp.config.process_pyramid.metatiling
         assert mp.config.pixelbuffer == mp.config.process_pyramid.pixelbuffer
+        assert mp.config.process_file
 
 
 def test_parse_deprecated_zooms(deprecated_params):
