@@ -25,7 +25,7 @@ input:
         zoom>=10: testdata/dummy1.tif
     file2: testdata/dummy2.tif
 output:
-    path: test
+    path: testdata/tmp/example
     format: GTiff
     dtype: float32
     bands: 1

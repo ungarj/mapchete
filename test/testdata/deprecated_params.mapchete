@@ -7,7 +7,7 @@ input_files:
     file2: dummy2.tif
 output:
     type: geodetic
-    path: test
+    path: tmp/deprecated_params
     format: GTiff
     dtype: float32
     bands: 1

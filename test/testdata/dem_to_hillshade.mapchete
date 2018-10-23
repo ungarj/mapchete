@@ -10,4 +10,4 @@ input:
 output:
     bands: 2
     format: PNG
-    path: tmp
+    path: tmp/dem_to_hillshade

@@ -52,25 +52,37 @@ def test_output_data(mp_tmpdir):
         assert isinstance(data, np.ndarray)
         assert not data[0].mask.any()
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # read empty
-    data = output.read(tile)
-    assert isinstance(data, np.ndarray)
-    assert data[0].mask.all()
+    try:
+        data = output.read(tile)
+        assert isinstance(data, np.ndarray)
+        assert data[0].mask.all()
+    finally:
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # empty
-    empty = output.empty(tile)
-    assert isinstance(empty, ma.MaskedArray)
-    assert not empty.any()
+    try:
+        empty = output.empty(tile)
+        assert isinstance(empty, ma.MaskedArray)
+        assert not empty.any()
+    finally:
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # deflate with predictor
-    output_params.update(compress="deflate", predictor=2)
-    output = gtiff.OutputData(output_params)
-    assert output.profile(tile)["compress"] == "deflate"
-    assert output.profile(tile)["predictor"] == 2
+    try:
+        output_params.update(compress="deflate", predictor=2)
+        output = gtiff.OutputData(output_params)
+        assert output.profile(tile)["compress"] == "deflate"
+        assert output.profile(tile)["predictor"] == 2
+    finally:
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # using deprecated "compression" property
-    output_params.update(compression="deflate", predictor=2)
-    output = gtiff.OutputData(output_params)
-    assert output.profile(tile)["compress"] == "deflate"
-    assert output.profile(tile)["predictor"] == 2
+    try:
+        output_params.update(compression="deflate", predictor=2)
+        output = gtiff.OutputData(output_params)
+        assert output.profile(tile)["compress"] == "deflate"
+        assert output.profile(tile)["predictor"] == 2
+    finally:
+        shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
 
 def test_for_web(client, mp_tmpdir):

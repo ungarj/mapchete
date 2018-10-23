@@ -9,5 +9,5 @@ input:
     file1: dummy1.tif
 output:
     bands: 1
-    path: tmp
+    path: tmp/minmax_zoom
     format: PNG

@@ -28,20 +28,19 @@ ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 # flask test app for mapchete serve
 @pytest.fixture
-def app(dem_to_hillshade, cleantopo_br, geojson):
+def app(dem_to_hillshade, cleantopo_br, geojson, mp_tmpdir):
     """Dummy Flask app."""
     return create_app(
-        mapchete_files=[
-            dem_to_hillshade.path, cleantopo_br.path, geojson.path],
+        mapchete_files=[dem_to_hillshade.path, cleantopo_br.path, geojson.path],
         zoom=None, bounds=None, single_input_file=None, mode="overwrite",
         debug=True)
 
 
 # temporary directory for I/O tests
-@yield_fixture
+@yield_fixture(autouse=True)
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
-    # shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    shutil.rmtree(TEMP_DIR, ignore_errors=True)
     os.makedirs(TEMP_DIR)
     yield TEMP_DIR
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
@@ -51,11 +50,16 @@ def mp_tmpdir():
 @yield_fixture
 def mp_s3_tmpdir():
     """Setup and teardown temporary directory."""
+
+    def _cleanup():
+        for obj in boto3.resource('s3').Bucket(S3_TEMP_DIR.split("/")[2]).objects.filter(
+            Prefix="/".join(S3_TEMP_DIR.split("/")[-2:])
+        ):
+            obj.delete()
+
+    _cleanup()
     yield S3_TEMP_DIR
-    for obj in boto3.resource('s3').Bucket(S3_TEMP_DIR.split("/")[2]).objects.filter(
-        Prefix="/".join(S3_TEMP_DIR.split("/")[-2:])
-    ):
-        obj.delete()
+    _cleanup()
 
 
 @pytest.fixture
@@ -88,6 +92,22 @@ def s2_band_remote():
     Fixture for remote file on S3 bucket.
     """
     return "s3://mapchete-test/4band_test.tif"
+
+
+@pytest.fixture
+def s3_metadata_json():
+    """
+    Fixture for s3://mapchete-test/metadata.json.
+    """
+    return "s3://mapchete-test/metadata.json"
+
+
+@pytest.fixture
+def http_metadata_json():
+    """
+    Fixture for https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/metadata.json.
+    """
+    return "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/metadata.json"
 
 
 @pytest.fixture

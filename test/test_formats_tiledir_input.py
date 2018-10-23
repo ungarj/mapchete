@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 import pytest
+import shutil
 import six
 
 from mapchete.formats import available_input_formats
@@ -60,8 +61,7 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
         bounds = mp.config.bounds_at_zoom()
         mp.batch_process(zoom=4)
     for metatiling in [1, 2, 4, 8]:
-        _run_tiledir_process_raster(
-            cleantopo_br_tiledir.dict, metatiling, bounds)
+        _run_tiledir_process_raster(cleantopo_br_tiledir.dict, metatiling, bounds)
 
 
 def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
@@ -70,7 +70,32 @@ def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
     with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
         assert any([
             next(six.itervalues(mp.config.input)).open(tile).read().any()
-            for tile in mp.get_process_tiles(4)])
+            for tile in mp.get_process_tiles(4)
+        ])
+        # read empty tile
+        assert not next(six.itervalues(mp.config.input)).open(
+            mp.config.process_pyramid.tile(4, 0, 0)
+        ).read().any()
+        shutil.rmtree(mp.config.output.path, ignore_errors=True)
+
+
+def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
+    """Read raster data."""
+    # prepare data
+    with mapchete.open(cleantopo_br.path) as mp:
+        bounds = mp.config.bounds_at_zoom()
+        mp.batch_process(zoom=4)
+    config = dict(cleantopo_br_tiledir.dict, input=dict(file1="tmp/cleantopo_br"))
+    _run_tiledir_process_raster(config, 4, bounds)
+
+
+def test_no_metadata_json(mp_tmpdir, cleantopo_br_tiledir):
+    """Read raster data."""
+    # prepare data
+    with pytest.raises(MapcheteDriverError):
+        mapchete.open(
+            dict(cleantopo_br_tiledir.dict, input=dict(file1="tmp/cleantopo_br"))
+        )
 
 
 def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):

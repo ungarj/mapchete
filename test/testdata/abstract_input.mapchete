@@ -14,4 +14,4 @@ output:
     dtype: uint16
     bands: 1
     format: GTiff
-    path: tmp
+    path: tmp/abstract_input

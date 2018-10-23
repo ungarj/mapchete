@@ -16,11 +16,12 @@ from itertools import product
 
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
-from mapchete.io import get_best_zoom_level, path_exists
+from mapchete.io import get_best_zoom_level, path_exists, absolute_path, read_json
 from mapchete.io.raster import (
     read_raster_window, write_raster_window, extract_from_array,
     resample_from_array, create_mosaic, ReferencedRaster, prepare_array,
-    RasterWindowMemoryFile)
+    RasterWindowMemoryFile
+)
 from mapchete.io.vector import (
     read_vector_window, reproject_geometry, clean_geometry_type,
     segmentize_geometry)
@@ -651,6 +652,35 @@ def test_s3_path_exists(s2_band_remote):
 def test_s3_read_raster_window(s2_band_remote):
     tile = BufferedTilePyramid("geodetic").tile(10, 276, 1071)
     assert read_raster_window(s2_band_remote, tile).any()
+
+
+def test_remote_path_exists(http_raster):
+    assert path_exists(http_raster)
+    assert not path_exists("http://ungarj.github.io/invalid_file.tif")
+
+
+def test_absolute_path():
+    assert absolute_path(path="file.tif", base_dir="/mnt/data") == "/mnt/data/file.tif"
+    assert absolute_path(
+        path="/mnt/data/file.tif", base_dir="/mnt/other_data"
+    ) == "/mnt/data/file.tif"
+    with pytest.raises(TypeError):
+        absolute_path(path="file.tif", base_dir=None)
+    with pytest.raises(TypeError):
+        absolute_path(path="file.tif", base_dir="no/abs/dir")
+    assert absolute_path(
+        path="https://file.tif", base_dir="/mnt/data"
+    ) == "https://file.tif"
+
+
+def test_read_json(s3_metadata_json, http_metadata_json):
+    assert isinstance(read_json(s3_metadata_json), dict)
+    assert isinstance(read_json(http_metadata_json), dict)
+    with pytest.raises(FileNotFoundError):
+        read_json("s3://mapchete-test/invalid_metadata.json")
+    with pytest.raises(FileNotFoundError):
+        read_json("https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/invalid_metadata.json")
+
 
 # TODO write_vector_window()
 # TODO extract_from_tile()

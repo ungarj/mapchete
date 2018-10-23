@@ -4,12 +4,15 @@ Functions handling output formats.
 This module deserves a cleaner rewrite some day.
 """
 
+import logging
 import os
 import pkg_resources
 import warnings
 
 from mapchete import errors
 
+
+logger = logging.getLogger(__name__)
 _DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
 _FILE_EXT_TO_DRIVER = {}
 
@@ -81,7 +84,7 @@ def available_input_formats():
     return input_formats
 
 
-def load_output_writer(output_params):
+def load_output_writer(output_params, readonly=False):
     """
     Return output class of driver.
 
@@ -100,9 +103,10 @@ def load_output_writer(output_params):
             ) and (
             _driver.METADATA["driver_name"] == driver_name
         ):
-            return _driver.OutputData(output_params)
+            return _driver.OutputData(output_params, readonly=readonly)
     raise errors.MapcheteDriverError(
-        "no loader for driver '%s' could be found." % driver_name)
+        "no loader for driver '%s' could be found." % driver_name
+    )
 
 
 def load_input_reader(input_params, readonly=False):
@@ -114,16 +118,20 @@ def load_input_reader(input_params, readonly=False):
     input_params : ``InputData``
         input parameters
     """
+    logger.debug("find input reader with params %s", input_params)
     if not isinstance(input_params, dict):
         raise TypeError("input_params must be a dictionary")
     if "abstract" in input_params:
         driver_name = input_params["abstract"]["format"]
     elif "path" in input_params:
-        input_file = input_params["path"]
-        driver_name = driver_from_file(input_file)
+        if os.path.splitext(input_params["path"])[1]:
+            input_file = input_params["path"]
+            driver_name = driver_from_file(input_file)
+        else:
+            logger.debug("%s is a directory", input_params["path"])
+            driver_name = "TileDirectory"
     else:
-        raise errors.MapcheteDriverError(
-            "invalid input parameters %s" % input_params)
+        raise errors.MapcheteDriverError("invalid input parameters %s" % input_params)
     for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
         driver_ = v.load()
         if hasattr(driver_, "METADATA") and (

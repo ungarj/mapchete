@@ -14,5 +14,5 @@ output:
     dtype: uint16
     bands: 1
     format: GTiff
-    path: tmp
+    path: tmp/custom_grid
     pixelbuffer: 20

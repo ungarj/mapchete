@@ -8,7 +8,7 @@ input:
 output:
     type: geodetic
     format: GeoJSON
-    path: tmp
+    path: tmp/geojson
     data_type: vector
     schema:
         properties:

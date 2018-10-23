@@ -10,7 +10,7 @@ output:
     dtype: float32
     bands: 3
     format: GTiff
-    path: tmp
+    path: tmp/baselevels
 baselevels:
     min: 5
     max: 6

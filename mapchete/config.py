@@ -38,7 +38,6 @@ from mapchete.tile import BufferedTilePyramid
 
 
 logger = logging.getLogger(__name__)
-
 # parameters whigh have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
     ("process", six.string_types),       # path to .py file or module path
@@ -265,21 +264,27 @@ class MapcheteConfig(object):
     @cached_property
     def output(self):
         """Output object of driver."""
-        output_params = self._raw["output"]
-        if "path" in output_params:
-            output_params.update(
-                path=absolute_path(self.config_dir, output_params["path"])
-            )
-        output_params.update(
+        output_params = dict(
+            self._raw["output"],
             type=self.output_pyramid.grid,
             pixelbuffer=self.output_pyramid.pixelbuffer,
-            metatiling=self.output_pyramid.metatiling)
+            metatiling=self.output_pyramid.metatiling
+        )
+        if "path" in output_params:
+            output_params.update(
+                path=absolute_path(path=output_params["path"], base_dir=self.config_dir)
+            )
+
         if "format" not in output_params:
             raise MapcheteConfigError("output format not specified")
+
         if output_params["format"] not in available_output_formats():
             raise MapcheteConfigError(
                 "format %s not available in %s" % (
-                    output_params["format"], str(available_output_formats())))
+                    output_params["format"], str(available_output_formats())
+                )
+            )
+
         writer = load_output_writer(output_params)
         try:
             writer.is_valid_with_config(output_params)
@@ -287,7 +292,9 @@ class MapcheteConfig(object):
             logger.exception(e)
             raise MapcheteConfigError(
                 "driver %s not compatible with configuration: %s" % (
-                    writer.METADATA["driver_name"], e))
+                    writer.METADATA["driver_name"], e
+                )
+            )
         return writer
 
     @cached_property
@@ -300,8 +307,10 @@ class MapcheteConfig(object):
         """
         # the delimiters are used by some input drivers
         delimiters = dict(
-            zoom=self.init_zoom_levels, bounds=self.init_bounds,
-            process_bounds=self.bounds, effective_bounds=self.effective_bounds
+            zoom=self.init_zoom_levels,
+            bounds=self.init_bounds,
+            process_bounds=self.bounds,
+            effective_bounds=self.effective_bounds
         )
 
         # get input items only of initialized zoom levels
@@ -315,45 +324,50 @@ class MapcheteConfig(object):
             for key, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
             if v is not None
         }
+
         initalized_inputs = {}
         for k, v in six.iteritems(raw_inputs):
+
+            # for files and tile directories
             if isinstance(v, six.string_types):
-                # get absolute paths if not remote
-                path = absolute_path(self.config_dir, v)
-                logger.debug("load input reader for file %s",  v)
+                logger.debug("load input reader for simple input %s",  v)
                 try:
                     reader = load_input_reader(
                         dict(
-                            path=deepcopy(path), pyramid=self.process_pyramid,
+                            path=absolute_path(path=v, base_dir=self.config_dir),
+                            pyramid=self.process_pyramid,
                             pixelbuffer=self.process_pyramid.pixelbuffer,
                             delimiters=delimiters
-                        ), self.mode == "readonly")
+                        ),
+                        readonly=self.mode == "readonly")
                 except Exception as e:
                     logger.exception(e)
                     raise MapcheteDriverError(e)
-                logger.debug(
-                    "input reader for file %s is %s", v, reader)
+                logger.debug("input reader for simple input %s is %s", v, reader)
+
             # for abstract inputs
             elif isinstance(v, dict):
-                logger.debug(
-                    "load input reader for abstract input %s", v)
+                logger.debug("load input reader for abstract input %s", v)
                 try:
                     reader = load_input_reader(
                         dict(
-                            abstract=deepcopy(v), pyramid=self.process_pyramid,
+                            abstract=deepcopy(v),
+                            pyramid=self.process_pyramid,
                             pixelbuffer=self.process_pyramid.pixelbuffer,
-                            delimiters=delimiters, conf_dir=self.config_dir
-                        ), self.mode == "readonly")
+                            delimiters=delimiters,
+                            conf_dir=self.config_dir
+                        ),
+                        readonly=self.mode == "readonly")
                 except Exception as e:
                     logger.exception(e)
                     raise MapcheteDriverError(e)
-                logger.debug(
-                    "input reader for abstract input %s is %s", v, reader)
+                logger.debug("input reader for abstract input %s is %s", v, reader)
             else:
                 raise MapcheteConfigError("invalid input type %s", type(v))
             # trigger bbox creation
             reader.bbox(out_crs=self.process_pyramid.crs)
             initalized_inputs[k] = reader
+
         return initalized_inputs
 
     @cached_property
@@ -371,6 +385,7 @@ class MapcheteConfig(object):
             return {}
         baselevels = self._raw["baselevels"]
         minmax = {k: v for k, v in six.iteritems(baselevels) if k in ["min", "max"]}
+
         if not minmax:
             raise MapcheteConfigError("no min and max values given for baselevels")
         for v in minmax.values():
@@ -378,12 +393,15 @@ class MapcheteConfig(object):
                 raise MapcheteConfigError(
                     "invalid baselevel zoom parameter given: %s" % minmax.values()
                 )
+
         zooms = list(range(
             minmax.get("min", min(self.zoom_levels)),
             minmax.get("max", max(self.zoom_levels)) + 1)
         )
+
         if not set(self.zoom_levels).difference(set(zooms)):
             raise MapcheteConfigError("baselevels zooms fully cover process zooms")
+
         return dict(
             zooms=zooms,
             lower=baselevels.get("lower", "nearest"),
@@ -391,7 +409,8 @@ class MapcheteConfig(object):
             tile_pyramid=BufferedTilePyramid(
                 self.output_pyramid.grid,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
-                metatiling=self.process_pyramid.metatiling)
+                metatiling=self.process_pyramid.metatiling
+            )
         )
 
     @cached_property
@@ -433,8 +452,7 @@ class MapcheteConfig(object):
         if zoom not in self.init_zoom_levels:
             raise ValueError(
                 "zoom level not available with current configuration")
-        out = dict(**self._params_at_zoom[zoom])
-        out.update(input={}, output=self.output)
+        out = dict(self._params_at_zoom[zoom], input={}, output=self.output)
         if "input" in self._params_at_zoom[zoom]:
             flat_inputs = {}
             for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"]):

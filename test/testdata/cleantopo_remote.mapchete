@@ -17,5 +17,5 @@ output:
     dtype: uint16
     bands: 1
     format: GTiff
-    path: tmp
+    path: tmp/cleantopo_remote
     pixelbuffer: 20
