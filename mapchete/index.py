@@ -107,29 +107,38 @@ def zoom_index_gen(
 
         logger.debug(index_writers)
 
+        def _worker(i):
+            # if there are indexes to write to, check if output exists
+            tile, tile_path, indexes = i
+            if indexes:
+                return mp.config.output.tiles_exist(output_tile=tile)
+            else:
+                return None
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
+            # map future objects to input parameters
             future_to_tiles = {
-                executor.submit(
-                    mp.config.output.tiles_exist, output_tile=tile
-                ): (tile, tile_path, indexes)
-                for tile, tile_path, indexes in _gen_not_yet_added_indexes(
+                executor.submit(_worker, i): i
+                for i in _gen_not_yet_added_indexes(
                     mp=mp,
                     zoom=zoom,
                     index_writers=index_writers,
                     basepath=basepath,
                     for_gdal=for_gdal
                 )
-                if indexes
-                # else tile, tile_path, indexes
             }
             for future in concurrent.futures.as_completed(future_to_tiles):
+                # input params
                 tile, tile_path, indexes = future_to_tiles[future]
+                # worker result
                 output_exists = future.result()
-                if output_exists:
+                # only write entries if there are indexes to write to and output exists
+                if indexes and output_exists:
                     logger.debug("%s exists", tile_path)
                     logger.debug("write to %s indexes" % len(indexes))
                     for index in indexes:
                         index.write(tile, tile_path)
+                # yield tile for progress information
                 yield tile
 
     finally:
