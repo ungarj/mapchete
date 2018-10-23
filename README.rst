@@ -21,6 +21,8 @@ Tile-based geodata processing.
     :target: https://pypi.python.org/pypi/mapchete
 
 
+NOTE: this package only supports Python 3.5 and 3.6 from now on.
+
 Developing a script which does some geoprocessing is usually an iterative
 process where modifying code, running the script and inspecting the output
 repeat until the desired result. This can take a long time as processing and

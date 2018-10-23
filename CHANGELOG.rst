@@ -5,7 +5,13 @@ Changelog
 ----
 0.24
 ----
+* breaking changes:
+  * all Python versions < 3.5 are not supported anymore!
 * default drivers now can handle S3 bucket outputs
+* file based output drivers write output metadata into ``metadata.json``
+* output directories can be used as input for other processes if they have a ``metadata.json``
+* if Fiona driver has 'append' mode enabled, index entries get appended instead of writing a whole new file
+
 
 ----
 0.23
