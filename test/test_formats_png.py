@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 """Test PNG as process output."""
 
-import os
-import shutil
 import numpy as np
 import numpy.ma as ma
+import os
+import pytest
+import shutil
 
 from mapchete.formats.default import png
 from mapchete.tile import BufferedTilePyramid
@@ -59,11 +60,15 @@ def test_output_data(mp_tmpdir):
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
-    # empty
-    empty = output.empty(tile)
+    # read empty
+    empty = output.read(tp.tile(5, 0, 0))
     assert isinstance(empty, ma.MaskedArray)
     assert not empty.any()
-    # TODO for_web
+    # write empty
+    output.write(tile, np.zeros((3, ) + tile.shape))
+    output.write(tile, np.zeros((4, ) + tile.shape))
+    with pytest.raises(TypeError):
+        output.write(tile, np.zeros((5, ) + tile.shape))
 
 
 def test_s3_write_output_data(mp_s3_tmpdir):
