@@ -468,6 +468,31 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
 
+def test_index_shp(mp_tmpdir, cleantopo_br):
+    # execute process
+    run_cli(['execute', cleantopo_br.path, '-z', '5', '--debug'])
+
+    # generate index
+    run_cli(['index', cleantopo_br.path,  '-z', '5', '--shp', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.shp" in files
+    with fiona.open(os.path.join(mp.config.output.path, "5.shp")) as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+    # write again and assert there is no new entry because there is already one
+    run_cli(['index', cleantopo_br.path,  '-z', '5', '--shp', '--debug'])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.shp" in files
+    with fiona.open(os.path.join(mp.config.output.path, "5.shp")) as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+
 def test_index_text(mp_tmpdir, cleantopo_br):
     # execute process
     run_cli(['execute', cleantopo_br.path, '-z', '5', '--debug'])

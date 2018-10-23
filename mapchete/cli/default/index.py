@@ -63,10 +63,7 @@ def index(
         )
 
     # send verbose output to /dev/null if not activated
-    if debug or not verbose:
-        verbose_dst = open(os.devnull, 'w')
-    else:
-        verbose_dst = sys.stdout
+    verbose_dst = open(os.devnull, 'w') if debug or not verbose else sys.stdout
 
     for mapchete_file in mapchete_files:
         tqdm.tqdm.write("create index for %s" % mapchete_file, file=verbose_dst)
@@ -103,12 +100,11 @@ def index(
                     logger.debug(tile)
 
         else:
-            if wkt_geometry:
-                bounds = wkt.loads(wkt_geometry).bounds
-            else:
-                bounds = bounds
             with mapchete.open(
-                mapchete_file, mode="readonly", zoom=zoom, bounds=bounds
+                mapchete_file,
+                mode="readonly",
+                zoom=zoom,
+                bounds=wkt.loads(wkt_geometry).bounds if wkt_geometry else bounds
             ) as mp:
                 out_dir = out_dir if out_dir else mp.config.output.path
                 logger.debug("process bounds: %s", mp.config.init_bounds)
