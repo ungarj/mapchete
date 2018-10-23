@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """Install Mapchete."""
 
 from setuptools import setup
@@ -34,6 +32,7 @@ setup(
     packages=[
         'mapchete',
         'mapchete.cli',
+        'mapchete.cli.default',
         'mapchete.commons',
         'mapchete.formats',
         'mapchete.formats.default',
