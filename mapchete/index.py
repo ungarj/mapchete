@@ -171,6 +171,7 @@ class VectorFileWriter():
 
         if self._append:
             if os.path.isfile(self.path):
+                logger.debug("read existing entries")
                 with fiona.open(self.path, "r") as src:
                     self._existing = {f["properties"]["tile_id"]: f for f in src}
                 self.file_obj = fiona.open(self.path, "a")
@@ -181,6 +182,7 @@ class VectorFileWriter():
                 self._existing = {}
         else:
             if os.path.isfile(self.path):
+                logger.debug("read existing entries")
                 with fiona.open(self.path, "r") as src:
                     self._existing = {f["properties"]["tile_id"]: f for f in src}
                 fiona.remove(self.path, driver=driver)
