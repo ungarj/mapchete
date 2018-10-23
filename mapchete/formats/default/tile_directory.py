@@ -108,8 +108,6 @@ class InputData(base.InputData):
                 extension=output.file_extension.split(".")[-1],
                 **params["driver"]
             )
-        else:
-            raise MapcheteConfigError("not enough parameters to initialize TileDirectory")
 
         # validate parameters
         validate_values(
