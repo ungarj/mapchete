@@ -28,7 +28,9 @@ spatial_schema = {
         "tile_id": "str:254",
         "zoom": "int",
         "row": "int",
-        "col": "int"}}
+        "col": "int"
+    }
+}
 
 
 def zoom_index_gen(
@@ -158,22 +160,36 @@ class VectorFileWriter():
     def __init__(
         self, out_path=None, crs=None, fieldname=None, driver=None
     ):
-        logger.debug("initialize %s writer", driver)
+        self._append = "a" in fiona.supported_drivers[driver]
+        logger.debug("initialize %s writer with append %s", driver, self._append)
         self.path = out_path
         self.driver = driver
-        if os.path.isfile(self.path):
-            with fiona.open(self.path) as src:
-                self.existing = {f["properties"]["tile_id"]: f for f in src}
-            fiona.remove(self.path, driver=driver)
-        else:
-            self.existing = {}
-        self.new_entries = 0
         self.fieldname = fieldname
+        self.new_entries = 0
         schema = deepcopy(spatial_schema)
         schema["properties"][fieldname] = "str:254"
-        self.file_obj = fiona.open(
-            self.path, "w", driver=self.driver, crs=crs, schema=schema)
-        self.file_obj.writerecords(self.existing.values())
+
+        if self._append:
+            if os.path.isfile(self.path):
+                with fiona.open(self.path, "r") as src:
+                    self._existing = {f["properties"]["tile_id"]: f for f in src}
+                self.file_obj = fiona.open(self.path, "a")
+            else:
+                self.file_obj = fiona.open(
+                    self.path, "w", driver=self.driver, crs=crs, schema=schema
+                )
+                self._existing = {}
+        else:
+            if os.path.isfile(self.path):
+                with fiona.open(self.path, "r") as src:
+                    self._existing = {f["properties"]["tile_id"]: f for f in src}
+                fiona.remove(self.path, driver=driver)
+            else:
+                self._existing = {}
+            self.file_obj = fiona.open(
+                self.path, "w", driver=self.driver, crs=crs, schema=schema
+            )
+            self.file_obj.writerecords(self._existing.values())
 
     def __repr__(self):
         return "VectorFileWriter(%s)" % self.path
@@ -189,11 +205,13 @@ class VectorFileWriter():
                 "zoom": str(tile.zoom),
                 "row": str(tile.row),
                 "col": str(tile.col),
-                self.fieldname: path}})
+                self.fieldname: path
+            }
+        })
         self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
-        exists = str(tile.id) in self.existing.keys()
+        exists = str(tile.id) in self._existing.keys()
         logger.debug("%s exists: %s", tile, exists)
         return exists
 
