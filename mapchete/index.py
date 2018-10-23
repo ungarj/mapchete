@@ -14,6 +14,7 @@ generate GPKG files 3.gpkg, 4.gpkg and 5.gpkg for zoom levels 3, 4 and 5.
 
 """
 
+import concurrent.futures
 from copy import deepcopy
 import fiona
 import logging
@@ -60,6 +61,8 @@ def zoom_index_gen(
         generate GeoJSON index (default: False)
     gpkg : bool
         generate GeoPackage index (default: False)
+    shapefile : bool
+        generate Shapefile index (default: False)
     txt : bool
         generate tile path list textfile (default: False)
     fieldname : str
@@ -79,14 +82,18 @@ def zoom_index_gen(
                     driver="GeoJSON",
                     out_path=_index_file_path(out_dir, zoom, "geojson"),
                     crs=mp.config.output_pyramid.crs,
-                    fieldname=fieldname))
+                    fieldname=fieldname
+                )
+            )
         if gpkg:
             index_writers.append(
                 VectorFileWriter(
                     driver="GPKG",
                     out_path=_index_file_path(out_dir, zoom, "gpkg"),
                     crs=mp.config.output_pyramid.crs,
-                    fieldname=fieldname))
+                    fieldname=fieldname
+                )
+            )
         if shapefile:
             index_writers.append(
                 VectorFileWriter(
@@ -96,36 +103,34 @@ def zoom_index_gen(
                     fieldname=fieldname))
         if txt:
             index_writers.append(
-                TextFileWriter(
-                    out_path=_index_file_path(out_dir, zoom, "txt")))
+                TextFileWriter(out_path=_index_file_path(out_dir, zoom, "txt")))
 
         logger.debug(index_writers)
 
-        # iterate through output tiles
-        for tile in mp.config.output_pyramid.tiles_from_geom(
-            mp.config.area_at_zoom(zoom), zoom
-        ):
-            logger.debug("analyze tile %s", tile)
-            # generate tile_path depending on basepath & for_gdal option
-            tile_path = _tile_path(
-                orig_path=mp.config.output.get_path(tile),
-                basepath=basepath, for_gdal=for_gdal
-            )
-            logger.debug(tile_path)
-
-            # check if tile was not already inserted into all available writers
-            # and write into indexes if output tile exists
-            not_yet_added = [
-                index for index in index_writers
-                if not index.entry_exists(tile=tile, path=tile_path)]
-            if (
-                not_yet_added and
-                mp.config.output.tiles_exist(output_tile=tile)
-            ):
-                for index in not_yet_added:
-                    index.write(tile, tile_path)
-
-            yield tile
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_tiles = {
+                executor.submit(
+                    mp.config.output.tiles_exist, output_tile=tile
+                ): (tile, tile_path, indexes)
+                for tile, tile_path, indexes in _gen_not_yet_added_indexes(
+                    mp=mp,
+                    zoom=zoom,
+                    index_writers=index_writers,
+                    basepath=basepath,
+                    for_gdal=for_gdal
+                )
+                if indexes
+                # else tile, tile_path, indexes
+            }
+            for future in concurrent.futures.as_completed(future_to_tiles):
+                tile, tile_path, indexes = future_to_tiles[future]
+                output_exists = future.result()
+                if output_exists:
+                    logger.debug("%s exists", tile_path)
+                    logger.debug("write to %s indexes" % len(indexes))
+                    for index in indexes:
+                        index.write(tile, tile_path)
+                yield tile
 
     finally:
         for writer in index_writers:
@@ -133,8 +138,33 @@ def zoom_index_gen(
             try:
                 writer.close()
             except Exception as e:
-                logger.error(
-                    "writer %s could not be closed: %s", e, str(writer))
+                logger.error("writer %s could not be closed: %s", e, str(writer))
+
+
+def _gen_not_yet_added_indexes(
+    mp=None, zoom=None, index_writers=None, basepath=None, for_gdal=None
+):
+    # iterate through output tiles
+    for tile in mp.config.output_pyramid.tiles_from_geom(
+        mp.config.area_at_zoom(zoom), zoom
+    ):
+        logger.debug("analyze tile %s", tile)
+        # generate tile_path depending on basepath & for_gdal option
+        tile_path = _tile_path(
+            orig_path=mp.config.output.get_path(tile),
+            basepath=basepath, for_gdal=for_gdal
+        )
+
+        # check if tile was not already inserted into all available writers
+        # and write into indexes if output tile exists
+        yield (
+            tile,
+            tile_path,
+            [
+                index for index in index_writers
+                if not index.entry_exists(tile=tile, path=tile_path)
+            ]
+        )
 
 
 def _index_file_path(out_dir, zoom, ext):
@@ -196,10 +226,16 @@ class VectorFileWriter():
     def __repr__(self):
         return "VectorFileWriter(%s)" % self.path
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def write(self, tile, path):
-        logger.debug("write %s to %s", path, self)
         if self.entry_exists(tile=tile):
             return
+        logger.debug("write %s to %s", path, self)
         self.file_obj.write({
             "geometry": mapping(tile.bbox),
             "properties": {
@@ -229,26 +265,32 @@ class TextFileWriter():
         logger.debug("initialize TXT writer")
         if os.path.isfile(self.path):
             with open(self.path) as src:
-                self.existing = [l for l in src]
+                self._existing = [l for l in src]
         else:
-            self.existing = []
+            self._existing = []
         self.new_entries = 0
         self.file_obj = open(self.path, "w")
-        for l in self.existing:
+        for l in self._existing:
             self.file_obj.write(l)
 
     def __repr__(self):
         return "TextFileWriter(%s)" % self.path
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def write(self, tile, path):
-        logger.debug("write %s to %s", path, self)
         if self.entry_exists(path=path):
             return
+        logger.debug("write %s to %s", path, self)
         self.file_obj.write(path + "\n")
         self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
-        exists = path + "\n" in self.existing
+        exists = path + "\n" in self._existing
         logger.debug("%s exists: %s", tile, exists)
         return exists
 
