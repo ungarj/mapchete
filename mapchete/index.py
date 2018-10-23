@@ -101,12 +101,15 @@ def zoom_index_gen(
                     driver="ESRI Shapefile",
                     out_path=_index_file_path(out_dir, zoom, "shp"),
                     crs=mp.config.output_pyramid.crs,
-                    fieldname=fieldname))
+                    fieldname=fieldname
+                )
+            )
         if txt:
             index_writers.append(
-                TextFileWriter(out_path=_index_file_path(out_dir, zoom, "txt")))
+                TextFileWriter(out_path=_index_file_path(out_dir, zoom, "txt"))
+            )
 
-        logger.debug(index_writers)
+        logger.debug("use the following index writers: %s", index_writers)
 
         def _worker(tile):
             # if there are indexes to write to, check if output exists
@@ -116,8 +119,7 @@ def zoom_index_gen(
                 for_gdal=for_gdal
             )
             indexes = [
-                index for index in index_writers
-                if not index.entry_exists(tile=tile, path=tile_path)
+                i for i in index_writers if not i.entry_exists(tile=tile, path=tile_path)
             ]
             if indexes:
                 output_exists = mp.config.output.tiles_exist(output_tile=tile)
