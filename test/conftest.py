@@ -95,6 +95,22 @@ def s2_band_remote():
 
 
 @pytest.fixture
+def s3_metadata_json():
+    """
+    Fixture for s3://mapchete-test/metadata.json.
+    """
+    return "s3://mapchete-test/metadata.json"
+
+
+@pytest.fixture
+def http_metadata_json():
+    """
+    Fixture for https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/metadata.json.
+    """
+    return "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/metadata.json"
+
+
+@pytest.fixture
 def landpoly():
     """Fixture for landpoly.geojson."""
     return os.path.join(TESTDATA_DIR, "landpoly.geojson")
