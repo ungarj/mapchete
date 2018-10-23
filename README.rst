@@ -131,12 +131,14 @@ Installation
 ------------
 
 via PyPi:
+
 .. code-block:: shell
 
     pip install mapchete
 
 
 from source:
+
 .. code-block:: shell
 
     pip install -r requirements.txt
