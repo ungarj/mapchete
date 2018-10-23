@@ -44,7 +44,8 @@ def zoom_index_gen(
     txt=False,
     fieldname=None,
     basepath=None,
-    for_gdal=True
+    for_gdal=True,
+    threading=False,
 ):
     """
     Generate indexes for given zoom level.
@@ -107,31 +108,33 @@ def zoom_index_gen(
 
         logger.debug(index_writers)
 
-        def _worker(i):
+        def _worker(tile):
             # if there are indexes to write to, check if output exists
-            tile, tile_path, indexes = i
+            tile_path = _tile_path(
+                orig_path=mp.config.output.get_path(tile),
+                basepath=basepath,
+                for_gdal=for_gdal
+            )
+            indexes = [
+                index for index in index_writers
+                if not index.entry_exists(tile=tile, path=tile_path)
+            ]
             if indexes:
-                return mp.config.output.tiles_exist(output_tile=tile)
+                output_exists = mp.config.output.tiles_exist(output_tile=tile)
             else:
-                return None
+                output_exists = None
+            return tile, tile_path, indexes, output_exists
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            # map future objects to input parameters
-            future_to_tiles = {
-                executor.submit(_worker, i): i
-                for i in _gen_not_yet_added_indexes(
-                    mp=mp,
-                    zoom=zoom,
-                    index_writers=index_writers,
-                    basepath=basepath,
-                    for_gdal=for_gdal
+            for task in concurrent.futures.as_completed(
+                (
+                    executor.submit(_worker, i)
+                    for i in mp.config.output_pyramid.tiles_from_geom(
+                        mp.config.area_at_zoom(zoom), zoom
+                    )
                 )
-            }
-            for future in concurrent.futures.as_completed(future_to_tiles):
-                # input params
-                tile, tile_path, indexes = future_to_tiles[future]
-                # worker result
-                output_exists = future.result()
+            ):
+                tile, tile_path, indexes, output_exists = task.result()
                 # only write entries if there are indexes to write to and output exists
                 if indexes and output_exists:
                     logger.debug("%s exists", tile_path)
@@ -148,32 +151,6 @@ def zoom_index_gen(
                 writer.close()
             except Exception as e:
                 logger.error("writer %s could not be closed: %s", e, str(writer))
-
-
-def _gen_not_yet_added_indexes(
-    mp=None, zoom=None, index_writers=None, basepath=None, for_gdal=None
-):
-    # iterate through output tiles
-    for tile in mp.config.output_pyramid.tiles_from_geom(
-        mp.config.area_at_zoom(zoom), zoom
-    ):
-        logger.debug("analyze tile %s", tile)
-        # generate tile_path depending on basepath & for_gdal option
-        tile_path = _tile_path(
-            orig_path=mp.config.output.get_path(tile),
-            basepath=basepath, for_gdal=for_gdal
-        )
-
-        # check if tile was not already inserted into all available writers
-        # and write into indexes if output tile exists
-        yield (
-            tile,
-            tile_path,
-            [
-                index for index in index_writers
-                if not index.entry_exists(tile=tile, path=tile_path)
-            ]
-        )
 
 
 def _index_file_path(out_dir, zoom, ext):
