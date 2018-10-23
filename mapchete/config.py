@@ -264,21 +264,27 @@ class MapcheteConfig(object):
     @cached_property
     def output(self):
         """Output object of driver."""
-        output_params = self._raw["output"]
+        output_params = dict(
+            self._raw["output"],
+            type=self.output_pyramid.grid,
+            pixelbuffer=self.output_pyramid.pixelbuffer,
+            metatiling=self.output_pyramid.metatiling
+        )
         if "path" in output_params:
             output_params.update(
                 path=absolute_path(path=output_params["path"], base_dir=self.config_dir)
             )
-        output_params.update(
-            type=self.output_pyramid.grid,
-            pixelbuffer=self.output_pyramid.pixelbuffer,
-            metatiling=self.output_pyramid.metatiling)
+
         if "format" not in output_params:
             raise MapcheteConfigError("output format not specified")
+
         if output_params["format"] not in available_output_formats():
             raise MapcheteConfigError(
                 "format %s not available in %s" % (
-                    output_params["format"], str(available_output_formats())))
+                    output_params["format"], str(available_output_formats())
+                )
+            )
+
         writer = load_output_writer(output_params)
         try:
             writer.is_valid_with_config(output_params)
@@ -286,7 +292,9 @@ class MapcheteConfig(object):
             logger.exception(e)
             raise MapcheteConfigError(
                 "driver %s not compatible with configuration: %s" % (
-                    writer.METADATA["driver_name"], e))
+                    writer.METADATA["driver_name"], e
+                )
+            )
         return writer
 
     @cached_property
@@ -322,7 +330,7 @@ class MapcheteConfig(object):
 
             # for files and tile directories
             if isinstance(v, six.string_types):
-                logger.debug("load input reader for file %s",  v)
+                logger.debug("load input reader for simple input %s",  v)
                 try:
                     reader = load_input_reader(
                         dict(
@@ -335,7 +343,7 @@ class MapcheteConfig(object):
                 except Exception as e:
                     logger.exception(e)
                     raise MapcheteDriverError(e)
-                logger.debug("input reader for file %s is %s", v, reader)
+                logger.debug("input reader for simple input %s is %s", v, reader)
 
             # for abstract inputs
             elif isinstance(v, dict):
@@ -377,6 +385,7 @@ class MapcheteConfig(object):
             return {}
         baselevels = self._raw["baselevels"]
         minmax = {k: v for k, v in six.iteritems(baselevels) if k in ["min", "max"]}
+
         if not minmax:
             raise MapcheteConfigError("no min and max values given for baselevels")
         for v in minmax.values():
@@ -384,12 +393,15 @@ class MapcheteConfig(object):
                 raise MapcheteConfigError(
                     "invalid baselevel zoom parameter given: %s" % minmax.values()
                 )
+
         zooms = list(range(
             minmax.get("min", min(self.zoom_levels)),
             minmax.get("max", max(self.zoom_levels)) + 1)
         )
+
         if not set(self.zoom_levels).difference(set(zooms)):
             raise MapcheteConfigError("baselevels zooms fully cover process zooms")
+
         return dict(
             zooms=zooms,
             lower=baselevels.get("lower", "nearest"),
@@ -397,7 +409,8 @@ class MapcheteConfig(object):
             tile_pyramid=BufferedTilePyramid(
                 self.output_pyramid.grid,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
-                metatiling=self.process_pyramid.metatiling)
+                metatiling=self.process_pyramid.metatiling
+            )
         )
 
     @cached_property
@@ -439,8 +452,7 @@ class MapcheteConfig(object):
         if zoom not in self.init_zoom_levels:
             raise ValueError(
                 "zoom level not available with current configuration")
-        out = dict(**self._params_at_zoom[zoom])
-        out.update(input={}, output=self.output)
+        out = dict(self._params_at_zoom[zoom], input={}, output=self.output)
         if "input" in self._params_at_zoom[zoom]:
             flat_inputs = {}
             for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"]):
