@@ -267,7 +267,7 @@ class MapcheteConfig(object):
         output_params = self._raw["output"]
         if "path" in output_params:
             output_params.update(
-                path=absolute_path(self.config_dir, output_params["path"])
+                path=absolute_path(path=output_params["path"], base_dir=self.config_dir)
             )
         output_params.update(
             type=self.output_pyramid.grid,

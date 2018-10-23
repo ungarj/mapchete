@@ -141,12 +141,17 @@ def path_exists(path):
         return os.path.exists(path)
 
 
-def absolute_path(directory, path):
+def absolute_path(path=None, base_dir=None):
     """Return absolute path if local."""
     if path_is_remote(path):
         return path
     else:
-        return os.path.abspath(os.path.join(directory, path))
+        if os.path.isabs(path):
+            return path
+        else:
+            if base_dir is None or not os.path.isabs(base_dir):
+                raise TypeError("base_dir must be an absolute path.")
+            return os.path.abspath(os.path.join(base_dir, path))
 
 
 def makedirs(path):

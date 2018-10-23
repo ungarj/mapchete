@@ -67,7 +67,9 @@ class InputData(base.InputData):
             )
 
         elif "path" in input_params:
-            self.path = absolute_path(input_params.get("conf_dir"), input_params["path"])
+            self.path = absolute_path(
+                path=input_params["path"], base_dir=input_params.get("conf_dir")
+            )
             try:
                 params = read_json(os.path.join(self.path, "metadata.json"))
             except FileNotFoundError:
