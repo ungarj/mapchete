@@ -226,8 +226,11 @@ def read_json(path):
                 return json.loads(obj.get()['Body'].read().decode())
         raise FileNotFoundError("%s not found", path)
     else:
-        with open(path, "r") as src:
-            return json.loads(src.read())
+        try:
+            with open(path, "r") as src:
+                return json.loads(src.read())
+        except:
+            raise FileNotFoundError("%s not found", path)
 
 
 def params_to_dump(params):

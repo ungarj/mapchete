@@ -40,7 +40,7 @@ def app(dem_to_hillshade, cleantopo_br, geojson, mp_tmpdir):
 @yield_fixture(autouse=True)
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
-    # shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    shutil.rmtree(TEMP_DIR, ignore_errors=True)
     os.makedirs(TEMP_DIR)
     yield TEMP_DIR
     shutil.rmtree(TEMP_DIR, ignore_errors=True)

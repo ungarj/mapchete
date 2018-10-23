@@ -118,7 +118,7 @@ def load_input_reader(input_params, readonly=False):
     input_params : ``InputData``
         input parameters
     """
-    logger.debug(input_params)
+    logger.debug("find input reader with params %s", input_params)
     if not isinstance(input_params, dict):
         raise TypeError("input_params must be a dictionary")
     if "abstract" in input_params:

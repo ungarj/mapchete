@@ -299,8 +299,10 @@ class MapcheteConfig(object):
         """
         # the delimiters are used by some input drivers
         delimiters = dict(
-            zoom=self.init_zoom_levels, bounds=self.init_bounds,
-            process_bounds=self.bounds, effective_bounds=self.effective_bounds
+            zoom=self.init_zoom_levels,
+            bounds=self.init_bounds,
+            process_bounds=self.bounds,
+            effective_bounds=self.effective_bounds
         )
 
         # get input items only of initialized zoom levels
@@ -314,45 +316,50 @@ class MapcheteConfig(object):
             for key, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
             if v is not None
         }
+
         initalized_inputs = {}
         for k, v in six.iteritems(raw_inputs):
+
+            # for files and tile directories
             if isinstance(v, six.string_types):
-                # get absolute paths if not remote
-                path = absolute_path(self.config_dir, v)
                 logger.debug("load input reader for file %s",  v)
                 try:
                     reader = load_input_reader(
                         dict(
-                            path=deepcopy(path), pyramid=self.process_pyramid,
+                            path=absolute_path(path=v, base_dir=self.config_dir),
+                            pyramid=self.process_pyramid,
                             pixelbuffer=self.process_pyramid.pixelbuffer,
                             delimiters=delimiters
-                        ), self.mode == "readonly")
+                        ),
+                        readonly=self.mode == "readonly")
                 except Exception as e:
                     logger.exception(e)
                     raise MapcheteDriverError(e)
-                logger.debug(
-                    "input reader for file %s is %s", v, reader)
+                logger.debug("input reader for file %s is %s", v, reader)
+
             # for abstract inputs
             elif isinstance(v, dict):
-                logger.debug(
-                    "load input reader for abstract input %s", v)
+                logger.debug("load input reader for abstract input %s", v)
                 try:
                     reader = load_input_reader(
                         dict(
-                            abstract=deepcopy(v), pyramid=self.process_pyramid,
+                            abstract=deepcopy(v),
+                            pyramid=self.process_pyramid,
                             pixelbuffer=self.process_pyramid.pixelbuffer,
-                            delimiters=delimiters, conf_dir=self.config_dir
-                        ), self.mode == "readonly")
+                            delimiters=delimiters,
+                            conf_dir=self.config_dir
+                        ),
+                        readonly=self.mode == "readonly")
                 except Exception as e:
                     logger.exception(e)
                     raise MapcheteDriverError(e)
-                logger.debug(
-                    "input reader for abstract input %s is %s", v, reader)
+                logger.debug("input reader for abstract input %s is %s", v, reader)
             else:
                 raise MapcheteConfigError("invalid input type %s", type(v))
             # trigger bbox creation
             reader.bbox(out_crs=self.process_pyramid.crs)
             initalized_inputs[k] = reader
+
         return initalized_inputs
 
     @cached_property

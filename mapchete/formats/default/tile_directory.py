@@ -57,7 +57,10 @@ class InputData(base.InputData):
 
         if "abstract" in input_params:
             self._params = input_params["abstract"]
-            self.path = absolute_path(input_params["conf_dir"], self._params["path"])
+            self.path = absolute_path(
+                path=self._params["path"],
+                base_dir=input_params["conf_dir"]
+            )
             # define pyramid
             self.td_pyramid = BufferedTilePyramid(
                 self._params["type"],
