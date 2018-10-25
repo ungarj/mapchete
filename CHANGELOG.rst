@@ -3,6 +3,12 @@ Changelog
 #########
 
 ----
+0.25
+----
+* use ``concurrent.futures`` instead of ``multiprocessing``
+
+
+----
 0.24
 ----
 * breaking changes:
