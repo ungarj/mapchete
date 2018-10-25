@@ -2,16 +2,14 @@
 
 from cachetools import LRUCache
 from collections import namedtuple
-from functools import partial
+import concurrent.futures
 import inspect
 from itertools import chain, product
 import logging
 from multiprocessing import cpu_count, current_process
-from multiprocessing.pool import Pool
 import numpy as np
 import numpy.ma as ma
 from shapely.geometry import shape
-import signal
 import six
 import threading
 from tilematrix import TilePyramid
@@ -197,13 +195,13 @@ class Mapchete(object):
         # run single tile
         if tile:
             yield _run_on_single_tile(self, tile)
-        # run using multiprocessing
+        # run concurrently
         elif multi > 1:
             for process_info in _run_with_multiprocessing(
                 self, list(_get_zoom_level(zoom, self)), multi, max_chunksize
             ):
                 yield process_info
-        # run without multiprocessing
+        # run sequentially
         elif multi == 1:
             for process_info in _run_without_multiprocessing(
                 self, list(_get_zoom_level(zoom, self))
@@ -922,39 +920,26 @@ def _run_on_single_tile(process, tile):
 
 
 def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
-    logger.debug("run with multiprocessing")
+    logger.debug("run concurrently")
     num_processed = 0
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     logger.debug("run process on %s tiles using %s workers", total_tiles, multi)
     with Timer() as t:
-        f = partial(_process_worker, process)
-        for zoom in zoom_levels:
-            pool = Pool(multi, _worker_sigint_handler)
-            try:
-                for process_info in pool.imap_unordered(
-                    f,
-                    process.get_process_tiles(zoom),
-                    # set chunksize to between 1 and max_chunksize
-                    chunksize=max_chunksize
-                ):
+        logger.debug("run process on %s tiles using %s workers", total_tiles, multi)
+        with concurrent.futures.ProcessPoolExecutor(max_workers=multi) as executor:
+            for zoom in zoom_levels:
+                for task in concurrent.futures.as_completed((
+                    executor.submit(_process_worker, process, process_tile)
+                    for process_tile in process.get_process_tiles(zoom)
+                )):
                     num_processed += 1
                     logger.debug("tile %s/%s finished", num_processed, total_tiles)
-                    yield process_info
-            except KeyboardInterrupt:
-                logger.error("Caught KeyboardInterrupt, terminating workers")
-                pool.terminate()
-                raise
-            except Exception:
-                pool.terminate()
-                raise
-            finally:
-                pool.close()
-                pool.join()
+                    yield task.result()
     logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 
 
 def _run_without_multiprocessing(process, zoom_levels):
-    logger.debug("run without multiprocessing")
+    logger.debug("run sequentially")
     num_processed = 0
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     logger.debug("run process on %s tiles using 1 worker", total_tiles)
@@ -1015,8 +1000,3 @@ def _process_worker(process, process_tile):
             written=writer_info.written,
             write_msg=writer_info.write_msg
         )
-
-
-def _worker_sigint_handler():
-    # ignore SIGINT and let everything be handled by parent process
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
