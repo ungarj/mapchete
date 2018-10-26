@@ -19,7 +19,6 @@ nodata: integer or float
     nodata value used for writing
 """
 
-import boto3
 import logging
 import numpy as np
 import numpy.ma as ma
@@ -106,11 +105,11 @@ class OutputData(base.OutputData):
             logger.debug("data empty, nothing to write")
         else:
             # in case of S3 output, create an boto3 resource
-            bucket_resource = (
-                boto3.resource('s3').Bucket(self._bucket)
-                if self._bucket
-                else None
-            )
+            if self._bucket:
+                import boto3
+                bucket_resource = boto3.resource('s3').Bucket(self._bucket)
+            else:
+                bucket_resource = None
 
             # Convert from process_tile to output_tiles and write
             for tile in self.pyramid.intersecting(process_tile):

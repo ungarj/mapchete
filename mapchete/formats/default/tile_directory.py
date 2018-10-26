@@ -11,7 +11,7 @@ from shapely.geometry import box
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base, load_output_writer
-from mapchete.io import path_exists, absolute_path, read_json, path_is_remote
+from mapchete.io import path_exists, absolute_path, read_json
 from mapchete.io.vector import reproject_geometry, read_vector_window
 from mapchete.io.raster import read_raster_window, create_mosaic, resample_from_array
 from mapchete.tile import BufferedTilePyramid
