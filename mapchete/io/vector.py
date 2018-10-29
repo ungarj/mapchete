@@ -140,18 +140,22 @@ def segmentize_geometry(geometry, segmentize_value):
     """
     if geometry.geom_type != "Polygon":
         raise TypeError("segmentize geometry type must be Polygon")
-    points = []
-    p_xy = None
-    for xy in geometry.exterior.coords:
-        if p_xy is not None:
-            line_segment = LineString([p_xy, xy])
-            points.extend([
-                line_segment.interpolate(segmentize_value * i).coords[0]
-                for i in range(int(line_segment.length / segmentize_value))
-            ])
-        p_xy = xy
-        points.append(xy)
-    return Polygon(LinearRing(points))
+
+    return Polygon(
+        LinearRing([
+            p
+            # pick polygon linestrings
+            for l in map(
+                lambda x: LineString([x[0], x[1]]),
+                zip(geometry.exterior.coords[:-1], geometry.exterior.coords[1:])
+            )
+            # interpolate additional points in between and don't forget end point
+            for p in [
+                l.interpolate(segmentize_value * i).coords[0]
+                for i in range(int(l.length / segmentize_value))
+            ] + [l.coords[1]]
+        ])
+    )
 
 
 def read_vector_window(input_file, tile, validity_check=True):
