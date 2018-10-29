@@ -2,17 +2,6 @@
 
 from shapely.geometry import LineString, mapping
 
-# try:
-#     import matplotlib
-#     # Must be called before pyplot otherwise Travis fails
-#     matplotlib.use('Agg')
-# except ImportError:
-#     pass
-# try:
-#     import matplotlib.pyplot as plt
-# except ImportError:
-#     pass
-
 
 def extract_contours(array, tile, interval=100, field='elev', base=0):
     """
