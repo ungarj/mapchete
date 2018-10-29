@@ -8,7 +8,6 @@ import os
 import pkgutil
 from rasterio.io import MemoryFile
 import six
-from flask import (Flask, send_file, make_response, render_template_string, abort, jsonify)
 
 import mapchete
 from mapchete.cli import utils
@@ -67,6 +66,7 @@ def create_app(
     mode="continue", debug=None
 ):
     """Configure and create Flask app."""
+    from flask import Flask, render_template_string
     app = Flask(__name__)
     mapchete_processes = {
         os.path.splitext(os.path.basename(mapchete_file))[0]: mapchete.open(
@@ -133,10 +133,12 @@ def _tile_response(mp, web_tile, debug):
         if debug:
             raise
         else:
+            from flask import abort
             abort(500)
 
 
 def _valid_tile_response(mp, data):
+    from flask import send_file, make_response, jsonify
     out_data, mime_type = mp.config.output.for_web(data)
     logger.debug("create tile response %s", mime_type)
     if isinstance(out_data, MemoryFile):

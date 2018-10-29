@@ -20,9 +20,6 @@ Tile-based geodata processing.
 .. image:: https://img.shields.io/pypi/pyversions/mapchete.svg
     :target: https://pypi.python.org/pypi/mapchete
 
-
-NOTE: this package only supports Python 3.5 and 3.6 from now on.
-
 Developing a script which does some geoprocessing is usually an iterative
 process where modifying code, running the script and inspecting the output
 repeat until the desired result. This can take a long time as processing and
@@ -93,7 +90,8 @@ and a ``.py`` file or a Python module path where you specify the process itself
 
 
 You can then interactively inspect the process output directly on a map in a
-browser (go to ``localhost:5000``):
+browser (first, install dependencies by ``pip install mapchete[serve]`` go to
+``localhost:5000``):
 
 .. code-block:: shell
 
@@ -147,7 +145,8 @@ from source:
     python setup.py install
 
 
-To make sure Rasterio and Fiona are properly built against your local GDAL installation, don't install the binaries but build them on your system:
+To make sure Rasterio and Fiona are properly built against your local GDAL installation,
+don't install the binaries but build them on your system:
 
 .. code-block:: shell
 

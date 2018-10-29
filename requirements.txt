@@ -1,7 +1,7 @@
 boto3
 cachetools
 cached_property
-click
+click>=7.0.0'
 click-plugins
 fiona>=1.8b1
 flask

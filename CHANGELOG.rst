@@ -6,6 +6,7 @@ Changelog
 0.25
 ----
 * use ``concurrent.futures`` instead of ``multiprocessing``
+* make some dependencies optional (Flask, boto3, etc.)
 
 
 ----

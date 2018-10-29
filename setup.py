@@ -69,17 +69,20 @@ setup(
     install_requires=[
         'cachetools',
         'cached_property',
-        'click',
+        'click>=7.0.0',
         'click-plugins',
         'fiona>=1.8b1',
-        'flask',
         'pyproj',
         'pyyaml',
         'rasterio>=1.0.2',
         'tilematrix>=0.17',
         'tqdm'
     ] if not on_rtd else [],
-    extras_require={'contours': ['matplotlib']},
+    extras_require={
+        'contours': ['matplotlib'],
+        's3': ['boto3'],
+        'serve': ['flask']
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

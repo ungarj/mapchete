@@ -1,6 +1,5 @@
 """Functions for reading and writing data."""
 
-import boto3
 import json
 import logging
 import os
@@ -129,6 +128,7 @@ def path_exists(path):
             else:
                 raise
     elif path.startswith("s3://"):
+        import boto3
         bucket_name = path.split("/")[2]
         bucket = boto3.resource('s3').Bucket(bucket_name)
         key = "/".join(path.split("/")[3:])
@@ -196,6 +196,7 @@ def write_json(path, params):
     """Write local or remote."""
     logger.debug("write %s to %s", params, path)
     if path.startswith("s3://"):
+        import boto3
         bucket_name = path.split("/")[2]
         bucket = boto3.resource('s3').Bucket(bucket_name)
         key = "/".join(path.split("/")[3:])
@@ -218,6 +219,7 @@ def read_json(path):
         except HTTPError:
             raise FileNotFoundError("%s not found", path)
     elif path.startswith("s3://"):
+        import boto3
         bucket_name = path.split("/")[2]
         bucket = boto3.resource('s3').Bucket(bucket_name)
         key = "/".join(path.split("/")[3:])
