@@ -886,29 +886,35 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
     for tile in tiles:
         # determine data covered by tile
         tile_intersection = tile.bbox().intersection(geometry)
+
         # skip if there is no data
         if tile_intersection.is_empty:
             continue
         # increase counter as tile contains data
         elif tile.zoom >= minzoom:
             count += 1
+
         # if there are further zoom levels, analyze descendants
         if tile.zoom < maxzoom:
+
             # if tile is half full, analyze each descendant
             if tile_intersection.area < tile.bbox().area:
                 count += _count_tiles(
                     tile.get_children(), tile_intersection, minzoom, maxzoom
                 )
+
             # if tile is full, all of its descendants will be full as well
             else:
                 # sum up tiles for each remaining zoom level
                 count += sum([
-                     4**z for z in range(
+                    4**z for z in range(
                         # only count zoom levels which are greater than minzoom or
                         # count all zoom levels from tile zoom level to maxzoom
                         minzoom - tile.zoom if tile.zoom < minzoom else 1,
-                        maxzoom - tile.zoom + 1)
+                        maxzoom - tile.zoom + 1
+                    )
                 ])
+
     return count
 
 
