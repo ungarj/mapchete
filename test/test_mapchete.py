@@ -415,3 +415,10 @@ def test_snap_bounds_errors():
         mapchete.config.snap_bounds(bounds=(0, 1, ))
     with pytest.raises(TypeError):
         mapchete.config.snap_bounds(bounds=bounds, pyramid="invalid")
+
+
+def test_execute_params(cleantopo_br, execute_params_error_py):
+    """Assert execute() without parameters passes."""
+    config = cleantopo_br.dict
+    config.update(process=execute_params_error_py)
+    mapchete.open(config)

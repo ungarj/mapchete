@@ -75,7 +75,7 @@ and a ``.py`` file or a Python module path where you specify the process itself
 
 .. code-block:: python
 
-    def execute(mp, resampling="nearest", **kwargs):
+    def execute(mp, resampling="nearest"):
         # Open elevation model.
         with mp.open("dem", resampling=resampling) as src:
             # Skip tile if there is no data available.

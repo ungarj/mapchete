@@ -498,19 +498,14 @@ class Mapchete(object):
         try:
             with Timer() as t:
                 # Actually run process.
-                if len(inspect.getargspec(self.config.process_func).args) == 1:
-                    process_data = self.config.process_func(tile_process)
-                else:
-                    process_data = self.config.process_func(
-                        tile_process,
-                        **{
-                            k: v for k, v in six.iteritems(params)
-                            if k not in [
-                                "input", "output", "pyramid", "zoom_levels",
-                                "mapchete_file", "init_bounds", "init_zoom_levels"
-                            ]
-                        }
-                    )
+                process_data = self.config.process_func(
+                    tile_process,
+                    # only pass on kwargs which are defined in execute()
+                    **{
+                        k: v for k, v in params.items()
+                        if k in inspect.signature(self.config.process_func).parameters
+                    }
+                )
         except Exception as e:
             # Log process time
             logger.exception(

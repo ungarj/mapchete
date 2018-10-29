@@ -230,14 +230,6 @@ def test_malformed_process(cleantopo_br, malformed_py):
         mapchete.open(config)
 
 
-def test_execute_params(cleantopo_br, execute_params_error_py):
-    """Assert import error is raised."""
-    config = cleantopo_br.dict
-    config.update(process=execute_params_error_py)
-    with pytest.raises(errors.MapcheteProcessImportError):
-        mapchete.open(config)
-
-
 def test_syntax_error(mp_tmpdir, cleantopo_br, syntax_error_py):
     """Assert syntax error is raised."""
     config = cleantopo_br.dict

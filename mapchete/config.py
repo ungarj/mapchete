@@ -14,7 +14,6 @@ from cached_property import cached_property
 from copy import deepcopy
 import imp
 import importlib
-import inspect
 import logging
 import operator
 import os
@@ -51,7 +50,7 @@ _MANDATORY_PARAMETERS = [
 _RESERVED_PARAMETERS = [
     "baselevels",       # enable interpolation from other zoom levels
     "bounds",           # process bounds
-    "process",     # path to .py file or module path
+    "process",          # path to .py file or module path
     "config_dir",       # configuration base directory
     "process_minzoom",  # minimum zoom where process is valid (deprecated)
     "process_maxzoom",  # maximum zoom where process is valid (deprecated)
@@ -422,12 +421,7 @@ class MapcheteConfig(object):
                     """instanciating MapcheteProcess is deprecated, """
                     """provide execute() function instead""")
             if hasattr(process_module, "execute"):
-                user_execute = process_module.execute
-                if len(inspect.signature(user_execute).parameters) == 0:
-                    raise ImportError(
-                        "execute() function has to accept at least one argument"
-                    )
-                return user_execute
+                return process_module.execute
             else:
                 raise ImportError(
                     "No execute() function found in %s" % self._raw["process"]

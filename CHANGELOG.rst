@@ -8,6 +8,7 @@ Changelog
 * use ``concurrent.futures`` instead of ``multiprocessing``
 * make some dependencies optional (Flask, boto3, etc.)
 * speed up ``count_tiles()``
+* ``execute()`` function does not require explicit ``**kwargs`` anymore
 
 
 ----
