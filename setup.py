@@ -71,6 +71,7 @@ setup(
         'cached_property',
         'click>=7.0.0',
         'click-plugins',
+        'click-spinner',
         'fiona>=1.8b1',
         'pyproj',
         'pyyaml',

@@ -1,6 +1,7 @@
 """Create index for process output."""
 
 import click
+import click_spinner
 import logging
 import os
 from shapely import wkt
@@ -67,56 +68,26 @@ def index(
 
     for mapchete_file in mapchete_files:
         tqdm.tqdm.write("create index for %s" % mapchete_file, file=verbose_dst)
-        # process single tile
-        if tile:
-            conf = _map_to_new_config(
-                yaml.load(open(mapchete_file, "r").read()))
-            tile = BufferedTilePyramid(
-                conf["pyramid"]["grid"],
-                metatiling=conf["pyramid"].get("metatiling", 1),
-                pixelbuffer=conf["pyramid"].get("pixelbuffer", 0)
-            ).tile(*tile)
-            with mapchete.open(
-                mapchete_file, mode="readonly", bounds=tile.bounds,
-                zoom=tile.zoom
-            ) as mp:
-                out_dir = out_dir if out_dir else mp.config.output.path
-                for tile in tqdm.tqdm(
-                    zoom_index_gen(
-                        mp=mp,
-                        zoom=tile.zoom,
-                        out_dir=out_dir,
-                        geojson=geojson,
-                        gpkg=gpkg,
-                        shapefile=shp,
-                        txt=txt,
-                        fieldname=fieldname,
-                        basepath=basepath,
-                        for_gdal=for_gdal),
-                    total=mp.count_tiles(tile.zoom, tile.zoom),
-                    unit="tile",
-                    disable=debug
-                ):
-                    logger.debug(tile)
-
-        else:
-            with mapchete.open(
-                mapchete_file,
-                mode="readonly",
-                zoom=zoom,
-                bounds=wkt.loads(wkt_geometry).bounds if wkt_geometry else bounds
-            ) as mp:
-                out_dir = out_dir if out_dir else mp.config.output.path
-                logger.debug("process bounds: %s", mp.config.init_bounds)
-                logger.debug("process zooms: %s", mp.config.init_zoom_levels)
-                logger.debug("fieldname: %s", fieldname)
-                for z in mp.config.init_zoom_levels:
-                    logger.debug("zoom %s", z)
+        with click_spinner.spinner() as spinner:
+            # process single tile
+            if tile:
+                conf = _map_to_new_config(
+                    yaml.load(open(mapchete_file, "r").read()))
+                tile = BufferedTilePyramid(
+                    conf["pyramid"]["grid"],
+                    metatiling=conf["pyramid"].get("metatiling", 1),
+                    pixelbuffer=conf["pyramid"].get("pixelbuffer", 0)
+                ).tile(*tile)
+                with mapchete.open(
+                    mapchete_file, mode="readonly", bounds=tile.bounds,
+                    zoom=tile.zoom
+                ) as mp:
+                    spinner.stop()
                     for tile in tqdm.tqdm(
                         zoom_index_gen(
                             mp=mp,
-                            zoom=z,
-                            out_dir=out_dir,
+                            zoom=tile.zoom,
+                            out_dir=out_dir if out_dir else mp.config.output.path,
                             geojson=geojson,
                             gpkg=gpkg,
                             shapefile=shp,
@@ -124,10 +95,41 @@ def index(
                             fieldname=fieldname,
                             basepath=basepath,
                             for_gdal=for_gdal),
-                        total=mp.count_tiles(z, z),
+                        total=mp.count_tiles(tile.zoom, tile.zoom),
                         unit="tile",
                         disable=debug
                     ):
                         logger.debug(tile)
+
+            else:
+                with mapchete.open(
+                    mapchete_file,
+                    mode="readonly",
+                    zoom=zoom,
+                    bounds=wkt.loads(wkt_geometry).bounds if wkt_geometry else bounds
+                ) as mp:
+                    spinner.stop()
+                    logger.debug("process bounds: %s", mp.config.init_bounds)
+                    logger.debug("process zooms: %s", mp.config.init_zoom_levels)
+                    logger.debug("fieldname: %s", fieldname)
+                    for z in mp.config.init_zoom_levels:
+                        logger.debug("zoom %s", z)
+                        for tile in tqdm.tqdm(
+                            zoom_index_gen(
+                                mp=mp,
+                                zoom=z,
+                                out_dir=out_dir if out_dir else mp.config.output.path,
+                                geojson=geojson,
+                                gpkg=gpkg,
+                                shapefile=shp,
+                                txt=txt,
+                                fieldname=fieldname,
+                                basepath=basepath,
+                                for_gdal=for_gdal),
+                            total=mp.count_tiles(z, z),
+                            unit="tile",
+                            disable=debug
+                        ):
+                            logger.debug(tile)
 
         tqdm.tqdm.write("index creation finished", file=verbose_dst)
