@@ -187,7 +187,10 @@ def write_output_metadata(output_params):
             logger.debug("%s does not exist", metadata_path)
             dump_params = params_to_dump(output_params)
             # dump output metadata
-            write_json(metadata_path, dump_params)
+            try:
+                write_json(metadata_path, dump_params)
+            except Exception as e:
+                logger.warning("failed to write %s: %s", metadata_path, e)
     else:
         logger.debug("no path parameter found")
 
