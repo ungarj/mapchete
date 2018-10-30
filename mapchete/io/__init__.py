@@ -128,9 +128,7 @@ def path_exists(path):
             else:
                 raise
     elif path.startswith("s3://"):
-        import boto3
-        bucket_name = path.split("/")[2]
-        bucket = boto3.resource('s3').Bucket(bucket_name)
+        bucket = get_boto3_bucket(path.split("/")[2])
         key = "/".join(path.split("/")[3:])
         for obj in bucket.objects.filter(Prefix=key):
             if obj.key == key:
@@ -199,9 +197,7 @@ def write_json(path, params):
     """Write local or remote."""
     logger.debug("write %s to %s", params, path)
     if path.startswith("s3://"):
-        import boto3
-        bucket_name = path.split("/")[2]
-        bucket = boto3.resource('s3').Bucket(bucket_name)
+        bucket = get_boto3_bucket(path.split("/")[2])
         key = "/".join(path.split("/")[3:])
         logger.debug("upload %s", key)
         bucket.put_object(
@@ -222,9 +218,7 @@ def read_json(path):
         except HTTPError:
             raise FileNotFoundError("%s not found", path)
     elif path.startswith("s3://"):
-        import boto3
-        bucket_name = path.split("/")[2]
-        bucket = boto3.resource('s3').Bucket(bucket_name)
+        bucket = get_boto3_bucket(path.split("/")[2])
         key = "/".join(path.split("/")[3:])
         for obj in bucket.objects.filter(Prefix=key):
             if obj.key == key:
@@ -266,3 +260,15 @@ def params_to_dump(params):
            if k not in ["path", "type", "pixelbuffer", "metatiling"]
         }
     )
+
+
+def get_boto3_bucket(bucket_name):
+    import boto3
+    url = os.environ.get("AWS_S3_ENDPOINT")
+    return boto3.resource(
+        's3',
+        endpoint_url=(
+            "https://" + url if url and not url.startswith(("http://", "https://"))
+            else url
+        )
+    ).Bucket(bucket_name)

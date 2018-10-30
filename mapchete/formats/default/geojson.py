@@ -32,7 +32,7 @@ import types
 
 from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.io import makedirs
+from mapchete.io import makedirs, get_boto3_bucket
 from mapchete.io.vector import write_vector_window
 from mapchete.tile import BufferedTile
 
@@ -128,11 +128,7 @@ class OutputData(base.OutputData):
             logger.debug("no features to write")
         else:
             # in case of S3 output, create an boto3 resource
-            if self._bucket:
-                import boto3
-                bucket_resource = boto3.resource('s3').Bucket(self._bucket)
-            else:
-                bucket_resource = None
+            bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
 
             # Convert from process_tile to output_tiles
             for tile in self.pyramid.intersecting(process_tile):
