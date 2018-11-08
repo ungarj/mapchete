@@ -493,7 +493,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
 
-def test_index_text(mp_tmpdir, cleantopo_br):
+def test_index_text(cleantopo_br):
     # execute process
     run_cli(['execute', cleantopo_br.path, '-z', '5', '--debug'])
 

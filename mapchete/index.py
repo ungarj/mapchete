@@ -22,6 +22,8 @@ import logging
 import os
 from shapely.geometry import mapping
 
+from mapchete.io import path_exists, get_boto3_bucket
+
 logger = logging.getLogger(__name__)
 
 spatial_schema = {
@@ -43,7 +45,7 @@ def zoom_index_gen(
     gpkg=False,
     shapefile=False,
     txt=False,
-    fieldname=None,
+    fieldname="location",
     basepath=None,
     for_gdal=True,
     threading=False,
@@ -250,16 +252,31 @@ class TextFileWriter():
     """Writes tile paths into text file."""
     def __init__(self, out_path=None):
         self.path = out_path
+        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self.bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
         logger.debug("initialize TXT writer")
-        if os.path.isfile(self.path):
-            with open(self.path) as src:
-                self._existing = [l for l in src]
+        if path_exists(self.path):
+            if self._bucket:
+                key = "/".join(self.path.split("/")[3:])
+                for obj in self.bucket_resource.objects.filter(Prefix=key):
+                    if obj.key == key:
+                        self._existing = {
+                            l + '\n'
+                            for l in obj.get()['Body'].read().decode().split('\n')
+                            if l
+                        }
+            else:
+                with open(self.path) as src:
+                    self._existing = {l for l in src}
         else:
-            self._existing = []
+            self._existing = {}
         self.new_entries = 0
-        self.file_obj = open(self.path, "w")
+        if self._bucket:
+            self.file_obj = ""
+        else:
+            self.file_obj = open(self.path, "w")
         for l in self._existing:
-            self.file_obj.write(l)
+            self._write_line(l)
 
     def __repr__(self):
         return "TextFileWriter(%s)" % self.path
@@ -270,17 +287,28 @@ class TextFileWriter():
     def __exit__(self, *args):
         self.close()
 
+    def _write_line(self, line):
+        if self._bucket:
+            self.file_obj += line
+        else:
+            self.file_obj.write(line)
+
     def write(self, tile, path):
         if not self.entry_exists(path=path):
             logger.debug("write %s to %s", path, self)
-            self.file_obj.write(path + "\n")
+            self._write_line(path + '\n')
             self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
         exists = path + "\n" in self._existing
-        logger.debug("%s exists: %s", tile, exists)
+        logger.debug("tile %s with path %s exists: %s", tile, path, exists)
         return exists
 
     def close(self):
         logger.debug("%s new entries in %s", self.new_entries, self)
-        self.file_obj.close()
+        if self._bucket:
+            key = "/".join(self.path.split("/")[3:])
+            logger.debug("upload %s", key)
+            self.bucket_resource.put_object(Key=key, Body=self.file_obj)
+        else:
+            self.file_obj.close()
