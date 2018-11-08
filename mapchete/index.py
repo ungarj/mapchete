@@ -289,7 +289,7 @@ class TextFileWriter():
 
     def _write_line(self, line):
         if self._bucket:
-            self.file_obj += line + '\n'
+            self.file_obj += line
         else:
             self.file_obj.write(line + '\n')
 
