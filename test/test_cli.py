@@ -493,7 +493,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
 
-def test_index_text(mp_tmpdir, cleantopo_br):
+def test_index_text(cleantopo_br):
     # execute process
     run_cli(['execute', cleantopo_br.path, '-z', '5', '--debug'])
 
@@ -514,7 +514,7 @@ def test_index_text(mp_tmpdir, cleantopo_br):
         files = os.listdir(mp.config.output.path)
         assert "5.txt" in files
     with open(os.path.join(mp.config.output.path, "5.txt")) as src:
-        lines = list(src)
+        lines = [l for l in src if l.strip()]
         assert len(lines) == 1
         for l in lines:
             assert l.endswith("7.tif\n")
