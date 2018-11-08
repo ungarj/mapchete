@@ -514,7 +514,7 @@ def test_index_text(cleantopo_br):
         files = os.listdir(mp.config.output.path)
         assert "5.txt" in files
     with open(os.path.join(mp.config.output.path, "5.txt")) as src:
-        lines = [l for l in src if l.strip()]
+        lines = list(src)
         assert len(lines) == 1
         for l in lines:
             assert l.endswith("7.tif\n")

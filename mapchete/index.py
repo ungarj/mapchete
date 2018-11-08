@@ -291,12 +291,12 @@ class TextFileWriter():
         if self._bucket:
             self.file_obj += line
         else:
-            self.file_obj.write(line + '\n')
+            self.file_obj.write(line)
 
     def write(self, tile, path):
         if not self.entry_exists(path=path):
             logger.debug("write %s to %s", path, self)
-            self._write_line(path)
+            self._write_line(path + '\n')
             self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
