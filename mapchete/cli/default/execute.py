@@ -66,7 +66,7 @@ def execute(
 
         tqdm.tqdm.write("preparing to process %s" % mapchete_file, file=verbose_dst)
 
-        with click_spinner.spinner() as spinner:
+        with click_spinner.spinner(disable=debug) as spinner:
 
             def _raw_conf():
                 return _map_to_new_config(

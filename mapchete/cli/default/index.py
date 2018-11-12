@@ -68,7 +68,7 @@ def index(
 
     for mapchete_file in mapchete_files:
         tqdm.tqdm.write("create index for %s" % mapchete_file, file=verbose_dst)
-        with click_spinner.spinner() as spinner:
+        with click_spinner.spinner(disable=debug) as spinner:
             # process single tile
             if tile:
                 conf = _map_to_new_config(
