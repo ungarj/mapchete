@@ -168,6 +168,10 @@ class BufferedTile(Tile):
         Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
         self._tile = tile
         self.pixelbuffer = pixelbuffer
+        self.left = self.bounds.left
+        self.bottom = self.bounds.bottom
+        self.right = self.bounds.right
+        self.top = self.bounds.top
 
     @cached_property
     def profile(self):
@@ -177,22 +181,23 @@ class BufferedTile(Tile):
             width=self.width,
             height=self.height,
             transform=None,
-            affine=self.affine)
+            affine=self.affine
+        )
 
     @cached_property
     def height(self):
         """Return buffered height."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer)[0]
+        return self._tile.shape(pixelbuffer=self.pixelbuffer).height
 
     @cached_property
     def width(self):
         """Return buffered width."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer)[1]
+        return self._tile.shape(pixelbuffer=self.pixelbuffer).width
 
     @cached_property
     def shape(self):
         """Return buffered shape."""
-        return (self.height, self.width)
+        return self._tile.shape(pixelbuffer=self.pixelbuffer)
 
     @cached_property
     def affine(self):
@@ -218,9 +223,7 @@ class BufferedTile(Tile):
         children : list
             a list of ``BufferedTiles``
         """
-        return [
-            BufferedTile(tile, self.pixelbuffer)
-            for tile in self._tile.get_children()]
+        return [BufferedTile(t, self.pixelbuffer) for t in self._tile.get_children()]
 
     def get_parent(self):
         """

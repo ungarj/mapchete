@@ -14,7 +14,7 @@ from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
 from shapely.ops import cascaded_union
-from tilematrix import clip_geometry_to_srs_bounds
+from tilematrix import clip_geometry_to_srs_bounds, Shape
 from types import GeneratorType
 
 from mapchete.tile import BufferedTile
@@ -319,8 +319,8 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
         in_raster = in_raster.data
 
     # get range within array
-    minrow, maxrow, mincol, maxcol = _bounds_to_ranges(
-        out_tile.bounds, in_affine, in_raster.shape
+    minrow, maxrow, mincol, maxcol = bounds_to_ranges(
+        out_bounds=out_tile.bounds, in_affine=in_affine, in_shape=in_raster.shape
     )
     # if output window is within input window
     if (
@@ -332,9 +332,7 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
         return in_raster[..., minrow:maxrow, mincol:maxcol]
     # raise error if output and input windows do overlap partially
     else:
-        raise ValueError(
-            "extraction fails if output shape is not within input"
-        )
+        raise ValueError("extraction fails if output shape is not within input")
 
 
 def resample_from_array(
@@ -472,8 +470,10 @@ def create_mosaic(tiles, nodata=0):
             if t_right > pyramid.right:
                 t_right -= pyramid.x_size
                 t_left -= pyramid.x_size
-        minrow, maxrow, mincol, maxcol = _bounds_to_ranges(
-            (t_left, t_bottom, t_right, t_top), affine, (height, width)
+        minrow, maxrow, mincol, maxcol = bounds_to_ranges(
+            out_bounds=(t_left, t_bottom, t_right, t_top),
+            in_affine=affine,
+            in_shape=(height, width)
         )
         mosaic[:, minrow:maxrow, mincol:maxcol] = data
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = data.mask
@@ -485,11 +485,39 @@ def create_mosaic(tiles, nodata=0):
     return ReferencedRaster(data=mosaic, affine=affine)
 
 
-def _bounds_to_ranges(bounds, affine, shape):
+def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
+    """
+    Return bounds range values from geolocated input.
+
+    out_bounds : tuple
+        left, bottom, right, top
+    in_affine : Affine
+        input geolocation
+    in_shape : tuple
+        input shape
+    """
     return map(int, itertools.chain(
             *from_bounds(
-                *bounds, transform=affine, height=shape[-2], width=shape[-1]
+                *out_bounds, transform=in_affine, height=in_shape[-2], width=in_shape[-1]
             ).round_lengths().round_offsets().toranges()
+        )
+    )
+
+
+def affine_shape_from_tiles(tiles):
+    if not tiles:
+        raise TypeError("no tiles provided")
+    left, bottom, right, top = (
+        min([t.left for t in tiles]),
+        min([t.bottom for t in tiles]),
+        max([t.right for t in tiles]),
+        max([t.top for t in tiles]),
+    )
+    return (
+        Affine(tiles[0].pixel_x_size, 0, left, 0, -tiles[0].pixel_y_size, top),
+        Shape(
+            width=int(round((right - left) / tiles[0].pixel_x_size, 0)),
+            height=int(round((top - bottom) / tiles[0].pixel_y_size, 0)),
         )
     )
 

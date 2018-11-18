@@ -174,7 +174,7 @@ def write_output_metadata(output_params):
             current_params = params_to_dump(output_params)
             grid = existing_params["pyramid"]["grid"]
             if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:
-                raise MapcheteConfigError(
+                raise DeprecationWarning(
                     """Deprecated grid shape ordering found. """
                     """Please change grid shape from [2, 1] to [1, 2] in %s."""
                     % metadata_path

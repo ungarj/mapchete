@@ -1,5 +1,7 @@
 import fiona
+import numpy as np
 import os
+import rasterio
 
 import mapchete
 from mapchete.index import zoom_index_gen
@@ -36,10 +38,65 @@ def test_remote_indexes(mp_s3_tmpdir, gtiff_s3):
 
     with mapchete.open(gtiff_s3.dict) as mp:
         # write output data
-        mp.batch_process()
+        mp.batch_process(zoom=zoom)
 
         # generate indexes and check
         gen_indexes_and_check()
 
         # generate indexes again and assert nothing has changes
         gen_indexes_and_check()
+
+
+def test_vrt(mp_tmpdir, cleantopo_br):
+    zoom = 8
+    with mapchete.open(dict(cleantopo_br.dict, zoom_levels=dict(min=0, max=zoom))) as mp:
+        # generate output
+        mp.batch_process(zoom=zoom)
+
+        # generate index
+        list(zoom_index_gen(
+            mp=mp,
+            zoom=zoom,
+            out_dir=mp.config.output.path,
+            vrt=True,
+        ))
+        output_tiles = list(
+            mp.config.output_pyramid.tiles_from_bounds(
+                mp.config.bounds_at_zoom(zoom=zoom), zoom=zoom
+            )
+        )
+        bounds = (
+            min([t.left for t in output_tiles]),
+            min([t.bottom for t in output_tiles]),
+            max([t.right for t in output_tiles]),
+            max([t.top for t in output_tiles]),
+        )
+        # bounds = mp.config.effective_bounds
+
+    vrt_index = os.path.join(mp.config.output.path, "%s.vrt" % zoom)
+
+    with rasterio.open(vrt_index) as vrt:
+        assert vrt.driver == "VRT"
+        assert vrt.dtypes[0] == "uint16"
+        assert vrt.meta["dtype"] == "uint16"
+        assert vrt.count == 1
+        assert vrt.nodata == 0
+        assert vrt.bounds == bounds
+        vrt_data = vrt.read()
+        assert vrt_data.any()
+
+    # generate a VRT using GDAL and compare
+
+    temp_vrt = os.path.join(mp_tmpdir, str(zoom)+"_gdal.vrt")
+    # gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
+    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
+        temp_vrt, mp.config.output.path, zoom
+    )
+    os.system(gdalbuildvrt)
+    with rasterio.open(temp_vrt, "r") as gdal_vrt:
+        gdal_vrt_data = gdal_vrt.read()
+        assert gdal_vrt_data.any()
+        assert gdal_vrt_data.shape == vrt_data.shape
+        print(gdal_vrt_data.sum())
+        print(vrt_data.sum())
+        assert np.array_equal(vrt_data, gdal_vrt_data)
