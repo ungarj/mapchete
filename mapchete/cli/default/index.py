@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 @utils.opt_geojson
 @utils.opt_gpkg
 @utils.opt_shp
+@utils.opt_vrt
 @utils.opt_txt
 @utils.opt_fieldname
 @utils.opt_basepath
@@ -45,6 +46,7 @@ def index(
     geojson=False,
     gpkg=False,
     shp=False,
+    vrt=False,
     txt=False,
     fieldname=None,
     basepath=None,
@@ -57,9 +59,10 @@ def index(
     debug=False,
     logfile=None
 ):
-    if not any([geojson, gpkg, shp, txt]):
+    if not any([geojson, gpkg, shp, txt, vrt]):
         raise click.MissingParameter(
-            "At least one of '--geojson', '--gpkg', '--shp', or '--txt' must be provided.",
+            """At least one of '--geojson', '--gpkg', '--shp', '--vrt' or '--txt'"""
+            """must be provided.""",
             param_type="option"
         )
 
@@ -91,6 +94,7 @@ def index(
                             geojson=geojson,
                             gpkg=gpkg,
                             shapefile=shp,
+                            vrt=vrt,
                             txt=txt,
                             fieldname=fieldname,
                             basepath=basepath,
@@ -122,6 +126,7 @@ def index(
                                 geojson=geojson,
                                 gpkg=gpkg,
                                 shapefile=shp,
+                                vrt=vrt,
                                 txt=txt,
                                 fieldname=fieldname,
                                 basepath=basepath,

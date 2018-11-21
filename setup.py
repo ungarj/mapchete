@@ -76,7 +76,7 @@ setup(
         'pyproj',
         'pyyaml',
         'rasterio>=1.0.2',
-        'tilematrix>=0.17',
+        'tilematrix>=0.18',
         'tqdm'
     ] if not on_rtd else [],
     extras_require={

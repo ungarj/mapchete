@@ -82,21 +82,25 @@ def test_vrt(mp_tmpdir, cleantopo_br):
         assert vrt.count == 1
         assert vrt.nodata == 0
         assert vrt.bounds == bounds
-        vrt_data = vrt.read()
+        vrt_data = vrt.read().astype(rasterio.int32)
         assert vrt_data.any()
 
     # generate a VRT using GDAL and compare
 
-    temp_vrt = os.path.join(mp_tmpdir, str(zoom)+"_gdal.vrt")
+    out_dir = os.path.join(mp_tmpdir, "cleantopo_br")
+    temp_vrt = os.path.join(out_dir, str(zoom)+"_gdal.vrt")
     # gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
     gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-        temp_vrt, mp.config.output.path, zoom
+        temp_vrt, out_dir, zoom
     )
     os.system(gdalbuildvrt)
     with rasterio.open(temp_vrt, "r") as gdal_vrt:
-        gdal_vrt_data = gdal_vrt.read()
+        assert gdal_vrt.dtypes[0] == "uint16"
+        assert gdal_vrt.meta["dtype"] == "uint16"
+        assert gdal_vrt.count == 1
+        assert gdal_vrt.nodata == 0
+        assert gdal_vrt.bounds == bounds
+        gdal_vrt_data = gdal_vrt.read().astype(rasterio.int32)
         assert gdal_vrt_data.any()
         assert gdal_vrt_data.shape == vrt_data.shape
-        print(gdal_vrt_data.sum())
-        print(vrt_data.sum())
         assert np.array_equal(vrt_data, gdal_vrt_data)

@@ -14,7 +14,7 @@ from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
 from shapely.ops import cascaded_union
-from tilematrix import clip_geometry_to_srs_bounds, Shape
+from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
 from types import GeneratorType
 
 from mapchete.tile import BufferedTile
@@ -489,12 +489,18 @@ def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
     """
     Return bounds range values from geolocated input.
 
+    Parameters
+    ----------
     out_bounds : tuple
         left, bottom, right, top
     in_affine : Affine
         input geolocation
     in_shape : tuple
         input shape
+
+    Returns
+    -------
+    minrow, maxrow, mincol, maxcol
     """
     return map(int, itertools.chain(
             *from_bounds(
@@ -504,21 +510,52 @@ def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
     )
 
 
-def affine_shape_from_tiles(tiles):
+def tiles_to_affine_shape(tiles, clip_to_pyramid_bounds=False):
+    """
+    Return Affine and shape of combined tiles.
+
+    Parameters
+    ----------
+    tiles : iterable
+        an iterable containing BufferedTiles
+
+    Returns
+    -------
+    Affine, Shape
+    """
     if not tiles:
         raise TypeError("no tiles provided")
+    pixel_size = tiles[0].pixel_x_size
     left, bottom, right, top = (
         min([t.left for t in tiles]),
         min([t.bottom for t in tiles]),
         max([t.right for t in tiles]),
         max([t.top for t in tiles]),
     )
+    if clip_to_pyramid_bounds:
+        tp = tiles[0].tp
+        left = max([left, tp.left])
+        bottom = max([bottom, tp.bottom])
+        right = min([right, tp.right])
+        top = min([top, tp.top])
     return (
-        Affine(tiles[0].pixel_x_size, 0, left, 0, -tiles[0].pixel_y_size, top),
+        Affine(pixel_size, 0, left, 0, -pixel_size, top),
         Shape(
-            width=int(round((right - left) / tiles[0].pixel_x_size, 0)),
-            height=int(round((top - bottom) / tiles[0].pixel_y_size, 0)),
+            width=int(round((right - left) / pixel_size, 0)),
+            height=int(round((top - bottom) / pixel_size, 0)),
         )
+    )
+
+
+def affine_shape_to_bounds(affine=None, shape=None):
+    logger.debug(affine)
+    pixel_x_size, _, left, _, pixel_y_size, top = affine[:6]
+    height, width = shape
+    return Bounds(
+        left=left,
+        bottom=top + (height * pixel_y_size),
+        right=left + (width * pixel_x_size),
+        top=top
     )
 
 

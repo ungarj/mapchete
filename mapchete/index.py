@@ -19,11 +19,13 @@ from contextlib import ExitStack
 from copy import deepcopy
 import fiona
 import logging
+import operator
 import os
 from shapely.geometry import mapping
 import xml.etree.ElementTree as ET
+from xml.dom import minidom
 
-from mapchete.io import path_exists, get_boto3_bucket, raster
+from mapchete.io import path_exists, get_boto3_bucket, raster, relative_path
 
 logger = logging.getLogger(__name__)
 
@@ -336,22 +338,20 @@ class VRTFileWriter():
         self._output = output
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
         self.bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
-        logger.debug("initialize VRT writer")
+        logger.debug("initialize VRT writer for %s", self.path)
         if path_exists(self.path):
             if self._bucket:
-                raise NotImplementedError()
-                # key = "/".join(self.path.split("/")[3:])
-                # for obj in self.bucket_resource.objects.filter(Prefix=key):
-                #     if obj.key == key:
-                #         self._existing = {
-                #             l + '\n'
-                #             for l in obj.get()['Body'].read().decode().split('\n')
-                #             if l
-                #         }
+                key = "/".join(self.path.split("/")[3:])
+                for obj in self.bucket_resource.objects.filter(Prefix=key):
+                    if obj.key == key:
+                        self._existing = {
+                            l + '\n'
+                            for l in obj.get()['Body'].read().decode().split('\n')
+                            if l
+                        }
             else:
-                raise NotImplementedError()
-                # with open(self.path) as src:
-                #     self._existing = {l for l in src}
+                with open(self.path) as src:
+                    self._existing = {i for i in self._xml_to_entries(src.read())}
         else:
             self._existing = {}
         self.new_entries = 0
@@ -373,6 +373,12 @@ class VRTFileWriter():
             tile = self._tp.tile(*map(int, os.path.splitext(path)[0].split("/")[-3:]))
         self.sink[tile] = path
 
+    def _xml_to_entries(self, xml_string):
+        vrt_dataset = ET.ElementTree(ET.fromstring(xml_string)).getroot()
+        vrt_rasterband = next(vrt_dataset.iter("VRTRasterBand"))
+        for entry in vrt_rasterband.iter("ComplexSource"):
+            yield next(entry.iter("SourceFilename")).text
+
     def write(self, tile, path):
         if not self.entry_exists(tile=tile, path=path):
             logger.debug("write %s to %s", path, self)
@@ -380,31 +386,29 @@ class VRTFileWriter():
             self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
+        path = relative_path(path=path, base_dir=os.path.split(self.path)[0])
         exists = path in self._existing
         logger.debug("tile %s with path %s exists: %s", tile, path, exists)
         return exists
 
     def close(self):
         logger.debug("%s new entries in %s", self.new_entries, self)
-        logger.debug(self.sink)
-        logger.debug(self._output.output_params["bands"])
+        if not self.sink:
+            logger.debug("no entries to write")
+            return
 
         # get VRT Affine and shape
-        for t in self.sink.keys():
-            logger.debug(t.shape)
-        vrt_affine, vrt_shape = raster.affine_shape_from_tiles(list(self.sink.keys()))
-        logger.debug("target VRT shape: %s", vrt_shape)
+        vrt_affine, vrt_shape = raster.tiles_to_affine_shape(
+            list(self.sink.keys()), clip_to_pyramid_bounds=False
+        )
         vrt_crs = self._tp.crs.to_string()
         vrt_geotransform = vrt_affine.to_gdal()
         vrt_dtype = self._output.profile()["dtype"]
         vrt_nodata = self._output.nodata
-        vrt_blockxsize = self._output.profile()["blockxsize"]
-        vrt_blockysize = self._output.profile()["blockysize"]
+        vrt_blockxsize = self._output.profile().get("blockxsize", self._tp.tile_size)
+        vrt_blockysize = self._output.profile().get("blockysize", self._tp.tile_size)
 
         # VRT metadata
-        # <VRTDataset rasterXSize="768" rasterYSize="768">
-        #   <SRS> some WKT projection representation ... </SRS>
-        #   <GeoTransform> some geotransform parameters </GeoTransform>
         root = ET.Element(
             "VRTDataset",
             attrib={
@@ -418,11 +422,7 @@ class VRTFileWriter():
         geotransform.text = ", ".join(map(str, vrt_geotransform))
 
         # iterate through bands
-        #   <VRTRasterBand dataType="UInt16" band="1">
-        #     <NoDataValue>0</NoDataValue>
-        #     <ColorInterp>Gray</ColorInterp>
         for b_idx in range(1, self._output.profile()["count"] + 1):
-            logger.debug("band %s", b_idx)
             band = ET.SubElement(
                 root,
                 "VRTRasterBand",
@@ -433,34 +433,23 @@ class VRTFileWriter():
             color = ET.SubElement(band, "ColorInterp")
             color.text = "Gray"
             # iterate through tiles for each band
-            #     <ComplexSource>
-            #       <SourceFilename relativeToVRT="1">8/58/277.tif</SourceFilename>
-            #       <SourceBand>1</SourceBand>
-            #       <SourceProperties
-            #         RasterXSize="256"
-            #         RasterYSize="256"
-            #         DataType="UInt16"
-            #         BlockXSize="256"
-            #         BlockYSize="256"
-            #       />
-            #       <SrcRect xOff="0" yOff="0" xSize="256" ySize="256" />
-            #       <DstRect xOff="0" yOff="0" xSize="256" ySize="256" />
-            #       <NODATA>0</NODATA>
-            #     </ComplexSource>
-            for tile, path in self.sink.items():
-                logger.debug("add tile %s to VRT", tile)
+            vrt_maxrow = 0
+            vrt_maxcol = 0
+            for tile, path in sorted(self.sink.items(), key=operator.itemgetter(1)):
                 complexsource = ET.SubElement(band, "ComplexSource")
                 source_filename = ET.SubElement(
                     complexsource,
                     "SourceFilename",
                     attrib={"relativeToVRT": "1"}
                 )
-                source_filename.text = path
+                source_filename.text = relative_path(
+                    path=path, base_dir=os.path.split(self.path)[0]
+                )
                 source_band = ET.SubElement(complexsource, "SourceBand")
                 source_band.text = str(b_idx)
                 ET.SubElement(
                     complexsource,
-                    "ComplexSource",
+                    "SourceProperties",
                     attrib={
                         "RasterXSize": str(tile.shape.width),
                         "RasterYSize": str(tile.shape.height),
@@ -481,32 +470,32 @@ class VRTFileWriter():
                     }
                 )
                 # target data window within VRT
-                minrow, maxrow, mincol, maxcol = raster.bounds_to_ranges(
+                minrow, _, mincol, _ = raster.bounds_to_ranges(
                     out_bounds=tile.bounds,
                     in_affine=vrt_affine,
                     in_shape=vrt_shape
                 )
-                logger.debug((tile.bounds, vrt_affine, vrt_shape))
-                logger.debug((mincol, minrow))
                 ET.SubElement(
                     complexsource,
                     "DstRect",
                     attrib={
                         "xOff": str(mincol),
                         "yOff": str(minrow),
-                        "xSize": str(maxcol - mincol),
-                        "ySize": str(maxrow - minrow),
+                        "xSize": str(tile.shape.width),
+                        "ySize": str(tile.shape.height),
                     }
                 )
+                vrt_maxrow = max([vrt_maxrow, minrow + tile.shape.height])
+                vrt_maxcol = max([vrt_maxcol, mincol + tile.shape.width])
                 source_nodatavalue = ET.SubElement(complexsource, "NODATA")
                 source_nodatavalue.text = str(vrt_nodata)
-        # close all tags
-        logger.debug(ET.tostring(root))
+        # generate pretty XML and write
+        xmlstr = minidom.parseString(ET.tostring(root)).toprettyxml(indent="  ")
         if self._bucket:
             key = "/".join(self.path.split("/")[3:])
             logger.debug("upload %s", key)
-            self.bucket_resource.put_object(Key=key, Body=str(ET.tostring(root)))
+            self.bucket_resource.put_object(Key=key, Body=xmlstr)
         else:
-            # TODO
+            logger.debug("write to %s", self.path)
             with open(self.path, "w") as dst:
-                dst.write(str(ET.tostring(root)))
+                dst.write(xmlstr)

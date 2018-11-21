@@ -152,6 +152,13 @@ def absolute_path(path=None, base_dir=None):
             return os.path.abspath(os.path.join(base_dir, path))
 
 
+def relative_path(path=None, base_dir=None):
+    if os.path.isabs(path):
+        return os.path.relpath(path, base_dir)
+    else:
+        return path
+
+
 def makedirs(path):
     """Create all subdirectories of path if path is local."""
     if not path_is_remote(path):

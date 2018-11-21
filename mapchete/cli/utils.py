@@ -161,6 +161,10 @@ opt_shp = click.option(
     "--shp", is_flag=True,
     help="Write Shapefile index."
 )
+opt_vrt = click.option(
+    "--vrt", is_flag=True,
+    help="Write VRT file."
+)
 opt_txt = click.option(
     "--txt", is_flag=True,
     help="Write output tile paths to text file."
