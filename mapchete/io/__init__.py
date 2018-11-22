@@ -8,6 +8,7 @@ from shapely.geometry import box
 from tilematrix import TilePyramid
 from urllib.request import urlopen
 from urllib.error import HTTPError
+import warnings
 
 from mapchete.errors import MapcheteConfigError
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
@@ -210,11 +211,12 @@ def write_output_metadata(output_params):
             current_params = params_to_dump(output_params)
             grid = existing_params["pyramid"]["grid"]
             if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:
-                raise DeprecationWarning(
+                warnings.warn(
                     """Deprecated grid shape ordering found. """
                     """Please change grid shape from [2, 1] to [1, 2] in %s."""
                     % metadata_path
                 )
+                existing_params["pyramid"]["grid"]["shape"] = [1, 2]
             if (
                 existing_params["pyramid"] != current_params["pyramid"] or
                 existing_params["driver"]["format"] != current_params["driver"]["format"]
