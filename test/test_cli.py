@@ -159,6 +159,11 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
         ['execute', cleantopo_br.path, "-t", "5", "3", "7", "--vrt"]
     )
 
+    # no new entries
+    run_cli(
+        ['execute', cleantopo_br.path, "-t", "5", "0", "0", "--vrt"]
+    )
+
 
 def test_execute_verbose(mp_tmpdir, example_mapchete):
     """Using verbose output."""

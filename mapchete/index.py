@@ -198,7 +198,7 @@ def _tile_path(orig_path, basepath, for_gdal):
 
 
 class VectorFileWriter():
-    """Base class for GeoJSONWriter and GeoPackageWriter."""
+    """Writes GeoJSON or GeoPackage files."""
 
     def __init__(
         self, out_path=None, crs=None, fieldname=None, driver=None
