@@ -5,17 +5,10 @@ from collections import namedtuple
 import os
 import pytest
 import shutil
-import six
 import uuid
 import yaml
 
 from mapchete.cli.default.serve import create_app
-
-if six.PY2:
-    from pytest import yield_fixture
-else:
-    from pytest import fixture as yield_fixture
-
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
@@ -37,7 +30,7 @@ def app(dem_to_hillshade, cleantopo_br, geojson, mp_tmpdir):
 
 
 # temporary directory for I/O tests
-@yield_fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
@@ -47,7 +40,7 @@ def mp_tmpdir():
 
 
 # temporary directory for I/O tests
-@yield_fixture
+@pytest.fixture
 def mp_s3_tmpdir():
     """Setup and teardown temporary directory."""
 

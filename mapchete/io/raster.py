@@ -3,7 +3,6 @@
 import itertools
 import rasterio
 import logging
-import six
 import numpy as np
 import numpy.ma as ma
 from affine import Affine
@@ -14,7 +13,7 @@ from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
 from shapely.ops import cascaded_union
-from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
+from tilematrix import clip_geometry_to_srs_bounds, Shape
 from types import GeneratorType
 
 from mapchete.tile import BufferedTile
@@ -241,7 +240,7 @@ def write_raster_window(
         )
     out_tile = in_tile if out_tile is None else out_tile
     _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
-    if not isinstance(out_path, six.string_types):
+    if not isinstance(out_path, str):
         raise TypeError("out_path must be a string")
 
     # extract data
@@ -282,7 +281,7 @@ def write_raster_window(
 
 def _write_tags(dst, tags):
     if tags:
-        for k, v in six.iteritems(tags):
+        for k, v in tags.items():
             # for band specific tags
             if isinstance(k, int):
                 dst.update_tags(k, **v)

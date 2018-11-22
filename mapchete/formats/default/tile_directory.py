@@ -5,7 +5,6 @@ import logging
 import numpy as np
 import numpy.ma as ma
 import os
-import six
 from shapely.geometry import box
 
 from mapchete.config import validate_values
@@ -113,9 +112,9 @@ class InputData(base.InputData):
         validate_values(
             self._params,
             [
-                ("path", six.string_types),
-                ("type", six.string_types),
-                ("extension", six.string_types)
+                ("path", str),
+                ("type", str),
+                ("extension", str)
             ]
         )
         if not self._params["extension"] in [
@@ -135,7 +134,7 @@ class InputData(base.InputData):
             self._params["count"] = self._params.get(
                 "count", self._params.get("bands", None)
             )
-            validate_values(self._params, [("dtype", six.string_types), ("count", int)])
+            validate_values(self._params, [("dtype", str), ("count", int)])
             self._profile = {
                 "nodata": self._params.get("nodata", 0),
                 "dtype": self._params["dtype"],

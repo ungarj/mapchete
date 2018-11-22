@@ -27,7 +27,6 @@ import fiona
 from fiona.errors import DriverError
 import logging
 import os
-import six
 import types
 
 from mapchete.config import validate_values
@@ -156,11 +155,8 @@ class OutputData(base.OutputData):
         -------
         is_valid : bool
         """
-        validate_values(config, [("schema", dict), ("path", six.string_types)])
-        validate_values(
-            config["schema"], [
-                ("properties", dict), ("geometry", six.string_types)]
-        )
+        validate_values(config, [("schema", dict), ("path", str)])
+        validate_values(config["schema"], [("properties", dict), ("geometry", str)])
         if config["schema"]["geometry"] not in [
             "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
             "Polygon", "MultiPolygon"
@@ -294,9 +290,7 @@ class InputTile(base.InputTile):
 
     def _from_cache(self, validity_check=True):
         if validity_check not in self._cache:
-            self._cache[validity_check] = self.process.get_raw_output(
-                self.tile
-            )
+            self._cache[validity_check] = self.process.get_raw_output(self.tile)
         return self._cache[validity_check]
 
     def __enter__(self):

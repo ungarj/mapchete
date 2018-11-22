@@ -12,7 +12,6 @@ from shapely.geometry import (
 )
 from shapely.errors import TopologicalError
 from shapely.validation import explain_validity
-import six
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
@@ -115,7 +114,7 @@ def reproject_geometry(
 def _validated_crs(crs):
     if isinstance(crs, CRS):
         return crs
-    elif isinstance(crs, six.string_types):
+    elif isinstance(crs, str):
         return CRS().from_epsg(int(crs))
     elif isinstance(crs, int):
         return CRS().from_epsg(crs)

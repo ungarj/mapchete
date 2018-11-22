@@ -10,7 +10,6 @@ from multiprocessing import cpu_count, current_process
 import numpy as np
 import numpy.ma as ma
 from shapely.geometry import shape
-import six
 import threading
 from tilematrix import TilePyramid
 import time
@@ -526,7 +525,7 @@ class Mapchete(object):
                 return self.config.output.empty(process_tile)
 
     def _streamline_output(self, process_data):
-        if isinstance(process_data, six.string_types) and (
+        if isinstance(process_data, str) and (
             process_data == "empty"
         ):
             raise MapcheteNodataTile
@@ -691,7 +690,7 @@ class MapcheteProcess(object):
         tiled input data : InputTile
             reprojected input data within tile
         """
-        if not isinstance(input_id, six.string_types):
+        if not isinstance(input_id, str):
             return input_id.open(self.tile, **kwargs)
         if input_id not in self.params["input"]:
             raise ValueError("%s not found in config as input file" % input_id)

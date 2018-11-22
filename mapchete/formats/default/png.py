@@ -25,7 +25,6 @@ import numpy.ma as ma
 import os
 import rasterio
 from rasterio.errors import RasterioIOError
-import six
 
 from mapchete.config import validate_values
 from mapchete.formats import base
@@ -159,7 +158,7 @@ class OutputData(base.OutputData):
         -------
         is_valid : bool
         """
-        return validate_values(config, [("path", six.string_types)])
+        return validate_values(config, [("path", str)])
 
     def get_path(self, tile):
         """

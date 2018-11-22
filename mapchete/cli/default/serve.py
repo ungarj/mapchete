@@ -7,7 +7,6 @@ import logging.config
 import os
 import pkgutil
 from rasterio.io import MemoryFile
-import six
 
 import mapchete
 from mapchete.cli import utils
@@ -76,7 +75,7 @@ def create_app(
         for mapchete_file in mapchete_files
     }
 
-    mp = next(six.iteritems(mapchete_processes))[1]
+    mp = next(iter(mapchete_processes.values()))
     pyramid_type = mp.config.process_pyramid.grid
     pyramid_srid = mp.config.process_pyramid.srid
     process_bounds = ",".join([str(i) for i in mp.config.bounds_at_zoom()])
@@ -92,7 +91,7 @@ def create_app(
             srid=pyramid_srid,
             process_bounds=process_bounds,
             is_mercator=(pyramid_srid == 3857),
-            process_names=six.iterkeys(mapchete_processes)
+            process_names=mapchete_processes.keys()
         )
 
     @app.route(

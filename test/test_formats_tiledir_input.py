@@ -3,7 +3,6 @@
 from copy import deepcopy
 import pytest
 import shutil
-import six
 
 from mapchete.formats import available_input_formats
 from mapchete.errors import MapcheteDriverError
@@ -49,7 +48,7 @@ def _run_tiledir_process_vector(conf_dict, metatiling, bounds):
     features = []
     with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
         for tile in mp.get_process_tiles(4):
-            input_tile = next(six.itervalues(mp.config.input)).open(tile)
+            input_tile = next(iter(mp.config.input.values())).open(tile)
             features.extend(input_tile.read())
     assert features
 
@@ -69,11 +68,11 @@ def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
     conf["pyramid"].update(metatiling=metatiling)
     with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
         assert any([
-            next(six.itervalues(mp.config.input)).open(tile).read().any()
+            next(iter(mp.config.input.values())).open(tile).read().any()
             for tile in mp.get_process_tiles(4)
         ])
         # read empty tile
-        assert not next(six.itervalues(mp.config.input)).open(
+        assert not next(iter(mp.config.input.values())).open(
             mp.config.process_pyramid.tile(4, 0, 0)
         ).read().any()
         shutil.rmtree(mp.config.output.path, ignore_errors=True)
@@ -102,7 +101,7 @@ def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):
     """Read raster data."""
     with mapchete.open(cleantopo_remote.path) as mp:
         assert all([
-            next(six.itervalues(mp.config.input)).open(tile).read().any()
+            next(iter(mp.config.input.values())).open(tile).read().any()
             for tile in mp.get_process_tiles(1)])
 
 

@@ -20,7 +20,6 @@ import os
 import py_compile
 from shapely.geometry import box
 from shapely.ops import cascaded_union
-import six
 from tilematrix._funcs import Bounds
 import warnings
 import yaml
@@ -39,7 +38,7 @@ from mapchete.tile import BufferedTilePyramid
 logger = logging.getLogger(__name__)
 # parameters whigh have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process", six.string_types),       # path to .py file or module path
+    ("process", str),       # path to .py file or module path
     ("pyramid", dict),                   # process pyramid definition
     ("input", (dict, type(None))),       # files & other types
     ("output", dict),                    # process output parameters
@@ -325,10 +324,10 @@ class MapcheteConfig(object):
         }
 
         initalized_inputs = {}
-        for k, v in six.iteritems(raw_inputs):
+        for k, v in raw_inputs.items():
 
             # for files and tile directories
-            if isinstance(v, six.string_types):
+            if isinstance(v, str):
                 logger.debug("load input reader for simple input %s",  v)
                 try:
                     reader = load_input_reader(
@@ -383,7 +382,7 @@ class MapcheteConfig(object):
         if "baselevels" not in self._raw:
             return {}
         baselevels = self._raw["baselevels"]
-        minmax = {k: v for k, v in six.iteritems(baselevels) if k in ["min", "max"]}
+        minmax = {k: v for k, v in baselevels.items() if k in ["min", "max"]}
 
         if not minmax:
             raise MapcheteConfigError("no min and max values given for baselevels")
@@ -492,8 +491,7 @@ class MapcheteConfig(object):
             if "input" in self._params_at_zoom[zoom]:
                 input_union = cascaded_union([
                     self.input[get_hash(v)].bbox(self.process_pyramid.crs)
-                    for k, v in six.iteritems(
-                        self._params_at_zoom[zoom]["input"])
+                    for k, v in self._params_at_zoom[zoom]["input"].items()
                     if v is not None
                 ])
                 self._cache_area_at_zoom[zoom] = input_union.intersection(
@@ -602,7 +600,7 @@ def validate_values(config, values):
 
 def get_hash(x):
     """Return hash of x."""
-    if isinstance(x, six.string_types):
+    if isinstance(x, str):
         return hash(x)
     elif isinstance(x, dict):
         return hash(yaml.dump(x))
@@ -764,7 +762,7 @@ def _raw_at_zoom(config, zooms):
     params_per_zoom = {}
     for zoom in zooms:
         params = {}
-        for name, element in six.iteritems(config):
+        for name, element in config.items():
             if name not in _RESERVED_PARAMETERS:
                 out_element = _element_at_zoom(name, element, zoom)
                 if out_element is not None:
@@ -794,7 +792,7 @@ def _element_at_zoom(name, element, zoom):
                 # we have an input or output driver here
                 return element
             out_elements = {}
-            for sub_name, sub_element in six.iteritems(element):
+            for sub_name, sub_element in element.items():
                 out_element = _element_at_zoom(sub_name, sub_element, zoom)
                 if name == "input":
                     out_elements[sub_name] = out_element
@@ -803,13 +801,13 @@ def _element_at_zoom(name, element, zoom):
             # If there is only one subelement, collapse unless it is
             # input. In such case, return a dictionary.
             if len(out_elements) == 1 and name != "input":
-                return next(six.itervalues(out_elements))
+                return next(iter(out_elements.values()))
             # If subelement is empty, return None
             if len(out_elements) == 0:
                 return None
             return out_elements
         # If element is a zoom level statement, filter element.
-        elif isinstance(name, six.string_types):
+        elif isinstance(name, str):
             if name.startswith("zoom"):
                 return _filter_by_zoom(
                     conf_string=name.strip("zoom").strip(), zoom=zoom,
@@ -851,7 +849,7 @@ def _strip_zoom(input_string, strip_string):
 def _flatten_tree(tree, old_path=None):
     """Flatten dict tree into dictionary where keys are paths of old dict."""
     flat_tree = []
-    for key, value in six.iteritems(tree):
+    for key, value in tree.items():
         new_path = "/".join([old_path, key]) if old_path else key
         if isinstance(value, dict) and "format" not in value:
             flat_tree.extend(_flatten_tree(value, old_path=new_path))
@@ -863,7 +861,7 @@ def _flatten_tree(tree, old_path=None):
 def _unflatten_tree(flat):
     """Reverse tree flattening."""
     tree = {}
-    for key, value in six.iteritems(flat):
+    for key, value in flat.items():
         path = key.split("/")
         # we are at the end of a branch
         if len(path) == 1:

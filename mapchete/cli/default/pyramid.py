@@ -147,4 +147,3 @@ def _get_zoom(zoom, input_raster, pyramid_type):
             minzoom = zoom[1]
             maxzoom = zoom[0]
     return minzoom, maxzoom
-
