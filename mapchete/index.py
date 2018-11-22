@@ -184,7 +184,7 @@ def _index_file_path(out_dir, zoom, ext):
     return os.path.join(out_dir, str(zoom) + "." + ext)
 
 
-def _tile_path(orig_path, basepath, for_gdal):
+def _tile_path(orig_path=None, basepath=None, for_gdal=True):
     path = (
         os.path.join(basepath, "/".join(orig_path.split("/")[-3:])) if basepath
         else orig_path
@@ -429,6 +429,8 @@ class VRTFileWriter():
                     *[
                         E.ComplexSource(
                             E.SourceFilename(
+                                _tile_path(orig_path=path, for_gdal=True) if
+                                path_is_remote(path) else
                                 relative_path(
                                     path=path, base_dir=os.path.split(self.path)[0]
                                 ),
