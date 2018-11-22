@@ -321,6 +321,7 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     minrow, maxrow, mincol, maxcol = bounds_to_ranges(
         out_bounds=out_tile.bounds, in_affine=in_affine, in_shape=in_raster.shape
     )
+    logger.debug((minrow, maxrow, mincol, maxcol))
     # if output window is within input window
     if (
         minrow >= 0 and
@@ -501,11 +502,10 @@ def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
     -------
     minrow, maxrow, mincol, maxcol
     """
-    return map(int, itertools.chain(
-            *from_bounds(
-                *out_bounds, transform=in_affine, height=in_shape[-2], width=in_shape[-1]
-            ).round_lengths().round_offsets().toranges()
-        )
+    return itertools.chain(
+        *from_bounds(
+            *out_bounds, transform=in_affine, height=in_shape[-2], width=in_shape[-1]
+        ).round_lengths(pixel_precision=0).round_offsets(pixel_precision=0).toranges()
     )
 
 
