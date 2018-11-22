@@ -73,7 +73,6 @@ setup(
         'click-plugins',
         'click-spinner',
         'fiona>=1.8b1',
-        'lxml',
         'pyproj',
         'pyyaml',
         'rasterio>=1.0.2',
@@ -83,7 +82,8 @@ setup(
     extras_require={
         'contours': ['matplotlib'],
         's3': ['boto3'],
-        'serve': ['flask']
+        'serve': ['flask'],
+        'vrt': ['lxml']
     },
     classifiers=[
         'Development Status :: 3 - Alpha',

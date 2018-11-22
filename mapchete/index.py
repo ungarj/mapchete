@@ -19,7 +19,6 @@ from contextlib import ExitStack
 from copy import deepcopy
 import fiona
 import logging
-from lxml.builder import ElementMaker
 import operator
 import os
 from shapely.geometry import mapping
@@ -336,6 +335,8 @@ class TextFileWriter():
 class VRTFileWriter():
     """Generates GDAL-style VRT file."""
     def __init__(self, out_path=None, output=None, out_pyramid=None):
+        # see if lxml is installed before checking all output tiles
+        from lxml.builder import ElementMaker
         self.path = out_path
         self._tp = out_pyramid
         self._output = output
@@ -398,6 +399,8 @@ class VRTFileWriter():
         return exists
 
     def close(self):
+        from lxml.builder import ElementMaker
+
         logger.debug("%s new entries in %s", self.new_entries, self)
         if not self._new:
             logger.debug("no entries to write")
