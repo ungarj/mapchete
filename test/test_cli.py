@@ -137,6 +137,24 @@ def test_execute_debug(mp_tmpdir, example_mapchete):
     )
 
 
+def test_execute_vrt(mp_tmpdir, cleantopo_br):
+    """Using debug output."""
+    run_cli(['execute', cleantopo_br.path, "-z", "5", "--vrt"])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        vrt_path = os.path.join(mp.config.output.path, "5.vrt")
+        with rasterio.open(vrt_path) as src:
+            assert src.read().any()
+
+    # run again, this time with custom output directory
+    run_cli(
+        ['execute', cleantopo_br.path, "-z", "5", "--vrt", "--idx_out_dir", mp_tmpdir]
+    )
+    with mapchete.open(cleantopo_br.dict) as mp:
+        vrt_path = os.path.join(mp_tmpdir, "5.vrt")
+        with rasterio.open(vrt_path) as src:
+            assert src.read().any()
+
+
 def test_execute_verbose(mp_tmpdir, example_mapchete):
     """Using verbose output."""
     run_cli(['execute', example_mapchete.path, "-t", "10", "500", "1040", "--verbose"])

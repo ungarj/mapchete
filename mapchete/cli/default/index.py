@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @click.command(help="Create index of output tiles.")
 @utils.arg_mapchete_files
-@utils.opt_out_dir
+@utils.opt_idx_out_dir
 @utils.opt_geojson
 @utils.opt_gpkg
 @utils.opt_shp
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 @utils.opt_logfile
 def index(
     mapchete_files,
-    out_dir=None,
+    idx_out_dir=None,
     geojson=False,
     gpkg=False,
     shp=False,
@@ -90,7 +90,7 @@ def index(
                         zoom_index_gen(
                             mp=mp,
                             zoom=tile.zoom,
-                            out_dir=out_dir if out_dir else mp.config.output.path,
+                            out_dir=idx_out_dir if idx_out_dir else mp.config.output.path,
                             geojson=geojson,
                             gpkg=gpkg,
                             shapefile=shp,
@@ -98,7 +98,8 @@ def index(
                             txt=txt,
                             fieldname=fieldname,
                             basepath=basepath,
-                            for_gdal=for_gdal),
+                            for_gdal=for_gdal
+                        ),
                         total=mp.count_tiles(tile.zoom, tile.zoom),
                         unit="tile",
                         disable=debug
@@ -122,7 +123,9 @@ def index(
                             zoom_index_gen(
                                 mp=mp,
                                 zoom=z,
-                                out_dir=out_dir if out_dir else mp.config.output.path,
+                                out_dir=(
+                                    idx_out_dir if idx_out_dir else mp.config.output.path
+                                ),
                                 geojson=geojson,
                                 gpkg=gpkg,
                                 shapefile=shp,
