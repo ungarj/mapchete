@@ -6,6 +6,7 @@ click-plugins
 click-spinner
 fiona>=1.8b1
 flask
+lxml
 matplotlib
 numpy
 pyproj

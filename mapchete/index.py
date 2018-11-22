@@ -19,6 +19,7 @@ from contextlib import ExitStack
 from copy import deepcopy
 import fiona
 import logging
+from lxml.builder import ElementMaker
 import operator
 import os
 from shapely.geometry import mapping
@@ -398,99 +399,84 @@ class VRTFileWriter():
             return
 
         # get VRT Affine and shape
-        vrt_affine, vrt_shape = raster.tiles_to_affine_shape(
-            list(self.sink.keys()), clip_to_pyramid_bounds=False
-        )
-        vrt_crs = self._tp.crs.to_string()
-        vrt_geotransform = vrt_affine.to_gdal()
+        vrt_affine, vrt_shape = raster.tiles_to_affine_shape(list(self.sink.keys()))
         vrt_dtype = self._output.profile()["dtype"]
         vrt_nodata = self._output.nodata
-        vrt_blockxsize = self._output.profile().get("blockxsize", self._tp.tile_size)
-        vrt_blockysize = self._output.profile().get("blockysize", self._tp.tile_size)
 
-        # VRT metadata
-        root = ET.Element(
-            "VRTDataset",
-            attrib={
-                "rasterXSize": str(vrt_shape.width),
-                "rasterYSize": str(vrt_shape.height)
-            }
+        # build XML
+        E = ElementMaker()
+        vrt = E.VRTDataset(
+            E.SRS(self._tp.crs.to_string()),
+            E.GeoTransform(", ".join(map(str, vrt_affine.to_gdal()))),
+            *[
+                E.VRTRasterBand(
+                    E.NoDataValue(str(vrt_nodata)),
+                    E.ColorInterp("Gray"),
+                    *[
+                        E.ComplexSource(
+                            E.SourceFilename(
+                                relative_path(
+                                    path=path, base_dir=os.path.split(self.path)[0]
+                                ),
+                                relativeToVRT="1"
+                            ),
+                            E.SourceBand(str(b_idx)),
+                            E.SourceProperties(
+                                RasterXSize=str(tile.shape.width),
+                                RasterYSize=str(tile.shape.height),
+                                DataType=vrt_dtype,
+                                BlockXSize=str(
+                                    self._output.profile().get(
+                                        "blockxsize", self._tp.tile_size
+                                    )
+                                ),
+                                BlockYSize=str(
+                                    self._output.profile().get(
+                                        "blockysize", self._tp.tile_size
+                                    )
+                                ),
+                            ),
+                            E.SrcRect(
+                                xOff="0",
+                                yOff="0",
+                                xSize=str(tile.shape.width),
+                                ySize=str(tile.shape.height),
+                            ),
+                            E.DstRect(
+                                xOff=str(
+                                    list(raster.bounds_to_ranges(
+                                        out_bounds=tile.bounds,
+                                        in_affine=vrt_affine,
+                                        in_shape=vrt_shape
+                                    ))[2]
+                                ),
+                                yOff=str(
+                                    list(raster.bounds_to_ranges(
+                                        out_bounds=tile.bounds,
+                                        in_affine=vrt_affine,
+                                        in_shape=vrt_shape
+                                    ))[0]
+                                ),
+                                xSize=str(tile.shape.width),
+                                ySize=str(tile.shape.height),
+                            ),
+                            NODATA=str(vrt_nodata)
+                        )
+                        for tile, path in sorted(
+                            self.sink.items(), key=operator.itemgetter(1)
+                        )
+                    ],
+                    dataType=vrt_dtype,
+                    band=str(b_idx)
+                )
+                for b_idx in range(1, self._output.profile()["count"] + 1)
+            ],
+            rasterXSize=str(vrt_shape.width),
+            rasterYSize=str(vrt_shape.height),
         )
-        srs = ET.SubElement(root, "SRS")
-        srs.text = vrt_crs
-        geotransform = ET.SubElement(root, "GeoTransform")
-        geotransform.text = ", ".join(map(str, vrt_geotransform))
 
-        # iterate through bands
-        for b_idx in range(1, self._output.profile()["count"] + 1):
-            band = ET.SubElement(
-                root,
-                "VRTRasterBand",
-                attrib={"dataType": vrt_dtype, "band": str(b_idx)}
-            )
-            nodatavalue = ET.SubElement(band, "NoDataValue")
-            nodatavalue.text = str(vrt_nodata)
-            color = ET.SubElement(band, "ColorInterp")
-            color.text = "Gray"
-            # iterate through tiles for each band
-            vrt_maxrow = 0
-            vrt_maxcol = 0
-            for tile, path in sorted(self.sink.items(), key=operator.itemgetter(1)):
-                complexsource = ET.SubElement(band, "ComplexSource")
-                source_filename = ET.SubElement(
-                    complexsource,
-                    "SourceFilename",
-                    attrib={"relativeToVRT": "1"}
-                )
-                source_filename.text = relative_path(
-                    path=path, base_dir=os.path.split(self.path)[0]
-                )
-                source_band = ET.SubElement(complexsource, "SourceBand")
-                source_band.text = str(b_idx)
-                ET.SubElement(
-                    complexsource,
-                    "SourceProperties",
-                    attrib={
-                        "RasterXSize": str(tile.shape.width),
-                        "RasterYSize": str(tile.shape.height),
-                        "DataType": vrt_dtype,
-                        "BlockXSize": str(vrt_blockxsize),
-                        "BlockYSize": str(vrt_blockysize),
-                    }
-                )
-                # source data rectangle
-                ET.SubElement(
-                    complexsource,
-                    "SrcRect",
-                    attrib={
-                        "xOff": str(0),
-                        "yOff": str(0),
-                        "xSize": str(tile.shape.width),
-                        "ySize": str(tile.shape.height),
-                    }
-                )
-                # target data window within VRT
-                minrow, _, mincol, _ = raster.bounds_to_ranges(
-                    out_bounds=tile.bounds,
-                    in_affine=vrt_affine,
-                    in_shape=vrt_shape
-                )
-                ET.SubElement(
-                    complexsource,
-                    "DstRect",
-                    attrib={
-                        "xOff": str(mincol),
-                        "yOff": str(minrow),
-                        "xSize": str(tile.shape.width),
-                        "ySize": str(tile.shape.height),
-                    }
-                )
-                vrt_maxrow = max([vrt_maxrow, minrow + tile.shape.height])
-                vrt_maxcol = max([vrt_maxcol, mincol + tile.shape.width])
-                source_nodatavalue = ET.SubElement(complexsource, "NODATA")
-                source_nodatavalue.text = str(vrt_nodata)
         # generate pretty XML and write
-        xmlstr = minidom.parseString(ET.tostring(root)).toprettyxml(indent="  ")
+        xmlstr = minidom.parseString(ET.tostring(vrt)).toprettyxml(indent="  ")
         if self._bucket:
             key = "/".join(self.path.split("/")[3:])
             logger.debug("upload %s", key)

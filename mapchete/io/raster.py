@@ -510,7 +510,7 @@ def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
     )
 
 
-def tiles_to_affine_shape(tiles, clip_to_pyramid_bounds=False):
+def tiles_to_affine_shape(tiles):
     """
     Return Affine and shape of combined tiles.
 
@@ -532,30 +532,12 @@ def tiles_to_affine_shape(tiles, clip_to_pyramid_bounds=False):
         max([t.right for t in tiles]),
         max([t.top for t in tiles]),
     )
-    if clip_to_pyramid_bounds:
-        tp = tiles[0].tp
-        left = max([left, tp.left])
-        bottom = max([bottom, tp.bottom])
-        right = min([right, tp.right])
-        top = min([top, tp.top])
     return (
         Affine(pixel_size, 0, left, 0, -pixel_size, top),
         Shape(
             width=int(round((right - left) / pixel_size, 0)),
             height=int(round((top - bottom) / pixel_size, 0)),
         )
-    )
-
-
-def affine_shape_to_bounds(affine=None, shape=None):
-    logger.debug(affine)
-    pixel_x_size, _, left, _, pixel_y_size, top = affine[:6]
-    height, width = shape
-    return Bounds(
-        left=left,
-        bottom=top + (height * pixel_y_size),
-        right=left + (width * pixel_x_size),
-        top=top
     )
 
 

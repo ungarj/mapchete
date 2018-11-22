@@ -73,6 +73,7 @@ setup(
         'click-plugins',
         'click-spinner',
         'fiona>=1.8b1',
+        'lxml',
         'pyproj',
         'pyyaml',
         'rasterio>=1.0.2',
