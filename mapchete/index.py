@@ -26,7 +26,9 @@ from shapely.geometry import mapping
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
-from mapchete.io import path_exists, get_boto3_bucket, raster, relative_path
+from mapchete.io import (
+    path_exists, path_is_remote, get_boto3_bucket, raster, relative_path
+)
 
 logger = logging.getLogger(__name__)
 
@@ -346,19 +348,18 @@ class VRTFileWriter():
                 for obj in self.bucket_resource.objects.filter(Prefix=key):
                     if obj.key == key:
                         self._existing = {
-                            l + '\n'
-                            for l in obj.get()['Body'].read().decode().split('\n')
-                            if l
+                            k: v for k, v in self._xml_to_entries(
+                                obj.get()['Body'].read().decode()
+                            )
                         }
             else:
                 with open(self.path) as src:
-                    self._existing = {i for i in self._xml_to_entries(src.read())}
+                    self._existing = {k: v for k, v in self._xml_to_entries(src.read())}
         else:
             self._existing = {}
+        logger.debug("%s existing entries", len(self._existing))
         self.new_entries = 0
-        self.sink = {}
-        for l in self._existing:
-            self._add_entry(path=l)
+        self._new = {}
 
     def __repr__(self):
         return "VRTFileWriter(%s)" % self.path
@@ -369,16 +370,20 @@ class VRTFileWriter():
     def __exit__(self, *args):
         self.close()
 
+    def _path_to_tile(self, path):
+        return self._tp.tile(*map(int, os.path.splitext(path)[0].split("/")[-3:]))
+
     def _add_entry(self, tile=None, path=None):
         if tile is None:
-            tile = self._tp.tile(*map(int, os.path.splitext(path)[0].split("/")[-3:]))
-        self.sink[tile] = path
+            tile = self._path_to_tile(path)
+        self._new[tile] = path
 
     def _xml_to_entries(self, xml_string):
-        vrt_dataset = ET.ElementTree(ET.fromstring(xml_string)).getroot()
-        vrt_rasterband = next(vrt_dataset.iter("VRTRasterBand"))
-        for entry in vrt_rasterband.iter("ComplexSource"):
-            yield next(entry.iter("SourceFilename")).text
+        for entry in next(
+            ET.ElementTree(ET.fromstring(xml_string)).getroot().iter("VRTRasterBand")
+        ).iter("ComplexSource"):
+            path = next(entry.iter("SourceFilename")).text
+            yield (self._path_to_tile(path), path)
 
     def write(self, tile, path):
         if not self.entry_exists(tile=tile, path=path):
@@ -394,12 +399,16 @@ class VRTFileWriter():
 
     def close(self):
         logger.debug("%s new entries in %s", self.new_entries, self)
-        if not self.sink:
+        if not self._new:
             logger.debug("no entries to write")
             return
 
-        # get VRT Affine and shape
-        vrt_affine, vrt_shape = raster.tiles_to_affine_shape(list(self.sink.keys()))
+        # combine existing and new entries
+        all_entries = {**self._existing, **self._new}
+        logger.debug("writing a total of %s entries", len(all_entries))
+
+        # get VRT attributes
+        vrt_affine, vrt_shape = raster.tiles_to_affine_shape(list(all_entries.keys()))
         vrt_dtype = self._output.profile()["dtype"]
         vrt_nodata = self._output.nodata
 
@@ -418,7 +427,7 @@ class VRTFileWriter():
                                 relative_path(
                                     path=path, base_dir=os.path.split(self.path)[0]
                                 ),
-                                relativeToVRT="1"
+                                relativeToVRT="0" if path_is_remote(path) else "1"
                             ),
                             E.SourceBand(str(b_idx)),
                             E.SourceProperties(
@@ -463,7 +472,7 @@ class VRTFileWriter():
                             NODATA=str(vrt_nodata)
                         )
                         for tile, path in sorted(
-                            self.sink.items(), key=operator.itemgetter(1)
+                            all_entries.items(), key=operator.itemgetter(1)
                         )
                     ],
                     dataType=vrt_dtype,

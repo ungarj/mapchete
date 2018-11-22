@@ -21,6 +21,7 @@ def test_remote_indexes(mp_s3_tmpdir, gtiff_s3):
             out_dir=mp.config.output.path,
             geojson=True,
             txt=True,
+            vrt=True
         ))
 
         # assert GeoJSON exists
@@ -35,6 +36,10 @@ def test_remote_indexes(mp_s3_tmpdir, gtiff_s3):
             if obj.key == key:
                 content = obj.get()['Body'].read().decode()
                 assert len([l + '\n' for l in content.split('\n') if l]) == 2
+
+        # assert VRT exists
+        with rasterio.open(os.path.join(mp.config.output.path, "%s.vrt" % zoom)) as src:
+            assert src.read().any()
 
     with mapchete.open(gtiff_s3.dict) as mp:
         # write output data
@@ -82,17 +87,13 @@ def test_vrt(mp_tmpdir, cleantopo_br):
         assert vrt.count == 1
         assert vrt.nodata == 0
         assert vrt.bounds == bounds
-        vrt_data = vrt.read().astype(rasterio.int32)
+        vrt_data = vrt.read()
         assert vrt_data.any()
 
     # generate a VRT using GDAL and compare
-
     out_dir = os.path.join(mp_tmpdir, "cleantopo_br")
     temp_vrt = os.path.join(out_dir, str(zoom)+"_gdal.vrt")
-    # gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-        temp_vrt, out_dir, zoom
-    )
+    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (temp_vrt, out_dir, zoom)
     os.system(gdalbuildvrt)
     with rasterio.open(temp_vrt, "r") as gdal_vrt:
         assert gdal_vrt.dtypes[0] == "uint16"
@@ -100,7 +101,18 @@ def test_vrt(mp_tmpdir, cleantopo_br):
         assert gdal_vrt.count == 1
         assert gdal_vrt.nodata == 0
         assert gdal_vrt.bounds == bounds
-        gdal_vrt_data = gdal_vrt.read().astype(rasterio.int32)
-        assert gdal_vrt_data.any()
-        assert gdal_vrt_data.shape == vrt_data.shape
+        gdal_vrt_data = gdal_vrt.read()
         assert np.array_equal(vrt_data, gdal_vrt_data)
+
+    # make sure handling an existing VRT works
+    with mapchete.open(dict(cleantopo_br.dict, zoom_levels=dict(min=0, max=zoom))) as mp:
+        # generate output
+        mp.batch_process(zoom=zoom)
+
+        # generate index
+        list(zoom_index_gen(
+            mp=mp,
+            zoom=zoom,
+            out_dir=mp.config.output.path,
+            vrt=True,
+        ))

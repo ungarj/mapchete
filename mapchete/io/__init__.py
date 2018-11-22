@@ -100,9 +100,9 @@ def path_is_remote(path, s3=True):
     -------
     is_remote : bool
     """
-    prefixes = ("http://", "https://")
+    prefixes = ("http://", "https://", "/vsicurl/")
     if s3:
-        prefixes += ("s3://", )
+        prefixes += ("s3://", "/vsis3/")
     return path.startswith(prefixes)
 
 
@@ -153,10 +153,10 @@ def absolute_path(path=None, base_dir=None):
 
 
 def relative_path(path=None, base_dir=None):
-    if os.path.isabs(path):
-        return os.path.relpath(path, base_dir)
-    else:
+    if path_is_remote(path) or not os.path.isabs(path):
         return path
+    else:
+        return os.path.relpath(path, base_dir)
 
 
 def makedirs(path):
