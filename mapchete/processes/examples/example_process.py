@@ -1,8 +1,22 @@
 """Example process file."""
 
 
-def execute(mp, **kwargs):
-    """User defined process."""
+def execute(mp):
+    """
+    Example process for testing.
+
+    Inputs:
+    -------
+    file1
+        raster file
+
+    Parameters:
+    -----------
+
+    Output:
+    -------
+    np.ndarray
+    """
     # Reading and writing data works like this:
     with mp.open("file1", resampling="bilinear") as raster_file:
         if raster_file.is_empty():

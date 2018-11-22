@@ -17,10 +17,31 @@ def execute(
     mp,
     resampling="nearest",
     scale_method=None,
-    scales_minmax=None,
-    **kwargs
+    scales_minmax=None
 ):
-    """Read, stretch and return tile."""
+    """
+    Read, stretch and return raster data.
+
+    Inputs:
+    -------
+    raster
+        raster file
+
+    Parameters:
+    -----------
+    resampling : str
+        rasterio.Resampling method
+    scale_method : str
+        - dtype_scale: use dtype minimum and maximum values
+        - minmax_scale: use dataset bands minimum and maximum values
+        - crop: clip data to output dtype
+    scales_minmax : tuple
+        tuple of band specific scale values
+
+    Output:
+    -------
+    np.ndarray
+    """
     with mp.open("raster", resampling=resampling) as raster_file:
 
         # exit if input tile is empty

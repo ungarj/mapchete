@@ -62,7 +62,10 @@ setup(
             'vector_file=mapchete.formats.default.vector_file',
             'tile_directory=mapchete.formats.default.tile_directory'
         ],
-        'mapchete.processes': []
+        'mapchete.processes': [
+            'example_process=mapchete.processes.examples.example_process',
+            'tilify=mapchete.processes.pyramid.tilify'
+        ]
     },
     package_dir={'static': 'static'},
     package_data={'mapchete.static': ['*']},
