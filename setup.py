@@ -76,13 +76,14 @@ setup(
         'pyproj',
         'pyyaml',
         'rasterio>=1.0.2',
-        'tilematrix>=0.17',
+        'tilematrix>=0.18',
         'tqdm'
     ] if not on_rtd else [],
     extras_require={
         'contours': ['matplotlib'],
         's3': ['boto3'],
-        'serve': ['flask']
+        'serve': ['flask'],
+        'vrt': ['lxml']
     },
     classifiers=[
         'Development Status :: 3 - Alpha',

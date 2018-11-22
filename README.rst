@@ -153,6 +153,24 @@ don't install the binaries but build them on your system:
     pip install "rasterio>=1.0.2" "fiona>=1.8b1" --no-binary :all:
 
 
+To keep the core dependencies miimal if you install mapchete using ``pip``, some features
+are only available if you manually install additional dependencies:
+
+.. code-block:: shell
+
+    # for contour extraction:
+    pip install mapchete[contours]
+
+    # for S3 bucket reading and writing:
+    pip install mapchete[s3]
+
+    # for mapchete serve:
+    pip install mapchete[serve]
+
+    # for VRT generation:
+    pip install mapchete[vrt]
+
+
 -------
 License
 -------

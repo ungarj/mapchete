@@ -3,6 +3,15 @@ Changelog
 #########
 
 ----
+0.26
+----
+* enable VRT creation for indexes
+* added ``--vrt`` flag and ``--idx_out_dir`` option to ``mapchete execute``
+* renamed ``--out_dir`` to ``--idx_out_dir`` for ``mapchete index``
+* ``BufferedTile`` shape (``height``, ``width``) and bounds (``left``, ``bottom``, ``right`` and ``top``) properties now return correct values
+* ``BufferedTile.shape`` now follows the order ``(height, width)`` (update from ``tilematrix 0.18``)
+
+----
 0.25
 ----
 * use ``concurrent.futures`` instead of ``multiprocessing``

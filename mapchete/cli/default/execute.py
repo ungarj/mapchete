@@ -13,6 +13,7 @@ import yaml
 import mapchete
 from mapchete.cli import utils
 from mapchete.config import get_zoom_levels, _map_to_new_config
+from mapchete.index import zoom_index_gen
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -37,6 +38,8 @@ logger = logging.getLogger(__name__)
 @utils.opt_no_pbar
 @utils.opt_debug
 @utils.opt_max_chunksize
+@utils.opt_vrt
+@utils.opt_idx_out_dir
 def execute(
     mapchete_files,
     zoom=None,
@@ -51,7 +54,9 @@ def execute(
     verbose=False,
     no_pbar=False,
     debug=False,
-    max_chunksize=None
+    max_chunksize=None,
+    vrt=False,
+    idx_out_dir=None
 ):
     """Execute a Mapchete process."""
     multi = multi if multi else cpu_count()
@@ -88,9 +93,26 @@ def execute(
                     zoom=tile.zoom, single_input_file=input_file
                 ) as mp:
                     spinner.stop()
-                    tqdm.tqdm.write("processing 1 tile", file=verbose_dst)
+                    tqdm.tqdm.write("processing 1 tile")
                     for result in mp.batch_processor(tile=tile):
                         utils.write_verbose_msg(result, dst=verbose_dst)
+
+                    if vrt:
+                        tqdm.tqdm.write("creating VRT")
+                        for tile in tqdm.tqdm(
+                            zoom_index_gen(
+                                mp=mp,
+                                zoom=tile.zoom,
+                                out_dir=(
+                                    idx_out_dir if idx_out_dir else mp.config.output.path
+                                ),
+                                vrt=vrt,
+                            ),
+                            total=mp.count_tiles(tile.zoom, tile.zoom),
+                            unit="tile",
+                            disable=debug
+                        ):
+                            logger.debug(tile)
 
             # initialize and run process
             else:
@@ -113,9 +135,9 @@ def execute(
                     tiles_count = mp.count_tiles(
                         min(mp.config.init_zoom_levels),
                         max(mp.config.init_zoom_levels))
-                    tqdm.tqdm.write("processing %s tile(s) on %s worker(s)" % (
-                        tiles_count, multi
-                    ), file=verbose_dst)
+                    tqdm.tqdm.write(
+                        "processing %s tile(s) on %s worker(s)" % (tiles_count, multi)
+                    )
                     for process_info in tqdm.tqdm(
                         mp.batch_processor(
                             multi=multi, zoom=zoom,
@@ -125,5 +147,23 @@ def execute(
                         disable=debug or no_pbar
                     ):
                         utils.write_verbose_msg(process_info, dst=verbose_dst)
+
+                    tqdm.tqdm.write("creating VRT(s)")
+                    for z in mp.config.init_zoom_levels:
+                        logger.debug("zoom %s", z)
+                        for tile in tqdm.tqdm(
+                            zoom_index_gen(
+                                mp=mp,
+                                zoom=z,
+                                out_dir=(
+                                    idx_out_dir if idx_out_dir else mp.config.output.path
+                                ),
+                                vrt=vrt
+                            ),
+                            total=mp.count_tiles(z, z),
+                            unit="tile",
+                            disable=debug
+                        ):
+                            logger.debug(tile)
 
         tqdm.tqdm.write("process finished", file=verbose_dst)

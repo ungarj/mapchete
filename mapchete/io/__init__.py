@@ -100,9 +100,9 @@ def path_is_remote(path, s3=True):
     -------
     is_remote : bool
     """
-    prefixes = ("http://", "https://")
+    prefixes = ("http://", "https://", "/vsicurl/")
     if s3:
-        prefixes += ("s3://", )
+        prefixes += ("s3://", "/vsis3/")
     return path.startswith(prefixes)
 
 
@@ -140,7 +140,18 @@ def path_exists(path):
 
 
 def absolute_path(path=None, base_dir=None):
-    """Return absolute path if local."""
+    """
+    Return absolute path if path is local.
+
+    Parameters:
+    -----------
+    path : path to file
+    base_dir : base directory used for absolute path
+
+    Returns:
+    --------
+    absolute path
+    """
     if path_is_remote(path):
         return path
     else:
@@ -152,8 +163,33 @@ def absolute_path(path=None, base_dir=None):
             return os.path.abspath(os.path.join(base_dir, path))
 
 
+def relative_path(path=None, base_dir=None):
+    """
+    Return relative path if path is local.
+
+    Parameters:
+    -----------
+    path : path to file
+    base_dir : directory where path sould be relative to
+
+    Returns:
+    --------
+    relative path
+    """
+    if path_is_remote(path) or not os.path.isabs(path):
+        return path
+    else:
+        return os.path.relpath(path, base_dir)
+
+
 def makedirs(path):
-    """Create all subdirectories of path if path is local."""
+    """
+    Silently create all subdirectories of path if path is local.
+
+    Parameters:
+    -----------
+    path : path
+    """
     if not path_is_remote(path):
         try:
             os.makedirs(path)
@@ -172,6 +208,13 @@ def write_output_metadata(output_params):
             logger.debug("%s exists", metadata_path)
             logger.debug("existing output parameters: %s", existing_params)
             current_params = params_to_dump(output_params)
+            grid = existing_params["pyramid"]["grid"]
+            if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:
+                raise DeprecationWarning(
+                    """Deprecated grid shape ordering found. """
+                    """Please change grid shape from [2, 1] to [1, 2] in %s."""
+                    % metadata_path
+                )
             if (
                 existing_params["pyramid"] != current_params["pyramid"] or
                 existing_params["driver"]["format"] != current_params["driver"]["format"]
