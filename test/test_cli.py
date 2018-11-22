@@ -156,7 +156,7 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
 
     # run with single tile
     run_cli(
-        ['execute', cleantopo_br.path, "-t", "5", "0", "0", "--vrt"]
+        ['execute', cleantopo_br.path, "-t", "5", "3", "7", "--vrt"]
     )
 
 

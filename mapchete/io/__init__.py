@@ -140,7 +140,18 @@ def path_exists(path):
 
 
 def absolute_path(path=None, base_dir=None):
-    """Return absolute path if local."""
+    """
+    Return absolute path if path is local.
+
+    Parameters:
+    -----------
+    path : path to file
+    base_dir : base directory used for absolute path
+
+    Returns:
+    --------
+    absolute path
+    """
     if path_is_remote(path):
         return path
     else:
@@ -153,6 +164,18 @@ def absolute_path(path=None, base_dir=None):
 
 
 def relative_path(path=None, base_dir=None):
+    """
+    Return relative path if path is local.
+
+    Parameters:
+    -----------
+    path : path to file
+    base_dir : directory where path sould be relative to
+
+    Returns:
+    --------
+    relative path
+    """
     if path_is_remote(path) or not os.path.isabs(path):
         return path
     else:
@@ -160,7 +183,13 @@ def relative_path(path=None, base_dir=None):
 
 
 def makedirs(path):
-    """Create all subdirectories of path if path is local."""
+    """
+    Silently create all subdirectories of path if path is local.
+
+    Parameters:
+    -----------
+    path : path
+    """
     if not path_is_remote(path):
         try:
             os.makedirs(path)

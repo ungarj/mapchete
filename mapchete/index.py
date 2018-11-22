@@ -8,6 +8,10 @@ Available index types:
 - textfile with tiles list
     If process output is online (e.g. a public endpoint of an S3 container),
     this file can be passed on to wget to download all process output.
+- VRT
+    Virtual raster dataset format by GDAL. This enables GIS tools to read multiple
+    files at once, e.g. QGIS can open a zoom VRT so the user doesn't have to open
+    all GeoTIFF files from a certain zoom level.
 
 All index types are generated once per zoom level. For example GeoPackage will
 generate GPKG files 3.gpkg, 4.gpkg and 5.gpkg for zoom levels 3, 4 and 5.
@@ -375,8 +379,6 @@ class VRTFileWriter():
         return self._tp.tile(*map(int, os.path.splitext(path)[0].split("/")[-3:]))
 
     def _add_entry(self, tile=None, path=None):
-        if tile is None:
-            tile = self._path_to_tile(path)
         self._new[tile] = path
 
     def _xml_to_entries(self, xml_string):
