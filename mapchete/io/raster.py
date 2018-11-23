@@ -321,7 +321,6 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     minrow, maxrow, mincol, maxcol = bounds_to_ranges(
         out_bounds=out_tile.bounds, in_affine=in_affine, in_shape=in_raster.shape
     )
-    logger.debug((minrow, maxrow, mincol, maxcol))
     # if output window is within input window
     if (
         minrow >= 0 and
@@ -330,7 +329,7 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
         maxcol <= in_raster.shape[-1]
     ):
         return in_raster[..., minrow:maxrow, mincol:maxcol]
-    # raise error if output and input windows do overlap partially
+    # raise error if output is not fully within input
     else:
         raise ValueError("extraction fails if output shape is not within input")
 

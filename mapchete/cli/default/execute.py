@@ -148,22 +148,23 @@ def execute(
                     ):
                         utils.write_verbose_msg(process_info, dst=verbose_dst)
 
-                    tqdm.tqdm.write("creating VRT(s)")
-                    for z in mp.config.init_zoom_levels:
-                        logger.debug("zoom %s", z)
-                        for tile in tqdm.tqdm(
-                            zoom_index_gen(
-                                mp=mp,
-                                zoom=z,
-                                out_dir=(
-                                    idx_out_dir if idx_out_dir else mp.config.output.path
+                    if vrt:
+                        tqdm.tqdm.write("creating VRT(s)")
+                        for z in mp.config.init_zoom_levels:
+                            logger.debug("zoom %s", z)
+                            for tile in tqdm.tqdm(
+                                zoom_index_gen(
+                                    mp=mp,
+                                    zoom=z,
+                                    out_dir=(
+                                        idx_out_dir if idx_out_dir else mp.config.output.path
+                                    ),
+                                    vrt=vrt
                                 ),
-                                vrt=vrt
-                            ),
-                            total=mp.count_tiles(z, z),
-                            unit="tile",
-                            disable=debug
-                        ):
-                            logger.debug(tile)
+                                total=mp.count_tiles(z, z),
+                                unit="tile",
+                                disable=debug
+                            ):
+                                logger.debug(tile)
 
         tqdm.tqdm.write("process finished", file=verbose_dst)
