@@ -235,6 +235,12 @@ class BufferedTile(Tile):
         """
         return BufferedTile(self._tile.get_parent(), self.pixelbuffer)
 
+    def get_neighbors(self, connectedness=8):
+        return [
+            BufferedTile(t, self.pixelbuffer)
+            for t in self._tile.get_neighbors(connectedness=connectedness)
+        ]
+
     def is_on_edge(self):
         """Determine whether tile touches or goes over pyramid edge."""
         return (
