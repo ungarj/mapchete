@@ -423,11 +423,11 @@ class Mapchete(object):
 
     def _read_existing_output(self, tile, output_tiles):
         if self.config.output.METADATA["data_type"] == "raster":
-            mosaic, affine = raster.create_mosaic([
+            mosaic = raster.create_mosaic([
                 (output_tile, self.read(output_tile))
                 for output_tile in output_tiles
             ])
-            return raster.extract_from_array(mosaic, affine, tile)
+            return raster.extract_from_array(mosaic.data, mosaic.affine, tile)
         elif self.config.output.METADATA["data_type"] == "vector":
             return list(chain.from_iterable([
                 self.read(output_tile) for output_tile in output_tiles
@@ -561,7 +561,7 @@ class Mapchete(object):
                 )
             # resample from children tiles
             elif baselevel == "lower":
-                mosaic, mosaic_affine = raster.create_mosaic([
+                mosaic = raster.create_mosaic([
                     (
                         child_tile,
                         self.get_raw_output(child_tile, _baselevel_readonly=True)
@@ -571,8 +571,8 @@ class Mapchete(object):
                     ).get_children()
                 ])
                 process_data = raster.resample_from_array(
-                    in_raster=mosaic,
-                    in_affine=mosaic_affine,
+                    in_raster=mosaic.data,
+                    in_affine=mosaic.affine,
                     out_tile=tile,
                     resampling=self.config.baselevels["lower"],
                     nodataval=self.config.output.nodata

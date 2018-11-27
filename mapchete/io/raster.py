@@ -13,7 +13,7 @@ from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
 from shapely.ops import cascaded_union
-from tilematrix import clip_geometry_to_srs_bounds, Shape
+from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
 from types import GeneratorType
 
 from mapchete.tile import BufferedTile
@@ -22,7 +22,7 @@ from mapchete.io import path_is_remote, GDAL_HTTP_OPTS
 
 logger = logging.getLogger(__name__)
 
-ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine"))
+ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine", "bounds"))
 
 
 def read_raster_window(
@@ -386,17 +386,20 @@ def resample_from_array(
     out_shape = (in_raster.shape[0], ) + out_tile.shape
     dst_data = np.empty(out_shape, in_raster.dtype)
     in_raster = ma.masked_array(
-        data=in_raster.filled(), mask=in_raster.mask, fill_value=nodataval)
+        data=in_raster.filled(), mask=in_raster.mask, fill_value=nodataval
+    )
     reproject(
         in_raster, dst_data, src_transform=in_affine, src_crs=out_tile.crs,
         dst_transform=out_tile.affine, dst_crs=out_tile.crs,
-        resampling=Resampling[resampling])
+        resampling=Resampling[resampling]
+    )
     return ma.MaskedArray(dst_data, mask=dst_data == nodataval)
 
 
 def create_mosaic(tiles, nodata=0):
     """
-    Create a mosaic from tiles.
+    Create a mosaic from tiles. Tiles must be connected (also possible over Antimeridian),
+    otherwise strange things can happen!
 
     Parameters
     ----------
@@ -426,7 +429,7 @@ def create_mosaic(tiles, nodata=0):
     # quick return if there is just one tile
     if len(tiles) == 1:
         tile, data = tiles[0]
-        return ReferencedRaster(data=data, affine=tile.affine)
+        return ReferencedRaster(data=data, affine=tile.affine, bounds=tile.bounds)
 
     # assert all tiles have same properties
     pyramid, resolution, dtype = _get_tiles_properties(tiles)
@@ -438,6 +441,7 @@ def create_mosaic(tiles, nodata=0):
         num_bands = data.shape[0] if data.ndim > 2 else 1
         left, bottom, right, top = tile.bounds
         if shift:
+            # shift by half of the grid width
             left += pyramid.x_size / 2
             right += pyramid.x_size / 2
             # if tile is now shifted outside pyramid bounds, move within
@@ -452,8 +456,7 @@ def create_mosaic(tiles, nodata=0):
     width = int(round((m_right - m_left) / resolution))
     # initialize empty mosaic
     mosaic = ma.MaskedArray(
-        data=np.full(
-            (num_bands, height, width), dtype=dtype, fill_value=nodata),
+        data=np.full((num_bands, height, width), dtype=dtype, fill_value=nodata),
         mask=np.ones((num_bands, height, width))
     )
     # create Affine
@@ -478,10 +481,12 @@ def create_mosaic(tiles, nodata=0):
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = data.mask
     if shift:
         # shift back output mosaic
-        affine = Affine(
-            resolution, 0, m_left - pyramid.x_size / 2, 0, -resolution, m_top
-        )
-    return ReferencedRaster(data=mosaic, affine=affine)
+        affine = Affine(resolution, 0, m_left - pyramid.x_size / 2, 0, -resolution, m_top)
+    return ReferencedRaster(
+        data=mosaic,
+        affine=affine,
+        bounds=Bounds(m_left, m_bottom, m_right, m_top)
+    )
 
 
 def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
@@ -555,11 +560,11 @@ def _get_tiles_properties(tiles):
 def _shift_required(tiles):
     """Determine if temporary shift is required to deal with antimeridian."""
     if tiles[0][0].tile_pyramid.is_global:
-        # check if tiles are all connected to each other
-        bbox = cascaded_union([tile.bbox for tile, _ in tiles])
-        connected = True if bbox.geom_type != "MultiPolygon" else False
-        # if tiles are not connected, shift by half the globe
-        return True if not connected else False
+        # get set of tile columns
+        tile_cols = sorted(list(set([t[0].col for t in tiles])))
+        # if tile columns are an unbroken sequence, tiles are connected and are not
+        # passing the Antimeridian
+        return tile_cols != list(range(min(tile_cols), max(tile_cols) + 1))
     else:
         return False
 

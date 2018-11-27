@@ -18,7 +18,7 @@ from shapely.geometry import shape
 from shapely.ops import unary_union
 
 import mapchete
-from mapchete.io.raster import create_mosaic
+from mapchete.io.raster import create_mosaic, _shift_required
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.tile import BufferedTilePyramid
 
@@ -255,7 +255,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                     assert output.shape == output.shape
                     assert not ma.all(output.mask)
                     mp.write(tile, output)
-                mosaic, mosaic_affine = create_mosaic(tiles)
+                mosaic = create_mosaic(tiles)
                 try:
                     temp_vrt = os.path.join(mp_tmpdir, str(zoom)+".vrt")
                     gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
@@ -263,13 +263,13 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                     os.system(gdalbuildvrt)
                     with rasterio.open(temp_vrt, "r") as testfile:
                         for file_item, mosaic_item in zip(
-                            testfile.meta["transform"], mosaic_affine
+                            testfile.meta["transform"], mosaic.affine
                         ):
                             assert file_item == mosaic_item
                         band = testfile.read(1, masked=True)
-                        assert band.shape == mosaic.shape
-                        assert ma.allclose(band, mosaic)
-                        assert ma.allclose(band.mask, mosaic.mask)
+                        assert band.shape == mosaic.data.shape
+                        assert ma.allclose(band, mosaic.data)
+                        assert ma.allclose(band.mask, mosaic.data.mask)
                 finally:
                     shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
@@ -422,3 +422,17 @@ def test_execute_params(cleantopo_br, execute_params_error_py):
     config = cleantopo_br.dict
     config.update(process=execute_params_error_py)
     mapchete.open(config)
+
+
+def test_shift_required():
+    zoom = 11
+    row = 711
+    tp = BufferedTilePyramid("mercator")
+    tiles = [(tp.tile(zoom, row, i), None) for i in range(5)]
+
+    # all tiles are connected without passing the Antimeridian, so no shift is required
+    assert not _shift_required(tiles)
+
+    # add one tile connected on the other side of the Antimeridian and a shift is required
+    tiles.append((tp.tile(zoom, row, tp.matrix_width(zoom) - 1), None))
+    assert _shift_required(tiles)

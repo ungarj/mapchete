@@ -157,7 +157,8 @@ def execute(
                                     mp=mp,
                                     zoom=z,
                                     out_dir=(
-                                        idx_out_dir if idx_out_dir else mp.config.output.path
+                                        idx_out_dir if idx_out_dir
+                                        else mp.config.output.path
                                     ),
                                     vrt=vrt
                                 ),

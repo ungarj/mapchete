@@ -10,6 +10,8 @@ Changelog
 * renamed ``--out_dir`` to ``--idx_out_dir`` for ``mapchete index``
 * ``BufferedTile`` shape (``height``, ``width``) and bounds (``left``, ``bottom``, ``right`` and ``top``) properties now return correct values
 * ``BufferedTile.shape`` now follows the order ``(height, width)`` (update from ``tilematrix 0.18``)
+* ``ReferencedRaster`` now also has a ``bounds`` property, take caution when unpacking results of ``create_mosaic()``!
+* ``create_mosaic()``: use tile columns instead of tile bounding box union to determine whether tiles are passing the Antimeridian; fixes #141
 
 ----
 0.25
