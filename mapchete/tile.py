@@ -174,17 +174,6 @@ class BufferedTile(Tile):
         self.top = self.bounds.top
 
     @cached_property
-    def profile(self):
-        """Return a rasterio profile dictionary."""
-        return dict(
-            self.output.profile,
-            width=self.width,
-            height=self.height,
-            transform=None,
-            affine=self.affine
-        )
-
-    @cached_property
     def height(self):
         """Return buffered height."""
         return self._tile.shape(pixelbuffer=self.pixelbuffer).height
@@ -236,6 +225,31 @@ class BufferedTile(Tile):
         return BufferedTile(self._tile.get_parent(), self.pixelbuffer)
 
     def get_neighbors(self, connectedness=8):
+        """
+        Return tile neighbors.
+
+        Tile neighbors are unique, i.e. in some edge cases, where both the left
+        and right neighbor wrapped around the antimeridian is the same. Also,
+        neighbors ouside the northern and southern TilePyramid boundaries are
+        excluded, because they are invalid.
+
+        -------------
+        | 8 | 1 | 5 |
+        -------------
+        | 4 | x | 2 |
+        -------------
+        | 7 | 3 | 6 |
+        -------------
+
+        Parameters
+        ----------
+        connectedness : int
+            [4 or 8] return four direct neighbors or all eight.
+
+        Returns
+        -------
+        list of BufferedTiles
+        """
         return [
             BufferedTile(t, self.pixelbuffer)
             for t in self._tile.get_neighbors(connectedness=connectedness)
@@ -249,3 +263,22 @@ class BufferedTile(Tile):
             self.right >= self.tile_pyramid.right or    # touches_right
             self.top >= self.tile_pyramid.top           # touches_top
         )
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, self.__class__) and
+            self.pixelbuffer == other.pixelbuffer and
+            self.tp == other.tp and
+            self.id == other.id
+        )
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __repr__(self):
+        return 'BufferedTile(%s, tile_pyramid=%s, pixelbuffer=%s)' % (
+            self.id, self.tp, self.pixelbuffer
+        )
+
+    def __hash__(self):
+        return hash(repr(self))

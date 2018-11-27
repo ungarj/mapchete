@@ -436,3 +436,20 @@ def test_shift_required():
     # add one tile connected on the other side of the Antimeridian and a shift is required
     tiles.append((tp.tile(zoom, row, tp.matrix_width(zoom) - 1), None))
     assert _shift_required(tiles)
+
+
+def test_bufferedtiles():
+    tp = BufferedTilePyramid("geodetic")
+    a = tp.tile(5, 5, 5)
+    b = tp.tile(5, 5, 5)
+    c = tp.tile(5, 5, 6)
+    assert a == b
+    assert a != c
+    assert b != c
+    assert a != "invalid type"
+    assert len(set([a, b, c])) == 2
+
+    tp_buffered = BufferedTilePyramid("geodetic", pixelbuffer=10)
+    assert a != tp_buffered.tile(5, 5, 5)
+
+    assert a.get_neighbors() != a.get_neighbors(connectedness=4)
