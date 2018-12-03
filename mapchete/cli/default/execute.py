@@ -61,7 +61,7 @@ def execute(
     """Execute a Mapchete process."""
     multi = multi if multi else cpu_count()
     mode = "overwrite" if overwrite else "continue"
-    # send verbose output to /dev/null if not activated
+    # send verbose messages to /dev/null if not activated
     if debug or not verbose:
         verbose_dst = open(os.devnull, 'w')
     else:
@@ -88,6 +88,7 @@ def execute(
             # process single tile
             if tile:
                 tile = _tp().tile(*tile)
+
                 with mapchete.open(
                     mapchete_file, mode=mode, bounds=tile.bounds,
                     zoom=tile.zoom, single_input_file=input_file
@@ -97,6 +98,7 @@ def execute(
                     for result in mp.batch_processor(tile=tile):
                         utils.write_verbose_msg(result, dst=verbose_dst)
 
+                    # write VRT index
                     if vrt:
                         tqdm.tqdm.write("creating VRT")
                         for tile in tqdm.tqdm(
@@ -114,7 +116,7 @@ def execute(
                         ):
                             logger.debug(tile)
 
-            # initialize and run process
+            # process area
             else:
                 if wkt_geometry:
                     bounds = wkt.loads(wkt_geometry).bounds
@@ -127,6 +129,7 @@ def execute(
                     bounds = _tp().tile_from_xy(x, y, max(zoom_levels)).bounds
                 else:
                     bounds = bounds
+
                 with mapchete.open(
                     mapchete_file, bounds=bounds, zoom=zoom,
                     mode=mode, single_input_file=input_file
@@ -140,14 +143,15 @@ def execute(
                     )
                     for process_info in tqdm.tqdm(
                         mp.batch_processor(
-                            multi=multi, zoom=zoom,
-                            max_chunksize=max_chunksize),
+                            multi=multi, zoom=zoom, max_chunksize=max_chunksize
+                        ),
                         total=tiles_count,
                         unit="tile",
                         disable=debug or no_pbar
                     ):
                         utils.write_verbose_msg(process_info, dst=verbose_dst)
 
+                    # write VRT index
                     if vrt:
                         tqdm.tqdm.write("creating VRT(s)")
                         for z in mp.config.init_zoom_levels:
@@ -168,4 +172,4 @@ def execute(
                             ):
                                 logger.debug(tile)
 
-        tqdm.tqdm.write("process finished", file=verbose_dst)
+        tqdm.tqdm.write("processing %s finished" % mapchete_file, file=verbose_dst)

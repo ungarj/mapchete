@@ -66,12 +66,15 @@ def index(
             param_type="option"
         )
 
-    # send verbose output to /dev/null if not activated
+    # send verbose messages to /dev/null if not activated
     verbose_dst = open(os.devnull, 'w') if debug or not verbose else sys.stdout
 
     for mapchete_file in mapchete_files:
+
         tqdm.tqdm.write("create index for %s" % mapchete_file, file=verbose_dst)
+
         with click_spinner.spinner(disable=debug) as spinner:
+
             # process single tile
             if tile:
                 conf = _map_to_new_config(
@@ -106,6 +109,7 @@ def index(
                     ):
                         logger.debug(tile)
 
+            # process area
             else:
                 with mapchete.open(
                     mapchete_file,
@@ -140,4 +144,6 @@ def index(
                         ):
                             logger.debug(tile)
 
-        tqdm.tqdm.write("index creation finished", file=verbose_dst)
+        tqdm.tqdm.write(
+            "index creation for %s finished" % mapchete_file, file=verbose_dst
+        )
