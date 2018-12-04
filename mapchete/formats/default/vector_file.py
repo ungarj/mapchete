@@ -16,7 +16,7 @@ METADATA = {
     "driver_name": "vector_file",
     "data_type": "vector",
     "mode": "r",
-    "file_extensions": ["shp", "geojson"]
+    "file_extensions": ["shp", "geojson", "gpkg"]
 }
 
 
