@@ -428,7 +428,7 @@ def test_shift_required():
     zoom = 11
     row = 711
     tp = BufferedTilePyramid("mercator")
-    tiles = [(tp.tile(zoom, row, i), None) for i in range(5)]
+    tiles = [(tp.tile(zoom, row, i), None) for i in range(1, 5)]
 
     # all tiles are connected without passing the Antimeridian, so no shift is required
     assert not _shift_required(tiles)
@@ -436,6 +436,13 @@ def test_shift_required():
     # add one tile connected on the other side of the Antimeridian and a shift is required
     tiles.append((tp.tile(zoom, row, tp.matrix_width(zoom) - 1), None))
     assert _shift_required(tiles)
+
+    # leave one column and add one tile
+    tiles = [(tp.tile(zoom, row, i), None) for i in range(2, 5)]
+    tiles.append((tp.tile(zoom, row, 6), None))
+    tiles.append((tp.tile(zoom, row, 8), None))
+    tiles.append((tp.tile(zoom, row, 9), None))
+    assert not _shift_required(tiles)
 
 
 def test_bufferedtiles():
