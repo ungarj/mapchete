@@ -147,42 +147,45 @@ def _get_warped_array(
     gdal_opts=None
 ):
     """Extract a numpy array from a raster file."""
-    with rasterio.Env(**gdal_opts):
-        with rasterio.open(input_file, "r") as src:
-            if indexes is None:
-                dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
-                indexes = list(src.indexes)
-            src_nodata = src.nodata if src_nodata is None else src_nodata
-            dst_nodata = src.nodata if dst_nodata is None else dst_nodata
-            with WarpedVRT(
-                src,
-                crs=dst_crs,
-                src_nodata=src_nodata,
-                nodata=dst_nodata,
-                width=dst_shape[-2],
-                height=dst_shape[-1],
-                transform=Affine(
-                    (dst_bounds[2] - dst_bounds[0]) / dst_shape[-2],
-                    0, dst_bounds[0], 0,
-                    (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
-                    dst_bounds[3]
-                ),
-                resampling=Resampling[resampling]
-            ) as vrt:
-                return vrt.read(
-                    window=vrt.window(*dst_bounds),
-                    out_shape=dst_shape,
-                    indexes=indexes,
-                    masked=True
-                )
+    try:
+        with rasterio.Env(**gdal_opts):
+            with rasterio.open(input_file, "r") as src:
+                if indexes is None:
+                    dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
+                    indexes = list(src.indexes)
+                src_nodata = src.nodata if src_nodata is None else src_nodata
+                dst_nodata = src.nodata if dst_nodata is None else dst_nodata
+                with WarpedVRT(
+                    src,
+                    crs=dst_crs,
+                    src_nodata=src_nodata,
+                    nodata=dst_nodata,
+                    width=dst_shape[-2],
+                    height=dst_shape[-1],
+                    transform=Affine(
+                        (dst_bounds[2] - dst_bounds[0]) / dst_shape[-2],
+                        0, dst_bounds[0], 0,
+                        (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
+                        dst_bounds[3]
+                    ),
+                    resampling=Resampling[resampling]
+                ) as vrt:
+                    return vrt.read(
+                        window=vrt.window(*dst_bounds),
+                        out_shape=dst_shape,
+                        indexes=indexes,
+                        masked=True
+                    )
+    except Exception as e:
+        logger.exception("error while reading file %s: %s", input_file, e)
+        raise
 
 
 class RasterWindowMemoryFile():
     """Context manager around rasterio.io.MemoryFile."""
 
     def __init__(
-        self, in_tile=None, in_data=None, out_profile=None, out_tile=None,
-        tags=None
+        self, in_tile=None, in_data=None, out_profile=None, out_tile=None, tags=None
     ):
         """Prepare data & profile."""
         out_tile = in_tile if out_tile is None else out_tile
@@ -256,24 +259,28 @@ def write_raster_window(
     # write if there is any band with non-masked data
     if window_data.all() is not ma.masked:
 
-        if out_path.startswith("s3://"):
-            with RasterWindowMemoryFile(
-                in_tile=out_tile,
-                in_data=window_data,
-                out_profile=out_profile,
-                out_tile=out_tile,
-                tags=tags
-            ) as memfile:
-                logger.debug((out_tile.id, "upload tile", out_path))
-                bucket_resource.put_object(
-                    Key="/".join(out_path.split("/")[3:]),
-                    Body=memfile
-                )
-        else:
-            with rasterio.open(out_path, 'w', **out_profile) as dst:
-                logger.debug((out_tile.id, "write tile", out_path))
-                dst.write(window_data.astype(out_profile["dtype"]))
-                _write_tags(dst, tags)
+        try:
+            if out_path.startswith("s3://"):
+                with RasterWindowMemoryFile(
+                    in_tile=out_tile,
+                    in_data=window_data,
+                    out_profile=out_profile,
+                    out_tile=out_tile,
+                    tags=tags
+                ) as memfile:
+                    logger.debug((out_tile.id, "upload tile", out_path))
+                    bucket_resource.put_object(
+                        Key="/".join(out_path.split("/")[3:]),
+                        Body=memfile
+                    )
+            else:
+                with rasterio.open(out_path, 'w', **out_profile) as dst:
+                    logger.debug((out_tile.id, "write tile", out_path))
+                    dst.write(window_data.astype(out_profile["dtype"]))
+                    _write_tags(dst, tags)
+        except Exception as e:
+            logger.exception("error while writing file %s: %s", out_path, e)
+            raise
     else:
         logger.debug((out_tile.id, "array window empty", out_path))
 

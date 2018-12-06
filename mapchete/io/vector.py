@@ -240,27 +240,32 @@ def write_vector_window(
     # write if there are output features
     if out_features:
 
-        if out_path.startswith("s3://"):
-            # write data to remote file
-            with VectorWindowMemoryFile(
-                tile=out_tile,
-                features=out_features,
-                schema=out_schema,
-                driver="GeoJSON"
-            ) as memfile:
-                logger.debug((out_tile.id, "upload tile", out_path))
-                bucket_resource.put_object(
-                    Key="/".join(out_path.split("/")[3:]),
-                    Body=memfile
-                )
-        else:
-            # write data to local file
-            with fiona.open(
-                out_path, 'w', schema=out_schema, driver="GeoJSON",
-                crs=out_tile.crs.to_dict()
-            ) as dst:
-                logger.debug((out_tile.id, "write tile", out_path))
-                dst.writerecords(out_features)
+        try:
+            if out_path.startswith("s3://"):
+                # write data to remote file
+                with VectorWindowMemoryFile(
+                    tile=out_tile,
+                    features=out_features,
+                    schema=out_schema,
+                    driver="GeoJSON"
+                ) as memfile:
+                    logger.debug((out_tile.id, "upload tile", out_path))
+                    bucket_resource.put_object(
+                        Key="/".join(out_path.split("/")[3:]),
+                        Body=memfile
+                    )
+            else:
+                # write data to local file
+                with fiona.open(
+                    out_path, 'w', schema=out_schema, driver="GeoJSON",
+                    crs=out_tile.crs.to_dict()
+                ) as dst:
+                    logger.debug((out_tile.id, "write tile", out_path))
+                    dst.writerecords(out_features)
+        except Exception as e:
+            logger.exception("error while writing file %s: %s", out_path, e)
+            raise
+
     else:
         logger.debug((out_tile.id, "nothing to write", out_path))
 
@@ -296,48 +301,52 @@ class VectorWindowMemoryFile():
 def _get_reprojected_features(
     input_file=None, dst_bounds=None, dst_crs=None, validity_check=False
 ):
-    with fiona.open(input_file, 'r') as vector:
-        vector_crs = CRS(vector.crs)
-        # Reproject tile bounding box to source file CRS for filter:
-        if vector_crs == dst_crs:
-            dst_bbox = box(*dst_bounds)
-        else:
-            dst_bbox = reproject_geometry(
-                box(*dst_bounds), src_crs=dst_crs, dst_crs=vector_crs,
-                validity_check=True
-            )
-        for feature in vector.filter(bbox=dst_bbox.bounds):
-            feature_geom = to_shape(feature['geometry'])
-            if not feature_geom.is_valid:
-                feature_geom = feature_geom.buffer(0)
-                # skip feature if geometry cannot be repaired
-                if not feature_geom.is_valid:
-                    logger.exception(
-                        "feature omitted: %s", explain_validity(feature_geom))
-                    continue
-            # only return feature if geometry type stayed the same after
-            # reprojecction
-            geom = clean_geometry_type(
-                feature_geom.intersection(dst_bbox), feature_geom.geom_type)
-            if geom:
-                # Reproject each feature to tile CRS
-                try:
-                    geom = reproject_geometry(
-                        geom, src_crs=vector_crs, dst_crs=dst_crs,
-                        validity_check=validity_check)
-                    if validity_check and not geom.is_valid:
-                        raise TopologicalError(
-                            "reprojected geometry invalid: %s" % (
-                                explain_validity(geom)))
-                except TopologicalError:
-                    logger.exception("feature omitted: reprojection failed")
-                yield {
-                    'properties': feature['properties'],
-                    'geometry': mapping(geom)}
+    try:
+        with fiona.open(input_file, 'r') as vector:
+            vector_crs = CRS(vector.crs)
+            # Reproject tile bounding box to source file CRS for filter:
+            if vector_crs == dst_crs:
+                dst_bbox = box(*dst_bounds)
             else:
-                logger.exception(
-                    "feature omitted: geometry type changed after reprojection"
+                dst_bbox = reproject_geometry(
+                    box(*dst_bounds), src_crs=dst_crs, dst_crs=vector_crs,
+                    validity_check=True
                 )
+            for feature in vector.filter(bbox=dst_bbox.bounds):
+                feature_geom = to_shape(feature['geometry'])
+                if not feature_geom.is_valid:
+                    feature_geom = feature_geom.buffer(0)
+                    # skip feature if geometry cannot be repaired
+                    if not feature_geom.is_valid:
+                        logger.exception(
+                            "feature omitted: %s", explain_validity(feature_geom))
+                        continue
+                # only return feature if geometry type stayed the same after
+                # reprojecction
+                geom = clean_geometry_type(
+                    feature_geom.intersection(dst_bbox), feature_geom.geom_type)
+                if geom:
+                    # Reproject each feature to tile CRS
+                    try:
+                        geom = reproject_geometry(
+                            geom, src_crs=vector_crs, dst_crs=dst_crs,
+                            validity_check=validity_check)
+                        if validity_check and not geom.is_valid:
+                            raise TopologicalError(
+                                "reprojected geometry invalid: %s" % (
+                                    explain_validity(geom)))
+                    except TopologicalError:
+                        logger.exception("feature omitted: reprojection failed")
+                    yield {
+                        'properties': feature['properties'],
+                        'geometry': mapping(geom)}
+                else:
+                    logger.exception(
+                        "feature omitted: geometry type changed after reprojection"
+                    )
+    except Exception as e:
+        logger.exception("error while reading file %s: %s", input_file, e)
+        raise
 
 
 def clean_geometry_type(geometry, target_type, allow_multipart=True):
