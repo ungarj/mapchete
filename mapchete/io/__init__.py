@@ -135,24 +135,24 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal"):
                     w, h = width_height(bounds)
                     res.extend([w, h])
                 except TopologicalError:
-                    print("pixel outside of destination pyramid")
-            if not res:
+                    logger.debug("pixel outside of destination pyramid")
+            if res:
+                tile_resolution = min(res)
+            else:
                 raise TopologicalError("tile outside of destination pyramid")
-            tile_resolution = min(res)
         else:
             raise ValueError("invalid method given: %s", method)
         logger.debug(
             "we are looking for a zoom level interpolating to %s resolution",
             tile_resolution
         )
-        print("looking for %s" % tile_resolution)
         zoom = 0
         while True:
             td_resolution = dst_pyramid.pixel_x_size(zoom)
             if td_resolution <= tile_resolution:
                 break
             zoom += 1
-        logger.debug("target zoom: %s (%s)", zoom, td_resolution)
+        logger.debug("target zoom for %s: %s (%s)", tile_resolution, zoom, td_resolution)
         return zoom
 
 
