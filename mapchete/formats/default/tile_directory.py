@@ -11,7 +11,7 @@ from shapely.geometry import box, shape, mapping
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base, load_output_writer
-from mapchete.io import path_exists, absolute_path, read_json
+from mapchete.io import path_exists, absolute_path, read_json, tile_to_zoom_level
 from mapchete.io.vector import reproject_geometry, read_vector_window
 from mapchete.io.raster import read_raster_window, create_mosaic, resample_from_array
 from mapchete.tile import BufferedTilePyramid
@@ -176,33 +176,15 @@ class InputData(base.InputData):
             # determine tile bounds in TileDirectory CRS
             logger.debug("tile bounds: %s", tile.bounds)
             td_bounds = reproject_geometry(
-                tile.bbox, src_crs=tile.tp.crs, dst_crs=self.td_pyramid.crs
+                tile.bbox,
+                src_crs=tile.tp.crs,
+                dst_crs=self.td_pyramid.crs
             ).bounds
             logger.debug("converted tile bounds in TileDirectory CRS: %s", td_bounds)
-            # determine best zoom level to get data from TileDirectory
-            transform, width, height = calculate_default_transform(
-                tile.tp.crs,
-                self.td_pyramid.crs,
-                tile.width,
-                tile.height,
-                *tile.bounds
-            )
-            # this is the resolution the tile would have in the TileDirectory CRS
-            tile_resolution = transform[0]
-            logger.debug("target tile is %s", tile)
-            logger.debug(
-                "we are looking for a zoom level interpolating to %s resolution",
-                tile_resolution
-            )
-            zoom = 0
-            while True:
-                td_resolution = self.td_pyramid.pixel_x_size(zoom)
-                if td_resolution <= tile_resolution:
-                    break
-                zoom += 1
-            else:
-                raise RuntimeError("no zoom level could be found")
-            logger.debug("target zoom: %s (%s)", zoom, td_resolution)
+
+            # get best target zoom level
+            zoom = tile_to_zoom_level(tile, dst_pyramid=self.td_pyramid)
+
             # check if tiles exist and pass on to InputTile
             tiles_paths = []
             while len(tiles_paths) == 0 and zoom >= 0:
@@ -213,9 +195,7 @@ class InputData(base.InputData):
                     bounds=td_bounds,
                     zoom=zoom
                 )
-                logger.debug(
-                    "%s existing tiles found for zoom %s", len(tiles_paths), zoom
-                )
+                logger.debug("%s existing tiles found at zoom %s", len(tiles_paths), zoom)
                 zoom -= 1
             return InputTile(
                 tile,
