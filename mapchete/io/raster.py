@@ -147,6 +147,7 @@ def _get_warped_array(
     gdal_opts=None
 ):
     """Extract a numpy array from a raster file."""
+    logger.debug("reading %s", input_file)
     try:
         with rasterio.Env(**gdal_opts):
             with rasterio.open(input_file, "r") as src:
@@ -432,6 +433,7 @@ def create_mosaic(tiles, nodata=0):
     if len(tiles) == 0:
         raise ValueError("tiles list is empty")
 
+    logger.debug("mosaicking %s tile(s)", len(tiles))
     # quick return if there is just one tile
     if len(tiles) == 1:
         tile, data = tiles[0]

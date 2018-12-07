@@ -301,6 +301,7 @@ class VectorWindowMemoryFile():
 def _get_reprojected_features(
     input_file=None, dst_bounds=None, dst_crs=None, validity_check=False
 ):
+    logger.debug("reading %s", input_file)
     try:
         with fiona.open(input_file, 'r') as vector:
             vector_crs = CRS(vector.crs)
