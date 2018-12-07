@@ -78,6 +78,25 @@ def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
         shutil.rmtree(mp.config.output.path, ignore_errors=True)
 
 
+def test_read_reprojected_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_mercator):
+    """Read reprojected raster data."""
+    zoom = 4
+    # prepare data
+    with mapchete.open(cleantopo_br.path) as mp:
+        mp.batch_process(zoom=zoom)
+
+    with mapchete.open(cleantopo_br_mercator.dict, mode="overwrite") as mp:
+        # read some data
+        assert any([
+            next(iter(mp.config.input.values())).open(tile).read().any()
+            for tile in mp.get_process_tiles(zoom)
+        ])
+        # read empty tile
+        assert not next(iter(mp.config.input.values())).open(
+            mp.config.process_pyramid.tile(zoom, 0, 0)
+        ).read().any()
+
+
 def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     """Read raster data."""
     # prepare data

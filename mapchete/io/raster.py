@@ -21,7 +21,7 @@ from mapchete.io import path_is_remote, GDAL_HTTP_OPTS
 
 logger = logging.getLogger(__name__)
 
-ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine", "bounds"))
+ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine", "bounds", "crs"))
 
 
 def read_raster_window(
@@ -236,6 +236,7 @@ def write_raster_window(
     tags : optional tags to be added to GeoTIFF file
     bucket_resource : boto3 bucket resource to write to in case of S3 output
     """
+    logger.debug("write %s", out_path)
     if out_path == "memoryfile":
         raise DeprecationWarning(
             "Writing to memoryfile with write_raster_window() is deprecated. "
@@ -342,7 +343,7 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
 
 
 def resample_from_array(
-    in_raster=None, in_affine=None, out_tile=None, resampling="nearest",
+    in_raster=None, in_affine=None, in_crs=None, out_tile=None, resampling="nearest",
     nodataval=0
 ):
     """
@@ -362,12 +363,14 @@ def resample_from_array(
     -------
     resampled array : array
     """
+    # TODO rename function
     if isinstance(in_raster, ma.MaskedArray):
         pass
     if isinstance(in_raster, np.ndarray):
         in_raster = ma.MaskedArray(in_raster, mask=in_raster == nodataval)
     elif isinstance(in_raster, ReferencedRaster):
         in_affine = in_raster.affine
+        in_crs = in_raster.crs
         in_raster = in_raster.data
     elif isinstance(in_raster, tuple):
         in_raster = ma.MaskedArray(
@@ -396,8 +399,12 @@ def resample_from_array(
         data=in_raster.filled(), mask=in_raster.mask, fill_value=nodataval
     )
     reproject(
-        in_raster, dst_data, src_transform=in_affine, src_crs=out_tile.crs,
-        dst_transform=out_tile.affine, dst_crs=out_tile.crs,
+        in_raster,
+        dst_data,
+        src_transform=in_affine,
+        src_crs=in_crs if in_crs else out_tile.crs,
+        dst_transform=out_tile.affine,
+        dst_crs=out_tile.crs,
         resampling=Resampling[resampling]
     )
     return ma.MaskedArray(dst_data, mask=dst_data == nodataval)
@@ -433,11 +440,16 @@ def create_mosaic(tiles, nodata=0):
     if len(tiles) == 0:
         raise ValueError("tiles list is empty")
 
-    logger.debug("mosaicking %s tile(s)", len(tiles))
+    logger.debug("create mosaic from %s tile(s)", len(tiles))
     # quick return if there is just one tile
     if len(tiles) == 1:
         tile, data = tiles[0]
-        return ReferencedRaster(data=data, affine=tile.affine, bounds=tile.bounds)
+        return ReferencedRaster(
+            data=data,
+            affine=tile.affine,
+            bounds=tile.bounds,
+            crs=tile.crs
+        )
 
     # assert all tiles have same properties
     pyramid, resolution, dtype = _get_tiles_properties(tiles)
@@ -493,7 +505,8 @@ def create_mosaic(tiles, nodata=0):
     return ReferencedRaster(
         data=mosaic,
         affine=affine,
-        bounds=Bounds(m_left, m_bottom, m_right, m_top)
+        bounds=Bounds(m_left, m_bottom, m_right, m_top),
+        crs=tile.crs
     )
 
 

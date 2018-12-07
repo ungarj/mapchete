@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import numpy.ma as ma
 import os
+from rasterio.warp import transform_bounds, calculate_default_transform
 from shapely.geometry import box
 
 from mapchete.config import validate_values
@@ -156,23 +157,82 @@ class InputData(base.InputData):
         input tile : ``InputTile``
             tile view of input data
         """
-        return InputTile(
-            tile,
-            tiles_paths=[
-                (_tile, _path)
-                for _tile, _path in [
-                    (t, os.path.join(*([
-                        self.path, str(t.zoom), str(t.row), str(t.col)
-                        ])) + "." + self._ext)
-                    for t in self.td_pyramid.tiles_from_bounds(
-                        tile.bounds, tile.zoom)
-                ]
-                if path_exists(_path)
-            ],
-            file_type=self._file_type,
-            profile=self._profile,
-            **kwargs
-        )
+        if self.td_pyramid.crs == tile.tp.crs:
+            return InputTile(
+                tile,
+                tiles_paths=[
+                    (_tile, _path)
+                    for _tile, _path in [
+                        (
+                            t,
+                            "%s.%s" % (
+                                os.path.join(
+                                    *([self.path, str(t.zoom), str(t.row), str(t.col)])
+                                ), self._ext
+                            )
+                        )
+                        for t in self.td_pyramid.tiles_from_bounds(tile.bounds, tile.zoom)
+                    ]
+                    if path_exists(_path)
+                ],
+                file_type=self._file_type,
+                profile=self._profile,
+                td_crs=self.td_pyramid.crs,
+                **kwargs
+            )
+        else:
+            # determine tile bounds in TileDirectory CRS
+            logger.debug("tile bounds: %s", tile.bounds)
+            td_bounds = reproject_geometry(
+                tile.bbox, src_crs=tile.tp.crs, dst_crs=self.td_pyramid.crs
+            ).bounds
+            logger.debug("converted tile bounds in TileDirectory CRS: %s", td_bounds)
+            # determine best zoom level to get data from TileDirectory
+            transform, width, height = calculate_default_transform(
+                tile.tp.crs,
+                self.td_pyramid.crs,
+                tile.width,
+                tile.height,
+                *tile.bounds
+            )
+            # this is the resolution the tile would have in the TileDirectory CRS
+            tile_resolution = transform[0]
+            logger.debug("target tile is %s", tile)
+            logger.debug(
+                "we are looking for a zoom level interpolating to %s resolution",
+                tile_resolution
+            )
+            zoom = 0
+            while True:
+                td_resolution = self.td_pyramid.pixel_x_size(zoom)
+                if td_resolution <= tile_resolution:
+                    break
+                zoom += 1
+            else:
+                raise RuntimeError("no zoom level could be found")
+            logger.debug("target zoom: %s (%s)", zoom, td_resolution)
+            # check if tiles exist and pass on to InputTile
+            tiles_paths = []
+            while len(tiles_paths) == 0 and zoom >= 0:
+                tiles_paths = _get_tiles_paths(
+                    basepath=self.path,
+                    ext=self._ext,
+                    pyramid=self.td_pyramid,
+                    bounds=td_bounds,
+                    zoom=zoom
+                )
+                logger.debug(
+                    "%s existing tiles found for zoom %s", len(tiles_paths), zoom
+                )
+                zoom -= 1
+            return InputTile(
+                tile,
+                tiles_paths=tiles_paths,
+                file_type=self._file_type,
+                profile=self._profile,
+                td_crs=self.td_pyramid.crs,
+                **kwargs
+            )
 
     def bbox(self, out_crs=None):
         """
@@ -193,6 +253,22 @@ class InputData(base.InputData):
             src_crs=self.td_pyramid.crs,
             dst_crs=self.pyramid.crs if out_crs is None else out_crs
         )
+
+
+def _get_tiles_paths(basepath=None, ext=None, pyramid=None, bounds=None, zoom=None):
+    return [
+        (_tile, _path)
+        for _tile, _path in [
+            (
+                t,
+                "%s.%s" % (
+                    os.path.join(*([basepath, str(t.zoom), str(t.row), str(t.col)])), ext
+                )
+            )
+            for t in pyramid.tiles_from_bounds(bounds, zoom)
+        ]
+        if path_exists(_path)
+    ]
 
 
 class InputTile(base.InputTile):
@@ -216,10 +292,15 @@ class InputTile(base.InputTile):
         self._tiles_paths = kwargs["tiles_paths"]
         self._file_type = kwargs["file_type"]
         self._profile = kwargs["profile"]
+        self._td_crs = kwargs["td_crs"]
 
     def read(
-        self, validity_check=False, indexes=None, resampling="nearest",
-        dst_nodata=None, gdal_opts=None
+        self,
+        validity_check=False,
+        indexes=None,
+        resampling="nearest",
+        dst_nodata=None,
+        gdal_opts=None
     ):
         """
         Read reprojected & resampled input data.
@@ -244,40 +325,53 @@ class InputTile(base.InputTile):
         -------
         data : list for vector files or numpy array for raster files
         """
+        logger.debug("reading data from CRS %s to CRS %s", self._td_crs, self.tile.tp.crs)
         if self._file_type == "vector":
             if self.is_empty():
                 return []
-            return list(chain.from_iterable([
-                read_vector_window(
-                    _path, self.tile, validity_check=validity_check)
-                for _, _path in self._tiles_paths
-            ]))
+            else:
+                return [
+                    reproject_geometry(g, src_crs=self._td_crs, dst_crs=self.tile.tp.crs)
+                    for g in chain.from_iterable([
+                        read_vector_window(p, self.tile, validity_check=validity_check)
+                        for _, p in self._tiles_paths
+                    ])
+                ]
         else:
             if self.is_empty():
-                count = (len(indexes) if indexes else self._profile["count"], )
+                bands = len(indexes) if indexes else self._profile["count"]
                 return ma.masked_array(
                     data=np.full(
-                        count + self.tile.shape, self._profile["nodata"],
-                        dtype=self._profile["dtype"]),
+                        (bands, self.tile.height, self.tile.width),
+                        self._profile["nodata"],
+                        dtype=self._profile["dtype"]
+                    ),
                     mask=True
                 )
-            tiles = [
-                (
-                    _tile,
-                    read_raster_window(
-                        _path, _tile, indexes=indexes, resampling=resampling,
-                        src_nodata=self._profile["nodata"], dst_nodata=dst_nodata,
-                        gdal_opts=gdal_opts
-                    )
+            else:
+                return resample_from_array(
+                    in_raster=create_mosaic(
+                        tiles=[
+                            (
+                                _tile,
+                                read_raster_window(
+                                    _path,
+                                    _tile,
+                                    indexes=indexes,
+                                    resampling=resampling,
+                                    src_nodata=self._profile["nodata"],
+                                    dst_nodata=dst_nodata,
+                                    gdal_opts=gdal_opts
+                                )
+                            )
+                            for _tile, _path in self._tiles_paths
+                        ],
+                        nodata=self._profile["nodata"]
+                    ),
+                    out_tile=self.tile,
+                    resampling=resampling,
+                    nodataval=self._profile["nodata"]
                 )
-                for _tile, _path in self._tiles_paths
-            ]
-            return resample_from_array(
-                in_raster=create_mosaic(tiles=tiles, nodata=self._profile["nodata"]),
-                out_tile=self.tile,
-                resampling=resampling,
-                nodataval=self._profile["nodata"]
-            )
 
     def is_empty(self):
         """

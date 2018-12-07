@@ -1,0 +1,16 @@
+process: ../example_process.py
+zoom_levels:
+    min: 0
+    max: 5
+pyramid:
+    grid: mercator
+    pixelbuffer: 20
+    metatiling: 2
+input:
+    file1: tmp/cleantopo_br
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/cleantopo_br_mercator
+    pixelbuffer: 20
