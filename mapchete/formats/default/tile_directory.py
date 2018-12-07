@@ -5,8 +5,8 @@ import logging
 import numpy as np
 import numpy.ma as ma
 import os
-from rasterio.warp import transform_bounds, calculate_default_transform
-from shapely.geometry import box
+from rasterio.warp import calculate_default_transform
+from shapely.geometry import box, shape, mapping
 
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
@@ -160,21 +160,13 @@ class InputData(base.InputData):
         if self.td_pyramid.crs == tile.tp.crs:
             return InputTile(
                 tile,
-                tiles_paths=[
-                    (_tile, _path)
-                    for _tile, _path in [
-                        (
-                            t,
-                            "%s.%s" % (
-                                os.path.join(
-                                    *([self.path, str(t.zoom), str(t.row), str(t.col)])
-                                ), self._ext
-                            )
-                        )
-                        for t in self.td_pyramid.tiles_from_bounds(tile.bounds, tile.zoom)
-                    ]
-                    if path_exists(_path)
-                ],
+                tiles_paths=_get_tiles_paths(
+                    basepath=self.path,
+                    ext=self._ext,
+                    pyramid=self.td_pyramid,
+                    bounds=tile.bounds,
+                    zoom=tile.zoom
+                ),
                 file_type=self._file_type,
                 profile=self._profile,
                 td_crs=self.td_pyramid.crs,
@@ -331,7 +323,16 @@ class InputTile(base.InputTile):
                 return []
             else:
                 return [
-                    reproject_geometry(g, src_crs=self._td_crs, dst_crs=self.tile.tp.crs)
+                    {
+                        "properties": g["properties"],
+                        "geometry": mapping(
+                            reproject_geometry(
+                                shape(g["geometry"]),
+                                src_crs=self._td_crs,
+                                dst_crs=self.tile.tp.crs
+                            )
+                        )
+                    }
                     for g in chain.from_iterable([
                         read_vector_window(p, self.tile, validity_check=validity_check)
                         for _, p in self._tiles_paths

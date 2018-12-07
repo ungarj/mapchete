@@ -343,7 +343,11 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
 
 
 def resample_from_array(
-    in_raster=None, in_affine=None, in_crs=None, out_tile=None, resampling="nearest",
+    in_raster=None,
+    in_affine=None,
+    out_tile=None,
+    in_crs=None,
+    resampling="nearest",
     nodataval=0
 ):
     """
