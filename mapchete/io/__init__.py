@@ -168,7 +168,6 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
         zoom = 0
         while True:
             td_resolution = round(dst_pyramid.pixel_x_size(zoom), precision)
-            logger.debug("td_resolution: %s", td_resolution)
             if td_resolution <= tile_resolution:
                 break
             zoom += 1
