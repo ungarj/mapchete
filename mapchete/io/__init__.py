@@ -95,6 +95,23 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal"):
     Determine the best zoom level in target TilePyramid from given Tile.
 
 
+    Parameters
+    ----------
+    tile : BufferedTile
+    dst_pyramid : BufferedTilePyramid
+    method : str ('gdal' or 'min')
+        gdal: Uses GDAL's standard method. Here, the target resolution is calculated by
+            averaging the extent's pixel sizes over both x and y axes. This approach
+            returns a zoom level which may not have the best quality but will speed up
+            reading significantly.
+        min: Returns the zoom level which matches the minimum resolution of the extent's
+            four corner pixels. This approach returns the zoom level with the best
+            possible quality but with low performance. If the tile extent is outside of
+            the destination pyramid, a TopologicalError will be raised.
+
+    Returns
+    -------
+    zoom : int
     """
     def width_height(bounds):
         try:
