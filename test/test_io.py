@@ -15,6 +15,7 @@ from rasterio.enums import Compression
 from rasterio.crs import CRS
 from itertools import product
 
+import mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
 from mapchete.io import (
@@ -133,6 +134,37 @@ def test_read_raster_window_mask(s2_band):
         s2_band, tile, resampling="cubic", src_nodata=0, dst_nodata=0)
     assert data.any()
     assert not np.where(data == 1, True, False).any()
+
+
+def test_read_raster_window_input_list(cleantopo_br):
+    process_zoom = 5
+    conf = dict(**cleantopo_br.dict)
+    conf["output"].update(metatiling=1)
+    with mapchete.open(conf) as mp:
+        mp.batch_process(process_zoom)
+        tiles = [
+            (tile, mp.config.output.get_path(tile))
+            for tile in mp.config.output_pyramid.tiles_from_bounds(
+                mp.config.bounds, process_zoom
+            )
+            if path_exists(mp.config.output.get_path(tile))
+        ]
+        upper_tile = next(mp.get_process_tiles(process_zoom - 1))
+        assert len(tiles) > 1
+        resampled = resample_from_array(
+            in_raster=create_mosaic(
+                [(tile, read_raster_window(path, tile)) for tile, path in tiles]
+            ),
+            out_tile=upper_tile
+        )
+    resampled2 = read_raster_window(
+        [p for _, p in tiles], upper_tile, src_nodata=0, dst_nodata=0
+    )
+    assert resampled.dtype == resampled2.dtype
+    assert resampled.shape == resampled2.shape
+    assert np.array_equal(resampled.mask, resampled2.mask)
+    # TODO slight rounding errors occur
+    assert np.allclose(resampled, resampled2, rtol=0.01)
 
 
 def test_write_raster_window():

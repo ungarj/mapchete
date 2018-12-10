@@ -109,10 +109,10 @@ def _read_raster_window(
                 src_nodata=src_nodata,
                 dst_nodata=dst_nodata
             )
-            dst_array = np.where(f_array.mask, dst_array, f_array).astype(dst_array.dtype)
-            dst_array.mask = np.where(
-                f_array.mask, dst_array.mask, f_array.mask
-            ).astype(np.bool)
+            dst_array = ma.MaskedArray(
+                data=np.where(f_array.mask, dst_array, f_array).astype(dst_array.dtype),
+                mask=np.where(f_array.mask, dst_array.mask, f_array.mask).astype(np.bool)
+            )
         return dst_array
     else:
         input_file = input_files
