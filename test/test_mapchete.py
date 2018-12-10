@@ -160,15 +160,13 @@ def test_get_raw_output_continue_vector(mp_tmpdir, geojson):
         assert mp.get_raw_output(tile)
 
 
-def test_get_raw_output_reproject(mp_tmpdir, cleantopo_tl):
-    """Get process output from a different CRS."""
-    try:
-        with mapchete.open(cleantopo_tl.path) as mp:
-            assert mp.config.mode == "continue"
-            # TODO implement function
-            mp.get_raw_output((5, 0, 0))
-    except NotImplementedError:
-        pass
+# def test_get_raw_output_reproject(mp_tmpdir, cleantopo_tl):
+#     """Get process output from a different CRS."""
+#     with pytest.raises(NotImplementedError):
+#         with mapchete.open(cleantopo_tl.path) as mp:
+#             assert mp.config.mode == "continue"
+#             # TODO implement function
+#             print(mp.get_raw_output((5, 0, 0)))
 
 
 def test_baselevels(mp_tmpdir, baselevels):

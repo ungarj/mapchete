@@ -3,6 +3,13 @@ Changelog
 #########
 
 ----
+0.27
+----
+* enable reading from output tile directories which have a different CRS
+* enable GeoPackage as single file input
+* fixed antimeridian shift check
+
+----
 0.26
 ----
 * enable VRT creation for indexes

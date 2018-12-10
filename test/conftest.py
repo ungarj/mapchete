@@ -313,6 +313,13 @@ def cleantopo_br_tiledir():
 
 
 @pytest.fixture
+def cleantopo_br_mercator():
+    """Fixture for cleantopo_br_mercator.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "cleantopo_br_mercator.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def geojson():
     """Fixture for geojson.mapchete."""
     path = os.path.join(TESTDATA_DIR, "geojson.mapchete")
