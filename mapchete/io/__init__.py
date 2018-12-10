@@ -90,7 +90,7 @@ def get_segmentize_value(input_file=None, tile_pyramid=None):
     return pixelsize * tile_pyramid.tile_size
 
 
-def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal"):
+def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal", precision=8):
     """
     Determine the best zoom level in target TilePyramid from given Tile.
 
@@ -108,6 +108,8 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal"):
             four corner pixels. This approach returns the zoom level with the best
             possible quality but with low performance. If the tile extent is outside of
             the destination pyramid, a TopologicalError will be raised.
+    precision : int
+        Round resolutions to n digits before comparing.
 
     Returns
     -------
@@ -135,7 +137,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal"):
                 *tile.bounds
             )
             # this is the resolution the tile would have in destination TilePyramid CRS
-            tile_resolution = transform[0]
+            tile_resolution = round(transform[0], precision)
         elif method == "min":
             # calculate the minimum pixel size from the four tile corner pixels
             l, b, r, t = tile.bounds
@@ -154,7 +156,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal"):
                 except TopologicalError:
                     logger.debug("pixel outside of destination pyramid")
             if res:
-                tile_resolution = min(res)
+                tile_resolution = round(min(res), precision)
             else:
                 raise TopologicalError("tile outside of destination pyramid")
         else:
@@ -165,7 +167,8 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal"):
         )
         zoom = 0
         while True:
-            td_resolution = dst_pyramid.pixel_x_size(zoom)
+            td_resolution = round(dst_pyramid.pixel_x_size(zoom), precision)
+            logger.debug("td_resolution: %s", td_resolution)
             if td_resolution <= tile_resolution:
                 break
             zoom += 1

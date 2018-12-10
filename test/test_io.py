@@ -8,6 +8,7 @@ import tempfile
 import numpy as np
 import numpy.ma as ma
 import fiona
+from shapely.errors import TopologicalError
 from shapely.geometry import shape, box, Polygon, MultiPolygon
 from shapely.ops import unary_union
 from rasterio.enums import Compression
@@ -16,7 +17,9 @@ from itertools import product
 
 from mapchete.config import MapcheteConfig
 from mapchete.tile import BufferedTilePyramid
-from mapchete.io import get_best_zoom_level, path_exists, absolute_path, read_json
+from mapchete.io import (
+    get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level
+)
 from mapchete.io.raster import (
     read_raster_window, write_raster_window, extract_from_array,
     resample_from_array, create_mosaic, ReferencedRaster, prepare_array,
@@ -682,5 +685,82 @@ def test_read_json(s3_metadata_json, http_metadata_json):
         read_json("https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/invalid_metadata.json")
 
 
-# TODO write_vector_window()
-# TODO extract_from_tile()
+def test_tile_to_zoom_level():
+    tp_merc = BufferedTilePyramid("mercator")
+    tp_geod = BufferedTilePyramid("geodetic")
+    zoom = 9
+    col = 0
+
+    # mercator from geodetic
+    # at Northern boundary
+    assert tile_to_zoom_level(
+        tp_merc.tile(zoom, 0, col),
+        tp_geod
+    ) == 9
+    assert tile_to_zoom_level(
+        tp_merc.tile(zoom, 0, col),
+        tp_geod,
+        method="min"
+    ) == 12
+    # at Equator
+    assert tile_to_zoom_level(
+        tp_merc.tile(zoom, tp_merc.matrix_height(zoom) // 2, col),
+        tp_geod
+    ) == 9
+    assert tile_to_zoom_level(
+        tp_merc.tile(zoom, tp_merc.matrix_height(zoom) // 2, col),
+        tp_geod,
+        method="min"
+    ) == 9
+    # at Southern boundary
+    assert tile_to_zoom_level(
+        tp_merc.tile(zoom, tp_merc.matrix_height(zoom) - 1, col),
+        tp_geod
+    ) == 9
+    assert tile_to_zoom_level(
+        tp_merc.tile(zoom, tp_merc.matrix_height(zoom) - 1, col),
+        tp_geod,
+        method="min"
+    ) == 12
+
+    # geodetic from mercator
+    # at Northern boundary
+    assert tile_to_zoom_level(
+        tp_geod.tile(zoom, 0, col),
+        tp_merc
+    ) == 2
+    with pytest.raises(TopologicalError):
+        tile_to_zoom_level(
+            tp_geod.tile(zoom, 0, col),
+            tp_merc,
+            method="min"
+        )
+    # at Equator
+    assert tile_to_zoom_level(
+        tp_geod.tile(zoom, tp_geod.matrix_height(zoom) // 2, col),
+        tp_merc
+    ) == 10
+    assert tile_to_zoom_level(
+        tp_geod.tile(zoom, tp_geod.matrix_height(zoom) // 2, col),
+        tp_merc,
+        method="min"
+    ) == 10
+    # at Southern boundary
+    assert tile_to_zoom_level(
+        tp_geod.tile(zoom, tp_geod.matrix_height(zoom) - 1, col),
+        tp_merc
+    ) == 2
+    with pytest.raises(TopologicalError):
+        tile_to_zoom_level(
+            tp_geod.tile(zoom, tp_geod.matrix_height(zoom) - 1, col),
+            tp_merc,
+            method="min"
+        )
+
+    # check wrong method
+    with pytest.raises(ValueError):
+        tile_to_zoom_level(
+            tp_geod.tile(zoom, tp_geod.matrix_height(zoom) - 1, col),
+            tp_merc,
+            method="invalid_method"
+        )
