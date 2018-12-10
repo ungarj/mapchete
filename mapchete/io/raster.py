@@ -25,8 +25,13 @@ ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine", "bounds", "
 
 
 def read_raster_window(
-    input_file, tile, indexes=None, resampling="nearest", src_nodata=None,
-    dst_nodata=None, gdal_opts=None
+    input_files,
+    tile,
+    indexes=None,
+    resampling="nearest",
+    src_nodata=None,
+    dst_nodata=None,
+    gdal_opts=None
 ):
     """
     Return NumPy arrays from an input raster.
@@ -38,8 +43,9 @@ def read_raster_window(
 
     Parameters
     ----------
-    input_file : string
-        path to a raster file readable by rasterio.
+    input_files : string or list
+        path to a raster file or list of paths to multiple raster files readable by
+        rasterio.
     tile : Tile
         a Tile object
     indexes : list or int
@@ -57,42 +63,90 @@ def read_raster_window(
     -------
     raster : MaskedArray
     """
-    dst_shape = tile.shape
+    input_file = input_files[0] if isinstance(input_files, list) else input_files
     user_opts = {} if gdal_opts is None else dict(**gdal_opts)
     if path_is_remote(input_file, s3=True):
         gdal_opts = dict(GDAL_HTTP_OPTS, **user_opts)
     else:
         gdal_opts = user_opts
-
-    if not isinstance(indexes, int):
-        if indexes is None:
-            dst_shape = (None,) + dst_shape
-        elif len(indexes) == 1:
-            indexes = indexes[0]
-        else:
-            dst_shape = (len(indexes),) + dst_shape
-    # Check if potentially tile boundaries exceed tile matrix boundaries on
-    # the antimeridian, the northern or the southern boundary.
-    if tile.pixelbuffer and tile.is_on_edge():
-        return _get_warped_edge_array(
-            tile=tile, input_file=input_file, indexes=indexes,
-            dst_shape=dst_shape, resampling=resampling, src_nodata=src_nodata,
-            dst_nodata=dst_nodata, gdal_opts=gdal_opts
+    with rasterio.Env(**gdal_opts):
+        return _read_raster_window(
+            input_files,
+            tile,
+            indexes=indexes,
+            resampling=resampling,
+            src_nodata=src_nodata,
+            dst_nodata=dst_nodata
         )
 
-    # If tile boundaries don't exceed pyramid boundaries, simply read window
-    # once.
+
+def _read_raster_window(
+    input_files,
+    tile,
+    indexes=None,
+    resampling="nearest",
+    src_nodata=None,
+    dst_nodata=None
+):
+    if isinstance(input_files, list):
+        # in case multiple input files are given, merge output into one array
+        # read first file
+        dst_array = _read_raster_window(
+            input_files[0],
+            tile=tile,
+            indexes=indexes,
+            resampling=resampling,
+            src_nodata=src_nodata,
+            dst_nodata=dst_nodata
+        )
+        # read subsequent files and merge
+        for f in input_files[1:]:
+            f_array = _read_raster_window(
+                input_files[0],
+                tile=tile,
+                indexes=indexes,
+                resampling=resampling,
+                src_nodata=src_nodata,
+                dst_nodata=dst_nodata
+            )
+            dst_array = np.where(f_array.mask, dst_array, f_array).astype(dst_array.dtype)
+            dst_array.mask = np.where(
+                f_array.mask, dst_array.mask, f_array.mask
+            ).astype(np.bool)
+        return dst_array
     else:
-        return _get_warped_array(
-            input_file=input_file, indexes=indexes, dst_bounds=tile.bounds,
-            dst_shape=dst_shape, dst_crs=tile.crs, resampling=resampling,
-            src_nodata=src_nodata, dst_nodata=dst_nodata, gdal_opts=gdal_opts
-        )
+        input_file = input_files
+        dst_shape = tile.shape
+
+        if not isinstance(indexes, int):
+            if indexes is None:
+                dst_shape = (None,) + dst_shape
+            elif len(indexes) == 1:
+                indexes = indexes[0]
+            else:
+                dst_shape = (len(indexes),) + dst_shape
+        # Check if potentially tile boundaries exceed tile matrix boundaries on
+        # the antimeridian, the northern or the southern boundary.
+        if tile.pixelbuffer and tile.is_on_edge():
+            return _get_warped_edge_array(
+                tile=tile, input_file=input_file, indexes=indexes,
+                dst_shape=dst_shape, resampling=resampling, src_nodata=src_nodata,
+                dst_nodata=dst_nodata
+            )
+
+        # If tile boundaries don't exceed pyramid boundaries, simply read window
+        # once.
+        else:
+            return _get_warped_array(
+                input_file=input_file, indexes=indexes, dst_bounds=tile.bounds,
+                dst_shape=dst_shape, dst_crs=tile.crs, resampling=resampling,
+                src_nodata=src_nodata, dst_nodata=dst_nodata
+            )
 
 
 def _get_warped_edge_array(
     tile=None, input_file=None, indexes=None, dst_shape=None, resampling=None,
-    src_nodata=None, dst_nodata=None, gdal_opts=None
+    src_nodata=None, dst_nodata=None
 ):
     tile_boxes = clip_geometry_to_srs_bounds(
         tile.bbox, tile.tile_pyramid, multipart=True)
@@ -134,7 +188,7 @@ def _get_warped_edge_array(
             dst_bounds=parts_metadata[part]["bounds"],
             dst_shape=parts_metadata[part]["shape"],
             dst_crs=tile.crs, resampling=resampling, src_nodata=src_nodata,
-            dst_nodata=dst_nodata, gdal_opts=gdal_opts
+            dst_nodata=dst_nodata
         )
         for part in ["none", "left", "middle", "right"]
         if parts_metadata[part]
@@ -143,39 +197,37 @@ def _get_warped_edge_array(
 
 def _get_warped_array(
     input_file=None, indexes=None, dst_bounds=None, dst_shape=None,
-    dst_crs=None, resampling=None, src_nodata=None, dst_nodata=None,
-    gdal_opts=None
+    dst_crs=None, resampling=None, src_nodata=None, dst_nodata=None
 ):
     """Extract a numpy array from a raster file."""
     logger.debug("reading %s", input_file)
     try:
-        with rasterio.Env(**gdal_opts):
-            with rasterio.open(input_file, "r") as src:
-                if indexes is None:
-                    dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
-                    indexes = list(src.indexes)
-                src_nodata = src.nodata if src_nodata is None else src_nodata
-                dst_nodata = src.nodata if dst_nodata is None else dst_nodata
-                with WarpedVRT(
-                    src,
-                    crs=dst_crs,
-                    src_nodata=src_nodata,
-                    nodata=dst_nodata,
-                    width=dst_shape[-2],
-                    height=dst_shape[-1],
-                    transform=Affine(
-                        (dst_bounds[2] - dst_bounds[0]) / dst_shape[-2],
-                        0, dst_bounds[0], 0,
-                        (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
-                        dst_bounds[3]
-                    ),
-                    resampling=Resampling[resampling]
-                ) as vrt:
-                    return vrt.read(
-                        window=vrt.window(*dst_bounds),
-                        out_shape=dst_shape,
-                        indexes=indexes,
-                        masked=True
+        with rasterio.open(input_file, "r") as src:
+            if indexes is None:
+                dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
+                indexes = list(src.indexes)
+            src_nodata = src.nodata if src_nodata is None else src_nodata
+            dst_nodata = src.nodata if dst_nodata is None else dst_nodata
+            with WarpedVRT(
+                src,
+                crs=dst_crs,
+                src_nodata=src_nodata,
+                nodata=dst_nodata,
+                width=dst_shape[-2],
+                height=dst_shape[-1],
+                transform=Affine(
+                    (dst_bounds[2] - dst_bounds[0]) / dst_shape[-2],
+                    0, dst_bounds[0], 0,
+                    (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
+                    dst_bounds[3]
+                ),
+                resampling=Resampling[resampling]
+            ) as vrt:
+                return vrt.read(
+                    window=vrt.window(*dst_bounds),
+                    out_shape=dst_shape,
+                    indexes=indexes,
+                    masked=True
                     )
     except Exception as e:
         logger.exception("error while reading file %s: %s", input_file, e)
