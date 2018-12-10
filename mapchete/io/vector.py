@@ -157,7 +157,7 @@ def segmentize_geometry(geometry, segmentize_value):
     )
 
 
-def read_vector_window(input_file, tile, validity_check=True):
+def read_vector_window(input_files, tile, validity_check=True):
     """
     Read a window of an input vector dataset.
 
@@ -178,6 +178,18 @@ def read_vector_window(input_file, tile, validity_check=True):
     features : list
       a list of reprojected GeoJSON-like features
     """
+    if not isinstance(input_files, list):
+        input_files = [input_files]
+    return [
+        feature
+        for feature in chain.from_iterable([
+            _read_vector_window(path, tile, validity_check=validity_check)
+            for path in input_files
+        ])
+    ]
+
+
+def _read_vector_window(input_file, tile, validity_check=True):
     if tile.pixelbuffer and tile.is_on_edge():
         tile_boxes = clip_geometry_to_srs_bounds(
             tile.bbox, tile.tile_pyramid, multipart=True

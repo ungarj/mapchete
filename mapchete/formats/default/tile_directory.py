@@ -324,22 +324,11 @@ class InputTile(base.InputTile):
             if self.is_empty():
                 return []
             else:
-                return [
-                    {
-                        "properties": g["properties"],
-                        "geometry": mapping(
-                            reproject_geometry(
-                                shape(g["geometry"]),
-                                src_crs=self._td_crs,
-                                dst_crs=self.tile.tp.crs
-                            )
-                        )
-                    }
-                    for g in chain.from_iterable([
-                        read_vector_window(p, self.tile, validity_check=validity_check)
-                        for _, p in self._tiles_paths
-                    ])
-                ]
+                return read_vector_window(
+                    [path for _, path in self._tiles_paths],
+                    self.tile,
+                    validity_check=validity_check
+                )
         else:
             if self.is_empty():
                 bands = len(indexes) if indexes else self._profile["count"]
