@@ -102,7 +102,7 @@ def _read_raster_window(
         # read subsequent files and merge
         for f in input_files[1:]:
             f_array = _read_raster_window(
-                input_files[0],
+                f,
                 tile=tile,
                 indexes=indexes,
                 resampling=resampling,
