@@ -700,7 +700,7 @@ def test_tile_to_zoom_level():
     assert tile_to_zoom_level(
         tp_merc.tile(zoom, 0, col),
         tp_geod,
-        method="min"
+        matching_method="min"
     ) == 12
     # at Equator
     assert tile_to_zoom_level(
@@ -710,7 +710,7 @@ def test_tile_to_zoom_level():
     assert tile_to_zoom_level(
         tp_merc.tile(zoom, tp_merc.matrix_height(zoom) // 2, col),
         tp_geod,
-        method="min"
+        matching_method="min"
     ) == 9
     # at Southern boundary
     assert tile_to_zoom_level(
@@ -720,7 +720,7 @@ def test_tile_to_zoom_level():
     assert tile_to_zoom_level(
         tp_merc.tile(zoom, tp_merc.matrix_height(zoom) - 1, col),
         tp_geod,
-        method="min"
+        matching_method="min"
     ) == 12
 
     # geodetic from mercator
@@ -733,7 +733,7 @@ def test_tile_to_zoom_level():
         tile_to_zoom_level(
             tp_geod.tile(zoom, 0, col),
             tp_merc,
-            method="min"
+            matching_method="min"
         )
     # at Equator
     assert tile_to_zoom_level(
@@ -743,7 +743,7 @@ def test_tile_to_zoom_level():
     assert tile_to_zoom_level(
         tp_geod.tile(zoom, tp_geod.matrix_height(zoom) // 2, col),
         tp_merc,
-        method="min"
+        matching_method="min"
     ) == 10
     # at Southern boundary
     assert tile_to_zoom_level(
@@ -754,7 +754,7 @@ def test_tile_to_zoom_level():
         tile_to_zoom_level(
             tp_geod.tile(zoom, tp_geod.matrix_height(zoom) - 1, col),
             tp_merc,
-            method="min"
+            matching_method="min"
         )
 
     # check wrong method
@@ -762,5 +762,5 @@ def test_tile_to_zoom_level():
         tile_to_zoom_level(
             tp_geod.tile(zoom, tp_geod.matrix_height(zoom) - 1, col),
             tp_merc,
-            method="invalid_method"
+            matching_method="invalid_method"
         )

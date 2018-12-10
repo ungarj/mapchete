@@ -95,6 +95,27 @@ def test_read_reprojected_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_merc
         assert not next(iter(mp.config.input.values())).open(
             mp.config.process_pyramid.tile(zoom, 0, 0)
         ).read().any()
+        # read from fixed zoom
+        assert not any([
+            next(iter(mp.config.input.values())).open(
+                tile, tile_directory_zoom=5
+            ).read().any()
+            for tile in mp.get_process_tiles(zoom)
+        ])
+        # read using maxzoom
+        assert not any([
+            next(iter(mp.config.input.values())).open(
+                tile, matching_max_zoom=3
+            ).read().any()
+            for tile in mp.get_process_tiles(zoom)
+        ])
+        # use fallback zoom
+        assert any([
+            next(iter(mp.config.input.values())).open(
+                tile, fallback_to_higher_zoom=True
+            ).read().any()
+            for tile in mp.get_process_tiles(5)
+        ])
 
 
 def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):

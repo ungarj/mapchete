@@ -90,7 +90,7 @@ def get_segmentize_value(input_file=None, tile_pyramid=None):
     return pixelsize * tile_pyramid.tile_size
 
 
-def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal", precision=8):
+def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision=8):
     """
     Determine the best zoom level in target TilePyramid from given Tile.
 
@@ -99,7 +99,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal", precision=8):
     ----------
     tile : BufferedTile
     dst_pyramid : BufferedTilePyramid
-    method : str ('gdal' or 'min')
+    matching_method : str ('gdal' or 'min')
         gdal: Uses GDAL's standard method. Here, the target resolution is calculated by
             averaging the extent's pixel sizes over both x and y axes. This approach
             returns a zoom level which may not have the best quality but will speed up
@@ -127,7 +127,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal", precision=8):
     if tile.tp.crs == dst_pyramid.crs:
         return tile.zoom
     else:
-        if method == "gdal":
+        if matching_method == "gdal":
             # use rasterio/GDAL method to calculate default warp target properties
             transform, width, height = calculate_default_transform(
                 tile.tp.crs,
@@ -138,7 +138,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal", precision=8):
             )
             # this is the resolution the tile would have in destination TilePyramid CRS
             tile_resolution = round(transform[0], precision)
-        elif method == "min":
+        elif matching_method == "min":
             # calculate the minimum pixel size from the four tile corner pixels
             l, b, r, t = tile.bounds
             x = tile.pixel_x_size
@@ -160,7 +160,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, method="gdal", precision=8):
             else:
                 raise TopologicalError("tile outside of destination pyramid")
         else:
-            raise ValueError("invalid method given: %s", method)
+            raise ValueError("invalid method given: %s", matching_method)
         logger.debug(
             "we are looking for a zoom level interpolating to %s resolution",
             tile_resolution
