@@ -6,6 +6,7 @@ import itertools
 import logging
 import numpy as np
 import numpy.ma as ma
+from retry import retry
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.errors import RasterioIOError
@@ -18,7 +19,7 @@ from types import GeneratorType
 import warnings
 
 from mapchete.tile import BufferedTile
-from mapchete.io import path_is_remote, get_gdal_options, retry
+from mapchete.io import path_is_remote, get_gdal_options
 
 
 logger = logging.getLogger(__name__)
@@ -33,12 +34,7 @@ def read_raster_window(
     resampling="nearest",
     src_nodata=None,
     dst_nodata=None,
-    gdal_opts=None,
-    raise_exceptions=None,
-    retry_exceptions=None,
-    max_attempts=3,
-    delay=0,
-    backoff=1
+    gdal_opts=None
 ):
     """
     Return NumPy arrays from an input raster.
@@ -80,12 +76,7 @@ def read_raster_window(
             indexes=indexes,
             resampling=resampling,
             src_nodata=src_nodata,
-            dst_nodata=dst_nodata,
-            raise_exceptions=raise_exceptions,
-            retry_exceptions=retry_exceptions,
-            max_attempts=max_attempts,
-            delay=delay,
-            backoff=backoff
+            dst_nodata=dst_nodata
         )
 
 
@@ -95,12 +86,7 @@ def _read_raster_window(
     indexes=None,
     resampling="nearest",
     src_nodata=None,
-    dst_nodata=None,
-    raise_exceptions=None,
-    retry_exceptions=None,
-    max_attempts=3,
-    delay=0,
-    backoff=1
+    dst_nodata=None
 ):
     if isinstance(input_files, list):
         # in case multiple input files are given, merge output into one array
@@ -111,12 +97,7 @@ def _read_raster_window(
             indexes=indexes,
             resampling=resampling,
             src_nodata=src_nodata,
-            dst_nodata=dst_nodata,
-            raise_exceptions=raise_exceptions,
-            retry_exceptions=retry_exceptions,
-            max_attempts=max_attempts,
-            delay=delay,
-            backoff=backoff
+            dst_nodata=dst_nodata
         )
         # read subsequent files and merge
         for f in input_files[1:]:
@@ -126,12 +107,7 @@ def _read_raster_window(
                 indexes=indexes,
                 resampling=resampling,
                 src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-                raise_exceptions=raise_exceptions,
-                retry_exceptions=retry_exceptions,
-                max_attempts=max_attempts,
-                delay=delay,
-                backoff=backoff
+                dst_nodata=dst_nodata
             )
             dst_array = ma.MaskedArray(
                 data=np.where(f_array.mask, dst_array, f_array).astype(dst_array.dtype),
@@ -159,12 +135,7 @@ def _read_raster_window(
                 dst_shape=dst_shape,
                 resampling=resampling,
                 src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-                raise_exceptions=raise_exceptions,
-                retry_exceptions=retry_exceptions,
-                max_attempts=max_attempts,
-                delay=delay,
-                backoff=backoff
+                dst_nodata=dst_nodata
             )
 
         # If tile boundaries don't exceed pyramid boundaries, simply read window
@@ -178,12 +149,7 @@ def _read_raster_window(
                 dst_crs=tile.crs,
                 resampling=resampling,
                 src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-                raise_exceptions=raise_exceptions,
-                retry_exceptions=retry_exceptions,
-                max_attempts=max_attempts,
-                delay=delay,
-                backoff=backoff
+                dst_nodata=dst_nodata
             )
 
 
@@ -194,12 +160,7 @@ def _get_warped_edge_array(
     dst_shape=None,
     resampling=None,
     src_nodata=None,
-    dst_nodata=None,
-    raise_exceptions=None,
-    retry_exceptions=None,
-    max_attempts=3,
-    delay=0,
-    backoff=1
+    dst_nodata=None
 ):
     tile_boxes = clip_geometry_to_srs_bounds(tile.bbox, tile.tile_pyramid, multipart=True)
     parts_metadata = dict(left=None, middle=None, right=None, none=None)
@@ -243,12 +204,7 @@ def _get_warped_edge_array(
             dst_crs=tile.crs,
             resampling=resampling,
             src_nodata=src_nodata,
-            dst_nodata=dst_nodata,
-            raise_exceptions=raise_exceptions,
-            retry_exceptions=retry_exceptions,
-            max_attempts=max_attempts,
-            delay=delay,
-            backoff=backoff
+            dst_nodata=dst_nodata
         )
         for part in ["none", "left", "middle", "right"]
         if parts_metadata[part]
@@ -263,40 +219,27 @@ def _get_warped_array(
     dst_crs=None,
     resampling=None,
     src_nodata=None,
-    dst_nodata=None,
-    raise_exceptions=None,
-    retry_exceptions=None,
-    max_attempts=3,
-    delay=0,
-    backoff=1
+    dst_nodata=None
 ):
     """Extract a numpy array from a raster file."""
     logger.debug("reading %s", input_file)
     try:
-        return retry(
-            _rasterio_read,
-            [],
-            dict(
-                input_file=input_file,
-                indexes=indexes,
-                dst_bounds=dst_bounds,
-                dst_shape=dst_shape,
-                dst_crs=dst_crs,
-                resampling=resampling,
-                src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-            ),
-            raise_exceptions=raise_exceptions,
-            retry_exceptions=retry_exceptions,
-            max_attempts=max_attempts,
-            delay=delay,
-            backoff=backoff
+        return _rasterio_read(
+            input_file=input_file,
+            indexes=indexes,
+            dst_bounds=dst_bounds,
+            dst_shape=dst_shape,
+            dst_crs=dst_crs,
+            resampling=resampling,
+            src_nodata=src_nodata,
+            dst_nodata=dst_nodata
         )
     except Exception as e:
         logger.exception("error while reading file %s: %s", input_file, e)
         raise
 
 
+@retry(tries=3, logger=logger)
 def _rasterio_read(
     input_file=None,
     indexes=None,

@@ -78,6 +78,7 @@ setup(
         'fiona>=1.8b1',
         'pyproj',
         'pyyaml',
+        'retry',
         'rasterio>=1.0.2',
         'tilematrix>=0.18',
         'tqdm'
