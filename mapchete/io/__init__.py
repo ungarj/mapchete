@@ -1,5 +1,6 @@
 """Functions for reading and writing data."""
 
+from functools import partial
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ from rasterio.warp import calculate_default_transform
 from shapely.errors import TopologicalError
 from shapely.geometry import box
 from tilematrix import TilePyramid
+import time
 from urllib.request import urlopen
 from urllib.error import HTTPError
 import warnings
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 GDAL_HTTP_OPTS = dict(
     GDAL_DISABLE_READDIR_ON_OPEN=True,
-    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2, .png",
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2, .png, .xml",
     GDAL_HTTP_TIMEOUT=30
 )
 
@@ -403,3 +405,134 @@ def get_boto3_bucket(bucket_name):
             else url
         )
     ).Bucket(bucket_name)
+
+
+def get_gdal_options(opts, is_remote=False):
+    """
+    Return a merged set of custom and default GDAL/rasterio Env options.
+
+    If is_remote is set to True, the default GDAL_HTTP_OPTS are appended.
+
+    Parameters
+    ----------
+    opts : dict or None
+        Explicit GDAL options.
+    is_remote : bool
+        Indicate whether Env is for a remote file.
+
+    Returns
+    -------
+    dictionary
+    """
+    user_opts = {} if opts is None else dict(**opts)
+    if is_remote:
+        return dict(GDAL_HTTP_OPTS, **user_opts)
+    else:
+        return user_opts
+
+
+def retry(
+    func,
+    fargs=None,
+    fkwargs=None,
+    raise_exceptions=None,
+    retry_exceptions=None,
+    max_attempts=3,
+    delay=0,
+    backoff=1
+):
+    """
+    Retry function if it fails.
+
+    Parameters
+    ----------
+    func : function
+        Function to be executed.
+    fargs : list
+        Function arguments.
+    fkwargs : dict
+        Function keyword arguments.
+    raise_exceptions : Exception, list of Exceptions or dict with Exceptions and strings.
+        Raise Exceptions immediately without retrying. Can also be narrowed down to
+        Exceptions with a specific Exception string.
+    retry_exceptions : Exception or list of Exceptions
+        Retry only on these Exceptions.
+    max_attempts : int (default: 3)
+        Maximum number of retries.
+    delay : int (default: 0)
+        Number of seconds between retries.
+    backoff : int (default: 1)
+        Multiplier between retry delays.
+
+    Returns
+    -------
+    Result of func
+    """
+    args = fargs if fargs else []
+    kwargs = fkwargs if fkwargs else {}
+    retry_exceptions = retry_exceptions if retry_exceptions else Exception
+
+    # convert into dictionary
+    if raise_exceptions is None:
+        raise_exceptions = {}
+    elif isinstance(raise_exceptions, (tuple, list)):
+        raise_exceptions = {e: None for e in raise_exceptions}
+    elif isinstance(raise_exceptions, Exception):
+        raise_exceptions = {raise_exceptions: None}
+    elif isinstance(raise_exceptions, dict):
+        pass
+    else:
+        raise TypeError("raise_exceptions cannot be %s", type(raise_exceptions))
+
+    return _retry(
+        partial(func, *args, **kwargs),
+        raise_exceptions,
+        retry_exceptions,
+        max_attempts,
+        delay,
+        backoff
+    )
+
+
+def _retry(
+    func,
+    raise_exceptions,
+    retry_exceptions,
+    max_attempts,
+    delay,
+    backoff
+):
+    remaining_attempts, _delay = max_attempts, delay
+
+    while remaining_attempts:
+
+        try:
+            return func()
+        except Exception as e:
+
+            # see if Exception has to be raised
+            for exc, strs in raise_exceptions.items():
+                if isinstance(e, type(exc)):
+                    # there is no specific Exception string
+                    if strs is None:
+                        raise
+                    # Exception string is in the naughty list
+                    else:
+                        for s in strs:
+                            if s in str(e):
+                                raise
+
+            # retry function only on these Exceptions
+            if isinstance(e, retry_exceptions):
+                remaining_attempts -= 1
+                if not remaining_attempts:
+                    raise
+
+                logger.warning('%s, retrying in %s seconds...', e, _delay)
+
+                time.sleep(_delay)
+                _delay *= backoff
+
+            # Exception is not in the retry list
+            else:
+                raise
