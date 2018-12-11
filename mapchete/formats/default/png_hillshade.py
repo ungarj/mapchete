@@ -30,7 +30,9 @@ from rasterio.errors import RasterioIOError
 from mapchete.config import validate_values
 from mapchete.formats import base
 from mapchete.io import GDAL_HTTP_OPTS, makedirs, get_boto3_bucket
-from mapchete.io.raster import write_raster_window, prepare_array, memory_file
+from mapchete.io.raster import (
+    write_raster_window, prepare_array, memory_file, read_raster_no_crs
+)
 from mapchete.tile import BufferedTile
 
 
@@ -140,17 +142,15 @@ class OutputData(base.OutputData):
         -------
         process output : ``BufferedTile`` with appended data
         """
-        path = self.get_path(output_tile)
         try:
-            with rasterio.Env(**GDAL_HTTP_OPTS):
-                with rasterio.open(path, "r") as src:
-                    return ma.masked_values(src.read(4 if self.old_band_num else 2), 0)
-        except RasterioIOError as e:
-            for i in ("does not exist in the file system", "No such file or directory"):
-                if i in str(e):
-                    return self.empty(output_tile)
-            else:
-                raise
+            return ma.masked_values(
+                read_raster_no_crs(
+                    self.get_path(output_tile), indexes=(4 if self.old_band_num else 2)
+                ),
+                0
+            )
+        except FileNotFoundError:
+            return self.empty(output_tile)
 
     def is_valid_with_config(self, config):
         """

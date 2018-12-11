@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test Mapchete io module."""
 
 import pytest
@@ -8,11 +7,12 @@ import tempfile
 import numpy as np
 import numpy.ma as ma
 import fiona
+from rasterio.crs import CRS
+from rasterio.enums import Compression
+from rasterio.errors import RasterioIOError
 from shapely.errors import TopologicalError
 from shapely.geometry import shape, box, Polygon, MultiPolygon
 from shapely.ops import unary_union
-from rasterio.enums import Compression
-from rasterio.crs import CRS
 from itertools import product
 
 import mapchete
@@ -165,6 +165,12 @@ def test_read_raster_window_input_list(cleantopo_br):
     assert np.array_equal(resampled.mask, resampled2.mask)
     # TODO slight rounding errors occur
     assert np.allclose(resampled, resampled2, rtol=0.01)
+
+
+def test_read_raster_window_retry():
+    tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
+    with pytest.raises(RasterioIOError):
+        read_raster_window("invalid_file.tif", tile)
 
 
 def test_write_raster_window():

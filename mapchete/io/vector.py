@@ -5,6 +5,7 @@ import logging
 import fiona
 from fiona.transform import transform_geom
 from fiona.io import MemoryFile
+from retry import retry
 from rasterio.crs import CRS
 from shapely.geometry import (
     box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon, Polygon,
@@ -310,6 +311,7 @@ class VectorWindowMemoryFile():
         self.fio_memfile.close()
 
 
+@retry(tries=3, logger=logger)
 def _get_reprojected_features(
     input_file=None, dst_bounds=None, dst_crs=None, validity_check=False
 ):

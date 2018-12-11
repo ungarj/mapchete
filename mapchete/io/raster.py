@@ -1,22 +1,25 @@
 """Wrapper functions around rasterio and useful raster functions."""
 
+from affine import Affine
+from collections import namedtuple
 import itertools
-import rasterio
 import logging
 import numpy as np
 import numpy.ma as ma
-from affine import Affine
-from collections import namedtuple
+from retry import retry
+import rasterio
 from rasterio.enums import Resampling
+from rasterio.errors import RasterioIOError
 from rasterio.io import MemoryFile
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
 from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
 from types import GeneratorType
+import warnings
 
 from mapchete.tile import BufferedTile
-from mapchete.io import path_is_remote, GDAL_HTTP_OPTS
+from mapchete.io import path_is_remote, get_gdal_options
 
 
 logger = logging.getLogger(__name__)
@@ -64,12 +67,9 @@ def read_raster_window(
     raster : MaskedArray
     """
     input_file = input_files[0] if isinstance(input_files, list) else input_files
-    user_opts = {} if gdal_opts is None else dict(**gdal_opts)
-    if path_is_remote(input_file, s3=True):
-        gdal_opts = dict(GDAL_HTTP_OPTS, **user_opts)
-    else:
-        gdal_opts = user_opts
-    with rasterio.Env(**gdal_opts):
+    with rasterio.Env(
+        **get_gdal_options(gdal_opts, is_remote=path_is_remote(input_file, s3=True))
+    ):
         return _read_raster_window(
             input_files,
             tile,
@@ -129,8 +129,12 @@ def _read_raster_window(
         # the antimeridian, the northern or the southern boundary.
         if tile.pixelbuffer and tile.is_on_edge():
             return _get_warped_edge_array(
-                tile=tile, input_file=input_file, indexes=indexes,
-                dst_shape=dst_shape, resampling=resampling, src_nodata=src_nodata,
+                tile=tile,
+                input_file=input_file,
+                indexes=indexes,
+                dst_shape=dst_shape,
+                resampling=resampling,
+                src_nodata=src_nodata,
                 dst_nodata=dst_nodata
             )
 
@@ -138,18 +142,27 @@ def _read_raster_window(
         # once.
         else:
             return _get_warped_array(
-                input_file=input_file, indexes=indexes, dst_bounds=tile.bounds,
-                dst_shape=dst_shape, dst_crs=tile.crs, resampling=resampling,
-                src_nodata=src_nodata, dst_nodata=dst_nodata
+                input_file=input_file,
+                indexes=indexes,
+                dst_bounds=tile.bounds,
+                dst_shape=dst_shape,
+                dst_crs=tile.crs,
+                resampling=resampling,
+                src_nodata=src_nodata,
+                dst_nodata=dst_nodata
             )
 
 
 def _get_warped_edge_array(
-    tile=None, input_file=None, indexes=None, dst_shape=None, resampling=None,
-    src_nodata=None, dst_nodata=None
+    tile=None,
+    input_file=None,
+    indexes=None,
+    dst_shape=None,
+    resampling=None,
+    src_nodata=None,
+    dst_nodata=None
 ):
-    tile_boxes = clip_geometry_to_srs_bounds(
-        tile.bbox, tile.tile_pyramid, multipart=True)
+    tile_boxes = clip_geometry_to_srs_bounds(tile.bbox, tile.tile_pyramid, multipart=True)
     parts_metadata = dict(left=None, middle=None, right=None, none=None)
     # Split bounding box into multiple parts & request each numpy array
     # separately.
@@ -184,10 +197,13 @@ def _get_warped_edge_array(
     # which in case of rasterio arrays always is the width (West-East).
     return ma.concatenate([
         _get_warped_array(
-            input_file=input_file, indexes=indexes,
+            input_file=input_file,
+            indexes=indexes,
             dst_bounds=parts_metadata[part]["bounds"],
             dst_shape=parts_metadata[part]["shape"],
-            dst_crs=tile.crs, resampling=resampling, src_nodata=src_nodata,
+            dst_crs=tile.crs,
+            resampling=resampling,
+            src_nodata=src_nodata,
             dst_nodata=dst_nodata
         )
         for part in ["none", "left", "middle", "right"]
@@ -196,42 +212,108 @@ def _get_warped_edge_array(
 
 
 def _get_warped_array(
-    input_file=None, indexes=None, dst_bounds=None, dst_shape=None,
-    dst_crs=None, resampling=None, src_nodata=None, dst_nodata=None
+    input_file=None,
+    indexes=None,
+    dst_bounds=None,
+    dst_shape=None,
+    dst_crs=None,
+    resampling=None,
+    src_nodata=None,
+    dst_nodata=None
 ):
     """Extract a numpy array from a raster file."""
     logger.debug("reading %s", input_file)
     try:
-        with rasterio.open(input_file, "r") as src:
-            if indexes is None:
-                dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
-                indexes = list(src.indexes)
-            src_nodata = src.nodata if src_nodata is None else src_nodata
-            dst_nodata = src.nodata if dst_nodata is None else dst_nodata
-            with WarpedVRT(
-                src,
-                crs=dst_crs,
-                src_nodata=src_nodata,
-                nodata=dst_nodata,
-                width=dst_shape[-2],
-                height=dst_shape[-1],
-                transform=Affine(
-                    (dst_bounds[2] - dst_bounds[0]) / dst_shape[-2],
-                    0, dst_bounds[0], 0,
-                    (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
-                    dst_bounds[3]
-                ),
-                resampling=Resampling[resampling]
-            ) as vrt:
-                return vrt.read(
-                    window=vrt.window(*dst_bounds),
-                    out_shape=dst_shape,
-                    indexes=indexes,
-                    masked=True
-                    )
+        return _rasterio_read(
+            input_file=input_file,
+            indexes=indexes,
+            dst_bounds=dst_bounds,
+            dst_shape=dst_shape,
+            dst_crs=dst_crs,
+            resampling=resampling,
+            src_nodata=src_nodata,
+            dst_nodata=dst_nodata
+        )
     except Exception as e:
         logger.exception("error while reading file %s: %s", input_file, e)
         raise
+
+
+@retry(tries=3, logger=logger)
+def _rasterio_read(
+    input_file=None,
+    indexes=None,
+    dst_bounds=None,
+    dst_shape=None,
+    dst_crs=None,
+    resampling=None,
+    src_nodata=None,
+    dst_nodata=None,
+):
+    with rasterio.open(input_file, "r") as src:
+        if indexes is None:
+            dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
+            indexes = list(src.indexes)
+        src_nodata = src.nodata if src_nodata is None else src_nodata
+        dst_nodata = src.nodata if dst_nodata is None else dst_nodata
+        with WarpedVRT(
+            src,
+            crs=dst_crs,
+            src_nodata=src_nodata,
+            nodata=dst_nodata,
+            width=dst_shape[-2],
+            height=dst_shape[-1],
+            transform=Affine(
+                (dst_bounds[2] - dst_bounds[0]) / dst_shape[-2],
+                0, dst_bounds[0], 0,
+                (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
+                dst_bounds[3]
+            ),
+            resampling=Resampling[resampling]
+        ) as vrt:
+            return vrt.read(
+                window=vrt.window(*dst_bounds),
+                out_shape=dst_shape,
+                indexes=indexes,
+                masked=True
+            )
+
+
+def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
+    """
+    Wrapper function around rasterio.open().read().
+
+    Parameters
+    ----------
+    input_file : str
+        Path to file
+    indexes : int or list
+        Band index or list of band indexes to be read.
+
+    Returns
+    -------
+    MaskedArray
+
+    Raises
+    ------
+    FileNotFoundError if file cannot be found.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            with rasterio.Env(
+                **get_gdal_options(
+                    gdal_opts, is_remote=path_is_remote(input_file, s3=True)
+                )
+            ):
+                with rasterio.open(input_file, "r") as src:
+                    return src.read(indexes=indexes, masked=True)
+        except RasterioIOError as e:
+            for i in ("does not exist in the file system", "No such file or directory"):
+                if i in str(e):
+                    raise FileNotFoundError("%s not found" % input_file)
+            else:
+                raise
 
 
 class RasterWindowMemoryFile():
