@@ -11,6 +11,7 @@ import rasterio
 from rasterio.enums import Resampling
 from rasterio.errors import RasterioIOError
 from rasterio.io import MemoryFile
+from rasterio.transform import from_bounds as affine_from_bounds
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
@@ -251,23 +252,22 @@ def _rasterio_read(
     dst_nodata=None,
 ):
     with rasterio.open(input_file, "r") as src:
+        height, width = dst_shape[-2:]
         if indexes is None:
-            dst_shape = (len(src.indexes), dst_shape[-2], dst_shape[-1], )
+            dst_shape = (len(src.indexes), height, width)
             indexes = list(src.indexes)
         src_nodata = src.nodata if src_nodata is None else src_nodata
         dst_nodata = src.nodata if dst_nodata is None else dst_nodata
+        dst_left, dst_bottom, dst_right, dst_top = dst_bounds
         with WarpedVRT(
             src,
             crs=dst_crs,
             src_nodata=src_nodata,
             nodata=dst_nodata,
-            width=dst_shape[-2],
-            height=dst_shape[-1],
-            transform=Affine(
-                (dst_bounds[2] - dst_bounds[0]) / dst_shape[-2],
-                0, dst_bounds[0], 0,
-                (dst_bounds[1] - dst_bounds[3]) / dst_shape[-1],
-                dst_bounds[3]
+            width=width,
+            height=height,
+            transform=affine_from_bounds(
+                dst_left, dst_bottom, dst_right, dst_top, width, height
             ),
             resampling=Resampling[resampling]
         ) as vrt:
