@@ -7,11 +7,11 @@ pyramid:
     pixelbuffer: 20
     metatiling: 2
 input:
-    file1: cleantopo_br.tif
+    file1: tmp/cleantopo_br
 output:
     dtype: uint16
     bands: 1
     format: GTiff
-    path: tmp/cleantopo_br_mercator
+    path: tmp/cleantopo_br_tiledir_mercator
     pixelbuffer: 20
 bounds: [18834424.718692508, -35389629.4588656, 20037508.3427892, 20037508.3427892]

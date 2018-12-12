@@ -25,6 +25,7 @@ import fiona
 import logging
 import operator
 import os
+from rasterio.dtypes import _gdal_typename
 from shapely.geometry import mapping
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
@@ -414,7 +415,7 @@ class VRTFileWriter():
 
         # get VRT attributes
         vrt_affine, vrt_shape = raster.tiles_to_affine_shape(list(all_entries.keys()))
-        vrt_dtype = self._output.profile()["dtype"]
+        vrt_dtype = _gdal_typename(self._output.profile()["dtype"])
         vrt_nodata = self._output.nodata
 
         # build XML
@@ -476,7 +477,7 @@ class VRTFileWriter():
                                 xSize=str(tile.shape.width),
                                 ySize=str(tile.shape.height),
                             ),
-                            NODATA=str(vrt_nodata)
+                            E.NODATA(str(vrt_nodata))
                         )
                         for tile, path in sorted(
                             all_entries.items(), key=operator.itemgetter(1)

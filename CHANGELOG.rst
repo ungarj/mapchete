@@ -11,6 +11,7 @@ Changelog
 * added retry decorator to read functions & added get_gdal_options() and read_raster_no_crs() functions
 * pass on ``antimeridian_cutting`` from ``reproject_geometry()`` to underlying Fiona function
 * fix transform shape on non-square tiles (#145)
+* fixed VRT NODATA property, use GDAL typenames
 
 ----
 0.26
