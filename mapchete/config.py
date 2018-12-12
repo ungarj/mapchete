@@ -18,6 +18,7 @@ import logging
 import operator
 import os
 import py_compile
+from shapely import wkt
 from shapely.geometry import box
 from shapely.ops import cascaded_union
 from tilematrix._funcs import Bounds
@@ -667,6 +668,73 @@ def clip_bounds(bounds=None, clip=None):
         min(bounds.right, clip.right),
         min(bounds.top, clip.top)
     )
+
+
+def raw_conf(mapchete_file):
+    """
+    Loads a mapchete_file into a dictionary.
+
+    Parameters
+    ----------
+    mapchete_file : str
+        Path to a Mapchete file.
+
+    Returns
+    -------
+    dictionary
+    """
+    return _map_to_new_config(
+        yaml.load(open(mapchete_file, "r").read())
+    )
+
+
+def raw_conf_process_pyramid(raw_conf):
+    """
+    Loads the process pyramid of a raw configuration.
+
+    Parameters
+    ----------
+    raw_conf : dict
+        Raw mapchete configuration as dictionary.
+
+    Returns
+    -------
+    BufferedTilePyramid
+    """
+    return BufferedTilePyramid(
+        raw_conf["pyramid"]["grid"],
+        metatiling=raw_conf["pyramid"].get("metatiling", 1),
+        pixelbuffer=raw_conf["pyramid"].get("pixelbuffer", 0)
+    )
+
+
+def bounds_from_opts(
+    wkt_geometry=None, point=None, bounds=None, zoom=None, raw_conf=None
+):
+    """
+    Loads the process pyramid of a raw configuration.
+
+    Parameters
+    ----------
+    raw_conf : dict
+        Raw mapchete configuration as dictionary.
+
+    Returns
+    -------
+    BufferedTilePyramid
+    """
+    if wkt_geometry:
+        return wkt.loads(wkt_geometry).bounds
+    elif point:
+        x, y = point
+        zoom_levels = get_zoom_levels(
+            process_zoom_levels=raw_conf["zoom_levels"],
+            init_zoom_levels=zoom
+        )
+        tp = raw_conf_process_pyramid(raw_conf)
+        return tp.tile_from_xy(x, y, max(zoom_levels)).bounds
+    else:
+        return bounds
 
 
 def _config_to_dict(input_config):

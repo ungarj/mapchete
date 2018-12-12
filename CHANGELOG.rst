@@ -12,6 +12,7 @@ Changelog
 * pass on ``antimeridian_cutting`` from ``reproject_geometry()`` to underlying Fiona function
 * fix transform shape on non-square tiles (#145)
 * fixed VRT NODATA property, use GDAL typenames
+* ``mapchete index`` shows progress bar for all tiles instead per zoom level and takes ``--point`` parameter
 
 ----
 0.26
