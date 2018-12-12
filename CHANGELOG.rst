@@ -8,6 +8,8 @@ Changelog
 * enable reading from output tile directories which have a different CRS
 * enable GeoPackage as single file input
 * fixed antimeridian shift check
+* added retry decorator to read functions & added get_gdal_options() and read_raster_no_crs() functions
+* pass on ``antimeridian_cutting`` from ``reproject_geometry()`` to underlying Fiona function
 
 ----
 0.26

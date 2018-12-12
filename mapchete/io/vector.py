@@ -33,8 +33,8 @@ CRS_BOUNDS = {
 
 
 def reproject_geometry(
-    geometry, src_crs=None, dst_crs=None, error_on_clip=False,
-    validity_check=True
+    geometry, src_crs=None, dst_crs=None, error_on_clip=False, validity_check=True,
+    antimeridian_cutting=False
 ):
     """
     Reproject a geometry to target CRS.
@@ -56,6 +56,8 @@ def reproject_geometry(
     validity_check : bool
         checks if reprojected geometry is valid and throws ``TopologicalError``
         if invalid (default: True)
+    antimeridian_cutting : bool
+        cut geometry at Antimeridian; can result in a multipart output geometry
 
     Returns
     -------
@@ -76,7 +78,8 @@ def reproject_geometry(
         out_geom = _repair(
             to_shape(
                 transform_geom(
-                    src_crs.to_dict(), dst_crs.to_dict(), mapping(geometry)
+                    src_crs.to_dict(), dst_crs.to_dict(), mapping(geometry),
+                    antimeridian_cutting=antimeridian_cutting
                 )
             )
         )
