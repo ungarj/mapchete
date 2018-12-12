@@ -1,18 +1,17 @@
 """Use a directory of zoom/row/column tiles as input."""
 
-from itertools import chain
 import logging
 import numpy as np
 import numpy.ma as ma
 import os
-from shapely.geometry import box, shape, mapping
+from shapely.geometry import box
 
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base, load_output_writer
 from mapchete.io import path_exists, absolute_path, read_json, tile_to_zoom_level
 from mapchete.io.vector import reproject_geometry, read_vector_window
-from mapchete.io.raster import read_raster_window, create_mosaic, resample_from_array
+from mapchete.io.raster import read_raster_window
 from mapchete.tile import BufferedTilePyramid
 
 

@@ -38,7 +38,7 @@ from mapchete.tile import BufferedTilePyramid
 logger = logging.getLogger(__name__)
 # parameters whigh have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process", str),       # path to .py file or module path
+    ("process", str),                    # path to .py file or module path
     ("pyramid", dict),                   # process pyramid definition
     ("input", (dict, type(None))),       # files & other types
     ("output", dict),                    # process output parameters
