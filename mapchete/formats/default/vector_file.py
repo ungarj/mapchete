@@ -109,7 +109,7 @@ class InputTile(base.InputTile):
         path to input vector file
     """
 
-    def __init__(self, tile, vector_file):
+    def __init__(self, tile, vector_file, **kwargs):
         """Initialize."""
         self.tile = tile
         self.vector_file = vector_file

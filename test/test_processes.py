@@ -7,6 +7,7 @@ import rasterio
 import mapchete
 from mapchete.processes.examples import example_process
 from mapchete.processes.pyramid import tilify
+from mapchete.processes import convert
 
 
 def test_example_process(cleantopo_tl):
@@ -83,3 +84,49 @@ def test_tilify(cleantopo_tl, cleantopo_tl_tif):
         )
         output = tilify.execute(tile_process)
         assert output == "empty"
+
+
+def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
+    with mapchete.open(
+        dict(cleantopo_tl.dict, input=dict(raster=cleantopo_tl_tif))
+    ) as mp:
+        zoom = max(mp.config.zoom_levels)
+        # execute without clip
+        process_tile = next(mp.get_process_tiles(zoom))
+        tile_process = mapchete.MapcheteProcess(
+            process_tile, mp.config, mp.config.params_at_zoom(zoom)
+        )
+        assert isinstance(convert.execute(tile_process), np.ndarray)
+        # execute on empty tile
+        process_tile = mp.config.process_pyramid.tile(
+            zoom,
+            mp.config.process_pyramid.matrix_height(zoom) - 1,
+            mp.config.process_pyramid.matrix_width(zoom) - 1
+        )
+        tile_process = mapchete.MapcheteProcess(
+            process_tile, mp.config, mp.config.params_at_zoom(zoom)
+        )
+        assert convert.execute(tile_process) == "empty"
+
+    with mapchete.open(
+        dict(
+            cleantopo_tl.dict,
+            input=dict(raster=cleantopo_tl_tif, clip=landpoly)
+        )
+    ) as mp:
+        zoom = max(mp.config.zoom_levels)
+        process_tile = next(mp.get_process_tiles(zoom))
+        tile_process = mapchete.MapcheteProcess(
+            process_tile, mp.config, mp.config.params_at_zoom(zoom)
+        )
+        assert isinstance(convert.execute(tile_process), np.ndarray)
+        # execute on empty tile
+        process_tile = mp.config.process_pyramid.tile(
+            zoom,
+            mp.config.process_pyramid.matrix_height(zoom) - 1,
+            mp.config.process_pyramid.matrix_width(zoom) - 1
+        )
+        tile_process = mapchete.MapcheteProcess(
+            process_tile, mp.config, mp.config.params_at_zoom(zoom)
+        )
+        assert convert.execute(tile_process) == "empty"

@@ -33,7 +33,6 @@ Changelog
 * speed up ``count_tiles()``
 * ``execute()`` function does not require explicit ``**kwargs`` anymore
 
-
 ----
 0.24
 ----
@@ -43,7 +42,6 @@ Changelog
 * file based output drivers write output metadata into ``metadata.json``
 * output directories can be used as input for other processes if they have a ``metadata.json``
 * if Fiona driver has 'append' mode enabled, index entries get appended instead of writing a whole new file
-
 
 ----
 0.23
@@ -59,7 +57,6 @@ Changelog
 * switched from argparse to click
 * ``execute`` and ``index`` commands accept now more than one mapchete files
 * added ``mapchete.cli.commands`` entry point to allow other packages have ``mapchete`` subcommands
-
 
 ----
 0.22

@@ -148,7 +148,7 @@ class InputTile(base.InputTile):
         resampling method passed on to rasterio
     """
 
-    def __init__(self, tile, raster_file, resampling="nearest"):
+    def __init__(self, tile, raster_file, resampling="nearest", **kwargs):
         """Initialize."""
         self.tile = tile
         self.raster_file = raster_file

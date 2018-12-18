@@ -5,6 +5,7 @@ import numpy as np
 import numpy.ma as ma
 import os
 from shapely.geometry import box
+import warnings
 
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
@@ -150,6 +151,7 @@ class InputData(base.InputData):
         matching_max_zoom=None,
         matching_precision=8,
         fallback_to_higher_zoom=False,
+        resampling="nearest",
         **kwargs
     ):
         """
@@ -177,6 +179,8 @@ class InputData(base.InputData):
             In case no data is found at zoom level, try to read data from higher zoom
             levels. Enabling this setting can lead to many IO requests in areas with no
             data.
+        resampling : string
+            raster file: one of "nearest", "average", "bilinear" or "lanczos"
 
         Returns
         -------
@@ -229,6 +233,7 @@ class InputData(base.InputData):
             file_type=self._file_type,
             profile=self._profile,
             td_crs=self.td_pyramid.crs,
+            resampling=resampling,
             **kwargs
         )
 
@@ -291,12 +296,13 @@ class InputTile(base.InputTile):
         self._file_type = kwargs["file_type"]
         self._profile = kwargs["profile"]
         self._td_crs = kwargs["td_crs"]
+        self._resampling = kwargs["resampling"]
 
     def read(
         self,
         validity_check=False,
         indexes=None,
-        resampling="nearest",
+        resampling=None,
         dst_nodata=None,
         gdal_opts=None
     ):
@@ -311,8 +317,6 @@ class InputTile(base.InputTile):
 
         indexes : list or int
             raster file: a list of band numbers; None will read all.
-        resampling : string
-            raster file: one of "nearest", "average", "bilinear" or "lanczos"
         dst_nodata : int or float, optional
             raster file: if not set, the nodata value from the source dataset
             will be used
@@ -323,6 +327,12 @@ class InputTile(base.InputTile):
         -------
         data : list for vector files or numpy array for raster files
         """
+        if resampling:
+            warnings.warn(
+                "resampling should be provided in the open() method, not read() method"
+            )
+        else:
+            resampling = self._resampling
         logger.debug("reading data from CRS %s to CRS %s", self._td_crs, self.tile.tp.crs)
         if self._file_type == "vector":
             if self.is_empty():
