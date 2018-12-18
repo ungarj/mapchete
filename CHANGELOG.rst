@@ -13,6 +13,8 @@ Changelog
 * fix transform shape on non-square tiles (#145)
 * fixed VRT NODATA property, use GDAL typenames
 * ``mapchete index`` shows progress bar for all tiles instead per zoom level and takes ``--point`` parameter
+* tile directories now requires ``resampling`` in ``open()``, not in ``read()``
+* added ``mapchete.processes.convert``
 
 ----
 0.26
