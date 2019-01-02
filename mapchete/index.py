@@ -425,7 +425,7 @@ class VRTFileWriter():
         # build XML
         E = ElementMaker()
         vrt = E.VRTDataset(
-            E.SRS(self._tp.crs.to_string()),
+            E.SRS(self._tp.crs.wkt),
             E.GeoTransform(", ".join(map(str, vrt_affine.to_gdal()))),
             *[
                 E.VRTRasterBand(
