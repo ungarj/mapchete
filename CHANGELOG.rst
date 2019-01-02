@@ -15,6 +15,8 @@ Changelog
 * ``mapchete index`` shows progress bar for all tiles instead per zoom level and takes ``--point`` parameter
 * tile directories now requires ``resampling`` in ``open()``, not in ``read()``
 * added ``mapchete.processes.convert``
+* use WKT CRS when writing VRT (closing #148)
+* updated license year
 
 ----
 0.26
