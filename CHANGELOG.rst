@@ -21,6 +21,8 @@ Changelog
 * added ``mapchete.processes.convert``
 * use WKT CRS when writing VRT (closing #148)
 * updated license year
+* ``clean_geometry_type()`` raises ``GeometryTypeError`` if types do not match instead of
+  returning ``None``
 
 
 ----

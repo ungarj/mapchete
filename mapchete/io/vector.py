@@ -343,12 +343,10 @@ def _get_reprojected_features(
                     validity_check=True
                 )
             for feature in src.filter(bbox=dst_bbox.bounds):
-                original_geom = to_shape(feature['geometry'])
 
                 try:
                     # check validity
-                    if not original_geom.is_valid:
-                        original_geom = _repair(original_geom)
+                    original_geom = _repair(to_shape(feature['geometry']))
 
                     # clip with bounds and omit if clipped geometry is empty
                     clipped_geom = original_geom.intersection(dst_bbox)
@@ -365,7 +363,10 @@ def _get_reprojected_features(
                             'properties': feature['properties'],
                             'geometry': mapping(g)
                         }
-                except (TopologicalError, GeometryTypeError) as e:
+                # this can be handled quietly
+                except GeometryTypeError:
+                    pass
+                except TopologicalError as e:
                     logger.warning("feature omitted: %s", e)
 
     except Exception as e:
