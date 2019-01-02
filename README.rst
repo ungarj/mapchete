@@ -153,7 +153,7 @@ don't install the binaries but build them on your system:
     pip install "rasterio>=1.0.2" "fiona>=1.8b1" --no-binary :all:
 
 
-To keep the core dependencies miimal if you install mapchete using ``pip``, some features
+To keep the core dependencies minimal if you install mapchete using ``pip``, some features
 are only available if you manually install additional dependencies:
 
 .. code-block:: shell
@@ -177,6 +177,6 @@ License
 
 MIT License
 
-Copyright (c) 2015 - 2018 `EOX IT Services`_
+Copyright (c) 2015 - 2019 `EOX IT Services`_
 
 .. _`EOX IT Services`: https://eox.at/
