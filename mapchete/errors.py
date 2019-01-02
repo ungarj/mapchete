@@ -31,3 +31,7 @@ class MapcheteEmptyInputTile(Exception):
 
 class MapcheteNodataTile(Exception):
     """Indicates an empty tile."""
+
+
+class GeometryTypeError(TypeError):
+    """Raised when geometry type does not fit."""
