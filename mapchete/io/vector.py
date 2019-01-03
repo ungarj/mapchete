@@ -16,11 +16,10 @@ from shapely.validation import explain_validity
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
+from mapchete.errors import GeometryTypeError
+
 logger = logging.getLogger(__name__)
 
-# suppress shapely warnings
-logging.getLogger("shapely").setLevel(logging.ERROR)
-logging.getLogger("Fiona").setLevel(logging.ERROR)
 
 CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/wgs-84/
@@ -66,37 +65,36 @@ def reproject_geometry(
     src_crs = _validated_crs(src_crs)
     dst_crs = _validated_crs(dst_crs)
 
-    def _repair(geom):
-        if geom.geom_type in ["Polygon", "MultiPolygon"]:
-            return geom.buffer(0)
-        else:
-            return geom
-
     def _reproject_geom(geometry, src_crs, dst_crs):
-        if geometry.is_empty or src_crs == dst_crs:
-            return _repair(geometry)
-        out_geom = _repair(
-            to_shape(
+        if geometry.is_empty:
+            logger.debug("input geometry is empty")
+            return geometry
+        else:
+            out_geom = to_shape(
                 transform_geom(
-                    src_crs.to_dict(), dst_crs.to_dict(), mapping(geometry),
+                    src_crs.to_dict(),
+                    dst_crs.to_dict(),
+                    mapping(geometry),
                     antimeridian_cutting=antimeridian_cutting
                 )
             )
-        )
-        if validity_check and (not out_geom.is_valid or out_geom.is_empty):
-            raise TopologicalError("invalid geometry after reprojection")
-        return out_geom
+            if validity_check:
+                out_geom = _repair(out_geom)
+                if out_geom.is_empty:
+                    raise TopologicalError("reprojected geometry is empty")
+            return out_geom
 
     # return repaired geometry if no reprojection needed
-    if src_crs == dst_crs:
+    if src_crs == dst_crs or geometry.is_empty:
         return _repair(geometry)
 
-    # if geometry potentially has to be clipped, reproject to WGS84 and clip
-    # with CRS bounds
-    elif dst_crs.is_epsg_code and (
-        dst_crs.get("init") in CRS_BOUNDS) and (  # if known CRS
-        not dst_crs.get("init") == "epsg:4326"  # WGS84 does not need clipping
+    # geometry needs to be clipped to its CRS bounds
+    elif (
+        dst_crs.is_epsg_code and               # just in case for an CRS with EPSG code
+        dst_crs.get("init") in CRS_BOUNDS and  # if CRS has defined bounds
+        dst_crs.get("init") != "epsg:4326"     # and is not WGS84 (does not need clipping)
     ):
+        logger.debug("clipping geometry to CRS bounds")
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
         crs_bbox = box(*CRS_BOUNDS[dst_crs.get("init")])
@@ -106,13 +104,21 @@ def reproject_geometry(
         if error_on_clip and not geometry_4326.within(crs_bbox):
             raise RuntimeError("geometry outside target CRS bounds")
         # clip geometry dst_crs boundaries and return
-        return _reproject_geom(
-            crs_bbox.intersection(geometry_4326), wgs84_crs, dst_crs
-        )
+        return _reproject_geom(crs_bbox.intersection(geometry_4326), wgs84_crs, dst_crs)
 
     # return without clipping if destination CRS does not have defined bounds
     else:
         return _reproject_geom(geometry, src_crs, dst_crs)
+
+
+def _repair(geom):
+    repaired = geom.buffer(0) if geom.geom_type in ["Polygon", "MultiPolygon"] else geom
+    if repaired.is_valid:
+        return repaired
+    else:
+        raise TopologicalError(
+            "geometry is invalid (%s) and cannot be repaired" % explain_validity(repaired)
+        )
 
 
 def _validated_crs(crs):
@@ -195,18 +201,22 @@ def read_vector_window(input_files, tile, validity_check=True):
 
 def _read_vector_window(input_file, tile, validity_check=True):
     if tile.pixelbuffer and tile.is_on_edge():
-        tile_boxes = clip_geometry_to_srs_bounds(
-            tile.bbox, tile.tile_pyramid, multipart=True
-        )
         return chain.from_iterable(
             _get_reprojected_features(
-                input_file=input_file, dst_bounds=bbox.bounds,
-                dst_crs=tile.crs, validity_check=validity_check
+                input_file=input_file,
+                dst_bounds=bbox.bounds,
+                dst_crs=tile.crs,
+                validity_check=validity_check
             )
-            for bbox in tile_boxes)
+            for bbox in clip_geometry_to_srs_bounds(
+                tile.bbox, tile.tile_pyramid, multipart=True
+            )
+        )
     else:
         features = _get_reprojected_features(
-            input_file=input_file, dst_bounds=tile.bounds, dst_crs=tile.crs,
+            input_file=input_file,
+            dst_bounds=tile.bounds,
+            dst_crs=tile.crs,
             validity_check=validity_check
         )
         return features
@@ -249,8 +259,8 @@ def write_vector_window(
                     "geometry": mapping(out_geom),
                     "properties": feature["properties"]
                 })
-        except Exception:
-            logger.exception("failed to prepare geometry for writing")
+        except Exception as e:
+            logger.warning("failed to prepare geometry for writing: %s", e)
             continue
 
     # write if there are output features
@@ -279,7 +289,7 @@ def write_vector_window(
                     logger.debug((out_tile.id, "write tile", out_path))
                     dst.writerecords(out_features)
         except Exception as e:
-            logger.exception("error while writing file %s: %s", out_path, e)
+            logger.error("error while writing file %s: %s", out_path, e)
             raise
 
     else:
@@ -320,50 +330,47 @@ def _get_reprojected_features(
 ):
     logger.debug("reading %s", input_file)
     try:
-        with fiona.open(input_file, 'r') as vector:
-            vector_crs = CRS(vector.crs)
-            # Reproject tile bounding box to source file CRS for filter:
-            if vector_crs == dst_crs:
+        with fiona.open(input_file, 'r') as src:
+            src_crs = CRS(src.crs)
+            # reproject tile bounding box to source file CRS for filter
+            if src_crs == dst_crs:
                 dst_bbox = box(*dst_bounds)
             else:
                 dst_bbox = reproject_geometry(
-                    box(*dst_bounds), src_crs=dst_crs, dst_crs=vector_crs,
+                    box(*dst_bounds),
+                    src_crs=dst_crs,
+                    dst_crs=src_crs,
                     validity_check=True
                 )
-            for feature in vector.filter(bbox=dst_bbox.bounds):
-                feature_geom = to_shape(feature['geometry'])
-                if not feature_geom.is_valid:
-                    feature_geom = feature_geom.buffer(0)
-                    # skip feature if geometry cannot be repaired
-                    if not feature_geom.is_valid:
-                        logger.exception(
-                            "feature omitted: %s", explain_validity(feature_geom))
-                        continue
-                # only return feature if geometry type stayed the same after
-                # reprojecction
-                geom = clean_geometry_type(
-                    feature_geom.intersection(dst_bbox), feature_geom.geom_type)
-                if geom:
-                    # Reproject each feature to tile CRS
-                    try:
-                        geom = reproject_geometry(
-                            geom, src_crs=vector_crs, dst_crs=dst_crs,
-                            validity_check=validity_check)
-                        if validity_check and not geom.is_valid:
-                            raise TopologicalError(
-                                "reprojected geometry invalid: %s" % (
-                                    explain_validity(geom)))
-                    except TopologicalError:
-                        logger.exception("feature omitted: reprojection failed")
-                    yield {
-                        'properties': feature['properties'],
-                        'geometry': mapping(geom)}
-                else:
-                    logger.exception(
-                        "feature omitted: geometry type changed after reprojection"
-                    )
+            for feature in src.filter(bbox=dst_bbox.bounds):
+
+                try:
+                    # check validity
+                    original_geom = _repair(to_shape(feature['geometry']))
+
+                    # clip with bounds and omit if clipped geometry is empty
+                    clipped_geom = original_geom.intersection(dst_bbox)
+
+                    if not clipped_geom.is_empty:
+                        # reproject each feature to tile CRS
+                        g = reproject_geometry(
+                            clean_geometry_type(clipped_geom, original_geom.geom_type),
+                            src_crs=src_crs,
+                            dst_crs=dst_crs,
+                            validity_check=validity_check
+                        )
+                        yield {
+                            'properties': feature['properties'],
+                            'geometry': mapping(g)
+                        }
+                # this can be handled quietly
+                except GeometryTypeError:
+                    pass
+                except TopologicalError as e:
+                    logger.warning("feature omitted: %s", e)
+
     except Exception as e:
-        logger.exception("error while reading file %s: %s", input_file, e)
+        logger.error("error while reading file %s: %s", input_file, e)
         raise
 
 
@@ -386,8 +393,12 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
 
     Returns
     -------
-    cleaned geometry : ``shapely.geometry`` or None
+    cleaned geometry : ``shapely.geometry``
         returns None if input geometry type differs from target type
+
+    Raises
+    ------
+    GeometryTypeError : if geometry type does not match target_type
     """
     multipart_geoms = {
         "Point": MultiPoint,
@@ -415,8 +426,10 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
             multipart_geoms[geometry.geom_type] == target_multipart_type
         ]):
             return geometry
-    else:
-        return None
+
+    raise GeometryTypeError(
+        "geometry type does not match: %s, %s" % (geometry.geom_type, target_type)
+    )
 
 
 def to_shape(geom):

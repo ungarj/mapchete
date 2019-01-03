@@ -13,7 +13,7 @@ import logging
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.ERROR)
+stream_handler.setLevel(logging.WARNING)
 logging.getLogger().addHandler(stream_handler)
 
 

@@ -17,7 +17,7 @@ from itertools import product
 
 import mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.tile import BufferedTilePyramid
+from mapchete.errors import GeometryTypeError
 from mapchete.io import (
     get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level
 )
@@ -29,6 +29,7 @@ from mapchete.io.raster import (
 from mapchete.io.vector import (
     read_vector_window, reproject_geometry, clean_geometry_type,
     segmentize_geometry)
+from mapchete.tile import BufferedTilePyramid
 
 
 def test_best_zoom_level(dummy1_tif):
@@ -675,15 +676,16 @@ def test_clean_geometry_type():
         clean_geometry_type(polygon, "invalid_type")
 
     # don't return geometry
-    assert clean_geometry_type(polygon, "LineString") is None
+    with pytest.raises(GeometryTypeError):
+        clean_geometry_type(polygon, "LineString") is None
 
     # return geometry as is
     assert clean_geometry_type(polygon, "Polygon").geom_type == "Polygon"
     assert clean_geometry_type(polygon, "MultiPolygon").geom_type == "Polygon"
 
     # don't allow multipart geometries
-    assert clean_geometry_type(
-        MultiPolygon([polygon]), "Polygon", allow_multipart=False) is None
+    with pytest.raises(GeometryTypeError):
+        clean_geometry_type(MultiPolygon([polygon]), "Polygon", allow_multipart=False)
 
 
 def test_s3_path_exists(s2_band_remote):

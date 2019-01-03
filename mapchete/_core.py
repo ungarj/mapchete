@@ -492,16 +492,15 @@ class Mapchete(object):
                     self._interpolate_from_baselevel(process_tile, "higher")
                 )
         # Otherwise, execute from process file.
-        params = self.config.params_at_zoom(process_tile.zoom)
-        tile_process = MapcheteProcess(config=self.config, tile=process_tile)
         try:
             with Timer() as t:
                 # Actually run process.
                 process_data = self.config.process_func(
-                    tile_process,
+                    MapcheteProcess(config=self.config, tile=process_tile),
                     # only pass on kwargs which are defined in execute()
                     **{
-                        k: v for k, v in params.items()
+                        k: v
+                        for k, v in self.config.params_at_zoom(process_tile.zoom).items()
                         if k in inspect.signature(self.config.process_func).parameters
                     }
                 )
@@ -513,8 +512,6 @@ class Mapchete(object):
             new = MapcheteProcessException(format_exc())
             new.old = e
             raise new
-        finally:
-            tile_process = None
         # Analyze proess output.
         if raise_nodata:
             return self._streamline_output(process_data)
