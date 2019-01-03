@@ -23,6 +23,7 @@ Changelog
 * updated license year
 * ``clean_geometry_type()`` raises ``GeometryTypeError`` if types do not match instead of
   returning ``None``
+* default log level now is ``logging.WARNING``, not ``logging.ERROR``
 
 
 ----
