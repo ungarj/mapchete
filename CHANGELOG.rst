@@ -7,6 +7,8 @@ Changelog
 ----
 
 * parsing mapchete input does not fail if zoom levels do not match
+* enable other projections again for GeoJSON output (closing #151)
+
 
 ----
 0.27

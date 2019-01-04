@@ -162,8 +162,6 @@ class OutputData(base.OutputData):
             "Polygon", "MultiPolygon"
         ]:
             raise TypeError("invalid geometry type")
-        if config["type"].type != "geodetic":
-            raise ValueError("output pyramid has to be geodetic")
         return True
 
     def get_path(self, tile):
