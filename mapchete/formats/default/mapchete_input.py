@@ -50,8 +50,7 @@ class InputData(base.InputData):
         self.path = input_params["path"]
         self.process = Mapchete(MapcheteConfig(
             self.path, mode="readonly",
-            bounds=input_params["delimiters"]["bounds"],
-            zoom=input_params["delimiters"]["zoom"]
+            bounds=input_params["delimiters"]["bounds"]
         ))
 
     def open(self, tile, **kwargs):

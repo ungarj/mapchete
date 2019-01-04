@@ -3,6 +3,12 @@ Changelog
 #########
 
 ----
+0.28
+----
+
+* parsing mapchete input does not fail if zoom levels do not match
+
+----
 0.27
 ----
 
