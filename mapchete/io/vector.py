@@ -67,7 +67,6 @@ def reproject_geometry(
 
     def _reproject_geom(geometry, src_crs, dst_crs):
         if geometry.is_empty:
-            logger.debug("input geometry is empty")
             return geometry
         else:
             out_geom = to_shape(
@@ -94,7 +93,6 @@ def reproject_geometry(
         dst_crs.get("init") in CRS_BOUNDS and  # if CRS has defined bounds
         dst_crs.get("init") != "epsg:4326"     # and is not WGS84 (does not need clipping)
     ):
-        logger.debug("clipping geometry to CRS bounds")
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
         crs_bbox = box(*CRS_BOUNDS[dst_crs.get("init")])

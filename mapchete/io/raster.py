@@ -70,7 +70,8 @@ def read_raster_window(
     input_file = input_files[0] if isinstance(input_files, list) else input_files
     with rasterio.Env(
         **get_gdal_options(gdal_opts, is_remote=path_is_remote(input_file, s3=True))
-    ):
+    ) as env:
+        logger.debug("GDAL options: %s ", env.options)
         return _read_raster_window(
             input_files,
             tile,
@@ -370,6 +371,8 @@ def write_raster_window(
     tags : optional tags to be added to GeoTIFF file
     bucket_resource : boto3 bucket resource to write to in case of S3 output
     """
+    if not isinstance(out_path, str):
+        raise TypeError("out_path must be a string")
     logger.debug("write %s", out_path)
     if out_path == "memoryfile":
         raise DeprecationWarning(
@@ -378,15 +381,13 @@ def write_raster_window(
         )
     out_tile = in_tile if out_tile is None else out_tile
     _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
-    if not isinstance(out_path, str):
-        raise TypeError("out_path must be a string")
 
     # extract data
     window_data = extract_from_array(
         in_raster=in_data,
         in_affine=in_tile.affine,
         out_tile=out_tile
-    )
+    ) if in_tile != out_tile else in_data
 
     # use transform instead of affine
     if "affine" in out_profile:

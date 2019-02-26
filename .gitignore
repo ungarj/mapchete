@@ -10,3 +10,4 @@ venv/
 .eggs/
 htmlcov/
 .pytest*
+.env
