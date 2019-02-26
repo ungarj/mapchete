@@ -14,7 +14,7 @@ formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.WARNING)
-logging.getLogger().addHandler(stream_handler)
+logging.getLogger("mapchete").addHandler(stream_handler)
 
 
 def set_log_level(loglevel):
