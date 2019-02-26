@@ -9,8 +9,12 @@ import mapchete
 from mapchete import MapcheteProcess, errors
 from mapchete.formats import (
     available_input_formats, available_output_formats, driver_from_file, base,
-    load_output_writer, load_input_reader
+    load_output_writer, load_input_reader, registered_driver_packages
 )
+
+
+def test_installed_drivers():
+    assert isinstance(registered_driver_packages(), set)
 
 
 def test_available_input_formats():

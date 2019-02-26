@@ -48,6 +48,22 @@ def _file_ext_to_driver():
         return _FILE_EXT_TO_DRIVER
 
 
+def registered_driver_packages():
+    """
+    Return all registered driver packages.
+
+    Returns
+    -------
+    formats : list
+        all registered driver packages
+    """
+    return set(
+        v.module_name.split(".")[0]
+        for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT)
+        if v.module_name.split(".")[0] != "mapchete"
+    )
+
+
 def available_output_formats():
     """
     Return all available output formats.

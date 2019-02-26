@@ -340,6 +340,7 @@ class MapcheteConfig(object):
                         ),
                         readonly=self.mode == "readonly")
                 except Exception as e:
+                    logger.exception(e)
                     raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
                 logger.debug("input reader for simple input %s is %s", v, reader)
 
@@ -357,6 +358,7 @@ class MapcheteConfig(object):
                         ),
                         readonly=self.mode == "readonly")
                 except Exception as e:
+                    logger.exception(e)
                     raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
                 logger.debug("input reader for abstract input %s is %s", v, reader)
             else:
