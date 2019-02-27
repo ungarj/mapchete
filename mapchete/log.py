@@ -25,6 +25,8 @@ for i in registered_modules:
 def set_log_level(loglevel):
     logging.getLogger("mapchete").setLevel(loglevel)
     stream_handler.setLevel(loglevel)
+    for i in registered_modules:
+        logging.getLogger(i).setLevel(loglevel)
 
 
 def setup_logfile(logfile):
