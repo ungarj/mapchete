@@ -2,7 +2,6 @@
 
 import click
 import pkg_resources
-import pydoc
 
 
 class c:
@@ -25,6 +24,4 @@ def processes():
     for v in processes:
         process = v.load()
         print(c.BOLD + process.__name__ + c.END)
-        # print(process.__doc__)
-        # print(pydoc.render_doc(process.execute, "%s"))
         print(process.execute.__doc__)

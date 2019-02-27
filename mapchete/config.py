@@ -33,11 +33,13 @@ from mapchete.formats import (
     load_output_writer, available_output_formats, load_input_reader
 )
 from mapchete.io import absolute_path
+from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid
 
 
 logger = logging.getLogger(__name__)
-# parameters whigh have to be provided in the configuration and their types
+
+# parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
     ("process", str),                    # path to .py file or module path
     ("pyramid", dict),                   # process pyramid definition
@@ -765,6 +767,8 @@ def _load_process_module(config):
             module = imp.load_source(
                 os.path.splitext(os.path.basename(abs_path))[0], abs_path
             )
+            # configure process file logger
+            add_module_logger(module.__name__)
         except py_compile.PyCompileError as e:
             raise MapcheteProcessSyntaxError(e)
         except ImportError as e:
