@@ -67,9 +67,13 @@ def read_raster_window(
     -------
     raster : MaskedArray
     """
-    input_file = input_files[0] if isinstance(input_files, list) else input_files
     with rasterio.Env(
-        **get_gdal_options(gdal_opts, is_remote=path_is_remote(input_file, s3=True))
+        **get_gdal_options(
+            gdal_opts,
+            is_remote=path_is_remote(
+                input_files[0] if isinstance(input_files, list) else input_files, s3=True
+            )
+        )
     ) as env:
         logger.debug("reading %s with GDAL options %s", input_files, env.options)
         return _read_raster_window(
