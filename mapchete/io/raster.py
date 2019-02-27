@@ -71,7 +71,7 @@ def read_raster_window(
     with rasterio.Env(
         **get_gdal_options(gdal_opts, is_remote=path_is_remote(input_file, s3=True))
     ) as env:
-        logger.debug("GDAL options: %s ", env.options)
+        logger.debug("reading %s with GDAL options %s", input_files, env.options)
         return _read_raster_window(
             input_files,
             tile,
@@ -224,7 +224,6 @@ def _get_warped_array(
     dst_nodata=None
 ):
     """Extract a numpy array from a raster file."""
-    logger.debug("reading %s", input_file)
     try:
         return _rasterio_read(
             input_file=input_file,
