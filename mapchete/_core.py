@@ -102,7 +102,7 @@ class Mapchete(object):
         with_cache : bool
             cache processed output data in memory (default: False)
         """
-        logger.debug("initialize process")
+        logger.info("initialize process")
         if not isinstance(config, MapcheteConfig):
             raise TypeError("config must be MapcheteConfig object")
         self.config = config
@@ -933,7 +933,7 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
                     for process_tile in process.get_process_tiles(zoom)
                 )):
                     num_processed += 1
-                    logger.debug("tile %s/%s finished", num_processed, total_tiles)
+                    logger.info("tile %s/%s finished", num_processed, total_tiles)
                     yield task.result()
     logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 
@@ -948,9 +948,9 @@ def _run_without_multiprocessing(process, zoom_levels):
             for process_tile in process.get_process_tiles(zoom):
                 process_info = _process_worker(process, process_tile)
                 num_processed += 1
-                logger.debug("tile %s/%s finished", num_processed, total_tiles)
+                logger.info("tile %s/%s finished", num_processed, total_tiles)
                 yield process_info
-    logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
+    logger.info("%s tile(s) iterated in %s", str(num_processed), t)
 
 
 def _get_zoom_level(zoom, process):

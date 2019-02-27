@@ -1,7 +1,7 @@
-from mapchete.log import user_process_logger
+import logging
 import numpy as np
 
-logger = user_process_logger("convert")
+logger = logging.getLogger(__name__)
 
 
 def execute(

@@ -11,9 +11,11 @@ import warnings
 
 from mapchete import errors
 
+DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
+
 
 logger = logging.getLogger(__name__)
-_DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
+
 _FILE_EXT_TO_DRIVER = {}
 
 
@@ -23,7 +25,7 @@ def _file_ext_to_driver():
         return _FILE_EXT_TO_DRIVER
     else:
         _FILE_EXT_TO_DRIVER = {}
-        for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+        for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
             _driver = v.load()
             if not hasattr(_driver, "METADATA"):
                 warnings.warn(
@@ -48,22 +50,6 @@ def _file_ext_to_driver():
         return _FILE_EXT_TO_DRIVER
 
 
-def registered_driver_packages():
-    """
-    Return all registered driver packages.
-
-    Returns
-    -------
-    formats : list
-        all registered driver packages
-    """
-    return set(
-        v.module_name.split(".")[0]
-        for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT)
-        if v.module_name.split(".")[0] != "mapchete"
-    )
-
-
 def available_output_formats():
     """
     Return all available output formats.
@@ -74,7 +60,7 @@ def available_output_formats():
         all available output formats
     """
     output_formats = []
-    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+    for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         driver_ = v.load()
         if hasattr(driver_, "METADATA") and (
             driver_.METADATA["mode"] in ["w", "rw"]
@@ -93,7 +79,7 @@ def available_input_formats():
         all available input formats
     """
     input_formats = []
-    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+    for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         logger.debug("driver found: %s", v)
         driver_ = v.load()
         if hasattr(driver_, "METADATA") and (driver_.METADATA["mode"] in ["r", "rw"]):
@@ -113,7 +99,7 @@ def load_output_writer(output_params, readonly=False):
     if not isinstance(output_params, dict):
         raise TypeError("output_params must be a dictionary")
     driver_name = output_params["format"]
-    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+    for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         _driver = v.load()
         if all(
             [hasattr(_driver, attr) for attr in ["OutputData", "METADATA"]]
@@ -149,7 +135,7 @@ def load_input_reader(input_params, readonly=False):
             driver_name = "TileDirectory"
     else:
         raise errors.MapcheteDriverError("invalid input parameters %s" % input_params)
-    for v in pkg_resources.iter_entry_points(_DRIVERS_ENTRY_POINT):
+    for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         driver_ = v.load()
         if hasattr(driver_, "METADATA") and (
             driver_.METADATA["driver_name"] == driver_name
