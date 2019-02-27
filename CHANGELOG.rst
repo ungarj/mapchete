@@ -8,6 +8,7 @@ Changelog
 
 * parsing mapchete input does not fail if zoom levels do not match
 * enable other projections again for GeoJSON output (closing #151)
+* automatically detect loggers from registered mapchete packages and user process files
 
 
 ----
