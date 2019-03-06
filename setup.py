@@ -80,7 +80,7 @@ setup(
         'pyproj',
         'pyyaml',
         'retry',
-        'rasterio>=1.0.21',
+        'rasterio>=1.0.20',
         'tilematrix>=0.18',
         'tqdm'
     ] if not on_rtd else [],
