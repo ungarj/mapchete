@@ -34,5 +34,5 @@ env:
 matrix:
   allow_failures:
     - env: RASTERIO_VERSION="1.0.19"
+    - env: RASTERIO_VERSION="1.0.20"
     - env: RASTERIO_VERSION="latest"
-
