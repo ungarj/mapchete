@@ -23,7 +23,7 @@ with open('README.rst') as f:
 setup(
     name='mapchete',
     version=version,
-    description='tile-based geodata processing',
+    description='Tile-based geodata processing using rasterio & Fiona',
     long_description=readme,
     author='Joachim Ungar',
     author_email='joachim.ungar@gmail.com',
