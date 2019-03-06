@@ -7,11 +7,12 @@ import tempfile
 import numpy as np
 import numpy.ma as ma
 import fiona
+from fiona.errors import DriverError
 from rasterio.crs import CRS
 from rasterio.enums import Compression
 from rasterio.errors import RasterioIOError
 from shapely.errors import TopologicalError
-from shapely.geometry import shape, box, Polygon, MultiPolygon
+from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString
 from shapely.ops import unary_union
 from itertools import product
 
@@ -24,11 +25,12 @@ from mapchete.io import (
 from mapchete.io.raster import (
     read_raster_window, write_raster_window, extract_from_array,
     resample_from_array, create_mosaic, ReferencedRaster, prepare_array,
-    RasterWindowMemoryFile
+    RasterWindowMemoryFile, read_raster_no_crs
 )
 from mapchete.io.vector import (
     read_vector_window, reproject_geometry, clean_geometry_type,
-    segmentize_geometry)
+    segmentize_geometry, write_vector_window, _repair
+)
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -172,6 +174,12 @@ def test_read_raster_window_retry():
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(RasterioIOError):
         read_raster_window("invalid_file.tif", tile)
+
+
+def test_read_raster_no_crs_errors():
+    with tempfile.NamedTemporaryFile() as tmpfile:
+        with pytest.raises(RasterioIOError):
+            read_raster_no_crs(tmpfile.name)
 
 
 def test_write_raster_window():
@@ -318,6 +326,15 @@ def test_write_raster_window_errors():
             in_tile=tile, in_data=data, out_profile=profile,
             out_tile=tile, out_path=999
         )
+    # cannot write
+    with pytest.raises(ValueError):
+        write_raster_window(
+            in_tile=tile,
+            in_data=data,
+            out_profile=profile,
+            out_tile=tile,
+            out_path="/invalid_path",
+        )
 
 
 def test_extract_from_array():
@@ -415,6 +432,9 @@ def test_create_mosaic_errors():
         create_mosaic([
             (geo_tile, geo_tile_data), (diff_type, diff_type_data)
         ])
+    # no tiles
+    with pytest.raises(ValueError):
+        create_mosaic(tiles=[])
 
 
 def test_create_mosaic():
@@ -608,6 +628,14 @@ def test_read_vector_window(geojson, landpoly_3857):
     assert feature_count
 
 
+def test_read_vector_window_errors():
+    with pytest.raises(DriverError):
+        read_vector_window(
+            "invalid_path",
+            BufferedTilePyramid("geodetic").tile(0, 0, 0)
+        )
+
+
 def test_reproject_geometry(landpoly):
     """Reproject geometry."""
     with fiona.open(landpoly, "r") as src:
@@ -633,14 +661,18 @@ def test_reproject_geometry(landpoly):
 
     # WGS84 bounds to Spherical Mercator
     big_box = box(-180, -90, 180, 90)
-    reproject_geometry(
-        big_box, CRS().from_epsg(4326), CRS().from_epsg(3857))
+    reproject_geometry(big_box, CRS().from_epsg(4326), CRS().from_epsg(3857))
 
     # WGS84 bounds to Spherical Mercator raising clip error
     with pytest.raises(RuntimeError):
         reproject_geometry(
             big_box, CRS().from_epsg(4326), CRS().from_epsg(3857),
-            error_on_clip=True)
+            error_on_clip=True
+        )
+    outside_box = box(-180, 87, 180, 90)
+    assert reproject_geometry(
+        outside_box, CRS().from_epsg(4326), CRS().from_epsg(3857),
+    ).is_valid
 
     # empty geometry
     assert reproject_geometry(
@@ -655,6 +687,28 @@ def test_reproject_geometry(landpoly):
         big_box, "4326", "3857")
     with pytest.raises(TypeError):
         reproject_geometry(big_box, 1.0, 1.0)
+
+
+def test_repair_geometry():
+    # invalid LineString
+    l = LineString([(0, 0), (0, 0), (0, 0)])
+    with pytest.raises(TopologicalError):
+        _repair(l)
+
+
+def test_write_vector_window_errors(landpoly):
+    with fiona.open(landpoly) as src:
+        feature = next(iter(src))
+    with pytest.raises(DriverError):
+        write_vector_window(
+            in_data=[
+                "invalid",
+                feature
+            ],
+            out_tile=BufferedTilePyramid("geodetic").tile(0, 0, 0),
+            out_path="/invalid_path",
+            out_schema=dict(geometry="Polygon", properties=dict())
+        )
 
 
 def test_segmentize_geometry():

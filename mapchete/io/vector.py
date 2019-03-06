@@ -77,11 +77,7 @@ def reproject_geometry(
                     antimeridian_cutting=antimeridian_cutting
                 )
             )
-            if validity_check:
-                out_geom = _repair(out_geom)
-                if out_geom.is_empty:
-                    raise TopologicalError("reprojected geometry is empty")
-            return out_geom
+            return _repair(out_geom) if validity_check else out_geom
 
     # return repaired geometry if no reprojection needed
     if src_crs == dst_crs or geometry.is_empty:
