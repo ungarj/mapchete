@@ -6,7 +6,7 @@ pyramid:
 input:
     file1: antimeridian.geojson
 output:
-    type: geodetic
+    grid: geodetic
     format: GeoJSON
     path: tmp/geojson
     data_type: vector

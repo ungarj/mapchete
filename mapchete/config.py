@@ -267,7 +267,7 @@ class MapcheteConfig(object):
         """Output object of driver."""
         output_params = dict(
             self._raw["output"],
-            type=self.output_pyramid.grid,
+            grid=self.output_pyramid.grid,
             pixelbuffer=self.output_pyramid.pixelbuffer,
             metatiling=self.output_pyramid.metatiling
         )
@@ -285,7 +285,6 @@ class MapcheteConfig(object):
                     output_params["format"], str(available_output_formats())
                 )
             )
-
         writer = load_output_writer(output_params)
         try:
             writer.is_valid_with_config(output_params)
@@ -527,48 +526,52 @@ class MapcheteConfig(object):
     @cached_property
     def crs(self):
         """Deprecated."""
-        warnings.warn("self.crs is now self.process_pyramid.crs.")
+        warnings.warn(DeprecationWarning("self.crs is now self.process_pyramid.crs."))
         return self.process_pyramid.crs
 
     @cached_property
     def metatiling(self):
         """Deprecated."""
         warnings.warn(
-            "self.metatiling is now self.process_pyramid.metatiling.")
+            DeprecationWarning("self.metatiling is now self.process_pyramid.metatiling.")
+        )
         return self.process_pyramid.metatiling
 
     @cached_property
     def pixelbuffer(self):
         """Deprecated."""
         warnings.warn(
-            "self.pixelbuffer is now self.process_pyramid.pixelbuffer.")
+            DeprecationWarning(
+                "self.pixelbuffer is now self.process_pyramid.pixelbuffer."
+            )
+        )
         return self.process_pyramid.pixelbuffer
 
     @cached_property
     def inputs(self):
         """Deprecated."""
-        warnings.warn("self.inputs renamed to self.input.")
+        warnings.warn(DeprecationWarning("self.inputs renamed to self.input."))
         return self.input
 
     @cached_property
     def process_file(self):
         """Deprecated."""
-        warnings.warn("'self.process_file' is deprecated")
+        warnings.warn(DeprecationWarning("'self.process_file' is deprecated"))
         return os.path.join(self._raw["config_dir"], self._raw["process"])
 
     def at_zoom(self, zoom):
         """Deprecated."""
-        warnings.warn("Method renamed to self.params_at_zoom(zoom).")
+        warnings.warn(DeprecationWarning("Method renamed to self.params_at_zoom(zoom)."))
         return self.params_at_zoom(zoom)
 
     def process_area(self, zoom=None):
         """Deprecated."""
-        warnings.warn("Method renamed to self.area_at_zoom(zoom).")
+        warnings.warn(DeprecationWarning("Method renamed to self.area_at_zoom(zoom)."))
         return self.area_at_zoom(zoom)
 
     def process_bounds(self, zoom=None):
         """Deprecated."""
-        warnings.warn("Method renamed to self.bounds_at_zoom(zoom).")
+        warnings.warn(DeprecationWarning("Method renamed to self.bounds_at_zoom(zoom)."))
         return self.bounds_at_zoom(zoom)
 
 
@@ -685,9 +688,7 @@ def raw_conf(mapchete_file):
     -------
     dictionary
     """
-    return _map_to_new_config(
-        yaml.load(open(mapchete_file, "r").read())
-    )
+    return _map_to_new_config(yaml.load(open(mapchete_file, "r").read()))
 
 
 def raw_conf_process_pyramid(raw_conf):
@@ -954,16 +955,29 @@ def _unflatten_tree(flat):
 
 
 def _map_to_new_config(config):
+    try:
+        validate_values(config, [("output", dict)])
+    except Exception as e:
+        raise MapcheteConfigError(e)
+    if "type" in config["output"]:
+        warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
+        if "grid" not in config["output"]:
+            config["output"]["grid"] = config["output"].pop("type")
     if "pyramid" not in config:
-        warnings.warn("'pyramid' needs to be defined in root config element.")
+        warnings.warn(
+            DeprecationWarning("'pyramid' needs to be defined in root config element.")
+        )
         config["pyramid"] = dict(
-            grid=config["output"]["type"],
+            grid=config["output"]["grid"],
             metatiling=config.get("metatiling", 1),
             pixelbuffer=config.get("pixelbuffer", 0))
     if "zoom_levels" not in config:
         warnings.warn(
-            "use new config element 'zoom_levels' instead of 'process_zoom', "
-            "'process_minzoom' and 'process_maxzoom'")
+            DeprecationWarning(
+                "use new config element 'zoom_levels' instead of 'process_zoom', "
+                "'process_minzoom' and 'process_maxzoom'"
+            )
+        )
         if "process_zoom" in config:
             config["zoom_levels"] = config["process_zoom"]
         elif all([
@@ -978,14 +992,18 @@ def _map_to_new_config(config):
     if "bounds" not in config:
         if "process_bounds" in config:
             warnings.warn(
-                "'process_bounds' are deprecated and renamed to 'bounds'")
+                DeprecationWarning(
+                    "'process_bounds' are deprecated and renamed to 'bounds'"
+                )
+            )
             config["bounds"] = config["process_bounds"]
         else:
             config["bounds"] = None
     if "input" not in config:
         if "input_files" in config:
             warnings.warn(
-                "'input_files' are deprecated and renamed to 'input'")
+                DeprecationWarning("'input_files' are deprecated and renamed to 'input'")
+            )
             config["input"] = config["input_files"]
         else:
             raise MapcheteConfigError("no 'input' found")
@@ -993,7 +1011,9 @@ def _map_to_new_config(config):
         raise MapcheteConfigError(
             "'input' and 'input_files' are not allowed at the same time")
     if "process_file" in config:
-        warnings.warn("'process_file' is deprecated and renamed to 'process'")
+        warnings.warn(
+            DeprecationWarning("'process_file' is deprecated and renamed to 'process'")
+        )
         config["process"] = config.pop("process_file")
 
     return config

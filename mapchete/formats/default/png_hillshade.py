@@ -24,12 +24,10 @@ import logging
 import numpy as np
 import numpy.ma as ma
 import os
-import rasterio
-from rasterio.errors import RasterioIOError
 
 from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.io import GDAL_HTTP_OPTS, makedirs, get_boto3_bucket
+from mapchete.io import makedirs, get_boto3_bucket
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs
 )
@@ -129,7 +127,7 @@ class OutputData(base.OutputData):
                     bucket_resource=bucket_resource
                 )
 
-    def read(self, output_tile):
+    def read(self, output_tile, **kwargs):
         """
         Read existing process output.
 

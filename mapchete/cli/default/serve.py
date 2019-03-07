@@ -77,7 +77,7 @@ def create_app(
 
     mp = next(iter(mapchete_processes.values()))
     pyramid_type = mp.config.process_pyramid.grid
-    pyramid_srid = mp.config.process_pyramid.srid
+    pyramid_srid = mp.config.process_pyramid.crs.to_epsg()
     process_bounds = ",".join([str(i) for i in mp.config.bounds_at_zoom()])
     grid = "g" if pyramid_srid == 3857 else "WGS84"
     web_pyramid = BufferedTilePyramid(pyramid_type)

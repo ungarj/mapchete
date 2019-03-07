@@ -161,7 +161,7 @@ class InputTile(base.InputTile):
         else:
             self.gdal_opts = {}
 
-    def read(self, indexes=None):
+    def read(self, indexes=None, **kwargs):
         """
         Read reprojected & resampled input data.
 
@@ -220,5 +220,5 @@ def get_segmentize_value(input_file=None, tile_pyramid=None):
     segmenize value : float
         length suggested of line segmentation to reproject file bounds
     """
-    warnings.warn("get_segmentize_value() has moved to mapchete.io")
+    warnings.warn(DeprecationWarning("get_segmentize_value() has moved to mapchete.io"))
     return io.get_segmentize_value(input_file, tile_pyramid)

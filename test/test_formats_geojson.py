@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test GeoJSON as process output."""
 
 from shapely.geometry import shape
@@ -65,7 +64,7 @@ def test_for_web(client, mp_tmpdir):
 def test_output_data(mp_tmpdir, geojson):
     """Check GeoJSON as output data."""
     output_params = dict(
-        type="geodetic",
+        grid="geodetic",
         format="GeoJSON",
         path=mp_tmpdir,
         schema=dict(properties=dict(id="int"), geometry="Polygon"),
@@ -93,7 +92,7 @@ def test_output_data(mp_tmpdir, geojson):
 def test_s3_output_data(mp_s3_tmpdir, geojson_s3):
     """Check GeoJSON as output data."""
     output_params = dict(
-        type="geodetic",
+        grid="geodetic",
         format="GeoJSON",
         path=mp_s3_tmpdir,
         schema=dict(properties=dict(id="int"), geometry="Polygon"),

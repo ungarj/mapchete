@@ -8,7 +8,7 @@ input:
         format: TileDirectory
         path: tmp/geojson
         metatiling: 2
-        type: geodetic
+        grid: geodetic
         extension: geojson
 output:
     format: GeoJSON

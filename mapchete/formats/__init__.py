@@ -7,9 +7,12 @@ This module deserves a cleaner rewrite some day.
 import logging
 import os
 import pkg_resources
+from pprint import pformat
 import warnings
 
-from mapchete import errors
+from mapchete.errors import MapcheteConfigError, MapcheteDriverError
+from mapchete.io import read_json, write_json
+from mapchete.tile import BufferedTilePyramid
 
 DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
 
@@ -29,8 +32,10 @@ def _file_ext_to_driver():
             _driver = v.load()
             if not hasattr(_driver, "METADATA"):
                 warnings.warn(
-                    "driver %s cannot be loaded, METADATA is missing" % (
-                        str(v).split(" ")[-1]
+                    DeprecationWarning(
+                        "driver %s cannot be loaded, METADATA is missing" % (
+                            str(v).split(" ")[-1]
+                        )
                     )
                 )
                 continue
@@ -46,7 +51,7 @@ def _file_ext_to_driver():
             except Exception:
                 pass
         if not _FILE_EXT_TO_DRIVER:
-            raise errors.MapcheteDriverError("no drivers could be found")
+            raise MapcheteDriverError("no drivers could be found")
         return _FILE_EXT_TO_DRIVER
 
 
@@ -107,9 +112,7 @@ def load_output_writer(output_params, readonly=False):
             _driver.METADATA["driver_name"] == driver_name
         ):
             return _driver.OutputData(output_params, readonly=readonly)
-    raise errors.MapcheteDriverError(
-        "no loader for driver '%s' could be found." % driver_name
-    )
+    raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 
 def load_input_reader(input_params, readonly=False):
@@ -134,15 +137,14 @@ def load_input_reader(input_params, readonly=False):
             logger.debug("%s is a directory", input_params["path"])
             driver_name = "TileDirectory"
     else:
-        raise errors.MapcheteDriverError("invalid input parameters %s" % input_params)
+        raise MapcheteDriverError("invalid input parameters %s" % input_params)
     for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         driver_ = v.load()
         if hasattr(driver_, "METADATA") and (
             driver_.METADATA["driver_name"] == driver_name
         ):
             return v.load().InputData(input_params, readonly=readonly)
-    raise errors.MapcheteDriverError(
-        "no loader for driver '%s' could be found." % driver_name)
+    raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 
 def driver_from_file(input_file):
@@ -156,12 +158,93 @@ def driver_from_file(input_file):
     """
     file_ext = os.path.splitext(input_file)[1].split(".")[1]
     if file_ext not in _file_ext_to_driver():
-        raise errors.MapcheteDriverError(
+        raise MapcheteDriverError(
             "no driver could be found for file extension %s" % file_ext
         )
     driver = _file_ext_to_driver()[file_ext]
     if len(driver) > 1:
         warnings.warn(
-            "more than one driver for file found, taking %s" % driver[0]
+            DeprecationWarning(
+                "more than one driver for file found, taking %s" % driver[0]
+            )
         )
     return driver[0]
+
+
+def params_to_dump(params):
+    # in case GridDefinition was not yet initialized
+    return dict(
+        pyramid=BufferedTilePyramid(
+            grid=params["grid"],
+            tile_size=params.get("tile_size", 256),
+            metatiling=params.get("metatiling", 1),
+            pixelbuffer=params.get("pixelbuffer", 0),
+        ).to_dict(),
+        driver={
+           k: v
+           for k, v in params.items()
+           if k not in ["path", "grid", "pixelbuffer", "metatiling"]
+        }
+    )
+
+
+def read_output_metadata(metadata_json):
+    params = read_json(metadata_json)
+    grid = params["pyramid"]["grid"]
+    if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:
+        warnings.warn(
+            DeprecationWarning(
+                """Deprecated grid shape ordering found. """
+                """Please change grid shape from [2, 1] to [1, 2] in %s."""
+                % metadata_json
+            )
+        )
+        params["pyramid"]["grid"]["shape"] = [1, 2]
+    params.update(
+        pyramid=BufferedTilePyramid(
+            params["pyramid"]["grid"],
+            metatiling=params["pyramid"].get("metatiling", 1),
+            tile_size=params["pyramid"].get("tile_size", 256),
+            pixelbuffer=params["pyramid"].get("pixelbuffer", 0)
+        )
+    )
+    return params
+
+
+def write_output_metadata(output_params):
+    """Dump output JSON and verify parameters if output metadata exist."""
+    if "path" in output_params:
+        metadata_path = os.path.join(output_params["path"], "metadata.json")
+        logger.debug("check for output %s", metadata_path)
+        try:
+            existing_params = read_output_metadata(metadata_path)
+            logger.debug("%s exists", metadata_path)
+            logger.debug("existing output parameters: %s", pformat(existing_params))
+            existing_tp = existing_params["pyramid"]
+            current_params = params_to_dump(output_params)
+            logger.debug("current output parameters: %s", pformat(current_params))
+            current_tp = BufferedTilePyramid(**current_params["pyramid"])
+            if existing_tp != current_tp:
+                raise MapcheteConfigError(
+                    "pyramid definitions between existing and new output do not match: "
+                    "%s != %s" % (existing_tp, current_tp)
+                )
+            existing_format = existing_params["driver"]["format"]
+            current_format = current_params["driver"]["format"]
+            if existing_format != current_format:
+                raise MapcheteConfigError(
+                    "existing output format does not match new output format: "
+                    "%s != %s" % (
+                        (existing_format, current_format)
+                    )
+                )
+        except FileNotFoundError:
+            logger.debug("%s does not exist", metadata_path)
+            dump_params = params_to_dump(output_params)
+            # dump output metadata
+            try:
+                write_json(metadata_path, dump_params)
+            except Exception as e:
+                logger.warning("failed to write %s: %s", metadata_path, e)
+    else:
+        logger.debug("no path parameter found")

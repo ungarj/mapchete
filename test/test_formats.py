@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test Mapchete default formats."""
 
 import pytest
@@ -77,7 +76,6 @@ def test_base_format_classes():
     assert tmp.pyramid
     assert tmp.pixelbuffer == 0
     assert tmp.crs
-    assert tmp.srid
     with pytest.raises(NotImplementedError):
         tmp.open(None)
     with pytest.raises(NotImplementedError):
@@ -93,11 +91,10 @@ def test_base_format_classes():
         tmp.is_empty()
 
     # OutputData
-    tmp = base.OutputData(dict(pixelbuffer=0, type="geodetic", metatiling=1))
+    tmp = base.OutputData(dict(pixelbuffer=0, grid="geodetic", metatiling=1))
     assert tmp.pyramid
     assert tmp.pixelbuffer == 0
     assert tmp.crs
-    assert tmp.srid
     with pytest.raises(NotImplementedError):
         tmp.read(None)
     with pytest.raises(NotImplementedError):

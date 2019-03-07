@@ -102,7 +102,7 @@ class OutputData(base.OutputData):
         self.nodata = output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
-    def read(self, output_tile):
+    def read(self, output_tile, **kwargs):
         """
         Read existing process output.
 
@@ -248,7 +248,7 @@ class OutputData(base.OutputData):
         try:
             if "compression" in self.output_params:
                 warnings.warn(
-                    "use 'compress' instead of 'compression'", DeprecationWarning
+                    DeprecationWarning("use 'compress' instead of 'compression'")
                 )
                 dst_metadata.update(compress=self.output_params["compression"])
             else:
@@ -339,7 +339,7 @@ class InputTile(base.InputTile):
         self.pixelbuffer = None
         self.resampling = resampling
 
-    def read(self, indexes=None):
+    def read(self, indexes=None, **kwargs):
         """
         Read reprojected & resampled input data.
 
@@ -357,9 +357,7 @@ class InputTile(base.InputTile):
         if len(band_indexes) == 1:
             return arr[band_indexes[0] - 1]
         else:
-            return ma.concatenate([
-                ma.expand_dims(arr[i - 1], 0) for i in band_indexes
-            ])
+            return ma.concatenate([ma.expand_dims(arr[i - 1], 0) for i in band_indexes])
 
     def is_empty(self, indexes=None):
         """

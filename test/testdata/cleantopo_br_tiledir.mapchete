@@ -11,7 +11,7 @@ input:
         format: TileDirectory
         path: tmp/cleantopo_br
         metatiling: 8
-        type: geodetic
+        grid: geodetic
         extension: tif
         dtype: uint16
         count: 1

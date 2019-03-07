@@ -120,7 +120,7 @@ class OutputData(base.OutputData):
                     bucket_resource=bucket_resource
                 )
 
-    def read(self, output_tile):
+    def read(self, output_tile, **kwargs):
         """
         Read existing process output.
 
