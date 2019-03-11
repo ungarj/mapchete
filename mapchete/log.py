@@ -54,7 +54,10 @@ def setup_logfile(logfile):
 def user_process_logger(pname):
     """Logger to be used within a user process file."""
     warnings.warn(
-        "user_process_logger() deprecated, you can use standard logging module instead."
+        DeprecationWarning(
+            "user_process_logger() deprecated, you can use standard logging module "
+            "instead."
+        )
     )
     return logging.getLogger("mapchete.user_process." + pname)
 
@@ -62,6 +65,8 @@ def user_process_logger(pname):
 def driver_logger(dname):
     """Logger to be used from a driver plugin."""
     warnings.warn(
-        "driver_logger() deprecated, you can use standard logging module instead."
+        DeprecationWarning(
+            "driver_logger() deprecated, you can use standard logging module instead."
+        )
     )
     return logging.getLogger("mapchete.formats.drivers." + dname)

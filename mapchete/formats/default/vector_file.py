@@ -115,7 +115,7 @@ class InputTile(base.InputTile):
         self.vector_file = vector_file
         self._cache = {}
 
-    def read(self, validity_check=True):
+    def read(self, validity_check=True, **kwargs):
         """
         Read reprojected & resampled input data.
 

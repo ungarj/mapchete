@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test PNG as process output."""
 
 import numpy as np
@@ -14,7 +13,7 @@ from mapchete.tile import BufferedTilePyramid
 def test_output_data(mp_tmpdir):
     """Check PNG as output data."""
     output_params = dict(
-        type="geodetic",
+        grid="geodetic",
         format="PNG",
         path=mp_tmpdir,
         pixelbuffer=0,
@@ -74,7 +73,7 @@ def test_output_data(mp_tmpdir):
 def test_s3_write_output_data(mp_s3_tmpdir):
     """Write and read output."""
     output_params = dict(
-        type="geodetic",
+        grid="geodetic",
         format="PNG",
         path=mp_s3_tmpdir,
         pixelbuffer=0,

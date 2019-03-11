@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test Mapchete default formats."""
 
 import pytest
@@ -9,7 +8,7 @@ import mapchete
 from mapchete import MapcheteProcess, errors
 from mapchete.formats import (
     available_input_formats, available_output_formats, driver_from_file, base,
-    load_output_writer, load_input_reader
+    load_output_writer, load_input_reader, read_output_metadata
 )
 
 
@@ -77,7 +76,6 @@ def test_base_format_classes():
     assert tmp.pyramid
     assert tmp.pixelbuffer == 0
     assert tmp.crs
-    assert tmp.srid
     with pytest.raises(NotImplementedError):
         tmp.open(None)
     with pytest.raises(NotImplementedError):
@@ -93,11 +91,10 @@ def test_base_format_classes():
         tmp.is_empty()
 
     # OutputData
-    tmp = base.OutputData(dict(pixelbuffer=0, type="geodetic", metatiling=1))
+    tmp = base.OutputData(dict(pixelbuffer=0, grid="geodetic", metatiling=1))
     assert tmp.pyramid
     assert tmp.pixelbuffer == 0
     assert tmp.crs
-    assert tmp.srid
     with pytest.raises(NotImplementedError):
         tmp.read(None)
     with pytest.raises(NotImplementedError):
@@ -148,3 +145,11 @@ def test_invalid_input_type(example_mapchete):
     config.update(input=dict(invalid_type=1))
     with pytest.raises(errors.MapcheteConfigError):
         mapchete.open(config)
+
+
+def test_old_style_metadata(old_style_metadata_json, old_geodetic_shape_metadata_json):
+    # deprecated CRS definitions
+    assert read_output_metadata(old_style_metadata_json)
+    # deprecated geodetic shape
+    params = read_output_metadata(old_geodetic_shape_metadata_json)
+    assert params["pyramid"].grid.type == "geodetic"

@@ -5,8 +5,11 @@ When writing a new driver, please inherit from these classes and implement the
 respective interfaces.
 """
 
-from mapchete.io import path_exists, write_output_metadata
 from tilematrix import TilePyramid
+import warnings
+
+from mapchete.formats import write_output_metadata
+from mapchete.io import path_exists
 
 
 class InputData(object):
@@ -26,8 +29,6 @@ class InputData(object):
         output ``TilePyramid``
     crs : ``rasterio.crs.CRS``
         object describing the process coordinate reference system
-    srid : string
-        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
     METADATA = {
@@ -41,7 +42,6 @@ class InputData(object):
         self.pyramid = input_params["pyramid"]
         self.pixelbuffer = input_params["pixelbuffer"]
         self.crs = self.pyramid.crs
-        self.srid = self.pyramid.srid
 
     def open(self, tile, **kwargs):
         """
@@ -150,8 +150,6 @@ class OutputData(object):
         output ``TilePyramid``
     crs : ``rasterio.crs.CRS``
         object describing the process coordinate reference system
-    srid : string
-        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
     METADATA = {
@@ -163,11 +161,15 @@ class OutputData(object):
     def __init__(self, output_params, readonly=False):
         """Initialize."""
         self.pixelbuffer = output_params["pixelbuffer"]
+        if "type" in output_params:
+            warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
+            if "grid" not in output_params:
+                output_params["grid"] = output_params.pop("type")
         self.pyramid = TilePyramid(
-            output_params["type"], metatiling=output_params["metatiling"]
+            grid=output_params["grid"],
+            metatiling=output_params["metatiling"]
         )
         self.crs = self.pyramid.crs
-        self.srid = self.pyramid.srid
         self._bucket = None
         if not readonly:
             write_output_metadata(output_params)

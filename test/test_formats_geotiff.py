@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test GeoTIFF as process output."""
 
 import numpy as np
@@ -16,7 +15,7 @@ from mapchete.tile import BufferedTilePyramid
 def test_output_data(mp_tmpdir):
     """Check GeoTIFF as output data."""
     output_params = dict(
-        type="geodetic",
+        grid="geodetic",
         format="GeoTIFF",
         path=mp_tmpdir,
         pixelbuffer=0,
@@ -112,7 +111,7 @@ def test_input_data(mp_tmpdir, cleantopo_br):
         # TODO tile with existing but empty data
         tile = tp.tile(5, 5, 5)
         output_params = dict(
-            type="geodetic",
+            grid="geodetic",
             format="GeoTIFF",
             path=mp_tmpdir,
             pixelbuffer=0,

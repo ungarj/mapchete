@@ -4,10 +4,9 @@ from copy import deepcopy
 import pytest
 import shutil
 
+import mapchete
 from mapchete.formats import available_input_formats
 from mapchete.errors import MapcheteDriverError
-
-import mapchete
 
 
 def test_driver_available():
@@ -156,12 +155,12 @@ def test_parse_errors(geojson_tiledir, cleantopo_br_tiledir):
         mapchete.open(vector_type)
     # without type
     vector_type = deepcopy(geojson_tiledir.dict)
-    vector_type["input"]["file1"].pop("type")
+    vector_type["input"]["file1"].pop("grid")
     with pytest.raises(MapcheteDriverError):
         mapchete.open(vector_type)
     # wrong type
     vector_type = deepcopy(geojson_tiledir.dict)
-    vector_type["input"]["file1"]["type"] = "invalid"
+    vector_type["input"]["file1"]["grid"] = "invalid"
     with pytest.raises(MapcheteDriverError):
         mapchete.open(vector_type)
     # without extension

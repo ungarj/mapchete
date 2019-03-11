@@ -85,4 +85,5 @@ class InputData(base.InputData):
         return reproject_geometry(
             self.process.config.area_at_zoom(),
             src_crs=self.process.config.process_pyramid.crs,
-            dst_crs=self.pyramid.crs if out_crs is None else out_crs)
+            dst_crs=self.pyramid.crs if out_crs is None else out_crs
+        )

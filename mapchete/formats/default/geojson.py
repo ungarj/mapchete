@@ -81,7 +81,7 @@ class OutputData(base.OutputData):
         self.output_params = output_params
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
-    def read(self, output_tile):
+    def read(self, output_tile, **kwargs):
         """
         Read existing process output.
 
@@ -255,7 +255,7 @@ class InputTile(base.InputTile):
         self.process = process
         self._cache = {}
 
-    def read(self, validity_check=True, no_neighbors=False):
+    def read(self, validity_check=True, no_neighbors=False, **kwargs):
         """
         Read data from process output.
 

@@ -13,7 +13,7 @@ from mapchete.tile import BufferedTilePyramid
 def test_output_data(mp_tmpdir):
     """Check PNG_hillshade as output data."""
     output_params = dict(
-        type="geodetic",
+        grid="geodetic",
         format="PNG_hillshade",
         path=mp_tmpdir,
         pixelbuffer=0,
@@ -97,7 +97,7 @@ def test_output_data(mp_tmpdir):
 def test_s3_write_output_data(mp_s3_tmpdir):
     """Write and read output."""
     output_params = dict(
-        type="geodetic",
+        grid="geodetic",
         format="PNG_hillshade",
         path=mp_s3_tmpdir,
         pixelbuffer=0,

@@ -7,13 +7,11 @@ import rasterio
 from rasterio.warp import calculate_default_transform
 from shapely.errors import TopologicalError
 from shapely.geometry import box
-from tilematrix import TilePyramid
 from urllib.request import urlopen
 from urllib.error import HTTPError
-import warnings
 
-from mapchete.errors import MapcheteConfigError
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
+from mapchete.tile import BufferedTilePyramid
 
 
 logger = logging.getLogger(__name__)
@@ -41,7 +39,7 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     -------
     zoom : integer
     """
-    tile_pyramid = TilePyramid(tile_pyramid_type)
+    tile_pyramid = BufferedTilePyramid(tile_pyramid_type)
     with rasterio.open(input_file, "r") as src:
         xmin, ymin, xmax, ymax = reproject_geometry(
             segmentize_geometry(
@@ -284,46 +282,6 @@ def makedirs(path):
             pass
 
 
-def write_output_metadata(output_params):
-    """Dump output JSON and verify parameters if output metadata exist."""
-    logger.debug(output_params)
-    if "path" in output_params:
-        metadata_path = os.path.join(output_params["path"], "metadata.json")
-        logger.debug("check for output %s", metadata_path)
-        try:
-            existing_params = read_json(metadata_path)
-            logger.debug("%s exists", metadata_path)
-            logger.debug("existing output parameters: %s", existing_params)
-            current_params = params_to_dump(output_params)
-            grid = existing_params["pyramid"]["grid"]
-            if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:
-                warnings.warn(
-                    """Deprecated grid shape ordering found. """
-                    """Please change grid shape from [2, 1] to [1, 2] in %s."""
-                    % metadata_path
-                )
-                existing_params["pyramid"]["grid"]["shape"] = [1, 2]
-            if (
-                existing_params["pyramid"] != current_params["pyramid"] or
-                existing_params["driver"]["format"] != current_params["driver"]["format"]
-            ):
-                raise MapcheteConfigError(
-                    "process output definition differs from existing output: %s != %s" % (
-                        existing_params, current_params
-                    )
-                )
-        except FileNotFoundError:
-            logger.debug("%s does not exist", metadata_path)
-            dump_params = params_to_dump(output_params)
-            # dump output metadata
-            try:
-                write_json(metadata_path, dump_params)
-            except Exception as e:
-                logger.warning("failed to write %s: %s", metadata_path, e)
-    else:
-        logger.debug("no path parameter found")
-
-
 def write_json(path, params):
     """Write local or remote."""
     logger.debug("write %s to %s", params, path)
@@ -362,35 +320,6 @@ def read_json(path):
         except:
             raise FileNotFoundError("%s not found", path)
 
-
-def params_to_dump(params):
-    # in case GridDefinition was not yet initialized
-    if isinstance(params["type"], str):
-        tp = TilePyramid(params["type"])
-        params.update(type=tp.grid)
-    return dict(
-        pyramid=dict(
-            grid=dict(
-                type=params["type"].type,
-                shape=list(params["type"].shape),
-                bounds=list(params["type"].bounds),
-                left=params["type"].left,
-                bottom=params["type"].bottom,
-                right=params["type"].right,
-                top=params["type"].top,
-                is_global=params["type"].is_global,
-                srid=params["type"].srid,
-                crs=params["type"].crs.to_string(),
-            ),
-            metatiling=params.get("metatiling", 1),
-            pixelbuffer=params.get("pixelbuffer", 0),
-        ),
-        driver={
-           k: v
-           for k, v in params.items()
-           if k not in ["path", "type", "pixelbuffer", "metatiling"]
-        }
-    )
 
 
 def get_boto3_bucket(bucket_name):

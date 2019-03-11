@@ -5,12 +5,11 @@ import numpy as np
 import numpy.ma as ma
 import os
 from shapely.geometry import box
-import warnings
 
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
-from mapchete.formats import base, load_output_writer
-from mapchete.io import path_exists, absolute_path, read_json, tile_to_zoom_level
+from mapchete.formats import base, load_output_writer, read_output_metadata
+from mapchete.io import (path_exists, absolute_path, tile_to_zoom_level)
 from mapchete.io.vector import reproject_geometry, read_vector_window
 from mapchete.io.raster import read_raster_window
 from mapchete.tile import BufferedTilePyramid
@@ -53,16 +52,16 @@ class InputData(base.InputData):
     def __init__(self, input_params, **kwargs):
         """Initialize."""
         super(InputData, self).__init__(input_params, **kwargs)
-
         if "abstract" in input_params:
             self._params = input_params["abstract"]
             self.path = absolute_path(
                 path=self._params["path"],
                 base_dir=input_params["conf_dir"]
             )
+            logger.debug("InputData params: %s", input_params)
             # define pyramid
             self.td_pyramid = BufferedTilePyramid(
-                self._params["type"],
+                self._params["grid"],
                 metatiling=self._params.get("metatiling", 1),
                 tile_size=self._params.get("tile_size", 256),
                 pixelbuffer=self._params.get("pixelbuffer", 0)
@@ -73,37 +72,30 @@ class InputData(base.InputData):
                 path=input_params["path"], base_dir=input_params.get("conf_dir")
             )
             try:
-                params = read_json(os.path.join(self.path, "metadata.json"))
+                params = read_output_metadata(os.path.join(self.path, "metadata.json"))
             except FileNotFoundError:
                 raise MapcheteConfigError(
                     "Cannot find metadata.json in %s" % input_params["path"]
                 )
             # define pyramid
-            self.td_pyramid = BufferedTilePyramid(
-                params["pyramid"]["grid"]["type"],
-                metatiling=params["pyramid"].get("metatiling", 1),
-                tile_size=params["pyramid"].get("tile_size", 256),
-                pixelbuffer=params["pyramid"].get("pixelbuffer", 0)
-            )
-
+            self.td_pyramid = params["pyramid"]
             output = load_output_writer(
                 dict(
                     params["driver"],
                     metatiling=self.td_pyramid.metatiling,
                     pixelbuffer=self.td_pyramid.pixelbuffer,
                     pyramid=self.td_pyramid,
-                    type=self.td_pyramid.type,
+                    grid=self.td_pyramid.grid,
                     path=self.path
                 ),
                 readonly=True
             )
-            logger.debug(output)
             self._params = dict(
                 path=self.path,
-                type=params["pyramid"]["grid"]["type"],
-                metatiling=params["pyramid"].get("metatiling", 1),
-                pixelbuffer=params["pyramid"].get("pixelbuffer", 0),
-                tile_size=params["pyramid"].get("tile_size", 256),
+                grid=self.td_pyramid.grid.to_dict(),
+                metatiling=self.td_pyramid.metatiling,
+                pixelbuffer=self.td_pyramid.pixelbuffer,
+                tile_size=self.td_pyramid.tile_size,
                 extension=output.file_extension.split(".")[-1],
                 **params["driver"]
             )
@@ -113,7 +105,7 @@ class InputData(base.InputData):
             self._params,
             [
                 ("path", str),
-                ("type", str),
+                ("grid", (str, dict)),
                 ("extension", str)
             ]
         )
@@ -304,7 +296,8 @@ class InputTile(base.InputTile):
         indexes=None,
         resampling=None,
         dst_nodata=None,
-        gdal_opts=None
+        gdal_opts=None,
+        **kwargs
     ):
         """
         Read reprojected & resampled input data.
@@ -327,12 +320,7 @@ class InputTile(base.InputTile):
         -------
         data : list for vector files or numpy array for raster files
         """
-        if resampling:
-            warnings.warn(
-                "resampling should be provided in the open() method, not read() method"
-            )
-        else:
-            resampling = self._resampling
+        resampling = resampling if resampling else self._resampling
         logger.debug("reading data from CRS %s to CRS %s", self._td_crs, self.tile.tp.crs)
         if self._file_type == "vector":
             if self.is_empty():

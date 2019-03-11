@@ -9,7 +9,7 @@ input:
         format: TileDirectory
         path: https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo
         metatiling: 1
-        type: geodetic
+        grid: geodetic
         extension: tif
         dtype: uint16
         count: 1

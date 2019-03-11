@@ -28,13 +28,11 @@ class BufferedTilePyramid(TilePyramid):
     """
 
     def __init__(
-        self, pyramid_type, metatiling=1, tile_size=256, pixelbuffer=0
+        self, grid=None, metatiling=1, tile_size=256, pixelbuffer=0
     ):
         """Initialize."""
-        TilePyramid.__init__(
-            self, pyramid_type, metatiling=metatiling, tile_size=tile_size)
-        self.tile_pyramid = TilePyramid(
-            pyramid_type, metatiling=metatiling, tile_size=tile_size)
+        TilePyramid.__init__(self, grid, metatiling=metatiling, tile_size=tile_size)
+        self.tile_pyramid = TilePyramid(grid, metatiling=metatiling, tile_size=tile_size)
         self.metatiling = metatiling
         if isinstance(pixelbuffer, int) and pixelbuffer >= 0:
             self.pixelbuffer = pixelbuffer
@@ -129,7 +127,30 @@ class BufferedTilePyramid(TilePyramid):
         """
         return [
             self.tile(*intersecting_tile.id)
-            for intersecting_tile in self.tile_pyramid.intersecting(tile)]
+            for intersecting_tile in self.tile_pyramid.intersecting(tile)
+        ]
+
+    def to_dict(self):
+        """
+        Return dictionary representation of pyramid parameters.
+        """
+        return dict(
+            grid=self.grid.to_dict(),
+            metatiling=self.metatiling,
+            tile_size=self.tile_size,
+            pixelbuffer=self.pixelbuffer
+        )
+
+    def from_dict(config_dict):
+        """
+        Initialize TilePyramid from configuration dictionary.
+        """
+        return BufferedTilePyramid(**config_dict)
+
+    def __repr__(self):
+        return 'BufferedTilePyramid(%s, tile_size=%s, metatiling=%s, pixelbuffer=%s)' % (
+            self.grid, self.tile_size, self.metatiling, self.pixelbuffer
+        )
 
 
 class BufferedTile(Tile):
