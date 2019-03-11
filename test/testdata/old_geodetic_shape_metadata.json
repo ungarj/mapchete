@@ -1,0 +1,30 @@
+{
+    "driver": {
+        "dtype": "uint8",
+        "format": "PNG_hillshade"
+    },
+    "pyramid": {
+        "grid": {
+            "bottom": -90.0,
+            "bounds": [
+                -180.0,
+                -90.0,
+                180.0,
+                90.0
+            ],
+            "crs": "EPSG:4326",
+            "is_global": true,
+            "left": -180.0,
+            "right": 180.0,
+            "shape": [
+                2,
+                1
+            ],
+            "srid": 4326,
+            "top": 90.0,
+            "type": "geodetic"
+        },
+        "metatiling": 1,
+        "pixelbuffer": 0
+    }
+}

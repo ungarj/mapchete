@@ -1,0 +1,33 @@
+{
+    "driver": {
+        "bands": 3,
+        "compress": "deflate",
+        "dtype": "uint8",
+        "format": "GTiff",
+        "predictor": 2
+    },
+    "pyramid": {
+        "grid": {
+            "bottom": 89840,
+            "bounds": [
+                141920,
+                89840,
+                948320,
+                502000
+            ],
+            "crs": "EPSG:31259",
+            "is_global": false,
+            "left": 141920,
+            "right": 948320,
+            "shape": [
+                161,
+                315
+            ],
+            "srid": 31259,
+            "top": 502000,
+            "type": "custom"
+        },
+        "metatiling": 4,
+        "pixelbuffer": 0
+    }
+}

@@ -8,6 +8,7 @@ import logging
 import os
 import pkg_resources
 from pprint import pformat
+from rasterio.crs import CRS
 import warnings
 
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
@@ -194,12 +195,23 @@ def read_output_metadata(metadata_json):
     if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:
         warnings.warn(
             DeprecationWarning(
-                """Deprecated grid shape ordering found. """
-                """Please change grid shape from [2, 1] to [1, 2] in %s."""
+                "Deprecated grid shape ordering found. "
+                "Please change grid shape from [2, 1] to [1, 2] in %s."
                 % metadata_json
             )
         )
         params["pyramid"]["grid"]["shape"] = [1, 2]
+    if "crs" in grid and isinstance(grid["crs"], str):
+        crs = CRS.from_string(grid["crs"])
+        warnings.warn(
+            DeprecationWarning(
+                "Deprecated 'srs' found in %s: '%s'. "
+                "Use WKT representation instead: %s" % (
+                    metadata_json, grid["crs"], pformat(dict(wkt=crs.to_wkt()))
+                )
+            )
+        )
+        params["pyramid"]["grid"].update(srs=dict(wkt=crs.to_wkt()))
     params.update(
         pyramid=BufferedTilePyramid(
             params["pyramid"]["grid"],
@@ -242,9 +254,6 @@ def write_output_metadata(output_params):
             logger.debug("%s does not exist", metadata_path)
             dump_params = params_to_dump(output_params)
             # dump output metadata
-            try:
-                write_json(metadata_path, dump_params)
-            except Exception as e:
-                logger.warning("failed to write %s: %s", metadata_path, e)
+            write_json(metadata_path, dump_params)
     else:
         logger.debug("no path parameter found")

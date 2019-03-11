@@ -104,6 +104,22 @@ def http_metadata_json():
 
 
 @pytest.fixture
+def old_style_metadata_json():
+    """
+    Fixture for old_style_metadata.json.
+    """
+    return os.path.join(TESTDATA_DIR, "old_style_metadata.json")
+
+
+@pytest.fixture
+def old_geodetic_shape_metadata_json():
+    """
+    Fixture for old_geodetic_shape_metadata.json.
+    """
+    return os.path.join(TESTDATA_DIR, "old_geodetic_shape_metadata.json")
+
+
+@pytest.fixture
 def landpoly():
     """Fixture for landpoly.geojson."""
     return os.path.join(TESTDATA_DIR, "landpoly.geojson")
