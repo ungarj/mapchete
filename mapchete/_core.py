@@ -583,9 +583,13 @@ class Mapchete(object):
 
     def __exit__(self, t, v, tb):
         """Cleanup on close."""
+        # run input drivers cleanup
         for ip in self.config.input.values():
             if ip is not None:
                 ip.cleanup()
+        # run output driver cleanup
+        self.config.output.close()
+        # clean up internal cache
         if self.with_cache:
             self.process_tile_cache = None
             self.current_processes = None
@@ -925,7 +929,6 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     logger.debug("run process on %s tiles using %s workers", total_tiles, multi)
     with Timer() as t:
-        logger.debug("run process on %s tiles using %s workers", total_tiles, multi)
         with concurrent.futures.ProcessPoolExecutor(max_workers=multi) as executor:
             for zoom in zoom_levels:
                 for task in concurrent.futures.as_completed((

@@ -195,11 +195,19 @@ class MapcheteConfig(object):
         logger.debug("preparing process parameters")
         self._params_at_zoom = _raw_at_zoom(self._raw, self.init_zoom_levels)
 
-        # (6) initialize output
+        # (6) the delimiters are used by some input drivers
+        self._delimiters = dict(
+            zoom=self.init_zoom_levels,
+            bounds=self.init_bounds,
+            process_bounds=self.bounds,
+            effective_bounds=self.effective_bounds
+        )
+
+        # (7) initialize output
         logger.debug("initializing output")
         self.output
 
-        # (7) initialize input items
+        # (8) initialize input items
         # depending on the inputs this action takes the longest and is done
         # in the end to let all other actions fail earlier if necessary
         logger.debug("initializing input")
@@ -269,7 +277,8 @@ class MapcheteConfig(object):
             self._raw["output"],
             grid=self.output_pyramid.grid,
             pixelbuffer=self.output_pyramid.pixelbuffer,
-            metatiling=self.output_pyramid.metatiling
+            metatiling=self.output_pyramid.metatiling,
+            delimiters=self._delimiters
         )
         if "path" in output_params:
             output_params.update(
@@ -305,14 +314,6 @@ class MapcheteConfig(object):
         Keys are the hashes of the input parameters, values the respective
         InputData classes.
         """
-        # the delimiters are used by some input drivers
-        delimiters = dict(
-            zoom=self.init_zoom_levels,
-            bounds=self.init_bounds,
-            process_bounds=self.bounds,
-            effective_bounds=self.effective_bounds
-        )
-
         # get input items only of initialized zoom levels
         raw_inputs = {
             # convert input definition to hash
@@ -337,7 +338,7 @@ class MapcheteConfig(object):
                             path=absolute_path(path=v, base_dir=self.config_dir),
                             pyramid=self.process_pyramid,
                             pixelbuffer=self.process_pyramid.pixelbuffer,
-                            delimiters=delimiters
+                            delimiters=self._delimiters
                         ),
                         readonly=self.mode == "readonly")
                 except Exception as e:
@@ -354,7 +355,7 @@ class MapcheteConfig(object):
                             abstract=deepcopy(v),
                             pyramid=self.process_pyramid,
                             pixelbuffer=self.process_pyramid.pixelbuffer,
-                            delimiters=delimiters,
+                            delimiters=self._delimiters,
                             conf_dir=self.config_dir
                         ),
                         readonly=self.mode == "readonly")

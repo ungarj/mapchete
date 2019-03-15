@@ -1,4 +1,4 @@
-"""Fixtures such as Flask app for serve."""
+"""All pytest fixtures."""
 
 import boto3
 from collections import namedtuple
@@ -379,6 +379,13 @@ def gtiff_s3():
     config = _dict_from_mapchete(path)
     config["output"].update(path=S3_TEMP_DIR)
     return ExampleConfig(path=None, dict=config)
+
+
+@pytest.fixture
+def output_single_gtiff_mapchete():
+    """Fixture for output_single_gtiff.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "output_single_gtiff.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 
 @pytest.fixture

@@ -5,11 +5,15 @@ When writing a new driver, please inherit from these classes and implement the
 respective interfaces.
 """
 
+import logging
 from tilematrix import TilePyramid
 import warnings
 
 from mapchete.formats import write_output_metadata
 from mapchete.io import path_exists
+
+
+logger = logging.getLogger(__name__)
 
 
 class InputData(object):
@@ -160,6 +164,7 @@ class OutputData(object):
 
     def __init__(self, output_params, readonly=False):
         """Initialize."""
+        logger.debug("base.Output.__new__()")
         self.pixelbuffer = output_params["pixelbuffer"]
         if "type" in output_params:
             warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
@@ -171,8 +176,6 @@ class OutputData(object):
         )
         self.crs = self.pyramid.crs
         self._bucket = None
-        if not readonly:
-            write_output_metadata(output_params)
 
     def read(self, output_tile):
         """
@@ -187,7 +190,7 @@ class OutputData(object):
         -------
         process output : array or list
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def write(self, process_tile):
         """
@@ -198,7 +201,73 @@ class OutputData(object):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        raise NotImplementedError
+        raise NotImplementedError()
+
+    def is_valid_with_config(self, config):
+        """
+        Check if output format is valid with other process parameters.
+
+        Parameters
+        ----------
+        config : dictionary
+            output configuration parameters
+
+        Returns
+        -------
+        is_valid : bool
+        """
+        raise NotImplementedError()
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
+        raise NotImplementedError()
+
+    def empty(self, process_tile):
+        """
+        Return empty data.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        empty data : array or list
+            empty array with correct data type for raster data or empty list
+            for vector data
+        """
+        raise NotImplementedError()
+
+    def open(self, tile, process):
+        """
+        Open process output as input for other process.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+        process : ``MapcheteProcess``
+        """
+        raise NotImplementedError()
+
+
+class TileDirectoryOutput(OutputData):
+
+    def __init__(self, output_params, readonly=False):
+        """Initialize."""
+        super(OutputData, self).__init__(output_params, readonly=readonly)
+        if not readonly:
+            write_output_metadata(output_params)
 
     def tiles_exist(self, process_tile=None, output_tile=None):
         """
@@ -225,59 +294,27 @@ class OutputData(object):
         if output_tile:
             return path_exists(self.get_path(output_tile))
 
-    def is_valid_with_config(self, config):
+
+class SingleFileOutput(OutputData):
+
+    def __init__(self, output_params, readonly=False):
+        """Initialize."""
+        super(OutputData, self).__init__(output_params, readonly=readonly)
+
+    def tiles_exist(self, process_tile=None, output_tile=None):
         """
-        Check if output format is valid with other process parameters.
-
-        Parameters
-        ----------
-        config : dictionary
-            output configuration parameters
-
-        Returns
-        -------
-        is_valid : bool
-        """
-        raise NotImplementedError
-
-    def for_web(self, data):
-        """
-        Convert data to web output (raster only).
-
-        Parameters
-        ----------
-        data : array
-
-        Returns
-        -------
-        web data : array
-        """
-        raise NotImplementedError
-
-    def empty(self, process_tile):
-        """
-        Return empty data.
+        Check whether output tiles of a tile (either process or output) exists.
 
         Parameters
         ----------
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
 
         Returns
         -------
-        empty data : array or list
-            empty array with correct data type for raster data or empty list
-            for vector data
+        exists : bool
         """
-        raise NotImplementedError
-
-    def open(self, tile, process):
-        """
-        Open process output as input for other process.
-
-        Parameters
-        ----------
-        tile : ``Tile``
-        process : ``MapcheteProcess``
-        """
-        raise NotImplementedError
+        # TODO
+        NotImplementedError()

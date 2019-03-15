@@ -6,6 +6,7 @@ import os
 import rasterio
 from rasterio.io import MemoryFile
 import shutil
+from tilematrix import Bounds
 
 import mapchete
 from mapchete.formats.default import gtiff
@@ -21,7 +22,13 @@ def test_output_data(mp_tmpdir):
         pixelbuffer=0,
         metatiling=1,
         bands=1,
-        dtype="int16"
+        dtype="int16",
+        delimiters=dict(
+            bounds=Bounds(-180.0, -90.0, 180.0, 90.0),
+            effective_bounds=Bounds(-180.439453125, -90.0, 180.439453125, 90.0),
+            zoom=[5],
+            process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0)
+        )
     )
     output = gtiff.OutputData(output_params)
     assert output.path == mp_tmpdir
@@ -117,7 +124,13 @@ def test_input_data(mp_tmpdir, cleantopo_br):
             pixelbuffer=0,
             metatiling=1,
             bands=2,
-            dtype="int16"
+            dtype="int16",
+            delimiters=dict(
+                bounds=Bounds(-180.0, -90.0, 180.0, 90.0),
+                effective_bounds=Bounds(-180.439453125, -90.0, 180.439453125, 90.0),
+                zoom=[5],
+                process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0)
+            )
         )
         output = gtiff.OutputData(output_params)
         with output.open(tile, mp, resampling="nearest") as input_tile:
@@ -172,3 +185,8 @@ def test_s3_write_output_data(gtiff_s3, s3_example_tile, mp_s3_tmpdir):
         data = mp.config.output.read(process_tile)
         assert isinstance(data, np.ndarray)
         assert not data[0].mask.all()
+
+
+def test_output_single_gtiff(output_single_gtiff_mapchete):
+    with mapchete.open(output_single_gtiff_mapchete.path):
+        pass

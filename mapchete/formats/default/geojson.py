@@ -44,7 +44,7 @@ METADATA = {
 }
 
 
-class OutputData(base.OutputData):
+class OutputData(base.TileDirectoryOutput):
     """
     Output class for GeoJSON.
 

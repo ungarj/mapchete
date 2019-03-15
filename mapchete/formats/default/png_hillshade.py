@@ -48,7 +48,7 @@ PNG_DEFAULT_PROFILE = {
 }
 
 
-class OutputData(base.OutputData):
+class OutputData(base.TileDirectoryOutput):
     """
     PNG_hillshade output class.
 

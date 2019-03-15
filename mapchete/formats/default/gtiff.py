@@ -30,17 +30,20 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
+from affine import Affine
 import logging
-import os
 import numpy as np
 import numpy.ma as ma
+import os
+import rasterio
 import warnings
 
 from mapchete.config import validate_values
 from mapchete.formats import base
 from mapchete.io import makedirs, get_boto3_bucket
 from mapchete.io.raster import (
-    write_raster_window, prepare_array, memory_file, read_raster_no_crs
+    write_raster_window, prepare_array, memory_file, read_raster_no_crs,
+    extract_from_array
 )
 from mapchete.tile import BufferedTile
 
@@ -62,9 +65,10 @@ GTIFF_DEFAULT_PROFILE = {
 }
 
 
-class OutputData(base.OutputData):
+class OutputData():
     """
-    Template class handling process output data.
+    Constructor class which either returns GTiffSingleFileOutput or
+    GTiffTileDirectoryOutput.
 
     Parameters
     ----------
@@ -93,14 +97,88 @@ class OutputData(base.OutputData):
 
     METADATA = METADATA
 
-    def __init__(self, output_params, **kwargs):
+    def __new__(self, output_params, **kwargs):
         """Initialize."""
-        super(OutputData, self).__init__(output_params)
+        logger.debug(output_params)
+        self.path = output_params["path"]
+        self.file_extension = ".tif"
+        if self.path.endswith(self.file_extension):
+            return GTiffSingleFileOutput(output_params, **kwargs)
+        else:
+            return GTiffTileDirectoryOutput(output_params, **kwargs)
+
+
+class GTiffOutputFunctions():
+    """Common functions."""
+
+    def empty(self, process_tile):
+        """
+        Return empty data.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        empty data : array
+            empty array with data type provided in output profile
+        """
+        profile = self.profile(process_tile)
+        return ma.masked_array(
+            data=np.full(
+                (profile["count"], ) + process_tile.shape, profile["nodata"],
+                dtype=profile["dtype"]),
+            mask=True
+        )
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
+        return memory_file(
+            prepare_array(
+                data, masked=True, nodata=self.nodata, dtype=self.profile()["dtype"]
+            ),
+            self.profile()
+        ), "image/tiff"
+
+    def open(self, tile, process, **kwargs):
+        """
+        Open process output as input for other process.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+        process : ``MapcheteProcess``
+        kwargs : keyword arguments
+        """
+        return InputTile(tile, process, kwargs.get("resampling", None))
+
+    def _set_attributes(self, output_params):
         self.path = output_params["path"]
         self.file_extension = ".tif"
         self.output_params = output_params
         self.nodata = output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+
+
+class GTiffTileDirectoryOutput(GTiffOutputFunctions, base.TileDirectoryOutput):
+
+    def __init__(self, output_params, **kwargs):
+        """Initialize."""
+        logger.debug("output is tile directory")
+        super(base.TileDirectoryOutput, self).__init__(output_params, **kwargs)
+        self._set_attributes(output_params)
 
     def read(self, output_tile, **kwargs):
         """
@@ -258,58 +336,133 @@ class OutputData(base.OutputData):
             pass
         return dst_metadata
 
-    def empty(self, process_tile):
+    def close(self):
+        """Gets called if process is closed."""
+        pass
+
+
+class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
+
+    def __init__(self, output_params, **kwargs):
+        """Initialize."""
+        logger.debug("output is single file")
+        super(base.SingleFileOutput, self).__init__(output_params, **kwargs)
+        self._set_attributes(output_params)
+        delimiters = output_params["delimiters"]
+        bounds = delimiters["effective_bounds"]
+        if len(delimiters["zoom"]) != 1:
+            raise ValueError("single file output only works with one zoom level")
+        zoom = delimiters["zoom"][0]
+        height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(zoom)
+        width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(zoom)
+        profile = dict(
+            GTIFF_DEFAULT_PROFILE,
+            driver="GTiff",
+            transform=Affine(
+                self.pyramid.pixel_x_size(zoom),
+                0,
+                bounds.left,
+                0,
+                -self.pyramid.pixel_y_size(zoom),
+                bounds.top
+            ),
+            height=height,
+            width=width,
+            count=output_params["bands"],
+            dtype=output_params["dtype"]
+        )
+        logger.debug("single GTiff profile: %s", profile)
+        # set up rasterio
+        self.rio_file = rasterio.open(self.path, "w+", **profile)
+
+    def read(self, output_tile, **kwargs):
         """
-        Return empty data.
+        Read existing process output.
+
+        Parameters
+        ----------
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        NumPy array
+        """
+        try:
+            return read_raster_no_crs(self.get_path(output_tile))
+        except FileNotFoundError:
+            return self.empty(output_tile)
+
+    def write(self, process_tile, data):
+        """
+        Write data from process tiles into GeoTIFF file(s).
 
         Parameters
         ----------
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
-
-        Returns
-        -------
-        empty data : array
-            empty array with data type provided in output profile
         """
-        profile = self.profile(process_tile)
-        return ma.masked_array(
-            data=np.full(
-                (profile["count"], ) + process_tile.shape, profile["nodata"],
-                dtype=profile["dtype"]),
-            mask=True
+        if (
+            isinstance(data, tuple) and
+            len(data) == 2 and
+            isinstance(data[1], dict)
+        ):
+            data, tags = data
+        else:
+            tags = {}
+        data = prepare_array(
+            data,
+            masked=True,
+            nodata=self.nodata,
+            dtype=self.profile(process_tile)["dtype"]
         )
 
-    def for_web(self, data):
+        if data.mask.all():
+            logger.debug("data empty, nothing to write")
+        else:
+            # in case of S3 output, create an boto3 resource
+
+            # Convert from process_tile to output_tiles and write
+            for tile in self.pyramid.intersecting(process_tile):
+                self.prepare_path(tile)
+                out_tile = BufferedTile(tile, self.pixelbuffer)
+                return dict(
+                    in_tile=process_tile,
+                    in_data=extract_from_array(
+                        in_raster=data,
+                        in_affine=process_tile.affine,
+                        out_tile=out_tile
+                    ) if process_tile != out_tile else data,
+                    tags=tags
+                )
+
+    def is_valid_with_config(self, config):
         """
-        Convert data to web output (raster only).
+        Check if output format is valid with other process parameters.
 
         Parameters
         ----------
-        data : array
+        config : dictionary
+            output configuration parameters
 
         Returns
         -------
-        web data : array
+        is_valid : bool
         """
-        return memory_file(
-            prepare_array(
-                data, masked=True, nodata=self.nodata, dtype=self.profile()["dtype"]
-            ),
-            self.profile()
-        ), "image/tiff"
+        return validate_values(
+            config, [
+                ("bands", int),
+                ("path", str),
+                ("dtype", str)]
+        )
 
-    def open(self, tile, process, **kwargs):
-        """
-        Open process output as input for other process.
-
-        Parameters
-        ----------
-        tile : ``Tile``
-        process : ``MapcheteProcess``
-        kwargs : keyword arguments
-        """
-        return InputTile(tile, process, kwargs.get("resampling", None))
+    def close(self):
+        """Gets called if process is closed."""
+        logger.debug("close rasterio file handle.")
+        try:
+            self.rio_file.close()
+        except:
+            pass
 
 
 class InputTile(base.InputTile):
