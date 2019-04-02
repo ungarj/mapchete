@@ -351,7 +351,7 @@ def test_serve(client, mp_tmpdir):
     ]:
         response = client.get(url)
         assert response.status_code == 200
-        img = response.response.file
+        img = response.data
         with MemoryFile(img) as memfile:
             with memfile.open() as dataset:
                 data = dataset.read()
@@ -360,7 +360,7 @@ def test_serve(client, mp_tmpdir):
     # test outside zoom range
     response = client.get(tile_base_url+"6/31/63.png")
     assert response.status_code == 200
-    img = response.response.file
+    img = response.data
     with MemoryFile(img) as memfile:
         with memfile.open() as dataset:
             data = dataset.read()

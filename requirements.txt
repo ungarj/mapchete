@@ -16,3 +16,4 @@ rasterio>=1.0.21
 shapely
 tilematrix>=0.18
 tqdm
+werkzeug>=0.15

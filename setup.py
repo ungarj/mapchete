@@ -20,6 +20,13 @@ with open('mapchete/__init__.py') as f:
 with open('README.rst') as f:
     readme = f.read()
 
+
+def parse_requirements(file):
+    return sorted(set(
+        line.partition('#')[0].strip()
+        for line in open(os.path.join(os.path.dirname(__file__), file))
+    ) - set(''))
+
 setup(
     name='mapchete',
     version=version,
@@ -70,20 +77,7 @@ setup(
     },
     package_dir={'static': 'static'},
     package_data={'mapchete.static': ['*']},
-    install_requires=[
-        'cachetools',
-        'cached_property',
-        'click>=7.0.0',
-        'click-plugins',
-        'click-spinner',
-        'fiona>=1.8b1',
-        'pyproj',
-        'pyyaml',
-        'retry',
-        'rasterio>=1.0.21',
-        'tilematrix>=0.18',
-        'tqdm'
-    ] if not on_rtd else [],
+    install_requires=parse_requirements('requirements.txt') if not on_rtd else [],
     extras_require={
         'contours': ['matplotlib'],
         's3': ['boto3'],
