@@ -122,6 +122,8 @@ def _validated_crs(crs):
         return CRS().from_epsg(int(crs))
     elif isinstance(crs, int):
         return CRS().from_epsg(crs)
+    elif isinstance(crs, dict):
+        return CRS().from_dict(crs)
     else:
         raise TypeError("invalid CRS given")
 
