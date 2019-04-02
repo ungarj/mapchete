@@ -98,7 +98,7 @@ def test_for_web(client, mp_tmpdir):
     ]:
         response = client.get(url)
         assert response.status_code == 200
-        img = response.response.file
+        img = response.data
         with MemoryFile(img) as memfile:
             with memfile.open() as dataset:
                 assert dataset.read().any()
