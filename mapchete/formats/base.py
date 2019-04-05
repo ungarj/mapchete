@@ -6,11 +6,11 @@ respective interfaces.
 """
 
 import logging
-from tilematrix import TilePyramid
 import warnings
 
 from mapchete.formats import write_output_metadata
 from mapchete.io import path_exists
+from mapchete.tile import BufferedTilePyramid
 
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ class OutputData(object):
             warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
             if "grid" not in output_params:
                 output_params["grid"] = output_params.pop("type")
-        self.pyramid = TilePyramid(
+        self.pyramid = BufferedTilePyramid(
             grid=output_params["grid"],
             metatiling=output_params["metatiling"]
         )

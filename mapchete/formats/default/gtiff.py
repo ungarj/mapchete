@@ -43,7 +43,7 @@ from mapchete.formats import base
 from mapchete.io import makedirs, get_boto3_bucket
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs,
-    extract_from_array
+    extract_from_array, read_raster_window
 )
 from mapchete.tile import BufferedTile
 
@@ -355,7 +355,7 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         zoom = delimiters["zoom"][0]
         height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(zoom)
         width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(zoom)
-        profile = dict(
+        self._profile = dict(
             GTIFF_DEFAULT_PROFILE,
             driver="GTiff",
             transform=Affine(
@@ -371,9 +371,9 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
             count=output_params["bands"],
             dtype=output_params["dtype"]
         )
-        logger.debug("single GTiff profile: %s", profile)
+        logger.debug("single GTiff profile: %s", self._profile)
         # set up rasterio
-        self.rio_file = rasterio.open(self.path, "w+", **profile)
+        self.rio_file = rasterio.open(self.path, "w+", **self._profile)
 
     def read(self, output_tile, **kwargs):
         """
@@ -388,6 +388,7 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         -------
         NumPy array
         """
+        raise NotImplementedError
         try:
             return read_raster_no_crs(self.get_path(output_tile))
         except FileNotFoundError:
@@ -424,7 +425,6 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
 
             # Convert from process_tile to output_tiles and write
             for tile in self.pyramid.intersecting(process_tile):
-                self.prepare_path(tile)
                 out_tile = BufferedTile(tile, self.pixelbuffer)
                 return dict(
                     in_tile=process_tile,
@@ -455,6 +455,57 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
                 ("path", str),
                 ("dtype", str)]
         )
+
+    def get_path(self, tile=None):
+        """
+        Determine target file path.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        path : string
+        """
+        return self.path
+
+    def profile(self, tile=None):
+        """
+        Create a metadata dictionary for rasterio.
+
+        Returns
+        -------
+        metadata : dictionary
+            output profile dictionary used for rasterio.
+        """
+        return self._profile
+
+    def tiles_exist(self, process_tile=None, output_tile=None):
+        """
+        Check whether output tiles of a tile (either process or output) exists.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        exists : bool
+        """
+        if process_tile and output_tile:
+            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
+        if process_tile:
+            return any(
+                read_raster_window(self.path, process_tile).any()
+                for tile in self.pyramid.intersecting(process_tile)
+            )
+        if output_tile:
+            return read_raster_window(self.path, process_tile).any()
 
     def close(self):
         """Gets called if process is closed."""

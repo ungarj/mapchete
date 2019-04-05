@@ -72,7 +72,7 @@ def read_raster_window(
             gdal_opts,
             is_remote=path_is_remote(
                 input_files[0] if isinstance(input_files, list) else input_files, s3=True
-            )
+            ) if isinstance(input_files, str) else False
         )
     ) as env:
         logger.debug("reading %s with GDAL options %s", input_files, env.options)
@@ -247,6 +247,7 @@ def _get_warped_array(
 @retry(tries=3, logger=logger)
 def _rasterio_read(
     input_file=None,
+    input_memoryfile=None,
     indexes=None,
     dst_bounds=None,
     dst_shape=None,
@@ -255,7 +256,10 @@ def _rasterio_read(
     src_nodata=None,
     dst_nodata=None,
 ):
-    with rasterio.open(input_file, "r") as src:
+
+    def _read(
+        src, indexes, dst_bounds, dst_shape, dst_crs, resampling, src_nodata, dst_nodata
+    ):
         height, width = dst_shape[-2:]
         if indexes is None:
             dst_shape = (len(src.indexes), height, width)
@@ -281,6 +285,19 @@ def _rasterio_read(
                 indexes=indexes,
                 masked=True
             )
+        if input_file:
+            with rasterio.open(input_file, "r") as src:
+                return _read(
+                    src, indexes, dst_bounds, dst_shape, dst_crs, resampling, src_nodata,
+                    dst_nodata
+                )
+        elif input_memoryfile:
+            return(
+                input_memoryfile, indexes, dst_bounds, dst_shape, dst_crs, resampling,
+                src_nodata, dst_nodata
+            )
+        else:
+            raise AttributeError("either input_file or input_memoryfile required")
 
 
 def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):

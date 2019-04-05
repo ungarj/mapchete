@@ -188,5 +188,21 @@ def test_s3_write_output_data(gtiff_s3, s3_example_tile, mp_s3_tmpdir):
 
 
 def test_output_single_gtiff(output_single_gtiff_mapchete):
-    with mapchete.open(output_single_gtiff_mapchete.path):
-        pass
+    zoom = 5
+    with mapchete.open(output_single_gtiff_mapchete.path) as mp:
+        process_tile = next(mp.get_process_tiles(zoom))
+        # basic functions
+        assert mp.config.output.profile()
+        assert mp.config.output.empty(process_tile).mask.all()
+        assert mp.config.output.get_path(process_tile)
+        # check if tile exists
+        assert not mp.config.output.tiles_exist(process_tile)
+        # write
+        mp.batch_process(tile=process_tile.id)
+        # check if tile exists
+        assert mp.config.output.tiles_exist(process_tile)
+        # read again, this time with data
+        data = mp.config.output.read(process_tile)
+        assert isinstance(data, np.ndarray)
+        assert not data[0].mask.all()
+
