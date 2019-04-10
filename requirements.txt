@@ -14,6 +14,6 @@ pyyaml
 retry
 rasterio>=1.0.21
 shapely
-tilematrix>=0.18
+tilematrix>=0.20
 tqdm
 werkzeug>=0.15
