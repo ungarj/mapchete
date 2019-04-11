@@ -189,10 +189,22 @@ class BufferedTile(Tile):
         Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
         self._tile = tile
         self.pixelbuffer = pixelbuffer
-        self.left = self.bounds.left
-        self.bottom = self.bounds.bottom
-        self.right = self.bounds.right
-        self.top = self.bounds.top
+
+    @cached_property
+    def left(self):
+        return self.bounds.left
+
+    @cached_property
+    def bottom(self):
+        return self.bounds.bottom
+
+    @cached_property
+    def right(self):
+        return self.bounds.right
+
+    @cached_property
+    def top(self):
+        return self.bounds.top
 
     @cached_property
     def height(self):
