@@ -369,7 +369,8 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
             height=height,
             width=width,
             count=output_params["bands"],
-            dtype=output_params["dtype"]
+            dtype=output_params["dtype"],
+            crs=self.pyramid.crs
         )
         logger.debug("single GTiff profile: %s", self._profile)
         # set up rasterio
@@ -388,11 +389,7 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         -------
         NumPy array
         """
-        raise NotImplementedError
-        try:
-            return read_raster_no_crs(self.get_path(output_tile))
-        except FileNotFoundError:
-            return self.empty(output_tile)
+        return read_raster_window(self.rio_file, output_tile)
 
     def write(self, process_tile, data):
         """
@@ -421,8 +418,6 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         if data.mask.all():
             logger.debug("data empty, nothing to write")
         else:
-            # in case of S3 output, create an boto3 resource
-
             # Convert from process_tile to output_tiles and write
             for tile in self.pyramid.intersecting(process_tile):
                 out_tile = BufferedTile(tile, self.pixelbuffer)
@@ -501,11 +496,11 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
             raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
         if process_tile:
             return any(
-                read_raster_window(self.path, process_tile).any()
+                not self.read(tile).mask.all()
                 for tile in self.pyramid.intersecting(process_tile)
             )
         if output_tile:
-            return read_raster_window(self.path, process_tile).any()
+            return not self.read(output_tile).mask.all()
 
     def close(self):
         """Gets called if process is closed."""

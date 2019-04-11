@@ -247,7 +247,6 @@ def _get_warped_array(
 @retry(tries=3, logger=logger)
 def _rasterio_read(
     input_file=None,
-    input_memoryfile=None,
     indexes=None,
     dst_bounds=None,
     dst_shape=None,
@@ -285,19 +284,19 @@ def _rasterio_read(
                 indexes=indexes,
                 masked=True
             )
-        if input_file:
-            with rasterio.open(input_file, "r") as src:
-                return _read(
-                    src, indexes, dst_bounds, dst_shape, dst_crs, resampling, src_nodata,
-                    dst_nodata
-                )
-        elif input_memoryfile:
-            return(
-                input_memoryfile, indexes, dst_bounds, dst_shape, dst_crs, resampling,
-                src_nodata, dst_nodata
+    if isinstance(input_file, str):
+        logger.debug("got file path %s", input_file)
+        with rasterio.open(input_file, "r") as src:
+            return _read(
+                src, indexes, dst_bounds, dst_shape, dst_crs, resampling, src_nodata,
+                dst_nodata
             )
-        else:
-            raise AttributeError("either input_file or input_memoryfile required")
+    else:
+        logger.debug("assuming file object %s", input_file)
+        return _read(
+            input_file, indexes, dst_bounds, dst_shape, dst_crs, resampling,
+            src_nodata, dst_nodata
+        )
 
 
 def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):

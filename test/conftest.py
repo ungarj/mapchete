@@ -382,7 +382,7 @@ def gtiff_s3():
 
 
 @pytest.fixture
-def output_single_gtiff_mapchete():
+def output_single_gtiff():
     """Fixture for output_single_gtiff.mapchete."""
     path = os.path.join(TESTDATA_DIR, "output_single_gtiff.mapchete")
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))

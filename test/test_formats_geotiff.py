@@ -187,9 +187,9 @@ def test_s3_write_output_data(gtiff_s3, s3_example_tile, mp_s3_tmpdir):
         assert not data[0].mask.all()
 
 
-def test_output_single_gtiff(output_single_gtiff_mapchete):
+def test_output_single_gtiff(output_single_gtiff):
     zoom = 5
-    with mapchete.open(output_single_gtiff_mapchete.path) as mp:
+    with mapchete.open(output_single_gtiff.path) as mp:
         process_tile = next(mp.get_process_tiles(zoom))
         # basic functions
         assert mp.config.output.profile()
@@ -203,6 +203,6 @@ def test_output_single_gtiff(output_single_gtiff_mapchete):
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
         data = mp.config.output.read(process_tile)
+        print(data)
         assert isinstance(data, np.ndarray)
         assert not data[0].mask.all()
-
