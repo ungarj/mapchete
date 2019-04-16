@@ -5,11 +5,16 @@ When writing a new driver, please inherit from these classes and implement the
 respective interfaces.
 """
 
+from itertools import chain
+import numpy as np
+import numpy.ma as ma
+from shapely.geometry import shape
 from tilematrix import TilePyramid
+import types
 import warnings
 
 from mapchete.formats import write_output_metadata
-from mapchete.io import path_exists
+from mapchete.io import path_exists, raster
 
 
 class InputData(object):
@@ -271,6 +276,77 @@ class OutputData(object):
         """
         raise NotImplementedError
 
+    def output_is_valid(self, process_data):
+        """
+        Check whether process output is allowed with output driver.
+
+        Parameters
+        ----------
+        process_data : raw process output
+
+        Returns
+        -------
+        True or False
+        """
+        if self.METADATA["data_type"] == "raster":
+            return (
+                is_numpy_or_masked_array(process_data) or
+                is_numpy_or_masked_array_with_tags(process_data)
+            )
+        elif self.METADATA["data_type"] == "vector":
+            return is_feature_list(process_data)
+
+    def output_cleaned(self, process_data):
+        """
+        Return verified and cleaned output.
+
+        Parameters
+        ----------
+        process_data : raw process output
+
+        Returns
+        -------
+        NumPy array or list of features.
+        """
+        if self.METADATA["data_type"] == "raster":
+            if is_numpy_or_masked_array(process_data):
+                return process_data
+            elif is_numpy_or_masked_array_with_tags(process_data):
+                data, tags = process_data
+                return self.output_cleaned(data), tags
+        elif self.METADATA["data_type"] == "vector":
+            return list(process_data)
+
+    def extract_subset(self, input_data_tiles=None, out_tile=None):
+        """
+        Extract subset from multiple tiles.
+
+        input_data_tiles : list of (``Tile``, process data) tuples
+        out_tile : ``Tile``
+
+        Returns
+        -------
+        NumPy array or list of features.
+        """
+        if self.METADATA["data_type"] == "raster":
+            mosaic = raster.create_mosaic(input_data_tiles)
+            return raster.extract_from_array(
+                in_raster=raster.prepare_array(
+                    mosaic.data,
+                    nodata=self.nodata,
+                    dtype=self.output_params["dtype"]
+                ),
+                in_affine=mosaic.affine,
+                out_tile=out_tile
+            )
+        elif self.METADATA["data_type"] == "vector":
+            return [
+                feature for feature in list(
+                    chain.from_iterable([features for _, features in input_data_tiles])
+                )
+                if shape(feature["geometry"]).intersects(out_tile.bbox)
+            ]
+
     def open(self, tile, process):
         """
         Open process output as input for other process.
@@ -281,3 +357,20 @@ class OutputData(object):
         process : ``MapcheteProcess``
         """
         raise NotImplementedError
+
+
+def is_numpy_or_masked_array(data):
+    return isinstance(data, (np.ndarray, ma.MaskedArray))
+
+
+def is_numpy_or_masked_array_with_tags(data):
+    return (
+        isinstance(data, tuple) and
+        len(data) == 2 and
+        is_numpy_or_masked_array(data[0]) and
+        isinstance(data[1], dict)
+    )
+
+
+def is_feature_list(data):
+    return isinstance(data, (list, types.GeneratorType))
