@@ -995,11 +995,20 @@ def _process_worker(process, process_tile):
                 output = None
         processor_message = "processed in %s" % t
         logger.debug((process_tile.id, processor_message))
-        writer_info = process.write(process_tile, output)
-        return ProcessInfo(
-            tile=process_tile,
-            processed=True,
-            process_msg=processor_message,
-            written=writer_info.written,
-            write_msg=writer_info.write_msg
-        )
+        if process.config.output.is_tile_directory:
+            writer_info = process.write(process_tile, output)
+            return ProcessInfo(
+                tile=process_tile,
+                processed=True,
+                process_msg=processor_message,
+                written=writer_info.written,
+                write_msg=writer_info.write_msg
+            ), None
+        elif process.config.output.is_single_file:
+            return ProcessInfo(
+                tile=process_tile,
+                processed=True,
+                process_msg=processor_message,
+                written=False,
+                write_msg=None
+            ), output
