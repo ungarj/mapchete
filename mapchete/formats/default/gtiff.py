@@ -128,6 +128,7 @@ class OutputData(base.OutputData):
         ----------
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
+        data : ``np.ndarray``
         """
         if (
             isinstance(data, tuple) and

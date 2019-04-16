@@ -194,7 +194,7 @@ class OutputData(object):
         """
         raise NotImplementedError
 
-    def write(self, process_tile):
+    def write(self, process_tile, data):
         """
         Write data from one or more process tiles.
 

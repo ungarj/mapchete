@@ -13,9 +13,8 @@ before_install:
   - if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
   - export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 install:
-  - pip install -r requirements.txt
+  - pip install -e .[contours,s3,serve,vrt]
   - pip install pytest coveralls
-  - pip install .
 script:
   - coverage run --source=mapchete setup.py test
 after_success:
