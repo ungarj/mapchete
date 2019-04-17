@@ -14,6 +14,7 @@ Changelog
 * ``copy=False`` flag has been added to all NumPy ``.astype()`` calls to avoid unnecessary copying of arrays in memory
 * extra requirements have been removed from ``requirements.txt``
 * setup.py uses now ``find_packages()`` function to detect subpackages
+* minimum required NumPy version is now 1.15
 
 
 ----
