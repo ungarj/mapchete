@@ -137,68 +137,6 @@ class InputTile(object):
         """
         raise NotImplementedError
 
-    def _read_as_tiledir(
-        self,
-        validity_check=False,
-        indexes=None,
-        resampling=None,
-        dst_nodata=None,
-        gdal_opts=None,
-        **kwargs
-    ):
-        """
-        Read reprojected & resampled input data.
-
-        Parameters
-        ----------
-        validity_check : bool
-            vector file: also run checks if reprojected geometry is valid,
-            otherwise throw RuntimeError (default: True)
-
-        indexes : list or int
-            raster file: a list of band numbers; None will read all.
-        dst_nodata : int or float, optional
-            raster file: if not set, the nodata value from the source dataset
-            will be used
-        gdal_opts : dict
-            raster file: GDAL options passed on to rasterio.Env()
-
-        Returns
-        -------
-        data : list for vector files or numpy array for raster files
-        """
-        logger.debug("reading data from CRS %s to CRS %s", self._td_crs, self.tile.tp.crs)
-        if self._file_type == "vector":
-            if self.is_empty():
-                return []
-            else:
-                return read_vector_window(
-                    [path for _, path in self._tiles_paths],
-                    self.tile,
-                    validity_check=validity_check
-                )
-        else:
-            if self.is_empty():
-                bands = len(indexes) if indexes else self._profile["count"]
-                return ma.masked_array(
-                    data=np.full(
-                        (bands, self.tile.height, self.tile.width),
-                        self._profile["nodata"],
-                        dtype=self._profile["dtype"]
-                    ),
-                    mask=True
-                )
-            else:
-                return read_raster_window(
-                    [path for _, path in self._tiles_paths],
-                    self.tile,
-                    indexes=indexes,
-                    resampling=resampling,
-                    src_nodata=self._profile["nodata"],
-                    dst_nodata=dst_nodata,
-                    gdal_opts=gdal_opts
-                )
-
     def __enter__(self):
         """Required for 'with' statement."""
         return self
@@ -459,6 +397,54 @@ class OutputData(object):
         """
         raise NotImplementedError
 
+    def _read_as_tiledir(
+        self,
+        out_tile=None,
+        td_crs=None,
+        tiles_paths=None,
+        profile=None,
+        validity_check=False,
+        indexes=None,
+        resampling=None,
+        dst_nodata=None,
+        gdal_opts=None,
+        **kwargs
+    ):
+        """
+        Read reprojected & resampled input data.
+
+        Parameters
+        ----------
+        validity_check : bool
+            vector file: also run checks if reprojected geometry is valid,
+            otherwise throw RuntimeError (default: True)
+
+        indexes : list or int
+            raster file: a list of band numbers; None will read all.
+        dst_nodata : int or float, optional
+            raster file: if not set, the nodata value from the source dataset
+            will be used
+        gdal_opts : dict
+            raster file: GDAL options passed on to rasterio.Env()
+
+        Returns
+        -------
+        data : list for vector files or numpy array for raster files
+        """
+        return _read_as_tiledir(
+            data_type=self.METADATA["data_type"],
+            out_tile=out_tile,
+            td_crs=td_crs,
+            tiles_paths=tiles_paths,
+            profile=profile,
+            validity_check=validity_check,
+            indexes=indexes,
+            resampling=resampling,
+            dst_nodata=dst_nodata,
+            gdal_opts=gdal_opts,
+            **{k: v for k, v in kwargs.items() if k != "data_type"}
+        )
+
 
 def is_numpy_or_masked_array(data):
     return isinstance(data, (np.ndarray, ma.MaskedArray))
@@ -475,3 +461,50 @@ def is_numpy_or_masked_array_with_tags(data):
 
 def is_feature_list(data):
     return isinstance(data, (list, types.GeneratorType))
+
+
+def _read_as_tiledir(
+    data_type=None,
+    out_tile=None,
+    td_crs=None,
+    tiles_paths=None,
+    profile=None,
+    validity_check=False,
+    indexes=None,
+    resampling=None,
+    dst_nodata=None,
+    gdal_opts=None,
+    **kwargs
+):
+    logger.debug("reading data from CRS %s to CRS %s", td_crs, out_tile.tp.crs)
+    if data_type == "vector":
+        if tiles_paths:
+            return read_vector_window(
+                [path for _, path in tiles_paths],
+                out_tile,
+                validity_check=validity_check
+            )
+        else:
+            return []
+    elif data_type == "raster":
+        if tiles_paths:
+            return read_raster_window(
+                [path for _, path in tiles_paths],
+                out_tile,
+                indexes=indexes,
+                resampling=resampling,
+                src_nodata=profile["nodata"],
+                dst_nodata=dst_nodata,
+                gdal_opts=gdal_opts
+            )
+        else:
+            bands = len(indexes) if indexes else profile["count"]
+            return ma.masked_array(
+                data=np.full(
+                    (bands, out_tile.height, out_tile.width),
+                    profile["nodata"],
+                    dtype=profile["dtype"]
+                ),
+                mask=True
+            )
+    1/0

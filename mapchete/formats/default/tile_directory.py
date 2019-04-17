@@ -63,6 +63,7 @@ class InputData(base.InputData):
                 tile_size=self._params.get("tile_size", 256),
                 pixelbuffer=self._params.get("pixelbuffer", 0)
             )
+            self._read_as_tiledir_func = base._read_as_tiledir
 
         elif "path" in input_params:
             self.path = absolute_path(
@@ -76,7 +77,7 @@ class InputData(base.InputData):
                 )
             # define pyramid
             self.td_pyramid = params["pyramid"]
-            output = load_output_writer(
+            self.output_data = load_output_writer(
                 dict(
                     params["driver"],
                     metatiling=self.td_pyramid.metatiling,
@@ -93,9 +94,10 @@ class InputData(base.InputData):
                 metatiling=self.td_pyramid.metatiling,
                 pixelbuffer=self.td_pyramid.pixelbuffer,
                 tile_size=self.td_pyramid.tile_size,
-                extension=output.file_extension.split(".")[-1],
+                extension=self.output_data.file_extension.split(".")[-1],
                 **params["driver"]
             )
+            self._read_as_tiledir_func = self.output_data._read_as_tiledir
 
         # validate parameters
         validate_values(
@@ -217,6 +219,7 @@ class InputData(base.InputData):
             profile=self._profile,
             td_crs=self.td_pyramid.crs,
             resampling=resampling,
+            read_as_tiledir_func=self._read_as_tiledir_func,
             **kwargs
         )
 
@@ -280,6 +283,7 @@ class InputTile(base.InputTile):
         self._profile = kwargs["profile"]
         self._td_crs = kwargs["td_crs"]
         self._resampling = kwargs["resampling"]
+        self._read_as_tiledir = kwargs["read_as_tiledir_func"]
 
     def read(
         self,
@@ -312,12 +316,17 @@ class InputTile(base.InputTile):
         data : list for vector files or numpy array for raster files
         """
         return self._read_as_tiledir(
+            data_type=self._file_type,
+            out_tile=self.tile,
+            td_crs=self._td_crs,
+            tiles_paths=self._tiles_paths,
+            profile=self._profile,
             validity_check=validity_check,
             indexes=indexes,
             resampling=resampling if resampling else self._resampling,
             dst_nodata=dst_nodata,
             gdal_opts=gdal_opts,
-            **kwargs
+            **{k: v for k, v in kwargs.items() if k != "data_type"}
         )
 
     def is_empty(self):
