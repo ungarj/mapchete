@@ -31,14 +31,13 @@ compress: string
 """
 
 import logging
-import os
 import numpy as np
 import numpy.ma as ma
 import warnings
 
 from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.io import makedirs, get_boto3_bucket
+from mapchete.io import get_boto3_bucket
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs
 )
@@ -185,37 +184,6 @@ class OutputData(base.OutputData):
                 ("path", str),
                 ("dtype", str)]
         )
-
-    def get_path(self, tile):
-        """
-        Determine target file path.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-
-        Returns
-        -------
-        path : string
-        """
-        return os.path.join(*[
-            self.path,
-            str(tile.zoom),
-            str(tile.row),
-            str(tile.col) + self.file_extension
-        ])
-
-    def prepare_path(self, tile):
-        """
-        Create directory and subdirectory if necessary.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-        """
-        makedirs(os.path.dirname(self.get_path(tile)))
 
     def profile(self, tile=None):
         """

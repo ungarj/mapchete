@@ -8,13 +8,14 @@ respective interfaces.
 from itertools import chain
 import numpy as np
 import numpy.ma as ma
+import os
 from shapely.geometry import shape
 from tilematrix import TilePyramid
 import types
 import warnings
 
 from mapchete.formats import write_output_metadata
-from mapchete.io import path_exists, raster
+from mapchete.io import makedirs, path_exists, raster
 
 
 class InputData(object):
@@ -244,6 +245,37 @@ class OutputData(object):
         is_valid : bool
         """
         raise NotImplementedError
+
+    def get_path(self, tile):
+        """
+        Determine target file path.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        path : string
+        """
+        return os.path.join(*[
+            self.path,
+            str(tile.zoom),
+            str(tile.row),
+            str(tile.col) + self.file_extension
+        ])
+
+    def prepare_path(self, tile):
+        """
+        Create directory and subdirectory if necessary.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+        """
+        makedirs(os.path.dirname(self.get_path(tile)))
 
     def for_web(self, data):
         """
