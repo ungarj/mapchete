@@ -1,8 +1,6 @@
 """Use a directory of zoom/row/column tiles as input."""
 
 import logging
-import numpy as np
-import numpy.ma as ma
 import os
 from shapely.geometry import box
 
@@ -10,8 +8,7 @@ from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base, load_output_writer, read_output_metadata
 from mapchete.io import (path_exists, absolute_path, tile_to_zoom_level)
-from mapchete.io.vector import reproject_geometry, read_vector_window
-from mapchete.io.raster import read_raster_window
+from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -109,12 +106,6 @@ class InputData(base.InputData):
                 ("extension", str)
             ]
         )
-        if not self._params["extension"] in [
-            "tif", "vrt", "png", "jpg", "mixed", "jp2", "geojson"
-        ]:
-            raise MapcheteConfigError(
-                "invalid file extension given: %s" % self._params["extension"]
-            )
         self._ext = self._params["extension"]
 
         # additional params
@@ -320,38 +311,14 @@ class InputTile(base.InputTile):
         -------
         data : list for vector files or numpy array for raster files
         """
-        resampling = resampling if resampling else self._resampling
-        logger.debug("reading data from CRS %s to CRS %s", self._td_crs, self.tile.tp.crs)
-        if self._file_type == "vector":
-            if self.is_empty():
-                return []
-            else:
-                return read_vector_window(
-                    [path for _, path in self._tiles_paths],
-                    self.tile,
-                    validity_check=validity_check
-                )
-        else:
-            if self.is_empty():
-                bands = len(indexes) if indexes else self._profile["count"]
-                return ma.masked_array(
-                    data=np.full(
-                        (bands, self.tile.height, self.tile.width),
-                        self._profile["nodata"],
-                        dtype=self._profile["dtype"]
-                    ),
-                    mask=True
-                )
-            else:
-                return read_raster_window(
-                    [path for _, path in self._tiles_paths],
-                    self.tile,
-                    indexes=indexes,
-                    resampling=resampling,
-                    src_nodata=self._profile["nodata"],
-                    dst_nodata=dst_nodata,
-                    gdal_opts=gdal_opts
-                )
+        return self._read_as_tiledir(
+            validity_check=validity_check,
+            indexes=indexes,
+            resampling=resampling if resampling else self._resampling,
+            dst_nodata=dst_nodata,
+            gdal_opts=gdal_opts,
+            **kwargs
+        )
 
     def is_empty(self):
         """

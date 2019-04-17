@@ -6,6 +6,7 @@ respective interfaces.
 """
 
 from itertools import chain
+import logging
 import numpy as np
 import numpy.ma as ma
 import os
@@ -15,7 +16,13 @@ import types
 import warnings
 
 from mapchete.formats import write_output_metadata
-from mapchete.io import makedirs, path_exists, raster
+from mapchete.io import makedirs, path_exists
+from mapchete.io.raster import (
+    create_mosaic, extract_from_array, prepare_array, read_raster_window
+)
+from mapchete.io.vector import read_vector_window
+
+logger = logging.getLogger(__name__)
 
 
 class InputData(object):
@@ -129,6 +136,68 @@ class InputTile(object):
         is empty : bool
         """
         raise NotImplementedError
+
+    def _read_as_tiledir(
+        self,
+        validity_check=False,
+        indexes=None,
+        resampling=None,
+        dst_nodata=None,
+        gdal_opts=None,
+        **kwargs
+    ):
+        """
+        Read reprojected & resampled input data.
+
+        Parameters
+        ----------
+        validity_check : bool
+            vector file: also run checks if reprojected geometry is valid,
+            otherwise throw RuntimeError (default: True)
+
+        indexes : list or int
+            raster file: a list of band numbers; None will read all.
+        dst_nodata : int or float, optional
+            raster file: if not set, the nodata value from the source dataset
+            will be used
+        gdal_opts : dict
+            raster file: GDAL options passed on to rasterio.Env()
+
+        Returns
+        -------
+        data : list for vector files or numpy array for raster files
+        """
+        logger.debug("reading data from CRS %s to CRS %s", self._td_crs, self.tile.tp.crs)
+        if self._file_type == "vector":
+            if self.is_empty():
+                return []
+            else:
+                return read_vector_window(
+                    [path for _, path in self._tiles_paths],
+                    self.tile,
+                    validity_check=validity_check
+                )
+        else:
+            if self.is_empty():
+                bands = len(indexes) if indexes else self._profile["count"]
+                return ma.masked_array(
+                    data=np.full(
+                        (bands, self.tile.height, self.tile.width),
+                        self._profile["nodata"],
+                        dtype=self._profile["dtype"]
+                    ),
+                    mask=True
+                )
+            else:
+                return read_raster_window(
+                    [path for _, path in self._tiles_paths],
+                    self.tile,
+                    indexes=indexes,
+                    resampling=resampling,
+                    src_nodata=self._profile["nodata"],
+                    dst_nodata=dst_nodata,
+                    gdal_opts=gdal_opts
+                )
 
     def __enter__(self):
         """Required for 'with' statement."""
@@ -361,9 +430,9 @@ class OutputData(object):
         NumPy array or list of features.
         """
         if self.METADATA["data_type"] == "raster":
-            mosaic = raster.create_mosaic(input_data_tiles)
-            return raster.extract_from_array(
-                in_raster=raster.prepare_array(
+            mosaic = create_mosaic(input_data_tiles)
+            return extract_from_array(
+                in_raster=prepare_array(
                     mosaic.data,
                     nodata=self.nodata,
                     dtype=self.output_params["dtype"]
