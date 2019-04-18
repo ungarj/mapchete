@@ -221,6 +221,7 @@ def path_exists(path):
         else:
             return False
     else:
+        logger.debug("%s exists: %s", path, os.path.exists(path))
         return os.path.exists(path)
 
 

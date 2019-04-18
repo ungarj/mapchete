@@ -1,14 +1,10 @@
-boto3
 cachetools
 cached_property
 click>=7.0.0'
 click-plugins
 click-spinner
 fiona>=1.8b1
-flask
-lxml
-matplotlib
-numpy
+numpy>=1.15
 pyproj
 pyyaml
 retry

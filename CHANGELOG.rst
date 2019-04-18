@@ -9,6 +9,12 @@ Changelog
 * parsing mapchete input does not fail if zoom levels do not match
 * enable other projections again for GeoJSON output (closing #151)
 * automatically detect loggers from registered mapchete packages and user process files
+* enable drivers which do not handle pure NumPy arrays or feature lists
+* ``OutputData`` classes have new ``output_valid()``, ``output_cleaned()`` and ``extract_subset()`` methods
+* ``copy=False`` flag has been added to all NumPy ``.astype()`` calls to avoid unnecessary copying of arrays in memory
+* extra requirements have been removed from ``requirements.txt``
+* setup.py uses now ``find_packages()`` function to detect subpackages
+* minimum required NumPy version is now 1.15
 
 
 ----
