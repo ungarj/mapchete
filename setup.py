@@ -1,6 +1,6 @@
 """Install Mapchete."""
 
-from setuptools import setup
+from setuptools import find_packages, setup
 import os
 
 # don't install dependencies when building win readthedocs
@@ -36,16 +36,7 @@ setup(
     author_email='joachim.ungar@gmail.com',
     url='https://github.com/ungarj/mapchete',
     license='MIT',
-    packages=[
-        'mapchete',
-        'mapchete.cli',
-        'mapchete.cli.default',
-        'mapchete.commons',
-        'mapchete.formats',
-        'mapchete.formats.default',
-        'mapchete.io',
-        'mapchete.static'
-    ],
+    packages=find_packages(),
     entry_points={
         'console_scripts': [
             'mapchete=mapchete.cli.main:main'

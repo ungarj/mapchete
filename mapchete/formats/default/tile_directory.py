@@ -1,8 +1,6 @@
 """Use a directory of zoom/row/column tiles as input."""
 
 import logging
-import numpy as np
-import numpy.ma as ma
 import os
 from shapely.geometry import box
 
@@ -10,8 +8,7 @@ from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base, load_output_writer, read_output_metadata
 from mapchete.io import (path_exists, absolute_path, tile_to_zoom_level)
-from mapchete.io.vector import reproject_geometry, read_vector_window
-from mapchete.io.raster import read_raster_window
+from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -66,6 +63,7 @@ class InputData(base.InputData):
                 tile_size=self._params.get("tile_size", 256),
                 pixelbuffer=self._params.get("pixelbuffer", 0)
             )
+            self._read_as_tiledir_func = base._read_as_tiledir
 
         elif "path" in input_params:
             self.path = absolute_path(
@@ -79,7 +77,7 @@ class InputData(base.InputData):
                 )
             # define pyramid
             self.td_pyramid = params["pyramid"]
-            output = load_output_writer(
+            self.output_data = load_output_writer(
                 dict(
                     params["driver"],
                     metatiling=self.td_pyramid.metatiling,
@@ -96,9 +94,10 @@ class InputData(base.InputData):
                 metatiling=self.td_pyramid.metatiling,
                 pixelbuffer=self.td_pyramid.pixelbuffer,
                 tile_size=self.td_pyramid.tile_size,
-                extension=output.file_extension.split(".")[-1],
+                extension=self.output_data.file_extension.split(".")[-1],
                 **params["driver"]
             )
+            self._read_as_tiledir_func = self.output_data._read_as_tiledir
 
         # validate parameters
         validate_values(
@@ -109,12 +108,6 @@ class InputData(base.InputData):
                 ("extension", str)
             ]
         )
-        if not self._params["extension"] in [
-            "tif", "vrt", "png", "jpg", "mixed", "jp2", "geojson"
-        ]:
-            raise MapcheteConfigError(
-                "invalid file extension given: %s" % self._params["extension"]
-            )
         self._ext = self._params["extension"]
 
         # additional params
@@ -226,6 +219,7 @@ class InputData(base.InputData):
             profile=self._profile,
             td_crs=self.td_pyramid.crs,
             resampling=resampling,
+            read_as_tiledir_func=self._read_as_tiledir_func,
             **kwargs
         )
 
@@ -289,6 +283,7 @@ class InputTile(base.InputTile):
         self._profile = kwargs["profile"]
         self._td_crs = kwargs["td_crs"]
         self._resampling = kwargs["resampling"]
+        self._read_as_tiledir = kwargs["read_as_tiledir_func"]
 
     def read(
         self,
@@ -320,38 +315,19 @@ class InputTile(base.InputTile):
         -------
         data : list for vector files or numpy array for raster files
         """
-        resampling = resampling if resampling else self._resampling
-        logger.debug("reading data from CRS %s to CRS %s", self._td_crs, self.tile.tp.crs)
-        if self._file_type == "vector":
-            if self.is_empty():
-                return []
-            else:
-                return read_vector_window(
-                    [path for _, path in self._tiles_paths],
-                    self.tile,
-                    validity_check=validity_check
-                )
-        else:
-            if self.is_empty():
-                bands = len(indexes) if indexes else self._profile["count"]
-                return ma.masked_array(
-                    data=np.full(
-                        (bands, self.tile.height, self.tile.width),
-                        self._profile["nodata"],
-                        dtype=self._profile["dtype"]
-                    ),
-                    mask=True
-                )
-            else:
-                return read_raster_window(
-                    [path for _, path in self._tiles_paths],
-                    self.tile,
-                    indexes=indexes,
-                    resampling=resampling,
-                    src_nodata=self._profile["nodata"],
-                    dst_nodata=dst_nodata,
-                    gdal_opts=gdal_opts
-                )
+        return self._read_as_tiledir(
+            data_type=self._file_type,
+            out_tile=self.tile,
+            td_crs=self._td_crs,
+            tiles_paths=self._tiles_paths,
+            profile=self._profile,
+            validity_check=validity_check,
+            indexes=indexes,
+            resampling=resampling if resampling else self._resampling,
+            dst_nodata=dst_nodata,
+            gdal_opts=gdal_opts,
+            **{k: v for k, v in kwargs.items() if k != "data_type"}
+        )
 
     def is_empty(self):
         """

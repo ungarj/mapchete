@@ -98,7 +98,7 @@ def test_base_format_classes():
     with pytest.raises(NotImplementedError):
         tmp.read(None)
     with pytest.raises(NotImplementedError):
-        tmp.write(None)
+        tmp.write(None, None)
     with pytest.raises(NotImplementedError):
         tmp.is_valid_with_config(None)
     with pytest.raises(NotImplementedError):

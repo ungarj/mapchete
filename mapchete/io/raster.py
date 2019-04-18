@@ -116,8 +116,12 @@ def _read_raster_window(
                 dst_nodata=dst_nodata
             )
             dst_array = ma.MaskedArray(
-                data=np.where(f_array.mask, dst_array, f_array).astype(dst_array.dtype),
-                mask=np.where(f_array.mask, dst_array.mask, f_array.mask).astype(np.bool)
+                data=np.where(
+                    f_array.mask, dst_array, f_array
+                ).astype(dst_array.dtype, copy=False),
+                mask=np.where(
+                    f_array.mask, dst_array.mask, f_array.mask
+                ).astype(np.bool, copy=False)
             )
         return dst_array
     else:
@@ -360,7 +364,7 @@ class RasterWindowMemoryFile():
         """Open MemoryFile, write data and return."""
         self.rio_memfile = MemoryFile()
         with self.rio_memfile.open(**self.profile) as dst:
-            dst.write(self.data.astype(self.profile["dtype"]))
+            dst.write(self.data.astype(self.profile["dtype"], copy=False))
             _write_tags(dst, self.tags)
         return self.rio_memfile
 
@@ -432,7 +436,7 @@ def write_raster_window(
             else:
                 with rasterio.open(out_path, 'w', **out_profile) as dst:
                     logger.debug((out_tile.id, "write tile", out_path))
-                    dst.write(window_data.astype(out_profile["dtype"]))
+                    dst.write(window_data.astype(out_profile["dtype"], copy=False))
                     _write_tags(dst, tags)
         except Exception as e:
             logger.exception("error while writing file %s: %s", out_path, e)
@@ -836,12 +840,13 @@ def prepare_array(data, masked=True, nodata=0, dtype="int16"):
     # input is a NumPy array
     elif isinstance(data, np.ndarray):
         if masked:
-            return ma.masked_values(data, nodata).astype(dtype)
+            return ma.masked_values(data.astype(dtype, copy=False), nodata, copy=False)
         else:
-            return data.astype(dtype)
+            return data.astype(dtype, copy=False)
     else:
         raise ValueError(
-            "data must be array, masked array or iterable containing arrays.")
+            "data must be array, masked array or iterable containing arrays."
+        )
 
 
 def _prepare_iterable(data, masked, nodata, dtype):
@@ -849,14 +854,12 @@ def _prepare_iterable(data, masked, nodata, dtype):
     out_mask = ()
     for band in data:
         if isinstance(band, ma.MaskedArray):
-            try:
-                out_data += (band.data, )
-                if masked:
-                    assert band.shape == band.mask.shape
+            out_data += (band.data, )
+            if masked:
+                if band.shape == band.mask.shape:
                     out_mask += (band.mask, )
-            except AssertionError:
-                out_mask += (
-                    np.where(band.data == nodata, True, False), )
+                else:
+                    out_mask += (np.where(band.data == nodata, True, False), )
         elif isinstance(band, np.ndarray):
             out_data += (band, )
             if masked:
@@ -864,23 +867,22 @@ def _prepare_iterable(data, masked, nodata, dtype):
         else:
             raise ValueError("input data bands must be NumPy arrays")
     if masked:
-        assert len(out_data) == len(out_mask)
         return ma.MaskedArray(
-            data=np.stack(out_data).astype(dtype),
-            mask=np.stack(out_mask))
+            data=np.stack(out_data).astype(dtype, copy=False),
+            mask=np.stack(out_mask)
+        )
     else:
-        return np.stack(out_data).astype(dtype)
+        return np.stack(out_data).astype(dtype, copy=False)
 
 
 def _prepare_masked(data, masked, nodata, dtype):
-    try:
-        assert data.shape == data.mask.shape
+    if data.shape == data.mask.shape:
         if masked:
-            return data.astype(dtype)
+            return data.astype(dtype, copy=False)
         else:
-            return ma.filled(data, nodata).astype(dtype)
-    except AssertionError:
+            return ma.filled(data.astype(dtype, copy=False), nodata)
+    else:
         if masked:
-            return ma.masked_values(data, nodata).astype(dtype)
+            return ma.masked_values(data.astype(dtype, copy=False), nodata, copy=False)
         else:
-            return ma.filled(data, nodata).astype(dtype)
+            return ma.filled(data.astype(dtype, copy=False), nodata)

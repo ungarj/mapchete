@@ -7,14 +7,10 @@ import inspect
 from itertools import chain, product
 import logging
 from multiprocessing import cpu_count, current_process
-import numpy as np
-import numpy.ma as ma
-from shapely.geometry import shape
 import threading
 from tilematrix import TilePyramid
 import time
 from traceback import format_exc
-import types
 
 from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
@@ -422,16 +418,13 @@ class Mapchete(object):
         )
 
     def _read_existing_output(self, tile, output_tiles):
-        if self.config.output.METADATA["data_type"] == "raster":
-            mosaic = raster.create_mosaic([
+        return self.config.output.extract_subset(
+            input_data_tiles=[
                 (output_tile, self.read(output_tile))
                 for output_tile in output_tiles
-            ])
-            return raster.extract_from_array(mosaic.data, mosaic.affine, tile)
-        elif self.config.output.METADATA["data_type"] == "vector":
-            return list(chain.from_iterable([
-                self.read(output_tile) for output_tile in output_tiles
-            ]))
+            ],
+            out_tile=tile,
+        )
 
     def _execute_using_cache(self, process_tile):
         # Extract Tile subset from process Tile and return.
@@ -463,21 +456,10 @@ class Mapchete(object):
 
     def _extract(self, in_tile=None, in_data=None, out_tile=None):
         """Extract data from tile."""
-        if self.config.output.METADATA["data_type"] == "raster":
-            return raster.extract_from_array(
-                in_raster=raster.prepare_array(
-                    in_data, nodata=self.config.output.nodata,
-                    dtype=self.config.output.output_params["dtype"]
-                ),
-                in_affine=in_tile.affine,
-                out_tile=out_tile
-            )
-        elif self.config.output.METADATA["data_type"] == "vector":
-            return [
-                feature
-                for feature in in_data
-                if shape(feature["geometry"]).intersects(out_tile.bbox)
-            ]
+        return self.config.output.extract_subset(
+            input_data_tiles=[(in_tile, in_data)],
+            out_tile=out_tile
+        )
 
     def _execute(self, process_tile, raise_nodata=False):
         # If baselevel is active and zoom is outside of baselevel,
@@ -526,23 +508,14 @@ class Mapchete(object):
             process_data == "empty"
         ):
             raise MapcheteNodataTile
-        elif isinstance(process_data, (np.ndarray, ma.MaskedArray)):
-            return process_data
-        elif isinstance(process_data, (list, types.GeneratorType)):
-            return list(process_data)
-        # for data, metadata tuples
-        elif (
-            isinstance(process_data, tuple) and
-            len(process_data) == 2 and
-            isinstance(process_data[1], dict)
-        ):
-            data, metadata = process_data
-            return self._streamline_output(data), metadata
-        elif not process_data:
+        elif process_data is None:
             raise MapcheteProcessOutputError("process output is empty")
+        elif self.config.output.output_is_valid(process_data):
+            return self.config.output.output_cleaned(process_data)
         else:
             raise MapcheteProcessOutputError(
-                "invalid output type: %s" % type(process_data))
+                "invalid output type: %s" % type(process_data)
+            )
 
     def _interpolate_from_baselevel(self, tile=None, baselevel=None):
         with Timer() as t:
@@ -662,19 +635,13 @@ class MapcheteProcess(object):
             ))
         else:
             output_tiles = self.config.output_pyramid.intersecting(self.tile)
-        if self.config.output.METADATA["data_type"] == "raster":
-            return raster.extract_from_array(
-                in_raster=raster.create_mosaic([
-                    (output_tile, self.config.output.read(output_tile))
-                    for output_tile in output_tiles
-                ]),
-                out_tile=self.tile
-            )
-        elif self.config.output.METADATA["data_type"] == "vector":
-            return list(chain.from_iterable([
-                self.config.output.read(output_tile)
+        return self.config.output.extract_subset(
+            input_data_tiles=[
+                (output_tile, self.config.output.read(output_tile))
                 for output_tile in output_tiles
-            ]))
+            ],
+            out_tile=self.tile,
+        )
 
     def open(self, input_id, **kwargs):
         """
