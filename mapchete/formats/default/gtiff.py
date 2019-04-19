@@ -279,7 +279,7 @@ class GTiffTileDirectoryOutput(GTiffOutputFunctions, base.TileDirectoryOutput):
         metadata : dictionary
             output profile dictionary used for rasterio.
         """
-        dst_metadata = GTIFF_DEFAULT_PROFILE
+        dst_metadata = dict(GTIFF_DEFAULT_PROFILE)
         dst_metadata.pop("transform", None)
         dst_metadata.update(
             count=self.output_params["bands"],
@@ -323,6 +323,10 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         zoom = delimiters["zoom"][0]
         height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(zoom)
         width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(zoom)
+        print({
+                k: output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
+                for k in GTIFF_DEFAULT_PROFILE.keys()
+            })
         self._profile = dict(
             GTIFF_DEFAULT_PROFILE,
             driver="GTiff",

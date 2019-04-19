@@ -266,7 +266,7 @@ def test_output_single_gtiff_compression(output_single_gtiff):
         mp.batch_process(tile=process_tile.id)
 
     with rasterio.open(mp.config.output.path) as src:
-        assert src.profile()["compress"] == "deflate"
+        assert src.profile["compress"] == "deflate"
 
 
 def test_output_single_gtiff_overviews(output_single_gtiff):
