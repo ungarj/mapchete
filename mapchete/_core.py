@@ -4,7 +4,7 @@ from cachetools import LRUCache
 from collections import namedtuple
 import concurrent.futures
 import inspect
-from itertools import chain, product
+from itertools import product
 import logging
 from multiprocessing import cpu_count, current_process
 import threading
@@ -16,6 +16,7 @@ from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import MapcheteConfig
+from mapchete.formats.base import SingleFileOutput
 from mapchete.tile import BufferedTile
 from mapchete.io import raster
 from mapchete.errors import (
@@ -884,10 +885,12 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 ########################################
 def _run_on_single_tile(process, tile):
     logger.debug("run process on single tile")
-    process_info = _process_worker(
-        process, process.config.process_pyramid.tile(*tuple(tile))
+    return _write_on_parent_process(
+        *_process_worker(
+            process, process.config.process_pyramid.tile(*tuple(tile))
+        ),
+        process=process
     )
-    return process_info
 
 
 def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
@@ -902,9 +905,12 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
                     executor.submit(_process_worker, process, process_tile)
                     for process_tile in process.get_process_tiles(zoom)
                 )):
+                    process_info = _write_on_parent_process(
+                        *task.result(), process=process
+                    )
                     num_processed += 1
                     logger.info("tile %s/%s finished", num_processed, total_tiles)
-                    yield task.result()
+                    yield process_info
     logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 
 
@@ -916,7 +922,9 @@ def _run_without_multiprocessing(process, zoom_levels):
     with Timer() as t:
         for zoom in zoom_levels:
             for process_tile in process.get_process_tiles(zoom):
-                process_info = _process_worker(process, process_tile)
+                process_info = _write_on_parent_process(
+                    *_process_worker(process, process_tile), process=process
+                )
                 num_processed += 1
                 logger.info("tile %s/%s finished", num_processed, total_tiles)
                 yield process_info
@@ -962,7 +970,15 @@ def _process_worker(process, process_tile):
                 output = None
         processor_message = "processed in %s" % t
         logger.debug((process_tile.id, processor_message))
-        if process.config.output.is_tile_directory:
+        if isinstance(process.config.output, SingleFileOutput):
+            return ProcessInfo(
+                tile=process_tile,
+                processed=True,
+                process_msg=processor_message,
+                written=False,
+                write_msg=None
+            ), output
+        else:
             writer_info = process.write(process_tile, output)
             return ProcessInfo(
                 tile=process_tile,
@@ -971,11 +987,18 @@ def _process_worker(process, process_tile):
                 written=writer_info.written,
                 write_msg=writer_info.write_msg
             ), None
-        elif process.config.output.is_single_file:
-            return ProcessInfo(
-                tile=process_tile,
-                processed=True,
-                process_msg=processor_message,
-                written=False,
-                write_msg=None
-            ), output
+
+
+def _write_on_parent_process(process_info=None, output=None, process=None):
+    # only write if output is single file, otherwise output has already been written
+    if isinstance(process.config.output, SingleFileOutput):
+        logger.debug("append to file")
+        writer_info = process.write(process_info.tile, output)
+        process_info = ProcessInfo(
+            tile=process_info.tile,
+            processed=process_info.processed,
+            process_msg=process_info.process_msg,
+            written=writer_info.written,
+            write_msg=writer_info.write_msg
+        )
+    return process_info

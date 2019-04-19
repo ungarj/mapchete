@@ -11,7 +11,6 @@ import numpy as np
 import numpy.ma as ma
 import os
 from shapely.geometry import shape
-from tilematrix import TilePyramid
 import types
 import warnings
 
@@ -372,6 +371,10 @@ class OutputData(object):
         """
         raise NotImplementedError()
 
+    def close(self):
+        """Gets called if process is closed."""
+        pass
+
 
 class TileDirectoryOutput(OutputData):
 
@@ -405,31 +408,6 @@ class TileDirectoryOutput(OutputData):
             )
         if output_tile:
             return path_exists(self.get_path(output_tile))
-
-
-class SingleFileOutput(OutputData):
-
-    def __init__(self, output_params, readonly=False):
-        """Initialize."""
-        super(OutputData, self).__init__(output_params, readonly=readonly)
-
-    def tiles_exist(self, process_tile=None, output_tile=None):
-        """
-        Check whether output tiles of a tile (either process or output) exists.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-        output_tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-
-        Returns
-        -------
-        exists : bool
-        """
-        # TODO
-        raise NotImplementedError
 
     def _read_as_tiledir(
         self,
@@ -480,8 +458,33 @@ class SingleFileOutput(OutputData):
         )
 
 
+class SingleFileOutput(OutputData):
+    def __init__(self, output_params, readonly=False):
+        """Initialize."""
+        super(OutputData, self).__init__(output_params, readonly=readonly)
+        self.is_tile_directory = False
+
+    def tiles_exist(self, process_tile=None, output_tile=None):
+        """
+        Check whether output tiles of a tile (either process or output) exists.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        exists : bool
+        """
+        # TODO
+        raise NotImplementedError
+
+
 def is_numpy_or_masked_array(data):
-    return isinstance(data, (np.ndarray, ma.MaskedArray))
+    return isinstance(data, (np.ndarray, ma.core.MaskedArray))
 
 
 def is_numpy_or_masked_array_with_tags(data):

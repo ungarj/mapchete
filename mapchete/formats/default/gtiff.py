@@ -36,11 +36,13 @@ import numpy as np
 import numpy.ma as ma
 import os
 import rasterio
+from rasterio.windows import from_bounds
 import warnings
 
 from mapchete.config import validate_values
+from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import get_boto3_bucket
+from mapchete.io import get_boto3_bucket, path_exists
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs,
     extract_from_array, read_raster_window
@@ -95,8 +97,6 @@ class OutputData():
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    METADATA = METADATA
-
     def __new__(self, output_params, **kwargs):
         """Initialize."""
         logger.debug(output_params)
@@ -110,6 +110,8 @@ class OutputData():
 
 class GTiffOutputFunctions():
     """Common functions."""
+
+    METADATA = METADATA
 
     def empty(self, process_tile):
         """
@@ -306,10 +308,6 @@ class GTiffTileDirectoryOutput(GTiffOutputFunctions, base.TileDirectoryOutput):
             pass
         return dst_metadata
 
-    def close(self):
-        """Gets called if process is closed."""
-        pass
-
 
 class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
 
@@ -344,6 +342,13 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         )
         logger.debug("single GTiff profile: %s", self._profile)
         # set up rasterio
+        if path_exists(self.path):
+            if output_params["mode"] != "overwrite":
+                raise MapcheteConfigError(
+                    "single GTiff file already exists, use overwrite mode to replace"
+                )
+            else:
+                os.remove(self.path)
         self.rio_file = rasterio.open(self.path, "w+", **self._profile)
 
     def read(self, output_tile, **kwargs):
@@ -370,14 +375,6 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        if (
-            isinstance(data, tuple) and
-            len(data) == 2 and
-            isinstance(data[1], dict)
-        ):
-            data, tags = data
-        else:
-            tags = {}
         data = prepare_array(
             data,
             masked=True,
@@ -391,14 +388,20 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
             # Convert from process_tile to output_tiles and write
             for tile in self.pyramid.intersecting(process_tile):
                 out_tile = BufferedTile(tile, self.pixelbuffer)
-                return dict(
-                    in_tile=process_tile,
-                    in_data=extract_from_array(
+                write_window = from_bounds(
+                    *out_tile.bounds,
+                    transform=self.rio_file.transform,
+                    height=self.rio_file.height,
+                    width=self.rio_file.width
+                )
+                logger.debug("write data to window: %s", write_window)
+                self.rio_file.write(
+                    extract_from_array(
                         in_raster=data,
                         in_affine=process_tile.affine,
                         out_tile=out_tile
                     ) if process_tile != out_tile else data,
-                    tags=tags
+                    window=write_window,
                 )
 
     def is_valid_with_config(self, config):

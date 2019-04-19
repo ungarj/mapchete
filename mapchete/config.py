@@ -278,7 +278,8 @@ class MapcheteConfig(object):
             grid=self.output_pyramid.grid,
             pixelbuffer=self.output_pyramid.pixelbuffer,
             metatiling=self.output_pyramid.metatiling,
-            delimiters=self._delimiters
+            delimiters=self._delimiters,
+            mode=self.mode
         )
         if "path" in output_params:
             output_params.update(

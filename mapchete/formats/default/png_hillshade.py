@@ -23,11 +23,10 @@ nodata: integer or float
 import logging
 import numpy as np
 import numpy.ma as ma
-import os
 
 from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.io import makedirs, get_boto3_bucket
+from mapchete.io import get_boto3_bucket
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs
 )
@@ -82,7 +81,7 @@ class OutputData(base.TileDirectoryOutput):
 
     def __init__(self, output_params, **kwargs):
         """Initialize."""
-        super(OutputData, self).__init__(output_params)
+        super(base.TileDirectoryOutput, self).__init__(output_params)
         self.path = output_params["path"]
         self.file_extension = ".png"
         self.output_params = output_params

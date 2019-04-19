@@ -3,12 +3,14 @@
 import numpy as np
 import numpy.ma as ma
 import os
+import pytest
 import rasterio
 from rasterio.io import MemoryFile
 import shutil
 from tilematrix import Bounds
 
 import mapchete
+from mapchete.errors import MapcheteConfigError
 from mapchete.formats.default import gtiff
 from mapchete.tile import BufferedTilePyramid
 
@@ -188,9 +190,9 @@ def test_s3_write_output_data(gtiff_s3, s3_example_tile, mp_s3_tmpdir):
 
 
 def test_output_single_gtiff(output_single_gtiff):
-    zoom = 5
+    tile_id = (5, 3, 7)
     with mapchete.open(output_single_gtiff.path) as mp:
-        process_tile = next(mp.get_process_tiles(zoom))
+        process_tile = mp.config.process_pyramid.tile(*tile_id)
         # basic functions
         assert mp.config.output.profile()
         assert mp.config.output.empty(process_tile).mask.all()
@@ -203,6 +205,21 @@ def test_output_single_gtiff(output_single_gtiff):
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
         data = mp.config.output.read(process_tile)
-        print(data)
+        assert isinstance(data, np.ndarray)
+        assert not data[0].mask.all()
+
+    # handle existing file
+    with pytest.raises(MapcheteConfigError):
+        mapchete.open(output_single_gtiff.path)
+
+    with mapchete.open(output_single_gtiff.path, mode="overwrite") as mp:
+        process_tile = mp.config.process_pyramid.tile(*tile_id)
+        assert not mp.config.output.tiles_exist(process_tile)
+        # write
+        mp.batch_process(tile=process_tile.id)
+        # check if tile exists
+        assert mp.config.output.tiles_exist(process_tile)
+        # read again, this time with data
+        data = mp.config.output.read(process_tile)
         assert isinstance(data, np.ndarray)
         assert not data[0].mask.all()
