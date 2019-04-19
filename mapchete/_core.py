@@ -990,7 +990,6 @@ def _process_worker(process, process_tile):
 
 
 def _write_on_parent_process(worker_output=None, process=None):
-    print(worker_output)
     process_info, output = worker_output
     # only write if output is single file, otherwise output has already been written
     if isinstance(process.config.output, SingleFileOutput):

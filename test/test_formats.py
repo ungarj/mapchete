@@ -91,7 +91,9 @@ def test_base_format_classes():
         tmp.is_empty()
 
     # OutputData
-    tmp = base.OutputData(dict(pixelbuffer=0, grid="geodetic", metatiling=1))
+    tmp = base.OutputDataBasicFunctions(
+        dict(pixelbuffer=0, grid="geodetic", metatiling=1)
+    )
     assert tmp.pyramid
     assert tmp.pixelbuffer == 0
     assert tmp.crs

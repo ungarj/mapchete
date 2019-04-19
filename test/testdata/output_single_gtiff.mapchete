@@ -1,7 +1,5 @@
 process: ../example_process.py
-zoom_levels:
-    min: 5
-    max: 5
+zoom_levels: 5
 pyramid:
     grid: geodetic
     pixelbuffer: 20

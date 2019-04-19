@@ -336,8 +336,11 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
             height=height,
             width=width,
             count=output_params["bands"],
-            dtype=output_params["dtype"],
-            crs=self.pyramid.crs
+            crs=self.pyramid.crs,
+            **{
+                k: output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
+                for k in GTIFF_DEFAULT_PROFILE.keys()
+            }
         )
         logger.debug("single GTiff profile: %s", self._profile)
         # set up rasterio

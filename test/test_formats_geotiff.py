@@ -207,6 +207,7 @@ def test_output_single_gtiff(output_single_gtiff):
         data = mp.config.output.read(process_tile)
         assert isinstance(data, np.ndarray)
         assert not data[0].mask.all()
+    assert os.path.isfile(mp.config.output.path)
 
     # handle existing file
     with pytest.raises(MapcheteConfigError):
@@ -223,3 +224,45 @@ def test_output_single_gtiff(output_single_gtiff):
         data = mp.config.output.read(process_tile)
         assert isinstance(data, np.ndarray)
         assert not data[0].mask.all()
+
+
+def test_output_single_gtiff_pixelbuffer(output_single_gtiff):
+    tile_id = (5, 3, 7)
+    with mapchete.open(
+        dict(
+            output_single_gtiff.dict,
+            output=dict(output_single_gtiff.dict["output"], pixelbuffer=5)
+        ),
+    ) as mp:
+        process_tile = mp.config.process_pyramid.tile(*tile_id)
+        # basic functions
+        assert mp.config.output.profile()
+        assert mp.config.output.empty(process_tile).mask.all()
+        assert mp.config.output.get_path(process_tile)
+        # check if tile exists
+        assert not mp.config.output.tiles_exist(process_tile)
+        # write
+        mp.batch_process(tile=process_tile.id)
+        # check if tile exists
+        assert mp.config.output.tiles_exist(process_tile)
+        # read again, this time with data
+        data = mp.config.output.read(process_tile)
+        assert isinstance(data, np.ndarray)
+        assert not data[0].mask.all()
+
+
+def test_output_single_gtiff_compression(output_single_gtiff):
+    tile_id = (5, 3, 7)
+    with mapchete.open(
+        dict(
+            output_single_gtiff.dict,
+            output=dict(output_single_gtiff.dict["output"], compress="deflate")
+        ),
+    ) as mp:
+        process_tile = mp.config.process_pyramid.tile(*tile_id)
+        assert "compress" in mp.config.output.profile()
+        assert mp.config.output.profile()["compress"] == "deflate"
+        mp.batch_process(tile=process_tile.id)
+
+    with rasterio.open(mp.config.output.path) as src:
+        assert src.profile()["compress"] == "deflate"

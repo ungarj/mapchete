@@ -146,7 +146,7 @@ class InputTile(object):
         pass
 
 
-class OutputData(object):
+class OutputDataBasicFunctions(object):
     """
     Template class handling process output data.
 
@@ -376,7 +376,7 @@ class OutputData(object):
         pass
 
 
-class TileDirectoryOutput(OutputData):
+class TileDirectoryOutput(OutputDataBasicFunctions):
 
     def __init__(self, output_params, readonly=False):
         """Initialize."""
@@ -458,7 +458,7 @@ class TileDirectoryOutput(OutputData):
         )
 
 
-class SingleFileOutput(OutputData):
+class SingleFileOutput(OutputDataBasicFunctions):
     def __init__(self, output_params, readonly=False):
         """Initialize."""
         super().__init__(output_params, readonly=readonly)
