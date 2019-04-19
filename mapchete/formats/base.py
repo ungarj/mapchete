@@ -380,7 +380,7 @@ class TileDirectoryOutput(OutputData):
 
     def __init__(self, output_params, readonly=False):
         """Initialize."""
-        super(OutputData, self).__init__(output_params, readonly=readonly)
+        super().__init__(output_params, readonly=readonly)
         if not readonly:
             write_output_metadata(output_params)
 
@@ -461,8 +461,7 @@ class TileDirectoryOutput(OutputData):
 class SingleFileOutput(OutputData):
     def __init__(self, output_params, readonly=False):
         """Initialize."""
-        super(OutputData, self).__init__(output_params, readonly=readonly)
-        self.is_tile_directory = False
+        super().__init__(output_params, readonly=readonly)
 
     def tiles_exist(self, process_tile=None, output_tile=None):
         """

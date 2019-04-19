@@ -99,7 +99,6 @@ class OutputData():
 
     def __new__(self, output_params, **kwargs):
         """Initialize."""
-        logger.debug(output_params)
         self.path = output_params["path"]
         self.file_extension = ".tif"
         if self.path.endswith(self.file_extension):
@@ -179,7 +178,7 @@ class GTiffTileDirectoryOutput(GTiffOutputFunctions, base.TileDirectoryOutput):
     def __init__(self, output_params, **kwargs):
         """Initialize."""
         logger.debug("output is tile directory")
-        super(base.TileDirectoryOutput, self).__init__(output_params, **kwargs)
+        super().__init__(output_params, **kwargs)
         self._set_attributes(output_params)
 
     def read(self, output_tile, **kwargs):
@@ -314,7 +313,7 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
     def __init__(self, output_params, **kwargs):
         """Initialize."""
         logger.debug("output is single file")
-        super(base.SingleFileOutput, self).__init__(output_params, **kwargs)
+        super().__init__(output_params, **kwargs)
         self._set_attributes(output_params)
         delimiters = output_params["delimiters"]
         bounds = delimiters["effective_bounds"]

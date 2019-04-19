@@ -74,7 +74,7 @@ class OutputData(base.TileDirectoryOutput):
 
     def __init__(self, output_params, **kwargs):
         """Initialize."""
-        super(base.TileDirectoryOutput, self).__init__(output_params)
+        super().__init__(output_params)
         self.path = output_params["path"]
         self.file_extension = ".geojson"
         self.output_params = output_params

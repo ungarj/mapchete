@@ -886,7 +886,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 def _run_on_single_tile(process, tile):
     logger.debug("run process on single tile")
     return _write_on_parent_process(
-        *_process_worker(
+        worker_output=_process_worker(
             process, process.config.process_pyramid.tile(*tuple(tile))
         ),
         process=process
@@ -906,7 +906,7 @@ def _run_with_multiprocessing(process, zoom_levels, multi, max_chunksize):
                     for process_tile in process.get_process_tiles(zoom)
                 )):
                     process_info = _write_on_parent_process(
-                        *task.result(), process=process
+                        worker_output=task.result(), process=process
                     )
                     num_processed += 1
                     logger.info("tile %s/%s finished", num_processed, total_tiles)
@@ -923,7 +923,7 @@ def _run_without_multiprocessing(process, zoom_levels):
         for zoom in zoom_levels:
             for process_tile in process.get_process_tiles(zoom):
                 process_info = _write_on_parent_process(
-                    *_process_worker(process, process_tile), process=process
+                    worker_output=_process_worker(process, process_tile), process=process
                 )
                 num_processed += 1
                 logger.info("tile %s/%s finished", num_processed, total_tiles)
@@ -959,7 +959,7 @@ def _process_worker(process, process_tile):
             process_msg="output already exists",
             written=False,
             write_msg="nothing written"
-        )
+        ), None
 
     # execute on process tile
     else:
@@ -989,7 +989,9 @@ def _process_worker(process, process_tile):
             ), None
 
 
-def _write_on_parent_process(process_info=None, output=None, process=None):
+def _write_on_parent_process(worker_output=None, process=None):
+    print(worker_output)
+    process_info, output = worker_output
     # only write if output is single file, otherwise output has already been written
     if isinstance(process.config.output, SingleFileOutput):
         logger.debug("append to file")
