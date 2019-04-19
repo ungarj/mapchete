@@ -36,6 +36,7 @@ import numpy as np
 import numpy.ma as ma
 import os
 import rasterio
+from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 import warnings
 
@@ -343,6 +344,16 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
             }
         )
         logger.debug("single GTiff profile: %s", self._profile)
+        if "overviews" in output_params:
+            self.overviews = True
+            self.overviews_resampling = output_params.get(
+                "overviews_resampling", "nearest"
+            )
+            self.overviews_levels = output_params.get(
+                "overviews_levels", [2**i for i in range(1, zoom + 1)]
+            )
+        else:
+            self.overviews = False
         # set up rasterio
         if path_exists(self.path):
             if output_params["mode"] != "overwrite":
@@ -479,6 +490,20 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
 
     def close(self):
         """Gets called if process is closed."""
+        if self.overviews:
+            try:
+                logger.debug(
+                    "build overviews using %s resampling and levels %s",
+                    self.overviews_resampling, self.overviews_levels
+                )
+                self.rio_file.build_overviews(
+                    self.overviews_levels, Resampling[self.overviews_resampling]
+                )
+                self.rio_file.update_tags(
+                    ns='rio_overview', resampling=self.overviews_resampling
+                )
+            except Exception:
+                logger.exception("error when generating overviews")
         logger.debug("close rasterio file handle.")
         try:
             self.rio_file.close()

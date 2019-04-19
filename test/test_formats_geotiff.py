@@ -209,10 +209,11 @@ def test_output_single_gtiff(output_single_gtiff):
         assert not data[0].mask.all()
     assert os.path.isfile(mp.config.output.path)
 
-    # handle existing file
+    # error on existing file
     with pytest.raises(MapcheteConfigError):
         mapchete.open(output_single_gtiff.path)
 
+    # overwrite existing file
     with mapchete.open(output_single_gtiff.path, mode="overwrite") as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
         assert not mp.config.output.tiles_exist(process_tile)
@@ -266,3 +267,24 @@ def test_output_single_gtiff_compression(output_single_gtiff):
 
     with rasterio.open(mp.config.output.path) as src:
         assert src.profile()["compress"] == "deflate"
+
+
+def test_output_single_gtiff_overviews(output_single_gtiff):
+    # overwrite existing file
+    with mapchete.open(
+        dict(
+            output_single_gtiff.dict,
+            output=dict(
+                output_single_gtiff.dict["output"],
+                overviews=True,
+                overviews_resampling="bilinear"
+            )
+        ),
+    ) as mp:
+        tile_id = (5, 3, 7)
+        process_tile = mp.config.process_pyramid.tile(*tile_id)
+        mp.batch_process(tile=process_tile.id)
+
+    with rasterio.open(mp.config.output.path) as src:
+        assert src.overviews(1)
+        assert src.tags(ns='rio_overview').get('resampling') == "bilinear"
