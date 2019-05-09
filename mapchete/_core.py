@@ -4,7 +4,7 @@ from cachetools import LRUCache
 from collections import namedtuple
 import concurrent.futures
 import inspect
-from itertools import chain, product
+from itertools import product
 import logging
 from multiprocessing import cpu_count, current_process
 import threading
@@ -751,11 +751,11 @@ class Timer:
         self.end = None
 
     def __enter__(self):
-        self.start = time.clock()
+        self.start = time.time()
         return self
 
     def __exit__(self, *args):
-        self.end = time.clock()
+        self.end = time.time()
         self._elapsed = self.end - self.start
 
     def __lt__(self, other):
@@ -799,7 +799,7 @@ class Timer:
 
     @property
     def elapsed(self):
-        return time.clock() - self.start if self.start and not self.end else self._elapsed
+        return time.time() - self.start if self.start and not self.end else self._elapsed
 
 
 def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
