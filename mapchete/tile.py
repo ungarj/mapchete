@@ -1,5 +1,6 @@
 """Mapchtete handling tiles."""
 from cached_property import cached_property
+from itertools import product
 from shapely.geometry import box
 from tilematrix import Tile, TilePyramid
 
@@ -315,3 +316,77 @@ class BufferedTile(Tile):
 
     def __hash__(self):
         return hash(repr(self))
+
+
+def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
+    """
+    Count number of tiles intersecting with geometry.
+
+    Parameters
+    ----------
+    geometry : shapely geometry
+    pyramid : TilePyramid
+    minzoom : int
+    maxzoom : int
+    init_zoom : int
+
+    Returns
+    -------
+    number of tiles
+    """
+    if not 0 <= init_zoom <= minzoom <= maxzoom:
+        raise ValueError("invalid zoom levels given")
+    # tile buffers are not being taken into account
+    unbuffered_pyramid = TilePyramid(
+        pyramid.grid, tile_size=pyramid.tile_size,
+        metatiling=pyramid.metatiling
+    )
+    # make sure no rounding errors occur
+    geometry = geometry.buffer(-0.000000001)
+    return _count_tiles(
+        [
+            unbuffered_pyramid.tile(*tile_id)
+            for tile_id in product(
+                [init_zoom],
+                range(pyramid.matrix_height(init_zoom)),
+                range(pyramid.matrix_width(init_zoom))
+            )
+        ], geometry, minzoom, maxzoom
+    )
+
+
+def _count_tiles(tiles, geometry, minzoom, maxzoom):
+    count = 0
+    for tile in tiles:
+        # determine data covered by tile
+        tile_intersection = tile.bbox().intersection(geometry)
+
+        # skip if there is no data
+        if tile_intersection.is_empty:
+            continue
+        # increase counter as tile contains data
+        elif tile.zoom >= minzoom:
+            count += 1
+
+        # if there are further zoom levels, analyze descendants
+        if tile.zoom < maxzoom:
+
+            # if tile is half full, analyze each descendant
+            if tile_intersection.area < tile.bbox().area:
+                count += _count_tiles(
+                    tile.get_children(), tile_intersection, minzoom, maxzoom
+                )
+
+            # if tile is full, all of its descendants will be full as well
+            else:
+                # sum up tiles for each remaining zoom level
+                count += sum([
+                    4**z for z in range(
+                        # only count zoom levels which are greater than minzoom or
+                        # count all zoom levels from tile zoom level to maxzoom
+                        minzoom - tile.zoom if tile.zoom < minzoom else 1,
+                        maxzoom - tile.zoom + 1
+                    )
+                ])
+
+    return count
