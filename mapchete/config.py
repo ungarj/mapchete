@@ -30,7 +30,7 @@ from mapchete.errors import (
     MapcheteDriverError
 )
 from mapchete.formats import (
-    load_output_writer, available_output_formats, load_input_reader
+    load_output_reader, load_output_writer, available_output_formats, load_input_reader
 )
 from mapchete.io import absolute_path
 from mapchete.log import add_module_logger
@@ -263,8 +263,8 @@ class MapcheteConfig(object):
         )
 
     @cached_property
-    def output(self):
-        """Output object of driver."""
+    def _output_params(self):
+        """Output params of driver."""
         output_params = dict(
             self._raw["output"],
             grid=self.output_pyramid.grid,
@@ -285,9 +285,14 @@ class MapcheteConfig(object):
                     output_params["format"], str(available_output_formats())
                 )
             )
-        writer = load_output_writer(output_params)
+        return output_params
+
+    @cached_property
+    def output(self):
+        """Output writer class of driver."""
+        writer = load_output_writer(self._output_params)
         try:
-            writer.is_valid_with_config(output_params)
+            writer.is_valid_with_config(self._output_params)
         except Exception as e:
             logger.exception(e)
             raise MapcheteConfigError(
@@ -296,6 +301,21 @@ class MapcheteConfig(object):
                 )
             )
         return writer
+
+    @cached_property
+    def output_reader(self):
+        """Output reader class of driver."""
+        reader = load_output_reader(self._output_params)
+        try:
+            reader.is_valid_with_config(self._output_params)
+        except Exception as e:
+            logger.exception(e)
+            raise MapcheteConfigError(
+                "driver %s not compatible with configuration: %s" % (
+                    reader.METADATA["driver_name"], e
+                )
+            )
+        return reader
 
     @cached_property
     def input(self):
@@ -429,6 +449,9 @@ class MapcheteConfig(object):
                 )
         except ImportError as e:
             raise MapcheteProcessImportError(e)
+
+    def get_process_func(self):
+        return self.process_func
 
     def params_at_zoom(self, zoom):
         """

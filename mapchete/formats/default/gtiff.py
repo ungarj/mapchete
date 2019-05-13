@@ -61,7 +61,154 @@ GTIFF_DEFAULT_PROFILE = {
 }
 
 
-class OutputData(base.OutputData):
+class OutputDataReader(base.OutputDataReader):
+
+    METADATA = METADATA
+
+    def __init__(self, output_params, **kwargs):
+        """Initialize."""
+        super(base.OutputDataReader, self).__init__(output_params)
+        self.path = output_params["path"]
+        self.file_extension = ".tif"
+        self.output_params = output_params
+        self.nodata = output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
+        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+
+    def read(self, output_tile, **kwargs):
+        """
+        Read existing process output.
+
+        Parameters
+        ----------
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        NumPy array
+        """
+        try:
+            return read_raster_no_crs(self.get_path(output_tile))
+        except FileNotFoundError:
+            return self.empty(output_tile)
+
+    def empty(self, process_tile):
+        """
+        Return empty data.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        empty data : array
+            empty array with data type provided in output profile
+        """
+        profile = self.profile(process_tile)
+        return ma.masked_array(
+            data=np.full(
+                (profile["count"], ) + process_tile.shape, profile["nodata"],
+                dtype=profile["dtype"]),
+            mask=True
+        )
+
+    def open(self, tile, process, **kwargs):
+        """
+        Open process output as input for other process.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+        process : ``MapcheteProcess``
+        kwargs : keyword arguments
+        """
+        return InputTile(tile, process, kwargs.get("resampling", None))
+
+    def profile(self, tile=None):
+        """
+        Create a metadata dictionary for rasterio.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+
+        Returns
+        -------
+        metadata : dictionary
+            output profile dictionary used for rasterio.
+        """
+        dst_metadata = GTIFF_DEFAULT_PROFILE
+        dst_metadata.pop("transform", None)
+        dst_metadata.update(
+            count=self.output_params["bands"],
+            dtype=self.output_params["dtype"],
+            driver="GTiff"
+        )
+        if tile is not None:
+            dst_metadata.update(
+                crs=tile.crs, width=tile.width, height=tile.height,
+                affine=tile.affine)
+        else:
+            for k in ["crs", "width", "height", "affine"]:
+                dst_metadata.pop(k, None)
+        if "nodata" in self.output_params:
+            dst_metadata.update(nodata=self.output_params["nodata"])
+        try:
+            if "compression" in self.output_params:
+                warnings.warn(
+                    DeprecationWarning("use 'compress' instead of 'compression'")
+                )
+                dst_metadata.update(compress=self.output_params["compression"])
+            else:
+                dst_metadata.update(compress=self.output_params["compress"])
+            dst_metadata.update(predictor=self.output_params["predictor"])
+        except KeyError:
+            pass
+        return dst_metadata
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
+        return memory_file(
+            prepare_array(
+                data, masked=True, nodata=self.nodata, dtype=self.profile()["dtype"]
+            ),
+            self.profile()
+        ), "image/tiff"
+
+    def is_valid_with_config(self, config):
+        """
+        Check if output format is valid with other process parameters.
+
+        Parameters
+        ----------
+        config : dictionary
+            output configuration parameters
+
+        Returns
+        -------
+        is_valid : bool
+        """
+        return validate_values(
+            config, [
+                ("bands", int),
+                ("path", str),
+                ("dtype", str)]
+        )
+
+
+class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
     """
     Template class handling process output data.
 
@@ -91,33 +238,6 @@ class OutputData(base.OutputData):
     """
 
     METADATA = METADATA
-
-    def __init__(self, output_params, **kwargs):
-        """Initialize."""
-        super(OutputData, self).__init__(output_params)
-        self.path = output_params["path"]
-        self.file_extension = ".tif"
-        self.output_params = output_params
-        self.nodata = output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
-
-    def read(self, output_tile, **kwargs):
-        """
-        Read existing process output.
-
-        Parameters
-        ----------
-        output_tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-
-        Returns
-        -------
-        NumPy array
-        """
-        try:
-            return read_raster_no_crs(self.get_path(output_tile))
-        except FileNotFoundError:
-            return self.empty(output_tile)
 
     def write(self, process_tile, data):
         """
@@ -164,121 +284,6 @@ class OutputData(base.OutputData):
                     tags=tags,
                     bucket_resource=bucket_resource
                 )
-
-    def is_valid_with_config(self, config):
-        """
-        Check if output format is valid with other process parameters.
-
-        Parameters
-        ----------
-        config : dictionary
-            output configuration parameters
-
-        Returns
-        -------
-        is_valid : bool
-        """
-        return validate_values(
-            config, [
-                ("bands", int),
-                ("path", str),
-                ("dtype", str)]
-        )
-
-    def profile(self, tile=None):
-        """
-        Create a metadata dictionary for rasterio.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-
-        Returns
-        -------
-        metadata : dictionary
-            output profile dictionary used for rasterio.
-        """
-        dst_metadata = GTIFF_DEFAULT_PROFILE
-        dst_metadata.pop("transform", None)
-        dst_metadata.update(
-            count=self.output_params["bands"],
-            dtype=self.output_params["dtype"],
-            driver="GTiff"
-        )
-        if tile is not None:
-            dst_metadata.update(
-                crs=tile.crs, width=tile.width, height=tile.height,
-                affine=tile.affine)
-        else:
-            for k in ["crs", "width", "height", "affine"]:
-                dst_metadata.pop(k, None)
-        if "nodata" in self.output_params:
-            dst_metadata.update(nodata=self.output_params["nodata"])
-        try:
-            if "compression" in self.output_params:
-                warnings.warn(
-                    DeprecationWarning("use 'compress' instead of 'compression'")
-                )
-                dst_metadata.update(compress=self.output_params["compression"])
-            else:
-                dst_metadata.update(compress=self.output_params["compress"])
-            dst_metadata.update(predictor=self.output_params["predictor"])
-        except KeyError:
-            pass
-        return dst_metadata
-
-    def empty(self, process_tile):
-        """
-        Return empty data.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-
-        Returns
-        -------
-        empty data : array
-            empty array with data type provided in output profile
-        """
-        profile = self.profile(process_tile)
-        return ma.masked_array(
-            data=np.full(
-                (profile["count"], ) + process_tile.shape, profile["nodata"],
-                dtype=profile["dtype"]),
-            mask=True
-        )
-
-    def for_web(self, data):
-        """
-        Convert data to web output (raster only).
-
-        Parameters
-        ----------
-        data : array
-
-        Returns
-        -------
-        web data : array
-        """
-        return memory_file(
-            prepare_array(
-                data, masked=True, nodata=self.nodata, dtype=self.profile()["dtype"]
-            ),
-            self.profile()
-        ), "image/tiff"
-
-    def open(self, tile, process, **kwargs):
-        """
-        Open process output as input for other process.
-
-        Parameters
-        ----------
-        tile : ``Tile``
-        process : ``MapcheteProcess``
-        kwargs : keyword arguments
-        """
-        return InputTile(tile, process, kwargs.get("resampling", None))
 
 
 class InputTile(base.InputTile):

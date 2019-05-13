@@ -15,6 +15,7 @@ from tilematrix import TilePyramid
 import types
 import warnings
 
+from mapchete.errors import MapcheteProcessOutputError, MapcheteNodataTile
 from mapchete.formats import write_output_metadata
 from mapchete.io import makedirs, path_exists
 from mapchete.io.raster import (
@@ -146,32 +147,9 @@ class InputTile(object):
         pass
 
 
-class OutputData(object):
-    """
-    Template class handling process output data.
+class OutputDataBaseFunctions():
 
-    Parameters
-    ----------
-    output_params : dictionary
-        output parameters from Mapchete file
-
-    Attributes
-    ----------
-    pixelbuffer : integer
-        buffer around output tiles
-    pyramid : ``tilematrix.TilePyramid``
-        output ``TilePyramid``
-    crs : ``rasterio.crs.CRS``
-        object describing the process coordinate reference system
-    """
-
-    METADATA = {
-        "driver_name": None,
-        "data_type": None,
-        "mode": "w"
-    }
-
-    def __init__(self, output_params, readonly=False):
+    def __init__(self, output_params, readonly=False, **kwargs):
         """Initialize."""
         self.pixelbuffer = output_params["pixelbuffer"]
         if "type" in output_params:
@@ -186,32 +164,6 @@ class OutputData(object):
         self._bucket = None
         if not readonly:
             write_output_metadata(output_params)
-
-    def read(self, output_tile):
-        """
-        Read existing process output.
-
-        Parameters
-        ----------
-        output_tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-
-        Returns
-        -------
-        process output : array or list
-        """
-        raise NotImplementedError
-
-    def write(self, process_tile, data):
-        """
-        Write data from one or more process tiles.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-        """
-        raise NotImplementedError
 
     def tiles_exist(self, process_tile=None, output_tile=None):
         """
@@ -273,89 +225,6 @@ class OutputData(object):
             str(tile.col) + self.file_extension
         ])
 
-    def prepare_path(self, tile):
-        """
-        Create directory and subdirectory if necessary.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-        """
-        makedirs(os.path.dirname(self.get_path(tile)))
-
-    def for_web(self, data):
-        """
-        Convert data to web output (raster only).
-
-        Parameters
-        ----------
-        data : array
-
-        Returns
-        -------
-        web data : array
-        """
-        raise NotImplementedError
-
-    def empty(self, process_tile):
-        """
-        Return empty data.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-
-        Returns
-        -------
-        empty data : array or list
-            empty array with correct data type for raster data or empty list
-            for vector data
-        """
-        raise NotImplementedError
-
-    def output_is_valid(self, process_data):
-        """
-        Check whether process output is allowed with output driver.
-
-        Parameters
-        ----------
-        process_data : raw process output
-
-        Returns
-        -------
-        True or False
-        """
-        if self.METADATA["data_type"] == "raster":
-            return (
-                is_numpy_or_masked_array(process_data) or
-                is_numpy_or_masked_array_with_tags(process_data)
-            )
-        elif self.METADATA["data_type"] == "vector":
-            return is_feature_list(process_data)
-
-    def output_cleaned(self, process_data):
-        """
-        Return verified and cleaned output.
-
-        Parameters
-        ----------
-        process_data : raw process output
-
-        Returns
-        -------
-        NumPy array or list of features.
-        """
-        if self.METADATA["data_type"] == "raster":
-            if is_numpy_or_masked_array(process_data):
-                return process_data
-            elif is_numpy_or_masked_array_with_tags(process_data):
-                data, tags = process_data
-                return self.output_cleaned(data), tags
-        elif self.METADATA["data_type"] == "vector":
-            return list(process_data)
-
     def extract_subset(self, input_data_tiles=None, out_tile=None):
         """
         Extract subset from multiple tiles.
@@ -386,6 +255,41 @@ class OutputData(object):
                 if shape(feature["geometry"]).intersects(out_tile.bbox)
             ]
 
+
+class OutputDataReader(OutputDataBaseFunctions):
+
+    def read(self, output_tile):
+        """
+        Read existing process output.
+
+        Parameters
+        ----------
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        process output : array or list
+        """
+        raise NotImplementedError
+
+    def empty(self, process_tile):
+        """
+        Return empty data.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        empty data : array or list
+            empty array with correct data type for raster data or empty list
+            for vector data
+        """
+        raise NotImplementedError
+
     def open(self, tile, process):
         """
         Open process output as input for other process.
@@ -394,6 +298,20 @@ class OutputData(object):
         ----------
         tile : ``Tile``
         process : ``MapcheteProcess``
+        """
+        raise NotImplementedError
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
         """
         raise NotImplementedError
 
@@ -444,6 +362,107 @@ class OutputData(object):
             gdal_opts=gdal_opts,
             **{k: v for k, v in kwargs.items() if k != "data_type"}
         )
+
+
+class OutputDataWriter(OutputDataReader):
+    """
+    Template class handling process output data.
+
+    Parameters
+    ----------
+    output_params : dictionary
+        output parameters from Mapchete file
+
+    Attributes
+    ----------
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    """
+
+    METADATA = {
+        "driver_name": None,
+        "data_type": None,
+        "mode": "w"
+    }
+
+    def write(self, process_tile, data):
+        """
+        Write data from one or more process tiles.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        """
+        raise NotImplementedError
+
+    def prepare_path(self, tile):
+        """
+        Create directory and subdirectory if necessary.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+        """
+        makedirs(os.path.dirname(self.get_path(tile)))
+
+    def output_is_valid(self, process_data):
+        """
+        Check whether process output is allowed with output driver.
+
+        Parameters
+        ----------
+        process_data : raw process output
+
+        Returns
+        -------
+        True or False
+        """
+        if self.METADATA["data_type"] == "raster":
+            return (
+                is_numpy_or_masked_array(process_data) or
+                is_numpy_or_masked_array_with_tags(process_data)
+            )
+        elif self.METADATA["data_type"] == "vector":
+            return is_feature_list(process_data)
+
+    def output_cleaned(self, process_data):
+        """
+        Return verified and cleaned output.
+
+        Parameters
+        ----------
+        process_data : raw process output
+
+        Returns
+        -------
+        NumPy array or list of features.
+        """
+        if self.METADATA["data_type"] == "raster":
+            if is_numpy_or_masked_array(process_data):
+                return process_data
+            elif is_numpy_or_masked_array_with_tags(process_data):
+                data, tags = process_data
+                return self.output_cleaned(data), tags
+        elif self.METADATA["data_type"] == "vector":
+            return list(process_data)
+
+    def streamline_output(self, process_data):
+        if isinstance(process_data, str) and process_data == "empty":
+            raise MapcheteNodataTile
+        elif process_data is None:
+            raise MapcheteProcessOutputError("process output is empty")
+        elif self.output_is_valid(process_data):
+            return self.output_cleaned(process_data)
+        else:
+            raise MapcheteProcessOutputError(
+                "invalid output type: %s" % type(process_data)
+            )
 
 
 def is_numpy_or_masked_array(data):
@@ -507,4 +526,3 @@ def _read_as_tiledir(
                 ),
                 mask=True
             )
-    1/0

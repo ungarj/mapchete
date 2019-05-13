@@ -1,23 +1,15 @@
 """Main module managing processes."""
 
 from cachetools import LRUCache
-import inspect
 import logging
 import multiprocessing
 import threading
-from traceback import format_exc
 
-from mapchete.commons import clip as commons_clip
-from mapchete.commons import contours as commons_contours
-from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import MapcheteConfig
-from mapchete.errors import (
-    MapcheteProcessException, MapcheteProcessOutputError, MapcheteNodataTile
-)
-from mapchete.io import raster
+from mapchete.errors import MapcheteNodataTile
 from mapchete._processing import (
     _run_on_single_tile, _run_without_multiprocessing, _run_with_multiprocessing,
-    ProcessInfo
+    ProcessInfo, TileProcess
 )
 from mapchete.tile import BufferedTile, count_tiles
 from mapchete._timer import Timer
@@ -60,7 +52,8 @@ def open(
         MapcheteConfig(
             config, mode=mode, zoom=zoom, bounds=bounds,
             single_input_file=single_input_file, debug=debug),
-        with_cache=with_cache)
+        with_cache=with_cache
+    )
 
 
 class Mapchete(object):
@@ -280,19 +273,14 @@ class Mapchete(object):
         data : NumPy array or features
             process output
         """
-        if self.config.mode not in ["memory", "continue", "overwrite"]:
-            raise ValueError("process mode must be memory, continue or overwrite")
-        if isinstance(process_tile, tuple):
-            process_tile = self.config.process_pyramid.tile(*process_tile)
-        elif isinstance(process_tile, BufferedTile):
-            pass
+        process_data = TileProcess(tile=process_tile, config=self.config).execute()
+        if raise_nodata:
+            return self.config.output.streamline_output(process_data)
         else:
-            raise TypeError("process_tile must be tuple or BufferedTile")
-
-        if process_tile.zoom not in self.config.zoom_levels:
-            return self.config.output.empty(process_tile)
-
-        return self._execute(process_tile, raise_nodata=raise_nodata)
+            try:
+                return self.config.output.streamline_output(process_data)
+            except MapcheteNodataTile:
+                return self.config.output.empty(process_tile)
 
     def read(self, output_tile):
         """
@@ -447,6 +435,7 @@ class Mapchete(object):
             output = self._execute_using_cache(process_tile)
         else:
             output = self.execute(process_tile)
+
         self.write(process_tile, output)
         return self._extract(
             in_tile=process_tile,
@@ -498,95 +487,6 @@ class Mapchete(object):
             out_tile=out_tile
         )
 
-    def _execute(self, process_tile, raise_nodata=False):
-        # If baselevel is active and zoom is outside of baselevel,
-        # interpolate from other zoom levels.
-        if self.config.baselevels:
-            if process_tile.zoom < min(self.config.baselevels["zooms"]):
-                return self._streamline_output(
-                    self._interpolate_from_baselevel(process_tile, "lower")
-                )
-            elif process_tile.zoom > max(self.config.baselevels["zooms"]):
-                return self._streamline_output(
-                    self._interpolate_from_baselevel(process_tile, "higher")
-                )
-        # Otherwise, execute from process file.
-        try:
-            with Timer() as t:
-                # Actually run process.
-                process_data = self.config.process_func(
-                    MapcheteProcess(config=self.config, tile=process_tile),
-                    # only pass on kwargs which are defined in execute()
-                    **{
-                        k: v
-                        for k, v in self.config.params_at_zoom(process_tile.zoom).items()
-                        if k in inspect.signature(self.config.process_func).parameters
-                    }
-                )
-        except Exception as e:
-            # Log process time
-            logger.exception(
-                (process_tile.id, "exception in user process", e, str(t))
-            )
-            new = MapcheteProcessException(format_exc())
-            new.old = e
-            raise new
-        # Analyze proess output.
-        if raise_nodata:
-            return self._streamline_output(process_data)
-        else:
-            try:
-                return self._streamline_output(process_data)
-            except MapcheteNodataTile:
-                return self.config.output.empty(process_tile)
-
-    def _streamline_output(self, process_data):
-        if isinstance(process_data, str) and (
-            process_data == "empty"
-        ):
-            raise MapcheteNodataTile
-        elif process_data is None:
-            raise MapcheteProcessOutputError("process output is empty")
-        elif self.config.output.output_is_valid(process_data):
-            return self.config.output.output_cleaned(process_data)
-        else:
-            raise MapcheteProcessOutputError(
-                "invalid output type: %s" % type(process_data)
-            )
-
-    def _interpolate_from_baselevel(self, tile=None, baselevel=None):
-        with Timer() as t:
-            # resample from parent tile
-            if baselevel == "higher":
-                parent_tile = tile.get_parent()
-                process_data = raster.resample_from_array(
-                    in_raster=self.get_raw_output(parent_tile, _baselevel_readonly=True),
-                    in_affine=parent_tile.affine,
-                    out_tile=tile,
-                    resampling=self.config.baselevels["higher"],
-                    nodataval=self.config.output.nodata
-                )
-            # resample from children tiles
-            elif baselevel == "lower":
-                mosaic = raster.create_mosaic([
-                    (
-                        child_tile,
-                        self.get_raw_output(child_tile, _baselevel_readonly=True)
-                    )
-                    for child_tile in self.config.baselevels["tile_pyramid"].tile(
-                        *tile.id
-                    ).get_children()
-                ])
-                process_data = raster.resample_from_array(
-                    in_raster=mosaic.data,
-                    in_affine=mosaic.affine,
-                    out_tile=tile,
-                    resampling=self.config.baselevels["lower"],
-                    nodataval=self.config.output.nodata
-                )
-        logger.debug((tile.id, "generated from baselevel", str(t)))
-        return process_data
-
     def __enter__(self):
         """Enable context manager."""
         return self
@@ -600,180 +500,6 @@ class Mapchete(object):
             self.process_tile_cache = None
             self.current_processes = None
             self.process_lock = None
-
-
-class MapcheteProcess(object):
-    """
-    Process class inherited by user process script.
-
-    Its attributes and methods can be accessed via "self" from within a
-    Mapchete process Python file.
-
-    Parameters
-    ----------
-    tile : BufferedTile
-        Tile process should be run on
-    config : MapcheteConfig
-        process configuration
-    params : dictionary
-        process parameters
-
-    Attributes
-    ----------
-    identifier : string
-        process identifier
-    title : string
-        process title
-    version : string
-        process version string
-    abstract : string
-        short text describing process purpose
-    tile : BufferedTile
-        Tile process should be run on
-    tile_pyramid : TilePyramid
-        process tile pyramid
-    params : dictionary
-        process parameters
-    config : MapcheteConfig
-        process configuration
-    """
-
-    def __init__(self, tile, config=None, params=None):
-        """Initialize Mapchete process."""
-        self.identifier = ""
-        self.title = ""
-        self.version = ""
-        self.abstract = ""
-        self.tile = tile
-        self.tile_pyramid = tile.tile_pyramid
-        self.params = params if params else config.params_at_zoom(tile.zoom)
-        self.config = config
-
-    def write(self, data, **kwargs):
-        """Deprecated."""
-        raise DeprecationWarning(
-            "Please return process output data instead of using self.write().")
-
-    def read(self, **kwargs):
-        """
-        Read existing output data from a previous run.
-
-        Returns
-        -------
-        process output : NumPy array (raster) or feature iterator (vector)
-        """
-        if self.tile.pixelbuffer > self.config.output.pixelbuffer:
-            output_tiles = list(self.config.output_pyramid.tiles_from_bounds(
-                self.tile.bounds, self.tile.zoom
-            ))
-        else:
-            output_tiles = self.config.output_pyramid.intersecting(self.tile)
-        return self.config.output.extract_subset(
-            input_data_tiles=[
-                (output_tile, self.config.output.read(output_tile))
-                for output_tile in output_tiles
-            ],
-            out_tile=self.tile,
-        )
-
-    def open(self, input_id, **kwargs):
-        """
-        Open input data.
-
-        Parameters
-        ----------
-        input_id : string
-            input identifier from configuration file or file path
-        kwargs : driver specific parameters (e.g. resampling)
-
-        Returns
-        -------
-        tiled input data : InputTile
-            reprojected input data within tile
-        """
-        if not isinstance(input_id, str):
-            return input_id.open(self.tile, **kwargs)
-        if input_id not in self.params["input"]:
-            raise ValueError("%s not found in config as input file" % input_id)
-        return self.params["input"][input_id].open(self.tile, **kwargs)
-
-    def hillshade(
-        self, elevation, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0
-    ):
-        """
-        Calculate hillshading from elevation data.
-
-        Parameters
-        ----------
-        elevation : array
-            input elevation data
-        azimuth : float
-            horizontal angle of light source (315: North-West)
-        altitude : float
-            vertical angle of light source (90 would result in slope shading)
-        z : float
-            vertical exaggeration factor
-        scale : float
-            scale factor of pixel size units versus height units (insert 112000
-            when having elevation values in meters in a geodetic projection)
-
-        Returns
-        -------
-        hillshade : array
-        """
-        return commons_hillshade.hillshade(elevation, self, azimuth, altitude, z, scale)
-
-    def contours(
-        self, elevation, interval=100, field='elev', base=0
-    ):
-        """
-        Extract contour lines from elevation data.
-
-        Parameters
-        ----------
-        elevation : array
-            input elevation data
-        interval : integer
-            elevation value interval when drawing contour lines
-        field : string
-            output field name containing elevation value
-        base : integer
-            elevation base value the intervals are computed from
-
-        Returns
-        -------
-        contours : iterable
-            contours as GeoJSON-like pairs of properties and geometry
-        """
-        return commons_contours.extract_contours(
-            elevation, self.tile, interval=interval, field=field, base=base
-        )
-
-    def clip(
-        self, array, geometries, inverted=False, clip_buffer=0
-    ):
-        """
-        Clip array by geometry.
-
-        Parameters
-        ----------
-        array : array
-            raster data to be clipped
-        geometries : iterable
-            geometries used to clip source array
-        inverted : bool
-            invert clipping (default: False)
-        clip_buffer : int
-            buffer (in pixels) geometries before applying clip
-
-        Returns
-        -------
-        clipped array : array
-        """
-        return commons_clip.clip_array_with_vector(
-            array, self.tile.affine, geometries,
-            inverted=inverted, clip_buffer=clip_buffer*self.tile.pixel_x_size
-        )
 
 
 def _get_zoom_level(zoom, process):

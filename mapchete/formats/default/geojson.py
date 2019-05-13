@@ -26,12 +26,11 @@ schema: key-value pairs
 import fiona
 from fiona.errors import DriverError
 import logging
-import os
 import types
 
 from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.io import makedirs, get_boto3_bucket
+from mapchete.io import get_boto3_bucket
 from mapchete.io.vector import write_vector_window
 from mapchete.tile import BufferedTile
 
@@ -44,9 +43,9 @@ METADATA = {
 }
 
 
-class OutputData(base.OutputData):
+class OutputDataReader(base.OutputDataReader):
     """
-    Output class for GeoJSON.
+    Output reader class for GeoJSON.
 
     Parameters
     ----------

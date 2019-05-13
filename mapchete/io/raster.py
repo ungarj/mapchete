@@ -789,7 +789,7 @@ def prepare_array(data, masked=True, nodata=0, dtype="int16"):
     """
     Turn input data into a proper array for further usage.
 
-    Outut array is always 3-dimensional with the given data type. If the output
+    Output array is always 3-dimensional with the given data type. If the output
     is masked, the fill_value corresponds to the given nodata value and the
     nodata value will be burned into the data array.
 
@@ -829,7 +829,8 @@ def prepare_array(data, masked=True, nodata=0, dtype="int16"):
             return data.astype(dtype, copy=False)
     else:
         raise ValueError(
-            "data must be array, masked array or iterable containing arrays."
+            "Data must be array, masked array or iterable containing arrays. "
+            "Current data: %s (%s)" % (data, type(data))
         )
 
 
