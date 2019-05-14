@@ -156,7 +156,7 @@ class MapcheteConfig(object):
         # (2) check user process
         logger.debug("validating process code")
         self.config_dir = self._raw["config_dir"]
-        self.process_name = self._raw["process"]
+        self.process_name = self.process_path = self._raw["process"]
         self.process_func
 
         # (3) set process and output pyramids
@@ -436,21 +436,9 @@ class MapcheteConfig(object):
 
     @cached_property
     def process_func(self):
-        process_module = _load_process_module(self._raw)
-        try:
-            if hasattr(process_module, "Process"):
-                logger.error(
-                    """instanciating MapcheteProcess is deprecated, """
-                    """provide execute() function instead"""
-                )
-            if hasattr(process_module, "execute"):
-                return process_module.execute
-            else:
-                raise ImportError(
-                    "No execute() function found in %s" % self._raw["process"]
-                )
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
+        return get_process_func(
+            process_path=self.process_path, config_dir=self.config_dir, run_compile=True
+        )
 
     def get_process_func(self):
         return self.process_func
@@ -777,6 +765,52 @@ def bounds_from_opts(
         return bounds
 
 
+def get_process_func(process_path=None, config_dir=None, run_compile=False):
+    logger.debug("get process function from %s", process_path)
+    process_module = _load_process_module(
+        process_path=process_path, config_dir=config_dir, run_compile=run_compile
+    )
+    try:
+        if hasattr(process_module, "Process"):
+            logger.error(
+                """instanciating MapcheteProcess is deprecated, """
+                """provide execute() function instead"""
+            )
+        if hasattr(process_module, "execute"):
+            return process_module.execute
+        else:
+            raise ImportError(
+                "No execute() function found in %s" % process_path
+            )
+    except ImportError as e:
+        raise MapcheteProcessImportError(e)
+
+
+def _load_process_module(process_path=None, config_dir=None, run_compile=False):
+    if process_path.endswith(".py"):
+        abs_path = os.path.join(config_dir, process_path)
+        if not os.path.isfile(abs_path):
+            raise MapcheteConfigError("%s is not available" % abs_path)
+        try:
+            if run_compile:
+                py_compile.compile(abs_path, doraise=True)
+            module = imp.load_source(
+                os.path.splitext(os.path.basename(abs_path))[0], abs_path
+            )
+            # configure process file logger
+            add_module_logger(module.__name__)
+        except py_compile.PyCompileError as e:
+            raise MapcheteProcessSyntaxError(e)
+        except ImportError as e:
+            raise MapcheteProcessImportError(e)
+    else:
+        try:
+            module = importlib.import_module(process_path)
+        except ImportError as e:
+            raise MapcheteProcessImportError(e)
+    return module
+
+
 def _config_to_dict(input_config):
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
@@ -793,30 +827,6 @@ def _config_to_dict(input_config):
     else:
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file.")
-
-
-def _load_process_module(config):
-    if config["process"].endswith(".py"):
-        abs_path = os.path.join(config["config_dir"], config["process"])
-        if not os.path.isfile(abs_path):
-            raise MapcheteConfigError("%s is not available" % abs_path)
-        try:
-            py_compile.compile(abs_path, doraise=True)
-            module = imp.load_source(
-                os.path.splitext(os.path.basename(abs_path))[0], abs_path
-            )
-            # configure process file logger
-            add_module_logger(module.__name__)
-        except py_compile.PyCompileError as e:
-            raise MapcheteProcessSyntaxError(e)
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
-    else:
-        try:
-            module = importlib.import_module(config["process"])
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
-    return module
 
 
 def _validate_zooms(zooms):

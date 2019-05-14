@@ -10,6 +10,7 @@ import warnings
 from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
+from mapchete.config import get_process_func
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
 from mapchete.tile import BufferedTile
@@ -33,7 +34,8 @@ class TileProcess():
         self.tile = tile
         self.config_zoom_levels = config.zoom_levels
         self.config_baselevels = config.baselevels
-        self.process_func = config.get_process_func()
+        self.process_path = config.process_path
+        self.config_dir = config.config_dir
         if self.tile.zoom in self.config_zoom_levels:
             self.input = config.get_inputs_for_tile(tile)
             self.process_func_params = config.get_process_func_params(tile.zoom)
@@ -77,10 +79,13 @@ class TileProcess():
             elif self.tile.zoom > max(self.config_baselevels["zooms"]):
                 return self._interpolate_from_baselevel("higher")
         # Otherwise, execute from process file.
+        process_func = get_process_func(
+            process_path=self.process_path, config_dir=self.config_dir
+        )
         try:
             with Timer() as t:
                 # Actually run process.
-                process_data = self.process_func(
+                process_data = process_func(
                     MapcheteProcess(
                         output_reader=self.output_reader,
                         tile=self.tile,

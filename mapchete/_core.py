@@ -137,7 +137,7 @@ class Mapchete(object):
         multi=multiprocessing.cpu_count(),
         max_chunksize=1,
         multiprocessing_module=multiprocessing,
-        multiprocessing_start_method="fork"
+        multiprocessing_start_method="spawn"
     ):
         """
         Process a large batch of tiles.
