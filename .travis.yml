@@ -14,7 +14,7 @@ before_install:
   - export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 install:
   - pip install -e .[contours,s3,serve,vrt]
-  - pip install pytest coveralls
+  - pip install pytest coveralls pytest-cov
 script:
   - pytest -v --cov mapchete --cov-report test/
 after_success:
