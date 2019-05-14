@@ -73,7 +73,6 @@ def test_process_tile_write(example_mapchete):
     config = MapcheteConfig(example_mapchete.path)
     tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
     user_process = mapchete.MapcheteProcess(
-        output_reader=config.output_reader,
         tile=tile,
         params=config.params_at_zoom(tile.zoom),
         input=config.get_inputs_for_tile(tile),
@@ -87,7 +86,6 @@ def test_process_tile_open(example_mapchete):
     config = MapcheteConfig(example_mapchete.path)
     tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
     user_process = mapchete.MapcheteProcess(
-        output_reader=config.output_reader,
         tile=tile,
         params=config.params_at_zoom(tile.zoom),
         input=config.get_inputs_for_tile(tile),

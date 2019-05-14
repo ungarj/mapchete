@@ -273,13 +273,22 @@ class Mapchete(object):
         data : NumPy array or features
             process output
         """
-        process_data = TileProcess(tile=process_tile, config=self.config).execute()
-        if raise_nodata:
-            return self.config.output.streamline_output(process_data)
-        else:
-            try:
-                return self.config.output.streamline_output(process_data)
-            except MapcheteNodataTile:
+        if isinstance(process_tile, tuple):
+            process_tile = self.config.process_pyramid.tile(*process_tile)
+        try:
+            return self.config.output.streamline_output(
+                TileProcess(
+                    tile=process_tile,
+                    config=self.config,
+                    output_reader=(
+                        self.config.output_reader if self.config.baselevels else None
+                    )
+                ).execute()
+            )
+        except MapcheteNodataTile:
+            if raise_nodata:
+                raise
+            else:
                 return self.config.output.empty(process_tile)
 
     def read(self, output_tile):

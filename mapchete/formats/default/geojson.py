@@ -187,7 +187,6 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
             )
 
         data = list(data)
-
         if not len(data):
             logger.debug("no features to write")
         else:

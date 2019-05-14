@@ -16,7 +16,6 @@ def test_example_process(cleantopo_tl):
         # tile containing data
         tile = next(mp.get_process_tiles(zoom))
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -31,7 +30,6 @@ def test_example_process(cleantopo_tl):
             mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -48,7 +46,6 @@ def test_tilify(cleantopo_tl, cleantopo_tl_tif):
         # tile containing data
         tile = next(mp.get_process_tiles(zoom))
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -89,7 +86,6 @@ def test_tilify(cleantopo_tl, cleantopo_tl_tif):
             mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -106,7 +102,6 @@ def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
         # execute without clip
         tile = next(mp.get_process_tiles(zoom))
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -119,7 +114,6 @@ def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
             mp.config.process_pyramid.matrix_width(zoom) - 1
         )
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -132,7 +126,6 @@ def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
         zoom = max(mp.config.zoom_levels)
         tile = next(mp.get_process_tiles(zoom))
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -145,7 +138,6 @@ def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
             mp.config.process_pyramid.matrix_width(zoom) - 1
         )
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),

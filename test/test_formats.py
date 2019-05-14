@@ -119,7 +119,6 @@ def test_http_rasters(files_bounds, http_raster):
         assert mp.config.area_at_zoom(zoom).area > 0
         tile = next(mp.get_process_tiles(13))
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -133,7 +132,6 @@ def test_read_from_raster_file(cleantopo_br):
     with mapchete.open(cleantopo_br.path) as mp:
         tile = mp.config.process_pyramid.tile(5, 0, 0)
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),

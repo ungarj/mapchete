@@ -6,7 +6,7 @@ build/
 venv/
 *.log
 .cache
-.coverage
+.coverage*
 .eggs/
 htmlcov/
 .pytest*

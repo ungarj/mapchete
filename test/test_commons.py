@@ -14,7 +14,6 @@ def test_clip(geojson):
     with mapchete.open(geojson.path) as mp:
         tile = next(mp.get_process_tiles(zoom=4))
         user_process = MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(4),
             input=mp.config.get_inputs_for_tile(tile),
@@ -64,7 +63,6 @@ def test_contours(cleantopo_tl):
     with mapchete.open(cleantopo_tl.path) as mp:
         tile = next(mp.get_process_tiles(zoom=4))
         user_process = MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(4),
             input=mp.config.get_inputs_for_tile(tile),
@@ -90,7 +88,6 @@ def test_hillshade(cleantopo_tl):
     with mapchete.open(cleantopo_tl.path) as mp:
         tile = next(mp.get_process_tiles(zoom=4))
         user_process = MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(4),
             input=mp.config.get_inputs_for_tile(tile),

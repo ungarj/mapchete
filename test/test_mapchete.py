@@ -1,6 +1,6 @@
-#!/usr/bin/env python
 """Test Mapchete main module and processing."""
 
+from itertools import chain
 import pytest
 import os
 import shutil
@@ -36,19 +36,12 @@ def test_read_existing_output(mp_tmpdir, cleantopo_tl):
         tile = mp.config.process_pyramid.tile(5, 0, 0)
         # process and save
         mp.get_raw_output(tile)
-        # read written data from within MapcheteProcess object
-        user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
-            tile=tile,
-            params=mp.config.params_at_zoom(tile.zoom),
-            input=mp.config.get_inputs_for_tile(tile),
-        )
-        data = user_process.read()
+        data = mp.config.output.read(tile)
         assert data.any()
         assert isinstance(data, ma.masked_array)
         assert not data.mask.all()
         # read data from Mapchete class
-        data = mp.read(tile)
+        data = mp.config.output.read(tile)
         assert data.any()
         assert isinstance(data, ma.masked_array)
         assert not data.mask.all()
@@ -63,14 +56,7 @@ def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
         tile = next(mp.get_process_tiles(5))
         # process and save
         mp.get_raw_output(tile)
-        # read written data from within MapcheteProcess object
-        user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
-            tile=tile,
-            params=mp.config.params_at_zoom(tile.zoom),
-            input=mp.config.get_inputs_for_tile(tile),
-        )
-        data = user_process.read()
+        data = mp.config.output.read(tile)
         assert data.any()
         assert isinstance(data, ma.masked_array)
         assert not data.mask.all()
@@ -82,14 +68,12 @@ def test_read_existing_output_vector(mp_tmpdir, geojson):
         tile = next(mp.get_process_tiles(4))
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
-        # read written data from within MapcheteProcess object
-        user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
-            tile=tile,
-            params=mp.config.params_at_zoom(tile.zoom),
-            input=mp.config.get_inputs_for_tile(tile),
+        data = list(
+            chain(*[
+                mp.config.output.read(t)
+                for t in mp.config.output.pyramid.intersecting(tile)
+            ])
         )
-        data = user_process.read()
         assert data
         for feature in data:
             assert shape(feature["geometry"]).is_valid
@@ -101,7 +85,6 @@ def test_open_data_error(cleantopo_tl):
         tile = mp.config.process_pyramid.tile(5, 0, 0)
         # read written data from within MapcheteProcess object
         user_process = mapchete.MapcheteProcess(
-            output_reader=mp.config.output_reader,
             tile=tile,
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
@@ -374,13 +357,7 @@ def test_custom_grid(mp_tmpdir, custom_grid):
     # read written output
     with mapchete.open(custom_grid.dict, mode="readonly") as mp:
         for tile in mp.get_process_tiles(5):
-            user_process = mapchete.MapcheteProcess(
-                output_reader=mp.config.output_reader,
-                tile=tile,
-                params=mp.config.params_at_zoom(tile.zoom),
-                input=mp.config.get_inputs_for_tile(tile),
-            )
-            data = user_process.read()
+            data = mp.config.output.read(tile)
             assert data.any()
             assert isinstance(data, ma.masked_array)
             assert not data.mask.all()

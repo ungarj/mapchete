@@ -24,7 +24,7 @@ ProcessInfo = namedtuple('ProcessInfo', 'tile processed process_msg written writ
 
 class TileProcess():
 
-    def __init__(self, tile=None, config=None):
+    def __init__(self, tile=None, config=None, skip=False, output_reader=None):
         if isinstance(tile, tuple):
             tile = config.process_pyramid.tile(*tile)
         elif isinstance(tile, BufferedTile):
@@ -42,14 +42,15 @@ class TileProcess():
         else:
             self.input, self.process_func_params = {}, {}
         self.mode = config.mode
-        self.output_reader = config.output_reader
-        self.skip = config.mode == "continue" and self.output_reader.tiles_exist(tile)
+        self.output_reader = output_reader
+        self.skip = skip
 
     def execute(self):
         """
-        Run the Mapchete process.
+        Run the Mapchete process and return the result.
 
-        Execute, write and return data.
+        If baselevels are defined it will generate the result from the other zoom levels
+        accordingly.
 
         Parameters
         ----------
@@ -66,7 +67,7 @@ class TileProcess():
             raise ValueError("process mode must be memory, continue or overwrite")
 
         if self.tile.zoom not in self.config_zoom_levels:
-            return self.output_reader.empty(self.tile)
+            raise MapcheteNodataTile
 
         return self._execute()
 
@@ -87,7 +88,6 @@ class TileProcess():
                 # Actually run process.
                 process_data = process_func(
                     MapcheteProcess(
-                        output_reader=self.output_reader,
                         tile=self.tile,
                         params=self.process_func_params,
                         input=self.input
@@ -171,9 +171,7 @@ class MapcheteProcess(object):
         process parameters
     """
 
-    def __init__(
-        self, tile=None, output_reader=None, params=None, input=None
-    ):
+    def __init__(self, tile=None, params=None, input=None):
         """Initialize Mapchete process."""
         self.identifier = ""
         self.title = ""
@@ -181,15 +179,14 @@ class MapcheteProcess(object):
         self.abstract = ""
         self.tile = tile
         self.tile_pyramid = tile.tile_pyramid
-        self.output_reader = output_reader
-        self.output_pyramid = output_reader.pyramid
         self.params = params
         self.input = input
 
     def write(self, data, **kwargs):
         """Deprecated."""
         raise DeprecationWarning(
-            "Please return process output data instead of using self.write().")
+            "Please return process output data instead of using self.write()."
+        )
 
     def read(self, **kwargs):
         """
@@ -199,18 +196,8 @@ class MapcheteProcess(object):
         -------
         process output : NumPy array (raster) or feature iterator (vector)
         """
-        if self.tile.pixelbuffer > self.output_pyramid.pixelbuffer:
-            output_tiles = list(self.output_pyramid.tiles_from_bounds(
-                self.tile.bounds, self.tile.zoom
-            ))
-        else:
-            output_tiles = self.output_pyramid.intersecting(self.tile)
-        return self.output_reader.extract_subset(
-            input_data_tiles=[
-                (output_tile, self.output_reader.read(output_tile))
-                for output_tile in output_tiles
-            ],
-            out_tile=self.tile,
+        raise DeprecationWarning(
+            "Read existing output from within a process is deprecated"
         )
 
     def open(self, input_id, **kwargs):
@@ -406,7 +393,17 @@ def _exception_wrapper(func, fargs, fkwargs, i):
 def _run_on_single_tile(process=None, tile=None):
     logger.debug("run process on single tile")
     return _execute_and_write(
-        tile_process=TileProcess(tile=tile, config=process.config),
+        tile_process=TileProcess(
+            tile=tile,
+            config=process.config,
+            skip=(
+                process.config.mode == "continue" and
+                process.config.output_reader.tiles_exist(tile)
+            ),
+            output_reader=(
+                process.config.output_reader if process.config.baselevels else None
+            )
+        ),
         output_writer=process.config.output
     )
 
@@ -434,10 +431,21 @@ def _run_with_multiprocessing(
         # for output drivers requiring writing data in parent process
         if write_in_parent:
             for zoom in zoom_levels:
+                output_reader = (
+                    process.config.output_reader if process.config.baselevels else None
+                )
                 for task in executor.as_completed(
                     func=_execute,
                     iterable=(
-                        TileProcess(tile=process_tile, config=process.config)
+                        TileProcess(
+                            tile=process_tile,
+                            config=process.config,
+                            skip=(
+                                process.config.mode == "continue" and
+                                process.config.output_reader.tiles_exist(process_tile)
+                            ),
+                            output_reader=output_reader
+                        )
                         for process_tile in process.get_process_tiles(zoom)
                     )
                 ):
@@ -454,10 +462,21 @@ def _run_with_multiprocessing(
         # for output drivers which can write data in child processes
         else:
             for zoom in zoom_levels:
+                output_reader = (
+                    process.config.output_reader if process.config.baselevels else None
+                )
                 for task in executor.as_completed(
                     func=_execute_and_write,
                     iterable=(
-                        TileProcess(tile=process_tile, config=process.config)
+                        TileProcess(
+                            tile=process_tile,
+                            config=process.config,
+                            skip=(
+                                process.config.mode == "continue" and
+                                process.config.output_reader.tiles_exist(process_tile)
+                            ),
+                            output_reader=output_reader
+                        )
                         for process_tile in process.get_process_tiles(zoom)
                     ),
                     fkwargs=dict(output_writer=process.config.output)
@@ -475,9 +494,20 @@ def _run_without_multiprocessing(process=None, zoom_levels=None):
     logger.debug("run process on %s tiles using 1 worker", total_tiles)
     with Timer() as t:
         for zoom in zoom_levels:
+            output_reader = (
+                process.config.output_reader if process.config.baselevels else None
+            )
             for process_tile in process.get_process_tiles(zoom):
                 process_info = _execute_and_write(
-                    tile_process=TileProcess(tile=process_tile, config=process.config),
+                    tile_process=TileProcess(
+                        tile=process_tile,
+                        config=process.config,
+                        skip=(
+                            process.config.mode == "continue" and
+                            process.config.output_reader.tiles_exist(process_tile)
+                        ),
+                        output_reader=output_reader
+                    ),
                     output_writer=process.config.output
                 )
                 num_processed += 1
@@ -509,7 +539,10 @@ def _execute(tile_process=None):
     # execute on process tile
     else:
         with Timer() as t:
-            output = tile_process.execute()
+            try:
+                output = tile_process.execute()
+            except MapcheteNodataTile:
+                output = None
         processor_message = "processed in %s" % t
         logger.debug((tile_process.tile.id, processor_message))
         return output, ProcessInfo(
