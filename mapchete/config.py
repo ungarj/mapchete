@@ -14,6 +14,7 @@ from cached_property import cached_property
 from copy import deepcopy
 import imp
 import importlib
+import inspect
 import logging
 import operator
 import os
@@ -440,7 +441,8 @@ class MapcheteConfig(object):
             if hasattr(process_module, "Process"):
                 logger.error(
                     """instanciating MapcheteProcess is deprecated, """
-                    """provide execute() function instead""")
+                    """provide execute() function instead"""
+                )
             if hasattr(process_module, "execute"):
                 return process_module.execute
             else:
@@ -452,6 +454,18 @@ class MapcheteConfig(object):
 
     def get_process_func(self):
         return self.process_func
+
+    def get_process_func_params(self, zoom):
+        return {
+            k: v for k, v in self.params_at_zoom(zoom).items()
+            if k in inspect.signature(self.get_process_func()).parameters
+        }
+
+    def get_inputs_for_tile(self, tile):
+        return {
+            k: v.open(tile) for k, v in self.params_at_zoom(tile.zoom)["input"].items()
+            if v is not None
+        }
 
     def params_at_zoom(self, zoom):
         """

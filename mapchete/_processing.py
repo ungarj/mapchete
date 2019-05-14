@@ -1,6 +1,5 @@
 from collections import namedtuple
 from functools import partial
-import inspect
 from itertools import chain
 import logging
 import multiprocessing
@@ -32,15 +31,14 @@ class TileProcess():
         else:
             raise TypeError("process_tile must be tuple or BufferedTile")
         self.tile = tile
-        params = config.params_at_zoom(tile.zoom)
-        self.input = {k: v.open(tile) for k, v in params["input"].items()}
         self.config_zoom_levels = config.zoom_levels
         self.config_baselevels = config.baselevels
         self.process_func = config.get_process_func()
-        self.process_func_params = {
-            k: v for k, v in params.items()
-            if k in inspect.signature(config.get_process_func()).parameters
-        }
+        if self.tile.zoom in self.config_zoom_levels:
+            self.input = config.get_inputs_for_tile(tile)
+            self.process_func_params = config.get_process_func_params(tile.zoom)
+        else:
+            self.input, self.process_func_params = {}, {}
         self.mode = config.mode
         self.output_reader = config.output_reader
         self.skip = config.mode == "continue" and self.output_reader.tiles_exist(tile)
@@ -84,7 +82,7 @@ class TileProcess():
                 # Actually run process.
                 process_data = self.process_func(
                     MapcheteProcess(
-                        output_pyramid=self.output_reader.pyramid,
+                        output_reader=self.output_reader,
                         tile=self.tile,
                         params=self.process_func_params,
                         input=self.input
@@ -168,7 +166,9 @@ class MapcheteProcess(object):
         process parameters
     """
 
-    def __init__(self, tile, output_pyramid=None, params=None, input=None):
+    def __init__(
+        self, tile=None, output_reader=None, params=None, input=None
+    ):
         """Initialize Mapchete process."""
         self.identifier = ""
         self.title = ""
@@ -176,7 +176,8 @@ class MapcheteProcess(object):
         self.abstract = ""
         self.tile = tile
         self.tile_pyramid = tile.tile_pyramid
-        self.output_pyramid = output_pyramid
+        self.output_reader = output_reader
+        self.output_pyramid = output_reader.pyramid
         self.params = params
         self.input = input
 
@@ -227,8 +228,6 @@ class MapcheteProcess(object):
                 'Using kwargs such as "resampling" in open() is deprecated.'
                 'Such options should be passed on in the respective read() functions'
             )
-        # if not isinstance(input_id, str):
-        #     return input_id.open(self.tile, **kwargs)
         if input_id not in self.input:
             raise ValueError("%s not found in config as input file" % input_id)
         return self.input[input_id]

@@ -29,7 +29,7 @@ def test_execute(example_mapchete):
     # in readonly mode
     with mapchete.open(example_mapchete.path, mode="readonly") as mp:
         with pytest.raises(ValueError):
-            mp.execute(mp.get_process_tiles())
+            mp.execute(next(mp.get_process_tiles()))
     # wrong tile type
     with mapchete.open(example_mapchete.path) as mp:
         with pytest.raises(TypeError):
@@ -72,18 +72,28 @@ def test_process_tile_write(example_mapchete):
     """Raise DeprecationWarning on MapcheteProcess.write()."""
     config = MapcheteConfig(example_mapchete.path)
     tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
-    process_tile = mapchete.MapcheteProcess(tile, config)
+    user_process = mapchete.MapcheteProcess(
+        output_reader=config.output_reader,
+        tile=tile,
+        params=config.params_at_zoom(tile.zoom),
+        input=config.get_inputs_for_tile(tile),
+    )
     with pytest.raises(DeprecationWarning):
-        process_tile.write("data")
+        user_process.write("data")
 
 
 def test_process_tile_open(example_mapchete):
     """Raise ValueError on MapcheteProcess.open()."""
     config = MapcheteConfig(example_mapchete.path)
     tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
-    process_tile = mapchete.MapcheteProcess(tile, config)
+    user_process = mapchete.MapcheteProcess(
+        output_reader=config.output_reader,
+        tile=tile,
+        params=config.params_at_zoom(tile.zoom),
+        input=config.get_inputs_for_tile(tile),
+    )
     with pytest.raises(ValueError):
-        process_tile.open("nonexisting_id")
+        user_process.open("nonexisting_id")
 
 
 def test_metatiles(example_mapchete):

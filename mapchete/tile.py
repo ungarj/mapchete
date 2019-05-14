@@ -186,7 +186,12 @@ class BufferedTile(Tile):
 
     def __init__(self, tile, pixelbuffer=0):
         """Initialize."""
-        assert not isinstance(tile, BufferedTile)
+        if isinstance(tile, BufferedTile):
+            tile = TilePyramid(
+                tile.tp.grid,
+                tile_size=tile.tp.tile_size,
+                metatiling=tile.tp.metatiling
+            ).tile(*tile.id)
         Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
         self._tile = tile
         self.pixelbuffer = pixelbuffer

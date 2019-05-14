@@ -20,7 +20,7 @@ def test_output_data(mp_tmpdir):
         metatiling=1
     )
     try:
-        output = png.OutputData(output_params)
+        output = png.OutputDataWriter(output_params)
         assert output.path == mp_tmpdir
         assert output.file_extension == ".png"
         tp = BufferedTilePyramid("geodetic")
@@ -79,7 +79,7 @@ def test_s3_write_output_data(mp_s3_tmpdir):
         pixelbuffer=0,
         metatiling=1
     )
-    output = png.OutputData(output_params)
+    output = png.OutputDataWriter(output_params)
     assert output.path == mp_s3_tmpdir
     assert output.file_extension == ".png"
     tp = BufferedTilePyramid("geodetic")

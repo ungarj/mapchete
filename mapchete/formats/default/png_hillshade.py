@@ -23,11 +23,10 @@ nodata: integer or float
 import logging
 import numpy as np
 import numpy.ma as ma
-import os
 
 from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.io import makedirs, get_boto3_bucket
+from mapchete.io import get_boto3_bucket
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs
 )
@@ -48,7 +47,7 @@ PNG_DEFAULT_PROFILE = {
 }
 
 
-class OutputData(base.OutputData):
+class OutputDataReader(base.OutputDataReader):
     """
     PNG_hillshade output class.
 
@@ -82,7 +81,7 @@ class OutputData(base.OutputData):
 
     def __init__(self, output_params, **kwargs):
         """Initialize."""
-        super(OutputData, self).__init__(output_params)
+        super(OutputDataReader, self).__init__(output_params)
         self.path = output_params["path"]
         self.file_extension = ".png"
         self.output_params = output_params
@@ -95,37 +94,6 @@ class OutputData(base.OutputData):
             self.old_band_num = False
         self.output_params.update(dtype=self._profile["dtype"])
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
-
-    def write(self, process_tile, data):
-        """
-        Write data from process tiles into PNG file(s).
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-        """
-        data = self._prepare_array(data)
-
-        if data.mask.all():
-            logger.debug("data empty, nothing to write")
-        else:
-            # in case of S3 output, create an boto3 resource
-            bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
-
-            # Convert from process_tile to output_tiles and write
-            for tile in self.pyramid.intersecting(process_tile):
-                out_path = self.get_path(tile)
-                self.prepare_path(tile)
-                out_tile = BufferedTile(tile, self.pixelbuffer)
-                write_raster_window(
-                    in_tile=process_tile,
-                    in_data=data,
-                    out_profile=self.profile(out_tile),
-                    out_tile=out_tile,
-                    out_path=out_path,
-                    bucket_resource=bucket_resource
-                )
 
     def read(self, output_tile, **kwargs):
         """
@@ -231,3 +199,39 @@ class OutputData(base.OutputData):
         else:
             data = np.stack((np.zeros(data[0].shape), data[0]))
         return prepare_array(data, dtype="uint8", masked=True, nodata=255)
+
+
+class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
+
+    METADATA = METADATA
+
+    def write(self, process_tile, data):
+        """
+        Write data from process tiles into PNG file(s).
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        """
+        data = self._prepare_array(data)
+
+        if data.mask.all():
+            logger.debug("data empty, nothing to write")
+        else:
+            # in case of S3 output, create an boto3 resource
+            bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
+
+            # Convert from process_tile to output_tiles and write
+            for tile in self.pyramid.intersecting(process_tile):
+                out_path = self.get_path(tile)
+                self.prepare_path(tile)
+                out_tile = BufferedTile(tile, self.pixelbuffer)
+                write_raster_window(
+                    in_tile=process_tile,
+                    in_data=data,
+                    out_profile=self.profile(out_tile),
+                    out_tile=out_tile,
+                    out_path=out_path,
+                    bucket_resource=bucket_resource
+                )

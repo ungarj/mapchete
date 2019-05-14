@@ -32,17 +32,18 @@ def test_empty_execute(mp_tmpdir, cleantopo_br):
 def test_read_existing_output(mp_tmpdir, cleantopo_tl):
     """Read existing process output."""
     # raster data
-    tile = (5, 0, 0)
     with mapchete.open(cleantopo_tl.path) as mp:
+        tile = mp.config.process_pyramid.tile(5, 0, 0)
         # process and save
         mp.get_raw_output(tile)
         # read written data from within MapcheteProcess object
-        mp_tile = mapchete.MapcheteProcess(
-            mp.config.process_pyramid.tile(*tile),
-            config=mp.config,
-            params=mp.config.params_at_zoom(5)
+        user_process = mapchete.MapcheteProcess(
+            output_reader=mp.config.output_reader,
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
         )
-        data = mp_tile.read()
+        data = user_process.read()
         assert data.any()
         assert isinstance(data, ma.masked_array)
         assert not data.mask.all()
@@ -63,11 +64,13 @@ def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
         # process and save
         mp.get_raw_output(tile)
         # read written data from within MapcheteProcess object
-        mp_tile = mapchete.MapcheteProcess(
-            mp.config.process_pyramid.tile(*tile.id),
-            config=mp.config,
-            params=mp.config.params_at_zoom(5))
-        data = mp_tile.read()
+        user_process = mapchete.MapcheteProcess(
+            output_reader=mp.config.output_reader,
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
+        )
+        data = user_process.read()
         assert data.any()
         assert isinstance(data, ma.masked_array)
         assert not data.mask.all()
@@ -80,12 +83,13 @@ def test_read_existing_output_vector(mp_tmpdir, geojson):
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read written data from within MapcheteProcess object
-        mp_tile = mapchete.MapcheteProcess(
-            tile,
-            config=mp.config,
-            params=mp.config.params_at_zoom(4)
+        user_process = mapchete.MapcheteProcess(
+            output_reader=mp.config.output_reader,
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
         )
-        data = mp_tile.read()
+        data = user_process.read()
         assert data
         for feature in data:
             assert shape(feature["geometry"]).is_valid
@@ -93,16 +97,17 @@ def test_read_existing_output_vector(mp_tmpdir, geojson):
 
 def test_open_data_error(cleantopo_tl):
     """Try to open data not specified as input."""
-    tile = (5, 0, 0)
     with mapchete.open(cleantopo_tl.path) as mp:
+        tile = mp.config.process_pyramid.tile(5, 0, 0)
         # read written data from within MapcheteProcess object
-        mp_tile = mapchete.MapcheteProcess(
-            mp.config.process_pyramid.tile(*tile),
-            config=mp.config,
-            params=mp.config.params_at_zoom(5)
+        user_process = mapchete.MapcheteProcess(
+            output_reader=mp.config.output_reader,
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
         )
         with pytest.raises(ValueError):
-            mp_tile.open("invaild_input_id")
+            user_process.open("invaild_input_id")
 
 
 def test_get_raw_output_outside(mp_tmpdir, cleantopo_br):
@@ -369,9 +374,13 @@ def test_custom_grid(mp_tmpdir, custom_grid):
     # read written output
     with mapchete.open(custom_grid.dict, mode="readonly") as mp:
         for tile in mp.get_process_tiles(5):
-            mp_tile = mapchete.MapcheteProcess(
-                tile, config=mp.config, params=mp.config.params_at_zoom(5))
-            data = mp_tile.read()
+            user_process = mapchete.MapcheteProcess(
+                output_reader=mp.config.output_reader,
+                tile=tile,
+                params=mp.config.params_at_zoom(tile.zoom),
+                input=mp.config.get_inputs_for_tile(tile),
+            )
+            data = user_process.read()
             assert data.any()
             assert isinstance(data, ma.masked_array)
             assert not data.mask.all()

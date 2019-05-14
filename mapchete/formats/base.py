@@ -11,7 +11,6 @@ import numpy as np
 import numpy.ma as ma
 import os
 from shapely.geometry import shape
-from tilematrix import TilePyramid
 import types
 import warnings
 
@@ -22,6 +21,7 @@ from mapchete.io.raster import (
     create_mosaic, extract_from_array, prepare_array, read_raster_window
 )
 from mapchete.io.vector import read_vector_window
+from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
 
@@ -156,9 +156,10 @@ class OutputDataBaseFunctions():
             warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
             if "grid" not in output_params:
                 output_params["grid"] = output_params.pop("type")
-        self.pyramid = TilePyramid(
+        self.pyramid = BufferedTilePyramid(
             grid=output_params["grid"],
-            metatiling=output_params["metatiling"]
+            metatiling=output_params["metatiling"],
+            pixelbuffer=output_params["pixelbuffer"]
         )
         self.crs = self.pyramid.crs
         self._bucket = None

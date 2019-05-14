@@ -51,14 +51,14 @@ setup(
             'serve=mapchete.cli.default.serve:serve',
         ],
         'mapchete.formats.drivers': [
-            # 'geojson=mapchete.formats.default.geojson',
+            'geojson=mapchete.formats.default.geojson',
             'gtiff=mapchete.formats.default.gtiff',
-            # 'mapchete_input=mapchete.formats.default.mapchete_input',
-            # 'png_hillshade=mapchete.formats.default.png_hillshade',
-            # 'png=mapchete.formats.default.png',
+            'mapchete_input=mapchete.formats.default.mapchete_input',
+            'png_hillshade=mapchete.formats.default.png_hillshade',
+            'png=mapchete.formats.default.png',
             'raster_file=mapchete.formats.default.raster_file',
             'vector_file=mapchete.formats.default.vector_file',
-            # 'tile_directory=mapchete.formats.default.tile_directory'
+            'tile_directory=mapchete.formats.default.tile_directory'
         ],
         'mapchete.processes': [
             'example_process=mapchete.processes.examples.example_process',
