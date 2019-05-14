@@ -16,7 +16,7 @@ install:
   - pip install -e .[contours,s3,serve,vrt]
   - pip install pytest coveralls
 script:
-  - coverage run --source=mapchete setup.py test
+  - pytest -v --cov mapchete --cov-report test/
 after_success:
   - coveralls
 env:
