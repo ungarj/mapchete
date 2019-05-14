@@ -440,13 +440,10 @@ class MapcheteConfig(object):
             process_path=self.process_path, config_dir=self.config_dir, run_compile=True
         )
 
-    def get_process_func(self):
-        return self.process_func
-
     def get_process_func_params(self, zoom):
         return {
             k: v for k, v in self.params_at_zoom(zoom).items()
-            if k in inspect.signature(self.get_process_func()).parameters
+            if k in inspect.signature(self.process_func).parameters
         }
 
     def get_inputs_for_tile(self, tile):

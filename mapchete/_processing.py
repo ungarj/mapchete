@@ -429,7 +429,7 @@ def _run_with_multiprocessing(
             start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module
         )
-        write_in_parent = True
+        write_in_parent = False
 
         # for output drivers requiring writing data in parent process
         if write_in_parent:
