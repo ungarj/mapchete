@@ -23,27 +23,33 @@ ProcessInfo = namedtuple('ProcessInfo', 'tile processed process_msg written writ
 
 
 class TileProcess():
+    """
+    Class to process on a specific process tile.
 
-    def __init__(self, tile=None, config=None, skip=False, output_reader=None):
+    If skip is set to True, all attributes will be set to None.
+    """
+
+    def __init__(self, tile=None, config=None, skip=False):
         if isinstance(tile, tuple):
-            tile = config.process_pyramid.tile(*tile)
+            self.tile = config.process_pyramid.tile(*tile)
         elif isinstance(tile, BufferedTile):
-            pass
+            self.tile = tile
         else:
             raise TypeError("process_tile must be tuple or BufferedTile")
-        self.tile = tile
-        self.config_zoom_levels = config.zoom_levels
-        self.config_baselevels = config.baselevels
-        self.process_path = config.process_path
-        self.config_dir = config.config_dir
-        if self.tile.zoom in self.config_zoom_levels:
+        self.skip = skip
+        self.config_zoom_levels = None if skip else config.zoom_levels
+        self.config_baselevels = None if skip else config.baselevels
+        self.process_path = None if skip else config.process_path
+        self.config_dir = None if skip else config.config_dir
+        if skip or self.tile.zoom not in self.config_zoom_levels:
+            self.input, self.process_func_params = {}, {}
+        else:
             self.input = config.get_inputs_for_tile(tile)
             self.process_func_params = config.get_process_func_params(tile.zoom)
-        else:
-            self.input, self.process_func_params = {}, {}
-        self.mode = config.mode
-        self.output_reader = output_reader
-        self.skip = skip
+        self.mode = None if skip else config.mode
+        self.output_reader = (
+            None if skip or not config.baselevels else config.output_reader
+        )
 
     def execute(self):
         """
@@ -92,9 +98,10 @@ class TileProcess():
                         params=self.process_func_params,
                         input=self.input
                     ),
-                    # only pass on kwargs which are defined in execute()
                     **self.process_func_params
                 )
+        except MapcheteNodataTile:
+            raise
         except Exception as e:
             # Log process time
             logger.exception((self.tile.id, "exception in user process", e, str(t)))
@@ -396,13 +403,7 @@ def _run_on_single_tile(process=None, tile=None):
         tile_process=TileProcess(
             tile=tile,
             config=process.config,
-            skip=(
-                process.config.mode == "continue" and
-                process.config.output_reader.tiles_exist(tile)
-            ),
-            output_reader=(
-                process.config.output_reader if process.config.baselevels else None
-            )
+            skip=_skip(process.config, tile)
         ),
         output_writer=process.config.output
     )
@@ -426,25 +427,19 @@ def _run_with_multiprocessing(
             start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module
         )
+        # TODO
         write_in_parent = False
 
         # for output drivers requiring writing data in parent process
         if write_in_parent:
             for zoom in zoom_levels:
-                output_reader = (
-                    process.config.output_reader if process.config.baselevels else None
-                )
                 for task in executor.as_completed(
                     func=_execute,
                     iterable=(
                         TileProcess(
                             tile=process_tile,
                             config=process.config,
-                            skip=(
-                                process.config.mode == "continue" and
-                                process.config.output_reader.tiles_exist(process_tile)
-                            ),
-                            output_reader=output_reader
+                            skip=_skip(process.config, process_tile)
                         )
                         for process_tile in process.get_process_tiles(zoom)
                     )
@@ -462,20 +457,13 @@ def _run_with_multiprocessing(
         # for output drivers which can write data in child processes
         else:
             for zoom in zoom_levels:
-                output_reader = (
-                    process.config.output_reader if process.config.baselevels else None
-                )
                 for task in executor.as_completed(
                     func=_execute_and_write,
                     iterable=(
                         TileProcess(
                             tile=process_tile,
                             config=process.config,
-                            skip=(
-                                process.config.mode == "continue" and
-                                process.config.output_reader.tiles_exist(process_tile)
-                            ),
-                            output_reader=output_reader
+                            skip=_skip(process.config, process_tile)
                         )
                         for process_tile in process.get_process_tiles(zoom)
                     ),
@@ -494,19 +482,12 @@ def _run_without_multiprocessing(process=None, zoom_levels=None):
     logger.debug("run process on %s tiles using 1 worker", total_tiles)
     with Timer() as t:
         for zoom in zoom_levels:
-            output_reader = (
-                process.config.output_reader if process.config.baselevels else None
-            )
             for process_tile in process.get_process_tiles(zoom):
                 process_info = _execute_and_write(
                     tile_process=TileProcess(
                         tile=process_tile,
                         config=process.config,
-                        skip=(
-                            process.config.mode == "continue" and
-                            process.config.output_reader.tiles_exist(process_tile)
-                        ),
-                        output_reader=output_reader
+                        skip=_skip(process.config, process_tile)
                     ),
                     output_writer=process.config.output
                 )
@@ -514,6 +495,11 @@ def _run_without_multiprocessing(process=None, zoom_levels=None):
                 logger.info("tile %s/%s finished", num_processed, total_tiles)
                 yield process_info
     logger.info("%s tile(s) iterated in %s", str(num_processed), t)
+
+
+def _skip(config, tile):
+    """Convenience function to determine whether process tile can be skipped."""
+    return config.mode == "continue" and config.output_reader.tiles_exist(tile)
 
 
 ###############################

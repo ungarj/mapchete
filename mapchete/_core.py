@@ -180,7 +180,7 @@ class Mapchete(object):
         multi=multiprocessing.cpu_count(),
         max_chunksize=1,
         multiprocessing_module=multiprocessing,
-        multiprocessing_start_method="fork"
+        multiprocessing_start_method="spawn"
     ):
         """
         Process a large batch of tiles and yield report messages per tile.
@@ -277,13 +277,7 @@ class Mapchete(object):
             process_tile = self.config.process_pyramid.tile(*process_tile)
         try:
             return self.config.output.streamline_output(
-                TileProcess(
-                    tile=process_tile,
-                    config=self.config,
-                    output_reader=(
-                        self.config.output_reader if self.config.baselevels else None
-                    )
-                ).execute()
+                TileProcess(tile=process_tile, config=self.config).execute()
             )
         except MapcheteNodataTile:
             if raise_nodata:
