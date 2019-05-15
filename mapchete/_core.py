@@ -274,8 +274,11 @@ class Mapchete(object):
         data : NumPy array or features
             process output
         """
-        if isinstance(process_tile, tuple):
-            process_tile = self.config.process_pyramid.tile(*process_tile)
+        process_tile = (
+            self.config.process_pyramid.tile(*process_tile)
+            if isinstance(process_tile, tuple)
+            else process_tile
+        )
         try:
             return self.config.output.streamline_output(
                 TileProcess(tile=process_tile, config=self.config).execute()
@@ -303,11 +306,12 @@ class Mapchete(object):
         """
         if self.config.mode not in ["readonly", "continue", "overwrite"]:
             raise ValueError("process mode must be readonly, continue or overwrite")
-        if isinstance(output_tile, tuple):
-            output_tile = self.config.output_pyramid.tile(*output_tile)
-        elif isinstance(output_tile, BufferedTile):
-            pass
-        else:
+        output_tile = (
+            self.config.output_pyramid.tile(*output_tile)
+            if isinstance(output_tile, tuple)
+            else output_tile
+        )
+        if not isinstance(output_tile, BufferedTile):
             raise TypeError("output_tile must be tuple or BufferedTile")
 
         return self.config.output.read(output_tile)
@@ -323,9 +327,12 @@ class Mapchete(object):
         data : NumPy array or features
             data to be written
         """
-        if isinstance(process_tile, tuple):
-            process_tile = self.config.process_pyramid.tile(*process_tile)
-        elif not isinstance(process_tile, BufferedTile):
+        process_tile = (
+            self.config.process_pyramid.tile(*process_tile)
+            if isinstance(process_tile, tuple)
+            else process_tile
+        )
+        if not isinstance(process_tile, BufferedTile):
             raise ValueError("invalid process_tile type: %s" % type(process_tile))
         if self.config.mode not in ["continue", "overwrite"]:
             raise ValueError("cannot write output in current process mode")
@@ -383,10 +390,9 @@ class Mapchete(object):
         data : NumPy array or features
             process output
         """
-        if not isinstance(tile, (BufferedTile, tuple)):
+        tile = self.config.output_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
+        if not isinstance(tile, BufferedTile):
             raise TypeError("'tile' must be a tuple or BufferedTile")
-        if isinstance(tile, tuple):
-            tile = self.config.output_pyramid.tile(*tile)
         if _baselevel_readonly:
             tile = self.config.baselevels["tile_pyramid"].tile(*tile.id)
 

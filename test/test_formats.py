@@ -8,7 +8,7 @@ import mapchete
 from mapchete import errors
 from mapchete.formats import (
     available_input_formats, available_output_formats, driver_from_file, base,
-    load_output_writer, load_input_reader, read_output_metadata
+    load_output_reader, load_output_writer, load_input_reader, read_output_metadata
 )
 
 
@@ -39,6 +39,14 @@ def test_output_writer_errors():
         load_output_writer("not_a_dictionary")
     with pytest.raises(errors.MapcheteDriverError):
         load_output_writer({"format": "invalid_driver"})
+
+
+def test_output_reader_errors():
+    """Test errors when loading output writer."""
+    with pytest.raises(TypeError):
+        load_output_reader("not_a_dictionary")
+    with pytest.raises(errors.MapcheteDriverError):
+        load_output_reader({"format": "invalid_driver"})
 
 
 def test_input_reader_errors():

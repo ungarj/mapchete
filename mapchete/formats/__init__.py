@@ -185,11 +185,7 @@ def driver_from_file(input_file):
         )
     driver = _file_ext_to_driver()[file_ext]
     if len(driver) > 1:
-        warnings.warn(
-            DeprecationWarning(
-                "more than one driver for file found, taking %s" % driver[0]
-            )
-        )
+        warnings.warn("more than one driver for file found, taking %s" % driver[0])
     return driver[0]
 
 
