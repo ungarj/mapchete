@@ -306,17 +306,7 @@ class MapcheteConfig(object):
     @cached_property
     def output_reader(self):
         """Output reader class of driver."""
-        reader = load_output_reader(self._output_params)
-        try:
-            reader.is_valid_with_config(self._output_params)
-        except Exception as e:
-            logger.exception(e)
-            raise MapcheteConfigError(
-                "driver %s not compatible with configuration: %s" % (
-                    reader.METADATA["driver_name"], e
-                )
-            )
-        return reader
+        return load_output_reader(self._output_params)
 
     @cached_property
     def input(self):

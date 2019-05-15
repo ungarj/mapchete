@@ -7,6 +7,7 @@ from copy import deepcopy
 
 import mapchete
 from mapchete.config import MapcheteConfig, validate_values
+from mapchete._processing import Executor
 from mapchete.tile import BufferedTilePyramid
 from mapchete import errors
 
@@ -92,6 +93,19 @@ def test_process_tile_open(example_mapchete):
     )
     with pytest.raises(ValueError):
         user_process.open("nonexisting_id")
+
+
+def test_process_tile_read(example_mapchete):
+    """Raise ValueError on MapcheteProcess.open()."""
+    config = MapcheteConfig(example_mapchete.path)
+    tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
+    user_process = mapchete.MapcheteProcess(
+        tile=tile,
+        params=config.params_at_zoom(tile.zoom),
+        input=config.get_inputs_for_tile(tile),
+    )
+    with pytest.raises(DeprecationWarning):
+        user_process.read()
 
 
 def test_metatiles(example_mapchete):
@@ -262,3 +276,17 @@ def test_output_error(mp_tmpdir, cleantopo_br, output_error_py):
     with mapchete.open(config) as mp:
         with pytest.raises(errors.MapcheteProcessOutputError):
             mp.execute((5, 0, 0))
+
+
+def _raise_error(i):
+    """Helper function for test_finished_task()"""
+    1/0
+
+
+def test_finished_task():
+    """Encapsulating exceptions test."""
+    task = next(Executor().as_completed(func=_raise_error, iterable=[0]))
+    assert task.exception()
+    with pytest.raises(ZeroDivisionError):
+        task.result()
+    assert "FinishedTask" in str(task)

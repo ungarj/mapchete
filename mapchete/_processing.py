@@ -30,11 +30,10 @@ class TileProcess():
     """
 
     def __init__(self, tile=None, config=None, skip=False):
-        if isinstance(tile, tuple):
-            self.tile = config.process_pyramid.tile(*tile)
-        elif isinstance(tile, BufferedTile):
-            self.tile = tile
-        else:
+        self.tile = (
+            config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
+        )
+        if not isinstance(tile, BufferedTile):
             raise TypeError("process_tile must be tuple or BufferedTile")
         self.skip = skip
         self.config_zoom_levels = None if skip else config.zoom_levels
@@ -427,51 +426,22 @@ def _run_with_multiprocessing(
             start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module
         )
-        # TODO
-        write_in_parent = False
-
-        # for output drivers requiring writing data in parent process
-        if write_in_parent:
-            for zoom in zoom_levels:
-                for task in executor.as_completed(
-                    func=_execute,
-                    iterable=(
-                        TileProcess(
-                            tile=process_tile,
-                            config=process.config,
-                            skip=_skip(process.config, process_tile)
-                        )
-                        for process_tile in process.get_process_tiles(zoom)
+        for zoom in zoom_levels:
+            for task in executor.as_completed(
+                func=_execute_and_write,
+                iterable=(
+                    TileProcess(
+                        tile=process_tile,
+                        config=process.config,
+                        skip=_skip(process.config, process_tile)
                     )
-                ):
-                    output_data, process_info = task.result()
-                    process_info = _write(
-                        process_info=process_info,
-                        output_data=output_data,
-                        output_writer=process.config.output,
-                    )
-                    num_processed += 1
-                    logger.info("tile %s/%s finished", num_processed, total_tiles)
-                    yield process_info
-
-        # for output drivers which can write data in child processes
-        else:
-            for zoom in zoom_levels:
-                for task in executor.as_completed(
-                    func=_execute_and_write,
-                    iterable=(
-                        TileProcess(
-                            tile=process_tile,
-                            config=process.config,
-                            skip=_skip(process.config, process_tile)
-                        )
-                        for process_tile in process.get_process_tiles(zoom)
-                    ),
-                    fkwargs=dict(output_writer=process.config.output)
-                ):
-                    num_processed += 1
-                    logger.info("tile %s/%s finished", num_processed, total_tiles)
-                    yield task.result()
+                    for process_tile in process.get_process_tiles(zoom)
+                ),
+                fkwargs=dict(output_writer=process.config.output)
+            ):
+                num_processed += 1
+                logger.info("tile %s/%s finished", num_processed, total_tiles)
+                yield task.result()
     logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 
 
@@ -528,7 +498,7 @@ def _execute(tile_process=None):
             try:
                 output = tile_process.execute()
             except MapcheteNodataTile:
-                output = None
+                output = "empty"
         processor_message = "processed in %s" % t
         logger.debug((tile_process.tile.id, processor_message))
         return output, ProcessInfo(

@@ -51,7 +51,8 @@ def open(
     return Mapchete(
         MapcheteConfig(
             config, mode=mode, zoom=zoom, bounds=bounds,
-            single_input_file=single_input_file, debug=debug),
+            single_input_file=single_input_file, debug=debug
+        ),
         with_cache=with_cache
     )
 
