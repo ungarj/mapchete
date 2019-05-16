@@ -38,9 +38,11 @@ import os
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
+from shapely.geometry import box
+from tilematrix import Bounds
 import warnings
 
-from mapchete.config import validate_values
+from mapchete.config import validate_values, snap_bounds
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import get_boto3_bucket, path_exists
@@ -385,54 +387,66 @@ class GTiffSingleFileOutputWriter(
     def __init__(self, output_params, **kwargs):
         """Initialize."""
         logger.debug("output is single file")
+        self.rio_file = None
         super().__init__(output_params, **kwargs)
         self._set_attributes(output_params)
-        delimiters = output_params["delimiters"]
-        logger.debug(delimiters)
-        bounds = delimiters["effective_bounds"]
-        if len(delimiters["zoom"]) != 1:
+        if len(self.output_params["delimiters"]["zoom"]) != 1:
             raise ValueError("single file output only works with one zoom level")
-        zoom = delimiters["zoom"][0]
-        height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(zoom)
-        width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(zoom)
-        logger.debug("output raster bounds: %s", bounds)
-        logger.debug("output raster shape: %s, %s", height, width)
-        self._profile = dict(
-            GTIFF_DEFAULT_PROFILE,
-            driver="GTiff",
-            transform=Affine(
-                self.pyramid.pixel_x_size(zoom),
-                0,
-                bounds.left,
-                0,
-                -self.pyramid.pixel_y_size(zoom),
-                bounds.top
-            ),
-            height=height,
-            width=width,
-            count=output_params["bands"],
-            crs=self.pyramid.crs,
-            **{
-                k: output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
-                for k in GTIFF_DEFAULT_PROFILE.keys()
-            }
-        )
-        logger.debug("single GTiff profile: %s", self._profile)
-        if height * width > 20000 * 20000:
-            raise ValueError("output GeoTIFF too big")
+        self.zoom = output_params["delimiters"]["zoom"][0]
         if "overviews" in output_params:
             self.overviews = True
             self.overviews_resampling = output_params.get(
                 "overviews_resampling", "nearest"
             )
             self.overviews_levels = output_params.get(
-                "overviews_levels", [2**i for i in range(1, zoom)]
+                "overviews_levels", [2**i for i in range(1, self.zoom + 1)]
             )
         else:
             self.overviews = False
+
+        # TODO: remove after #181 is fixed
+        self.prepare()
+
+    def prepare(self, process_area=None, **kwargs):
+        bounds = snap_bounds(
+            bounds=Bounds(
+                *process_area.intersection(
+                    box(*self.output_params["delimiters"]["effective_bounds"])
+                ).bounds
+            ),
+            pyramid=self.pyramid,
+            zoom=self.zoom
+        ) if process_area else self.output_params["delimiters"]["effective_bounds"]
+        height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(self.zoom)
+        width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(self.zoom)
+        logger.debug("output raster bounds: %s", bounds)
+        logger.debug("output raster shape: %s, %s", height, width)
+        self._profile = dict(
+            GTIFF_DEFAULT_PROFILE,
+            driver="GTiff",
+            transform=Affine(
+                self.pyramid.pixel_x_size(self.zoom),
+                0,
+                bounds.left,
+                0,
+                -self.pyramid.pixel_y_size(self.zoom),
+                bounds.top
+            ),
+            height=height,
+            width=width,
+            count=self.output_params["bands"],
+            crs=self.pyramid.crs,
+            **{
+                k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
+                for k in GTIFF_DEFAULT_PROFILE.keys()
+            }
+        )
+        logger.debug("single GTiff profile: %s", self._profile)
+        if height * width > 20000 * 20000:
+            raise ValueError("output GeoTIFF too big")
         # set up rasterio
         if path_exists(self.path):
-            if output_params["mode"] != "overwrite":
+            if self.output_params["mode"] != "overwrite":
                 raise MapcheteConfigError(
                     "single GTiff file already exists, use overwrite mode to replace"
                 )
@@ -525,15 +539,16 @@ class GTiffSingleFileOutputWriter(
                     height=self.rio_file.height,
                     width=self.rio_file.width
                 )
-                logger.debug("write data to window: %s", write_window)
-                self.rio_file.write(
-                    extract_from_array(
-                        in_raster=data,
-                        in_affine=process_tile.affine,
-                        out_tile=out_tile
-                    ) if process_tile != out_tile else data,
-                    window=write_window,
-                )
+                if _window_in_out_file(write_window, self.rio_file):
+                    logger.debug("write data to window: %s", write_window)
+                    self.rio_file.write(
+                        extract_from_array(
+                            in_raster=data,
+                            in_affine=process_tile.affine,
+                            out_tile=out_tile
+                        ) if process_tile != out_tile else data,
+                        window=write_window,
+                    )
 
     def profile(self, tile=None):
         """
@@ -546,10 +561,10 @@ class GTiffSingleFileOutputWriter(
         """
         return self._profile
 
-    def close(self):
+    def close(self, exc_type=None, exc_value=None, exc_traceback=None):
         """Gets called if process is closed."""
         try:
-            if self.overviews:
+            if not exc_type and self.overviews and self.rio_file is not None:
                 logger.debug(
                     "build overviews using %s resampling and levels %s",
                     self.overviews_resampling, self.overviews_levels
@@ -561,8 +576,18 @@ class GTiffSingleFileOutputWriter(
                     ns='rio_overview', resampling=self.overviews_resampling
                 )
         finally:
-            logger.debug("close rasterio file handle.")
-            self.rio_file.close()
+            if self.rio_file is not None:
+                logger.debug("close rasterio file handle.")
+                self.rio_file.close()
+
+
+def _window_in_out_file(window, rio_file):
+    return all([
+        window.row_off >= 0,
+        window.col_off >= 0,
+        window.row_off + window.height <= rio_file.height,
+        window.col_off + window.width <= rio_file.width,
+    ])
 
 
 class InputTile(base.InputTile):

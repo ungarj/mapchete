@@ -229,6 +229,9 @@ class OutputDataBaseFunctions():
                 if shape(feature["geometry"]).intersects(out_tile.bbox)
             ]
 
+    def prepare(self, **kwargs):
+        pass
+
 
 class OutputDataReader(OutputDataBaseFunctions):
 
@@ -390,7 +393,7 @@ class OutputDataWriter(OutputDataReader):
                 "invalid output type: %s" % type(process_data)
             )
 
-    def close(self):
+    def close(self, exc_type=None, exc_value=None, exc_traceback=None):
         """Gets called if process is closed."""
         pass
 
