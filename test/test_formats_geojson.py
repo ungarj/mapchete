@@ -71,7 +71,7 @@ def test_output_data(mp_tmpdir, geojson):
         pixelbuffer=0,
         metatiling=1
     )
-    output = formats.default.geojson.OutputData(output_params)
+    output = formats.default.geojson.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
     assert output.file_extension == ".geojson"
     assert isinstance(output_params, dict)
@@ -99,7 +99,7 @@ def test_s3_output_data(mp_s3_tmpdir, geojson_s3):
         pixelbuffer=0,
         metatiling=1
     )
-    output = formats.default.geojson.OutputData(output_params)
+    output = formats.default.geojson.OutputDataWriter(output_params)
     assert output.path == mp_s3_tmpdir
     assert output.file_extension == ".geojson"
     assert isinstance(output_params, dict)

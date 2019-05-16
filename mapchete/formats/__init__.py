@@ -68,9 +68,7 @@ def available_output_formats():
     output_formats = []
     for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         driver_ = v.load()
-        if hasattr(driver_, "METADATA") and (
-            driver_.METADATA["mode"] in ["w", "rw"]
-        ):
+        if hasattr(driver_, "METADATA") and (driver_.METADATA["mode"] in ["w", "rw"]):
             output_formats.append(driver_.METADATA["driver_name"])
     return output_formats
 
@@ -93,13 +91,36 @@ def available_input_formats():
     return input_formats
 
 
+def load_output_reader(output_params):
+    """
+    Return OutputReader class of driver.
+
+    Returns
+    -------
+    output : ``OutputDataReader``
+        output reader object
+    """
+    if not isinstance(output_params, dict):
+        raise TypeError("output_params must be a dictionary")
+    driver_name = output_params["format"]
+    for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
+        _driver = v.load()
+        if all(
+            [hasattr(_driver, attr) for attr in ["OutputDataReader", "METADATA"]]
+            ) and (
+            _driver.METADATA["driver_name"] == driver_name
+        ):
+            return _driver.OutputDataReader(output_params)
+    raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
+
+
 def load_output_writer(output_params, readonly=False):
     """
     Return output class of driver.
 
     Returns
     -------
-    output : ``OutputData``
+    output : ``OutputDataWriter``
         output writer object
     """
     if not isinstance(output_params, dict):
@@ -108,11 +129,11 @@ def load_output_writer(output_params, readonly=False):
     for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         _driver = v.load()
         if all(
-            [hasattr(_driver, attr) for attr in ["OutputData", "METADATA"]]
+            [hasattr(_driver, attr) for attr in ["OutputDataWriter", "METADATA"]]
             ) and (
             _driver.METADATA["driver_name"] == driver_name
         ):
-            return _driver.OutputData(output_params, readonly=readonly)
+            return _driver.OutputDataWriter(output_params, readonly=readonly)
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 
@@ -164,11 +185,7 @@ def driver_from_file(input_file):
         )
     driver = _file_ext_to_driver()[file_ext]
     if len(driver) > 1:
-        warnings.warn(
-            DeprecationWarning(
-                "more than one driver for file found, taking %s" % driver[0]
-            )
-        )
+        warnings.warn("more than one driver for file found, taking %s" % driver[0])
     return driver[0]
 
 

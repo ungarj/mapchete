@@ -14,6 +14,7 @@ from shapely.geometry import shape
 import types
 import warnings
 
+from mapchete.errors import MapcheteProcessOutputError, MapcheteNodataTile
 from mapchete.formats import write_output_metadata
 from mapchete.io import makedirs, path_exists
 from mapchete.io.raster import (
@@ -146,34 +147,10 @@ class InputTile(object):
         pass
 
 
-class OutputDataBasicFunctions(object):
-    """
-    Template class handling process output data.
+class OutputDataBaseFunctions():
 
-    Parameters
-    ----------
-    output_params : dictionary
-        output parameters from Mapchete file
-
-    Attributes
-    ----------
-    pixelbuffer : integer
-        buffer around output tiles
-    pyramid : ``tilematrix.TilePyramid``
-        output ``TilePyramid``
-    crs : ``rasterio.crs.CRS``
-        object describing the process coordinate reference system
-    """
-
-    METADATA = {
-        "driver_name": None,
-        "data_type": None,
-        "mode": "w"
-    }
-
-    def __init__(self, output_params, readonly=False):
+    def __init__(self, output_params, readonly=False, **kwargs):
         """Initialize."""
-        logger.debug("base.Output.__new__()")
         self.pixelbuffer = output_params["pixelbuffer"]
         if "type" in output_params:
             warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
@@ -181,36 +158,11 @@ class OutputDataBasicFunctions(object):
                 output_params["grid"] = output_params.pop("type")
         self.pyramid = BufferedTilePyramid(
             grid=output_params["grid"],
-            metatiling=output_params["metatiling"]
+            metatiling=output_params["metatiling"],
+            pixelbuffer=output_params["pixelbuffer"]
         )
         self.crs = self.pyramid.crs
         self._bucket = None
-
-    def read(self, output_tile):
-        """
-        Read existing process output.
-
-        Parameters
-        ----------
-        output_tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-
-        Returns
-        -------
-        process output : array or list
-        """
-        raise NotImplementedError()
-
-    def write(self, process_tile, data):
-        """
-        Write data from one or more process tiles.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-        """
-        raise NotImplementedError()
 
     def is_valid_with_config(self, config):
         """
@@ -247,28 +199,49 @@ class OutputDataBasicFunctions(object):
             str(tile.col) + self.file_extension
         ])
 
-    def prepare_path(self, tile):
+    def extract_subset(self, input_data_tiles=None, out_tile=None):
         """
-        Create directory and subdirectory if necessary.
+        Extract subset from multiple tiles.
+        input_data_tiles : list of (``Tile``, process data) tuples
+        out_tile : ``Tile``
+        Returns
+        -------
+        NumPy array or list of features.
+        """
+        if self.METADATA["data_type"] == "raster":
+            mosaic = create_mosaic(input_data_tiles)
+            return extract_from_array(
+                in_raster=prepare_array(
+                    mosaic.data,
+                    nodata=self.nodata,
+                    dtype=self.output_params["dtype"]
+                ),
+                in_affine=mosaic.affine,
+                out_tile=out_tile
+            )
+        elif self.METADATA["data_type"] == "vector":
+            return [
+                feature for feature in list(
+                    chain.from_iterable([features for _, features in input_data_tiles])
+                )
+                if shape(feature["geometry"]).intersects(out_tile.bbox)
+            ]
+
+
+class OutputDataReader(OutputDataBaseFunctions):
+
+    def read(self, output_tile):
+        """
+        Read existing process output.
 
         Parameters
         ----------
-        tile : ``BufferedTile``
+        output_tile : ``BufferedTile``
             must be member of output ``TilePyramid``
-        """
-        makedirs(os.path.dirname(self.get_path(tile)))
-
-    def for_web(self, data):
-        """
-        Convert data to web output (raster only).
-
-        Parameters
-        ----------
-        data : array
 
         Returns
         -------
-        web data : array
+        process output : array or list
         """
         raise NotImplementedError()
 
@@ -288,6 +261,79 @@ class OutputDataBasicFunctions(object):
             for vector data
         """
         raise NotImplementedError()
+
+    def open(self, tile, process):
+        """
+        Open process output as input for other process.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+        process : ``MapcheteProcess``
+        """
+        raise NotImplementedError
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
+        raise NotImplementedError()
+
+
+class OutputDataWriter(OutputDataReader):
+    """
+    Template class handling process output data.
+
+    Parameters
+    ----------
+    output_params : dictionary
+        output parameters from Mapchete file
+
+    Attributes
+    ----------
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    """
+
+    METADATA = {
+        "driver_name": None,
+        "data_type": None,
+        "mode": "w"
+    }
+
+    def write(self, process_tile, data):
+        """
+        Write data from one or more process tiles.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        """
+        raise NotImplementedError
+
+    def prepare_path(self, tile):
+        """
+        Create directory and subdirectory if necessary.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+        """
+        makedirs(os.path.dirname(self.get_path(tile)))
 
     def output_is_valid(self, process_data):
         """
@@ -330,53 +376,24 @@ class OutputDataBasicFunctions(object):
         elif self.METADATA["data_type"] == "vector":
             return list(process_data)
 
-    def extract_subset(self, input_data_tiles=None, out_tile=None):
-        """
-        Extract subset from multiple tiles.
-
-        input_data_tiles : list of (``Tile``, process data) tuples
-        out_tile : ``Tile``
-
-        Returns
-        -------
-        NumPy array or list of features.
-        """
-        if self.METADATA["data_type"] == "raster":
-            mosaic = create_mosaic(input_data_tiles)
-            return extract_from_array(
-                in_raster=prepare_array(
-                    mosaic.data,
-                    nodata=self.nodata,
-                    dtype=self.output_params["dtype"]
-                ),
-                in_affine=mosaic.affine,
-                out_tile=out_tile
+    def streamline_output(self, process_data):
+        if isinstance(process_data, str) and process_data == "empty":
+            raise MapcheteNodataTile
+        elif process_data is None:
+            raise MapcheteProcessOutputError("process output is empty")
+        elif self.output_is_valid(process_data):
+            return self.output_cleaned(process_data)
+        else:
+            raise MapcheteProcessOutputError(
+                "invalid output type: %s" % type(process_data)
             )
-        elif self.METADATA["data_type"] == "vector":
-            return [
-                feature for feature in list(
-                    chain.from_iterable([features for _, features in input_data_tiles])
-                )
-                if shape(feature["geometry"]).intersects(out_tile.bbox)
-            ]
-
-    def open(self, tile, process):
-        """
-        Open process output as input for other process.
-
-        Parameters
-        ----------
-        tile : ``Tile``
-        process : ``MapcheteProcess``
-        """
-        raise NotImplementedError()
 
     def close(self):
         """Gets called if process is closed."""
         pass
 
 
-class TileDirectoryOutput(OutputDataBasicFunctions):
+class TileDirectoryOutputReader(OutputDataReader):
 
     def __init__(self, output_params, readonly=False):
         """Initialize."""
@@ -387,14 +404,12 @@ class TileDirectoryOutput(OutputDataBasicFunctions):
     def tiles_exist(self, process_tile=None, output_tile=None):
         """
         Check whether output tiles of a tile (either process or output) exists.
-
         Parameters
         ----------
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         output_tile : ``BufferedTile``
             must be member of output ``TilePyramid``
-
         Returns
         -------
         exists : bool
@@ -424,13 +439,11 @@ class TileDirectoryOutput(OutputDataBasicFunctions):
     ):
         """
         Read reprojected & resampled input data.
-
         Parameters
         ----------
         validity_check : bool
             vector file: also run checks if reprojected geometry is valid,
             otherwise throw RuntimeError (default: True)
-
         indexes : list or int
             raster file: a list of band numbers; None will read all.
         dst_nodata : int or float, optional
@@ -438,7 +451,6 @@ class TileDirectoryOutput(OutputDataBasicFunctions):
             will be used
         gdal_opts : dict
             raster file: GDAL options passed on to rasterio.Env()
-
         Returns
         -------
         data : list for vector files or numpy array for raster files
@@ -458,7 +470,11 @@ class TileDirectoryOutput(OutputDataBasicFunctions):
         )
 
 
-class SingleFileOutput(OutputDataBasicFunctions):
+class TileDirectoryOutputWriter(OutputDataWriter, TileDirectoryOutputReader):
+    pass
+
+
+class SingleFileOutputReader(OutputDataReader):
     def __init__(self, output_params, readonly=False):
         """Initialize."""
         super().__init__(output_params, readonly=readonly)
@@ -466,20 +482,22 @@ class SingleFileOutput(OutputDataBasicFunctions):
     def tiles_exist(self, process_tile=None, output_tile=None):
         """
         Check whether output tiles of a tile (either process or output) exists.
-
         Parameters
         ----------
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         output_tile : ``BufferedTile``
             must be member of output ``TilePyramid``
-
         Returns
         -------
         exists : bool
         """
         # TODO
         raise NotImplementedError
+
+
+class SingleFileOutputWriter(OutputDataWriter, SingleFileOutputReader):
+    pass
 
 
 def is_numpy_or_masked_array(data):

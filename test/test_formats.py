@@ -5,10 +5,10 @@ from tilematrix import TilePyramid
 from rasterio.crs import CRS
 
 import mapchete
-from mapchete import MapcheteProcess, errors
+from mapchete import errors
 from mapchete.formats import (
     available_input_formats, available_output_formats, driver_from_file, base,
-    load_output_writer, load_input_reader, read_output_metadata
+    load_output_reader, load_output_writer, load_input_reader, read_output_metadata
 )
 
 
@@ -39,6 +39,14 @@ def test_output_writer_errors():
         load_output_writer("not_a_dictionary")
     with pytest.raises(errors.MapcheteDriverError):
         load_output_writer({"format": "invalid_driver"})
+
+
+def test_output_reader_errors():
+    """Test errors when loading output writer."""
+    with pytest.raises(TypeError):
+        load_output_reader("not_a_dictionary")
+    with pytest.raises(errors.MapcheteDriverError):
+        load_output_reader({"format": "invalid_driver"})
 
 
 def test_input_reader_errors():
@@ -90,10 +98,8 @@ def test_base_format_classes():
     with pytest.raises(NotImplementedError):
         tmp.is_empty()
 
-    # OutputData
-    tmp = base.OutputDataBasicFunctions(
-        dict(pixelbuffer=0, grid="geodetic", metatiling=1)
-    )
+    # OutputDataWriter
+    tmp = base.OutputDataWriter(dict(pixelbuffer=0, grid="geodetic", metatiling=1))
     assert tmp.pyramid
     assert tmp.pixelbuffer == 0
     assert tmp.crs
@@ -119,24 +125,26 @@ def test_http_rasters(files_bounds, http_raster):
     # TODO make tests more performant
     with mapchete.open(config) as mp:
         assert mp.config.area_at_zoom(zoom).area > 0
-        process_tile = next(mp.get_process_tiles(13))
-        process = MapcheteProcess(
-            config=mp.config, tile=process_tile,
-            params=mp.config.params_at_zoom(process_tile.zoom)
+        tile = next(mp.get_process_tiles(13))
+        user_process = mapchete.MapcheteProcess(
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
         )
-        with process.open("file1") as f:
+        with user_process.open("file1") as f:
             assert f.read().any()
 
 
 def test_read_from_raster_file(cleantopo_br):
     """Read different bands from source raster."""
     with mapchete.open(cleantopo_br.path) as mp:
-        process_tile = mp.config.process_pyramid.tile(5, 0, 0)
-        process = MapcheteProcess(
-            config=mp.config, tile=process_tile,
-            params=mp.config.params_at_zoom(process_tile.zoom)
+        tile = mp.config.process_pyramid.tile(5, 0, 0)
+        user_process = mapchete.MapcheteProcess(
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
         )
-        with process.open("file1") as f:
+        with user_process.open("file1") as f:
             assert f.read().shape == f.read([1]).shape == f.read(1).shape
 
 

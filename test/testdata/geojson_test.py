@@ -1,13 +1,15 @@
-#!/usr/bin/env python
 """Example process file."""
 
+from mapchete.errors import MapcheteNodataTile
 from shapely.geometry import shape
 
 
 def execute(mp):
     """User defined process."""
     # Reading and writing data works like this:
-    with mp.open(mp.params["input"]["file1"]) as vector_file:
+    with mp.open("file1") as vector_file:
+        if vector_file.is_empty():
+            raise MapcheteNodataTile
         return [
             dict(
                 geometry=feature["geometry"],

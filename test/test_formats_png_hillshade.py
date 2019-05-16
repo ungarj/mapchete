@@ -19,7 +19,7 @@ def test_output_data(mp_tmpdir):
         pixelbuffer=0,
         metatiling=1
     )
-    output = png_hillshade.OutputData(output_params)
+    output = png_hillshade.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
     assert output.file_extension == ".png"
     tp = BufferedTilePyramid("geodetic")
@@ -70,7 +70,7 @@ def test_output_data(mp_tmpdir):
 
     # old_band_num
     output_params.update(old_band_num=True)
-    output = png_hillshade.OutputData(output_params)
+    output = png_hillshade.OutputDataWriter(output_params)
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     try:
@@ -103,7 +103,7 @@ def test_s3_write_output_data(mp_s3_tmpdir):
         pixelbuffer=0,
         metatiling=1
     )
-    output = png_hillshade.OutputData(output_params)
+    output = png_hillshade.OutputDataWriter(output_params)
     assert output.path == mp_s3_tmpdir
     assert output.file_extension == ".png"
     tp = BufferedTilePyramid("geodetic")

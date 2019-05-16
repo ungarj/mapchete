@@ -14,6 +14,7 @@ from cached_property import cached_property
 from copy import deepcopy
 import imp
 import importlib
+import inspect
 import logging
 import operator
 import os
@@ -30,7 +31,7 @@ from mapchete.errors import (
     MapcheteDriverError
 )
 from mapchete.formats import (
-    load_output_writer, available_output_formats, load_input_reader
+    load_output_reader, load_output_writer, available_output_formats, load_input_reader
 )
 from mapchete.io import absolute_path
 from mapchete.log import add_module_logger
@@ -155,7 +156,7 @@ class MapcheteConfig(object):
         # (2) check user process
         logger.debug("validating process code")
         self.config_dir = self._raw["config_dir"]
-        self.process_name = self._raw["process"]
+        self.process_name = self.process_path = self._raw["process"]
         self.process_func
 
         # (3) set process and output pyramids
@@ -271,8 +272,8 @@ class MapcheteConfig(object):
         )
 
     @cached_property
-    def output(self):
-        """Output object of driver."""
+    def _output_params(self):
+        """Output params of driver."""
         output_params = dict(
             self._raw["output"],
             grid=self.output_pyramid.grid,
@@ -295,9 +296,14 @@ class MapcheteConfig(object):
                     output_params["format"], str(available_output_formats())
                 )
             )
-        writer = load_output_writer(output_params)
+        return output_params
+
+    @cached_property
+    def output(self):
+        """Output writer class of driver."""
+        writer = load_output_writer(self._output_params)
         try:
-            writer.is_valid_with_config(output_params)
+            writer.is_valid_with_config(self._output_params)
         except Exception as e:
             logger.exception(e)
             raise MapcheteConfigError(
@@ -306,6 +312,14 @@ class MapcheteConfig(object):
                 )
             )
         return writer
+
+    @cached_property
+    def output_reader(self):
+        """Output reader class of driver."""
+        if self.baselevels:
+            return load_output_reader(self._output_params)
+        else:
+            return self.output
 
     @cached_property
     def input(self):
@@ -417,20 +431,21 @@ class MapcheteConfig(object):
 
     @cached_property
     def process_func(self):
-        process_module = _load_process_module(self._raw)
-        try:
-            if hasattr(process_module, "Process"):
-                logger.error(
-                    """instanciating MapcheteProcess is deprecated, """
-                    """provide execute() function instead""")
-            if hasattr(process_module, "execute"):
-                return process_module.execute
-            else:
-                raise ImportError(
-                    "No execute() function found in %s" % self._raw["process"]
-                )
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
+        return get_process_func(
+            process_path=self.process_path, config_dir=self.config_dir, run_compile=True
+        )
+
+    def get_process_func_params(self, zoom):
+        return {
+            k: v for k, v in self.params_at_zoom(zoom).items()
+            if k in inspect.signature(self.process_func).parameters
+        }
+
+    def get_inputs_for_tile(self, tile):
+        return {
+            k: v.open(tile) for k, v in self.params_at_zoom(tile.zoom)["input"].items()
+            if v is not None
+        }
 
     def params_at_zoom(self, zoom):
         """
@@ -742,6 +757,52 @@ def bounds_from_opts(
         return bounds
 
 
+def get_process_func(process_path=None, config_dir=None, run_compile=False):
+    logger.debug("get process function from %s", process_path)
+    process_module = _load_process_module(
+        process_path=process_path, config_dir=config_dir, run_compile=run_compile
+    )
+    try:
+        if hasattr(process_module, "Process"):
+            logger.error(
+                """instanciating MapcheteProcess is deprecated, """
+                """provide execute() function instead"""
+            )
+        if hasattr(process_module, "execute"):
+            return process_module.execute
+        else:
+            raise ImportError(
+                "No execute() function found in %s" % process_path
+            )
+    except ImportError as e:
+        raise MapcheteProcessImportError(e)
+
+
+def _load_process_module(process_path=None, config_dir=None, run_compile=False):
+    if process_path.endswith(".py"):
+        abs_path = os.path.join(config_dir, process_path)
+        if not os.path.isfile(abs_path):
+            raise MapcheteConfigError("%s is not available" % abs_path)
+        try:
+            if run_compile:
+                py_compile.compile(abs_path, doraise=True)
+            module = imp.load_source(
+                os.path.splitext(os.path.basename(abs_path))[0], abs_path
+            )
+            # configure process file logger
+            add_module_logger(module.__name__)
+        except py_compile.PyCompileError as e:
+            raise MapcheteProcessSyntaxError(e)
+        except ImportError as e:
+            raise MapcheteProcessImportError(e)
+    else:
+        try:
+            module = importlib.import_module(process_path)
+        except ImportError as e:
+            raise MapcheteProcessImportError(e)
+    return module
+
+
 def _config_to_dict(input_config):
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
@@ -758,30 +819,6 @@ def _config_to_dict(input_config):
     else:
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file.")
-
-
-def _load_process_module(config):
-    if config["process"].endswith(".py"):
-        abs_path = os.path.join(config["config_dir"], config["process"])
-        if not os.path.isfile(abs_path):
-            raise MapcheteConfigError("%s is not available" % abs_path)
-        try:
-            py_compile.compile(abs_path, doraise=True)
-            module = imp.load_source(
-                os.path.splitext(os.path.basename(abs_path))[0], abs_path
-            )
-            # configure process file logger
-            add_module_logger(module.__name__)
-        except py_compile.PyCompileError as e:
-            raise MapcheteProcessSyntaxError(e)
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
-    else:
-        try:
-            module = importlib.import_module(config["process"])
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
-    return module
 
 
 def _validate_zooms(zooms):

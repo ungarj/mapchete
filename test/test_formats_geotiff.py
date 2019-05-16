@@ -32,7 +32,7 @@ def test_output_data(mp_tmpdir):
             process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0)
         )
     )
-    output = gtiff.OutputData(output_params)
+    output = gtiff.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
     assert output.file_extension == ".tif"
     tp = BufferedTilePyramid("geodetic")
@@ -78,7 +78,7 @@ def test_output_data(mp_tmpdir):
     # deflate with predictor
     try:
         output_params.update(compress="deflate", predictor=2)
-        output = gtiff.OutputData(output_params)
+        output = gtiff.OutputDataWriter(output_params)
         assert output.profile(tile)["compress"] == "deflate"
         assert output.profile(tile)["predictor"] == 2
     finally:
@@ -86,7 +86,7 @@ def test_output_data(mp_tmpdir):
     # using deprecated "compression" property
     try:
         output_params.update(compression="deflate", predictor=2)
-        output = gtiff.OutputData(output_params)
+        output = gtiff.OutputDataWriter(output_params)
         assert output.profile(tile)["compress"] == "deflate"
         assert output.profile(tile)["predictor"] == 2
     finally:
@@ -134,7 +134,7 @@ def test_input_data(mp_tmpdir, cleantopo_br):
                 process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0)
             )
         )
-        output = gtiff.OutputData(output_params)
+        output = gtiff.OutputDataWriter(output_params)
         with output.open(tile, mp, resampling="nearest") as input_tile:
             assert input_tile.resampling == "nearest"
             for data in [

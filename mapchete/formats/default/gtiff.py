@@ -1,5 +1,5 @@
 """
-Handles writing process output into a pyramid of GeoTIFF files.
+Handles writing process output into a pyramid of GeoTIFF files or a single GeoTIFF file.
 
 output configuration parameters
 -------------------------------
@@ -68,10 +68,10 @@ GTIFF_DEFAULT_PROFILE = {
 }
 
 
-class OutputData():
+class OutputDataReader():
     """
-    Constructor class which either returns GTiffSingleFileOutput or
-    GTiffTileDirectoryOutput.
+    Constructor class which either returns GTiffTileDirectoryOutputReader or raises a
+    MapcheteConfigError when configured as single file output
 
     Parameters
     ----------
@@ -103,12 +103,54 @@ class OutputData():
         self.path = output_params["path"]
         self.file_extension = ".tif"
         if self.path.endswith(self.file_extension):
-            return GTiffSingleFileOutput(output_params, **kwargs)
+            raise MapcheteConfigError(
+                "Single GeoTIFF driver cannot be used with baselevel setting"
+            )
         else:
-            return GTiffTileDirectoryOutput(output_params, **kwargs)
+            return GTiffTileDirectoryOutputReader(output_params, **kwargs)
 
 
-class GTiffOutputFunctions():
+class OutputDataWriter():
+    """
+    Constructor class which either returns GTiffSingleFileOutputWriter or
+    GTiffTileDirectoryOutputWriter.
+
+    Parameters
+    ----------
+    output_params : dictionary
+        output parameters from Mapchete file
+
+    Attributes
+    ----------
+    path : string
+        path to output directory
+    file_extension : string
+        file extension for output files (.tif)
+    output_params : dictionary
+        output parameters from Mapchete file
+    nodata : integer or float
+        nodata value used when writing GeoTIFFs
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    srid : string
+        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
+    """
+
+    def __new__(self, output_params, **kwargs):
+        """Initialize."""
+        self.path = output_params["path"]
+        self.file_extension = ".tif"
+        if self.path.endswith(self.file_extension):
+            return GTiffSingleFileOutputWriter(output_params, **kwargs)
+        else:
+            return GTiffTileDirectoryOutputWriter(output_params, **kwargs)
+
+
+class GTiffOutputReaderFunctions():
     """Common functions."""
 
     METADATA = METADATA
@@ -130,8 +172,10 @@ class GTiffOutputFunctions():
         profile = self.profile(process_tile)
         return ma.masked_array(
             data=np.full(
-                (profile["count"], ) + process_tile.shape, profile["nodata"],
-                dtype=profile["dtype"]),
+                (profile["count"], ) + process_tile.shape,
+                profile["nodata"],
+                dtype=profile["dtype"]
+            ),
             mask=True
         )
 
@@ -166,6 +210,26 @@ class GTiffOutputFunctions():
         """
         return InputTile(tile, process, kwargs.get("resampling", None))
 
+    def is_valid_with_config(self, config):
+        """
+        Check if output format is valid with other process parameters.
+
+        Parameters
+        ----------
+        config : dictionary
+            output configuration parameters
+
+        Returns
+        -------
+        is_valid : bool
+        """
+        return validate_values(
+            config, [
+                ("bands", int),
+                ("path", str),
+                ("dtype", str)]
+        )
+
     def _set_attributes(self, output_params):
         self.path = output_params["path"]
         self.file_extension = ".tif"
@@ -174,7 +238,9 @@ class GTiffOutputFunctions():
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
 
-class GTiffTileDirectoryOutput(GTiffOutputFunctions, base.TileDirectoryOutput):
+class GTiffTileDirectoryOutputReader(
+    GTiffOutputReaderFunctions, base.TileDirectoryOutputReader
+):
 
     def __init__(self, output_params, **kwargs):
         """Initialize."""
@@ -195,11 +261,92 @@ class GTiffTileDirectoryOutput(GTiffOutputFunctions, base.TileDirectoryOutput):
         -------
         NumPy array
         """
+        logger.debug("read %s", self.get_path(output_tile))
         try:
             return read_raster_no_crs(self.get_path(output_tile))
         except FileNotFoundError:
             return self.empty(output_tile)
 
+    def empty(self, process_tile):
+        """
+        Return empty data.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        empty data : array
+            empty array with data type provided in output profile
+        """
+        profile = self.profile(process_tile)
+        return ma.masked_array(
+            data=np.full(
+                (profile["count"], ) + process_tile.shape, profile["nodata"],
+                dtype=profile["dtype"]),
+            mask=True
+        )
+
+    def open(self, tile, process, **kwargs):
+        """
+        Open process output as input for other process.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+        process : ``MapcheteProcess``
+        kwargs : keyword arguments
+        """
+        return InputTile(tile, process, kwargs.get("resampling", None))
+
+    def profile(self, tile=None):
+        """
+        Create a metadata dictionary for rasterio.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+
+        Returns
+        -------
+        metadata : dictionary
+            output profile dictionary used for rasterio.
+        """
+        dst_metadata = dict(GTIFF_DEFAULT_PROFILE)
+        dst_metadata.pop("transform", None)
+        dst_metadata.update(
+            count=self.output_params["bands"],
+            dtype=self.output_params["dtype"],
+            driver="GTiff"
+        )
+        if tile is not None:
+            dst_metadata.update(
+                crs=tile.crs, width=tile.width, height=tile.height,
+                affine=tile.affine)
+        else:
+            for k in ["crs", "width", "height", "affine"]:
+                dst_metadata.pop(k, None)
+        if "nodata" in self.output_params:
+            dst_metadata.update(nodata=self.output_params["nodata"])
+        try:
+            if "compression" in self.output_params:
+                warnings.warn(
+                    DeprecationWarning("use 'compress' instead of 'compression'")
+                )
+                dst_metadata.update(compress=self.output_params["compression"])
+            else:
+                dst_metadata.update(compress=self.output_params["compress"])
+            dst_metadata.update(predictor=self.output_params["predictor"])
+        except KeyError:
+            pass
+        return dst_metadata
+
+
+class GTiffTileDirectoryOutputWriter(
+    GTiffTileDirectoryOutputReader, base.TileDirectoryOutputWriter
+):
     def write(self, process_tile, data):
         """
         Write data from process tiles into GeoTIFF file(s).
@@ -246,70 +393,10 @@ class GTiffTileDirectoryOutput(GTiffOutputFunctions, base.TileDirectoryOutput):
                     bucket_resource=bucket_resource
                 )
 
-    def is_valid_with_config(self, config):
-        """
-        Check if output format is valid with other process parameters.
 
-        Parameters
-        ----------
-        config : dictionary
-            output configuration parameters
-
-        Returns
-        -------
-        is_valid : bool
-        """
-        return validate_values(
-            config, [
-                ("bands", int),
-                ("path", str),
-                ("dtype", str)]
-        )
-
-    def profile(self, tile=None):
-        """
-        Create a metadata dictionary for rasterio.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-
-        Returns
-        -------
-        metadata : dictionary
-            output profile dictionary used for rasterio.
-        """
-        dst_metadata = dict(GTIFF_DEFAULT_PROFILE)
-        dst_metadata.pop("transform", None)
-        dst_metadata.update(
-            count=self.output_params["bands"],
-            dtype=self.output_params["dtype"],
-            driver="GTiff"
-        )
-        if tile is not None:
-            dst_metadata.update(
-                crs=tile.crs, width=tile.width, height=tile.height,
-                affine=tile.affine)
-        else:
-            for k in ["crs", "width", "height", "affine"]:
-                dst_metadata.pop(k, None)
-        if "nodata" in self.output_params:
-            dst_metadata.update(nodata=self.output_params["nodata"])
-        try:
-            if "compression" in self.output_params:
-                warnings.warn(
-                    DeprecationWarning("use 'compress' instead of 'compression'")
-                )
-                dst_metadata.update(compress=self.output_params["compression"])
-            else:
-                dst_metadata.update(compress=self.output_params["compress"])
-            dst_metadata.update(predictor=self.output_params["predictor"])
-        except KeyError:
-            pass
-        return dst_metadata
-
-
-class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
+class GTiffSingleFileOutputWriter(
+    GTiffOutputReaderFunctions, base.SingleFileOutputWriter
+):
 
     def __init__(self, output_params, **kwargs):
         """Initialize."""
@@ -317,16 +404,15 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         super().__init__(output_params, **kwargs)
         self._set_attributes(output_params)
         delimiters = output_params["delimiters"]
+        logger.debug(delimiters)
         bounds = delimiters["effective_bounds"]
         if len(delimiters["zoom"]) != 1:
             raise ValueError("single file output only works with one zoom level")
         zoom = delimiters["zoom"][0]
         height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(zoom)
         width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(zoom)
-        print({
-                k: output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
-                for k in GTIFF_DEFAULT_PROFILE.keys()
-            })
+        logger.debug("output raster bounds: %s", bounds)
+        logger.debug("output raster shape: %s, %s", height, width)
         self._profile = dict(
             GTIFF_DEFAULT_PROFILE,
             driver="GTiff",
@@ -348,13 +434,15 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
             }
         )
         logger.debug("single GTiff profile: %s", self._profile)
+        if height * width > 20000 * 20000:
+            raise ValueError("output GeoTIFF too big")
         if "overviews" in output_params:
             self.overviews = True
             self.overviews_resampling = output_params.get(
                 "overviews_resampling", "nearest"
             )
             self.overviews_levels = output_params.get(
-                "overviews_levels", [2**i for i in range(1, zoom + 1)]
+                "overviews_levels", [2**i for i in range(1, zoom)]
             )
         else:
             self.overviews = False
@@ -365,7 +453,9 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
                     "single GTiff file already exists, use overwrite mode to replace"
                 )
             else:
+                logger.debug("remove existing file: %s", self.path)
                 os.remove(self.path)
+        logger.debug("open output file: %s", self.path)
         self.rio_file = rasterio.open(self.path, "w+", **self._profile)
 
     def read(self, output_tile, **kwargs):
@@ -382,6 +472,46 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
         NumPy array
         """
         return read_raster_window(self.rio_file, output_tile)
+
+    def get_path(self, tile=None):
+        """
+        Determine target file path.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        path : string
+        """
+        return self.path
+
+    def tiles_exist(self, process_tile=None, output_tile=None):
+        """
+        Check whether output tiles of a tile (either process or output) exists.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        exists : bool
+        """
+        if process_tile and output_tile:
+            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
+        if process_tile:
+            return any(
+                not self.read(tile).mask.all()
+                for tile in self.pyramid.intersecting(process_tile)
+            )
+        if output_tile:
+            return not self.read(output_tile).mask.all()
 
     def write(self, process_tile, data):
         """
@@ -421,41 +551,6 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
                     window=write_window,
                 )
 
-    def is_valid_with_config(self, config):
-        """
-        Check if output format is valid with other process parameters.
-
-        Parameters
-        ----------
-        config : dictionary
-            output configuration parameters
-
-        Returns
-        -------
-        is_valid : bool
-        """
-        return validate_values(
-            config, [
-                ("bands", int),
-                ("path", str),
-                ("dtype", str)]
-        )
-
-    def get_path(self, tile=None):
-        """
-        Determine target file path.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-
-        Returns
-        -------
-        path : string
-        """
-        return self.path
-
     def profile(self, tile=None):
         """
         Create a metadata dictionary for rasterio.
@@ -466,31 +561,6 @@ class GTiffSingleFileOutput(GTiffOutputFunctions, base.SingleFileOutput):
             output profile dictionary used for rasterio.
         """
         return self._profile
-
-    def tiles_exist(self, process_tile=None, output_tile=None):
-        """
-        Check whether output tiles of a tile (either process or output) exists.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-        output_tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-
-        Returns
-        -------
-        exists : bool
-        """
-        if process_tile and output_tile:
-            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
-        if process_tile:
-            return any(
-                not self.read(tile).mask.all()
-                for tile in self.pyramid.intersecting(process_tile)
-            )
-        if output_tile:
-            return not self.read(output_tile).mask.all()
 
     def close(self):
         """Gets called if process is closed."""
