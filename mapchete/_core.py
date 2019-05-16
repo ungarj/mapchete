@@ -138,7 +138,7 @@ class Mapchete(object):
         multi=multiprocessing.cpu_count(),
         max_chunksize=1,
         multiprocessing_module=multiprocessing,
-        multiprocessing_start_method="spawn"
+        multiprocessing_start_method="fork"
     ):
         """
         Process a large batch of tiles.
@@ -181,7 +181,7 @@ class Mapchete(object):
         multi=multiprocessing.cpu_count(),
         max_chunksize=1,
         multiprocessing_module=multiprocessing,
-        multiprocessing_start_method="spawn"
+        multiprocessing_start_method="fork"
     ):
         """
         Process a large batch of tiles and yield report messages per tile.
@@ -503,9 +503,13 @@ class Mapchete(object):
 
     def __exit__(self, t, v, tb):
         """Cleanup on close."""
+        # run input drivers cleanup
         for ip in self.config.input.values():
             if ip is not None:
                 ip.cleanup()
+        # run output driver cleanup
+        self.config.output.close()
+        # clean up internal cache
         if self.with_cache:
             self.process_tile_cache = None
             self.current_processes = None

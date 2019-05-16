@@ -43,7 +43,7 @@ METADATA = {
 }
 
 
-class OutputDataReader(base.OutputDataReader):
+class OutputDataReader(base.TileDirectoryOutputReader):
     """
     Output reader class for GeoJSON.
 
@@ -74,7 +74,7 @@ class OutputDataReader(base.OutputDataReader):
 
     def __init__(self, output_params, **kwargs):
         """Initialize."""
-        super(OutputDataReader, self).__init__(output_params)
+        super().__init__(output_params)
         self.path = output_params["path"]
         self.file_extension = ".geojson"
         self.output_params = output_params
@@ -166,7 +166,7 @@ class OutputDataReader(base.OutputDataReader):
         return InputTile(tile, process)
 
 
-class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
+class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
 
     METADATA = METADATA
 

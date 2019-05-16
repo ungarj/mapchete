@@ -128,34 +128,34 @@ def _process_single_tile(
                 for result in mp.batch_processor(tile=tile):
                     utils.write_verbose_msg(result, dst=verbose_dst)
 
-                tqdm.tqdm.write(
-                    "processing %s finished in %s" % (mapchete_file, t),
-                    file=verbose_dst
-                )
+            tqdm.tqdm.write(
+                "processing %s finished in %s" % (mapchete_file, t),
+                file=verbose_dst
+            )
 
-                # write VRT index
-                if vrt:
-                    with mapchete.Timer() as t_vrt:
-                        tqdm.tqdm.write("creating VRT", file=verbose_dst)
-                        for tile in tqdm.tqdm(
-                            zoom_index_gen(
-                                mp=mp,
-                                zoom=tile.zoom,
-                                out_dir=idx_out_dir or mp.config.output.path,
-                                vrt=vrt,
-                            ),
-                            total=mp.count_tiles(tile.zoom, tile.zoom),
-                            unit="tile",
-                            disable=debug or no_pbar
-                        ):
-                            logger.debug("%s indexed", tile)
+            # write VRT index
+            if vrt:
+                with mapchete.Timer() as t_vrt:
+                    tqdm.tqdm.write("creating VRT", file=verbose_dst)
+                    for tile in tqdm.tqdm(
+                        zoom_index_gen(
+                            mp=mp,
+                            zoom=tile.zoom,
+                            out_dir=idx_out_dir or mp.config.output.path,
+                            vrt=vrt,
+                        ),
+                        total=mp.count_tiles(tile.zoom, tile.zoom),
+                        unit="tile",
+                        disable=debug or no_pbar
+                    ):
+                        logger.debug("%s indexed", tile)
 
-                        tqdm.tqdm.write(
-                            "VRT(s) creation for %s finished in %s" % (
-                                mapchete_file, t_vrt
-                            ),
-                            file=verbose_dst
-                        )
+                    tqdm.tqdm.write(
+                        "VRT(s) creation for %s finished in %s" % (
+                            mapchete_file, t_vrt
+                        ),
+                        file=verbose_dst
+                    )
 
 
 def _process_area(
@@ -212,10 +212,10 @@ def _process_area(
                 ):
                     utils.write_verbose_msg(process_info, dst=verbose_dst)
 
-                tqdm.tqdm.write(
-                    "processing %s finished in %s" % (mapchete_file, t),
-                    file=verbose_dst
-                )
+            tqdm.tqdm.write(
+                "processing %s finished in %s" % (mapchete_file, t),
+                file=verbose_dst
+            )
 
             # write VRT index
             if vrt:

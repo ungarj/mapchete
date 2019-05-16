@@ -111,6 +111,20 @@ class TileProcess():
         return process_data
 
     def _interpolate_from_baselevel(self, baselevel=None):
+        # This is a special tile derived from a pyramid which has the pixelbuffer setting
+        # from the output pyramid but metatiling from the process pyramid. This is due to
+        # performance reasons as for the usuas case overview tiles do not need the
+        # process pyramid pixelbuffers.
+        tile = self.config_baselevels["tile_pyramid"].tile(*self.tile.id)
+
+        # get output_tiles that intersect with process tile
+        if tile.pixelbuffer > self.output_reader.pyramid.pixelbuffer:
+            output_tiles = list(self.output_reader.pyramid.tiles_from_bounds(
+                tile.bounds, tile.zoom
+            ))
+        else:
+            output_tiles = self.output_reader.pyramid.intersecting(tile)
+
         with Timer() as t:
             # resample from parent tile
             if baselevel == "higher":
@@ -125,10 +139,8 @@ class TileProcess():
             # resample from children tiles
             elif baselevel == "lower":
                 mosaic = raster.create_mosaic([
-                    (child_tile, self.output_reader.read(child_tile), )
-                    for child_tile in self.config_baselevels["tile_pyramid"].tile(
-                        *self.tile.id
-                    ).get_children()
+                    (output_tile, self.output_reader.read(output_tile), )
+                    for output_tile in chain(*[x.get_children() for x in output_tiles])
                 ])
                 process_data = raster.resample_from_array(
                     in_raster=mosaic.data,
@@ -419,29 +431,58 @@ def _run_with_multiprocessing(
     logger.debug("run concurrently")
     num_processed = 0
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
-    logger.debug("run process on %s tiles using %s workers", total_tiles, multi)
+    workers = min([multi, total_tiles])
+    logger.debug("run process on %s tiles using %s workers", total_tiles, workers)
     with Timer() as t:
         executor = Executor(
-            max_workers=multi,
+            max_workers=workers,
             start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module
         )
-        for zoom in zoom_levels:
-            for task in executor.as_completed(
-                func=_execute_and_write,
-                iterable=(
-                    TileProcess(
-                        tile=process_tile,
-                        config=process.config,
-                        skip=_skip(process.config, process_tile)
+        # TODO
+        write_in_parent = True
+        # for output drivers requiring writing data in parent process
+        if write_in_parent:
+            for zoom in zoom_levels:
+                for task in executor.as_completed(
+                    func=_execute,
+                    iterable=(
+                        TileProcess(
+                            tile=process_tile,
+                            config=process.config,
+                            skip=_skip(process.config, process_tile)
+                        )
+                        for process_tile in process.get_process_tiles(zoom)
                     )
-                    for process_tile in process.get_process_tiles(zoom)
-                ),
-                fkwargs=dict(output_writer=process.config.output)
-            ):
-                num_processed += 1
-                logger.info("tile %s/%s finished", num_processed, total_tiles)
-                yield task.result()
+                ):
+                    output_data, process_info = task.result()
+                    process_info = _write(
+                        process_info=process_info,
+                        output_data=output_data,
+                        output_writer=process.config.output,
+                    )
+                    num_processed += 1
+                    logger.info("tile %s/%s finished", num_processed, total_tiles)
+                    yield process_info
+
+        # for output drivers which can write data in child processes
+        else:
+            for zoom in zoom_levels:
+                for task in executor.as_completed(
+                    func=_execute_and_write,
+                    iterable=(
+                        TileProcess(
+                            tile=process_tile,
+                            config=process.config,
+                            skip=_skip(process.config, process_tile)
+                        )
+                        for process_tile in process.get_process_tiles(zoom)
+                    ),
+                    fkwargs=dict(output_writer=process.config.output)
+                ):
+                    num_processed += 1
+                    logger.info("tile %s/%s finished", num_processed, total_tiles)
+                    yield task.result()
     logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 
 

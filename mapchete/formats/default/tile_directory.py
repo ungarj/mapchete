@@ -48,7 +48,7 @@ class InputData(base.InputData):
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
-        super(InputData, self).__init__(input_params, **kwargs)
+        super().__init__(input_params, **kwargs)
         if "abstract" in input_params:
             self._params = input_params["abstract"]
             self.path = absolute_path(

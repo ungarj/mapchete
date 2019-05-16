@@ -1,5 +1,5 @@
 """
-Handles writing process output into a pyramid of GeoTIFF files.
+Handles writing process output into a pyramid of GeoTIFF files or a single GeoTIFF file.
 
 output configuration parameters
 -------------------------------
@@ -30,16 +30,23 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
+from affine import Affine
 import logging
 import numpy as np
 import numpy.ma as ma
+import os
+import rasterio
+from rasterio.enums import Resampling
+from rasterio.windows import from_bounds
 import warnings
 
 from mapchete.config import validate_values
+from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import get_boto3_bucket
+from mapchete.io import get_boto3_bucket, path_exists
 from mapchete.io.raster import (
-    write_raster_window, prepare_array, memory_file, read_raster_no_crs
+    write_raster_window, prepare_array, memory_file, read_raster_no_crs,
+    extract_from_array, read_raster_window
 )
 from mapchete.tile import BufferedTile
 
@@ -61,18 +68,185 @@ GTIFF_DEFAULT_PROFILE = {
 }
 
 
-class OutputDataReader(base.OutputDataReader):
+class OutputDataReader():
+    """
+    Constructor class which either returns GTiffTileDirectoryOutputReader or raises a
+    MapcheteConfigError when configured as single file output
+
+    Parameters
+    ----------
+    output_params : dictionary
+        output parameters from Mapchete file
+
+    Attributes
+    ----------
+    path : string
+        path to output directory
+    file_extension : string
+        file extension for output files (.tif)
+    output_params : dictionary
+        output parameters from Mapchete file
+    nodata : integer or float
+        nodata value used when writing GeoTIFFs
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    srid : string
+        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
+    """
+
+    def __new__(self, output_params, **kwargs):
+        """Initialize."""
+        self.path = output_params["path"]
+        self.file_extension = ".tif"
+        if self.path.endswith(self.file_extension):
+            raise MapcheteConfigError(
+                "Single GeoTIFF driver cannot be used with baselevel setting"
+            )
+        else:
+            return GTiffTileDirectoryOutputReader(output_params, **kwargs)
+
+
+class OutputDataWriter():
+    """
+    Constructor class which either returns GTiffSingleFileOutputWriter or
+    GTiffTileDirectoryOutputWriter.
+
+    Parameters
+    ----------
+    output_params : dictionary
+        output parameters from Mapchete file
+
+    Attributes
+    ----------
+    path : string
+        path to output directory
+    file_extension : string
+        file extension for output files (.tif)
+    output_params : dictionary
+        output parameters from Mapchete file
+    nodata : integer or float
+        nodata value used when writing GeoTIFFs
+    pixelbuffer : integer
+        buffer around output tiles
+    pyramid : ``tilematrix.TilePyramid``
+        output ``TilePyramid``
+    crs : ``rasterio.crs.CRS``
+        object describing the process coordinate reference system
+    srid : string
+        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
+    """
+
+    def __new__(self, output_params, **kwargs):
+        """Initialize."""
+        self.path = output_params["path"]
+        self.file_extension = ".tif"
+        if self.path.endswith(self.file_extension):
+            return GTiffSingleFileOutputWriter(output_params, **kwargs)
+        else:
+            return GTiffTileDirectoryOutputWriter(output_params, **kwargs)
+
+
+class GTiffOutputReaderFunctions():
+    """Common functions."""
 
     METADATA = METADATA
 
-    def __init__(self, output_params, **kwargs):
-        """Initialize."""
-        super(base.OutputDataReader, self).__init__(output_params)
+    def empty(self, process_tile):
+        """
+        Return empty data.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+
+        Returns
+        -------
+        empty data : array
+            empty array with data type provided in output profile
+        """
+        profile = self.profile(process_tile)
+        return ma.masked_array(
+            data=np.full(
+                (profile["count"], ) + process_tile.shape,
+                profile["nodata"],
+                dtype=profile["dtype"]
+            ),
+            mask=True
+        )
+
+    def for_web(self, data):
+        """
+        Convert data to web output (raster only).
+
+        Parameters
+        ----------
+        data : array
+
+        Returns
+        -------
+        web data : array
+        """
+        return memory_file(
+            prepare_array(
+                data, masked=True, nodata=self.nodata, dtype=self.profile()["dtype"]
+            ),
+            self.profile()
+        ), "image/tiff"
+
+    def open(self, tile, process, **kwargs):
+        """
+        Open process output as input for other process.
+
+        Parameters
+        ----------
+        tile : ``Tile``
+        process : ``MapcheteProcess``
+        kwargs : keyword arguments
+        """
+        return InputTile(tile, process, kwargs.get("resampling", None))
+
+    def is_valid_with_config(self, config):
+        """
+        Check if output format is valid with other process parameters.
+
+        Parameters
+        ----------
+        config : dictionary
+            output configuration parameters
+
+        Returns
+        -------
+        is_valid : bool
+        """
+        return validate_values(
+            config, [
+                ("bands", int),
+                ("path", str),
+                ("dtype", str)]
+        )
+
+    def _set_attributes(self, output_params):
         self.path = output_params["path"]
         self.file_extension = ".tif"
         self.output_params = output_params
         self.nodata = output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+
+
+class GTiffTileDirectoryOutputReader(
+    GTiffOutputReaderFunctions, base.TileDirectoryOutputReader
+):
+
+    def __init__(self, output_params, **kwargs):
+        """Initialize."""
+        logger.debug("output is tile directory")
+        super().__init__(output_params, **kwargs)
+        self._set_attributes(output_params)
 
     def read(self, output_tile, **kwargs):
         """
@@ -87,6 +261,7 @@ class OutputDataReader(base.OutputDataReader):
         -------
         NumPy array
         """
+        logger.debug("read %s", self.get_path(output_tile))
         try:
             return read_raster_no_crs(self.get_path(output_tile))
         except FileNotFoundError:
@@ -139,7 +314,7 @@ class OutputDataReader(base.OutputDataReader):
         metadata : dictionary
             output profile dictionary used for rasterio.
         """
-        dst_metadata = GTIFF_DEFAULT_PROFILE
+        dst_metadata = dict(GTIFF_DEFAULT_PROFILE)
         dst_metadata.pop("transform", None)
         dst_metadata.update(
             count=self.output_params["bands"],
@@ -168,77 +343,10 @@ class OutputDataReader(base.OutputDataReader):
             pass
         return dst_metadata
 
-    def for_web(self, data):
-        """
-        Convert data to web output (raster only).
 
-        Parameters
-        ----------
-        data : array
-
-        Returns
-        -------
-        web data : array
-        """
-        return memory_file(
-            prepare_array(
-                data, masked=True, nodata=self.nodata, dtype=self.profile()["dtype"]
-            ),
-            self.profile()
-        ), "image/tiff"
-
-    def is_valid_with_config(self, config):
-        """
-        Check if output format is valid with other process parameters.
-
-        Parameters
-        ----------
-        config : dictionary
-            output configuration parameters
-
-        Returns
-        -------
-        is_valid : bool
-        """
-        return validate_values(
-            config, [
-                ("bands", int),
-                ("path", str),
-                ("dtype", str)]
-        )
-
-
-class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
-    """
-    Template class handling process output data.
-
-    Parameters
-    ----------
-    output_params : dictionary
-        output parameters from Mapchete file
-
-    Attributes
-    ----------
-    path : string
-        path to output directory
-    file_extension : string
-        file extension for output files (.tif)
-    output_params : dictionary
-        output parameters from Mapchete file
-    nodata : integer or float
-        nodata value used when writing GeoTIFFs
-    pixelbuffer : integer
-        buffer around output tiles
-    pyramid : ``tilematrix.TilePyramid``
-        output ``TilePyramid``
-    crs : ``rasterio.crs.CRS``
-        object describing the process coordinate reference system
-    srid : string
-        spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
-    """
-
-    METADATA = METADATA
-
+class GTiffTileDirectoryOutputWriter(
+    GTiffTileDirectoryOutputReader, base.TileDirectoryOutputWriter
+):
     def write(self, process_tile, data):
         """
         Write data from process tiles into GeoTIFF file(s).
@@ -284,6 +392,197 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
                     tags=tags,
                     bucket_resource=bucket_resource
                 )
+
+
+class GTiffSingleFileOutputWriter(
+    GTiffOutputReaderFunctions, base.SingleFileOutputWriter
+):
+
+    def __init__(self, output_params, **kwargs):
+        """Initialize."""
+        logger.debug("output is single file")
+        super().__init__(output_params, **kwargs)
+        self._set_attributes(output_params)
+        delimiters = output_params["delimiters"]
+        logger.debug(delimiters)
+        bounds = delimiters["effective_bounds"]
+        if len(delimiters["zoom"]) != 1:
+            raise ValueError("single file output only works with one zoom level")
+        zoom = delimiters["zoom"][0]
+        height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(zoom)
+        width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(zoom)
+        logger.debug("output raster bounds: %s", bounds)
+        logger.debug("output raster shape: %s, %s", height, width)
+        self._profile = dict(
+            GTIFF_DEFAULT_PROFILE,
+            driver="GTiff",
+            transform=Affine(
+                self.pyramid.pixel_x_size(zoom),
+                0,
+                bounds.left,
+                0,
+                -self.pyramid.pixel_y_size(zoom),
+                bounds.top
+            ),
+            height=height,
+            width=width,
+            count=output_params["bands"],
+            crs=self.pyramid.crs,
+            **{
+                k: output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
+                for k in GTIFF_DEFAULT_PROFILE.keys()
+            }
+        )
+        logger.debug("single GTiff profile: %s", self._profile)
+        if height * width > 20000 * 20000:
+            raise ValueError("output GeoTIFF too big")
+        if "overviews" in output_params:
+            self.overviews = True
+            self.overviews_resampling = output_params.get(
+                "overviews_resampling", "nearest"
+            )
+            self.overviews_levels = output_params.get(
+                "overviews_levels", [2**i for i in range(1, zoom)]
+            )
+        else:
+            self.overviews = False
+        # set up rasterio
+        if path_exists(self.path):
+            if output_params["mode"] != "overwrite":
+                raise MapcheteConfigError(
+                    "single GTiff file already exists, use overwrite mode to replace"
+                )
+            else:
+                logger.debug("remove existing file: %s", self.path)
+                os.remove(self.path)
+        logger.debug("open output file: %s", self.path)
+        self.rio_file = rasterio.open(self.path, "w+", **self._profile)
+
+    def read(self, output_tile, **kwargs):
+        """
+        Read existing process output.
+
+        Parameters
+        ----------
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        NumPy array
+        """
+        return read_raster_window(self.rio_file, output_tile)
+
+    def get_path(self, tile=None):
+        """
+        Determine target file path.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        path : string
+        """
+        return self.path
+
+    def tiles_exist(self, process_tile=None, output_tile=None):
+        """
+        Check whether output tiles of a tile (either process or output) exists.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        exists : bool
+        """
+        if process_tile and output_tile:
+            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
+        if process_tile:
+            return any(
+                not self.read(tile).mask.all()
+                for tile in self.pyramid.intersecting(process_tile)
+            )
+        if output_tile:
+            return not self.read(output_tile).mask.all()
+
+    def write(self, process_tile, data):
+        """
+        Write data from process tiles into GeoTIFF file(s).
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        """
+        data = prepare_array(
+            data,
+            masked=True,
+            nodata=self.nodata,
+            dtype=self.profile(process_tile)["dtype"]
+        )
+
+        if data.mask.all():
+            logger.debug("data empty, nothing to write")
+        else:
+            # Convert from process_tile to output_tiles and write
+            for tile in self.pyramid.intersecting(process_tile):
+                out_tile = BufferedTile(tile, self.pixelbuffer)
+                write_window = from_bounds(
+                    *out_tile.bounds,
+                    transform=self.rio_file.transform,
+                    height=self.rio_file.height,
+                    width=self.rio_file.width
+                )
+                logger.debug("write data to window: %s", write_window)
+                self.rio_file.write(
+                    extract_from_array(
+                        in_raster=data,
+                        in_affine=process_tile.affine,
+                        out_tile=out_tile
+                    ) if process_tile != out_tile else data,
+                    window=write_window,
+                )
+
+    def profile(self, tile=None):
+        """
+        Create a metadata dictionary for rasterio.
+
+        Returns
+        -------
+        metadata : dictionary
+            output profile dictionary used for rasterio.
+        """
+        return self._profile
+
+    def close(self):
+        """Gets called if process is closed."""
+        if self.overviews:
+            try:
+                logger.debug(
+                    "build overviews using %s resampling and levels %s",
+                    self.overviews_resampling, self.overviews_levels
+                )
+                self.rio_file.build_overviews(
+                    self.overviews_levels, Resampling[self.overviews_resampling]
+                )
+                self.rio_file.update_tags(
+                    ns='rio_overview', resampling=self.overviews_resampling
+                )
+            except Exception:
+                logger.exception("error when generating overviews")
+        logger.debug("close rasterio file handle.")
+        try:
+            self.rio_file.close()
+        except:
+            pass
 
 
 class InputTile(base.InputTile):

@@ -47,7 +47,7 @@ PNG_DEFAULT_PROFILE = {
 }
 
 
-class OutputDataReader(base.OutputDataReader):
+class OutputDataReader(base.TileDirectoryOutputReader):
     """
     PNG_hillshade output class.
 
@@ -81,7 +81,7 @@ class OutputDataReader(base.OutputDataReader):
 
     def __init__(self, output_params, **kwargs):
         """Initialize."""
-        super(OutputDataReader, self).__init__(output_params)
+        super().__init__(output_params)
         self.path = output_params["path"]
         self.file_extension = ".png"
         self.output_params = output_params

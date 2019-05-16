@@ -46,7 +46,7 @@ class InputData(base.InputData):
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
-        super(InputData, self).__init__(input_params, **kwargs)
+        super().__init__(input_params, **kwargs)
         self.path = input_params["path"]
         self.process = Mapchete(MapcheteConfig(
             self.path, mode="readonly",

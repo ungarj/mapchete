@@ -163,33 +163,6 @@ class OutputDataBaseFunctions():
         )
         self.crs = self.pyramid.crs
         self._bucket = None
-        if not readonly:
-            write_output_metadata(output_params)
-
-    def tiles_exist(self, process_tile=None, output_tile=None):
-        """
-        Check whether output tiles of a tile (either process or output) exists.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-        output_tile : ``BufferedTile``
-            must be member of output ``TilePyramid``
-
-        Returns
-        -------
-        exists : bool
-        """
-        if process_tile and output_tile:
-            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
-        if process_tile:
-            return any(
-                path_exists(self.get_path(tile))
-                for tile in self.pyramid.intersecting(process_tile)
-            )
-        if output_tile:
-            return path_exists(self.get_path(output_tile))
 
     def is_valid_with_config(self, config):
         """
@@ -204,7 +177,7 @@ class OutputDataBaseFunctions():
         -------
         is_valid : bool
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def get_path(self, tile):
         """
@@ -229,10 +202,8 @@ class OutputDataBaseFunctions():
     def extract_subset(self, input_data_tiles=None, out_tile=None):
         """
         Extract subset from multiple tiles.
-
         input_data_tiles : list of (``Tile``, process data) tuples
         out_tile : ``Tile``
-
         Returns
         -------
         NumPy array or list of features.
@@ -272,7 +243,7 @@ class OutputDataReader(OutputDataBaseFunctions):
         -------
         process output : array or list
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def empty(self, process_tile):
         """
@@ -289,7 +260,7 @@ class OutputDataReader(OutputDataBaseFunctions):
             empty array with correct data type for raster data or empty list
             for vector data
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def open(self, tile, process):
         """
@@ -314,55 +285,7 @@ class OutputDataReader(OutputDataBaseFunctions):
         -------
         web data : array
         """
-        raise NotImplementedError
-
-    def _read_as_tiledir(
-        self,
-        out_tile=None,
-        td_crs=None,
-        tiles_paths=None,
-        profile=None,
-        validity_check=False,
-        indexes=None,
-        resampling=None,
-        dst_nodata=None,
-        gdal_opts=None,
-        **kwargs
-    ):
-        """
-        Read reprojected & resampled input data.
-
-        Parameters
-        ----------
-        validity_check : bool
-            vector file: also run checks if reprojected geometry is valid,
-            otherwise throw RuntimeError (default: True)
-
-        indexes : list or int
-            raster file: a list of band numbers; None will read all.
-        dst_nodata : int or float, optional
-            raster file: if not set, the nodata value from the source dataset
-            will be used
-        gdal_opts : dict
-            raster file: GDAL options passed on to rasterio.Env()
-
-        Returns
-        -------
-        data : list for vector files or numpy array for raster files
-        """
-        return _read_as_tiledir(
-            data_type=self.METADATA["data_type"],
-            out_tile=out_tile,
-            td_crs=td_crs,
-            tiles_paths=tiles_paths,
-            profile=profile,
-            validity_check=validity_check,
-            indexes=indexes,
-            resampling=resampling,
-            dst_nodata=dst_nodata,
-            gdal_opts=gdal_opts,
-            **{k: v for k, v in kwargs.items() if k != "data_type"}
-        )
+        raise NotImplementedError()
 
 
 class OutputDataWriter(OutputDataReader):
@@ -465,9 +388,120 @@ class OutputDataWriter(OutputDataReader):
                 "invalid output type: %s" % type(process_data)
             )
 
+    def close(self):
+        """Gets called if process is closed."""
+        pass
+
+
+class TileDirectoryOutputReader(OutputDataReader):
+
+    def __init__(self, output_params, readonly=False):
+        """Initialize."""
+        super().__init__(output_params, readonly=readonly)
+        if not readonly:
+            write_output_metadata(output_params)
+
+    def tiles_exist(self, process_tile=None, output_tile=None):
+        """
+        Check whether output tiles of a tile (either process or output) exists.
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+        Returns
+        -------
+        exists : bool
+        """
+        if process_tile and output_tile:
+            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
+        if process_tile:
+            return any(
+                path_exists(self.get_path(tile))
+                for tile in self.pyramid.intersecting(process_tile)
+            )
+        if output_tile:
+            return path_exists(self.get_path(output_tile))
+
+    def _read_as_tiledir(
+        self,
+        out_tile=None,
+        td_crs=None,
+        tiles_paths=None,
+        profile=None,
+        validity_check=False,
+        indexes=None,
+        resampling=None,
+        dst_nodata=None,
+        gdal_opts=None,
+        **kwargs
+    ):
+        """
+        Read reprojected & resampled input data.
+        Parameters
+        ----------
+        validity_check : bool
+            vector file: also run checks if reprojected geometry is valid,
+            otherwise throw RuntimeError (default: True)
+        indexes : list or int
+            raster file: a list of band numbers; None will read all.
+        dst_nodata : int or float, optional
+            raster file: if not set, the nodata value from the source dataset
+            will be used
+        gdal_opts : dict
+            raster file: GDAL options passed on to rasterio.Env()
+        Returns
+        -------
+        data : list for vector files or numpy array for raster files
+        """
+        return _read_as_tiledir(
+            data_type=self.METADATA["data_type"],
+            out_tile=out_tile,
+            td_crs=td_crs,
+            tiles_paths=tiles_paths,
+            profile=profile,
+            validity_check=validity_check,
+            indexes=indexes,
+            resampling=resampling,
+            dst_nodata=dst_nodata,
+            gdal_opts=gdal_opts,
+            **{k: v for k, v in kwargs.items() if k != "data_type"}
+        )
+
+
+class TileDirectoryOutputWriter(OutputDataWriter, TileDirectoryOutputReader):
+    pass
+
+
+class SingleFileOutputReader(OutputDataReader):
+    def __init__(self, output_params, readonly=False):
+        """Initialize."""
+        super().__init__(output_params, readonly=readonly)
+
+    def tiles_exist(self, process_tile=None, output_tile=None):
+        """
+        Check whether output tiles of a tile (either process or output) exists.
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+        Returns
+        -------
+        exists : bool
+        """
+        # TODO
+        raise NotImplementedError
+
+
+class SingleFileOutputWriter(OutputDataWriter, SingleFileOutputReader):
+    pass
+
 
 def is_numpy_or_masked_array(data):
-    return isinstance(data, (np.ndarray, ma.MaskedArray))
+    return isinstance(data, (np.ndarray, ma.core.MaskedArray))
 
 
 def is_numpy_or_masked_array_with_tags(data):
