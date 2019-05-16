@@ -546,8 +546,8 @@ class GTiffSingleFileOutputWriter(
 
     def close(self):
         """Gets called if process is closed."""
-        if self.overviews:
-            try:
+        try:
+            if self.overviews:
                 logger.debug(
                     "build overviews using %s resampling and levels %s",
                     self.overviews_resampling, self.overviews_levels
@@ -558,10 +558,9 @@ class GTiffSingleFileOutputWriter(
                 self.rio_file.update_tags(
                     ns='rio_overview', resampling=self.overviews_resampling
                 )
-            except Exception:
-                logger.exception("error when generating overviews")
-        logger.debug("close rasterio file handle.")
-        self.rio_file.close()
+        finally:
+            logger.debug("close rasterio file handle.")
+            self.rio_file.close()
 
 
 class InputTile(base.InputTile):
