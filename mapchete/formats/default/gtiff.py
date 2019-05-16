@@ -70,8 +70,7 @@ GTIFF_DEFAULT_PROFILE = {
 
 class OutputDataReader():
     """
-    Constructor class which either returns GTiffTileDirectoryOutputReader or raises a
-    MapcheteConfigError when configured as single file output
+    Constructor class which either returns GTiffTileDirectoryOutputReader.
 
     Parameters
     ----------
@@ -100,14 +99,7 @@ class OutputDataReader():
 
     def __new__(self, output_params, **kwargs):
         """Initialize."""
-        self.path = output_params["path"]
-        self.file_extension = ".tif"
-        if self.path.endswith(self.file_extension):
-            raise MapcheteConfigError(
-                "Single GeoTIFF driver cannot be used with baselevel setting"
-            )
-        else:
-            return GTiffTileDirectoryOutputReader(output_params, **kwargs)
+        return GTiffTileDirectoryOutputReader(output_params, **kwargs)
 
 
 class OutputDataWriter():
@@ -289,18 +281,6 @@ class GTiffTileDirectoryOutputReader(
             mask=True
         )
 
-    def open(self, tile, process, **kwargs):
-        """
-        Open process output as input for other process.
-
-        Parameters
-        ----------
-        tile : ``Tile``
-        process : ``MapcheteProcess``
-        kwargs : keyword arguments
-        """
-        return InputTile(tile, process, kwargs.get("resampling", None))
-
     def profile(self, tile=None):
         """
         Create a metadata dictionary for rasterio.
@@ -314,22 +294,24 @@ class GTiffTileDirectoryOutputReader(
         metadata : dictionary
             output profile dictionary used for rasterio.
         """
-        dst_metadata = dict(GTIFF_DEFAULT_PROFILE)
-        dst_metadata.pop("transform", None)
-        dst_metadata.update(
+        dst_metadata = dict(
+            GTIFF_DEFAULT_PROFILE,
             count=self.output_params["bands"],
             dtype=self.output_params["dtype"],
-            driver="GTiff"
+            driver="GTiff",
+            nodata=self.output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
         )
+        dst_metadata.pop("transform", None)
         if tile is not None:
             dst_metadata.update(
-                crs=tile.crs, width=tile.width, height=tile.height,
-                affine=tile.affine)
+                crs=tile.crs,
+                width=tile.width,
+                height=tile.height,
+                affine=tile.affine
+            )
         else:
             for k in ["crs", "width", "height", "affine"]:
                 dst_metadata.pop(k, None)
-        if "nodata" in self.output_params:
-            dst_metadata.update(nodata=self.output_params["nodata"])
         try:
             if "compression" in self.output_params:
                 warnings.warn(
@@ -579,10 +561,7 @@ class GTiffSingleFileOutputWriter(
             except Exception:
                 logger.exception("error when generating overviews")
         logger.debug("close rasterio file handle.")
-        try:
-            self.rio_file.close()
-        except:
-            pass
+        self.rio_file.close()
 
 
 class InputTile(base.InputTile):
@@ -627,10 +606,11 @@ class InputTile(base.InputTile):
         """
         band_indexes = self._get_band_indexes(indexes)
         arr = self.process.get_raw_output(self.tile)
-        if len(band_indexes) == 1:
-            return arr[band_indexes[0] - 1]
-        else:
-            return ma.concatenate([ma.expand_dims(arr[i - 1], 0) for i in band_indexes])
+        return (
+            arr[band_indexes[0] - 1]
+            if len(band_indexes) == 1
+            else ma.concatenate([ma.expand_dims(arr[i - 1], 0) for i in band_indexes])
+        )
 
     def is_empty(self, indexes=None):
         """
