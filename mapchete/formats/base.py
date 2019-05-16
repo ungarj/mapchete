@@ -149,6 +149,8 @@ class InputTile(object):
 
 class OutputDataBaseFunctions():
 
+    write_in_parent_process = False
+
     def __init__(self, output_params, readonly=False, **kwargs):
         """Initialize."""
         self.pixelbuffer = output_params["pixelbuffer"]

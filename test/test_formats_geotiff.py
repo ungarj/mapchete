@@ -200,7 +200,7 @@ def test_output_single_gtiff(output_single_gtiff):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(tile=process_tile.id)
+        mp.batch_process(multi=2)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data

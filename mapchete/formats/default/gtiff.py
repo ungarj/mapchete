@@ -380,6 +380,8 @@ class GTiffSingleFileOutputWriter(
     GTiffOutputReaderFunctions, base.SingleFileOutputWriter
 ):
 
+    write_in_parent_process = True
+
     def __init__(self, output_params, **kwargs):
         """Initialize."""
         logger.debug("output is single file")
