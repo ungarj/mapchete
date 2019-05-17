@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """Test Mapchete config module."""
 
-import pytest
+from copy import deepcopy
 import os
+import pytest
 from shapely.geometry import Polygon
 from shapely.wkt import loads
-from copy import deepcopy
+import oyaml as yaml
 
 import mapchete
 from mapchete.config import MapcheteConfig, snap_bounds
@@ -202,8 +203,21 @@ def test_read_input_groups(file_groups):
     assert "file2" in input_files["nested_group"]["group1"]
     assert "file1" in input_files["nested_group"]["group2"]
     assert "file2" in input_files["nested_group"]["group2"]
-    # test for #181
-    # assert config.area_at_zoom()
+    assert config.area_at_zoom()
+
+
+def test_read_input_order(file_groups):
+    """Assert input objects are represented in the same order as configured."""
+    with mapchete.open(file_groups.path) as mp:
+        inputs = yaml.load(open(file_groups.path).read())["input"]
+        tile = mp.config.process_pyramid.tile(0, 0, 0)
+        # read written data from within MapcheteProcess object
+        user_process = mapchete.MapcheteProcess(
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
+        )
+        assert inputs.keys() == user_process.input.keys()
 
 
 def test_input_zooms(files_zooms):
@@ -243,5 +257,4 @@ def test_init_zoom(cleantopo_br):
 
 
 def test_process_module(process_module):
-    with mapchete.open(process_module.dict) as mp:
-        pass
+    mapchete.open(process_module.dict)

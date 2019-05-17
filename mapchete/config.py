@@ -11,6 +11,7 @@ when initializing the configuration.
 """
 
 from cached_property import cached_property
+from collections import OrderedDict
 from copy import deepcopy
 import imp
 import importlib
@@ -18,13 +19,13 @@ import inspect
 import logging
 import operator
 import os
+import oyaml as yaml
 import py_compile
 from shapely import wkt
 from shapely.geometry import box
 from shapely.ops import cascaded_union
 from tilematrix._funcs import Bounds
 import warnings
-import yaml
 
 from mapchete.errors import (
     MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteProcessImportError,
@@ -214,11 +215,10 @@ class MapcheteConfig(object):
         logger.debug("initializing input")
         self.input
 
-        # TODO: enable after #181 is fixed
         # (9) some output drivers such as the GeoTIFF single file driver also needs the
         # process area to prepare
-        # logger.debug("prepare output")
-        # self.output.prepare(process_area=self.area_at_zoom())
+        logger.debug("prepare output")
+        self.output.prepare(process_area=self.area_at_zoom())
 
     @cached_property
     def zoom_levels(self):
@@ -449,10 +449,17 @@ class MapcheteConfig(object):
         }
 
     def get_inputs_for_tile(self, tile):
-        return {
-            k: v.open(tile) for k, v in self.params_at_zoom(tile.zoom)["input"].items()
-            if v is not None
-        }
+
+        def _open_inputs(i):
+            for k, v in i.items():
+                if v is None:
+                    continue
+                elif isinstance(v, dict):
+                    yield (k, list(_open_inputs(v)))
+                else:
+                    yield (k, v.open(tile))
+
+        return OrderedDict(list(_open_inputs(self.params_at_zoom(tile.zoom)["input"])))
 
     def params_at_zoom(self, zoom):
         """
@@ -517,7 +524,7 @@ class MapcheteConfig(object):
             if "input" in self._params_at_zoom[zoom]:
                 input_union = cascaded_union([
                     self.input[get_hash(v)].bbox(self.process_pyramid.crs)
-                    for k, v in self._params_at_zoom[zoom]["input"].items()
+                    for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
                     if v is not None
                 ])
                 self._cache_area_at_zoom[zoom] = input_union.intersection(
@@ -712,7 +719,7 @@ def raw_conf(mapchete_file):
     -------
     dictionary
     """
-    return _map_to_new_config(yaml.load(open(mapchete_file, "r").read()))
+    return _map_to_new_config(yaml.safe_load(open(mapchete_file, "r").read()))
 
 
 def raw_conf_process_pyramid(raw_conf):
