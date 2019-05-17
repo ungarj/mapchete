@@ -11,6 +11,10 @@ Changelog
   * output drivers must now provide `OutputDataWriter` and `OutputDataReader` classes instead of a single `OutputData` class
   * `OutputDataWriter.close()` method must accept `exc_type=None, exc_value=None, exc_traceback=None` keywords
 
+* fixed `area_at_zoom()` when using input groups (#181)
+* fixed single GeoTIFF output bounds should use process area (#182)
+* fixed YAML warning (#167)
+* inputs preserve order (#176)
 * enabled writing into single GeoTIFF files (#175)
 * enabled multiprocessing spawn method (#173)
 * extracted `execute()` logic to `TileProcess` class (#173)
