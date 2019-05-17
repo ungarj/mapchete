@@ -4,7 +4,7 @@ import click
 import os
 from string import Template
 from shutil import copyfile
-from yaml import dump
+from oyaml import dump
 import pkg_resources
 
 from mapchete.cli import utils
