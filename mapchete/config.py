@@ -336,16 +336,16 @@ class MapcheteConfig(object):
         InputData classes.
         """
         # get input items only of initialized zoom levels
-        raw_inputs = {
+        raw_inputs = OrderedDict([
             # convert input definition to hash
-            get_hash(v): v
+            (get_hash(v), v)
             for zoom in self.init_zoom_levels
             if "input" in self._params_at_zoom[zoom]
             # to preserve file groups, "flatten" the input tree and use
             # the tree paths as keys
             for key, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
             if v is not None
-        }
+        ])
 
         initalized_inputs = OrderedDict()
         for k, v in raw_inputs.items():
