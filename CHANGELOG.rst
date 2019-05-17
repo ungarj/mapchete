@@ -11,6 +11,7 @@ Changelog
   * output drivers must now provide `OutputDataWriter` and `OutputDataReader` classes instead of a single `OutputData` class
   * `OutputDataWriter.close()` method must accept `exc_type=None, exc_value=None, exc_traceback=None` keywords
 
+* enabled writing into single GeoTIFF files (#175)
 * enabled multiprocessing spawn method (#173)
 * extracted `execute()` logic to `TileProcess` class (#173)
 * process workers now only receive objects and parameters they need (#173)
