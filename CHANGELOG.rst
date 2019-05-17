@@ -6,6 +6,13 @@ Changelog
 0.28
 ----
 
+* breaking changes
+
+  * output drivers must now provide `OutputDataWriter` and `OutputDataReader` classes instead of a single `OutputData` class
+
+* enabled multiprocessing spawn method (#173)
+* extracted `execute()` logic to `TileProcess` class (#173)
+* process workers now only receive objects and parameters they need (#173)
 * parsing mapchete input does not fail if zoom levels do not match
 * enable other projections again for GeoJSON output (closing #151)
 * automatically detect loggers from registered mapchete packages and user process files

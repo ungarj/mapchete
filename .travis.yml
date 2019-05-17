@@ -14,9 +14,9 @@ before_install:
   - export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 install:
   - pip install -e .[contours,s3,serve,vrt]
-  - pip install pytest coveralls
+  - pip install pytest coveralls pytest-cov pytest-flask
 script:
-  - coverage run --source=mapchete setup.py test
+  - pytest -v --cov mapchete test/
 after_success:
   - coveralls
 env:

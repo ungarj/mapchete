@@ -10,7 +10,7 @@ import rasterio
 
 import mapchete
 from mapchete.cli import utils
-from mapchete.io import get_best_zoom_level
+from mapchete.io import get_best_zoom_level, makedirs
 
 # ranges from rasterio
 # https://github.com/mapbox/rasterio/blob/master/rasterio/dtypes.py#L61
@@ -125,8 +125,7 @@ def raster2pyramid(input_file, output_dir, options):
     # create process
     with mapchete.open(config, zoom=zoom, bounds=bounds) as mp:
         # prepare output directory
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        makedirs(output_dir)
         # run process
         mp.batch_process(zoom=[minzoom, maxzoom])
 

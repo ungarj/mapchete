@@ -1,0 +1,14 @@
+process: ../example_process.py
+zoom_levels: 5
+pyramid:
+    grid: geodetic
+    pixelbuffer: 20
+    metatiling: 8
+input:
+    file1: cleantopo_br.tif
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/cleantopo_br.tif
+    pixelbuffer: 20
