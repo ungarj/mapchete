@@ -200,13 +200,19 @@ def test_output_single_gtiff(output_single_gtiff):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(tile=process_tile.id)
+        mp.batch_process(multi=2)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
         data = mp.config.output.read(process_tile)
         assert isinstance(data, np.ndarray)
         assert not data[0].mask.all()
+        # write empty array
+        data = ma.masked_array(
+            data=np.ones(process_tile.shape),
+            mask=np.ones(process_tile.shape),
+        )
+        mp.config.output.write(process_tile, data)
     assert os.path.isfile(mp.config.output.path)
 
     # error on existing file
@@ -221,10 +227,29 @@ def test_output_single_gtiff(output_single_gtiff):
         mp.batch_process(tile=process_tile.id)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
+        assert mp.config.output.tiles_exist(
+            output_tile=mp.config.output_pyramid.intersecting(process_tile)[0]
+        )
         # read again, this time with data
         data = mp.config.output.read(process_tile)
         assert isinstance(data, np.ndarray)
         assert not data[0].mask.all()
+
+
+def test_output_single_gtiff_errors(output_single_gtiff):
+    # single gtiff does not work on multiple zoom levels
+    with pytest.raises(ValueError):
+        mapchete.open(dict(output_single_gtiff.dict, zoom_levels=[5, 6]))
+
+    # on zoom 13 with global extent, output raster would be too large
+    with pytest.raises(ValueError):
+        mapchete.open(dict(output_single_gtiff.dict, zoom_levels=13))
+
+    # provide either process_tile or output_tile
+    with mapchete.open(output_single_gtiff.path) as mp:
+        tile = mp.config.process_pyramid.tile(5, 3, 7)
+        with pytest.raises(ValueError):
+            mp.config.output.tiles_exist(process_tile=tile, output_tile=tile)
 
 
 def test_output_single_gtiff_pixelbuffer(output_single_gtiff):

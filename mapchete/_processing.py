@@ -118,12 +118,11 @@ class TileProcess():
         tile = self.config_baselevels["tile_pyramid"].tile(*self.tile.id)
 
         # get output_tiles that intersect with process tile
-        if tile.pixelbuffer > self.output_reader.pyramid.pixelbuffer:
-            output_tiles = list(self.output_reader.pyramid.tiles_from_bounds(
-                tile.bounds, tile.zoom
-            ))
-        else:
-            output_tiles = self.output_reader.pyramid.intersecting(tile)
+        output_tiles = (
+            list(self.output_reader.pyramid.tiles_from_bounds(tile.bounds, tile.zoom))
+            if tile.pixelbuffer > self.output_reader.pyramid.pixelbuffer
+            else self.output_reader.pyramid.intersecting(tile)
+        )
 
         with Timer() as t:
             # resample from parent tile
@@ -439,10 +438,8 @@ def _run_with_multiprocessing(
             start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module
         )
-        # TODO
-        write_in_parent = True
         # for output drivers requiring writing data in parent process
-        if write_in_parent:
+        if process.config.output.write_in_parent_process:
             for zoom in zoom_levels:
                 for task in executor.as_completed(
                     func=_execute,

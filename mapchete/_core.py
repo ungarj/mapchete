@@ -501,14 +501,16 @@ class Mapchete(object):
         """Enable context manager."""
         return self
 
-    def __exit__(self, t, v, tb):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         """Cleanup on close."""
         # run input drivers cleanup
         for ip in self.config.input.values():
             if ip is not None:
                 ip.cleanup()
         # run output driver cleanup
-        self.config.output.close()
+        self.config.output.close(
+            exc_type=exc_type, exc_value=exc_value, exc_traceback=exc_traceback
+        )
         # clean up internal cache
         if self.with_cache:
             self.process_tile_cache = None

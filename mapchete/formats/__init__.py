@@ -31,26 +31,18 @@ def _file_ext_to_driver():
         _FILE_EXT_TO_DRIVER = {}
         for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
             _driver = v.load()
-            if not hasattr(_driver, "METADATA"):
-                warnings.warn(
-                    DeprecationWarning(
-                        "driver %s cannot be loaded, METADATA is missing" % (
-                            str(v).split(" ")[-1]
-                        )
-                    )
-                )
-                continue
-            else:
+            if hasattr(_driver, "METADATA"):
                 metadata = v.load().METADATA
-            try:
-                driver_name = metadata["driver_name"]
-                for ext in metadata["file_extensions"]:
-                    if ext in _FILE_EXT_TO_DRIVER:
-                        _FILE_EXT_TO_DRIVER[ext].append(driver_name)
-                    else:
-                        _FILE_EXT_TO_DRIVER[ext] = [driver_name]
-            except Exception:
-                pass
+                try:
+                    driver_name = metadata["driver_name"]
+                    for ext in metadata["file_extensions"]:
+                        _FILE_EXT_TO_DRIVER[ext] = (
+                            _FILE_EXT_TO_DRIVER[ext] + driver_name
+                            if ext in _FILE_EXT_TO_DRIVER
+                            else [driver_name]
+                        )
+                except Exception:
+                    pass
         if not _FILE_EXT_TO_DRIVER:
             raise MapcheteDriverError("no drivers could be found")
         return _FILE_EXT_TO_DRIVER
@@ -272,5 +264,3 @@ def write_output_metadata(output_params):
             dump_params = params_to_dump(output_params)
             # dump output metadata
             write_json(metadata_path, dump_params)
-    else:
-        logger.debug("no path parameter found")

@@ -38,9 +38,11 @@ import os
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
+from shapely.geometry import box
+from tilematrix import Bounds
 import warnings
 
-from mapchete.config import validate_values
+from mapchete.config import validate_values, snap_bounds
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import get_boto3_bucket, path_exists
@@ -70,8 +72,7 @@ GTIFF_DEFAULT_PROFILE = {
 
 class OutputDataReader():
     """
-    Constructor class which either returns GTiffTileDirectoryOutputReader or raises a
-    MapcheteConfigError when configured as single file output
+    Constructor class which returns GTiffTileDirectoryOutputReader.
 
     Parameters
     ----------
@@ -100,14 +101,7 @@ class OutputDataReader():
 
     def __new__(self, output_params, **kwargs):
         """Initialize."""
-        self.path = output_params["path"]
-        self.file_extension = ".tif"
-        if self.path.endswith(self.file_extension):
-            raise MapcheteConfigError(
-                "Single GeoTIFF driver cannot be used with baselevel setting"
-            )
-        else:
-            return GTiffTileDirectoryOutputReader(output_params, **kwargs)
+        return GTiffTileDirectoryOutputReader(output_params, **kwargs)
 
 
 class OutputDataWriter():
@@ -289,18 +283,6 @@ class GTiffTileDirectoryOutputReader(
             mask=True
         )
 
-    def open(self, tile, process, **kwargs):
-        """
-        Open process output as input for other process.
-
-        Parameters
-        ----------
-        tile : ``Tile``
-        process : ``MapcheteProcess``
-        kwargs : keyword arguments
-        """
-        return InputTile(tile, process, kwargs.get("resampling", None))
-
     def profile(self, tile=None):
         """
         Create a metadata dictionary for rasterio.
@@ -314,22 +296,24 @@ class GTiffTileDirectoryOutputReader(
         metadata : dictionary
             output profile dictionary used for rasterio.
         """
-        dst_metadata = dict(GTIFF_DEFAULT_PROFILE)
-        dst_metadata.pop("transform", None)
-        dst_metadata.update(
+        dst_metadata = dict(
+            GTIFF_DEFAULT_PROFILE,
             count=self.output_params["bands"],
             dtype=self.output_params["dtype"],
-            driver="GTiff"
+            driver="GTiff",
+            nodata=self.output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
         )
+        dst_metadata.pop("transform", None)
         if tile is not None:
             dst_metadata.update(
-                crs=tile.crs, width=tile.width, height=tile.height,
-                affine=tile.affine)
+                crs=tile.crs,
+                width=tile.width,
+                height=tile.height,
+                affine=tile.affine
+            )
         else:
             for k in ["crs", "width", "height", "affine"]:
                 dst_metadata.pop(k, None)
-        if "nodata" in self.output_params:
-            dst_metadata.update(nodata=self.output_params["nodata"])
         try:
             if "compression" in self.output_params:
                 warnings.warn(
@@ -398,57 +382,71 @@ class GTiffSingleFileOutputWriter(
     GTiffOutputReaderFunctions, base.SingleFileOutputWriter
 ):
 
+    write_in_parent_process = True
+
     def __init__(self, output_params, **kwargs):
         """Initialize."""
         logger.debug("output is single file")
+        self.rio_file = None
         super().__init__(output_params, **kwargs)
         self._set_attributes(output_params)
-        delimiters = output_params["delimiters"]
-        logger.debug(delimiters)
-        bounds = delimiters["effective_bounds"]
-        if len(delimiters["zoom"]) != 1:
+        if len(self.output_params["delimiters"]["zoom"]) != 1:
             raise ValueError("single file output only works with one zoom level")
-        zoom = delimiters["zoom"][0]
-        height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(zoom)
-        width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(zoom)
-        logger.debug("output raster bounds: %s", bounds)
-        logger.debug("output raster shape: %s, %s", height, width)
-        self._profile = dict(
-            GTIFF_DEFAULT_PROFILE,
-            driver="GTiff",
-            transform=Affine(
-                self.pyramid.pixel_x_size(zoom),
-                0,
-                bounds.left,
-                0,
-                -self.pyramid.pixel_y_size(zoom),
-                bounds.top
-            ),
-            height=height,
-            width=width,
-            count=output_params["bands"],
-            crs=self.pyramid.crs,
-            **{
-                k: output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
-                for k in GTIFF_DEFAULT_PROFILE.keys()
-            }
-        )
-        logger.debug("single GTiff profile: %s", self._profile)
-        if height * width > 20000 * 20000:
-            raise ValueError("output GeoTIFF too big")
+        self.zoom = output_params["delimiters"]["zoom"][0]
         if "overviews" in output_params:
             self.overviews = True
             self.overviews_resampling = output_params.get(
                 "overviews_resampling", "nearest"
             )
             self.overviews_levels = output_params.get(
-                "overviews_levels", [2**i for i in range(1, zoom)]
+                "overviews_levels", [2**i for i in range(1, self.zoom + 1)]
             )
         else:
             self.overviews = False
+
+        # TODO: remove after #181 is fixed
+        self.prepare()
+
+    def prepare(self, process_area=None, **kwargs):
+        bounds = snap_bounds(
+            bounds=Bounds(
+                *process_area.intersection(
+                    box(*self.output_params["delimiters"]["effective_bounds"])
+                ).bounds
+            ),
+            pyramid=self.pyramid,
+            zoom=self.zoom
+        ) if process_area else self.output_params["delimiters"]["effective_bounds"]
+        height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(self.zoom)
+        width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(self.zoom)
+        logger.debug("output raster bounds: %s", bounds)
+        logger.debug("output raster shape: %s, %s", height, width)
+        self._profile = dict(
+            GTIFF_DEFAULT_PROFILE,
+            driver="GTiff",
+            transform=Affine(
+                self.pyramid.pixel_x_size(self.zoom),
+                0,
+                bounds.left,
+                0,
+                -self.pyramid.pixel_y_size(self.zoom),
+                bounds.top
+            ),
+            height=height,
+            width=width,
+            count=self.output_params["bands"],
+            crs=self.pyramid.crs,
+            **{
+                k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
+                for k in GTIFF_DEFAULT_PROFILE.keys()
+            }
+        )
+        logger.debug("single GTiff profile: %s", self._profile)
+        if height * width > 20000 * 20000:
+            raise ValueError("output GeoTIFF too big")
         # set up rasterio
         if path_exists(self.path):
-            if output_params["mode"] != "overwrite":
+            if self.output_params["mode"] != "overwrite":
                 raise MapcheteConfigError(
                     "single GTiff file already exists, use overwrite mode to replace"
                 )
@@ -541,15 +539,16 @@ class GTiffSingleFileOutputWriter(
                     height=self.rio_file.height,
                     width=self.rio_file.width
                 )
-                logger.debug("write data to window: %s", write_window)
-                self.rio_file.write(
-                    extract_from_array(
-                        in_raster=data,
-                        in_affine=process_tile.affine,
-                        out_tile=out_tile
-                    ) if process_tile != out_tile else data,
-                    window=write_window,
-                )
+                if _window_in_out_file(write_window, self.rio_file):
+                    logger.debug("write data to window: %s", write_window)
+                    self.rio_file.write(
+                        extract_from_array(
+                            in_raster=data,
+                            in_affine=process_tile.affine,
+                            out_tile=out_tile
+                        ) if process_tile != out_tile else data,
+                        window=write_window,
+                    )
 
     def profile(self, tile=None):
         """
@@ -562,10 +561,10 @@ class GTiffSingleFileOutputWriter(
         """
         return self._profile
 
-    def close(self):
+    def close(self, exc_type=None, exc_value=None, exc_traceback=None):
         """Gets called if process is closed."""
-        if self.overviews:
-            try:
+        try:
+            if not exc_type and self.overviews and self.rio_file is not None:
                 logger.debug(
                     "build overviews using %s resampling and levels %s",
                     self.overviews_resampling, self.overviews_levels
@@ -576,13 +575,19 @@ class GTiffSingleFileOutputWriter(
                 self.rio_file.update_tags(
                     ns='rio_overview', resampling=self.overviews_resampling
                 )
-            except Exception:
-                logger.exception("error when generating overviews")
-        logger.debug("close rasterio file handle.")
-        try:
-            self.rio_file.close()
-        except:
-            pass
+        finally:
+            if self.rio_file is not None:
+                logger.debug("close rasterio file handle.")
+                self.rio_file.close()
+
+
+def _window_in_out_file(window, rio_file):
+    return all([
+        window.row_off >= 0,
+        window.col_off >= 0,
+        window.row_off + window.height <= rio_file.height,
+        window.col_off + window.width <= rio_file.width,
+    ])
 
 
 class InputTile(base.InputTile):
@@ -627,10 +632,11 @@ class InputTile(base.InputTile):
         """
         band_indexes = self._get_band_indexes(indexes)
         arr = self.process.get_raw_output(self.tile)
-        if len(band_indexes) == 1:
-            return arr[band_indexes[0] - 1]
-        else:
-            return ma.concatenate([ma.expand_dims(arr[i - 1], 0) for i in band_indexes])
+        return (
+            arr[band_indexes[0] - 1]
+            if len(band_indexes) == 1
+            else ma.concatenate([ma.expand_dims(arr[i - 1], 0) for i in band_indexes])
+        )
 
     def is_empty(self, indexes=None):
         """

@@ -149,6 +149,8 @@ class InputTile(object):
 
 class OutputDataBaseFunctions():
 
+    write_in_parent_process = False
+
     def __init__(self, output_params, readonly=False, **kwargs):
         """Initialize."""
         self.pixelbuffer = output_params["pixelbuffer"]
@@ -226,6 +228,9 @@ class OutputDataBaseFunctions():
                 )
                 if shape(feature["geometry"]).intersects(out_tile.bbox)
             ]
+
+    def prepare(self, **kwargs):
+        pass
 
 
 class OutputDataReader(OutputDataBaseFunctions):
@@ -388,7 +393,7 @@ class OutputDataWriter(OutputDataReader):
                 "invalid output type: %s" % type(process_data)
             )
 
-    def close(self):
+    def close(self, exc_type=None, exc_value=None, exc_traceback=None):
         """Gets called if process is closed."""
         pass
 
