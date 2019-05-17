@@ -517,7 +517,7 @@ class MapcheteConfig(object):
             if "input" in self._params_at_zoom[zoom]:
                 input_union = cascaded_union([
                     self.input[get_hash(v)].bbox(self.process_pyramid.crs)
-                    for k, v in self._params_at_zoom[zoom]["input"].items()
+                    for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
                     if v is not None
                 ])
                 self._cache_area_at_zoom[zoom] = input_union.intersection(

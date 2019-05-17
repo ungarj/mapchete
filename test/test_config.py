@@ -202,8 +202,7 @@ def test_read_input_groups(file_groups):
     assert "file2" in input_files["nested_group"]["group1"]
     assert "file1" in input_files["nested_group"]["group2"]
     assert "file2" in input_files["nested_group"]["group2"]
-    # test for #181
-    # assert config.area_at_zoom()
+    assert config.area_at_zoom()
 
 
 def test_input_zooms(files_zooms):
