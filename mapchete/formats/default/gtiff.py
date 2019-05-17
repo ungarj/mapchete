@@ -404,9 +404,6 @@ class GTiffSingleFileOutputWriter(
         else:
             self.overviews = False
 
-        # TODO: remove after #181 is fixed
-        self.prepare()
-
     def prepare(self, process_area=None, **kwargs):
         bounds = snap_bounds(
             bounds=Bounds(

@@ -214,11 +214,10 @@ class MapcheteConfig(object):
         logger.debug("initializing input")
         self.input
 
-        # TODO: enable after #181 is fixed
         # (9) some output drivers such as the GeoTIFF single file driver also needs the
         # process area to prepare
-        # logger.debug("prepare output")
-        # self.output.prepare(process_area=self.area_at_zoom())
+        logger.debug("prepare output")
+        self.output.prepare(process_area=self.area_at_zoom())
 
     @cached_property
     def zoom_levels(self):
