@@ -581,9 +581,7 @@ class GTiffSingleFileOutputWriter(
 def _window_in_out_file(window, rio_file):
     return all([
         window.row_off >= 0,
-        window.col_off >= 0,
-        window.row_off + window.height <= rio_file.height,
-        window.col_off + window.width <= rio_file.width,
+        window.col_off >= 0
     ])
 
 
