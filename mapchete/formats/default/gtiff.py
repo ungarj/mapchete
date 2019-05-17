@@ -32,6 +32,7 @@ compress: string
 
 from affine import Affine
 import logging
+import math
 import numpy as np
 import numpy.ma as ma
 import os
@@ -414,8 +415,12 @@ class GTiffSingleFileOutputWriter(
             pyramid=self.pyramid,
             zoom=self.zoom
         ) if process_area else self.output_params["delimiters"]["effective_bounds"]
-        height = (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(self.zoom)
-        width = (bounds.right - bounds.left) / self.pyramid.pixel_x_size(self.zoom)
+        height = math.ceil(
+            (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(self.zoom)
+        )
+        width = math.ceil(
+            (bounds.right - bounds.left) / self.pyramid.pixel_x_size(self.zoom)
+        )
         logger.debug("output raster bounds: %s", bounds)
         logger.debug("output raster shape: %s, %s", height, width)
         self._profile = dict(
@@ -581,7 +586,9 @@ class GTiffSingleFileOutputWriter(
 def _window_in_out_file(window, rio_file):
     return all([
         window.row_off >= 0,
-        window.col_off >= 0
+        window.col_off >= 0,
+        window.row_off + window.height <= rio_file.height,
+        window.col_off + window.width <= rio_file.width,
     ])
 
 
