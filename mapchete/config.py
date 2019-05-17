@@ -347,7 +347,7 @@ class MapcheteConfig(object):
             if v is not None
         }
 
-        initalized_inputs = {}
+        initalized_inputs = OrderedDict()
         for k, v in raw_inputs.items():
 
             # for files and tile directories
@@ -478,9 +478,13 @@ class MapcheteConfig(object):
         if zoom not in self.init_zoom_levels:
             raise ValueError(
                 "zoom level not available with current configuration")
-        out = dict(self._params_at_zoom[zoom], input={}, output=self.output)
+        out = OrderedDict(
+            self._params_at_zoom[zoom],
+            input=OrderedDict(),
+            output=self.output
+        )
         if "input" in self._params_at_zoom[zoom]:
-            flat_inputs = {}
+            flat_inputs = OrderedDict()
             for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"]):
                 if v is None:
                     flat_inputs[k] = None
@@ -488,7 +492,7 @@ class MapcheteConfig(object):
                     flat_inputs[k] = self.input[get_hash(v)]
             out["input"] = _unflatten_tree(flat_inputs)
         else:
-            out["input"] = {}
+            out["input"] = OrderedDict()
         return out
 
     def area_at_zoom(self, zoom=None):
@@ -821,14 +825,15 @@ def _config_to_dict(input_config):
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
             raise MapcheteConfigError("config_dir parameter missing")
-        return dict(input_config, mapchete_file=None)
+        return OrderedDict(input_config, mapchete_file=None)
     # from Mapchete file
     elif os.path.splitext(input_config)[1] == ".mapchete":
         with open(input_config, "r") as config_file:
-            return dict(
+            return OrderedDict(
                 yaml.safe_load(config_file.read()),
                 config_dir=os.path.dirname(os.path.realpath(input_config)),
-                mapchete_file=input_config)
+                mapchete_file=input_config
+            )
     # throw error if unknown object
     else:
         raise MapcheteConfigError(
@@ -885,16 +890,16 @@ def _validate_bounds(bounds):
 
 def _raw_at_zoom(config, zooms):
     """Return parameter dictionary per zoom level."""
-    params_per_zoom = {}
+    params_per_zoom = OrderedDict()
     for zoom in zooms:
-        params = {}
+        params = OrderedDict()
         for name, element in config.items():
             if name not in _RESERVED_PARAMETERS:
                 out_element = _element_at_zoom(name, element, zoom)
                 if out_element is not None:
                     params[name] = out_element
         params_per_zoom[zoom] = params
-    return params_per_zoom
+    return OrderedDict(params_per_zoom)
 
 
 def _element_at_zoom(name, element, zoom):
@@ -917,7 +922,7 @@ def _element_at_zoom(name, element, zoom):
             if "format" in element:
                 # we have an input or output driver here
                 return element
-            out_elements = {}
+            out_elements = OrderedDict()
             for sub_name, sub_element in element.items():
                 out_element = _element_at_zoom(sub_name, sub_element, zoom)
                 if name == "input":
@@ -986,7 +991,7 @@ def _flatten_tree(tree, old_path=None):
 
 def _unflatten_tree(flat):
     """Reverse tree flattening."""
-    tree = {}
+    tree = OrderedDict()
     for key, value in flat.items():
         path = key.split("/")
         # we are at the end of a branch
