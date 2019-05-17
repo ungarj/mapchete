@@ -72,7 +72,7 @@ GTIFF_DEFAULT_PROFILE = {
 
 class OutputDataReader():
     """
-    Constructor class which either returns GTiffTileDirectoryOutputReader.
+    Constructor class which returns GTiffTileDirectoryOutputReader.
 
     Parameters
     ----------
