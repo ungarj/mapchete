@@ -21,6 +21,8 @@ Changelog
 * process workers now only receive objects and parameters they need (#173)
 * parsing mapchete input does not fail if zoom levels do not match
 * enable other projections again for GeoJSON output (closing #151)
+* let rasterio & fiona decide whether single file can be opened (#186)
+* provide option to show less content on CLI mapchete processes (#165)
 * automatically detect loggers from registered mapchete packages and user process files
 * enable drivers which do not handle pure NumPy arrays or feature lists
 * ``OutputData`` classes have new ``output_valid()``, ``output_cleaned()`` and ``extract_subset()`` methods

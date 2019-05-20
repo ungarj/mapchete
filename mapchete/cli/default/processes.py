@@ -4,24 +4,39 @@ import click
 import pkg_resources
 
 
-class c:
-    PURPLE = '\033[95m'
-    CYAN = '\033[96m'
-    DARKCYAN = '\033[36m'
-    BLUE = '\033[94m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    END = '\033[0m'
-
-
 @click.command(help="List available processes.")
-def processes():
+@click.option(
+    "--process_name", "-n", type=click.STRING, help="Print docstring of process."
+)
+@click.option(
+    "--docstrings", is_flag=True, help="Print docstrings of all processes."
+)
+def processes(process_name=None, docstrings=False):
+
+    # get all registered processes
     processes = list(pkg_resources.iter_entry_points("mapchete.processes"))
-    print("%s processes found" % len(processes))
-    for v in processes:
-        process = v.load()
-        print(c.BOLD + process.__name__ + c.END)
-        print(process.execute.__doc__)
+
+    # print selected process
+    if process_name:
+        for v in processes:
+            process_module = v.load()
+            if process_name == process_module.__name__:
+                _print_process_info(process_module, docstrings=True)
+    else:
+        # print all processes
+        click.echo("%s processes found" % len(processes))
+        for v in processes:
+            process_module = v.load()
+            _print_process_info(process_module, docstrings=docstrings)
+
+
+def _print_process_info(process_module, docstrings=False):
+    click.echo(
+        click.style(
+            process_module.__name__,
+            bold=docstrings,
+            underline=docstrings
+        )
+    )
+    if docstrings:
+        click.echo(process_module.execute.__doc__)

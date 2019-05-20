@@ -555,3 +555,4 @@ def test_index_errors(mp_tmpdir, cleantopo_br):
 
 def test_processes():
     run_cli(['processes'])
+    run_cli(['processes', '-n', 'mapchete.processes.examples.example_process'])
