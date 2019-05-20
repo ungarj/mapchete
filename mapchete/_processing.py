@@ -196,7 +196,7 @@ class MapcheteProcess(object):
         self.abstract = ""
         self.tile = tile
         self.tile_pyramid = tile.tile_pyramid
-        self.params = params
+        self.params = dict(params, input=input)
         self.input = input
 
     def write(self, data, **kwargs):
@@ -238,7 +238,7 @@ class MapcheteProcess(object):
                 'Such options should be passed on in the respective read() functions'
             )
         if input_id not in self.input:
-            raise ValueError("%s not found in config as input file" % input_id)
+            raise ValueError("%s not found in config as input" % input_id)
         return self.input[input_id]
 
     def hillshade(
