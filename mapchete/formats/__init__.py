@@ -4,10 +4,12 @@ Functions handling output formats.
 This module deserves a cleaner rewrite some day.
 """
 
+import fiona
 import logging
 import os
 import pkg_resources
 from pprint import pformat
+import rasterio
 from rasterio.crs import CRS
 import warnings
 
@@ -19,33 +21,6 @@ DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
 
 
 logger = logging.getLogger(__name__)
-
-_FILE_EXT_TO_DRIVER = {}
-
-
-def _file_ext_to_driver():
-    global _FILE_EXT_TO_DRIVER
-    if _FILE_EXT_TO_DRIVER:
-        return _FILE_EXT_TO_DRIVER
-    else:
-        _FILE_EXT_TO_DRIVER = {}
-        for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
-            _driver = v.load()
-            if hasattr(_driver, "METADATA"):
-                metadata = v.load().METADATA
-                try:
-                    driver_name = metadata["driver_name"]
-                    for ext in metadata["file_extensions"]:
-                        _FILE_EXT_TO_DRIVER[ext] = (
-                            _FILE_EXT_TO_DRIVER[ext] + driver_name
-                            if ext in _FILE_EXT_TO_DRIVER
-                            else [driver_name]
-                        )
-                except Exception:
-                    pass
-        if not _FILE_EXT_TO_DRIVER:
-            raise MapcheteDriverError("no drivers could be found")
-        return _FILE_EXT_TO_DRIVER
 
 
 def available_output_formats():
@@ -171,14 +146,20 @@ def driver_from_file(input_file):
         driver name
     """
     file_ext = os.path.splitext(input_file)[1].split(".")[1]
-    if file_ext not in _file_ext_to_driver():
-        raise MapcheteDriverError(
-            "no driver could be found for file extension %s" % file_ext
-        )
-    driver = _file_ext_to_driver()[file_ext]
-    if len(driver) > 1:
-        warnings.warn("more than one driver for file found, taking %s" % driver[0])
-    return driver[0]
+    if file_ext == "mapchete":
+        return "Mapchete"
+    try:
+        with rasterio.open(input_file):
+            return "raster_file"
+    except:
+        try:
+            with fiona.open(input_file):
+                return "vector_file"
+        except:
+            raise MapcheteDriverError(
+                "%s has an unknown file extension, does not exist or could not be opened "
+                "by neither rasterio nor fiona." % input_file
+            )
 
 
 def params_to_dump(params):

@@ -24,15 +24,6 @@ def test_available_output_formats():
         set(available_output_formats()))
 
 
-def test_filename_to_driver():
-    """Check converting file names to driver."""
-    for filename in [
-        'temp.mapchete', 'temp.tif', 'temp.jp2', 'temp.png', 'temp.vrt',
-        'temp.geojson', 'temp.shp'
-    ]:
-        assert driver_from_file(filename)
-
-
 def test_output_writer_errors():
     """Test errors when loading output writer."""
     with pytest.raises(TypeError):
