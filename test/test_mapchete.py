@@ -86,8 +86,7 @@ def test_open_data_error(cleantopo_tl):
         # read written data from within MapcheteProcess object
         user_process = mapchete.MapcheteProcess(
             tile=tile,
-            params=mp.config.params_at_zoom(tile.zoom),
-            input=mp.config.get_inputs_for_tile(tile),
+            config=mp.config,
         )
         with pytest.raises(ValueError):
             user_process.open("invaild_input_id")

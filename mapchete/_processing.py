@@ -188,7 +188,7 @@ class MapcheteProcess(object):
         process parameters
     """
 
-    def __init__(self, tile=None, params=None, input=None):
+    def __init__(self, tile=None, params=None, input=None, config=None):
         """Initialize Mapchete process."""
         self.identifier = ""
         self.title = ""
@@ -196,8 +196,12 @@ class MapcheteProcess(object):
         self.abstract = ""
         self.tile = tile
         self.tile_pyramid = tile.tile_pyramid
-        self.params = dict(params, input=input)
-        self.input = input
+        if config is not None:
+            self.params = config.params_at_zoom(tile.zoom),
+            self.input = config.get_inputs_for_tile(tile),
+        else:
+            self.params = dict(params, input=input)
+            self.input = input
 
     def write(self, data, **kwargs):
         """Deprecated."""
