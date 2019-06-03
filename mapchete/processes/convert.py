@@ -67,10 +67,9 @@ def execute(
         matching_method=td_matching_method,
         matching_max_zoom=td_matching_max_zoom,
         matching_precision=td_matching_precision,
-        fallback_to_higher_zoom=td_fallback_to_higher_zoom,
-        resampling=td_resampling
+        fallback_to_higher_zoom=td_fallback_to_higher_zoom
     ) as raster:
-        raster_data = raster.read()
+        raster_data = raster.read(resampling=td_resampling)
         if raster.is_empty() or raster_data[0].mask.all():
             logger.debug("raster empty")
             return "empty"

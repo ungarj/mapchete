@@ -1,12 +1,11 @@
 import click
-import fiona
 import logging
 import os
 import rasterio
 from rasterio.dtypes import dtype_ranges
+import sys
 import tilematrix
 
-import mapchete
 from mapchete.cli import utils
 from mapchete.config import raw_conf, raw_conf_output_pyramid, get_zoom_levels
 from mapchete.formats import (
@@ -26,6 +25,8 @@ OUTPUT_FORMATS = available_output_formats()
 @utils.arg_output
 @utils.opt_zoom
 @utils.opt_bounds
+@utils.opt_point
+@utils.opt_wkt_geometry
 @click.option(
     "--output_pyramid", "-p", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
     help="Output pyramid to write to."
@@ -52,6 +53,7 @@ OUTPUT_FORMATS = available_output_formats()
 )
 @utils.opt_overwrite
 @utils.opt_verbose
+@utils.opt_no_pbar
 @utils.opt_debug
 @utils.opt_logfile
 def convert(
@@ -59,6 +61,8 @@ def convert(
     output,
     zoom=None,
     bounds=None,
+    point=None,
+    wkt_geometry=None,
     output_pyramid=None,
     output_metatiling=None,
     output_format=None,
@@ -66,14 +70,16 @@ def convert(
     scale_ratio=None,
     scale_offset=None,
     overwrite=False,
+    logfile=None,
     verbose=False,
+    no_pbar=False,
     debug=False,
-    logfile=None
 ):
     input_info = _get_input_info(input_)
     output_info = _get_output_info(output)
+
     # collect mapchete configuration
-    mp_conf = dict(
+    mapchete_config = dict(
         process="mapchete.processes.convert",
         input=dict(raster=input_),
         pyramid=(
@@ -94,19 +100,18 @@ def convert(
         zoom_levels=zoom or input_info["zoom_levels"]
     )
 
-    click.echo(pprint.pformat(mp_conf))
-
-    if mp_conf["output"]["format"] is None:
+    if mapchete_config["output"]["format"] is None:
         raise click.BadOptionUsage("output_format", "Output format required.")
-    output_type = OUTPUT_FORMATS[mp_conf["output"]["format"]]["data_type"]
-    if mp_conf["pyramid"] is None:
+    output_type = OUTPUT_FORMATS[mapchete_config["output"]["format"]]["data_type"]
+
+    if mapchete_config["pyramid"] is None:
         raise click.BadOptionUsage("output_pyramid", "Output pyramid required.")
-    elif mp_conf["zoom_levels"] is None:
+    elif mapchete_config["zoom_levels"] is None:
         try:
-            mp_conf.update(
+            mapchete_config.update(
                 zoom=list(range(
                     0,
-                    get_best_zoom_level(input_, mp_conf["pyramid"]["grid"]) + 1
+                    get_best_zoom_level(input_, mapchete_config["pyramid"]["grid"]) + 1
                 ))
             )
         except:
@@ -119,11 +124,17 @@ def convert(
             )
         )
 
-    click.echo(pprint.pformat(mp_conf))
-    with mapchete.open(mp_conf, mode="overwrite" if overwrite else "continue") as mp:
-        click.echo(mp.config.zoom_levels)
-        click.echo(mp.config.init_zoom_levels)
-        click.echo(mp.config.area_at_zoom(zoom))
+    utils._process_area(
+        debug=debug,
+        mapchete_config=mapchete_config,
+        mode="overwrite" if overwrite else "continue",
+        zoom=zoom,
+        wkt_geometry=wkt_geometry,
+        point=point,
+        bounds=bounds,
+        verbose_dst=open(os.devnull, 'w') if debug or not verbose else sys.stdout,
+        no_pbar=no_pbar,
+    )
 
 
 def _get_input_info(input_):

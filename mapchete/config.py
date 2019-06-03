@@ -723,7 +723,10 @@ def raw_conf(mapchete_file):
     -------
     dictionary
     """
-    return _map_to_new_config(yaml.safe_load(open(mapchete_file, "r").read()))
+    if isinstance(mapchete_file, dict):
+        return _map_to_new_config(mapchete_file)
+    else:
+        return _map_to_new_config(yaml.safe_load(open(mapchete_file, "r").read()))
 
 
 def raw_conf_process_pyramid(raw_conf):
