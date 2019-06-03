@@ -14,8 +14,6 @@ from mapchete.formats import (
 from mapchete.io import read_json, get_best_zoom_level
 from mapchete.tile import BufferedTilePyramid
 
-import pprint
-
 logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()
 
@@ -28,7 +26,7 @@ OUTPUT_FORMATS = available_output_formats()
 @utils.opt_point
 @utils.opt_wkt_geometry
 @click.option(
-    "--output_pyramid", "-p", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
+    "--output_pyramid", "-op", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
     help="Output pyramid to write to."
 )
 @click.option(

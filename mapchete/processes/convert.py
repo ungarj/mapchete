@@ -1,5 +1,4 @@
 import logging
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -62,26 +61,20 @@ def execute(
     else:
         clip_geom = []
 
-    with mp.open(
-        "raster",
-        matching_method=td_matching_method,
-        matching_max_zoom=td_matching_max_zoom,
-        matching_precision=td_matching_precision,
-        fallback_to_higher_zoom=td_fallback_to_higher_zoom
-    ) as raster:
-        raster_data = raster.read(resampling=td_resampling)
+    with mp.open("raster",) as raster:
+        raster_data = raster.read(
+            resampling=td_resampling,
+            matching_method=td_matching_method,
+            matching_max_zoom=td_matching_max_zoom,
+            matching_precision=td_matching_precision,
+            fallback_to_higher_zoom=td_fallback_to_higher_zoom
+        )
         if raster.is_empty() or raster_data[0].mask.all():
             logger.debug("raster empty")
             return "empty"
 
     if clip_geom:
         # apply original nodata mask and clip
-        clipped = mp.clip(
-            np.where(raster_data[0].mask, mp.params["output"].nodata, raster_data),
-            clip_geom,
-            clip_buffer=clip_pixelbuffer,
-            inverted=True
-        )
-        return np.where(clipped.mask, clipped, mp.params["output"].nodata)
+        return mp.clip(raster_data, clip_geom, clip_buffer=clip_pixelbuffer)
     else:
-        return np.where(raster_data[0].mask, mp.params["output"].nodata, raster_data)
+        return raster_data

@@ -64,5 +64,4 @@ def clip_array_with_vector(
     # if no geometries, return unmasked array
     else:
         fill = False if inverted else True
-        return ma.masked_array(
-            array, mask=np.full(array.shape, fill, dtype=bool))
+        return ma.masked_array(array, mask=np.full(array.shape, fill, dtype=bool))

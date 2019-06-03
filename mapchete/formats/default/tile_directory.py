@@ -184,7 +184,9 @@ class InputData(base.InputData):
             zoom = tile_directory_zoom
         else:
             zoom = tile_to_zoom_level(
-                tile, dst_pyramid=self.td_pyramid, matching_method=matching_method,
+                tile,
+                dst_pyramid=self.td_pyramid,
+                matching_method=matching_method,
                 precision=matching_precision
             )
             if matching_max_zoom is not None:
