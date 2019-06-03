@@ -322,14 +322,14 @@ def read_json(path):
             raise FileNotFoundError("%s not found", path)
 
 
-
 def get_boto3_bucket(bucket_name):
     import boto3
     url = os.environ.get("AWS_S3_ENDPOINT")
     return boto3.resource(
         's3',
         endpoint_url=(
-            "https://" + url if url and not url.startswith(("http://", "https://"))
+            "https://" + url
+            if url and not url.startswith(("http://", "https://"))
             else url
         )
     ).Bucket(bucket_name)

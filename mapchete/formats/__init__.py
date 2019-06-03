@@ -32,11 +32,11 @@ def available_output_formats():
     formats : list
         all available output formats
     """
-    output_formats = []
+    output_formats = {}
     for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         driver_ = v.load()
         if hasattr(driver_, "METADATA") and (driver_.METADATA["mode"] in ["w", "rw"]):
-            output_formats.append(driver_.METADATA["driver_name"])
+            output_formats[driver_.METADATA["driver_name"]] = driver_.METADATA
     return output_formats
 
 
@@ -49,12 +49,12 @@ def available_input_formats():
     formats : list
         all available input formats
     """
-    input_formats = []
+    input_formats = {}
     for v in pkg_resources.iter_entry_points(DRIVERS_ENTRY_POINT):
         logger.debug("driver found: %s", v)
         driver_ = v.load()
         if hasattr(driver_, "METADATA") and (driver_.METADATA["mode"] in ["r", "rw"]):
-            input_formats.append(driver_.METADATA["driver_name"])
+            input_formats[driver_.METADATA["driver_name"]] = driver_.METADATA
     return input_formats
 
 

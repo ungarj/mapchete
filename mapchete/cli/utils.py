@@ -72,6 +72,8 @@ arg_out_format = click.argument(
 )
 arg_input_raster = click.argument("input_raster", type=click.Path(exists=True))
 arg_out_dir = click.argument("output_dir", type=click.Path())
+arg_input = click.argument("input_", metavar="INPUT", type=click.STRING)
+arg_output = click.argument("output", type=click.STRING)
 
 # options
 opt_out_path = click.option(

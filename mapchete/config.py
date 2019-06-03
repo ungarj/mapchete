@@ -746,6 +746,32 @@ def raw_conf_process_pyramid(raw_conf):
     )
 
 
+def raw_conf_output_pyramid(raw_conf):
+    """
+    Loads the process pyramid of a raw configuration.
+
+    Parameters
+    ----------
+    raw_conf : dict
+        Raw mapchete configuration as dictionary.
+
+    Returns
+    -------
+    BufferedTilePyramid
+    """
+    return BufferedTilePyramid(
+        raw_conf["pyramid"]["grid"],
+        metatiling=raw_conf["output"].get(
+            "metatiling",
+            raw_conf["pyramid"].get("metatiling", 1)
+        ),
+        pixelbuffer=raw_conf["pyramid"].get(
+            "pixelbuffer",
+            raw_conf["pyramid"].get("pixelbuffer", 0)
+        )
+    )
+
+
 def bounds_from_opts(
     wkt_geometry=None, point=None, bounds=None, zoom=None, raw_conf=None
 ):
