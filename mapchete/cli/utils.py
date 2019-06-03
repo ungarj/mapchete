@@ -53,10 +53,10 @@ def _validate_bounds(ctx, param, bounds):
         return bounds
 
 
-def _validate_mapchete_configs(ctx, param, mapchete_configs):
-    if len(mapchete_configs) == 0:
+def _validate_mapchete_files(ctx, param, mapchete_files):
+    if len(mapchete_files) == 0:
         raise click.MissingParameter("at least one mapchete file required")
-    return mapchete_configs
+    return mapchete_files
 
 
 def _set_debug_log_level(ctx, param, debug):
@@ -73,11 +73,11 @@ def _setup_logfile(ctx, param, logfile):
 
 # click arguments #
 ###################
-arg_mapchete_config = click.argument("mapchete_config", type=click.Path(exists=True))
-arg_create_mapchete_config = click.argument("mapchete_config", type=click.Path())
-arg_mapchete_configs = click.argument(
-    "mapchete_configs", type=click.Path(exists=True), nargs=-1,
-    callback=_validate_mapchete_configs
+arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
+arg_create_mapchete_file = click.argument("mapchete_file", type=click.Path())
+arg_mapchete_files = click.argument(
+    "mapchete_files", type=click.Path(exists=True), nargs=-1,
+    callback=_validate_mapchete_files
 )
 arg_process_file = click.argument("process_file", type=click.Path())
 arg_out_format = click.argument(
