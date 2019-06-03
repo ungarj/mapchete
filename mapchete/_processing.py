@@ -194,14 +194,14 @@ class MapcheteProcess(object):
         self.title = ""
         self.version = ""
         self.abstract = ""
+
         self.tile = tile
         self.tile_pyramid = tile.tile_pyramid
         if config is not None:
-            self.params = config.params_at_zoom(tile.zoom),
-            self.input = config.get_inputs_for_tile(tile),
-        else:
-            self.params = dict(params, input=input)
-            self.input = input
+            input = config.get_inputs_for_tile(tile)
+            params = config.params_at_zoom(tile.zoom)
+        self.params = dict(params, input=input)
+        self.input = input
 
     def write(self, data, **kwargs):
         """Deprecated."""
