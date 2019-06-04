@@ -92,15 +92,15 @@ arg_output = click.argument("output", type=click.STRING)
 # click options #
 #################
 opt_out_path = click.option(
-    "--out_path", "-op", type=click.Path(), default=os.path.join(os.getcwd(), "output"),
+    "--out-path", "-op", type=click.Path(), default=os.path.join(os.getcwd(), "output"),
     help="Process output path."
 )
 opt_idx_out_dir = click.option(
-    "--idx_out_dir", "-od", type=click.Path(),
+    "--idx-out-dir", "-od", type=click.Path(),
     help="Index output directory."
 )
 opt_input_file = click.option(
-    "--input_file", "-i", type=click.Path(),
+    "--input-file", "-i", type=click.Path(),
     help=(
         """Specify an input file via command line (in mapchete file, """
         """set 'input_file' parameter to 'from_command_line')."""
@@ -119,7 +119,7 @@ opt_point = click.option(
     help="Process tiles over single point location."
 )
 opt_wkt_geometry = click.option(
-    "--wkt_geometry", "-g", type=click.STRING,
+    "--wkt-geometry", "-g", type=click.STRING,
     help="Take boundaries from WKT geometry in tile pyramid CRS.",
 )
 opt_tile = click.option(
@@ -147,7 +147,7 @@ opt_verbose = click.option(
     help="Print info for each process tile."
 )
 opt_no_pbar = click.option(
-    "--no_pbar", is_flag=True,
+    "--no-pbar", is_flag=True,
     help="Deactivate progress bar."
 )
 opt_debug = click.option(
@@ -155,15 +155,15 @@ opt_debug = click.option(
     help="Deactivate progress bar and print debug log output."
 )
 opt_max_chunksize = click.option(
-    "--max_chunksize", "-c", type=click.INT, default=1,
+    "--max-chunksize", "-c", type=click.INT, default=1,
     help="Maximum number of process tiles to be queued for each  worker. (default: 1)"
 )
 opt_input_formats = click.option(
-    "--input_formats", "-i", is_flag=True,
+    "--input-formats", "-i", is_flag=True,
     help="Show only input formats."
 )
 opt_output_formats = click.option(
-    "--output_formats", "-o", is_flag=True,
+    "--output-formats", "-o", is_flag=True,
     help="Show only output formats."
 )
 opt_geojson = click.option(
@@ -195,25 +195,20 @@ opt_basepath = click.option(
     help="Use other base path than given process output path."
 )
 opt_for_gdal = click.option(
-    "--for_gdal", is_flag=True,
+    "--for-gdal", is_flag=True,
     help="Make remote paths readable by GDAL (not applied for txt output)."
 )
 opt_output_format = click.option(
-    "--output_format", "-of", type=click.Choice(["GTiff", "PNG"]), default="GTiff",
+    "--output-format", "-of", type=click.Choice(["GTiff", "PNG"]), default="GTiff",
     help="Output data format (GTiff or PNG)."
 )
 opt_pyramid_type = click.option(
-    "--pyramid_type", "-pt", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
+    "--pyramid-type", "-pt", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
     default="geodetic",
     help="Output pyramid type. (default: geodetic)"
 )
-opt_pyramid_type_mercator = click.option(
-    "--pyramid_type", "-pt", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
-    default="mercator",
-    help="Output pyramid type. (default: mercator)"
-)
 opt_resampling_method = click.option(
-    "--resampling_method", "-r", type=click.Choice([
+    "--resampling-method", "-r", type=click.Choice([
         "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average", "mode"
     ]), default="nearest",
     help=(
@@ -221,21 +216,12 @@ opt_resampling_method = click.option(
         """lanczos, average or mode)."""
     ),
 )
-opt_scale_method = click.option(
-    "--scale_method", "-s", type=click.Choice(
-        ["dtype_scale", "minmax_scale", "crop", ""]
-    ), default="",
-    help=(
-        """Scale method if input bands have more than 8 bit (dtype_scale, """
-        """minmax_scale or crop)."""
-    ),
-)
 opt_port = click.option(
     "--port", "-p", type=click.INT, default=5000,
     help="Port process is hosted on. (default: 5000)",
 )
 opt_internal_cache = click.option(
-    "--internal_cache", "-c", type=click.INT, default=1024,
+    "--internal-cache", "-c", type=click.INT, default=1024,
     help="Number of web tiles to be cached in RAM. (default: 1024)",
 )
 opt_readonly = click.option(
