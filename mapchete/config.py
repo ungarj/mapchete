@@ -723,7 +723,10 @@ def raw_conf(mapchete_file):
     -------
     dictionary
     """
-    return _map_to_new_config(yaml.safe_load(open(mapchete_file, "r").read()))
+    if isinstance(mapchete_file, dict):
+        return _map_to_new_config(mapchete_file)
+    else:
+        return _map_to_new_config(yaml.safe_load(open(mapchete_file, "r").read()))
 
 
 def raw_conf_process_pyramid(raw_conf):
@@ -743,6 +746,32 @@ def raw_conf_process_pyramid(raw_conf):
         raw_conf["pyramid"]["grid"],
         metatiling=raw_conf["pyramid"].get("metatiling", 1),
         pixelbuffer=raw_conf["pyramid"].get("pixelbuffer", 0)
+    )
+
+
+def raw_conf_output_pyramid(raw_conf):
+    """
+    Loads the process pyramid of a raw configuration.
+
+    Parameters
+    ----------
+    raw_conf : dict
+        Raw mapchete configuration as dictionary.
+
+    Returns
+    -------
+    BufferedTilePyramid
+    """
+    return BufferedTilePyramid(
+        raw_conf["pyramid"]["grid"],
+        metatiling=raw_conf["output"].get(
+            "metatiling",
+            raw_conf["pyramid"].get("metatiling", 1)
+        ),
+        pixelbuffer=raw_conf["pyramid"].get(
+            "pixelbuffer",
+            raw_conf["pyramid"].get("pixelbuffer", 0)
+        )
     )
 
 
@@ -884,7 +913,7 @@ def _validate_bounds(bounds):
         len(bounds) != 4 or
         any([not isinstance(i, (int, float)) for i in bounds])
     ):
-        raise MapcheteConfigError("bounds not valid")
+        raise MapcheteConfigError("bounds not valid: %s", bounds)
     return bounds
 
 

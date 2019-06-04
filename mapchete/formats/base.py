@@ -53,9 +53,9 @@ class InputData(object):
 
     def __init__(self, input_params, **kwargs):
         """Initialize relevant input information."""
-        self.pyramid = input_params["pyramid"]
-        self.pixelbuffer = input_params["pixelbuffer"]
-        self.crs = self.pyramid.crs
+        self.pyramid = input_params.get("pyramid")
+        self.pixelbuffer = input_params.get("pixelbuffer")
+        self.crs = self.pyramid.crs if self.pyramid else None
 
     def open(self, tile, **kwargs):
         """

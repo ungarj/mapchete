@@ -80,6 +80,17 @@ def s2_band():
 
 
 @pytest.fixture
+def s2_band_jp2():
+    """
+    Fixture for Sentinel-2 raster band.
+
+    Original file:
+    s3://sentinel-s2-l1c/tiles/33/T/WN/2016/4/3/0/B02.jp2
+    """
+    return os.path.join(TESTDATA_DIR, "s2_band.jp2")
+
+
+@pytest.fixture
 def s2_band_remote():
     """
     Fixture for remote file on S3 bucket.

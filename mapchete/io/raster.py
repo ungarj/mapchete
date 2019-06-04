@@ -795,8 +795,9 @@ def memory_file(data=None, profile=None):
         rasterio profile for MemoryFile
     """
     memfile = MemoryFile()
-    profile.update(width=data.shape[-2], height=data.shape[-1])
-    with memfile.open(**profile) as dataset:
+    with memfile.open(
+        **dict(profile, width=data.shape[-2], height=data.shape[-1])
+    ) as dataset:
         dataset.write(data)
     return memfile
 
@@ -879,7 +880,7 @@ def _prepare_iterable(data, masked, nodata, dtype):
 def _prepare_masked(data, masked, nodata, dtype):
     if data.shape == data.mask.shape:
         if masked:
-            return data.astype(dtype, copy=False)
+            return ma.masked_values(data.astype(dtype, copy=False), nodata, copy=False)
         else:
             return ma.filled(data.astype(dtype, copy=False), nodata)
     else:

@@ -1,13 +1,23 @@
 import click
+import click_spinner
 import logging
+from multiprocessing import cpu_count
 import os
 import tilematrix
 import tqdm
 
+import mapchete
+from mapchete.config import raw_conf, bounds_from_opts
 from mapchete.formats import available_output_formats
+from mapchete.index import zoom_index_gen
 from mapchete.log import set_log_level, setup_logfile
 
 
+logger = logging.getLogger(__name__)
+
+
+# verbose stdout writer #
+#########################
 def write_verbose_msg(process_info, dst):
     tqdm.tqdm.write(
         "Tile %s: %s, %s" % (
@@ -17,6 +27,8 @@ def write_verbose_msg(process_info, dst):
     )
 
 
+# click callbacks #
+###################
 def _validate_zoom(ctx, param, zoom):
     if zoom:
         try:
@@ -59,7 +71,8 @@ def _setup_logfile(ctx, param, logfile):
     return logfile
 
 
-# arguments
+# click arguments #
+###################
 arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
 arg_create_mapchete_file = click.argument("mapchete_file", type=click.Path())
 arg_mapchete_files = click.argument(
@@ -72,8 +85,12 @@ arg_out_format = click.argument(
 )
 arg_input_raster = click.argument("input_raster", type=click.Path(exists=True))
 arg_out_dir = click.argument("output_dir", type=click.Path())
+arg_input = click.argument("input_", metavar="INPUT", type=click.STRING)
+arg_output = click.argument("output", type=click.STRING)
 
-# options
+
+# click options #
+#################
 opt_out_path = click.option(
     "--out_path", "-op", type=click.Path(), default=os.path.join(os.getcwd(), "output"),
     help="Process output path."
@@ -229,3 +246,164 @@ opt_memory = click.option(
     "--memory", "-mo", is_flag=True,
     help="Always get output from freshly processed output."
 )
+
+
+# convenience processing functions #
+####################################
+def _process_single_tile(
+    debug=None,
+    raw_conf_process_pyramid=None,
+    mapchete_config=None,
+    tile=None,
+    mode=None,
+    input_file=None,
+    verbose_dst=None,
+    vrt=None,
+    idx_out_dir=None,
+    no_pbar=None
+):
+    with click_spinner.spinner(disable=debug) as spinner:
+        with mapchete.Timer() as t:
+            tile = raw_conf_process_pyramid(raw_conf(mapchete_config)).tile(*tile)
+            with mapchete.open(
+                mapchete_config,
+                mode=mode,
+                bounds=tile.bounds,
+                zoom=tile.zoom,
+                single_input_file=input_file
+            ) as mp:
+                spinner.stop()
+                tqdm.tqdm.write("processing 1 tile", file=verbose_dst)
+
+                # run process on tile
+                for result in mp.batch_processor(tile=tile):
+                    write_verbose_msg(result, dst=verbose_dst)
+
+            tqdm.tqdm.write(
+                (
+                    "processing %s finished in %s" % (mapchete_config, t)
+                    if isinstance(mapchete_config, str)
+                    else "processing finished in %s" % t
+                ),
+                file=verbose_dst
+            )
+
+            # write VRT index
+            if vrt:
+                with mapchete.Timer() as t_vrt:
+                    tqdm.tqdm.write("creating VRT", file=verbose_dst)
+                    for tile in tqdm.tqdm(
+                        zoom_index_gen(
+                            mp=mp,
+                            zoom=tile.zoom,
+                            out_dir=idx_out_dir or mp.config.output.path,
+                            vrt=vrt,
+                        ),
+                        total=mp.count_tiles(tile.zoom, tile.zoom),
+                        unit="tile",
+                        disable=debug or no_pbar
+                    ):
+                        logger.debug("%s indexed", tile)
+
+                    tqdm.tqdm.write(
+                        (
+                            "VRT(s) for %s created in %s" % (mapchete_config, t_vrt)
+                            if isinstance(mapchete_config, str)
+                            else "VRT(s) created in %s" % t_vrt
+                        ),
+                        file=verbose_dst
+                    )
+
+
+def _process_area(
+    debug=None,
+    mapchete_config=None,
+    mode=None,
+    zoom=None,
+    wkt_geometry=None,
+    point=None,
+    bounds=None,
+    input_file=None,
+    multi=None,
+    verbose_dst=None,
+    max_chunksize=None,
+    no_pbar=None,
+    vrt=None,
+    idx_out_dir=None,
+):
+    multi = multi or cpu_count()
+    with click_spinner.spinner(disable=debug) as spinner:
+        with mapchete.Timer() as t:
+            with mapchete.open(
+                mapchete_config,
+                mode=mode,
+                zoom=zoom,
+                bounds=bounds_from_opts(
+                    wkt_geometry=wkt_geometry,
+                    point=point,
+                    bounds=bounds,
+                    raw_conf=raw_conf(mapchete_config)
+                ),
+                single_input_file=input_file
+            ) as mp:
+                spinner.stop()
+                tiles_count = mp.count_tiles(
+                    min(mp.config.init_zoom_levels),
+                    max(mp.config.init_zoom_levels)
+                )
+
+                tqdm.tqdm.write(
+                    "processing %s tile(s) on %s worker(s)" % (tiles_count, multi),
+                    file=verbose_dst
+                )
+
+                # run process on tiles
+                for process_info in tqdm.tqdm(
+                    mp.batch_processor(
+                        multi=multi,
+                        zoom=zoom,
+                        max_chunksize=max_chunksize
+                    ),
+                    total=tiles_count,
+                    unit="tile",
+                    disable=debug or no_pbar
+                ):
+                    write_verbose_msg(process_info, dst=verbose_dst)
+
+            tqdm.tqdm.write(
+                (
+                    "processing %s finished in %s" % (mapchete_config, t)
+                    if isinstance(mapchete_config, str)
+                    else "processing finished in %s" % t
+                ),
+                file=verbose_dst
+            )
+
+            # write VRT index
+            if vrt:
+                with mapchete.Timer() as t_vrt:
+                    tqdm.tqdm.write("creating VRT(s)", file=verbose_dst)
+                    for tile in tqdm.tqdm(
+                        zoom_index_gen(
+                            mp=mp,
+                            zoom=mp.config.init_zoom_levels,
+                            out_dir=idx_out_dir or mp.config.output.path,
+                            vrt=vrt
+                        ),
+                        total=mp.count_tiles(
+                            min(mp.config.init_zoom_levels),
+                            max(mp.config.init_zoom_levels)
+                        ),
+                        unit="tile",
+                        disable=debug or no_pbar
+                    ):
+                        logger.debug("%s indexed", tile)
+
+                    tqdm.tqdm.write(
+                        (
+                            "VRT(s) for %s created in %s" % (mapchete_config, t_vrt)
+                            if isinstance(mapchete_config, str)
+                            else "VRT(s) created in %s" % t_vrt
+                        ),
+                        file=verbose_dst
+                    )

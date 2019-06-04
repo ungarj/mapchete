@@ -2,7 +2,6 @@
 
 from click.testing import CliRunner
 import fiona
-import numpy as np
 import os
 import pytest
 from shapely import wkt
@@ -20,6 +19,7 @@ def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
     if output_contains:
         assert output_contains in result.output
     if raise_exc and result.exception:
+        print(result.output)
         raise result.exception
     assert result.exit_code == expected_exit_code
 
@@ -208,12 +208,12 @@ def test_formats(capfd):
     assert not err
 
 
-def test_pyramid_geodetic(cleantopo_br_tif, mp_tmpdir):
+def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-pt", "geodetic"])
+    run_cli(['convert', cleantopo_br_tif, mp_tmpdir, "--output-pyramid", "geodetic"])
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+            *[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio.open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
@@ -221,11 +221,11 @@ def test_pyramid_geodetic(cleantopo_br_tif, mp_tmpdir):
             assert data.mask.any()
 
 
-def test_pyramid_mercator(cleantopo_br_tif, mp_tmpdir):
+def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
     """Automatic mercator tile pyramid creation of raster files."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, '-d'])
+    run_cli(['convert', cleantopo_br_tif, mp_tmpdir, "--output-pyramid", "mercator"])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio.open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
@@ -233,12 +233,18 @@ def test_pyramid_mercator(cleantopo_br_tif, mp_tmpdir):
             assert data.mask.any()
 
 
-def test_pyramid_png(cleantopo_br_tif, mp_tmpdir):
+def test_convert_png(cleantopo_br_tif, mp_tmpdir):
     """Automatic PNG tile pyramid creation of raster files."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-of", "PNG"])
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        mp_tmpdir,
+        "--output-pyramid", "mercator",
+        "--output-format", "PNG"
+    ])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col)+".png"])
+            *[mp_tmpdir, str(zoom), str(row), str(col) + ".png"])
         with rasterio.open(out_file, "r") as src:
             assert src.meta["driver"] == "PNG"
             assert src.meta["dtype"] == "uint8"
@@ -246,75 +252,222 @@ def test_pyramid_png(cleantopo_br_tif, mp_tmpdir):
             assert data.mask.any()
 
 
-def test_pyramid_minmax(cleantopo_br_tif, mp_tmpdir):
-    """Automatic tile pyramid creation using minmax scale."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "minmax_scale"])
-    for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-        out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
-        with rasterio.open(out_file, "r") as src:
-            assert src.meta["driver"] == "GTiff"
-            assert src.meta["dtype"] == "uint16"
-            data = src.read(masked=True)
-            assert data.mask.any()
+def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        single_gtiff,
+        "--output-pyramid", "geodetic",
+        "-z", "3"
+    ])
+    with rasterio.open(single_gtiff, "r") as src:
+        assert src.meta["driver"] == "GTiff"
+        assert src.meta["dtype"] == "uint16"
+        data = src.read(masked=True)
+        assert data.mask.any()
 
 
-def test_pyramid_dtype(cleantopo_br_tif, mp_tmpdir):
+def test_convert_dtype(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using dtype scale."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "dtype_scale"])
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        mp_tmpdir,
+        "--output-pyramid", "mercator",
+        "--output-dtype", "uint8"
+    ])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-        out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio.open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
-            assert src.meta["dtype"] == "uint16"
+            assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
             assert data.mask.any()
 
 
-def test_pyramid_crop(cleantopo_br_tif, mp_tmpdir):
+def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation cropping data."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-s", "crop"])
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        mp_tmpdir,
+        "--output-pyramid", "mercator",
+        "--output-dtype", "uint8",
+        "--scale-ratio", "0.003"
+    ])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint8"
+            data = src.read(masked=True)
+            assert data.mask.any()
+            assert not data.mask.all()
+
+
+def test_convert_scale_offset(cleantopo_br_tif, mp_tmpdir):
+    """Automatic tile pyramid creation cropping data."""
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        mp_tmpdir,
+        "--output-pyramid", "mercator",
+        "--output-dtype", "uint8",
+        "--scale-offset", "1"
+    ])
+    for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint8"
+            data = src.read(masked=True)
+            assert data.mask.any()
+            assert not data.mask.all()
+
+
+def test_convert_zoom(cleantopo_br_tif, mp_tmpdir):
+    """Automatic tile pyramid creation using a specific zoom."""
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        mp_tmpdir,
+        "--output-pyramid", "mercator",
+        "-z", "3"
+    ])
+    for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
+        assert not os.path.isfile(out_file)
+
+
+def test_convert_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
+    """Automatic tile pyramid creation using min max zoom."""
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        mp_tmpdir,
+        "--output-pyramid", "mercator",
+        "-z", "3,4"
+    ])
+    for zoom, row, col in [(2, 3, 0)]:
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
+        assert not os.path.isfile(out_file)
+
+
+def test_convert_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
+    """Automatic tile pyramid creation using max min zoom."""
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        mp_tmpdir,
+        "--output-pyramid", "mercator",
+        "-z", "4,3"
+    ])
+    for zoom, row, col in [(2, 3, 0)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
+        assert not os.path.isfile(out_file)
+
+
+def test_convert_mapchete(cleantopo_br, mp_tmpdir):
+    # prepare data
+    with mapchete.open(cleantopo_br.path) as mp:
+        mp.batch_process(zoom=[1, 4])
+    run_cli([
+        'convert',
+        cleantopo_br.path,
+        mp_tmpdir,
+        "--output-pyramid", "geodetic",
+        "--output-metatiling", "1",
+        "-d",
+    ])
+    for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio.open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
             assert data.mask.any()
-            assert np.all(np.where(data <= 255, True, False))
 
 
-def test_pyramid_zoom(cleantopo_br_tif, mp_tmpdir):
-    """Automatic tile pyramid creation using a specific zoom."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3"])
-    for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
-        out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
-        assert not os.path.isfile(out_file)
+def test_convert_tiledir(cleantopo_br, mp_tmpdir):
+    # prepare data
+    with mapchete.open(cleantopo_br.path) as mp:
+        mp.batch_process(zoom=[1, 4])
+    run_cli([
+        'convert',
+        os.path.join(
+            cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
+        ),
+        mp_tmpdir,
+        "--output-pyramid", "geodetic",
+        "--output-metatiling", "1",
+        "--zoom", "1,4",
+        "-d",
+    ])
+    for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint16"
+            data = src.read(masked=True)
+            assert data.mask.any()
 
 
-def test_pyramid_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
-    """Automatic tile pyramid creation using min max zoom."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "3,4"])
-    for zoom, row, col in [(2, 3, 0)]:
-        out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
-        assert not os.path.isfile(out_file)
+def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br):
+    # output format required
+    run_cli(
+        ["convert", s2_band_jp2, mp_tmpdir, "--output-pyramid", "geodetic"],
+        expected_exit_code=2,
+        output_contains="Output format required.",
+        raise_exc=False
+    )
 
+    # output pyramid reqired
+    run_cli(
+        ["convert", s2_band, mp_tmpdir],
+        expected_exit_code=2,
+        output_contains="Output pyramid required.",
+        raise_exc=False
+    )
 
-def test_pyramid_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
-    """Automatic tile pyramid creation using max min zoom."""
-    run_cli(['pyramid', cleantopo_br_tif, mp_tmpdir, "-z", "4,3"])
-    for zoom, row, col in [(2, 3, 0)]:
-        out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col)+".tif"])
-        assert not os.path.isfile(out_file)
+    # prepare data for tiledir input
+    with mapchete.open(cleantopo_br.path) as mp:
+        mp.batch_process(zoom=[1, 4])
+    tiledir_path = os.path.join(
+        cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
+    )
 
+    # zoom level required
+    run_cli(
+        [
+            'convert',
+            tiledir_path,
+            mp_tmpdir,
+            "--output-pyramid", "geodetic",
+        ],
+        expected_exit_code=2,
+        output_contains="Zoom levels required.",
+        raise_exc=False
+    )
 
-# TODO pyramid specific bounds
-# TODO pyramid overwrite
+    # zoom level required
+    run_cli(
+        [
+            'convert',
+            tiledir_path,
+            mp_tmpdir,
+            "--output-pyramid", "geodetic",
+            "--zoom", "5",
+            "--output-format", "GeoJSON"
+        ],
+        expected_exit_code=2,
+        output_contains=(
+            "Output format type (vector) is incompatible with input format (raster)."
+        ),
+        raise_exc=False
+    )
 
 
 def test_serve_cli_params(cleantopo_br, mp_tmpdir):
