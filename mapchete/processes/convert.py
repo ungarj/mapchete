@@ -74,6 +74,7 @@ def execute(
             return "empty"
 
     if clip_geom:
+        logger.debug("clipping output with geometry")
         # apply original nodata mask and clip
         return mp.clip(raster_data, clip_geom, clip_buffer=clip_pixelbuffer)
     else:

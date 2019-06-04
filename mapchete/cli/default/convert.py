@@ -26,6 +26,10 @@ OUTPUT_FORMATS = available_output_formats()
 @utils.opt_point
 @utils.opt_wkt_geometry
 @click.option(
+    "--clip_geometry", "-c", type=click.Path(exists=True),
+    help="Clip output by geometry"
+)
+@click.option(
     "--output_pyramid", "-op", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
     help="Output pyramid to write to."
 )
@@ -61,6 +65,7 @@ def convert(
     bounds=None,
     point=None,
     wkt_geometry=None,
+    clip_geometry=None,
     output_pyramid=None,
     output_metatiling=None,
     output_format=None,
@@ -79,7 +84,7 @@ def convert(
     # collect mapchete configuration
     mapchete_config = dict(
         process="mapchete.processes.convert",
-        input=dict(raster=input_),
+        input=dict(raster=input_, clip=clip_geometry),
         pyramid=(
             dict(grid=output_pyramid, metatiling=output_metatiling)
             if output_pyramid

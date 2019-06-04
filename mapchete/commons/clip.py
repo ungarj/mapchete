@@ -56,10 +56,12 @@ def clip_array_with_vector(
                     invert=inverted))
         elif array.ndim == 3:
             mask = geometry_mask(
-                buffered_geometries, (array.shape[1], array.shape[2]),
-                array_affine, invert=inverted)
-            return ma.masked_array(
-                array, mask=np.stack((mask for band in array)))
+                buffered_geometries,
+                (array.shape[1], array.shape[2]),
+                array_affine,
+                invert=inverted
+            )
+            return ma.masked_array(array, mask=np.stack([mask for band in array]))
 
     # if no geometries, return unmasked array
     else:
