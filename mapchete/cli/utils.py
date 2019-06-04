@@ -280,7 +280,11 @@ def _process_single_tile(
                     write_verbose_msg(result, dst=verbose_dst)
 
             tqdm.tqdm.write(
-                "processing %s finished in %s" % (mapchete_config, t),
+                (
+                    "processing %s finished in %s" % (mapchete_config, t)
+                    if isinstance(mapchete_config, str)
+                    else "processing finished in %s" % t
+                ),
                 file=verbose_dst
             )
 
@@ -302,8 +306,10 @@ def _process_single_tile(
                         logger.debug("%s indexed", tile)
 
                     tqdm.tqdm.write(
-                        "VRT(s) creation for %s finished in %s" % (
-                            mapchete_config, t_vrt
+                        (
+                            "VRT(s) for %s created in %s" % (mapchete_config, t_vrt)
+                            if isinstance(mapchete_config, str)
+                            else "VRT(s) created in %s" % t_vrt
                         ),
                         file=verbose_dst
                     )
@@ -365,7 +371,11 @@ def _process_area(
                     write_verbose_msg(process_info, dst=verbose_dst)
 
             tqdm.tqdm.write(
-                "processing %s finished in %s" % (mapchete_config, t),
+                (
+                    "processing %s finished in %s" % (mapchete_config, t)
+                    if isinstance(mapchete_config, str)
+                    else "processing finished in %s" % t
+                ),
                 file=verbose_dst
             )
 
@@ -390,8 +400,10 @@ def _process_area(
                         logger.debug("%s indexed", tile)
 
                     tqdm.tqdm.write(
-                        "VRT(s) creation for %s finished in %s" % (
-                            mapchete_config, t_vrt
+                        (
+                            "VRT(s) for %s created in %s" % (mapchete_config, t_vrt)
+                            if isinstance(mapchete_config, str)
+                            else "VRT(s) created in %s" % t_vrt
                         ),
                         file=verbose_dst
                     )

@@ -913,7 +913,7 @@ def _validate_bounds(bounds):
         len(bounds) != 4 or
         any([not isinstance(i, (int, float)) for i in bounds])
     ):
-        raise MapcheteConfigError("bounds not valid")
+        raise MapcheteConfigError("bounds not valid: %s", bounds)
     return bounds
 
 

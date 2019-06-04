@@ -11,6 +11,8 @@ def execute(
     td_matching_precision=8,
     td_fallback_to_higher_zoom=False,
     clip_pixelbuffer=0,
+    scale_ratio=1.,
+    scale_offset=0.,
     **kwargs
 ):
     """
@@ -52,6 +54,7 @@ def execute(
     ------
     np.ndarray
     """
+    logger.debug("tile bounds: %s", mp.tile.bounds)
     # read clip geometry
     if "clip" in mp.params["input"]:
         clip_geom = mp.open("clip").read()
@@ -62,6 +65,7 @@ def execute(
         clip_geom = []
 
     with mp.open("raster",) as raster:
+        logger.debug("reading input raster")
         raster_data = raster.read(
             resampling=td_resampling,
             matching_method=td_matching_method,
@@ -69,9 +73,16 @@ def execute(
             matching_precision=td_matching_precision,
             fallback_to_higher_zoom=td_fallback_to_higher_zoom
         )
-        if raster.is_empty() or raster_data[0].mask.all():
+        if raster_data.mask.all():
             logger.debug("raster empty")
             return "empty"
+
+    if scale_offset != 0.:
+        logger.debug("apply scale offset %s", scale_offset)
+        raster_data = raster_data.astype("float64", copy=False) + scale_offset
+    if scale_ratio != 1.:
+        logger.debug("apply scale ratio %s", scale_ratio)
+        raster_data = raster_data.astype("float64", copy=False) * scale_ratio
 
     if clip_geom:
         logger.debug("clipping output with geometry")

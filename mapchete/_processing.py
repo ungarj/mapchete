@@ -387,6 +387,7 @@ class FinishedTask():
 
     def result(self):
         if self._exception:
+            logger.exception(self._exception)
             raise self._exception
         else:
             return self._result
