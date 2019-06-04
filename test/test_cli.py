@@ -48,9 +48,9 @@ def test_main(mp_tmpdir):
 
 
 def test_missing_input_file(mp_tmpdir):
-    """Check if IOError is raised if input_file is invalid."""
+    """Check if IOError is raised if input-file is invalid."""
     run_cli(
-        ["execute", "process.mapchete", "--input_file", "invalid.tif"],
+        ["execute", "process.mapchete", "--input-file", "invalid.tif"],
         expected_exit_code=2,
         output_contains='Path "process.mapchete" does not exist.',
         raise_exc=False
@@ -66,7 +66,7 @@ def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
     run_cli(
         [
             'create', temp_mapchete, temp_process, out_format,
-            "--pyramid_type", "geodetic"
+            "--pyramid-type", "geodetic"
         ],
         expected_exit_code=0
     )
@@ -81,7 +81,7 @@ def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
         run_cli(
             [
                 'execute', temp_mapchete, '--tile', '6', '62', '124',
-                '--input_file', cleantopo_br_tif, '-d'
+                '--input-file', cleantopo_br_tif, '-d'
             ],
             expected_exit_code=-1
         )
@@ -94,7 +94,7 @@ def test_create_existing(mp_tmpdir):
     out_format = "GTiff"
     # create files from template
     args = [
-        'create', temp_mapchete, temp_process, out_format, "--pyramid_type", "geodetic"
+        'create', temp_mapchete, temp_process, out_format, "--pyramid-type", "geodetic"
     ]
     run_cli(args)
     # try to create again
@@ -109,7 +109,7 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     out_format = "GTiff"
     # create from template
     run_cli([
-        'create', temp_mapchete, temp_process, out_format, "--pyramid_type", "geodetic"
+        'create', temp_mapchete, temp_process, out_format, "--pyramid-type", "geodetic"
     ])
     # edit configuration
     with open(temp_mapchete, "r") as config_file:
@@ -120,7 +120,7 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     # run process with multiprocessing
     with pytest.raises(MapcheteProcessOutputError):
         run_cli([
-            'execute', temp_mapchete, '--zoom', '5', '--input_file', cleantopo_br_tif,
+            'execute', temp_mapchete, '--zoom', '5', '--input-file', cleantopo_br_tif,
             '-m', '2', '-d'
         ])
     # run example process with multiprocessing
@@ -147,7 +147,7 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
 
     # run again, this time with custom output directory
     run_cli(
-        ['execute', cleantopo_br.path, "-z", "5", "--vrt", "--idx_out_dir", mp_tmpdir]
+        ['execute', cleantopo_br.path, "-z", "5", "--vrt", "--idx-out-dir", mp_tmpdir]
     )
     with mapchete.open(cleantopo_br.dict) as mp:
         vrt_path = os.path.join(mp_tmpdir, "5.vrt")
@@ -183,7 +183,7 @@ def test_execute_logfile(mp_tmpdir, example_mapchete):
 
 def test_execute_wkt_bounds(mp_tmpdir, example_mapchete, wkt_geom):
     """Using bounds from WKT."""
-    run_cli(['execute', example_mapchete.path, "--wkt_geometry", wkt_geom])
+    run_cli(['execute', example_mapchete.path, "--wkt-geometry", wkt_geom])
 
 
 def test_execute_point(mp_tmpdir, example_mapchete, wkt_geom):
@@ -479,13 +479,13 @@ def test_serve_cli_params(cleantopo_br, mp_tmpdir):
     for args in [
         ['serve', cleantopo_br.path],
         ['serve', cleantopo_br.path, "--port", "5001"],
-        ['serve', cleantopo_br.path, "--internal_cache", "512"],
+        ['serve', cleantopo_br.path, "--internal-cache", "512"],
         ['serve', cleantopo_br.path, "--zoom", "5"],
         ['serve', cleantopo_br.path, "--bounds", "-1", "-1", "1", "1"],
         ['serve', cleantopo_br.path, "--overwrite"],
         ['serve', cleantopo_br.path, "--readonly"],
         ['serve', cleantopo_br.path, "--memory"],
-        ['serve', cleantopo_br.path, "--input_file", cleantopo_br.path],
+        ['serve', cleantopo_br.path, "--input-file", cleantopo_br.path],
     ]:
         run_cli(args)
 
@@ -511,7 +511,7 @@ def test_serve(client, mp_tmpdir):
                 # get alpha band and assert not all are masked
                 assert not data[3].all()
     # test outside zoom range
-    response = client.get(tile_base_url+"6/31/63.png")
+    response = client.get(tile_base_url + "6/31/63.png")
     assert response.status_code == 200
     img = response.data
     with MemoryFile(img) as memfile:
@@ -519,7 +519,7 @@ def test_serve(client, mp_tmpdir):
             data = dataset.read()
             assert not data.any()
     # test invalid url
-    response = client.get(tile_base_url+"invalid_url")
+    response = client.get(tile_base_url + "invalid_url")
     assert response.status_code == 404
 
 
@@ -584,7 +584,7 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
     # index and rename "location" to "new_fieldname"
     run_cli([
         'index', cleantopo_br.path,  '-z', '3', '--geojson', '--debug',
-        '--basepath', basepath, '--for_gdal'
+        '--basepath', basepath, '--for-gdal'
     ])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -611,11 +611,11 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
 
 def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
     # execute process at zoom 3
-    run_cli(['execute', cleantopo_br.path, '--debug', "--wkt_geometry", wkt_geom])
+    run_cli(['execute', cleantopo_br.path, '--debug', "--wkt-geometry", wkt_geom])
 
     # generate index for zoom 3
     run_cli([
-        'index', cleantopo_br.path, '--geojson', '--debug', "--wkt_geometry", wkt_geom
+        'index', cleantopo_br.path, '--geojson', '--debug', "--wkt-geometry", wkt_geom
     ])
 
     with mapchete.open(cleantopo_br.dict) as mp:
