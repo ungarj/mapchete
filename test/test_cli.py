@@ -240,7 +240,7 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
         cleantopo_br_tif,
         mp_tmpdir,
         "--output-pyramid", "mercator",
-        "--output_format", "PNG"
+        "--output-format", "PNG"
     ])
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(
@@ -250,6 +250,23 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
             assert data.mask.any()
+
+
+def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        single_gtiff,
+        "--output-pyramid", "geodetic",
+        "-z", "3"
+    ])
+    with rasterio.open(single_gtiff, "r") as src:
+        assert src.meta["driver"] == "GTiff"
+        assert src.meta["dtype"] == "uint16"
+        data = src.read(masked=True)
+        assert data.mask.any()
 
 
 def test_convert_dtype(cleantopo_br_tif, mp_tmpdir):
@@ -396,6 +413,61 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
             assert data.mask.any()
+
+
+def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br):
+    # output format required
+    run_cli(
+        ["convert", s2_band_jp2, mp_tmpdir, "--output-pyramid", "geodetic"],
+        expected_exit_code=2,
+        output_contains="Output format required.",
+        raise_exc=False
+    )
+
+    # output pyramid reqired
+    run_cli(
+        ["convert", s2_band, mp_tmpdir],
+        expected_exit_code=2,
+        output_contains="Output pyramid required.",
+        raise_exc=False
+    )
+
+    # prepare data for tiledir input
+    with mapchete.open(cleantopo_br.path) as mp:
+        mp.batch_process(zoom=[1, 4])
+    tiledir_path = os.path.join(
+        cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
+    )
+
+    # zoom level required
+    run_cli(
+        [
+            'convert',
+            tiledir_path,
+            mp_tmpdir,
+            "--output-pyramid", "geodetic",
+        ],
+        expected_exit_code=2,
+        output_contains="Zoom levels required.",
+        raise_exc=False
+    )
+
+    # zoom level required
+    run_cli(
+        [
+            'convert',
+            tiledir_path,
+            mp_tmpdir,
+            "--output-pyramid", "geodetic",
+            "--zoom", "5",
+            "--output-format", "GeoJSON"
+        ],
+        expected_exit_code=2,
+        output_contains=(
+            "Output format type (vector) is incompatible with input format (raster)."
+        ),
+        raise_exc=False
+    )
 
 
 def test_serve_cli_params(cleantopo_br, mp_tmpdir):

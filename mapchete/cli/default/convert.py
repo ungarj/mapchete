@@ -42,7 +42,7 @@ OUTPUT_FORMATS = available_output_formats()
     help="Output metatiling.",
 )
 @click.option(
-    "--output_format", type=click.Choice(available_output_formats()),
+    "--output-format", type=click.Choice(available_output_formats()),
     help="Output format."
 )
 @click.option(
@@ -137,10 +137,11 @@ def convert(
 
     # assert all required information is there
     if mapchete_config["output"]["format"] is None:
-        raise click.BadOptionUsage("output_format", "Output format required.")
+        # this happens if input file is e.g. JPEG2000 and output is a tile directory
+        raise click.BadOptionUsage("output-format", "Output format required.")
     output_type = OUTPUT_FORMATS[mapchete_config["output"]["format"]]["data_type"]
     if mapchete_config["pyramid"] is None:
-        raise click.BadOptionUsage("output_pyramid", "Output pyramid required.")
+        raise click.BadOptionUsage("output-pyramid", "Output pyramid required.")
     elif mapchete_config["zoom_levels"] is None:
         try:
             mapchete_config.update(
@@ -153,7 +154,6 @@ def convert(
             raise click.BadOptionUsage("zoom", "Zoom levels required.")
     elif input_info["input_type"] != output_type:
         raise click.BadArgumentUsage(
-            "output",
             "Output format type (%s) is incompatible with input format (%s)." % (
                 output_type, input_info["input_type"]
             )
