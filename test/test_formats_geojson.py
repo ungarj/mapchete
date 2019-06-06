@@ -1,5 +1,5 @@
 """Test GeoJSON as process output."""
-
+import pytest
 from shapely.geometry import shape
 
 import mapchete
@@ -89,6 +89,7 @@ def test_output_data(mp_tmpdir, geojson):
         assert len(read_output)
 
 
+@pytest.mark.remote
 def test_s3_output_data(mp_s3_tmpdir, geojson_s3):
     """Check GeoJSON as output data."""
     output_params = dict(
@@ -105,6 +106,7 @@ def test_s3_output_data(mp_s3_tmpdir, geojson_s3):
     assert isinstance(output_params, dict)
 
 
+@pytest.mark.remote
 def test_s3_output_data_rw(mp_s3_tmpdir, geojson_s3):
     with mapchete.open(geojson_s3.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)

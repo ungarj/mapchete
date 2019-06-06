@@ -1,6 +1,7 @@
 import fiona
 import numpy as np
 import os
+import pytest
 import rasterio
 
 import mapchete
@@ -8,6 +9,7 @@ from mapchete.index import zoom_index_gen
 from mapchete.io import get_boto3_bucket
 
 
+@pytest.mark.remote
 def test_remote_indexes(mp_s3_tmpdir, gtiff_s3):
 
     zoom = 7

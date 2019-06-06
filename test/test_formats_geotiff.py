@@ -169,6 +169,7 @@ def test_write_geotiff_tags(
                 assert src.tags(1)["band_tag"] == "True"
 
 
+@pytest.mark.remote
 def test_s3_write_output_data(gtiff_s3, s3_example_tile, mp_s3_tmpdir):
     """Write and read output."""
     with mapchete.open(gtiff_s3.dict) as mp:

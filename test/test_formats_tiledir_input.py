@@ -138,6 +138,7 @@ def test_no_metadata_json(mp_tmpdir, cleantopo_br_tiledir):
         )
 
 
+@pytest.mark.remote
 def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):
     """Read raster data."""
     with mapchete.open(cleantopo_remote.path) as mp:

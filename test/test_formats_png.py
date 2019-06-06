@@ -70,6 +70,7 @@ def test_output_data(mp_tmpdir):
         output.write(tile, np.zeros((5, ) + tile.shape))
 
 
+@pytest.mark.remote
 def test_s3_write_output_data(mp_s3_tmpdir):
     """Write and read output."""
     output_params = dict(

@@ -2,6 +2,7 @@
 """Test PNG_hillshade as process output."""
 
 import os
+import pytest
 import shutil
 import numpy as np
 import numpy.ma as ma
@@ -94,6 +95,7 @@ def test_output_data(mp_tmpdir):
     # TODO for_web
 
 
+@pytest.mark.remote
 def test_s3_write_output_data(mp_s3_tmpdir):
     """Write and read output."""
     output_params = dict(

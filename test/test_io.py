@@ -742,15 +742,18 @@ def test_clean_geometry_type():
         clean_geometry_type(MultiPolygon([polygon]), "Polygon", allow_multipart=False)
 
 
+@pytest.mark.remote
 def test_s3_path_exists(s2_band_remote):
     assert path_exists(s2_band_remote)
 
 
+@pytest.mark.remote
 def test_s3_read_raster_window(s2_band_remote):
     tile = BufferedTilePyramid("geodetic").tile(10, 276, 1071)
     assert read_raster_window(s2_band_remote, tile).any()
 
 
+@pytest.mark.remote
 def test_remote_path_exists(http_raster):
     assert path_exists(http_raster)
     assert not path_exists("http://ungarj.github.io/invalid_file.tif")
@@ -770,7 +773,8 @@ def test_absolute_path():
     ) == "https://file.tif"
 
 
-def test_read_json(s3_metadata_json, http_metadata_json):
+@pytest.mark.remote
+def test_read_remote_json(s3_metadata_json, http_metadata_json):
     assert isinstance(read_json(s3_metadata_json), dict)
     assert isinstance(read_json(http_metadata_json), dict)
     with pytest.raises(FileNotFoundError):

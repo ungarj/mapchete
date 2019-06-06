@@ -108,6 +108,7 @@ def test_base_format_classes():
         tmp.open(None, None)
 
 
+@pytest.mark.remote
 def test_http_rasters(files_bounds, http_raster):
     """Raster file on remote server with http:// or https:// URLs."""
     zoom = 13
