@@ -62,7 +62,6 @@ setup(
         ],
         'mapchete.processes': [
             'example_process=mapchete.processes.examples.example_process',
-            'tilify=mapchete.processes.pyramid.tilify',
             'convert=mapchete.processes.convert'
         ]
     },

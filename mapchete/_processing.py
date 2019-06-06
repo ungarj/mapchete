@@ -238,8 +238,12 @@ class MapcheteProcess(object):
         """
         if kwargs:
             warnings.warn(
-                'Using kwargs such as "resampling" in open() is deprecated.'
-                'Such options should be passed on in the respective read() functions'
+                'Using kwargs such in open() is deprecated and will have no effect.'
+            )
+        if "resampling" in kwargs:
+            raise DeprecationWarning(
+                "'resampling' argument has no effect here and must be provided in read() "
+                "function."
             )
         if input_id not in self.input:
             raise ValueError("%s not found in config as input" % input_id)

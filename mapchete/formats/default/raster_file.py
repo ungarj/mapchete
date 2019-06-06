@@ -148,20 +148,20 @@ class InputTile(base.InputTile):
         resampling method passed on to rasterio
     """
 
-    def __init__(self, tile, raster_file, resampling="nearest", **kwargs):
+    def __init__(self, tile, raster_file, **kwargs):
         """Initialize."""
         self.tile = tile
         self.raster_file = raster_file
-        self.resampling = resampling
         if io.path_is_remote(raster_file.path):
             file_ext = os.path.splitext(raster_file.path)[1]
             self.gdal_opts = {
                 "GDAL_DISABLE_READDIR_ON_OPEN": True,
-                "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext}
+                "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext
+            }
         else:
             self.gdal_opts = {}
 
-    def read(self, indexes=None, **kwargs):
+    def read(self, indexes=None, resampling="nearest", **kwargs):
         """
         Read reprojected & resampled input data.
 
@@ -173,7 +173,7 @@ class InputTile(base.InputTile):
             self.raster_file.path,
             self.tile,
             indexes=self._get_band_indexes(indexes),
-            resampling=self.resampling,
+            resampling=resampling,
             gdal_opts=self.gdal_opts
         )
 
@@ -186,9 +186,7 @@ class InputTile(base.InputTile):
         is empty : bool
         """
         # empty if tile does not intersect with file bounding box
-        return not self.tile.bbox.intersects(
-            self.raster_file.bbox(out_crs=self.tile.crs)
-        )
+        return not self.tile.bbox.intersects(self.raster_file.bbox(out_crs=self.tile.crs))
 
     def _get_band_indexes(self, indexes=None):
         """Return valid band indexes."""
