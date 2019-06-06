@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 def execute(
     mp,
-    td_resampling="nearest",
+    resampling="nearest",
     td_matching_method="gdal",
     td_matching_max_zoom=None,
     td_matching_precision=8,
@@ -29,7 +29,7 @@ def execute(
 
     Parameters
     ----------
-    td_resampling : str (default: 'nearest')
+    resampling : str (default: 'nearest')
         Resampling used when reading from TileDirectory.
     td_matching_method : str ('gdal' or 'min') (default: 'gdal')
         gdal: Uses GDAL's standard method. Here, the target resolution is
@@ -56,7 +56,6 @@ def execute(
     ------
     np.ndarray
     """
-    logger.debug("tile bounds: %s", mp.tile.bounds)
     # read clip geometry
     if "clip" in mp.params["input"]:
         clip_geom = mp.open("clip").read()
@@ -69,7 +68,7 @@ def execute(
     with mp.open("raster",) as raster:
         logger.debug("reading input raster")
         raster_data = raster.read(
-            resampling=td_resampling,
+            resampling=resampling,
             matching_method=td_matching_method,
             matching_max_zoom=td_matching_max_zoom,
             matching_precision=td_matching_precision,
@@ -85,7 +84,6 @@ def execute(
     if scale_ratio != 1.:
         logger.debug("apply scale ratio %s", scale_ratio)
         raster_data = raster_data.astype("float64", copy=False) * scale_ratio
-        logger.debug(raster_data)
     if (scale_offset != 0. or scale_ratio != 1.) and clip_to_output_dtype in dtype_ranges:
         logger.debug("clip to output dtype ranges")
         raster_data.clip(*dtype_ranges[clip_to_output_dtype], out=raster_data)
