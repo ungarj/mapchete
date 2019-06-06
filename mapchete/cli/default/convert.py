@@ -6,6 +6,7 @@ import os
 from pprint import pformat
 import rasterio
 from rasterio.dtypes import dtype_ranges
+from rasterio.rio.options import creation_options
 from shapely.geometry import box
 import sys
 import tilematrix
@@ -50,6 +51,7 @@ OUTPUT_FORMATS = available_output_formats()
     "--output-dtype", type=click.Choice(dtype_ranges.keys()),
     help="Output data type (for raster output only)."
 )
+@creation_options
 @click.option(
     "--scale-ratio", type=click.FLOAT, default=1.,
     help="Scaling factor (for raster output only)."
@@ -78,6 +80,7 @@ def convert(
     output_metatiling=None,
     output_format=None,
     output_dtype=None,
+    creation_options=None,
     scale_ratio=None,
     scale_offset=None,
     overwrite=False,
@@ -128,7 +131,8 @@ def convert(
                 output_info["driver"] or
                 input_info["output_params"]["format"]
             ),
-            dtype=output_dtype or input_info["output_params"].get("dtype")
+            dtype=output_dtype or input_info["output_params"].get("dtype"),
+            **creation_options
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info["zoom_levels"],
