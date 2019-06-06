@@ -327,6 +327,21 @@ def test_convert_scale_offset(cleantopo_br_tif, mp_tmpdir):
             assert not data.mask.all()
 
 
+def test_convert_clip(cleantopo_br_tif, mp_tmpdir, landpoly):
+    """Automatic tile pyramid creation cropping data."""
+    run_cli(
+        [
+            'convert',
+            cleantopo_br_tif,
+            mp_tmpdir,
+            "--output-pyramid", "geodetic",
+            "--clip-geometry", landpoly,
+            "-d"
+        ],
+        output_contains="Process area is empty"
+    )
+
+
 def test_convert_zoom(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using a specific zoom."""
     run_cli([

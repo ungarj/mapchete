@@ -176,12 +176,20 @@ def convert(
         if input_info["bounds"]
         else out_pyramid.bounds
     )
+    # if clip-geometry is available, intersect determined bounds with clip bounds
+    if clip_geometry:
+        clip_intersection = _clip_bbox(
+            clip_geometry, dst_crs=out_pyramid.crs
+        ).intersection(box(*inp_bounds))
+        if clip_intersection.is_empty:
+            click.echo(
+                "Process area is empty: clip bounds don't intersect with input bounds."
+            )
+            return
     # add process bounds and
     mapchete_config.update(
         bounds=(
-            _clip_bbox(
-                clip_geometry, dst_crs=out_pyramid.crs
-            ).intersection(box(*inp_bounds)).bounds
+            clip_intersection.bounds
             if clip_geometry
             else inp_bounds
         ),
@@ -224,10 +232,8 @@ def _get_input_info(input_):
             logger.debug("input is raster_file")
             input_info = _input_rasterio_info(input_)
 
-        elif driver == "vector_file":
-            # this should be readable by fiona
-            logger.debug("input is vector_file")
-            raise NotImplementedError()
+        else:
+            raise NotImplementedError("driver %s is not supported" % driver)
 
     # assuming tile directory
     else:
