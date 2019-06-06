@@ -1,4 +1,5 @@
 import logging
+from rasterio.dtypes import dtype_ranges
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,7 @@ def execute(
     clip_pixelbuffer=0,
     scale_ratio=1.,
     scale_offset=0.,
+    clip_to_output_dtype=None,
     **kwargs
 ):
     """
@@ -83,6 +85,10 @@ def execute(
     if scale_ratio != 1.:
         logger.debug("apply scale ratio %s", scale_ratio)
         raster_data = raster_data.astype("float64", copy=False) * scale_ratio
+        logger.debug(raster_data)
+    if (scale_offset != 0. or scale_ratio != 1.) and clip_to_output_dtype in dtype_ranges:
+        logger.debug("clip to output dtype ranges")
+        raster_data.clip(*dtype_ranges[clip_to_output_dtype], out=raster_data)
 
     if clip_geom:
         logger.debug("clipping output with geometry")

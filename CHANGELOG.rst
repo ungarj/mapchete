@@ -10,7 +10,7 @@ Changelog
 
   * output drivers must now provide `OutputDataWriter` and `OutputDataReader` classes instead of a single `OutputData` class
   * `OutputDataWriter.close()` method must accept `exc_type=None, exc_value=None, exc_traceback=None` keywords
-  * `mapchete pyramid` CLI was removed and is replaced by the more versatile `mapchete convert` (#157)
+  * `mapchete pyramid` CLI was removed and is replaced by the more versatile `mapchete convert` (#157, #192)
   * all CLI multiword options are separated by an hyphen (`-`) instead of underscore (`_`)
   (#189)
 

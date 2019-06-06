@@ -1,10 +1,12 @@
 import click
+import fiona
 import logging
 from multiprocessing import cpu_count
 import os
 from pprint import pformat
 import rasterio
 from rasterio.dtypes import dtype_ranges
+from rasterio.rio.options import creation_options
 from shapely.geometry import box
 import sys
 import tilematrix
@@ -49,6 +51,7 @@ OUTPUT_FORMATS = available_output_formats()
     "--output-dtype", type=click.Choice(dtype_ranges.keys()),
     help="Output data type (for raster output only)."
 )
+@creation_options
 @click.option(
     "--scale-ratio", type=click.FLOAT, default=1.,
     help="Scaling factor (for raster output only)."
@@ -77,6 +80,7 @@ def convert(
     output_metatiling=None,
     output_format=None,
     output_dtype=None,
+    creation_options=None,
     scale_ratio=None,
     scale_offset=None,
     overwrite=False,
@@ -127,7 +131,8 @@ def convert(
                 output_info["driver"] or
                 input_info["output_params"]["format"]
             ),
-            dtype=output_dtype or input_info["output_params"].get("dtype")
+            dtype=output_dtype or input_info["output_params"].get("dtype"),
+            **creation_options
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info["zoom_levels"],
@@ -161,17 +166,34 @@ def convert(
 
     # determine process bounds
     out_pyramid = BufferedTilePyramid.from_dict(mapchete_config["pyramid"])
+    inp_bounds = (
+        bounds or
+        reproject_geometry(
+            box(*input_info["bounds"]),
+            src_crs=input_info["crs"],
+            dst_crs=out_pyramid.crs
+        ).bounds
+        if input_info["bounds"]
+        else out_pyramid.bounds
+    )
+    # if clip-geometry is available, intersect determined bounds with clip bounds
+    if clip_geometry:
+        clip_intersection = _clip_bbox(
+            clip_geometry, dst_crs=out_pyramid.crs
+        ).intersection(box(*inp_bounds))
+        if clip_intersection.is_empty:
+            click.echo(
+                "Process area is empty: clip bounds don't intersect with input bounds."
+            )
+            return
+    # add process bounds and
     mapchete_config.update(
         bounds=(
-            bounds or
-            reproject_geometry(
-                box(*input_info["bounds"]),
-                src_crs=input_info["crs"],
-                dst_crs=out_pyramid.crs
-            ).bounds
-            if input_info["bounds"]
-            else out_pyramid.bounds
-        )
+            clip_intersection.bounds
+            if clip_geometry
+            else inp_bounds
+        ),
+        clip_to_output_dtype=mapchete_config["output"].get("dtype", None)
     )
     logger.debug("temporary config generated: %s", pformat(mapchete_config))
 
@@ -191,6 +213,11 @@ def convert(
     )
 
 
+def _clip_bbox(clip_geometry, dst_crs=None):
+    with fiona.open(clip_geometry) as src:
+        return reproject_geometry(box(*src.bounds), src_crs=src.crs, dst_crs=dst_crs)
+
+
 def _get_input_info(input_):
     # single file input can be a mapchete file or a rasterio/fiona file
     if os.path.isfile(input_):
@@ -205,10 +232,8 @@ def _get_input_info(input_):
             logger.debug("input is raster_file")
             input_info = _input_rasterio_info(input_)
 
-        elif driver == "vector_file":
-            # this should be readable by fiona
-            logger.debug("input is vector_file")
-            raise NotImplementedError()
+        else:
+            raise NotImplementedError("driver %s is not supported" % driver)
 
     # assuming tile directory
     else:
