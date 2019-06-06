@@ -176,6 +176,7 @@ def convert(
         if input_info["bounds"]
         else out_pyramid.bounds
     )
+    # add process bounds and
     mapchete_config.update(
         bounds=(
             _clip_bbox(
@@ -183,7 +184,8 @@ def convert(
             ).intersection(box(*inp_bounds)).bounds
             if clip_geometry
             else inp_bounds
-        )
+        ),
+        clip_to_output_dtype=mapchete_config["output"].get("dtype", None)
     )
     logger.debug("temporary config generated: %s", pformat(mapchete_config))
 
