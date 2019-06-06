@@ -1,4 +1,5 @@
 import click
+import fiona
 import logging
 from multiprocessing import cpu_count
 import os
@@ -161,16 +162,23 @@ def convert(
 
     # determine process bounds
     out_pyramid = BufferedTilePyramid.from_dict(mapchete_config["pyramid"])
+    inp_bounds = (
+        bounds or
+        reproject_geometry(
+            box(*input_info["bounds"]),
+            src_crs=input_info["crs"],
+            dst_crs=out_pyramid.crs
+        ).bounds
+        if input_info["bounds"]
+        else out_pyramid.bounds
+    )
     mapchete_config.update(
         bounds=(
-            bounds or
-            reproject_geometry(
-                box(*input_info["bounds"]),
-                src_crs=input_info["crs"],
-                dst_crs=out_pyramid.crs
-            ).bounds
-            if input_info["bounds"]
-            else out_pyramid.bounds
+            _clip_bbox(
+                clip_geometry, dst_crs=out_pyramid.crs
+            ).intersection(box(*inp_bounds)).bounds
+            if clip_geometry
+            else inp_bounds
         )
     )
     logger.debug("temporary config generated: %s", pformat(mapchete_config))
@@ -189,6 +197,11 @@ def convert(
         vrt=vrt,
         idx_out_dir=idx_out_dir
     )
+
+
+def _clip_bbox(clip_geometry, dst_crs=None):
+    with fiona.open(clip_geometry) as src:
+        return reproject_geometry(box(*src.bounds), src_crs=src.crs, dst_crs=dst_crs)
 
 
 def _get_input_info(input_):
