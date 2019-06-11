@@ -8,10 +8,7 @@ import threading
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile
-from mapchete._processing import (
-    _run_on_single_tile, _run_without_multiprocessing, _run_with_multiprocessing,
-    ProcessInfo, TileProcess
-)
+from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
 from mapchete.tile import BufferedTile, count_tiles
 from mapchete._timer import Timer
 
@@ -102,7 +99,7 @@ class Mapchete(object):
             self.process_lock = threading.Lock()
         self._count_tiles_cache = {}
 
-    def get_process_tiles(self, zoom=None, tuple_skip=False):
+    def get_process_tiles(self, zoom=None):
         """
         Yield process tiles.
 
@@ -120,39 +117,49 @@ class Mapchete(object):
         ------
         BufferedTile objects
         """
-        def _get_process_tiles(zoom):
-            if zoom or zoom == 0:
+        if zoom or zoom == 0:
+            for tile in self.config.process_pyramid.tiles_from_geom(
+                self.config.area_at_zoom(zoom), zoom
+            ):
+                yield tile
+        else:
+            for zoom in reversed(self.config.zoom_levels):
                 for tile in self.config.process_pyramid.tiles_from_geom(
                     self.config.area_at_zoom(zoom), zoom
                 ):
                     yield tile
-            else:
-                for zoom in reversed(self.config.zoom_levels):
-                    for tile in self.config.process_pyramid.tiles_from_geom(
-                        self.config.area_at_zoom(zoom), zoom
-                    ):
-                        yield tile
 
+    def skip_tiles(self, tiles=None):
+        """
+        Quickly determine whether tiles can be skipped for processing.
+
+        The skip value is True if process mode is 'continue' and process output already
+        exists. In all other cases, skip is False.
+
+        Parameters
+        ----------
+        tiles : list of process tiles
+
+        Yields
+        ------
+        tuples : (tile, skip)
+        """
         def _skip(config, tile):
             return tile, config.output_reader.tiles_exist(tile)
 
-        if tuple_skip:
-            # only check for existing output in "continue" mode
-            if self.config.mode == "continue":
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    for future in concurrent.futures.as_completed(
-                        (
-                            executor.submit(_skip, self.config, tile)
-                            for tile in _get_process_tiles(zoom)
-                        )
-                    ):
-                        yield future.result()
-            else:
-                for tile in _get_process_tiles(zoom):
-                    yield (tile, False)
+        # only check for existing output in "continue" mode
+        if self.config.mode == "continue":
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                for future in concurrent.futures.as_completed(
+                    (
+                        executor.submit(_skip, self.config, tile)
+                        for tile in tiles
+                    )
+                ):
+                    yield future.result()
         else:
-            for tile in _get_process_tiles(zoom):
-                yield tile
+            for tile in tiles:
+                yield (tile, False)
 
     def batch_process(
         self,
@@ -204,7 +211,8 @@ class Mapchete(object):
         multi=multiprocessing.cpu_count(),
         max_chunksize=1,
         multiprocessing_module=multiprocessing,
-        multiprocessing_start_method="fork"
+        multiprocessing_start_method="fork",
+        skip_output_check=False
     ):
         """
         Process a large batch of tiles and yield report messages per tile.
@@ -228,6 +236,9 @@ class Mapchete(object):
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
             (default: "fork")
+        skip_output_check : bool
+            skip checking whether process tiles already have existing output before
+            starting to process;
         """
         if zoom and tile:
             raise ValueError("use either zoom or tile")
@@ -238,22 +249,16 @@ class Mapchete(object):
                 process=self,
                 tile=self.config.process_pyramid.tile(*tuple(tile))
             )
-        # run sequentially
-        elif multi == 1:
-            for process_info in _run_without_multiprocessing(
-                process=self,
-                zoom_levels=list(_get_zoom_level(zoom, self))
-            ):
-                yield process_info
-        # run concurrently
-        elif multi > 1:
-            for process_info in _run_with_multiprocessing(
+        # run area
+        else:
+            for process_info in _run_area(
                 process=self,
                 zoom_levels=list(_get_zoom_level(zoom, self)),
                 multi=multi,
                 max_chunksize=max_chunksize,
                 multiprocessing_module=multiprocessing_module,
-                multiprocessing_start_method=multiprocessing_start_method
+                multiprocessing_start_method=multiprocessing_start_method,
+                skip_output_check=skip_output_check
             ):
                 yield process_info
 
