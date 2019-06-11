@@ -1,6 +1,7 @@
 """Main module managing processes."""
 
 from cachetools import LRUCache
+import concurrent.futures
 import logging
 import multiprocessing
 import threading
@@ -101,7 +102,7 @@ class Mapchete(object):
             self.process_lock = threading.Lock()
         self._count_tiles_cache = {}
 
-    def get_process_tiles(self, zoom=None):
+    def get_process_tiles(self, zoom=None, tuple_skip=False):
         """
         Yield process tiles.
 
@@ -119,17 +120,39 @@ class Mapchete(object):
         ------
         BufferedTile objects
         """
-        if zoom or zoom == 0:
-            for tile in self.config.process_pyramid.tiles_from_geom(
-                self.config.area_at_zoom(zoom), zoom
-            ):
-                yield tile
-        else:
-            for zoom in reversed(self.config.zoom_levels):
+        def _get_process_tiles(zoom):
+            if zoom or zoom == 0:
                 for tile in self.config.process_pyramid.tiles_from_geom(
                     self.config.area_at_zoom(zoom), zoom
                 ):
                     yield tile
+            else:
+                for zoom in reversed(self.config.zoom_levels):
+                    for tile in self.config.process_pyramid.tiles_from_geom(
+                        self.config.area_at_zoom(zoom), zoom
+                    ):
+                        yield tile
+
+        def _skip(config, tile):
+            return tile, config.output_reader.tiles_exist(tile)
+
+        if tuple_skip:
+            # only check for existing output in "continue" mode
+            if self.config.mode == "continue":
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    for future in concurrent.futures.as_completed(
+                        (
+                            executor.submit(_skip, self.config, tile)
+                            for tile in _get_process_tiles(zoom)
+                        )
+                    ):
+                        yield future.result()
+            else:
+                for tile in _get_process_tiles(zoom):
+                    yield (tile, False)
+        else:
+            for tile in _get_process_tiles(zoom):
+                yield tile
 
     def batch_process(
         self,
