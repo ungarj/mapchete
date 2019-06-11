@@ -60,6 +60,7 @@ OUTPUT_FORMATS = available_output_formats()
     "--scale-offset", type=click.FLOAT, default=0.,
     help="Scaling offset (for raster output only)."
 )
+@utils.opt_resampling_method
 @utils.opt_overwrite
 @utils.opt_verbose
 @utils.opt_no_pbar
@@ -83,6 +84,7 @@ def convert(
     creation_options=None,
     scale_ratio=None,
     scale_offset=None,
+    resampling_method=None,
     overwrite=False,
     logfile=None,
     verbose=False,
@@ -137,7 +139,8 @@ def convert(
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info["zoom_levels"],
         scale_ratio=scale_ratio,
-        scale_offset=scale_offset
+        scale_offset=scale_offset,
+        resampling=resampling_method
     )
 
     # assert all required information is there
@@ -186,7 +189,7 @@ def convert(
                 "Process area is empty: clip bounds don't intersect with input bounds."
             )
             return
-    # add process bounds and
+    # add process bounds and output type
     mapchete_config.update(
         bounds=(
             clip_intersection.bounds

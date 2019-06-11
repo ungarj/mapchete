@@ -447,6 +447,7 @@ def _run_with_multiprocessing(
             start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module
         )
+
         # for output drivers requiring writing data in parent process
         if process.config.output.write_in_parent_process:
             for zoom in zoom_levels:

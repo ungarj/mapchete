@@ -540,7 +540,7 @@ class GTiffSingleFileOutputWriter(
                     transform=self.rio_file.transform,
                     height=self.rio_file.height,
                     width=self.rio_file.width
-                )
+                ).round_lengths(pixel_precision=0).round_offsets(pixel_precision=0)
                 if _window_in_out_file(write_window, self.rio_file):
                     logger.debug("write data to window: %s", write_window)
                     self.rio_file.write(
