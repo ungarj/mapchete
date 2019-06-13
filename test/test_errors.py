@@ -42,7 +42,7 @@ def test_read(example_mapchete):
     # in memory mode
     with mapchete.open(example_mapchete.path, mode="memory") as mp:
         with pytest.raises(ValueError):
-            mp.read(mp.get_process_tiles())
+            mp.read(next(mp.get_process_tiles()))
     # wrong tile type
     with mapchete.open(example_mapchete.path) as mp:
         with pytest.raises(TypeError):
@@ -53,7 +53,7 @@ def test_write(cleantopo_tl):
     """Test write function when passing an invalid process_tile."""
     with mapchete.open(cleantopo_tl.path) as mp:
         # process and save
-        with pytest.raises(ValueError):
+        with pytest.raises(TypeError):
             mp.write("invalid tile", None)
 
 
@@ -129,6 +129,8 @@ def test_wrong_bounds(example_mapchete):
     """Wrong bounds number raises error."""
     with pytest.raises(errors.MapcheteConfigError):
         MapcheteConfig(example_mapchete.dict, bounds=[2, 3])
+    with pytest.raises(errors.MapcheteConfigError):
+        MapcheteConfig(dict(example_mapchete.dict, process_bounds=[2, 3]))
 
 
 def test_empty_input_files(example_mapchete):

@@ -29,3 +29,12 @@ def test_deprecated_process_class(deprecated_params):
     deprecated_params.dict.update(process_file="old_style_process.py")
     with pytest.raises(MapcheteProcessImportError):
         mapchete.open(deprecated_params.dict)
+
+
+def test_deprecated_open_kwarg(mapchete_input):
+    """Mapchete process as input for other process."""
+    with mapchete.open(mapchete_input.path) as mp:
+        config = mp.config.params_at_zoom(5)
+        input_data = config["input"]["file2"]
+        with pytest.raises(DeprecationWarning):
+            input_data.open(next(mp.get_process_tiles(5)), resampling="bilinear")

@@ -27,6 +27,9 @@ from shapely.ops import cascaded_union
 from tilematrix._funcs import Bounds
 import warnings
 
+from mapchete._validate import (
+    validate_bounds, validate_zooms, validate_values, validate_bufferedtilepyramid
+)
 from mapchete.errors import (
     MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteProcessImportError,
     MapcheteDriverError
@@ -223,7 +226,7 @@ class MapcheteConfig(object):
     @cached_property
     def zoom_levels(self):
         """Process zoom levels as defined in the configuration."""
-        return _validate_zooms(self._raw["zoom_levels"])
+        return validate_zooms(self._raw["zoom_levels"])
 
     @cached_property
     def init_zoom_levels(self):
@@ -233,10 +236,13 @@ class MapcheteConfig(object):
         This gets triggered by using the ``zoom`` kwarg. If not set, it will
         be equal to self.zoom_levels.
         """
-        return get_zoom_levels(
-            process_zoom_levels=self._raw["zoom_levels"],
-            init_zoom_levels=self._raw["init_zoom_levels"]
-        )
+        try:
+            return get_zoom_levels(
+                process_zoom_levels=self._raw["zoom_levels"],
+                init_zoom_levels=self._raw["init_zoom_levels"]
+            )
+        except Exception as e:
+            raise MapcheteConfigError(e)
 
     @cached_property
     def bounds(self):
@@ -244,7 +250,10 @@ class MapcheteConfig(object):
         if self._raw["bounds"] is None:
             return self.process_pyramid.bounds
         else:
-            return Bounds(*_validate_bounds(self._raw["bounds"]))
+            try:
+                return validate_bounds(self._raw["bounds"])
+            except Exception as e:
+                raise MapcheteConfigError(e)
 
     @cached_property
     def init_bounds(self):
@@ -257,7 +266,10 @@ class MapcheteConfig(object):
         if self._raw["init_bounds"] is None:
             return self.bounds
         else:
-            return Bounds(*_validate_bounds(self._raw["init_bounds"]))
+            try:
+                return validate_bounds(self._raw["init_bounds"])
+            except Exception as e:
+                raise MapcheteConfigError(e)
 
     @cached_property
     def effective_bounds(self):
@@ -476,8 +488,7 @@ class MapcheteConfig(object):
         zoom level dependent process configuration
         """
         if zoom not in self.init_zoom_levels:
-            raise ValueError(
-                "zoom level not available with current configuration")
+            raise ValueError("zoom level not available with current configuration")
         out = OrderedDict(
             self._params_at_zoom[zoom],
             input=OrderedDict(),
@@ -552,8 +563,11 @@ class MapcheteConfig(object):
         process bounds : tuple
             left, bottom, right, top
         """
-        return () if self.area_at_zoom(zoom).is_empty else Bounds(
-            *self.area_at_zoom(zoom).bounds)
+        return (
+            ()
+            if self.area_at_zoom(zoom).is_empty
+            else Bounds(*self.area_at_zoom(zoom).bounds)
+        )
 
     # deprecated:
     #############
@@ -610,35 +624,6 @@ class MapcheteConfig(object):
         return self.bounds_at_zoom(zoom)
 
 
-def validate_values(config, values):
-    """
-    Validate whether value is found in config and has the right type.
-
-    Parameters
-    ----------
-    config : dict
-        configuration dictionary
-    values : list
-        list of (str, type) tuples of values and value types expected in config
-
-    Returns
-    -------
-    True if config is valid.
-
-    Raises
-    ------
-    Exception if value is not found or has the wrong type.
-    """
-    if not isinstance(config, dict):
-        raise TypeError("config must be a dictionary")
-    for value, vtype in values:
-        if value not in config:
-            raise ValueError("%s not given" % value)
-        if not isinstance(config[value], vtype):
-            raise TypeError("%s must be %s" % (value, vtype))
-    return True
-
-
 def get_hash(x):
     """Return hash of x."""
     if isinstance(x, str):
@@ -649,14 +634,13 @@ def get_hash(x):
 
 def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
     """Validate and return zoom levels."""
-    process_zoom_levels = _validate_zooms(process_zoom_levels)
+    process_zoom_levels = validate_zooms(process_zoom_levels)
     if init_zoom_levels is None:
         return process_zoom_levels
     else:
-        init_zoom_levels = _validate_zooms(init_zoom_levels)
+        init_zoom_levels = validate_zooms(init_zoom_levels)
         if not set(init_zoom_levels).issubset(set(process_zoom_levels)):
-            raise MapcheteConfigError(
-                "init zooms must be a subset of process zoom")
+            raise ValueError("init zooms must be a subset of process zoom")
         return init_zoom_levels
 
 
@@ -674,14 +658,8 @@ def snap_bounds(bounds=None, pyramid=None, zoom=None):
     -------
     Bounds(left, bottom, right, top)
     """
-    if not isinstance(bounds, (tuple, list)):
-        raise TypeError("bounds must be either a tuple or a list")
-    if len(bounds) != 4:
-        raise ValueError("bounds has to have exactly four values")
-    if not isinstance(pyramid, BufferedTilePyramid):
-        raise TypeError("pyramid has to be a BufferedTilePyramid")
-
-    bounds = Bounds(*bounds)
+    bounds = validate_bounds(bounds)
+    pyramid = validate_bufferedtilepyramid(pyramid)
     lb = pyramid.tile_from_xy(bounds.left, bounds.bottom, zoom, on_edge_use="rt").bounds
     rt = pyramid.tile_from_xy(bounds.right, bounds.top, zoom, on_edge_use="lb").bounds
     return Bounds(lb.left, lb.bottom, rt.right, rt.top)
@@ -700,8 +678,8 @@ def clip_bounds(bounds=None, clip=None):
     -------
     Bounds(left, bottom, right, top)
     """
-    bounds = Bounds(*bounds)
-    clip = Bounds(*clip)
+    bounds = validate_bounds(bounds)
+    clip = validate_bounds(clip)
     return Bounds(
         max(bounds.left, clip.left),
         max(bounds.bottom, clip.bottom),
@@ -791,7 +769,7 @@ def bounds_from_opts(
     BufferedTilePyramid
     """
     if wkt_geometry:
-        return wkt.loads(wkt_geometry).bounds
+        return Bounds(*wkt.loads(wkt_geometry).bounds)
     elif point:
         x, y = point
         zoom_levels = get_zoom_levels(
@@ -799,9 +777,9 @@ def bounds_from_opts(
             init_zoom_levels=zoom
         )
         tp = raw_conf_process_pyramid(raw_conf)
-        return tp.tile_from_xy(x, y, max(zoom_levels)).bounds
+        return Bounds(*tp.tile_from_xy(x, y, max(zoom_levels)).bounds)
     else:
-        return bounds
+        return validate_bounds(bounds) if bounds is not None else bounds
 
 
 def get_process_func(process_path=None, config_dir=None, run_compile=False):
@@ -867,54 +845,6 @@ def _config_to_dict(input_config):
     else:
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file.")
-
-
-def _validate_zooms(zooms):
-    """
-    Return a list of zoom levels.
-
-    Following inputs are converted:
-    - int --> [int]
-    - dict{min, max} --> range(min, max + 1)
-    - [int] --> [int]
-    - [int, int] --> range(smaller int, bigger int + 1)
-    """
-    if isinstance(zooms, dict):
-        if any([a not in zooms for a in ["min", "max"]]):
-            raise MapcheteConfigError("min and max zoom required")
-        zmin = _validate_zoom(zooms["min"])
-        zmax = _validate_zoom(zooms["max"])
-        if zmin > zmax:
-            raise MapcheteConfigError(
-                "max zoom must not be smaller than min zoom")
-        return list(range(zmin, zmax + 1))
-    elif isinstance(zooms, list):
-        if len(zooms) == 1:
-            return zooms
-        elif len(zooms) == 2:
-            zmin, zmax = sorted([_validate_zoom(z) for z in zooms])
-            return list(range(zmin, zmax + 1))
-        else:
-            return zooms
-    else:
-        return [_validate_zoom(zooms)]
-
-
-def _validate_zoom(zoom):
-    """Assert zoom value is positive integer."""
-    if any([not isinstance(zoom, int), zoom < 0]):
-        raise MapcheteConfigError("zoom must be a positive integer")
-    return zoom
-
-
-def _validate_bounds(bounds):
-    if (
-        not isinstance(bounds, (list, tuple)) or
-        len(bounds) != 4 or
-        any([not isinstance(i, (int, float)) for i in bounds])
-    ):
-        raise MapcheteConfigError("bounds not valid: %s", bounds)
-    return bounds
 
 
 def _raw_at_zoom(config, zooms):
@@ -1046,10 +976,12 @@ def _map_to_new_config(config):
         validate_values(config, [("output", dict)])
     except Exception as e:
         raise MapcheteConfigError(e)
+
     if "type" in config["output"]:
         warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
         if "grid" not in config["output"]:
             config["output"]["grid"] = config["output"].pop("type")
+
     if "pyramid" not in config:
         warnings.warn(
             DeprecationWarning("'pyramid' needs to be defined in root config element.")
@@ -1058,6 +990,7 @@ def _map_to_new_config(config):
             grid=config["output"]["grid"],
             metatiling=config.get("metatiling", 1),
             pixelbuffer=config.get("pixelbuffer", 0))
+
     if "zoom_levels" not in config:
         warnings.warn(
             DeprecationWarning(
@@ -1072,10 +1005,11 @@ def _map_to_new_config(config):
         ]):
             config["zoom_levels"] = dict(
                 min=config["process_minzoom"],
-                max=config["process_maxzoom"])
+                max=config["process_maxzoom"]
+            )
         else:
-            raise MapcheteConfigError(
-                "process zoom levels not provided in config")
+            raise MapcheteConfigError("process zoom levels not provided in config")
+
     if "bounds" not in config:
         if "process_bounds" in config:
             warnings.warn(
@@ -1086,6 +1020,7 @@ def _map_to_new_config(config):
             config["bounds"] = config["process_bounds"]
         else:
             config["bounds"] = None
+
     if "input" not in config:
         if "input_files" in config:
             warnings.warn(
@@ -1094,9 +1029,11 @@ def _map_to_new_config(config):
             config["input"] = config["input_files"]
         else:
             raise MapcheteConfigError("no 'input' found")
+
     elif "input_files" in config:
         raise MapcheteConfigError(
             "'input' and 'input_files' are not allowed at the same time")
+
     if "process_file" in config:
         warnings.warn(
             DeprecationWarning("'process_file' is deprecated and renamed to 'process'")

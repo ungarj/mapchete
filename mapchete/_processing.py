@@ -5,7 +5,6 @@ import logging
 import multiprocessing
 import os
 from traceback import format_exc
-import warnings
 
 from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
@@ -15,6 +14,7 @@ from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
 from mapchete.tile import BufferedTile
 from mapchete._timer import Timer
+from mapchete._validate import deprecated_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -221,6 +221,7 @@ class MapcheteProcess(object):
             "Read existing output from within a process is deprecated"
         )
 
+    @deprecated_kwargs
     def open(self, input_id, **kwargs):
         """
         Open input data.
@@ -236,15 +237,6 @@ class MapcheteProcess(object):
         tiled input data : InputTile
             reprojected input data within tile
         """
-        if kwargs:
-            warnings.warn(
-                'Using kwargs such in open() is deprecated and will have no effect.'
-            )
-        if "resampling" in kwargs:
-            raise DeprecationWarning(
-                "'resampling' argument has no effect here and must be provided in read() "
-                "function."
-            )
         if input_id not in self.input:
             raise ValueError("%s not found in config as input" % input_id)
         return self.input[input_id]

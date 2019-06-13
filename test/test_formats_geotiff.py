@@ -135,8 +135,7 @@ def test_input_data(mp_tmpdir, cleantopo_br):
             )
         )
         output = gtiff.OutputDataWriter(output_params)
-        with output.open(tile, mp, resampling="nearest") as input_tile:
-            assert input_tile.resampling == "nearest"
+        with output.open(tile, mp) as input_tile:
             for data in [
                 input_tile.read(), input_tile.read(1), input_tile.read([1]),
                 # TODO assert valid indexes are passed input_tile.read([1, 2])

@@ -348,6 +348,19 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         mp.batch_process(zoom=2, multi=1)
 
 
+def test_skip_tiles(mp_tmpdir, cleantopo_tl):
+    """Test batch_process function."""
+    zoom = 2
+    with mapchete.open(cleantopo_tl.path, mode="continue") as mp:
+        mp.batch_process(zoom=zoom)
+        for tile, skip in mp.skip_tiles(tiles=mp.get_process_tiles(zoom=zoom)):
+            assert skip
+
+    with mapchete.open(cleantopo_tl.path, mode="overwrite") as mp:
+        for tile, skip in mp.skip_tiles(tiles=mp.get_process_tiles(zoom=zoom)):
+            assert not skip
+
+
 def test_custom_grid(mp_tmpdir, custom_grid):
     """Cutom grid processing."""
     # process and save
@@ -368,7 +381,8 @@ def test_execute_kwargs(example_mapchete, execute_kwargs_py):
     zoom = 7
     with mapchete.open(config) as mp:
         tile = next(mp.get_process_tiles(zoom))
-        mp.execute(tile)
+        # mp.execute(process_tile=tile)
+        mp.execute((7, 61, 129))
 
 
 def test_snap_bounds_to_zoom():

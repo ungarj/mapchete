@@ -11,6 +11,7 @@ from mapchete.errors import MapcheteNodataTile
 from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
 from mapchete.tile import BufferedTile, count_tiles
 from mapchete._timer import Timer
+from mapchete._validate import validate_tile
 
 logger = logging.getLogger(__name__)
 
@@ -151,10 +152,7 @@ class Mapchete(object):
         if self.config.mode == "continue":
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 for future in concurrent.futures.as_completed(
-                    (
-                        executor.submit(_skip, self.config, tile)
-                        for tile in tiles
-                    )
+                    (executor.submit(_skip, self.config, tile) for tile in tiles)
                 ):
                     yield future.result()
         else:
@@ -302,11 +300,7 @@ class Mapchete(object):
         data : NumPy array or features
             process output
         """
-        process_tile = (
-            self.config.process_pyramid.tile(*process_tile)
-            if isinstance(process_tile, tuple)
-            else process_tile
-        )
+        process_tile = validate_tile(process_tile, self.config.process_pyramid)
         try:
             return self.config.output.streamline_output(
                 TileProcess(tile=process_tile, config=self.config).execute()
@@ -332,16 +326,9 @@ class Mapchete(object):
         data : NumPy array or features
             process output
         """
+        output_tile = validate_tile(output_tile, self.config.output_pyramid)
         if self.config.mode not in ["readonly", "continue", "overwrite"]:
             raise ValueError("process mode must be readonly, continue or overwrite")
-        output_tile = (
-            self.config.output_pyramid.tile(*output_tile)
-            if isinstance(output_tile, tuple)
-            else output_tile
-        )
-        if not isinstance(output_tile, BufferedTile):
-            raise TypeError("output_tile must be tuple or BufferedTile")
-
         return self.config.output.read(output_tile)
 
     def write(self, process_tile, data):
@@ -355,13 +342,7 @@ class Mapchete(object):
         data : NumPy array or features
             data to be written
         """
-        process_tile = (
-            self.config.process_pyramid.tile(*process_tile)
-            if isinstance(process_tile, tuple)
-            else process_tile
-        )
-        if not isinstance(process_tile, BufferedTile):
-            raise ValueError("invalid process_tile type: %s" % type(process_tile))
+        process_tile = validate_tile(process_tile, self.config.process_pyramid)
         if self.config.mode not in ["continue", "overwrite"]:
             raise ValueError("cannot write output in current process mode")
 
@@ -418,11 +399,12 @@ class Mapchete(object):
         data : NumPy array or features
             process output
         """
-        tile = self.config.output_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
-        if not isinstance(tile, BufferedTile):
-            raise TypeError("'tile' must be a tuple or BufferedTile")
-        if _baselevel_readonly:
-            tile = self.config.baselevels["tile_pyramid"].tile(*tile.id)
+        tile = validate_tile(tile, self.config.output_pyramid)
+        tile = (
+            self.config.baselevels["tile_pyramid"].tile(*tile.id)
+            if _baselevel_readonly
+            else tile
+        )
 
         # Return empty data if zoom level is outside of process zoom levels.
         if tile.zoom not in self.config.zoom_levels:
@@ -555,4 +537,6 @@ def _get_zoom_level(zoom, process):
     elif len(zoom) == 2:
         return reversed(range(min(zoom), max(zoom)+1))
     elif len(zoom) == 1:
+        return zoom
+    elif isinstance(zoom, list):
         return zoom
