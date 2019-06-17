@@ -9,7 +9,7 @@ from mapchete.tile import BufferedTile, BufferedTilePyramid
 ########################
 
 
-def validate_zooms(zooms):
+def validate_zooms(zooms, expand=True):
     """
     Return a list of zoom levels.
 
@@ -29,22 +29,22 @@ def validate_zooms(zooms):
     """
     if isinstance(zooms, dict):
         if any([a not in zooms for a in ["min", "max"]]):
-            raise TypeError("min and max zoom required")
+            raise TypeError("min and max zoom required: %s" % str(zooms))
         zmin = validate_zoom(zooms["min"])
         zmax = validate_zoom(zooms["max"])
         if zmin > zmax:
-            raise TypeError("max zoom must not be smaller than min zoom")
-        return list(range(zmin, zmax + 1))
+            raise TypeError("max zoom must not be smaller than min zoom: %s" % str(zooms))
+        return list(range(zmin, zmax + 1)) if expand else zooms
     elif isinstance(zooms, list):
         if len(zooms) == 1:
             return zooms
         elif len(zooms) == 2:
             zmin, zmax = sorted([validate_zoom(z) for z in zooms])
-            return list(range(zmin, zmax + 1))
+            return list(range(zmin, zmax + 1)) if expand else zooms
         else:
-            raise TypeError("zooms can be maximum two items")
+            return zooms
     else:
-        return [validate_zoom(zooms)]
+        return [validate_zoom(zooms)] if expand else zooms
 
 
 def validate_zoom(zoom):

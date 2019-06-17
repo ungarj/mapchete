@@ -12,13 +12,14 @@ import sys
 import tilematrix
 
 from mapchete.cli import utils
-from mapchete.config import raw_conf, raw_conf_output_pyramid, get_zoom_levels
+from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import (
     driver_from_file, available_output_formats, available_input_formats
 )
 from mapchete.io import read_json, get_best_zoom_level
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
+from mapchete._validate import validate_zooms
 
 logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()
@@ -94,8 +95,11 @@ def convert(
     vrt=False,
     idx_out_dir=None
 ):
-    input_info = _get_input_info(input_)
-    output_info = _get_output_info(output)
+    try:
+        input_info = _get_input_info(input_)
+        output_info = _get_output_info(output)
+    except Exception as e:
+        raise click.BadArgumentUsage(e)
 
     # collect mapchete configuration
     mapchete_config = dict(
@@ -254,7 +258,7 @@ def _input_mapchete_info(input_):
         output_params=output_params,
         pyramid=pyramid.to_dict(),
         crs=pyramid.crs,
-        zoom_levels=get_zoom_levels(process_zoom_levels=conf["zoom_levels"]),
+        zoom_levels=validate_zooms(conf["zoom_levels"], expand=False),
         pixel_size=None,
         input_type=OUTPUT_FORMATS[output_params["format"]]["data_type"],
         bounds=conf.get("bounds")
@@ -305,4 +309,4 @@ def _get_output_info(output):
             driver="GTiff"
         )
     else:
-        raise TypeError("Output file extension not recognized: %s", file_ext)
+        raise TypeError("Could not determine output from extension: %s", file_ext)

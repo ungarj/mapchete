@@ -37,13 +37,15 @@ def _validate_zoom(ctx, param, zoom):
         except ValueError:
             raise click.BadParameter("zoom levels must be integer values")
         try:
-            return validate_zooms(zoom_levels)
+            if len(zoom_levels) != 2:
+                raise ValueError("zooms can be maximum two items")
+            return validate_zooms(zoom_levels, expand=False)
         except Exception as e:
             raise click.BadParameter(e)
 
 
 def _validate_bounds(ctx, param, bounds):
-    return validate_bounds(bounds) if bounds else bounds
+    return validate_bounds(bounds) if bounds else None
 
 
 def _validate_mapchete_files(ctx, param, mapchete_files):
