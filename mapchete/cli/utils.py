@@ -43,11 +43,7 @@ def _validate_zoom(ctx, param, zoom):
 
 
 def _validate_bounds(ctx, param, bounds):
-    if bounds:
-        try:
-            return validate_bounds(bounds)
-        except Exception as e:
-            raise click.BadParameter(e)
+    return validate_bounds(bounds) if bounds else bounds
 
 
 def _validate_mapchete_files(ctx, param, mapchete_files):

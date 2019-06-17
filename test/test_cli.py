@@ -724,3 +724,18 @@ def test_index_errors(mp_tmpdir, cleantopo_br):
 def test_processes():
     run_cli(['processes'])
     run_cli(['processes', '-n', 'mapchete.processes.examples.example_process'])
+
+
+def test_callback_errors(cleantopo_tl):
+    run_cli(
+        ['execute', cleantopo_tl.path, '--zoom', '4,5,7'],
+        expected_exit_code=2,
+        raise_exc=False,
+        output_contains="zooms can be maximum two items"
+    )
+    run_cli(
+        ['execute', cleantopo_tl.path, '--zoom', 'invalid'],
+        expected_exit_code=2,
+        raise_exc=False,
+        output_contains="zoom levels must be integer values"
+    )

@@ -42,7 +42,7 @@ def validate_zooms(zooms):
             zmin, zmax = sorted([validate_zoom(z) for z in zooms])
             return list(range(zmin, zmax + 1))
         else:
-            return zooms
+            raise TypeError("zooms can be maximum two items")
     else:
         return [validate_zoom(zooms)]
 
