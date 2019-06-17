@@ -109,7 +109,11 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     out_format = "GTiff"
     # create from template
     run_cli([
-        'create', temp_mapchete, temp_process, out_format, "--pyramid-type", "geodetic"
+        'create',
+        temp_mapchete,
+        temp_process,
+        out_format,
+        "--pyramid-type", "geodetic"
     ])
     # edit configuration
     with open(temp_mapchete, "r") as config_file:
@@ -120,11 +124,21 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     # run process with multiprocessing
     with pytest.raises(MapcheteProcessOutputError):
         run_cli([
-            'execute', temp_mapchete, '--zoom', '5', '--input-file', cleantopo_br_tif,
-            '-m', '2', '-d'
+            'execute',
+            temp_mapchete,
+            '--zoom', '5',
+            '--input-file', cleantopo_br_tif,
+            '-m', '2',
+            '-d'
         ])
     # run example process with multiprocessing
-    run_cli(['execute', cleantopo_br.path, '--zoom', '5', '-m', '2', '-d'])
+    run_cli([
+        'execute',
+        cleantopo_br.path,
+        '--zoom', '5',
+        '-m', '2',
+        '-d'
+    ])
 
 
 def test_execute_debug(mp_tmpdir, example_mapchete):
@@ -430,7 +444,7 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
             assert data.mask.any()
 
 
-def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br):
+def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly):
     # output format required
     run_cli(
         ["convert", s2_band_jp2, mp_tmpdir, "--output-pyramid", "geodetic"],
@@ -467,7 +481,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br):
         raise_exc=False
     )
 
-    # zoom level required
+    # incompatible formats
     run_cli(
         [
             'convert',
@@ -481,6 +495,35 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br):
         output_contains=(
             "Output format type (vector) is incompatible with input format (raster)."
         ),
+        raise_exc=False
+    )
+
+    # unsupported format
+    run_cli(
+        [
+            'convert',
+            landpoly,
+            mp_tmpdir,
+            "--output-pyramid", "geodetic",
+            "--zoom", "5",
+            "--output-format", "GeoJSON"
+        ],
+        expected_exit_code=2,
+        output_contains=("driver vector_file is not supported"),
+        raise_exc=False
+    )
+
+    # unsupported output format extension
+    run_cli(
+        [
+            'convert',
+            s2_band_jp2,
+            'output.jp2',
+            "--output-pyramid", "geodetic",
+            "--zoom", "5",
+        ],
+        expected_exit_code=2,
+        output_contains=("Could not determine output from extension"),
         raise_exc=False
     )
 
@@ -724,3 +767,18 @@ def test_index_errors(mp_tmpdir, cleantopo_br):
 def test_processes():
     run_cli(['processes'])
     run_cli(['processes', '-n', 'mapchete.processes.examples.example_process'])
+
+
+def test_callback_errors(cleantopo_tl):
+    run_cli(
+        ['execute', cleantopo_tl.path, '--zoom', '4,5,7'],
+        expected_exit_code=2,
+        raise_exc=False,
+        output_contains="zooms can be maximum two items"
+    )
+    run_cli(
+        ['execute', cleantopo_tl.path, '--zoom', 'invalid'],
+        expected_exit_code=2,
+        raise_exc=False,
+        output_contains="zoom levels must be integer values"
+    )

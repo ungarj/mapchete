@@ -17,6 +17,7 @@ from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
 from mapchete.errors import GeometryTypeError
+from mapchete._validate import validate_crs
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +63,8 @@ def reproject_geometry(
     -------
     geometry : ``shapely.geometry``
     """
-    src_crs = _validated_crs(src_crs)
-    dst_crs = _validated_crs(dst_crs)
+    src_crs = validate_crs(src_crs)
+    dst_crs = validate_crs(dst_crs)
 
     def _reproject_geom(geometry, src_crs, dst_crs):
         if geometry.is_empty:
@@ -113,19 +114,6 @@ def _repair(geom):
         raise TopologicalError(
             "geometry is invalid (%s) and cannot be repaired" % explain_validity(repaired)
         )
-
-
-def _validated_crs(crs):
-    if isinstance(crs, CRS):
-        return crs
-    elif isinstance(crs, str):
-        return CRS().from_epsg(int(crs))
-    elif isinstance(crs, int):
-        return CRS().from_epsg(crs)
-    elif isinstance(crs, dict):
-        return CRS().from_dict(crs)
-    else:
-        raise TypeError("invalid CRS given")
 
 
 def segmentize_geometry(geometry, segmentize_value):

@@ -52,6 +52,7 @@ from mapchete.io.raster import (
     extract_from_array, read_raster_window
 )
 from mapchete.tile import BufferedTile
+from mapchete._validate import deprecated_kwargs
 
 
 logger = logging.getLogger(__name__)
@@ -193,6 +194,7 @@ class GTiffOutputReaderFunctions():
             self.profile()
         ), "image/tiff"
 
+    @deprecated_kwargs
     def open(self, tile, process, **kwargs):
         """
         Open process output as input for other process.
@@ -203,7 +205,7 @@ class GTiffOutputReaderFunctions():
         process : ``MapcheteProcess``
         kwargs : keyword arguments
         """
-        return InputTile(tile, process, kwargs.get("resampling", None))
+        return InputTile(tile, process)
 
     def is_valid_with_config(self, config):
         """
@@ -612,12 +614,11 @@ class InputTile(base.InputTile):
     pixelbuffer : integer
     """
 
-    def __init__(self, tile, process, resampling):
+    def __init__(self, tile, process):
         """Initialize."""
         self.tile = tile
         self.process = process
         self.pixelbuffer = None
-        self.resampling = resampling
 
     def read(self, indexes=None, **kwargs):
         """

@@ -480,8 +480,7 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     extracted array : array
     """
     if isinstance(in_raster, ReferencedRaster):
-        in_affine = in_raster.affine
-        in_raster = in_raster.data
+        in_affine, in_raster = in_raster.affine, in_raster.data
 
     # get range within array
     minrow, maxrow, mincol, maxcol = bounds_to_ranges(
@@ -733,10 +732,9 @@ def _get_tiles_properties(tiles):
             raise ValueError("all tiles must be from same zoom level")
         if tile.crs != tiles[0][0].crs:
             raise ValueError("all tiles must have the same CRS")
-        if not isinstance(data, (np.ndarray, tuple)):
-            raise TypeError("tile data has to be np.ndarray or tuple")
-        if data[0].dtype != tiles[0][1][0].dtype:
-            raise TypeError("all tile data must have the same dtype")
+        if isinstance(data, np.ndarray):
+            if data[0].dtype != tiles[0][1][0].dtype:
+                raise TypeError("all tile data must have the same dtype")
     return tile.tile_pyramid, tile.pixel_x_size, data[0].dtype
 
 

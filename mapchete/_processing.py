@@ -5,7 +5,6 @@ import logging
 import multiprocessing
 import os
 from traceback import format_exc
-import warnings
 
 from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
@@ -13,8 +12,8 @@ from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import get_process_func
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
-from mapchete.tile import BufferedTile
 from mapchete._timer import Timer
+from mapchete._validate import deprecated_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +32,6 @@ class TileProcess():
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
         )
-        if not isinstance(tile, BufferedTile):
-            raise TypeError("process_tile must be tuple or BufferedTile")
         self.skip = skip
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
@@ -221,6 +218,7 @@ class MapcheteProcess(object):
             "Read existing output from within a process is deprecated"
         )
 
+    @deprecated_kwargs
     def open(self, input_id, **kwargs):
         """
         Open input data.
@@ -236,15 +234,6 @@ class MapcheteProcess(object):
         tiled input data : InputTile
             reprojected input data within tile
         """
-        if kwargs:
-            warnings.warn(
-                'Using kwargs such in open() is deprecated and will have no effect.'
-            )
-        if "resampling" in kwargs:
-            raise DeprecationWarning(
-                "'resampling' argument has no effect here and must be provided in read() "
-                "function."
-            )
         if input_id not in self.input:
             raise ValueError("%s not found in config as input" % input_id)
         return self.input[input_id]
@@ -360,23 +349,27 @@ class Executor():
     ):
         fargs = fargs or []
         fkwargs = fkwargs or {}
-        logger.debug(
-            "open multiprocessing.Pool and %s %s workers",
-            self.start_method, self.max_workers
-        )
-        with self.multiprocessing_module.get_context(self.start_method).Pool(
-            self.max_workers
-        ) as pool:
-            for finished_task in pool.imap_unordered(
-                partial(_exception_wrapper, func, fargs, fkwargs),
-                iterable,
-                chunksize=chunksize
-            ):
-                yield finished_task
-            logger.debug("closing %s and workers", pool)
-            pool.close()
-            pool.join()
-        logger.debug("%s closed", pool)
+        if self.max_workers == 1:
+            for i in iterable:
+                yield _exception_wrapper(func, fargs, fkwargs, i)
+        else:
+            logger.debug(
+                "open multiprocessing.Pool and %s %s workers",
+                self.start_method, self.max_workers
+            )
+            with self.multiprocessing_module.get_context(self.start_method).Pool(
+                self.max_workers
+            ) as pool:
+                for finished_task in pool.imap_unordered(
+                    partial(_exception_wrapper, func, fargs, fkwargs),
+                    iterable,
+                    chunksize=chunksize
+                ):
+                    yield finished_task
+                logger.debug("closing %s and workers", pool)
+                pool.close()
+                pool.join()
+            logger.debug("%s closed", pool)
 
 
 class FinishedTask():
@@ -387,11 +380,9 @@ class FinishedTask():
         fargs = fargs or []
         fkwargs = fkwargs or {}
         try:
-            self._result = func(*fargs, **fkwargs)
-            self._exception = None
+            self._result, self._exception = func(*fargs, **fkwargs), None
         except Exception as e:
-            self._result = None
-            self._exception = e
+            self._result, self._exception = None, e
 
     def result(self):
         if self._exception:
@@ -422,25 +413,103 @@ def _run_on_single_tile(process=None, tile=None):
         tile_process=TileProcess(
             tile=tile,
             config=process.config,
-            skip=_skip(process.config, tile)
+            skip=(
+                process.config.mode == "continue" and
+                process.config.output_reader.tiles_exist(tile)
+            )
         ),
         output_writer=process.config.output
     )
 
 
-def _run_with_multiprocessing(
+def _run_area(
     process=None,
     zoom_levels=None,
     multi=None,
     max_chunksize=None,
     multiprocessing_module=None,
-    multiprocessing_start_method=None
+    multiprocessing_start_method=None,
+    skip_output_check=False
 ):
-    logger.debug("run concurrently")
-    num_processed = 0
+    logger.debug("run process on area")
+
+    # for output drivers requiring writing data in parent process
+    if process.config.output.write_in_parent_process:
+        for process_info in _run_multi(
+            func=_execute,
+            zoom_levels=zoom_levels,
+            process=process,
+            multi=multi,
+            multiprocessing_start_method=multiprocessing_start_method,
+            multiprocessing_module=multiprocessing_module,
+            write_in_parent_process=True,
+            skip_output_check=skip_output_check
+        ):
+            yield process_info
+
+    # for output drivers which can write data in child processes
+    else:
+        for process_info in _run_multi(
+            func=_execute_and_write,
+            fkwargs=dict(output_writer=process.config.output),
+            zoom_levels=zoom_levels,
+            process=process,
+            multi=multi,
+            multiprocessing_start_method=multiprocessing_start_method,
+            multiprocessing_module=multiprocessing_module,
+            write_in_parent_process=False,
+            skip_output_check=skip_output_check
+        ):
+            yield process_info
+
+
+def _filter_skipable(process=None, tiles=None, todo=None, target_set=None):
+    if target_set is None:
+        for tile, skip in process.skip_tiles(tiles=tiles):
+            if skip:
+                yield ProcessInfo(
+                    tile=tile,
+                    processed=False,
+                    process_msg="output already exists",
+                    written=False,
+                    write_msg="nothing written"
+                )
+            else:
+                todo.add(tile)
+    else:
+        for tile in tiles:
+            if tile not in target_set:
+                yield ProcessInfo(
+                        tile=tile,
+                        processed=False,
+                        process_msg="output already exists",
+                        written=False,
+                        write_msg="nothing written"
+                    )
+            else:
+                todo.add(tile)
+
+
+def _run_multi(
+    func=None,
+    zoom_levels=None,
+    process=None,
+    multi=None,
+    multiprocessing_start_method=None,
+    multiprocessing_module=None,
+    write_in_parent_process=False,
+    fkwargs=None,
+    skip_output_check=False
+):
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     workers = min([multi, total_tiles])
+    num_processed = 0
     logger.debug("run process on %s tiles using %s workers", total_tiles, workers)
+
+    # here we store the parents of processed tiles so we can update overviews
+    # also in "continue" mode in case there were updates at the baselevel
+    overview_parents = set()
+
     with Timer() as t:
         executor = Executor(
             max_workers=workers,
@@ -448,76 +517,83 @@ def _run_with_multiprocessing(
             multiprocessing_module=multiprocessing_module
         )
 
-        # for output drivers requiring writing data in parent process
-        if process.config.output.write_in_parent_process:
-            for zoom in zoom_levels:
-                for task in executor.as_completed(
-                    func=_execute,
-                    iterable=(
-                        TileProcess(
-                            tile=process_tile,
-                            config=process.config,
-                            skip=_skip(process.config, process_tile)
-                        )
-                        for process_tile in process.get_process_tiles(zoom)
-                    )
+        for i, zoom in enumerate(zoom_levels):
+
+            if skip_output_check:
+                # don't check outputs and simply proceed
+                todo = process.get_process_tiles(zoom)
+            else:
+                # check which process output already exists and which process tiles need
+                # to be added to todo list
+                todo = set()
+                for process_info in _filter_skipable(
+                    process=process,
+                    tiles=process.get_process_tiles(zoom),
+                    todo=todo,
+                    target_set=(
+                        overview_parents if process.config.baselevels and i else None
+                    ),
                 ):
+                    num_processed += 1
+                    logger.info(
+                        "tile %s/%s finished: %s, %s, %s",
+                        num_processed,
+                        total_tiles,
+                        process_info.tile,
+                        process_info.process_msg,
+                        process_info.write_msg
+                    )
+                    yield process_info
+
+            # process all remaining tiles using todo list from before
+            for task in executor.as_completed(
+                func=func,
+                iterable=(
+                    TileProcess(
+                        tile=tile,
+                        config=process.config,
+                        skip=(
+                            process.mode == "continue" and
+                            process.config.output_reader.tiles_exist(tile)
+                        ) if skip_output_check else False
+                    ) for tile in todo
+                ),
+                fkwargs=fkwargs
+            ):
+                # trigger output write for driver which require parent process for writing
+                if write_in_parent_process:
                     output_data, process_info = task.result()
                     process_info = _write(
                         process_info=process_info,
                         output_data=output_data,
                         output_writer=process.config.output,
                     )
-                    num_processed += 1
-                    logger.info("tile %s/%s finished", num_processed, total_tiles)
-                    yield process_info
 
-        # for output drivers which can write data in child processes
-        else:
-            for zoom in zoom_levels:
-                for task in executor.as_completed(
-                    func=_execute_and_write,
-                    iterable=(
-                        TileProcess(
-                            tile=process_tile,
-                            config=process.config,
-                            skip=_skip(process.config, process_tile)
-                        )
-                        for process_tile in process.get_process_tiles(zoom)
-                    ),
-                    fkwargs=dict(output_writer=process.config.output)
-                ):
-                    num_processed += 1
-                    logger.info("tile %s/%s finished", num_processed, total_tiles)
-                    yield task.result()
-    logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
+                # output already has been written, so just use task process info
+                else:
+                    process_info = task.result()
 
+                    # in case of building overviews from baselevels, remember which parent
+                    # tile needs to be updated later on
+                    if (
+                        not skip_output_check and
+                        process.config.baselevels and
+                        process_info.processed
+                    ):
+                        overview_parents.add(process_info.tile.get_parent())
 
-def _run_without_multiprocessing(process=None, zoom_levels=None):
-    logger.debug("run sequentially")
-    num_processed = 0
-    total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
-    logger.debug("run process on %s tiles using 1 worker", total_tiles)
-    with Timer() as t:
-        for zoom in zoom_levels:
-            for process_tile in process.get_process_tiles(zoom):
-                process_info = _execute_and_write(
-                    tile_process=TileProcess(
-                        tile=process_tile,
-                        config=process.config,
-                        skip=_skip(process.config, process_tile)
-                    ),
-                    output_writer=process.config.output
-                )
                 num_processed += 1
-                logger.info("tile %s/%s finished", num_processed, total_tiles)
+                logger.info(
+                    "tile %s/%s finished: %s, %s, %s",
+                    num_processed,
+                    total_tiles,
+                    process_info.tile,
+                    process_info.process_msg,
+                    process_info.write_msg
+                )
                 yield process_info
-    logger.info("%s tile(s) iterated in %s", str(num_processed), t)
 
-
-def _skip(config, tile):
-    """Convenience function to determine whether process tile can be skipped."""
-    return config.mode == "continue" and config.output_reader.tiles_exist(tile)
+    logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 
 
 ###############################

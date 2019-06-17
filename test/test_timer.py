@@ -22,3 +22,5 @@ def test_timer():
     assert str(timer) == "1m 0s"
     timer = Timer(elapsed=3700)
     assert str(timer) == "1h 1m 40s"
+
+    assert "Timer" in timer.__repr__()

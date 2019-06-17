@@ -181,6 +181,57 @@ def test_baselevels(mp_tmpdir, baselevels):
         ])
 
 
+def test_update_baselevels(mp_tmpdir, baselevels):
+    """Baselevel interpolation."""
+    conf = dict(baselevels.dict)
+    conf.update(
+        zoom_levels=[7, 8],
+        baselevels=dict(
+            min=8,
+            max=8
+        )
+    )
+    baselevel_tile = (8, 125, 260)
+    overview_tile = (7, 62, 130)
+    with mapchete.open(conf, mode="continue") as mp:
+        tile_bounds = mp.config.output_pyramid.tile(*baselevel_tile).bounds
+
+    # process using bounds of just one baselevel tile
+    with mapchete.open(conf, mode="continue", bounds=tile_bounds) as mp:
+        mp.batch_process()
+        with rasterio.open(
+            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
+        ) as src:
+            overview_before = src.read()
+            assert overview_before.any()
+
+    # process full area which leaves out overview tile for baselevel tile above
+    with mapchete.open(conf, mode="continue") as mp:
+        mp.batch_process()
+
+    # delete baselevel tile
+    written_tile = os.path.join(*[
+        baselevels.dict["config_dir"],
+        baselevels.dict["output"]["path"],
+        *map(str, baselevel_tile),
+    ]) + ".tif"
+    os.remove(written_tile)
+    assert not os.path.exists(written_tile)
+
+    # run again in continue mode. this processes the missing tile on zoom 5 but overwrites
+    # the tile in zoom 4
+    with mapchete.open(conf, mode="continue") as mp:
+        # process data before getting baselevels
+        mp.batch_process()
+        with rasterio.open(
+            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
+        ) as src:
+            overview_after = src.read()
+            assert overview_after.any()
+
+    assert not np.array_equal(overview_before, overview_after)
+
+
 def test_baselevels_buffer(mp_tmpdir, baselevels):
     """Baselevel interpolation using buffers."""
     config = baselevels.dict
@@ -348,6 +399,19 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         mp.batch_process(zoom=2, multi=1)
 
 
+def test_skip_tiles(mp_tmpdir, cleantopo_tl):
+    """Test batch_process function."""
+    zoom = 2
+    with mapchete.open(cleantopo_tl.path, mode="continue") as mp:
+        mp.batch_process(zoom=zoom)
+        for tile, skip in mp.skip_tiles(tiles=mp.get_process_tiles(zoom=zoom)):
+            assert skip
+
+    with mapchete.open(cleantopo_tl.path, mode="overwrite") as mp:
+        for tile, skip in mp.skip_tiles(tiles=mp.get_process_tiles(zoom=zoom)):
+            assert not skip
+
+
 def test_custom_grid(mp_tmpdir, custom_grid):
     """Cutom grid processing."""
     # process and save
@@ -365,10 +429,8 @@ def test_custom_grid(mp_tmpdir, custom_grid):
 def test_execute_kwargs(example_mapchete, execute_kwargs_py):
     config = example_mapchete.dict
     config.update(process=execute_kwargs_py)
-    zoom = 7
     with mapchete.open(config) as mp:
-        tile = next(mp.get_process_tiles(zoom))
-        mp.execute(tile)
+        mp.execute((7, 61, 129))
 
 
 def test_snap_bounds_to_zoom():

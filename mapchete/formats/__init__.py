@@ -77,7 +77,7 @@ def load_output_reader(output_params):
             ) and (
             _driver.METADATA["driver_name"] == driver_name
         ):
-            return _driver.OutputDataReader(output_params)
+            return _driver.OutputDataReader(output_params, readonly=True)
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 

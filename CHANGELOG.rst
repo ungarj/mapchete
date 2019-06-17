@@ -14,6 +14,8 @@ Changelog
   * all CLI multiword options are separated by an hyphen (`-`) instead of underscore (`_`)
   (#189)
 
+* overview tiles get also updated if child baselevel tile changes (#179)
+* on `batch_process` check which process output exists and only use parallelization for process tiles which will be processed (#)
 * fixed `area_at_zoom()` when using input groups (#181)
 * fixed single GeoTIFF output bounds should use process area (#182)
 * fixed YAML warning (#167)

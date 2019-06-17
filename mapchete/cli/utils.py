@@ -11,6 +11,7 @@ from mapchete.config import raw_conf, bounds_from_opts
 from mapchete.formats import available_output_formats
 from mapchete.index import zoom_index_gen
 from mapchete.log import set_log_level, setup_logfile
+from mapchete._validate import validate_bounds, validate_zooms
 
 
 logger = logging.getLogger(__name__)
@@ -35,22 +36,16 @@ def _validate_zoom(ctx, param, zoom):
             zoom_levels = list(map(int, zoom.split(",")))
         except ValueError:
             raise click.BadParameter("zoom levels must be integer values")
-        if len(zoom_levels) > 2:
-            raise click.BadParameter(
-                "either provide one zoom level or min and max (format: min,max)"
-            )
-        return zoom_levels
+        try:
+            if len(zoom_levels) > 2:
+                raise ValueError("zooms can be maximum two items")
+            return validate_zooms(zoom_levels, expand=False)
+        except Exception as e:
+            raise click.BadParameter(e)
 
 
 def _validate_bounds(ctx, param, bounds):
-    if bounds:
-        if (
-            not isinstance(bounds, (list, tuple)) or
-            len(bounds) != 4 or
-            any([not isinstance(i, (int, float)) for i in bounds])
-        ):
-            raise click.BadParameter("bounds not valid")
-        return bounds
+    return validate_bounds(bounds) if bounds else None
 
 
 def _validate_mapchete_files(ctx, param, mapchete_files):
