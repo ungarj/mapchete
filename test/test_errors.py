@@ -254,6 +254,14 @@ def test_malformed_process(cleantopo_br, malformed_py):
         mapchete.open(config)
 
 
+def test_process_import_error(mp_tmpdir, cleantopo_br, import_error_py):
+    """Assert import error is raised."""
+    config = cleantopo_br.dict
+    config.update(process="not.existing.process.module")
+    with pytest.raises(errors.MapcheteProcessImportError):
+        mapchete.open(config)
+
+
 def test_syntax_error(mp_tmpdir, cleantopo_br, syntax_error_py):
     """Assert syntax error is raised."""
     config = cleantopo_br.dict
@@ -292,3 +300,10 @@ def test_finished_task():
     with pytest.raises(ZeroDivisionError):
         task.result()
     assert "FinishedTask" in str(task)
+
+
+def test_strip_zoom_error(files_zooms):
+    with pytest.raises(errors.MapcheteConfigError):
+        config = files_zooms.dict
+        config["input"]["equals"]["zoom=invalid"] = "dummy1.tif"
+        mapchete.open(config)

@@ -870,8 +870,6 @@ def _element_at_zoom(name, element, zoom):
           provided zoom level gets parsed and compared with the actual zoom
           level. If zoom levels match, the element gets returned.
         TODOs/gotchas:
-        - Elements are unordered, which can lead to unexpected results when
-          defining the YAML config.
         - Provided zoom levels for one element in config file are not allowed
           to "overlap", i.e. there is not yet a decision mechanism implemented
           which handles this case.
