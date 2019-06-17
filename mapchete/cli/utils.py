@@ -37,7 +37,7 @@ def _validate_zoom(ctx, param, zoom):
         except ValueError:
             raise click.BadParameter("zoom levels must be integer values")
         try:
-            if len(zoom_levels) != 2:
+            if len(zoom_levels) > 2:
                 raise ValueError("zooms can be maximum two items")
             return validate_zooms(zoom_levels, expand=False)
         except Exception as e:
