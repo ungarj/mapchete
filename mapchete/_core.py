@@ -11,7 +11,7 @@ from mapchete.errors import MapcheteNodataTile
 from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
-from mapchete._validate import validate_tile
+from mapchete._validate import validate_tile, validate_zooms
 
 logger = logging.getLogger(__name__)
 
@@ -530,13 +530,4 @@ class Mapchete(object):
 
 def _get_zoom_level(zoom, process):
     """Determine zoom levels."""
-    if zoom is None:
-        return reversed(process.config.zoom_levels)
-    if isinstance(zoom, int):
-        return [zoom]
-    elif len(zoom) == 2:
-        return reversed(range(min(zoom), max(zoom)+1))
-    elif len(zoom) == 1:
-        return zoom
-    elif isinstance(zoom, list):
-        return zoom
+    return reversed(process.config.zoom_levels) if zoom is None else validate_zooms(zoom)
