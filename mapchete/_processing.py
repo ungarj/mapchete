@@ -12,7 +12,6 @@ from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import get_process_func
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
-from mapchete.tile import BufferedTile
 from mapchete._timer import Timer
 from mapchete._validate import deprecated_kwargs
 
@@ -33,8 +32,6 @@ class TileProcess():
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
         )
-        if not isinstance(tile, BufferedTile):
-            raise TypeError("process_tile must be tuple or BufferedTile")
         self.skip = skip
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
@@ -383,11 +380,9 @@ class FinishedTask():
         fargs = fargs or []
         fkwargs = fkwargs or {}
         try:
-            self._result = func(*fargs, **fkwargs)
-            self._exception = None
+            self._result, self._exception = func(*fargs, **fkwargs), None
         except Exception as e:
-            self._result = None
-            self._exception = e
+            self._result, self._exception = None, e
 
     def result(self):
         if self._exception:

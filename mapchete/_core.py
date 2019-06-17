@@ -9,7 +9,7 @@ import threading
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile
 from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
-from mapchete.tile import BufferedTile, count_tiles
+from mapchete.tile import count_tiles
 from mapchete._timer import Timer
 from mapchete._validate import validate_tile
 
