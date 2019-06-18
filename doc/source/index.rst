@@ -15,11 +15,14 @@ process geodata like shapely_ or numpy_.
 .. _shapely: http://toblerity.org/shapely/
 .. _numpy: http://www.numpy.org/
 
-Mapchete takes care about resampling and reprojecting geodata, applying your
-Python code to the tiles and writing the output into a WMTS_-like tile pyramid.
+With the help of fiona_ and rasterio_ Mapchete takes care about resampling and
+reprojecting geodata, applying your Python code to the tiles and writing the output either
+into a single file or into a directory of files organized in a WMTS_-like tile pyramid.
 Details on tiling scheme and available map projections are outlined in
 :doc:`tiling`.
 
+.. _fiona: https://github.com/Toblerity/Fiona
+.. _rasterio: https://github.com/mapbox/rasterio/
 .. _WMTS: https://en.wikipedia.org/wiki/Web_Map_Tile_Service
 
 
@@ -34,18 +37,44 @@ Example
 A process creating a hillshade from an elevation model and clipping it with a
 vector dataset could look like this:
 
+.. code-block:: yaml
+
+    # content of hillshade.mapchete
+    process: hillshade.py
+    zoom_levels:
+        min: 0
+        max: 12
+    input:
+        dem: /path/to/dem.tif
+        land_polygons: /path/to/polygon/file.geojson
+    output:
+        format: PNG_hillshade
+        path: /output/path
+    pyramid:
+        grid: mercator
+
+    # process specific parameters
+    resampling: cubic_spline
+
+
 .. code-block:: python
 
-    def execute(mp):
+    # content of hillshade.py
+
+    def execute(mp, resampling="nearest"):
+
         # Open elevation model.
-        with mp.open("DEM_file", resampling="cubic_spline") as dem_file:
-            # Skip tile if there is no data available.
-            if dem_file.is_empty(1):
+        with mp.open("dem") as src:
+            # Skip tile if there is no data available or read data into a NumPy array.
+            if src.is_empty(1):
                 return "empty"
-            dem = dem_file.read(1)
-        # Create hillshade.
+            else:
+                dem = src.read(1, resampling=resampling)
+
+        # Create hillshade using a built-in hillshade function.
         hillshade = mp.hillshade(dem)
-        # Clip with polygons and return result.
+
+        # Clip with polygons from vector file and return result.
         with mp.open("land_polygons") as land_file:
             return mp.clip(hillshade, land_file.read())
 
@@ -55,13 +84,13 @@ Examine the result in your browser by serving the process by pointing it to
 
 .. code-block:: shell
 
-    mapchete serve my_hillshade.mapchete
+    mapchete serve hillshade.mapchete
 
 If the result looks fine, seed zoom levels 0 to 12:
 
 .. code-block:: shell
 
-    mapchete execute my_hillshade.mapchete --zoom 0 12
+    mapchete execute hillshade.mapchete --zoom 0 12
 
 
 .. toctree::
