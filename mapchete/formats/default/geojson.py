@@ -16,11 +16,9 @@ path: string
     output directory
 schema: key-value pairs
     the schema is passed on to fiona
-    properties: key-value pairs
-        fields and field types, like "id: int" etc.
-    geometry: geometry type
-        output geometry type (Geometry, Point, MultiPoint, Line, MultiLine,
-        Polygon, MultiPolygon)
+    - properties: key-value pairs (fields and field types, like "id: int" etc.)
+    - geometry: output geometry type (Geometry, Point, MultiPoint, Line, MultiLine,
+    Polygon, MultiPolygon)
 """
 
 import fiona

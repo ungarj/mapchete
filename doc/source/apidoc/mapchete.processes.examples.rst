@@ -12,6 +12,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.processes.examples
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

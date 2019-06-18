@@ -20,8 +20,8 @@ def execute(
     """
     Convert and optionally clip input raster data.
 
-    Inputs:
-    -------
+    Inputs
+    ------
     raster
         singleband or multiband data input
     clip (optional)

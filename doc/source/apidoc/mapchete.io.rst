@@ -13,6 +13,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.io
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

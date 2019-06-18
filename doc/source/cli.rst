@@ -3,7 +3,7 @@ Command Line Tools
 ==================
 
 Mapchete offers various useful subcommands: ``create``, ``execute``, ``serve``
- and ``pyramid``.
+ and ``convert``.
 
 Create an empty process
 =======================
@@ -120,37 +120,3 @@ level and output bounds settings in the mapchete configuration file.
 In addition, there is the possibility to **create a tile pyramid** out of a
 raster file. It can either take the original data types and create the output
 tiles as GeoTIFFS, or scale the data to 8 bits and create PNGs.
-
-Build a tile pyramid out of a raster
-============================================
-
-``mapchete pyramid <raster_file>``
-
-.. code-block:: shell
-
-    usage: mapchete pyramid <raster_file>
-
-    Creates a tile pyramid from an input raster dataset
-
-    positional arguments:
-      input_raster          input raster file
-      output_dir            output directory where tiles are stored
-
-    optional arguments:
-      -h, --help            show this help message and exit
-      --pyramid_type {geodetic,mercator}, -pt {geodetic,mercator}
-                            pyramid schema to be used (default: mercator)
-      --output_format <str>, -of <str>
-                            output data format (GTiff or PNG) (default: GTiff)
-      --resampling_method <str>, -r <str>
-                            resampling method to be used (nearest, bilinear,
-                            cubic, cubic_spline, lanczos, average or mode)
-                            (default: nearest)
-      --scale_method <str>, -s <str>
-                            scale method if input bands have more than 8 bit
-                            (dtype_scale, minmax_scale or crop) (default:
-                            minmax_scale)
-      --zoom [<int> [<int> ...]], -z [<int> [<int> ...]]
-                            either minimum and maximum zoom level or just one zoom
-                            level (default: None)
-      --overwrite, -o       overwrite if tile(s) already exist(s) (default: False)

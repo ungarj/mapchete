@@ -6,7 +6,7 @@ Subpackages
 
 .. toctree::
 
-    mapchete.formats.default
+   mapchete.formats.default
 
 Submodules
 ----------
@@ -20,6 +20,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.formats
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

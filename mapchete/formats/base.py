@@ -409,12 +409,14 @@ class TileDirectoryOutputReader(OutputDataReader):
     def tiles_exist(self, process_tile=None, output_tile=None):
         """
         Check whether output tiles of a tile (either process or output) exists.
+
         Parameters
         ----------
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         output_tile : ``BufferedTile``
             must be member of output ``TilePyramid``
+
         Returns
         -------
         exists : bool
@@ -444,6 +446,7 @@ class TileDirectoryOutputReader(OutputDataReader):
     ):
         """
         Read reprojected & resampled input data.
+
         Parameters
         ----------
         validity_check : bool
@@ -456,6 +459,7 @@ class TileDirectoryOutputReader(OutputDataReader):
             will be used
         gdal_opts : dict
             raster file: GDAL options passed on to rasterio.Env()
+
         Returns
         -------
         data : list for vector files or numpy array for raster files
@@ -487,12 +491,14 @@ class SingleFileOutputReader(OutputDataReader):
     def tiles_exist(self, process_tile=None, output_tile=None):
         """
         Check whether output tiles of a tile (either process or output) exists.
+
         Parameters
         ----------
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         output_tile : ``BufferedTile``
             must be member of output ``TilePyramid``
+
         Returns
         -------
         exists : bool

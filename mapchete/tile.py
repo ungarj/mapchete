@@ -272,13 +272,13 @@ class BufferedTile(Tile):
         neighbors ouside the northern and southern TilePyramid boundaries are
         excluded, because they are invalid.
 
-        -------------
-        | 8 | 1 | 5 |
-        -------------
-        | 4 | x | 2 |
-        -------------
-        | 7 | 3 | 6 |
-        -------------
+        # -------------
+        # | 8 | 1 | 5 |
+        # -------------
+        # | 4 | x | 2 |
+        # -------------
+        # | 7 | 3 | 6 |
+        # -------------
 
         Parameters
         ----------

@@ -19,6 +19,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.formats.default
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

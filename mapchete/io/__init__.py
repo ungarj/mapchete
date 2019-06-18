@@ -195,12 +195,12 @@ def path_exists(path):
     """
     Check if file exists either remote or local.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     path : path to file
 
-    Returns:
-    --------
+    Returns
+    -------
     exists : bool
     """
     if path.startswith(("http://", "https://")):
@@ -228,13 +228,13 @@ def absolute_path(path=None, base_dir=None):
     """
     Return absolute path if path is local.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     path : path to file
     base_dir : base directory used for absolute path
 
-    Returns:
-    --------
+    Returns
+    -------
     absolute path
     """
     if path_is_remote(path):
@@ -252,13 +252,13 @@ def relative_path(path=None, base_dir=None):
     """
     Return relative path if path is local.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     path : path to file
     base_dir : directory where path sould be relative to
 
-    Returns:
-    --------
+    Returns
+    -------
     relative path
     """
     if path_is_remote(path) or not os.path.isabs(path):
@@ -271,8 +271,8 @@ def makedirs(path):
     """
     Silently create all subdirectories of path if path is local.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     path : path
     """
     if not path_is_remote(path):

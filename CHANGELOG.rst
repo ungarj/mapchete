@@ -11,8 +11,7 @@ Changelog
   * output drivers must now provide `OutputDataWriter` and `OutputDataReader` classes instead of a single `OutputData` class
   * `OutputDataWriter.close()` method must accept `exc_type=None, exc_value=None, exc_traceback=None` keywords
   * `mapchete pyramid` CLI was removed and is replaced by the more versatile `mapchete convert` (#157, #192)
-  * all CLI multiword options are separated by an hyphen (`-`) instead of underscore (`_`)
-  (#189)
+  * all CLI multiword options are separated by an hyphen (`-`) instead of underscore (`_`) (#189)
 
 * overview tiles get also updated if child baselevel tile changes (#179)
 * on `batch_process` check which process output exists and only use parallelization for process tiles which will be processed (#)

@@ -122,8 +122,8 @@ class MapcheteConfig(object):
         base zoomlevels, where data is processed; zoom levels not included are
         generated from baselevels
 
-    Deprecated Attributes:
-    ----------------------
+    Deprecated Attributes
+    ---------------------
     raw : dictionary
         raw process configuration
     mapchete_file : string
