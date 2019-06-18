@@ -2,8 +2,79 @@
 Command Line Tools
 ==================
 
-Mapchete offers various useful subcommands: ``create``, ``execute``, ``serve``
- and ``convert``.
+Mapchete offers various useful subcommands:
+
+.. code-block:: shell
+
+Usage: mapchete [OPTIONS] COMMAND [ARGS]...
+
+    Options:
+      --version  Show the version and exit.
+      --help     Show this message and exit.
+
+    Commands:
+      convert    Convert outputs or other geodata.
+      create     Create a new process.
+      execute    Execute a process.
+      formats    List available input and/or output formats.
+      index      Create index of output tiles.
+      processes  List available processes.
+      serve      Serve a process on localhost.
+
+
+Convert between process outputs
+===============================
+
+``mapchete convert``
+
+This command can convert between different Mapchete outputs, for example from a
+``TileDirectory`` output to a single file GeoTIFF. It can also convert between different
+tile pyramid schemes, projections output formats and apply scale factors and scale
+offsets to raster data.
+
+.. code-block:: shell
+
+    Usage: mapchete convert [OPTIONS] INPUT OUTPUT
+
+      Convert outputs or other geodata.
+
+    Options:
+      -z, --zoom TEXT                 Single zoom level or min and max separated
+                                      by ','.
+      -b, --bounds FLOAT...           Left, bottom, right, top bounds in tile
+                                      pyramid CRS.
+      -p, --point FLOAT...            Process tiles over single point location.
+      -g, --wkt-geometry TEXT         Take boundaries from WKT geometry in tile
+                                      pyramid CRS.
+      -c, --clip-geometry PATH        Clip output by geometry
+      --output-pyramid [geodetic|mercator]
+                                      Output pyramid to write to.
+      -m, --output-metatiling INTEGER
+                                      Output metatiling.
+      --output-format [GeoJSON|PNG_hillshade|GTiff|xarray|PNG]
+                                      Output format.
+      --output-dtype [uint16|int16|float64|float32|uint32|int32|int8|uint8]
+                                      Output data type (for raster output only).
+      --co, --profile NAME=VALUE      Driver specific creation options.See the
+                                      documentation for the selected output driver
+                                      for more information.
+      --scale-ratio FLOAT             Scaling factor (for raster output only).
+      --scale-offset FLOAT            Scaling offset (for raster output only).
+      -r, --resampling-method [nearest|bilinear|cubic|cubic_spline|lanczos|average|mode]
+                                      Resampling method to be used (nearest,
+                                      bilinear, cubic, cubic_spline, lanczos,
+                                      average or mode).
+      -o, --overwrite                 Overwrite if tile(s) already exist(s).
+      -v, --verbose                   Print info for each process tile.
+      --no-pbar                       Deactivate progress bar.
+      -d, --debug                     Deactivate progress bar and print debug log
+                                      output.
+      -m, --multi INTEGER             Number of concurrent processes.
+      -l, --logfile PATH              Write debug log infos into file.
+      --vrt                           Write VRT file.
+      -od, --idx-out-dir PATH         Index output directory.
+      --help                          Show this message and exit.
+
 
 Create an empty process
 =======================
@@ -68,98 +139,24 @@ specific tile by providing the tile index (``zoom`` ``row`` ``col``).
       --help                       Show this message and exit.
 
 
-Convert between process outputs
-===============================
+List registered formats
+=======================
 
-``mapchete convert``
+``mapchete formats``
 
-This command can convert between different Mapchete outputs, for example from a
-``TileDirectory`` output to a single file GeoTIFF. It can also convert between different
-tile pyramid schemes, projections output formats and apply scale factors and scale
-offsets to raster data.
+This command lists all registered input and output drivers.
 
+..code-block:: shell
 
-.. code-block:: shell
+    Usage: mapchete formats [OPTIONS]
 
-    Usage: mapchete convert [OPTIONS] INPUT OUTPUT
-
-      Convert outputs or other geodata.
+      List available input and/or output formats.
 
     Options:
-      -z, --zoom TEXT                 Single zoom level or min and max separated
-                                      by ','.
-      -b, --bounds FLOAT...           Left, bottom, right, top bounds in tile
-                                      pyramid CRS.
-      -p, --point FLOAT...            Process tiles over single point location.
-      -g, --wkt-geometry TEXT         Take boundaries from WKT geometry in tile
-                                      pyramid CRS.
-      -c, --clip-geometry PATH        Clip output by geometry
-      --output-pyramid [geodetic|mercator]
-                                      Output pyramid to write to.
-      -m, --output-metatiling INTEGER
-                                      Output metatiling.
-      --output-format [GeoJSON|PNG_hillshade|GTiff|xarray|PNG]
-                                      Output format.
-      --output-dtype [uint16|int16|float64|float32|uint32|int32|int8|uint8]
-                                      Output data type (for raster output only).
-      --co, --profile NAME=VALUE      Driver specific creation options.See the
-                                      documentation for the selected output driver
-                                      for more information.
-      --scale-ratio FLOAT             Scaling factor (for raster output only).
-      --scale-offset FLOAT            Scaling offset (for raster output only).
-      -r, --resampling-method [nearest|bilinear|cubic|cubic_spline|lanczos|average|mode]
-                                      Resampling method to be used (nearest,
-                                      bilinear, cubic, cubic_spline, lanczos,
-                                      average or mode).
-      -o, --overwrite                 Overwrite if tile(s) already exist(s).
-      -v, --verbose                   Print info for each process tile.
-      --no-pbar                       Deactivate progress bar.
-      -d, --debug                     Deactivate progress bar and print debug log
-                                      output.
-      -m, --multi INTEGER             Number of concurrent processes.
-      -l, --logfile PATH              Write debug log infos into file.
-      --vrt                           Write VRT file.
-      -od, --idx-out-dir PATH         Index output directory.
-      --help                          Show this message and exit.
-
-
-
-Serve a process
-===============
-
-``mapchete serve``
-
-Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple
-endpoint to **serve a process** for quick assessment (default port 5000). This
-is intended to process on-demand and show just the current map extent to
-facilitate process calibration.
-
-.. code-block:: shell
-
-    Usage: mapchete serve [OPTIONS] MAPCHETE_FILE
-
-      Serve a process on localhost.
-
-    Options:
-      -p, --port INTEGER            Port process is hosted on. (default: 5000)
-      -c, --internal-cache INTEGER  Number of web tiles to be cached in RAM.
-                                    (default: 1024)
-      -z, --zoom TEXT               Single zoom level or min and max separated by
-                                    ','.
-      -b, --bounds FLOAT...         Left, bottom, right, top bounds in tile
-                                    pyramid CRS.
-      -o, --overwrite               Overwrite if tile(s) already exist(s).
-      -ro, --readonly               Just read process output without writing.
-      -mo, --memory                 Always get output from freshly processed
-                                    output.
-      -i, --input-file PATH         Specify an input file via command line (in
-                                    mapchete file, set 'input_file' parameter to
-                                    'from_command_line').
-      -d, --debug                   Deactivate progress bar and print debug log
-                                    output.
-      -l, --logfile PATH            Write debug log infos into file.
-      --help                        Show this message and exit.
-
+      -i, --input-formats   Show only input formats.
+      -o, --output-formats  Show only output formats.
+      -d, --debug           Deactivate progress bar and print debug log output.
+      --help                Show this message and exit.
 
 
 Create tile index files
@@ -223,22 +220,38 @@ have a separate python package with mapchete processes you want to share.
       --help                   Show this message and exit.
 
 
+Serve a process
+===============
 
-List registered formats
-=======================
+``mapchete serve``
 
-``mapchete formats``
+Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple
+endpoint to **serve a process** for quick assessment (default port 5000). This
+is intended to process on-demand and show just the current map extent to
+facilitate process calibration.
 
-This command lists all registered input and output drivers.
+.. code-block:: shell
 
-..code-block:: shell
+    Usage: mapchete serve [OPTIONS] MAPCHETE_FILE
 
-    Usage: mapchete formats [OPTIONS]
-
-      List available input and/or output formats.
+      Serve a process on localhost.
 
     Options:
-      -i, --input-formats   Show only input formats.
-      -o, --output-formats  Show only output formats.
-      -d, --debug           Deactivate progress bar and print debug log output.
-      --help                Show this message and exit.
+      -p, --port INTEGER            Port process is hosted on. (default: 5000)
+      -c, --internal-cache INTEGER  Number of web tiles to be cached in RAM.
+                                    (default: 1024)
+      -z, --zoom TEXT               Single zoom level or min and max separated by
+                                    ','.
+      -b, --bounds FLOAT...         Left, bottom, right, top bounds in tile
+                                    pyramid CRS.
+      -o, --overwrite               Overwrite if tile(s) already exist(s).
+      -ro, --readonly               Just read process output without writing.
+      -mo, --memory                 Always get output from freshly processed
+                                    output.
+      -i, --input-file PATH         Specify an input file via command line (in
+                                    mapchete file, set 'input_file' parameter to
+                                    'from_command_line').
+      -d, --debug                   Deactivate progress bar and print debug log
+                                    output.
+      -l, --logfile PATH            Write debug log infos into file.
+      --help                        Show this message and exit.
