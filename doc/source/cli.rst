@@ -22,10 +22,10 @@ Usage: mapchete [OPTIONS] COMMAND [ARGS]...
       serve      Serve a process on localhost.
 
 
-Convert between process outputs
-===============================
-
 ``mapchete convert``
+====================
+
+Convert outputs or other geodata.
 
 This command can convert between different Mapchete outputs, for example from a
 ``TileDirectory`` output to a single file GeoTIFF. It can also convert between different
@@ -76,10 +76,10 @@ offsets to raster data.
       --help                          Show this message and exit.
 
 
-Create an empty process
-=======================
-
 ``mapchete create``
+===================
+
+Create a new process.
 
 This subcommand will generate an empty ``.mapchete`` and a dummy ``.py`` process
 file.
@@ -99,10 +99,10 @@ file.
       --help                          Show this message and exit.
 
 
-Execute a process
-=================
-
 ``mapchete execute``
+====================
+
+Execute a process.
 
 This is intended to batch seed your output pyramid. You can also process a
 specific tile by providing the tile index (``zoom`` ``row`` ``col``).
@@ -139,10 +139,10 @@ specific tile by providing the tile index (``zoom`` ``row`` ``col``).
       --help                       Show this message and exit.
 
 
-List registered formats
-=======================
-
 ``mapchete formats``
+====================
+
+List available input and/or output formats.
 
 This command lists all registered input and output drivers.
 
@@ -159,10 +159,10 @@ This command lists all registered input and output drivers.
       --help                Show this message and exit.
 
 
-Create tile index files
-=======================
-
 ``mapchete index``
+==================
+
+Create index of output tiles.
 
 This command lets you create index files for raster ``TileDirectory`` outputs. Such index
 files can be ``VRT`` for ``GDAL``, shape index files in either ``GeoJSON``, ``GeoPackage``
@@ -200,10 +200,10 @@ Shape index files are used in ``Mapserver`` to add large raster mosaics.
       --help                   Show this message and exit.
 
 
-List registered processes
-=========================
-
 ``mapchete processes``
+======================
+
+List available processes.
 
 Custom processes can be registered to ``mapchete.processes``. This is helpful in case you
 have a separate python package with mapchete processes you want to share.
@@ -220,10 +220,10 @@ have a separate python package with mapchete processes you want to share.
       --help                   Show this message and exit.
 
 
-Serve a process
-===============
-
 ``mapchete serve``
+==================
+
+Serve a process on localhost.
 
 Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple
 endpoint to **serve a process** for quick assessment (default port 5000). This
