@@ -146,7 +146,7 @@ List available input and/or output formats.
 
 This command lists all registered input and output drivers.
 
-..code-block:: none
+.. code-block:: none
 
     Usage: mapchete formats [OPTIONS]
 
