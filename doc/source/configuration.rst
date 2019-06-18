@@ -1,217 +1,87 @@
-===================================
-How to configure a Mapchete Process
-===================================
+==============================
+Mapchete Process Configuration
+==============================
 
 A Mapchete process configuration (a Mapchete file) is a YAML File which
 requires a certain schema. Some parameters can be separately defined per zoom
 level if necessary.
+
+.. code-block:: yaml
+
+    # mandatory parameters
+    ######################
+
+    # this is the location of user python code:
+    process: example_process.py
+    # alternatively, you can point to a python module:
+    # process: mapchete.processes.convert
+
+    # process pyramid definition
+    pyramid:
+        grid: geodetic
+        metatiling: 4 # can be 1, 2, 4, 8, 16 (default 1)
+        pixelbuffer: 10
+
+    # process input
+    input:
+        file1:
+            zoom>=10: testdata/dummy1.tif
+        file2: testdata/dummy2.tif
+
+    # process output
+    output:
+        path: testdata/tmp/example
+        format: GTiff
+        dtype: float32
+        bands: 1
+        metatiling: 1
+
+    # zoom level range:
+    zoom_levels:
+        min: 7
+        max: 11
+    # or define single zoom level
+    # zoom_levels: 5
+
+    # optional parameters
+    #####################
+
+    # geographical subset:
+    bounds: [1.0, 2.0, 3.0, 4.0]
+
+    # generate overview levels from baselevels
+    baselevels:
+        min: 11
+        max: 11
+
+    # free parameters
+    #################
+
+    some_integer_parameter: 12
+    some_float_parameter: 5.3
+    some_string_parameter:
+        zoom<=7: string1
+        zoom>7: string2
+    some_bool_parameter: true
 
 
 --------------------
 Mandatory parameters
 --------------------
 
-
 process
 =======
 
 Path to python file, relative from the Mapchete file or module path from within python.
 
-
-input
-=====
-
-Input data required for the process. Each input type has to be assigned an
-identifier, wich then can be referenced from the ``mp.open()`` function
-from within the process.
-
-For single files like GeoTIFFs, JPEG2000 files, Shapefiles or GeoJSON files,
-a file path (either remote or local) is sufficient.
-
-**Example:**
-
-.. code-block:: yaml
-
-    input:
-        dem: path/to/elevation_data.tif
-        land_polygons: path/to/land_polygons.shp
-
-from_command_line
------------------
-
-If the process is designed for a single file, you can also use the
-``--input_file`` parameter of the :doc:`cli`. In this case, the ``input``
-parameter has to be set to ``from_command_line``.
-
-**Example:**
-
-.. code-block:: yaml
-
-    input: from_command_line
-
-Run the process afterwards like this:
-
-.. code-block:: shell
-
-    mapchete execute my_process.mapchete --input_file path/to/elevation_data.tif
-
-It is also possible to define input data groups e.g. for extracted Sentinel-2
-granules, where bands are stored in separate files:
-
-**Example:**
-
-.. code-block:: yaml
-
-    input:
-        sentinel2_granule:
-            red: path/to/B04.jp2
-            green: path/to/B03.jp2
-            blue: path/to/B02.jp2
-
-
-output
-======
-
-Here the output file format, the tile pyramid type (``geodetic`` or
-``mercator``) as well as the output ``metatiling`` and ``pixelbuffer`` (if
-deviating from global process settings) can be set.
-
-**Example:**
-
-.. code-block:: yaml
-
-    output:
-        type: geodetic
-        format: GTiff
-        metatiling: 4  # optional
-        pixelbuffer: 10  # optional
-        # plus format specific parameters
-
-
-Default formats can also read and write from and to S3 Object Storages. This is simply
-achieved by providing the full S3 path, i.e. ``s3://my_output_bucket/process_output``.
-
-
-Default output formats
-----------------------
-
-GTiff
-~~~~~
-
-:doc:`GTiff API Reference <apidoc/mapchete.formats.default.gtiff>`
-
-**Example:**
-
-.. code-block:: yaml
-
-    output:
-        type: geodetic
-        format: GTiff
-        bands: 1
-        path: my/output/directory
-        dtype: uint8
-        compress: deflate
-
-
-PNG
-~~~
-
-:doc:`PNG API Reference <apidoc/mapchete.formats.default.png>`
-
-**Example:**
-
-.. code-block:: yaml
-
-    output:
-        type: geodetic
-        format: PNG
-        bands: 4
-        path: my/output/directory
-
-
-PNG_hillshade
-~~~~~~~~~~~~~
-
-:doc:`PNG_hillshade API Reference <apidoc/mapchete.formats.default.png_hillshade>`
-
-**Example:**
-
-.. code-block:: yaml
-
-    output:
-        type: geodetic
-        format: PNG_hillshade
-        path: my/output/directory
-        nodata: 255
-
-
-GeoJSON
-~~~~~~~
-
-:doc:`GeoJSON API Reference <apidoc/mapchete.formats.default.geojson>`
-
-**Example:**
-
-.. code-block:: yaml
-
-    output:
-        type: geodetic
-        format: GeoJSON
-        path: my/output/directory
-        schema:
-            properties:
-                id: 'int'
-            geometry: Polygon
-
-
-Additional output formats
--------------------------
-
-Additional drivers can be written and installed. TODO: driver chapter
-
-
--------------------
-Optional parameters
--------------------
-
-process_minzoom, process_maxzoom or process_zoom
-================================================
-
-A process can also have one or more valid zoom levels. Outside of these zoom
-levels, it returns empty data.
-
-**Example:**
-
-.. code-block:: yaml
-
-    # only zooms 0 to 8 are processed
-    process_minzoom: 0
-    process_maxzoom: 8
-
-
-.. code-block:: yaml
-
-    # only zoom 10 to is processed
-    process_zoom: 10
-
-
-process_bounds
-==============
-
-Likewise, a process can also be limited to geographical bounds. The bouds are
-to be given in the output pyramid CRS and in form of a list and in the form
-``[left, bottom, right, top]``.
-
-**Example:**
-
-.. code-block:: yaml
-
-    # only the area between the South Pole and 60°S is processed
-    process_bounds: [-180, -90, 180, -60]
-
+pyramid
+=======
+
+Process pyramid and projection can be defined here. The two default pyramids available
+are ``geodetic`` and ``mercator``
 
 metatiling
-==========
+----------
 
 Metatile size used by process. A metatiling setting of 2 combines 2x2 tiles into
 a bigger metatile. Metatile size can only be one of 1, 2, 4, 8, 16. For more
@@ -225,9 +95,8 @@ details, go to :doc:`tiling`.
     # process 8x8 tiles
     metatiling: 8
 
-
 pixelbuffer
-===========
+-----------
 
 Buffer around each process tile in pixels. This can prevent artefacts at tile
 boundaries and is sometimes required when using some algorithms or image filters
@@ -241,6 +110,56 @@ as possible to minimize redundant processed areas.
 
     # this will result in a tile size of 276x276 px instead of 256x256
     pixelbuffer: 10
+
+input
+=====
+
+see :doc:`process_input`
+
+output
+======
+
+see :doc:`process_output`
+
+zoom_levels
+===========
+
+A process can also have one or more valid zoom levels. Outside of these zoom
+levels, it returns empty data.
+
+**Example:**
+
+.. code-block:: yaml
+
+    # only zooms 0 to 8 are processed
+    zoom_levels:
+        min: 0
+        max: 8
+
+
+.. code-block:: yaml
+
+    # only zoom 10 to is processed
+    zoom_levels: 10
+
+
+-------------------
+Optional parameters
+-------------------
+
+bounds
+======
+
+Likewise, a process can also be limited to geographical bounds. The bouds are
+to be given in the output pyramid CRS and in form of a list and in the form
+``[left, bottom, right, top]``.
+
+**Example:**
+
+.. code-block:: yaml
+
+    # only the area between the South Pole and 60°S is processed
+    bounds: [-180, -90, 180, -60]
 
 
 baselevels

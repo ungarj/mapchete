@@ -1,10 +1,12 @@
-================================
-How to create a Mapchete process
-================================
+================
+Mapchete Process
+================
 
-A Mapchete process has two parts. First, the process itself has to be
-implemented by creating a file with an ``execute(mp)`` function. The ``mp``
-object then helps to read data and access the process parameters.
+A Mapchete process has two parts. First, the process itself has to be implemented by
+creating a python file with an ``execute(mp)`` function. The ``mp`` object then helps to
+read data and access the process parameters. You can also ship the process file within
+a python package and reference from the configuration directly to the python module path
+instead of the python file path.
 
 Second, a Mapchete process requires a configuration where all the necessary
 information is collected such as the location to your process Python file, the
@@ -80,6 +82,10 @@ intersecting with and clipped to current tile boundaries.
 If reading a Mapchete file, either vector or raster data in the form described
 above is returned.
 
+All input drivers have a similar method interface, i.e. all have a generic ``.is_empty()``
+and a ``.read()`` function implemented. It depends however on the driver which data type
+is returned.
+
 
 Modify data
 ===========
@@ -132,3 +138,12 @@ The process file should look like this:
             r, g, b = my_raster_rgb_file.read(resampling="bilinear")
 
         return (r, g, b)
+
+
+-------
+Plug-in
+-------
+
+You can also package a process within a python module and register it to the entrypoint
+``mapchete.processes`` in your packages ``setup.py`` file. This will show your process
+when you run ``mapchete processes`` from the command line.

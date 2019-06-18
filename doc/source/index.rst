@@ -103,6 +103,8 @@ If the result looks fine, seed zoom levels 0 to 12:
    processes
    common_functions
    configuration
+   process_input
+   process_output
    apidoc/modules
    changelog_link
    license_link
