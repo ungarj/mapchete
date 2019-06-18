@@ -20,7 +20,7 @@ Tile-based geodata processing.
 .. image:: https://img.shields.io/pypi/pyversions/mapchete.svg
     :target: https://pypi.python.org/pypi/mapchete
 
-Mapchete processes raster and vector geodata.
+Mapchete processes raster and vector geodata in digestable chunks.
 
 Processing larger amounts of data requires chunking the input data into smaller tiles
 and process them one by one. Python provides a lot of useful packages to process geodata
@@ -44,10 +44,9 @@ Details on tiling scheme and available map projections are outlined in the
 
 .. figure:: doc/source/img/mercator_pyramid.svg
    :align: center
-   :scale: 50%
    :target: https://mapchete.readthedocs.io/en/latest/tiling.html
 
-   (standard ``mercator`` pyramid used in the web)
+   (standard Web Mercator pyramid used in the web)
 
 
 -----
