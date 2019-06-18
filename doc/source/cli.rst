@@ -4,7 +4,7 @@ Command Line Tools
 
 Mapchete offers various useful subcommands:
 
-.. code-block:: shell
+.. code-block:: none
 
     Usage: mapchete [OPTIONS] COMMAND [ARGS]...
 
@@ -32,7 +32,7 @@ This command can convert between different Mapchete outputs, for example from a
 tile pyramid schemes, projections output formats and apply scale factors and scale
 offsets to raster data.
 
-.. code-block:: shell
+.. code-block:: none
 
     Usage: mapchete convert [OPTIONS] INPUT OUTPUT
 
@@ -84,7 +84,7 @@ Create a new process.
 This subcommand will generate an empty ``.mapchete`` and a dummy ``.py`` process
 file.
 
-.. code-block:: shell
+.. code-block:: none
 
     Usage: mapchete create [OPTIONS] MAPCHETE_FILE PROCESS_FILE
                            [PNG_hillshade|GeoJSON|GTiff|xarray|PNG]
@@ -107,7 +107,7 @@ Execute a process.
 This is intended to batch seed your output pyramid. You can also process a
 specific tile by providing the tile index (``zoom`` ``row`` ``col``).
 
-.. code-block:: shell
+.. code-block:: none
 
     Usage: mapchete execute [OPTIONS] [MAPCHETE_FILES]...
 
@@ -169,7 +169,7 @@ files can be ``VRT`` for ``GDAL``, shape index files in either ``GeoJSON``, ``Ge
 or ``ESRI Shapefile`` format or simple ``.txt`` files with lists of existing tile paths.
 Shape index files are used in ``Mapserver`` to add large raster mosaics.
 
-.. code-block:: shell
+.. code-block:: none
 
     Usage: mapchete index [OPTIONS] [MAPCHETE_FILES]...
 
@@ -208,7 +208,7 @@ List available processes.
 Custom processes can be registered to ``mapchete.processes``. This is helpful in case you
 have a separate python package with mapchete processes you want to share.
 
-.. code-block:: shell
+.. code-block:: none
 
     Usage: mapchete processes [OPTIONS]
 
@@ -230,7 +230,7 @@ endpoint to **serve a process** for quick assessment (default port 5000). This
 is intended to process on-demand and show just the current map extent to
 facilitate process calibration.
 
-.. code-block:: shell
+.. code-block:: none
 
     Usage: mapchete serve [OPTIONS] MAPCHETE_FILE
 
