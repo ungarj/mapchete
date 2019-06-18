@@ -6,20 +6,20 @@ Mapchete offers various useful subcommands:
 
 .. code-block:: shell
 
-Usage: mapchete [OPTIONS] COMMAND [ARGS]...
+    Usage: mapchete [OPTIONS] COMMAND [ARGS]...
 
-    Options:
-      --version  Show the version and exit.
-      --help     Show this message and exit.
+        Options:
+          --version  Show the version and exit.
+          --help     Show this message and exit.
 
-    Commands:
-      convert    Convert outputs or other geodata.
-      create     Create a new process.
-      execute    Execute a process.
-      formats    List available input and/or output formats.
-      index      Create index of output tiles.
-      processes  List available processes.
-      serve      Serve a process on localhost.
+        Commands:
+          convert    Convert outputs or other geodata.
+          create     Create a new process.
+          execute    Execute a process.
+          formats    List available input and/or output formats.
+          index      Create index of output tiles.
+          processes  List available processes.
+          serve      Serve a process on localhost.
 
 
 ``mapchete convert``
