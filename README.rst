@@ -31,14 +31,15 @@ vector data.
 With the help of fiona_ and rasterio_ Mapchete takes care about resampling and
 reprojecting geodata, applying your Python code to the tiles and writing the output either
 into a single file or into a directory of files organized in a WMTS_-like tile pyramid.
-Details on tiling scheme and available map projections are outlined in the documentation_.
+Details on tiling scheme and available map projections are outlined in the
+`tiling documentation`_.
 
 .. _shapely: http://toblerity.org/shapely/
 .. _numpy: http://www.numpy.org/
 .. _fiona: https://github.com/Toblerity/Fiona
 .. _rasterio: https://github.com/mapbox/rasterio/
 .. _WMTS: https://en.wikipedia.org/wiki/Web_Map_Tile_Service
-.. _documentation: https://mapchete.readthedocs.io/en/latest/tiling.html
+.. _`tiling documentation`: https://mapchete.readthedocs.io/en/latest/tiling.html
 
 
 -----
