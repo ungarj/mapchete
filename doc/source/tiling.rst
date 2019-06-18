@@ -7,6 +7,9 @@ supported are `Web Mercator`_ (``mercator``) and the geodetic projection based
 on WGS84_ (``geodetic``). For the tiles within these projections, a tiling
 scheme based on the WMTS_-tiling is used.
 
+It is also possible to configure a fully custom tile pyramid with a custom coordinate
+reference system.
+
 .. _`Web Mercator`: https://epsg.io/3857
 .. _WGS84: https://epsg.io/4326
 .. _WMTS: https://en.wikipedia.org/wiki/Web_Map_Tile_Service

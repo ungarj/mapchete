@@ -6,11 +6,11 @@ Subpackages
 
 .. toctree::
 
-    mapchete.cli
-    mapchete.commons
-    mapchete.formats
-    mapchete.io
-    mapchete.processes
+   mapchete.cli
+   mapchete.commons
+   mapchete.formats
+   mapchete.io
+   mapchete.processes
 
 Submodules
 ----------
@@ -27,6 +27,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

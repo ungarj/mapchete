@@ -8,21 +8,20 @@ Changelog
 
 * breaking changes
 
-  * output drivers must now provide `OutputDataWriter` and `OutputDataReader` classes instead of a single `OutputData` class
-  * `OutputDataWriter.close()` method must accept `exc_type=None, exc_value=None, exc_traceback=None` keywords
-  * `mapchete pyramid` CLI was removed and is replaced by the more versatile `mapchete convert` (#157, #192)
-  * all CLI multiword options are separated by an hyphen (`-`) instead of underscore (`_`)
-  (#189)
+  * output drivers must now provide ``OutputDataWriter`` and ``OutputDataReader`` classes instead of a single ``OutputData`` class
+  * ``OutputDataWriter.close()`` method must accept ``exc_type=None, exc_value=None, exc_traceback=None`` keywords
+  * ``mapchete pyramid`` CLI was removed and is replaced by the more versatile ``mapchete convert`` (#157, #192)
+  * all CLI multiword options are separated by an hyphen (``-``) instead of underscore (``_``) (#189)
 
 * overview tiles get also updated if child baselevel tile changes (#179)
-* on `batch_process` check which process output exists and only use parallelization for process tiles which will be processed (#)
-* fixed `area_at_zoom()` when using input groups (#181)
+* on ``batch_process()`` check which process output exists and only use parallelization for process tiles which will be processed (#179)
+* fixed ``area_at_zoom()`` when using input groups (#181)
 * fixed single GeoTIFF output bounds should use process area (#182)
 * fixed YAML warning (#167)
 * inputs preserve order (#176)
 * enabled writing into single GeoTIFF files (#175)
 * enabled multiprocessing spawn method (#173)
-* extracted `execute()` logic to `TileProcess` class (#173)
+* extracted ``execute()`` logic to ``TileProcess`` class (#173)
 * process workers now only receive objects and parameters they need (#173)
 * parsing mapchete input does not fail if zoom levels do not match
 * enable other projections again for GeoJSON output (closing #151)

@@ -5,16 +5,16 @@ def execute(mp):
     """
     Example process for testing.
 
-    Inputs:
-    -------
+    Inputs
+    ------
     file1
         raster file
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
 
-    Output:
-    -------
+    Output
+    ------
     np.ndarray
     """
     # Reading and writing data works like this:

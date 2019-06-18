@@ -5,6 +5,12 @@ class Timer:
     """
     Context manager to facilitate timing code.
 
+    Examples
+    --------
+    >>> with Timer() as t:
+            ...  # some longer running code
+    >>> print(t)  # prints elapsed time
+
     based on http://preshing.com/20110924/timing-your-code-using-pythons-with-statement/
     """
     def __init__(self, elapsed=0., str_round=3):

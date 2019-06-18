@@ -157,8 +157,8 @@ def read_vector_window(input_files, tile, validity_check=True):
 
     Also clips geometry.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     input_file : string
         path to vector file
     tile : ``Tile``
@@ -420,12 +420,12 @@ def to_shape(geom):
     """
     Convert geometry to shapely geometry if necessary.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     geom : shapely geometry or GeoJSON mapping
 
-    Returns:
-    --------
+    Returns
+    -------
     shapely geometry
     """
     return shape(geom) if isinstance(geom, dict) else geom
@@ -435,12 +435,12 @@ def multipart_to_singleparts(geom):
     """
     Yield single part geometries if geom is multipart, otherwise yield geom.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     geom : shapely geometry
 
-    Returns:
-    --------
+    Returns
+    -------
     shapely single part geometries
     """
     if isinstance(geom, base.BaseGeometry):

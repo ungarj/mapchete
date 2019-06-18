@@ -2,16 +2,17 @@
 Create various index files for a process output.
 
 Available index types:
+
 - GeoPackage and GeoJSON index:
-    Works like gdaltindex command and is useful when using process output with
-    Mapserver later on.
+  Works like gdaltindex command and is useful when using process output with
+  Mapserver later on.
 - textfile with tiles list
-    If process output is online (e.g. a public endpoint of an S3 container),
-    this file can be passed on to wget to download all process output.
+  If process output is online (e.g. a public endpoint of an S3 container),
+  this file can be passed on to wget to download all process output.
 - VRT
-    Virtual raster dataset format by GDAL. This enables GIS tools to read multiple
-    files at once, e.g. QGIS can open a zoom VRT so the user doesn't have to open
-    all GeoTIFF files from a certain zoom level.
+  Virtual raster dataset format by GDAL. This enables GIS tools to read multiple
+  files at once, e.g. QGIS can open a zoom VRT so the user doesn't have to open
+  all GeoTIFF files from a certain zoom level.
 
 All index types are generated once per zoom level. For example GeoPackage will
 generate GPKG files 3.gpkg, 4.gpkg and 5.gpkg for zoom levels 3, 4 and 5.

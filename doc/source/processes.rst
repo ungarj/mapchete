@@ -1,10 +1,12 @@
-================================
-How to create a Mapchete process
-================================
+================
+Mapchete Process
+================
 
-A Mapchete process has two parts. First, the process itself has to be
-implemented by creating a file with an ``execute(mp)`` function. The ``mp``
-object then helps to read data and access the process parameters.
+A Mapchete process has two parts. First, the process itself has to be implemented by
+creating a python file with an ``execute(mp)`` function. The ``mp`` object then helps to
+read data and access the process parameters. You can also ship the process file within
+a python package and reference from the configuration directly to the python module path
+instead of the python file path.
 
 Second, a Mapchete process requires a configuration where all the necessary
 information is collected such as the location to your process Python file, the
@@ -42,7 +44,7 @@ Open and read data
 
 .. code-block:: python
 
-    with mp.open("<input_file_id>", resampling="nearest") as src:
+    with mp.open("<input_file_id>") as src:
 
 * ``<input_file_id>``: Input file from ``mp.params``. Can be a raster or vector
   file or the configuration file from another Mapchete process.
@@ -66,20 +68,23 @@ Returns ``bool`` indicating whether data within this tile is available or not.
 
 .. code-block:: python
 
-    src.read(indexes=None)
+    src.read(indexes=None, resampling="nearest")
 
 * ``indexes``: A list of bands, a single band index or ``None`` to read all
   bands.
 
-For raster files it either returns a ``generator`` of masked ``numpy arrays``
-for multiple bands, or a masked ``numpy array`` of reprojected and resampled
+For raster files it either returns a masked ``numpy array`` of reprojected and resampled
 data fitting to the current tile.
 
-For vector files it returns a ``generator`` of ``GeoJSON``-like geometry and
-attribute data intersecting with and clipped to current tile boundaries.
+For vector files it returns a ``list`` of ``GeoJSON``-like feature dictionaries
+intersecting with and clipped to current tile boundaries.
 
 If reading a Mapchete file, either vector or raster data in the form described
 above is returned.
+
+All input drivers have a similar method interface, i.e. all have a generic ``.is_empty()``
+and a ``.read()`` function implemented. It depends however on the driver which data type
+is returned.
 
 
 Modify data
@@ -125,13 +130,20 @@ The process file should look like this:
         """User defined process."""
 
         # Reading and writing data works like this:
-        with mp.open(
-            mp.params["input_files"]["raster_file"],
-            resampling="bilinear"
-            ) as my_raster_rgb_file:
+        with mp.open("raster_file") as my_raster_rgb_file:
             if my_raster_rgb_file.is_empty():
-                return "empty" # this assures a transparent tile instead of a
-                # pink error tile is returned when using mapchete_serve
-            r, g, b = my_raster_rgb_file.read()
+                # this ensures a transparent tile instead of a pink error tile is returned
+                # when using mapchete serve
+                return "empty"
+            r, g, b = my_raster_rgb_file.read(resampling="bilinear")
 
         return (r, g, b)
+
+
+-------
+Plug-in
+-------
+
+You can also package a process within a python module and register it to the entrypoint
+``mapchete.processes`` in your packages ``setup.py`` file. This will show your process
+when you run ``mapchete processes`` from the command line.
