@@ -8,80 +8,126 @@ Mapchete offers various useful subcommands: ``create``, ``execute``, ``serve``
 Create an empty process
 =======================
 
-``mapchete create <mapchete_file> <process_file>``
+``mapchete create``
 
 This subcommand will generate an empty ``.mapchete`` and a dummy ``.py`` process
 file.
 
 .. code-block:: shell
 
-    usage: mapchete create <mapchete_file> <process_file>
+    Usage: mapchete create [OPTIONS] MAPCHETE_FILE PROCESS_FILE
+                           [PNG_hillshade|GeoJSON|GTiff|xarray|PNG]
 
-    Creates an empty process and configuration file
+      Create a new process.
 
-    positional arguments:
-      mapchete_file         Mapchete file
-      process_file          process (Python) file
-
-    optional arguments:
-      -h, --help            show this help message and exit
-      --out_format {GTiff,GeoJSON,PostGIS,NumPy,PNG_hillshade,PNG}, -of {GTiff,
-                            GeoJSON, PostGIS, NumPy, PNG_hillshade, PNG}
-                            process output format (default: None)
-      --out_path <path>, -op <path>
-                            path for process output (default: None)
-      --pyramid_type {geodetic,mercator}, -pt {geodetic,mercator}
-                            output pyramid type (default: geodetic)
-      --force, -f           overwrite if Mapchete and process files already
-                            exist (default: False)
+    Options:
+      -op, --out-path PATH            Process output path.
+      -pt, --pyramid-type [mercator|geodetic]
+                                      Output pyramid type. (default: geodetic)
+      -f, --force                     Overwrite if files already exist.
+      --help                          Show this message and exit.
 
 
 Execute a process
 =================
 
-``mapchete execute <mapchete_file>``
+``mapchete execute``
 
 This is intended to batch seed your output pyramid. You can also process a
 specific tile by providing the tile index (``zoom`` ``row`` ``col``).
 
 .. code-block:: shell
 
-    usage: mapchete execute <mapchete_file>
+    Usage: mapchete execute [OPTIONS] [MAPCHETE_FILES]...
 
-    Executes a process
+      Execute a process.
 
-    positional arguments:
-      mapchete_file         Mapchete file
+    Options:
+      -z, --zoom TEXT              Single zoom level or min and max separated by
+                                   ','.
+      -b, --bounds FLOAT...        Left, bottom, right, top bounds in tile pyramid
+                                   CRS.
+      -p, --point FLOAT...         Process tiles over single point location.
+      -g, --wkt-geometry TEXT      Take boundaries from WKT geometry in tile
+                                   pyramid CRS.
+      -t, --tile INTEGER...        Zoom, row, column of single tile.
+      -o, --overwrite              Overwrite if tile(s) already exist(s).
+      -m, --multi INTEGER          Number of concurrent processes.
+      -i, --input-file PATH        Specify an input file via command line (in
+                                   mapchete file, set 'input_file' parameter to
+                                   'from_command_line').
+      -l, --logfile PATH           Write debug log infos into file.
+      -v, --verbose                Print info for each process tile.
+      --no-pbar                    Deactivate progress bar.
+      -d, --debug                  Deactivate progress bar and print debug log
+                                   output.
+      -c, --max-chunksize INTEGER  Maximum number of process tiles to be queued
+                                   for each  worker. (default: 1)
+      --vrt                        Write VRT file.
+      -od, --idx-out-dir PATH      Index output directory.
+      --help                       Show this message and exit.
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      --zoom [<int> [<int> ...]], -z [<int> [<int> ...]]
-                            either minimum and maximum zoom level or just one
-                            zoom level (default: None)
-      --bounds <float> <float> <float> <float>, -b <float> <float> <float> <float>
-                            left, bottom, right, top bounds in tile pyramid CRS
-                            (default: None)
-      --tile <int> <int> <int>, -t <int> <int> <int>
-                            zoom, row, column of single tile (default: None)
-      --failed_from_log <path>
-                            process failed tiles from log file (default: None)
-      --failed_since <date>
-                            furthermore filter failed tiles by time (e.g.
-                            2016-09-20) (default: None)
-      --overwrite, -o       overwrite if tile(s) already exist(s) (default: False)
-      --multi <int>, -m <int>
-                            number of concurrent processes (default: None)
-      --create_vrt          if raster output, this option creates a VRT for each
-                            zoom level (default: False)
-      --input_file <path>, -i <path>
-                            specify an input file via command line (in apchete
-                            file, set 'input_file' parameter to
-                            'from_command_line') (default: None)
+
+Convert between process outputs
+===============================
+
+``mapchete convert``
+
+This command can convert between different Mapchete outputs, for example from a
+``TileDirectory`` output to a single file GeoTIFF. It can also convert between different
+tile pyramid schemes, projections output formats and apply scale factors and scale
+offsets to raster data.
+
+
+.. code-block:: shell
+
+    Usage: mapchete convert [OPTIONS] INPUT OUTPUT
+
+      Convert outputs or other geodata.
+
+    Options:
+      -z, --zoom TEXT                 Single zoom level or min and max separated
+                                      by ','.
+      -b, --bounds FLOAT...           Left, bottom, right, top bounds in tile
+                                      pyramid CRS.
+      -p, --point FLOAT...            Process tiles over single point location.
+      -g, --wkt-geometry TEXT         Take boundaries from WKT geometry in tile
+                                      pyramid CRS.
+      -c, --clip-geometry PATH        Clip output by geometry
+      --output-pyramid [geodetic|mercator]
+                                      Output pyramid to write to.
+      -m, --output-metatiling INTEGER
+                                      Output metatiling.
+      --output-format [GeoJSON|PNG_hillshade|GTiff|xarray|PNG]
+                                      Output format.
+      --output-dtype [uint16|int16|float64|float32|uint32|int32|int8|uint8]
+                                      Output data type (for raster output only).
+      --co, --profile NAME=VALUE      Driver specific creation options.See the
+                                      documentation for the selected output driver
+                                      for more information.
+      --scale-ratio FLOAT             Scaling factor (for raster output only).
+      --scale-offset FLOAT            Scaling offset (for raster output only).
+      -r, --resampling-method [nearest|bilinear|cubic|cubic_spline|lanczos|average|mode]
+                                      Resampling method to be used (nearest,
+                                      bilinear, cubic, cubic_spline, lanczos,
+                                      average or mode).
+      -o, --overwrite                 Overwrite if tile(s) already exist(s).
+      -v, --verbose                   Print info for each process tile.
+      --no-pbar                       Deactivate progress bar.
+      -d, --debug                     Deactivate progress bar and print debug log
+                                      output.
+      -m, --multi INTEGER             Number of concurrent processes.
+      -l, --logfile PATH              Write debug log infos into file.
+      --vrt                           Write VRT file.
+      -od, --idx-out-dir PATH         Index output directory.
+      --help                          Show this message and exit.
+
+
 
 Serve a process
 ===============
 
-``mapchete serve <mapchete_file>``
+``mapchete serve``
 
 Start a local HTTP server which hosts a simple OpenLayers page and a WMTS simple
 endpoint to **serve a process** for quick assessment (default port 5000). This
@@ -90,33 +136,109 @@ facilitate process calibration.
 
 .. code-block:: shell
 
-    usage: mapchete serve <mapchete_file>
+    Usage: mapchete serve [OPTIONS] MAPCHETE_FILE
 
-    Serves a process on localhost
+      Serve a process on localhost.
 
-    positional arguments:
-      mapchete_file         Mapchete file
+    Options:
+      -p, --port INTEGER            Port process is hosted on. (default: 5000)
+      -c, --internal-cache INTEGER  Number of web tiles to be cached in RAM.
+                                    (default: 1024)
+      -z, --zoom TEXT               Single zoom level or min and max separated by
+                                    ','.
+      -b, --bounds FLOAT...         Left, bottom, right, top bounds in tile
+                                    pyramid CRS.
+      -o, --overwrite               Overwrite if tile(s) already exist(s).
+      -ro, --readonly               Just read process output without writing.
+      -mo, --memory                 Always get output from freshly processed
+                                    output.
+      -i, --input-file PATH         Specify an input file via command line (in
+                                    mapchete file, set 'input_file' parameter to
+                                    'from_command_line').
+      -d, --debug                   Deactivate progress bar and print debug log
+                                    output.
+      -l, --logfile PATH            Write debug log infos into file.
+      --help                        Show this message and exit.
 
-    optional arguments:
-      -h, --help            show this help message and exit
-      --port <int>, -p <int>
-                            port process is hosted on (default: None)
-      --zoom [<int> [<int> ...]], -z [<int> [<int> ...]]
-                            either minimum and maximum zoom level or just one zoom
-                            level (default: None)
-      --bounds <float> <float> <float> <float>, -b <float> <float> <float> <float>
-                            left, bottom, right, top bounds in tile pyramid CRS
-                            (default: None)
-      --overwrite, -o       overwrite if tile(s) already exist(s) (default: False)
-      --input_file <path>, -i <path>
-                            specify an input file via command line (in Mapchete
-                            file, set 'input_file' parameter to
-                            'from_command_line') (default: None)
 
-With both commands you can also limit the processing zoom levels and bounding
-box with a ``-z``and a ``-b`` parameter respectively. This overrules the zoom
-level and output bounds settings in the mapchete configuration file.
 
-In addition, there is the possibility to **create a tile pyramid** out of a
-raster file. It can either take the original data types and create the output
-tiles as GeoTIFFS, or scale the data to 8 bits and create PNGs.
+Create tile index files
+=======================
+
+``mapchete index``
+
+This command lets you create index files for raster ``TileDirectory`` outputs. Such index
+files can be ``VRT`` for ``GDAL``, shape index files in either ``GeoJSON``, ``GeoPackage``
+or ``ESRI Shapefile`` format or simple ``.txt`` files with lists of existing tile paths.
+Shape index files are used in ``Mapserver`` to add large raster mosaics.
+
+.. code-block:: shell
+
+    Usage: mapchete index [OPTIONS] [MAPCHETE_FILES]...
+
+      Create index of output tiles.
+
+    Options:
+      -od, --idx-out-dir PATH  Index output directory.
+      --geojson                Write GeoJSON index.
+      --gpkg                   Write GeoPackage index.
+      --shp                    Write Shapefile index.
+      --vrt                    Write VRT file.
+      --txt                    Write output tile paths to text file.
+      --fieldname TEXT         Field to store tile paths in.
+      --basepath TEXT          Use other base path than given process output path.
+      --for-gdal               Make remote paths readable by GDAL (not applied for
+                               txt output).
+      -z, --zoom TEXT          Single zoom level or min and max separated by ','.
+      -b, --bounds FLOAT...    Left, bottom, right, top bounds in tile pyramid
+                               CRS.
+      -p, --point FLOAT...     Process tiles over single point location.
+      -g, --wkt-geometry TEXT  Take boundaries from WKT geometry in tile pyramid
+                               CRS.
+      -t, --tile INTEGER...    Zoom, row, column of single tile.
+      -v, --verbose            Print info for each process tile.
+      --no-pbar                Deactivate progress bar.
+      -d, --debug              Deactivate progress bar and print debug log output.
+      -l, --logfile PATH       Write debug log infos into file.
+      --help                   Show this message and exit.
+
+
+List registered processes
+=========================
+
+``mapchete processes``
+
+Custom processes can be registered to ``mapchete.processes``. This is helpful in case you
+have a separate python package with mapchete processes you want to share.
+
+.. code-block:: shell
+
+    Usage: mapchete processes [OPTIONS]
+
+      List available processes.
+
+    Options:
+      -n, --process_name TEXT  Print docstring of process.
+      --docstrings             Print docstrings of all processes.
+      --help                   Show this message and exit.
+
+
+
+List registered formats
+=======================
+
+``mapchete formats``
+
+This command lists all registered input and output drivers.
+
+..code-block:: shell
+
+    Usage: mapchete formats [OPTIONS]
+
+      List available input and/or output formats.
+
+    Options:
+      -i, --input-formats   Show only input formats.
+      -o, --output-formats  Show only output formats.
+      -d, --debug           Deactivate progress bar and print debug log output.
+      --help                Show this message and exit.

@@ -84,13 +84,13 @@ Examine the result in your browser by serving the process by pointing it to
 
 .. code-block:: shell
 
-    mapchete serve hillshade.mapchete
+    $ mapchete serve hillshade.mapchete
 
 If the result looks fine, seed zoom levels 0 to 12:
 
 .. code-block:: shell
 
-    mapchete execute hillshade.mapchete --zoom 0 12
+    $ mapchete execute hillshade.mapchete --zoom 0 12
 
 
 .. toctree::

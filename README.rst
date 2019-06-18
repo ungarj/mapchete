@@ -31,13 +31,14 @@ vector data.
 With the help of fiona_ and rasterio_ Mapchete takes care about resampling and
 reprojecting geodata, applying your Python code to the tiles and writing the output either
 into a single file or into a directory of files organized in a WMTS_-like tile pyramid.
-Details on tiling scheme and available map projections are outlined in :doc:`tiling`.
+Details on tiling scheme and available map projections are outlined in the documentation_.
 
 .. _shapely: http://toblerity.org/shapely/
 .. _numpy: http://www.numpy.org/
 .. _fiona: https://github.com/Toblerity/Fiona
 .. _rasterio: https://github.com/mapbox/rasterio/
 .. _WMTS: https://en.wikipedia.org/wiki/Web_Map_Tile_Service
+.. _documentation: https://mapchete.readthedocs.io/en/latest/tiling.html
 
 
 -----
@@ -95,7 +96,7 @@ browser (first, install dependencies by ``pip install mapchete[serve]`` go to
 
 .. code-block:: shell
 
-    mapchete serve hillshade.mapchete --memory
+    $ mapchete serve hillshade.mapchete --memory
 
 
 The ``serve`` tool recognizes changes in your process configuration or in the
@@ -108,7 +109,7 @@ tool.
 
 .. code-block:: shell
 
-    mapchete execute hillshade.mapchete
+    $ mapchete execute hillshade.mapchete
 
 
 There are many more options such as zoom-dependent process parameters, metatiling, tile
@@ -136,15 +137,15 @@ via PyPi:
 
 .. code-block:: shell
 
-    pip install mapchete
+    $ pip install mapchete
 
 
 from source:
 
 .. code-block:: shell
 
-    git clone git@github.com:ungarj/mapchete.git && cd mapchete
-    pip install .
+    $ git clone git@github.com:ungarj/mapchete.git && cd mapchete
+    $ pip install .
 
 
 
@@ -153,7 +154,7 @@ don't install the binaries but build them on your system:
 
 .. code-block:: shell
 
-    pip install --upgrade rasterio fiona --no-binary :all:
+    $ pip install --upgrade rasterio fiona --no-binary :all:
 
 
 To keep the core dependencies minimal if you install mapchete using ``pip``, some features
@@ -162,16 +163,16 @@ are only available if you manually install additional dependencies:
 .. code-block:: shell
 
     # for contour extraction:
-    pip install mapchete[contours]
+    $ pip install mapchete[contours]
 
     # for S3 bucket reading and writing:
-    pip install mapchete[s3]
+    $ pip install mapchete[s3]
 
     # for mapchete serve:
-    pip install mapchete[serve]
+    $ pip install mapchete[serve]
 
     # for VRT generation:
-    pip install mapchete[vrt]
+    $ pip install mapchete[vrt]
 
 
 -------

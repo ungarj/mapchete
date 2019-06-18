@@ -42,7 +42,7 @@ Open and read data
 
 .. code-block:: python
 
-    with mp.open("<input_file_id>", resampling="nearest") as src:
+    with mp.open("<input_file_id>") as src:
 
 * ``<input_file_id>``: Input file from ``mp.params``. Can be a raster or vector
   file or the configuration file from another Mapchete process.
@@ -66,17 +66,16 @@ Returns ``bool`` indicating whether data within this tile is available or not.
 
 .. code-block:: python
 
-    src.read(indexes=None)
+    src.read(indexes=None, resampling="nearest")
 
 * ``indexes``: A list of bands, a single band index or ``None`` to read all
   bands.
 
-For raster files it either returns a ``generator`` of masked ``numpy arrays``
-for multiple bands, or a masked ``numpy array`` of reprojected and resampled
+For raster files it either returns a masked ``numpy array`` of reprojected and resampled
 data fitting to the current tile.
 
-For vector files it returns a ``generator`` of ``GeoJSON``-like geometry and
-attribute data intersecting with and clipped to current tile boundaries.
+For vector files it returns a ``list`` of ``GeoJSON``-like feature dictionaries
+intersecting with and clipped to current tile boundaries.
 
 If reading a Mapchete file, either vector or raster data in the form described
 above is returned.
@@ -125,13 +124,11 @@ The process file should look like this:
         """User defined process."""
 
         # Reading and writing data works like this:
-        with mp.open(
-            mp.params["input_files"]["raster_file"],
-            resampling="bilinear"
-            ) as my_raster_rgb_file:
+        with mp.open("raster_file") as my_raster_rgb_file:
             if my_raster_rgb_file.is_empty():
-                return "empty" # this assures a transparent tile instead of a
-                # pink error tile is returned when using mapchete_serve
-            r, g, b = my_raster_rgb_file.read()
+                # this ensures a transparent tile instead of a pink error tile is returned
+                # when using mapchete serve
+                return "empty"
+            r, g, b = my_raster_rgb_file.read(resampling="bilinear")
 
         return (r, g, b)
