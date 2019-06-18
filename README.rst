@@ -113,6 +113,10 @@ tool.
     $ mapchete execute hillshade.mapchete
 
 
+-------------
+Documentation
+-------------
+
 There are many more options such as zoom-dependent process parameters, metatiling, tile
 buffers or interpolating from an existing output of a higher zoom level. For deeper
 insights, please go to the documentation_.
