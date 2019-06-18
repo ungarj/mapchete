@@ -163,10 +163,11 @@ class Mapchete(object):
         self,
         zoom=None,
         tile=None,
-        multi=multiprocessing.cpu_count(),
+        multi=None,
         max_chunksize=1,
-        multiprocessing_module=multiprocessing,
-        multiprocessing_start_method="fork"
+        multiprocessing_module=None,
+        multiprocessing_start_method="fork",
+        skip_output_check=False
     ):
         """
         Process a large batch of tiles.
@@ -192,23 +193,27 @@ class Mapchete(object):
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
             (default: "fork")
+        skip_output_check : bool
+            skip checking whether process tiles already have existing output before
+            starting to process;
         """
         list(self.batch_processor(
             zoom=zoom,
             tile=tile,
-            multi=multi,
+            multi=multi or multiprocessing.cpu_count(),
             max_chunksize=max_chunksize,
-            multiprocessing_module=multiprocessing_module,
+            multiprocessing_module=multiprocessing_module or multiprocessing,
             multiprocessing_start_method=multiprocessing_start_method,
+            skip_output_check=skip_output_check
         ))
 
     def batch_processor(
         self,
         zoom=None,
         tile=None,
-        multi=multiprocessing.cpu_count(),
+        multi=None,
         max_chunksize=1,
-        multiprocessing_module=multiprocessing,
+        multiprocessing_module=None,
         multiprocessing_start_method="fork",
         skip_output_check=False
     ):
@@ -252,9 +257,9 @@ class Mapchete(object):
             for process_info in _run_area(
                 process=self,
                 zoom_levels=list(_get_zoom_level(zoom, self)),
-                multi=multi,
+                multi=multi or multiprocessing.cpu_count(),
                 max_chunksize=max_chunksize,
-                multiprocessing_module=multiprocessing_module,
+                multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check
             ):
@@ -262,7 +267,7 @@ class Mapchete(object):
 
     def count_tiles(self, minzoom, maxzoom, init_zoom=0):
         """
-        Count number of tiles intersecting with geometry.
+        Count number of tiles intersecting with process area at given zoom levels.
 
         Parameters
         ----------
@@ -285,7 +290,7 @@ class Mapchete(object):
 
     def execute(self, process_tile, raise_nodata=False):
         """
-        Run the Mapchete process.
+        Run Mapchete process on a tile.
 
         Execute, write and return data.
 
