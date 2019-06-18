@@ -42,6 +42,11 @@ Details on tiling scheme and available map projections are outlined in the
 .. _`tiling documentation`: https://mapchete.readthedocs.io/en/latest/tiling.html
 
 
+.. figure:: doc/source/img/mercator_pyramid.svg
+
+   standard ``mercator`` pyramid used in the web
+
+
 -----
 Usage
 -----
