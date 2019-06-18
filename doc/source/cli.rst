@@ -51,7 +51,7 @@ offsets to raster data.
                                       Output pyramid to write to.
       -m, --output-metatiling INTEGER
                                       Output metatiling.
-      --output-format [GeoJSON|PNG_hillshade|GTiff|xarray|PNG]
+      --output-format [GeoJSON|PNG_hillshade|GTiff|PNG]
                                       Output format.
       --output-dtype [uint16|int16|float64|float32|uint32|int32|int8|uint8]
                                       Output data type (for raster output only).
@@ -87,7 +87,7 @@ file.
 .. code-block:: none
 
     Usage: mapchete create [OPTIONS] MAPCHETE_FILE PROCESS_FILE
-                           [PNG_hillshade|GeoJSON|GTiff|xarray|PNG]
+                           [PNG_hillshade|GeoJSON|GTiff|PNG]
 
       Create a new process.
 
@@ -146,7 +146,7 @@ List available input and/or output formats.
 
 This command lists all registered input and output drivers.
 
-..code-block:: shell
+..code-block:: none
 
     Usage: mapchete formats [OPTIONS]
 
