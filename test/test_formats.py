@@ -50,10 +50,13 @@ def test_input_reader_errors():
         load_input_reader({"abstract": {"format": "invalid_format"}})
 
 
-def test_driver_from_file_errors():
+def test_driver_from_file_errors(execute_kwargs_py):
     """Test errors when determining input driver from filename."""
     with pytest.raises(errors.MapcheteDriverError):
-        driver_from_file("invalid_extension.exe")
+        driver_from_file(execute_kwargs_py)
+
+    with pytest.raises(FileNotFoundError):
+        driver_from_file("non_existing_file.tif")
 
 
 def test_mapchete_input(mapchete_input):
