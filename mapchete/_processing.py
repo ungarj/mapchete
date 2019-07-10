@@ -432,6 +432,7 @@ def _run_area(
     skip_output_check=False
 ):
     logger.debug("run process on area")
+    zoom_levels.sort(reverse=True)
 
     # for output drivers requiring writing data in parent process
     if process.config.output.write_in_parent_process:
