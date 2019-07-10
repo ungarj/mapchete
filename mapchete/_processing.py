@@ -432,6 +432,7 @@ def _run_area(
     skip_output_check=False
 ):
     logger.debug("run process on area")
+    zoom_levels.sort(reverse=True)
 
     # for output drivers requiring writing data in parent process
     if process.config.output.write_in_parent_process:
@@ -464,30 +465,18 @@ def _run_area(
 
 
 def _filter_skipable(process=None, tiles=None, todo=None, target_set=None):
-    if target_set is None:
-        for tile, skip in process.skip_tiles(tiles=tiles):
-            if skip:
-                yield ProcessInfo(
+    target_set = target_set or set()
+    for tile, skip in process.skip_tiles(tiles=tiles):
+        if skip and tile not in target_set:
+            yield ProcessInfo(
                     tile=tile,
                     processed=False,
                     process_msg="output already exists",
                     written=False,
                     write_msg="nothing written"
                 )
-            else:
-                todo.add(tile)
-    else:
-        for tile in tiles:
-            if tile not in target_set:
-                yield ProcessInfo(
-                        tile=tile,
-                        processed=False,
-                        process_msg="output already exists",
-                        written=False,
-                        write_msg="nothing written"
-                    )
-            else:
-                todo.add(tile)
+        else:
+            todo.add(tile)
 
 
 def _run_multi(
