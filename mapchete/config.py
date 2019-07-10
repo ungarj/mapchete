@@ -359,6 +359,16 @@ class MapcheteConfig(object):
             if v is not None
         ])
 
+        init_as_readonly = (
+            self.mode == "readonly" or
+            (
+                # in case only overview levels are about to be built
+                len(set(self.baselevels["zooms"]).union(set(self.init_zoom_levels))) > 0
+                if self.baselevels
+                else False
+            )
+        )
+
         initalized_inputs = OrderedDict()
         for k, v in raw_inputs.items():
 
@@ -373,7 +383,8 @@ class MapcheteConfig(object):
                             pixelbuffer=self.process_pyramid.pixelbuffer,
                             delimiters=self._delimiters
                         ),
-                        readonly=self.mode == "readonly")
+                        readonly=init_as_readonly
+                    )
                 except Exception as e:
                     logger.exception(e)
                     raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
@@ -391,7 +402,7 @@ class MapcheteConfig(object):
                             delimiters=self._delimiters,
                             conf_dir=self.config_dir
                         ),
-                        readonly=self.mode == "readonly"
+                        readonly=init_as_readonly
                     )
                 except Exception as e:
                     logger.exception(e)
