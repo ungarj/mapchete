@@ -18,11 +18,64 @@ all_mapchete_packages = set(
     )
 )
 
+key_value_replace_patterns = {
+    "AWS_ACCESS_KEY_ID": "***",
+    "AWS_SECRET_ACCESS_KEY": "***",
+}
+
+
+class KeyValueFilter(logging.Filter):
+    """
+    This filter looks for dictionaries passed on to log messages and replaces its values
+    with a replacement if key matches the pattern.
+
+    Examples
+    --------
+    >>> stream_handler.addFilter(
+    ...     KeyValueFilter(
+    ...         key_value_replace={
+    ...             "AWS_ACCESS_KEY_ID": "***",
+    ...             "AWS_SECRET_ACCESS_KEY": "***",
+    ...         }
+    ...     )
+    ... )
+    """
+
+    def __init__(self, key_value_replace=None):
+        super(KeyValueFilter, self).__init__()
+        self._key_value_replace = key_value_replace or {}
+
+    def filter(self, record):
+        record.msg = self.redact(record.msg)
+        if isinstance(record.args, dict):
+            for k, v in record.args.items():
+                record.args[k] = self.redact({k: v})[k]
+        else:
+            record.args = tuple(self.redact(arg) for arg in record.args)
+        return True
+
+    def redact(self, msg):
+        if isinstance(msg, dict):
+            out_msg = {}
+            for k, v in msg.items():
+                if isinstance(v, dict):
+                    v = self.redact(v)
+                else:
+                    for k_replace, v_replace in self._key_value_replace.items():
+                        v = v_replace if k == k_replace else v
+                out_msg[k] = v
+        else:
+            out_msg = msg
+
+        return out_msg
+
+
 # lower stream output log level
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.WARNING)
+stream_handler.addFilter(KeyValueFilter(key_value_replace=key_value_replace_patterns))
 for i in all_mapchete_packages:
     logging.getLogger(i).addHandler(stream_handler)
 
