@@ -363,7 +363,9 @@ class MapcheteConfig(object):
             self.mode == "readonly" or
             (
                 # in case only overview levels are about to be built
-                len(set(self.baselevels["zooms"]).union(set(self.init_zoom_levels))) > 0
+                not len(
+                    set(self.baselevels["zooms"]).intersection(set(self.init_zoom_levels))
+                )
                 if self.baselevels
                 else False
             )
