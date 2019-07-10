@@ -226,10 +226,12 @@ def _clip_bbox(clip_geometry, dst_crs=None):
 
 
 def _get_input_info(input_):
-    # single file input can be a mapchete file or a rasterio/fiona file
-    if os.path.isfile(input_):
+
+    # assuming single file if path has a file extension
+    if os.path.splitext(input_)[1]:
         driver = driver_from_file(input_)
 
+        # single file input can be a mapchete file or a rasterio/fiona file
         if driver == "Mapchete":
             logger.debug("input is mapchete file")
             input_info = _input_mapchete_info(input_)
