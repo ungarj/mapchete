@@ -14,7 +14,7 @@ from rasterio.crs import CRS
 import warnings
 
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
-from mapchete.io import read_json, write_json
+from mapchete.io import read_json, write_json, path_exists
 from mapchete.tile import BufferedTilePyramid
 
 DRIVERS_ENTRY_POINT = "mapchete.formats.drivers"
@@ -156,10 +156,13 @@ def driver_from_file(input_file):
             with fiona.open(input_file):
                 return "vector_file"
         except:
-            raise MapcheteDriverError(
-                "%s has an unknown file extension, does not exist or could not be opened "
-                "by neither rasterio nor fiona." % input_file
-            )
+            if path_exists(input_file):
+                raise MapcheteDriverError(
+                    "%s has an unknown file extension or could not be opened by neither "
+                    "rasterio nor fiona." % input_file
+                )
+            else:
+                raise FileNotFoundError("%s does not exist" % input_file)
 
 
 def params_to_dump(params):
