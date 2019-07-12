@@ -3,6 +3,16 @@ Changelog
 #########
 
 ----
+0.29
+----
+* fixed convert on single remote files (#205)
+* fixed ``FileNotFoundError`` on ``driver_from_file()`` (#201)
+* fixed zoom level order when processing multiple zooms (#207)
+* inputs get intialized as readonly if only overviews are built (#140)
+* AWS secrets get obfuscated in logs (#203)
+
+
+----
 0.28
 ----
 
