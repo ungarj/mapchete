@@ -29,6 +29,7 @@ class TileProcess():
     """
 
     def __init__(self, tile=None, config=None, skip=False):
+        """Set attributes depending on baselevels or not."""
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
         )
@@ -38,10 +39,11 @@ class TileProcess():
         self.process_path = None if skip else config.process_path
         self.config_dir = None if skip else config.config_dir
         if skip or self.tile.zoom not in self.config_zoom_levels:
-            self.input, self.process_func_params = {}, {}
+            self.input, self.process_func_params, self.output_params = {}, {}, {}
         else:
             self.input = config.get_inputs_for_tile(tile)
             self.process_func_params = config.get_process_func_params(tile.zoom)
+            self.output_params = config.output_reader.output_params
         self.mode = None if skip else config.mode
         self.output_reader = (
             None if skip or not config.baselevels else config.output_reader
@@ -92,7 +94,8 @@ class TileProcess():
                     MapcheteProcess(
                         tile=self.tile,
                         params=self.process_func_params,
-                        input=self.input
+                        input=self.input,
+                        output_params=self.output_params
                     ),
                     **self.process_func_params
                 )
@@ -130,7 +133,7 @@ class TileProcess():
                     in_affine=parent_tile.affine,
                     out_tile=self.tile,
                     resampling=self.config_baselevels["higher"],
-                    nodataval=self.output_reader.nodata
+                    nodataval=self.output_reader.output_params["nodata"]
                 )
             # resample from children tiles
             elif baselevel == "lower":
@@ -143,7 +146,7 @@ class TileProcess():
                     in_affine=mosaic.affine,
                     out_tile=self.tile,
                     resampling=self.config_baselevels["lower"],
-                    nodataval=self.output_reader.nodata
+                    nodataval=self.output_reader.output_params["nodata"]
                 )
         logger.debug((self.tile.id, "generated from baselevel", str(t)))
         return process_data
@@ -185,7 +188,14 @@ class MapcheteProcess(object):
         process parameters
     """
 
-    def __init__(self, tile=None, params=None, input=None, config=None):
+    def __init__(
+        self,
+        tile=None,
+        params=None,
+        input=None,
+        output_params=None,
+        config=None
+    ):
         """Initialize Mapchete process."""
         self.identifier = ""
         self.title = ""
@@ -199,6 +209,7 @@ class MapcheteProcess(object):
             params = config.params_at_zoom(tile.zoom)
         self.params = dict(params, input=input)
         self.input = input
+        self.output_params = output_params
 
     def write(self, data, **kwargs):
         """Deprecated."""
@@ -313,24 +324,23 @@ class MapcheteProcess(object):
         """
         return commons_clip.clip_array_with_vector(
             array, self.tile.affine, geometries,
-            inverted=inverted, clip_buffer=clip_buffer*self.tile.pixel_x_size
+            inverted=inverted, clip_buffer=clip_buffer * self.tile.pixel_x_size
         )
 
 
 #############################################################
 # wrappers helping to abstract multiprocessing and billiard #
 #############################################################
-
 class Executor():
-    """
-    Wrapper class to be used with multiprocessing or billiard.
-    """
+    """Wrapper class to be used with multiprocessing or billiard."""
+
     def __init__(
         self,
         start_method="spawn",
         max_workers=None,
         multiprocessing_module=multiprocessing
     ):
+        """Set attributes."""
         self.start_method = start_method
         self.max_workers = max_workers or os.cpu_count()
         self.multiprocessing_module = multiprocessing_module
@@ -347,6 +357,7 @@ class Executor():
         fkwargs=None,
         chunksize=1
     ):
+        """Yield finished tasks."""
         fargs = fargs or []
         fkwargs = fkwargs or {}
         if self.max_workers == 1:
@@ -373,10 +384,10 @@ class Executor():
 
 
 class FinishedTask():
-    """
-    Wrapper class to encapsulate exceptions.
-    """
+    """Wrapper class to encapsulate exceptions."""
+
     def __init__(self, func, fargs=None, fkwargs=None):
+        """Set attributes."""
         fargs = fargs or []
         fkwargs = fkwargs or {}
         try:
@@ -385,6 +396,7 @@ class FinishedTask():
             self._result, self._exception = None, e
 
     def result(self):
+        """Return task result."""
         if self._exception:
             logger.exception(self._exception)
             raise self._exception
@@ -392,14 +404,16 @@ class FinishedTask():
             return self._result
 
     def exception(self):
+        """Raise task exception if any."""
         return self._exception
 
     def __repr__(self):
+        """Return string representation."""
         return "FinishedTask(result=%s, exception=%s)" % (self._result, self._exception)
 
 
 def _exception_wrapper(func, fargs, fkwargs, i):
-    """Wraps function around FinishedTask object."""
+    """Wrap function around FinishedTask object."""
     return FinishedTask(func, list(chain([i], fargs)), fkwargs)
 
 
@@ -469,12 +483,12 @@ def _filter_skipable(process=None, tiles=None, todo=None, target_set=None):
     for tile, skip in process.skip_tiles(tiles=tiles):
         if skip and tile not in target_set:
             yield ProcessInfo(
-                    tile=tile,
-                    processed=False,
-                    process_msg="output already exists",
-                    written=False,
-                    write_msg="nothing written"
-                )
+                tile=tile,
+                processed=False,
+                process_msg="output already exists",
+                written=False,
+                write_msg="nothing written"
+            )
         else:
             todo.add(tile)
 

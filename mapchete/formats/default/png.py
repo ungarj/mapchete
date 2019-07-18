@@ -82,9 +82,11 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         super().__init__(output_params)
         self.path = output_params["path"]
         self.file_extension = ".png"
-        self.output_params = output_params
-        self.output_params["dtype"] = PNG_DEFAULT_PROFILE["dtype"]
-        self.nodata = output_params.get("nodata", PNG_DEFAULT_PROFILE["nodata"])
+        self.output_params = dict(
+            output_params,
+            nodata=output_params.get("nodata", PNG_DEFAULT_PROFILE["nodata"]),
+            dtype=PNG_DEFAULT_PROFILE["dtype"]
+        )
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
     def read(self, output_tile, **kwargs):
@@ -158,7 +160,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         web data : array
         """
         rgba = self._prepare_array_for_png(data)
-        data = ma.masked_where(rgba == self.nodata, rgba)
+        data = ma.masked_where(rgba == self.output_params["nodata"], rgba)
         return memory_file(data, self.profile()), 'image/png'
 
     def empty(self, process_tile):
@@ -193,7 +195,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             rgba = np.stack((
                 data[0], data[0], data[0],
                 np.where(
-                    data[0].data == self.nodata, 0, 255)
+                    data[0].data == self.output_params["nodata"], 0, 255)
                 .astype("uint8")
             ))
         elif len(data) == 2:
@@ -201,7 +203,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         elif len(data) == 3:
             rgba = np.stack((
                 data[0], data[1], data[2], np.where(
-                    data[0].data == self.nodata, 0, 255
+                    data[0].data == self.output_params["nodata"], 0, 255
                 ).astype("uint8", copy=False)
             ))
         elif len(data) == 4:
@@ -225,7 +227,7 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
             must be member of process ``TilePyramid``
         """
         rgba = self._prepare_array_for_png(data)
-        data = ma.masked_where(rgba == self.nodata, rgba)
+        data = ma.masked_where(rgba == self.output_params["nodata"], rgba)
 
         if data.mask.all():
             logger.debug("data empty, nothing to write")
