@@ -20,7 +20,7 @@ from types import GeneratorType
 import warnings
 
 from mapchete.tile import BufferedTile
-from mapchete.io import path_is_remote, get_gdal_options
+from mapchete.io import path_is_remote, get_gdal_options, path_exists
 
 
 logger = logging.getLogger(__name__)
@@ -333,11 +333,10 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
                 with rasterio.open(input_file, "r") as src:
                     return src.read(indexes=indexes, masked=True)
         except RasterioIOError as e:
-            for i in ("does not exist in the file system", "No such file or directory"):
-                if i in str(e):
-                    raise FileNotFoundError("%s not found" % input_file)
+            if path_exists(input_file):
+                raise e
             else:
-                raise
+                raise FileNotFoundError("%s not found" % input_file)
 
 
 class RasterWindowMemoryFile():
