@@ -3,6 +3,13 @@ Changelog
 #########
 
 ----
+0.30
+----
+* fixed raise of ``FileNotFounderror`` on ``mapchete.io.raster.read_raster_no_crs()``
+* fixed overview ``get_parent()`` on zoom 0 in batch processing
+* sort processes alphabetically in ``mapchete processes``
+
+----
 0.29
 ----
 * fixed convert on single remote files (#205)
