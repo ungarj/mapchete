@@ -567,7 +567,8 @@ def _run_multi(
                     if (
                         not skip_output_check and
                         process.config.baselevels and
-                        process_info.processed
+                        process_info.processed and
+                        process_info.tile.zoom > 0
                     ):
                         overview_parents.add(process_info.tile.get_parent())
 

@@ -1,7 +1,12 @@
 """CLI to list processes."""
 
 import click
+import logging
 import pkg_resources
+
+from mapchete.cli import utils
+
+logger = logging.getLogger(__name__)
 
 
 @click.command(help="List available processes.")
@@ -11,22 +16,25 @@ import pkg_resources
 @click.option(
     "--docstrings", is_flag=True, help="Print docstrings of all processes."
 )
-def processes(process_name=None, docstrings=False):
-
+@utils.opt_debug
+def processes(process_name=None, docstrings=False, debug=False):
+    """List available processes."""
     # get all registered processes
     processes = list(pkg_resources.iter_entry_points("mapchete.processes"))
 
     # print selected process
     if process_name:
         for v in processes:
+            logger.debug("try to load %s", v)
             process_module = v.load()
             if process_name == process_module.__name__:
                 _print_process_info(process_module, docstrings=True)
     else:
         # print all processes
         click.echo("%s processes found" % len(processes))
-        for v in processes:
-            process_module = v.load()
+        loaded_processes = [v.load() for v in processes]
+        loaded_processes.sort(key=lambda x: x.__name__)
+        for process_module in loaded_processes:
             _print_process_info(process_module, docstrings=docstrings)
 
 
