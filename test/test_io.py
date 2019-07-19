@@ -170,10 +170,12 @@ def test_read_raster_window_input_list(cleantopo_br):
     assert np.allclose(resampled, resampled2, rtol=0.01)
 
 
-def test_read_raster_window_retry():
+def test_read_raster_window_retry(invalid_tif):
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(RasterioIOError):
-        read_raster_window("invalid_file.tif", tile)
+        read_raster_window(invalid_tif, tile)
+    with pytest.raises(FileNotFoundError):
+        read_raster_window("not_existing.tif", tile)
 
 
 def test_read_raster_no_crs_errors():
@@ -628,10 +630,15 @@ def test_read_vector_window(geojson, landpoly_3857):
     assert feature_count
 
 
-def test_read_vector_window_errors():
-    with pytest.raises(DriverError):
+def test_read_vector_window_errors(invalid_geojson):
+    with pytest.raises(FileNotFoundError):
         read_vector_window(
             "invalid_path",
+            BufferedTilePyramid("geodetic").tile(0, 0, 0)
+        )
+    with pytest.raises(DriverError):
+        read_vector_window(
+            invalid_geojson,
             BufferedTilePyramid("geodetic").tile(0, 0, 0)
         )
 

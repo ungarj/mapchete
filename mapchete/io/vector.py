@@ -3,7 +3,7 @@
 import os
 import logging
 import fiona
-from fiona.errors import FionaError, FionaValueError
+from fiona.errors import DriverError, FionaError, FionaValueError
 from fiona.io import MemoryFile
 from retry import retry
 from rasterio.crs import CRS
@@ -189,7 +189,9 @@ class VectorWindowMemoryFile():
         self.fio_memfile.close()
 
 
-@retry(tries=3, logger=logger, exceptions=(FionaError, FionaValueError), delay=1)
+@retry(
+    tries=3, logger=logger, exceptions=(DriverError, FionaError, FionaValueError), delay=1
+)
 def _get_reprojected_features(
     input_file=None, dst_bounds=None, dst_crs=None, validity_check=False
 ):
