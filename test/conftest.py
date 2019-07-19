@@ -173,6 +173,18 @@ def dummy2_tif():
 
 
 @pytest.fixture
+def invalid_tif():
+    """Fixture for invalid.tif"""
+    return os.path.join(TESTDATA_DIR, "invalid.tif")
+
+
+@pytest.fixture
+def invalid_geojson():
+    """Fixture for invalid.geojson"""
+    return os.path.join(TESTDATA_DIR, "invalid.geojson")
+
+
+@pytest.fixture
 def execute_kwargs_py():
     """Fixture for execute_kwargs.py"""
     return os.path.join(TESTDATA_DIR, "execute_kwargs.py")
