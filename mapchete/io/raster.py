@@ -248,7 +248,7 @@ def _get_warped_array(
         raise
 
 
-@retry(tries=3, logger=logger)
+@retry(tries=3, logger=logger, exceptions=RasterioIOError, delay=1)
 def _rasterio_read(
     input_file=None,
     indexes=None,
@@ -290,11 +290,17 @@ def _rasterio_read(
             )
     if isinstance(input_file, str):
         logger.debug("got file path %s", input_file)
-        with rasterio.open(input_file, "r") as src:
-            return _read(
-                src, indexes, dst_bounds, dst_shape, dst_crs, resampling, src_nodata,
-                dst_nodata
-            )
+        try:
+            with rasterio.open(input_file, "r") as src:
+                return _read(
+                    src, indexes, dst_bounds, dst_shape, dst_crs, resampling, src_nodata,
+                    dst_nodata
+                )
+        except RasterioIOError as e:
+            if path_exists(input_file):
+                raise e
+            else:
+                raise FileNotFoundError("%s not found" % input_file)
     else:
         logger.debug("assuming file object %s", input_file)
         return _read(
@@ -303,6 +309,7 @@ def _rasterio_read(
         )
 
 
+@retry(tries=3, logger=logger, exceptions=RasterioIOError, delay=1)
 def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
     """
     Wrapper function around rasterio.open().read().
