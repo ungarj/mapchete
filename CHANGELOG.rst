@@ -8,6 +8,9 @@ Changelog
 * fixed raise of ``FileNotFounderror`` on ``mapchete.io.raster.read_raster_no_crs()``
 * fixed overview ``get_parent()`` on zoom 0 in batch processing
 * sort processes alphabetically in ``mapchete processes``
+* always raise `FileNotFoundError` if input file does not exist
+* wait for 1 second between retry attempts on file read error
+
 
 ----
 0.29
