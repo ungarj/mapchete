@@ -99,6 +99,7 @@ def set_log_level(loglevel):
 def setup_logfile(logfile):
     file_handler = logging.FileHandler(logfile)
     file_handler.setFormatter(formatter)
+    file_handler.addFilter(KeyValueFilter(key_value_replace=key_value_replace_patterns))
     for i in all_mapchete_packages:
         logging.getLogger(i).addHandler(file_handler)
         logging.getLogger(i).setLevel(logging.DEBUG)
