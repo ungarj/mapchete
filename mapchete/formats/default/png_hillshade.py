@@ -84,9 +84,12 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         super().__init__(output_params)
         self.path = output_params["path"]
         self.file_extension = ".png"
-        self.output_params = output_params
+        self.output_params = dict(
+            output_params,
+            nodata=output_params.get("nodata", PNG_DEFAULT_PROFILE["nodata"]),
+            dtype=PNG_DEFAULT_PROFILE["dtype"]
+        )
         self._profile = dict(PNG_DEFAULT_PROFILE)
-        self.nodata = self._profile["nodata"]
         try:
             self.old_band_num = output_params["old_band_num"]
             self._profile.update(count=4)

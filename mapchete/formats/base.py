@@ -215,7 +215,7 @@ class OutputDataBaseFunctions():
             return extract_from_array(
                 in_raster=prepare_array(
                     mosaic.data,
-                    nodata=self.nodata,
+                    nodata=self.output_params["nodata"],
                     dtype=self.output_params["dtype"]
                 ),
                 in_affine=mosaic.affine,

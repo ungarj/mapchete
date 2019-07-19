@@ -189,7 +189,10 @@ class GTiffOutputReaderFunctions():
         """
         return memory_file(
             prepare_array(
-                data, masked=True, nodata=self.nodata, dtype=self.profile()["dtype"]
+                data,
+                masked=True,
+                nodata=self.output_params["nodata"],
+                dtype=self.profile()["dtype"]
             ),
             self.profile()
         ), "image/tiff"
@@ -230,8 +233,10 @@ class GTiffOutputReaderFunctions():
     def _set_attributes(self, output_params):
         self.path = output_params["path"]
         self.file_extension = ".tif"
-        self.output_params = output_params
-        self.nodata = output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
+        self.output_params = dict(
+            output_params,
+            nodata=output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
+        )
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
 
@@ -304,7 +309,7 @@ class GTiffTileDirectoryOutputReader(
             count=self.output_params["bands"],
             dtype=self.output_params["dtype"],
             driver="GTiff",
-            nodata=self.output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
+            nodata=self.output_params["nodata"]
         )
         dst_metadata.pop("transform", None)
         if tile is not None:
@@ -355,7 +360,7 @@ class GTiffTileDirectoryOutputWriter(
         data = prepare_array(
             data,
             masked=True,
-            nodata=self.nodata,
+            nodata=self.output_params["nodata"],
             dtype=self.profile(process_tile)["dtype"]
         )
 
@@ -527,7 +532,7 @@ class GTiffSingleFileOutputWriter(
         data = prepare_array(
             data,
             masked=True,
-            nodata=self.nodata,
+            nodata=self.output_params["nodata"],
             dtype=self.profile(process_tile)["dtype"]
         )
 

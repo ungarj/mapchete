@@ -421,7 +421,7 @@ class VRTFileWriter():
         # get VRT attributes
         vrt_affine, vrt_shape = raster.tiles_to_affine_shape(list(all_entries.keys()))
         vrt_dtype = _gdal_typename(self._output.profile()["dtype"])
-        vrt_nodata = self._output.nodata
+        vrt_nodata = self._output.output_params["nodata"]
 
         # build XML
         E = ElementMaker()
