@@ -175,7 +175,6 @@ autodoc_mock_imports = [
     'numpy',
     'numpy.ma',
     'oyaml',
-    'pyproj',
     'pyyaml',
     'rasterio',
     'rasterio.features',

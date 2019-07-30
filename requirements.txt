@@ -6,7 +6,6 @@ click-spinner
 fiona>=1.8b1
 numpy>=1.15
 oyaml
-pyproj
 retry
 rasterio>=1.0.21
 shapely
