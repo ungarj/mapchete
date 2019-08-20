@@ -4,7 +4,7 @@ click>=7.0.0'
 click-plugins
 click-spinner
 fiona>=1.8b1
-numpy>=1.15
+numpy>=1.16
 oyaml
 retry
 rasterio>=1.0.21
