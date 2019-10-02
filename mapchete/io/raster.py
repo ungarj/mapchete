@@ -297,10 +297,12 @@ def _rasterio_read(
                     dst_nodata
                 )
         except RasterioIOError as e:
-            if path_exists(input_file):
+            try:
+                if path_exists(input_file):
+                    raise e
+            except:
                 raise e
-            else:
-                raise FileNotFoundError("%s not found" % input_file)
+            raise FileNotFoundError("%s not found" % input_file)
     else:
         logger.debug("assuming file object %s", input_file)
         return _read(
