@@ -322,6 +322,8 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
         Path to file
     indexes : int or list
         Band index or list of band indexes to be read.
+    gdal_opts : dict
+        GDAL options passed on to rasterio.Env()
 
     Returns
     -------
@@ -342,10 +344,12 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
                 with rasterio.open(input_file, "r") as src:
                     return src.read(indexes=indexes, masked=True)
         except RasterioIOError as e:
-            if path_exists(input_file):
+            try:
+                if path_exists(input_file):
+                    raise e
+            except:
                 raise e
-            else:
-                raise FileNotFoundError("%s not found" % input_file)
+            raise FileNotFoundError("%s not found" % input_file)
 
 
 class RasterWindowMemoryFile():
@@ -355,7 +359,7 @@ class RasterWindowMemoryFile():
         self, in_tile=None, in_data=None, out_profile=None, out_tile=None, tags=None
     ):
         """Prepare data & profile."""
-        out_tile = in_tile if out_tile is None else out_tile
+        out_tile = out_tile or in_tile
         _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
         self.data = extract_from_array(
             in_raster=in_data,
@@ -410,7 +414,7 @@ def write_raster_window(
             "Writing to memoryfile with write_raster_window() is deprecated. "
             "Please use RasterWindowMemoryFile."
         )
-    out_tile = in_tile if out_tile is None else out_tile
+    out_tile = out_tile or in_tile
     _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
 
     # extract data
@@ -571,7 +575,7 @@ def resample_from_array(
         in_raster,
         dst_data,
         src_transform=in_affine,
-        src_crs=in_crs if in_crs else out_tile.crs,
+        src_crs=in_crs or out_tile.crs,
         dst_transform=out_tile.affine,
         dst_crs=out_tile.crs,
         resampling=Resampling[resampling]
