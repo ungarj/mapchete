@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 GDAL_HTTP_OPTS = dict(
     GDAL_DISABLE_READDIR_ON_OPEN=True,
     CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2, .png, .xml",
-    GDAL_HTTP_TIMEOUT=30
+    GDAL_HTTP_TIMEOUT=30,
+    GDAL_HTTP_MAX_RETRY=3,
+    GDAL_HTTP_RETRY_DELAY=5
 )
 
 
