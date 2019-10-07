@@ -5,6 +5,7 @@ import pytest
 import os
 import shutil
 import rasterio
+from rasterio import windows
 import numpy as np
 import numpy.ma as ma
 import pkg_resources
@@ -254,6 +255,25 @@ def test_baselevels_buffer(mp_tmpdir, baselevels):
             not mp.get_raw_output(upper_tile).mask.all()
             for upper_tile in tile.get_children()
         ])
+
+
+def test_baselevels_output_buffer(mp_tmpdir, baselevels_output_buffer):
+    # it should not contain masked values within bounds
+    # (171.46155, -87.27184, 174.45159, -84.31281)
+    with mapchete.open(baselevels_output_buffer.dict) as mp:
+        # process all
+        mp.batch_process()
+        # read tile 6/62/125.tif
+        with rasterio.open(
+            os.path.join(mp.config.output.output_params["path"], "6/62/125.tif")
+        ) as src:
+            window = windows.from_bounds(
+                171.46155, -87.27184, 174.45159, -84.31281, transform=src.transform
+            )
+            subset = src.read(window=window, masked=True)
+            print(subset.shape)
+            assert not subset.mask.any()
+            pass
 
 
 def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):

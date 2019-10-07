@@ -670,8 +670,12 @@ def create_mosaic(tiles, nodata=0):
             in_affine=affine,
             in_shape=(height, width)
         )
-        mosaic[:, minrow:maxrow, mincol:maxcol] = data
-        mosaic.mask[:, minrow:maxrow, mincol:maxcol] = data.mask
+        existing_data = mosaic[:, minrow:maxrow, mincol:maxcol]
+        existing_mask = mosaic.mask[:, minrow:maxrow, mincol:maxcol]
+        mosaic[:, minrow:maxrow, mincol:maxcol] = np.where(data.mask, existing_data, data)
+        mosaic.mask[:, minrow:maxrow, mincol:maxcol] = np.where(
+            data.mask, existing_mask, data.mask
+        )
     if shift:
         # shift back output mosaic
         affine = Affine(resolution, 0, m_left - pyramid.x_size / 2, 0, -resolution, m_top)

@@ -137,9 +137,22 @@ class TileProcess():
                 )
             # resample from children tiles
             elif baselevel == "lower":
+                if self.output_reader.pyramid.pixelbuffer:
+                    lower_tiles = set([
+                        y for y in chain(*[
+                            self.output_reader.pyramid.tiles_from_bounds(
+                                x.bounds, x.zoom + 1
+                            )
+                            for x in output_tiles
+                        ])
+                    ])
+                else:
+                    lower_tiles = [
+                        y for y in chain(*[x.get_children() for x in output_tiles])
+                    ]
                 mosaic = raster.create_mosaic([
-                    (output_tile, self.output_reader.read(output_tile), )
-                    for output_tile in chain(*[x.get_children() for x in output_tiles])
+                    (lower_tile, self.output_reader.read(lower_tile))
+                    for lower_tile in lower_tiles
                 ])
                 process_data = raster.resample_from_array(
                     in_raster=mosaic.data,

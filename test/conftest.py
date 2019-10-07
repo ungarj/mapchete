@@ -282,6 +282,13 @@ def baselevels():
 
 
 @pytest.fixture
+def baselevels_output_buffer():
+    """Fixture for baselevels_output_buffer.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "baselevels_output_buffer.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def mapchete_input():
     """Fixture for mapchete_input.mapchete."""
     path = os.path.join(TESTDATA_DIR, "mapchete_input.mapchete")
