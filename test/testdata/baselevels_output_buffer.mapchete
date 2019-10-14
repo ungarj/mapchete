@@ -1,0 +1,19 @@
+process: mapchete.processes.convert
+zoom_levels:
+    min: 6
+    max: 8
+pyramid:
+    grid: geodetic
+    pixelbuffer: 64
+input:
+    raster: cleantopo_br.tif
+output:
+    dtype: int16
+    bands: 1
+    format: GTiff
+    path: tmp/baselevels_buffer
+    pixelbuffer: 64
+baselevels:
+    min: 8
+    lower: bilinear
+bounds: [171.5625, -87.1875, 174.375, -84.375]
