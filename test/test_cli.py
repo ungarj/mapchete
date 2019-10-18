@@ -281,6 +281,27 @@ def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
         assert data.mask.any()
+        assert not src.overviews(1)
+
+
+def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        single_gtiff,
+        "--output-pyramid", "geodetic",
+        "-z", "3",
+        "--overviews",
+        "--overviews-resampling-method", "bilinear"
+    ])
+    with rasterio.open(single_gtiff, "r") as src:
+        assert src.meta["driver"] == "GTiff"
+        assert src.meta["dtype"] == "uint16"
+        data = src.read(masked=True)
+        assert data.mask.any()
+        assert src.overviews(1)
 
 
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):

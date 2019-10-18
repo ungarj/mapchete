@@ -113,7 +113,7 @@ class TileProcess():
     def _interpolate_from_baselevel(self, baselevel=None):
         # This is a special tile derived from a pyramid which has the pixelbuffer setting
         # from the output pyramid but metatiling from the process pyramid. This is due to
-        # performance reasons as for the usuas case overview tiles do not need the
+        # performance reasons as for the usual case overview tiles do not need the
         # process pyramid pixelbuffers.
         tile = self.config_baselevels["tile_pyramid"].tile(*self.tile.id)
 

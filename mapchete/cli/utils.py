@@ -3,6 +3,7 @@ import click_spinner
 import logging
 from multiprocessing import cpu_count
 import os
+from rasterio.enums import Resampling
 import tilematrix
 import tqdm
 
@@ -87,144 +88,185 @@ arg_output = click.argument("output", type=click.STRING)
 # click options #
 #################
 opt_out_path = click.option(
-    "--out-path", "-op", type=click.Path(), default=os.path.join(os.getcwd(), "output"),
+    "--out-path", "-op",
+    type=click.Path(),
+    default=os.path.join(os.getcwd(), "output"),
     help="Process output path."
 )
 opt_idx_out_dir = click.option(
-    "--idx-out-dir", "-od", type=click.Path(),
+    "--idx-out-dir", "-od",
+    type=click.Path(),
     help="Index output directory."
 )
 opt_input_file = click.option(
-    "--input-file", "-i", type=click.Path(),
+    "--input-file", "-i",
+    type=click.Path(),
     help=(
         """Specify an input file via command line (in mapchete file, """
         """set 'input_file' parameter to 'from_command_line')."""
     ),
 )
 opt_zoom = click.option(
-    "--zoom", "-z", callback=_validate_zoom,
+    "--zoom", "-z",
+    callback=_validate_zoom,
     help="Single zoom level or min and max separated by ','.",
 )
 opt_bounds = click.option(
-    "--bounds", "-b", type=click.FLOAT, nargs=4, callback=_validate_bounds,
+    "--bounds", "-b",
+    type=click.FLOAT,
+    nargs=4,
+    callback=_validate_bounds,
     help="Left, bottom, right, top bounds in tile pyramid CRS.",
 )
 opt_point = click.option(
-    "--point", "-p", type=click.FLOAT, nargs=2,
+    "--point", "-p",
+    type=click.FLOAT,
+    nargs=2,
     help="Process tiles over single point location."
 )
 opt_wkt_geometry = click.option(
-    "--wkt-geometry", "-g", type=click.STRING,
+    "--wkt-geometry", "-g",
+    type=click.STRING,
     help="Take boundaries from WKT geometry in tile pyramid CRS.",
 )
 opt_tile = click.option(
-    "--tile", "-t", type=click.INT, nargs=3,
+    "--tile", "-t",
+    type=click.INT,
+    nargs=3,
     help="Zoom, row, column of single tile."
 )
 opt_overwrite = click.option(
-    "--overwrite", "-o", is_flag=True,
+    "--overwrite", "-o",
+    is_flag=True,
     help="Overwrite if tile(s) already exist(s)."
 )
 opt_multi = click.option(
-    "--multi", "-m", type=click.INT,
+    "--multi", "-m",
+    type=click.INT,
     help="Number of concurrent processes.",
 )
 opt_force = click.option(
-    "--force", "-f", is_flag=True,
+    "--force", "-f",
+    is_flag=True,
     help="Overwrite if files already exist."
 )
 opt_logfile = click.option(
-    "--logfile", "-l", type=click.Path(), callback=_setup_logfile,
+    "--logfile", "-l",
+    type=click.Path(),
+    callback=_setup_logfile,
     help="Write debug log infos into file."
 )
 opt_verbose = click.option(
-    "--verbose", "-v", is_flag=True,
+    "--verbose", "-v",
+    is_flag=True,
     help="Print info for each process tile."
 )
 opt_no_pbar = click.option(
-    "--no-pbar", is_flag=True,
+    "--no-pbar",
+    is_flag=True,
     help="Deactivate progress bar."
 )
 opt_debug = click.option(
-    "--debug", "-d", is_flag=True, callback=_set_debug_log_level,
+    "--debug", "-d",
+    is_flag=True,
+    callback=_set_debug_log_level,
     help="Deactivate progress bar and print debug log output."
 )
 opt_max_chunksize = click.option(
-    "--max-chunksize", "-c", type=click.INT, default=1,
+    "--max-chunksize", "-c",
+    type=click.INT,
+    default=1,
     help="Maximum number of process tiles to be queued for each  worker. (default: 1)"
 )
 opt_input_formats = click.option(
-    "--input-formats", "-i", is_flag=True,
+    "--input-formats", "-i",
+    is_flag=True,
     help="Show only input formats."
 )
 opt_output_formats = click.option(
-    "--output-formats", "-o", is_flag=True,
+    "--output-formats", "-o",
+    is_flag=True,
     help="Show only output formats."
 )
 opt_geojson = click.option(
-    "--geojson", is_flag=True,
+    "--geojson",
+    is_flag=True,
     help="Write GeoJSON index."
 )
 opt_gpkg = click.option(
-    "--gpkg", is_flag=True,
+    "--gpkg",
+    is_flag=True,
     help="Write GeoPackage index."
 )
 opt_shp = click.option(
-    "--shp", is_flag=True,
+    "--shp",
+    is_flag=True,
     help="Write Shapefile index."
 )
 opt_vrt = click.option(
-    "--vrt", is_flag=True,
+    "--vrt",
+    is_flag=True,
     help="Write VRT file."
 )
 opt_txt = click.option(
-    "--txt", is_flag=True,
+    "--txt",
+    is_flag=True,
     help="Write output tile paths to text file."
 )
 opt_fieldname = click.option(
-    "--fieldname", type=str, default="location",
+    "--fieldname",
+    type=click.STRING,
+    default="location",
     help="Field to store tile paths in."
 )
 opt_basepath = click.option(
-    "--basepath", type=str,
+    "--basepath",
+    type=click.STRING,
     help="Use other base path than given process output path."
 )
 opt_for_gdal = click.option(
-    "--for-gdal", is_flag=True,
+    "--for-gdal",
+    is_flag=True,
     help="Make remote paths readable by GDAL (not applied for txt output)."
 )
 opt_output_format = click.option(
-    "--output-format", "-of", type=click.Choice(["GTiff", "PNG"]), default="GTiff",
+    "--output-format", "-of",
+    type=click.Choice(["GTiff", "PNG"]),
+    default="GTiff",
     help="Output data format (GTiff or PNG)."
 )
 opt_pyramid_type = click.option(
-    "--pyramid-type", "-pt", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
+    "--pyramid-type", "-pt",
+    type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
     default="geodetic",
     help="Output pyramid type. (default: geodetic)"
 )
 opt_resampling_method = click.option(
-    "--resampling-method", "-r", type=click.Choice([
-        "nearest", "bilinear", "cubic", "cubic_spline", "lanczos", "average", "mode"
-    ]), default="nearest",
-    help=(
-        """Resampling method to be used (nearest, bilinear, cubic, cubic_spline, """
-        """lanczos, average or mode)."""
-    ),
+    "--resampling-method", "-r",
+    type=click.Choice([it.name for it in Resampling if it.value in range(8)]),
+    default="nearest",
+    help=("Resampling method used. (default: nearest)"),
 )
 opt_port = click.option(
-    "--port", "-p", type=click.INT, default=5000,
+    "--port", "-p",
+    type=click.INT,
+    default=5000,
     help="Port process is hosted on. (default: 5000)",
 )
 opt_internal_cache = click.option(
-    "--internal-cache", "-c", type=click.INT, default=1024,
+    "--internal-cache", "-c",
+    type=click.INT,
+    default=1024,
     help="Number of web tiles to be cached in RAM. (default: 1024)",
 )
 opt_readonly = click.option(
-    "--readonly", "-ro", is_flag=True,
+    "--readonly", "-ro",
+    is_flag=True,
     help="Just read process output without writing."
 )
 opt_memory = click.option(
-    "--memory", "-mo", is_flag=True,
+    "--memory", "-mo",
+    is_flag=True,
     help="Always get output from freshly processed output."
 )
 
