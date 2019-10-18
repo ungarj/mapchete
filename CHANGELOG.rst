@@ -10,6 +10,7 @@ Changelog
 * sort processes alphabetically in ``mapchete processes``
 * always raise `FileNotFoundError` if input file does not exist
 * wait for 1 second between retry attempts on file read error
+* added ``--overviews`` and ``--overviews-resampling-method`` to ``mapchete convert``
 
 
 ----
