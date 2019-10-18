@@ -5,6 +5,7 @@ from multiprocessing import cpu_count
 import os
 from pprint import pformat
 import rasterio
+from rasterio.enums import Resampling
 from rasterio.dtypes import dtype_ranges
 from rasterio.rio.options import creation_options
 from shapely.geometry import box
@@ -33,35 +34,55 @@ OUTPUT_FORMATS = available_output_formats()
 @utils.opt_point
 @utils.opt_wkt_geometry
 @click.option(
-    "--clip-geometry", "-c", type=click.Path(exists=True),
+    "--clip-geometry", "-c",
+    type=click.Path(exists=True),
     help="Clip output by geometry"
 )
 @click.option(
-    "--output-pyramid", type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
+    "--output-pyramid",
+    type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
     help="Output pyramid to write to."
 )
 @click.option(
-    "--output-metatiling", "-m", type=click.INT,
+    "--output-metatiling",
+    type=click.INT,
     help="Output metatiling.",
 )
 @click.option(
-    "--output-format", type=click.Choice(available_output_formats()),
+    "--output-format",
+    type=click.Choice(available_output_formats()),
     help="Output format."
 )
 @click.option(
-    "--output-dtype", type=click.Choice(dtype_ranges.keys()),
+    "--output-dtype",
+    type=click.Choice(dtype_ranges.keys()),
     help="Output data type (for raster output only)."
 )
 @creation_options
 @click.option(
-    "--scale-ratio", type=click.FLOAT, default=1.,
+    "--scale-ratio",
+    type=click.FLOAT,
+    default=1.,
     help="Scaling factor (for raster output only)."
 )
 @click.option(
-    "--scale-offset", type=click.FLOAT, default=0.,
+    "--scale-offset",
+    type=click.FLOAT,
+    default=0.,
     help="Scaling offset (for raster output only)."
 )
 @utils.opt_resampling_method
+@click.option(
+    "--overviews",
+    is_flag=True,
+    help="Generate overviews (single GTiff output only)."
+)
+@click.option(
+    "--overviews-resampling-method",
+    type=click.Choice([it.name for it in Resampling if it.value in range(8)]),
+    default="cubic_spline",
+    help="Resampling method used for overviews. (default: cubic_spline)"
+)
 @utils.opt_overwrite
 @utils.opt_verbose
 @utils.opt_no_pbar
@@ -86,6 +107,8 @@ def convert(
     scale_ratio=None,
     scale_offset=None,
     resampling_method=None,
+    overviews=False,
+    overviews_resampling_method=None,
     overwrite=False,
     logfile=None,
     verbose=False,
@@ -138,7 +161,11 @@ def convert(
                 input_info["output_params"]["format"]
             ),
             dtype=output_dtype or input_info["output_params"].get("dtype"),
-            **creation_options
+            **creation_options,
+            **dict(
+                overviews=True,
+                overviews_resampling=overviews_resampling_method
+            ) if overviews else dict()
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info["zoom_levels"],
