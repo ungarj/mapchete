@@ -51,6 +51,12 @@ def execute(
         areas with no data.
     clip_pixelbuffer : int
         Use pixelbuffer when clipping output by geometry. (default: 0)
+    scale_ratio : float
+        Scale factor for input values. (default: 1.0)
+    scale_offset : float
+        Offset to add to input values. (default: 0.0)
+    clip_to_output_dtype : str
+        Clip output values to range of given dtype. (default: None)
 
     Output
     ------
