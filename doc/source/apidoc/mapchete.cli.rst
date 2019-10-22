@@ -6,7 +6,7 @@ Subpackages
 
 .. toctree::
 
-   mapchete.cli.default
+    mapchete.cli.default
 
 Submodules
 ----------
@@ -20,6 +20,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.cli
-   :members:
-   :undoc-members:
-   :show-inheritance:
+    :members:
+    :undoc-members:
+    :show-inheritance:
