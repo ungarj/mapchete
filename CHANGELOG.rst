@@ -8,9 +8,15 @@ Changelog
 * fixed raise of ``FileNotFounderror`` on ``mapchete.io.raster.read_raster_no_crs()``
 * fixed overview ``get_parent()`` on zoom 0 in batch processing
 * sort processes alphabetically in ``mapchete processes``
-* always raise `FileNotFoundError` if input file does not exist
+* always raise ``FileNotFoundError`` if input file does not exist
 * wait for 1 second between retry attempts on file read error
 * added ``--overviews`` and ``--overviews-resampling-method`` to ``mapchete convert``
+* fixed overview generation when output pixelbuffer was provided (#220)
+* remote reading fixes (#219)
+  * add GDAL HTTP options
+  * handle ``AccessDenied`` exception which could occur if after an ``RasterioIOError`` a check is run if the file even exists
+* increased required minimum NumPy version to 1.16
+* pass on output parameters to mapchete process (#215, fixes #214)
 
 
 ----

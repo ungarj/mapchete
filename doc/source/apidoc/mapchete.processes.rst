@@ -6,7 +6,7 @@ Subpackages
 
 .. toctree::
 
-   mapchete.processes.examples
+    mapchete.processes.examples
 
 Submodules
 ----------
@@ -19,6 +19,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.processes
-   :members:
-   :undoc-members:
-   :show-inheritance:
+    :members:
+    :undoc-members:
+    :show-inheritance:
