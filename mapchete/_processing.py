@@ -361,6 +361,9 @@ class Executor():
             "init %s Executor with start_method %s and %s workers",
             self.multiprocessing_module, self.start_method, self.max_workers
         )
+        self._pool = self.multiprocessing_module.get_context(self.start_method).Pool(
+            self.max_workers
+        )
 
     def as_completed(
         self,
@@ -381,19 +384,23 @@ class Executor():
                 "open multiprocessing.Pool and %s %s workers",
                 self.start_method, self.max_workers
             )
-            with self.multiprocessing_module.get_context(self.start_method).Pool(
-                self.max_workers
-            ) as pool:
-                for finished_task in pool.imap_unordered(
-                    partial(_exception_wrapper, func, fargs, fkwargs),
-                    iterable,
-                    chunksize=chunksize
-                ):
-                    yield finished_task
-                logger.debug("closing %s and workers", pool)
-                pool.close()
-                pool.join()
-            logger.debug("%s closed", pool)
+            for finished_task in self._pool.imap_unordered(
+                partial(_exception_wrapper, func, fargs, fkwargs),
+                iterable,
+                chunksize=chunksize
+            ):
+                yield finished_task
+
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, *args):
+        """Exit context manager."""
+        logger.debug("closing %s and workers", self._pool)
+        self._pool.close()
+        self._pool.join()
+        logger.debug("%s closed", self._pool)
 
 
 class FinishedTask():
@@ -526,12 +533,11 @@ def _run_multi(
     # also in "continue" mode in case there were updates at the baselevel
     overview_parents = set()
 
-    with Timer() as t:
-        executor = Executor(
-            max_workers=workers,
-            start_method=multiprocessing_start_method,
-            multiprocessing_module=multiprocessing_module
-        )
+    with Timer() as t, Executor(
+        max_workers=workers,
+        start_method=multiprocessing_start_method,
+        multiprocessing_module=multiprocessing_module
+    ) as executor:
 
         for i, zoom in enumerate(zoom_levels):
 
