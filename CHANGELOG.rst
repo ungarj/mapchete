@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.31
+----
+* don't close pool between zoom levels (#227)
+
+----
 0.30
 ----
 * fixed raise of ``FileNotFounderror`` on ``mapchete.io.raster.read_raster_no_crs()``
