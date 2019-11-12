@@ -6,6 +6,7 @@ Changelog
 0.31
 ----
 * don't raise exception when one of the registered processes cannot be imported (#225)
+* don't close pool between zoom levels (#227)
 
 ----
 0.30
