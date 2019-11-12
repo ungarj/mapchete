@@ -1,4 +1,5 @@
 import os
+from rasterio.path import parse_path
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
@@ -82,7 +83,7 @@ def absolute_path(path=None, base_dir=None):
 
 def relative_path(path=None, base_dir=None):
     """
-    Return relative path if path is local.
+    Return relative path if possible.
 
     Parameters
     ----------
@@ -93,10 +94,7 @@ def relative_path(path=None, base_dir=None):
     -------
     relative path
     """
-    if path_is_remote(path) or not os.path.isabs(path):
-        return path
-    else:
-        return os.path.relpath(path, base_dir)
+    return os.path.relpath(parse_path(path).path, parse_path(base_dir).path)
 
 
 def makedirs(path):

@@ -32,9 +32,7 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
 from mapchete.config import get_zoom_levels
-from mapchete.io import (
-    path_exists, path_is_remote, get_boto3_bucket, raster, relative_path
-)
+from mapchete.io import path_exists, get_boto3_bucket, raster, relative_path
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +178,12 @@ def zoom_index_gen(
                     if indexes and output_exists:
                         logger.debug("%s exists", tile_path)
                         logger.debug("write to %s indexes" % len(indexes))
+                        # write relative path if index is written into process output dir
+                        if mp.config.output.path == out_dir:
+                            tile_path = relative_path(
+                                mp.config.output.get_path(tile),
+                                mp.config.output.path
+                            )
                         for index in indexes:
                             index.write(tile, tile_path)
                     # yield tile for progress information
@@ -436,11 +440,8 @@ class VRTFileWriter():
                         E.ComplexSource(
                             E.SourceFilename(
                                 _tile_path(orig_path=path, for_gdal=True) if
-                                path_is_remote(path) else
-                                relative_path(
-                                    path=path, base_dir=os.path.split(self.path)[0]
-                                ),
-                                relativeToVRT="0" if path_is_remote(path) else "1"
+                                os.path.isabs(path) else path,
+                                relativeToVRT="0" if os.path.isabs(path) else "1"
                             ),
                             E.SourceBand(str(b_idx)),
                             E.SourceProperties(
