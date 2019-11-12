@@ -3,6 +3,11 @@ Changelog
 #########
 
 ----
+0.31
+----
+* don't raise exception when one of the registered processes cannot be imported (#225)
+
+----
 0.30
 ----
 * fixed raise of ``FileNotFounderror`` on ``mapchete.io.raster.read_raster_no_crs()``
