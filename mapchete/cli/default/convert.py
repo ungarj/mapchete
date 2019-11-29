@@ -20,7 +20,7 @@ from mapchete.formats import (
 from mapchete.io import read_json, get_best_zoom_level
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
-from mapchete._validate import validate_zooms
+from mapchete.validate import validate_zooms
 
 logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()

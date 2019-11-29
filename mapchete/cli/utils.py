@@ -12,7 +12,7 @@ from mapchete.config import raw_conf, bounds_from_opts
 from mapchete.formats import available_output_formats
 from mapchete.index import zoom_index_gen
 from mapchete.log import set_log_level, setup_logfile
-from mapchete._validate import validate_bounds, validate_zooms
+from mapchete.validate import validate_bounds, validate_zooms
 
 
 logger = logging.getLogger(__name__)
