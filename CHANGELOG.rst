@@ -7,6 +7,7 @@ Changelog
 ----
 * don't raise exception when one of the registered processes cannot be imported (#225)
 * don't close pool between zoom levels (#227)
+* fix inverted hillshade & misleading tile reference (#229)
 
 ----
 0.30

@@ -286,7 +286,9 @@ class MapcheteProcess(object):
         -------
         hillshade : array
         """
-        return commons_hillshade.hillshade(elevation, self, azimuth, altitude, z, scale)
+        return commons_hillshade.hillshade(
+            elevation, self.tile, azimuth, altitude, z, scale
+        )
 
     def contours(
         self, elevation, interval=100, field='elev', base=0
