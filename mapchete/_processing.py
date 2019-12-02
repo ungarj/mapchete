@@ -13,7 +13,7 @@ from mapchete.config import get_process_func
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
 from mapchete._timer import Timer
-from mapchete._validate import deprecated_kwargs
+from mapchete.validate import deprecated_kwargs
 
 logger = logging.getLogger(__name__)
 

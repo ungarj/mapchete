@@ -8,7 +8,7 @@ from shapely.geometry import (
 from shapely.validation import explain_validity
 
 from mapchete.errors import GeometryTypeError
-from mapchete._validate import validate_crs
+from mapchete.validate import validate_crs
 
 
 CRS_BOUNDS = {

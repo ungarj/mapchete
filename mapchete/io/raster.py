@@ -21,6 +21,7 @@ import warnings
 
 from mapchete.tile import BufferedTile
 from mapchete.io import path_is_remote, get_gdal_options, path_exists
+from mapchete.validate import validate_write_window_params
 
 
 logger = logging.getLogger(__name__)
@@ -360,7 +361,7 @@ class RasterWindowMemoryFile():
     ):
         """Prepare data & profile."""
         out_tile = out_tile or in_tile
-        _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
+        validate_write_window_params(in_tile, out_tile, in_data, out_profile)
         self.data = extract_from_array(
             in_raster=in_data,
             in_affine=in_tile.affine,
@@ -415,7 +416,7 @@ def write_raster_window(
             "Please use RasterWindowMemoryFile."
         )
     out_tile = out_tile or in_tile
-    _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
+    validate_write_window_params(in_tile, out_tile, in_data, out_profile)
 
     # extract data
     window_data = extract_from_array(
@@ -466,15 +467,6 @@ def _write_tags(dst, tags):
             # for filewide tags
             else:
                 dst.update_tags(**{k: v})
-
-
-def _validate_write_window_params(in_tile, out_tile, in_data, out_profile):
-    if any([not isinstance(t, BufferedTile) for t in [in_tile, out_tile]]):
-        raise TypeError("in_tile and out_tile must be BufferedTile")
-    if not isinstance(in_data, ma.MaskedArray):
-        raise TypeError("in_data must be ma.MaskedArray")
-    if not isinstance(out_profile, dict):
-        raise TypeError("out_profile must be a dictionary")
 
 
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
@@ -766,7 +758,7 @@ def _shift_required(tiles):
         else:
             # look at column gaps and try to determine the smallest distance
             def gen_groups(items):
-                """Groups tile columns by sequence."""
+                """Group tile columns by sequence."""
                 j = items[0]
                 group = [j]
                 for i in items[1:]:

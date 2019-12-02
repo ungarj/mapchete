@@ -1,3 +1,7 @@
+"""Convenience validator functions for core and extension packages."""
+
+
+import numpy.ma as ma
 from rasterio.crs import CRS
 from tilematrix._funcs import Bounds
 import warnings
@@ -22,6 +26,8 @@ def validate_zooms(zooms, expand=True):
     Parameters
     ----------
     zoom : dict, int or list
+    expand : bool
+        Return full list of zoom levels instead of [min, max]
 
     Returns
     -------
@@ -49,6 +55,8 @@ def validate_zooms(zooms, expand=True):
 
 def validate_zoom(zoom):
     """
+    Return validated zoom.
+
     Assert zoom value is positive integer.
 
     Returns
@@ -66,6 +74,8 @@ def validate_zoom(zoom):
 
 def validate_bounds(bounds):
     """
+    Return validated bounds.
+
     Bounds must be a list or tuple with exactly four elements.
 
     Parameters
@@ -89,7 +99,7 @@ def validate_bounds(bounds):
 
 def validate_values(config, values):
     """
-    Validate whether value is found in config and has the right type.
+    Return True if all values are given and have the desired type.
 
     Parameters
     ----------
@@ -118,7 +128,7 @@ def validate_values(config, values):
 
 def validate_tile(tile, pyramid):
     """
-    Validate tile and return BufferedTile object
+    Return BufferedTile object.
 
     Parameters
     ----------
@@ -144,7 +154,7 @@ def validate_tile(tile, pyramid):
 
 def validate_bufferedtilepyramid(pyramid):
     """
-    Pyramid is BufferedTilePyramid.
+    Return BufferedTilePyramid.
 
     Parameters
     ----------
@@ -166,7 +176,7 @@ def validate_bufferedtilepyramid(pyramid):
 
 def validate_crs(crs):
     """
-    Validate crs is rasterio.crs.CRS.
+    Return crs as rasterio.crs.CRS.
 
     Parameters
     ----------
@@ -192,12 +202,22 @@ def validate_crs(crs):
         raise TypeError("invalid CRS given")
 
 
+def validate_write_window_params(in_tile, out_tile, in_data, out_profile):
+    """Raise Exception if write window parameters are invalid."""
+    if any([not isinstance(t, BufferedTile) for t in [in_tile, out_tile]]):
+        raise TypeError("in_tile and out_tile must be BufferedTile")
+    if not isinstance(in_data, ma.MaskedArray):
+        raise TypeError("in_data must be ma.MaskedArray")
+    if not isinstance(out_profile, dict):
+        raise TypeError("out_profile must be a dictionary")
+
+
 ##############
 # decorators #
 ##############
 
 def deprecated_kwargs(func):
-    """Decorator for open() functions warning of keyword argument usage"""
+    """Decorator for open() functions warning of keyword argument usage."""
     def func_wrapper(*args, **kwargs):
         if kwargs:
             warnings.warn(

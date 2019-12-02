@@ -52,7 +52,7 @@ from mapchete.io.raster import (
     extract_from_array, read_raster_window
 )
 from mapchete.tile import BufferedTile
-from mapchete._validate import deprecated_kwargs
+from mapchete.validate import deprecated_kwargs
 
 
 logger = logging.getLogger(__name__)
