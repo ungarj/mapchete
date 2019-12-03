@@ -182,6 +182,48 @@ def test_baselevels(mp_tmpdir, baselevels):
         ])
 
 
+def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
+    """Baselevel interpolation."""
+    fill_value = -32768.0
+    with mapchete.open(baselevels_custom_nodata.path, mode="continue") as mp:
+        # process data before getting baselevels
+        mp.batch_process()
+
+        # get tile from lower zoom level
+        for tile in mp.get_process_tiles(4):
+            lower_tile = mp.get_raw_output(tile)
+            assert not lower_tile.mask.all()
+            # assert fill_value is set and all data are not 0
+            assert lower_tile.fill_value == fill_value
+            assert lower_tile.data.all()
+            # write for next zoom level
+            mp.write(tile, lower_tile)
+            parent_tile = mp.get_raw_output(tile.get_parent())
+            assert not parent_tile.mask.all()
+            # assert fill_value is set and all data are not 0
+            assert parent_tile.fill_value == fill_value
+            assert parent_tile.data.all()
+
+        # get tile from higher zoom level
+        tile = next(mp.get_process_tiles(6))
+        # process and save
+        mp.write(tile, mp.get_raw_output(tile))
+        # read from baselevel
+        assert any([
+            not mp.get_raw_output(upper_tile).mask.all()
+            for upper_tile in tile.get_children()
+        ])
+        # assert fill_value is set and all data are not 0
+        assert all([
+            mp.get_raw_output(upper_tile).fill_value == fill_value
+            for upper_tile in tile.get_children()
+        ])
+        assert all([
+            mp.get_raw_output(upper_tile).data.all()
+            for upper_tile in tile.get_children()
+        ])
+
+
 def test_update_baselevels(mp_tmpdir, baselevels):
     """Baselevel interpolation."""
     conf = dict(baselevels.dict)

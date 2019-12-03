@@ -286,9 +286,12 @@ class GTiffTileDirectoryOutputReader(
         profile = self.profile(process_tile)
         return ma.masked_array(
             data=np.full(
-                (profile["count"], ) + process_tile.shape, profile["nodata"],
-                dtype=profile["dtype"]),
-            mask=True
+                (profile["count"], ) + process_tile.shape,
+                profile["nodata"],
+                dtype=profile["dtype"]
+            ),
+            mask=True,
+            fill_value=profile["nodata"]
         )
 
     def profile(self, tile=None):

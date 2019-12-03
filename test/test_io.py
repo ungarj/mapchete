@@ -342,9 +342,9 @@ def test_write_raster_window_errors():
 def test_extract_from_array():
     """Extract subdata from array."""
     in_tile = BufferedTilePyramid("geodetic", metatiling=4).tile(5, 5, 5)
-    shape = (in_tile.shape[0]//2, in_tile.shape[1])
+    shape = (in_tile.shape[0] // 2, in_tile.shape[1])
     data = ma.masked_array(
-        np.concatenate([np.ones(shape), np.ones(shape)*2])
+        np.concatenate([np.ones(shape), np.ones(shape) * 2])
     )
     # intersecting at top
     out_tile = BufferedTilePyramid("geodetic").tile(5, 20, 20)
@@ -386,6 +386,8 @@ def test_resample_from_array():
     in_data = (np.ones(in_tile.shape[1:]), )
     out_tile = BufferedTilePyramid("geodetic").tile(6, 10, 10)
     out_array = resample_from_array(in_data, in_tile.affine, out_tile)
+    # deprecated
+    resample_from_array(in_data, in_tile.affine, out_tile, nodataval=-9999)
     # errors
     with pytest.raises(TypeError):
         in_data = "invalid_type"

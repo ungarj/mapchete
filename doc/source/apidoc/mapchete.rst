@@ -22,6 +22,7 @@ Submodules
    mapchete.index
    mapchete.log
    mapchete.tile
+   mapchete.validate
 
 Module contents
 ---------------
