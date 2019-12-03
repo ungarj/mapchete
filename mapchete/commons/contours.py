@@ -11,8 +11,8 @@ def extract_contours(array, tile, interval=100, field='elev', base=0):
     ----------
     array : array
         input elevation data
-    tile : Tile
-        tile covering the array
+    mp : mapchete.MapcheteProcess
+        process object
     interval : integer
         elevation value interval when drawing contour lines
     field : string

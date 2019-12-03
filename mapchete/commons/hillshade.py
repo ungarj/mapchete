@@ -107,8 +107,8 @@ def hillshade(elevation, tile, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0, )
     altitude = float(altitude)
     z = float(z)
     scale = float(scale)
-    xres = tile.tile.pixel_x_size
-    yres = -tile.tile.pixel_y_size
+    xres = tile.pixel_x_size
+    yres = -tile.pixel_y_size
     slope, aspect = calculate_slope_aspect(
         elevation,
         xres,
@@ -117,13 +117,16 @@ def hillshade(elevation, tile, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0, )
         scale=scale
     )
     deg2rad = math.pi / 180.0
+    # shaded has values between -1.0 and +1.0
     shaded = np.sin(altitude * deg2rad) * np.sin(slope) \
         + np.cos(altitude * deg2rad) * np.cos(slope) \
         * np.cos((azimuth - 90.0) * deg2rad - aspect)
-    # shaded now has values between -1.0 and +1.0
-    # stretch to 0 - 255 and invert
-    shaded = (((shaded + 1.0) / 2) * -255.0).astype("uint8")
-    # add one pixel padding using the edge values
+    # stretch to 0 - 255 and add one pixel padding using the edge values
     return ma.masked_array(
-        data=np.pad(shaded, 1, mode='edge'), mask=elevation.mask
+        data=np.pad(
+            np.clip(shaded * 255.0, 1, 255).astype("uint8"),
+            1,
+            mode='edge'
+        ),
+        mask=elevation.mask
     )

@@ -193,14 +193,12 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         return ma.masked_values(np.zeros(process_tile.shape), 0)
 
     def _prepare_array(self, data):
-        data = prepare_array(
-            -(data - 255), dtype="uint8", masked=False, nodata=0)
+        data = prepare_array(-(data - 255), dtype="uint8", masked=False, nodata=0)[0]
+        zeros = np.zeros(data.shape)
         if self.old_band_num:
-            data = np.stack((
-                np.zeros(data[0].shape), np.zeros(data[0].shape),
-                np.zeros(data[0].shape), data[0]))
+            data = np.stack([zeros, zeros, zeros, data])
         else:
-            data = np.stack((np.zeros(data[0].shape), data[0]))
+            data = np.stack([zeros, data])
         return prepare_array(data, dtype="uint8", masked=True, nodata=255)
 
 
