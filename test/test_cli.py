@@ -593,10 +593,10 @@ def test_serve(client, mp_tmpdir):
         response = client.get(url)
         assert response.status_code == 200
     for url in [
-        tile_base_url+"5/30/62.png",
-        tile_base_url+"5/30/63.png",
-        tile_base_url+"5/31/62.png",
-        tile_base_url+"5/31/63.png",
+        tile_base_url + "5/30/62.png",
+        tile_base_url + "5/30/63.png",
+        tile_base_url + "5/31/62.png",
+        tile_base_url + "5/31/63.png",
     ]:
         response = client.get(url)
         assert response.status_code == 200
@@ -604,8 +604,8 @@ def test_serve(client, mp_tmpdir):
         with MemoryFile(img) as memfile:
             with memfile.open() as dataset:
                 data = dataset.read()
-                # get alpha band and assert not all are masked
-                assert not data[3].all()
+                # get alpha band and assert some pixels are masked
+                assert data[3].any()
     # test outside zoom range
     response = client.get(tile_base_url + "6/31/63.png")
     assert response.status_code == 200
@@ -613,7 +613,7 @@ def test_serve(client, mp_tmpdir):
     with MemoryFile(img) as memfile:
         with memfile.open() as dataset:
             data = dataset.read()
-            assert not data.any()
+            assert not data.all()
     # test invalid url
     response = client.get(tile_base_url + "invalid_url")
     assert response.status_code == 404
