@@ -1,5 +1,4 @@
 import logging
-from rasterio.dtypes import dtype_ranges
 
 logger = logging.getLogger(__name__)
 
@@ -7,23 +6,24 @@ logger = logging.getLogger(__name__)
 def execute(
     mp,
     resampling="nearest",
+    azimuth=315.0,
+    altitude=45.0,
+    z=1.0,
+    scale=1.0,
     td_matching_method="gdal",
     td_matching_max_zoom=None,
     td_matching_precision=8,
     td_fallback_to_higher_zoom=False,
     clip_pixelbuffer=0,
-    scale_ratio=1.,
-    scale_offset=0.,
-    clip_to_output_dtype=None,
     **kwargs
 ):
     """
-    Convert and optionally clip input raster data.
+    Extract contour lines from DEM.
 
     Inputs
     ------
-    raster
-        Singleband or multiband data input.
+    dem
+        Input DEM.
     clip (optional)
         Vector data used to clip output.
 
@@ -31,6 +31,15 @@ def execute(
     ----------
     resampling : str (default: 'nearest')
         Resampling used when reading from TileDirectory.
+    azimuth : float
+        Light source direction in degrees. (default: 315, top left)
+    altitude : float
+        Light source altitude angle in degrees. (default: 45)
+    z : float
+        Vertical DEM exaggeration factor. (default: 1)
+    scale : float
+        Scale factor of pixel size units versus height units (insert 112000
+        when having elevation values in meters in a geodetic projection).
     td_matching_method : str ('gdal' or 'min') (default: 'gdal')
         gdal: Uses GDAL's standard method. Here, the target resolution is
             calculated by averaging the extent's pixel sizes over both x and y
@@ -51,12 +60,6 @@ def execute(
         areas with no data.
     clip_pixelbuffer : int
         Use pixelbuffer when clipping output by geometry. (default: 0)
-    scale_ratio : float
-        Scale factor for input values. (default: 1.0)
-    scale_offset : float
-        Offset to add to input values. (default: 0.0)
-    clip_to_output_dtype : str
-        Clip output values to range of given dtype. (default: None)
 
     Output
     ------
@@ -71,32 +74,31 @@ def execute(
     else:
         clip_geom = []
 
-    with mp.open("raster",) as raster:
+    with mp.open("dem",) as dem:
         logger.debug("reading input raster")
-        raster_data = raster.read(
+        dem_data = dem.read(
             resampling=resampling,
             matching_method=td_matching_method,
             matching_max_zoom=td_matching_max_zoom,
             matching_precision=td_matching_precision,
             fallback_to_higher_zoom=td_fallback_to_higher_zoom
         )
-        if raster_data.mask.all():
+        if dem_data.mask.all():
             logger.debug("raster empty")
             return "empty"
 
-    if scale_offset != 0.:
-        logger.debug("apply scale offset %s", scale_offset)
-        raster_data = raster_data.astype("float64", copy=False) + scale_offset
-    if scale_ratio != 1.:
-        logger.debug("apply scale ratio %s", scale_ratio)
-        raster_data = raster_data.astype("float64", copy=False) * scale_ratio
-    if (scale_offset != 0. or scale_ratio != 1.) and clip_to_output_dtype in dtype_ranges:
-        logger.debug("clip to output dtype ranges")
-        raster_data.clip(*dtype_ranges[clip_to_output_dtype], out=raster_data)
+    logger.debug("calculate hillshade")
+    hillshade = mp.hillshade(
+        dem_data,
+        azimuth=azimuth,
+        altitude=altitude,
+        z=z,
+        scale=scale,
+    )
 
     if clip_geom:
         logger.debug("clipping output with geometry")
         # apply original nodata mask and clip
-        return mp.clip(raster_data, clip_geom, clip_buffer=clip_pixelbuffer)
+        return mp.clip(hillshade, clip_geom, clip_buffer=clip_pixelbuffer)
     else:
-        return raster_data
+        return hillshade

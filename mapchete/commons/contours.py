@@ -3,22 +3,28 @@
 from shapely.geometry import LineString, mapping
 
 
-def extract_contours(array, tile, interval=100, field='elev', base=0):
+def extract_contours(
+    array,
+    tile,
+    interval=100,
+    field='elev',
+    base=0
+):
     """
     Extract contour lines from an array.
 
     Parameters
     ----------
     array : array
-        input elevation data
-    mp : mapchete.MapcheteProcess
-        process object
+        Input elevation data.
+    tile : Tile
+        Tile covering the array.
     interval : integer
-        elevation value interval when drawing contour lines
+        Elevation value interval when drawing contour lines.
     field : string
-        output field name containing elevation value
+        Output field name containing elevation value.
     base : integer
-        elevation base value the intervals are computed from
+        Elevation base value the intervals are computed from.
 
     Returns
     -------
