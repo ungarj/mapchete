@@ -86,21 +86,32 @@ def calculate_slope_aspect(elevation, xres, yres, z=1.0, scale=1.0):
     return slope, aspect
 
 
-def hillshade(elevation, tile, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0, ):
+def hillshade(
+    elevation,
+    tile,
+    azimuth=315.0,
+    altitude=45.0,
+    z=1.0,
+    scale=1.0,
+):
     """
     Return hillshaded numpy array.
 
     Parameters
     ----------
     elevation : array
-        input elevation data
+        Input elevation data.
     tile : Tile
-        tile covering the array
+        Tile covering the array.
+    azimuth : float
+        Light source direction in degrees. (default: 315, top left)
+    altitude : float
+        Light source altitude angle in degrees. (default: 45)
     z : float
-        vertical exaggeration factor
+        Vertical DEM exaggeration factor. (default: 1)
     scale : float
-        scale factor of pixel size units versus height units (insert 112000
-        when having elevation values in meters in a geodetic projection)
+        Scale factor of pixel size units versus height units (insert 112000
+        when having elevation values in meters in a geodetic projection).
     """
     elevation = elevation[0] if elevation.ndim == 3 else elevation
     azimuth = float(azimuth)
