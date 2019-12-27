@@ -568,6 +568,9 @@ def resample_from_array(
         (in_raster.shape[0], ) + out_tile.shape,
         in_raster.dtype
     )
+    logger.debug(in_raster)
+    logger.debug(in_affine)
+    logger.debug(out_tile.affine)
     reproject(
         in_raster.filled(),
         dst_data,
@@ -579,7 +582,10 @@ def resample_from_array(
         dst_nodata=nodata,
         resampling=Resampling[resampling]
     )
-    return ma.MaskedArray(dst_data, mask=dst_data == nodata, fill_value=nodata)
+    logger.debug(dst_data)
+    hanse = ma.MaskedArray(dst_data, mask=dst_data == nodata, fill_value=nodata)
+    logger.debug(hanse)
+    return hanse
 
 
 def create_mosaic(tiles, nodata=0):
@@ -629,6 +635,7 @@ def create_mosaic(tiles, nodata=0):
     pyramid, resolution, dtype = _get_tiles_properties(tiles)
     # just handle antimeridian on global pyramid types
     shift = _shift_required(tiles)
+    logger.debug("shift: %s" % shift)
     # determine mosaic shape and reference
     m_left, m_bottom, m_right, m_top = None, None, None, None
     for tile, data in tiles:
@@ -677,12 +684,33 @@ def create_mosaic(tiles, nodata=0):
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = np.where(
             data.mask, existing_mask, data.mask
         )
+
     if shift:
         # shift back output mosaic
-        affine = Affine(resolution, 0, m_left - pyramid.x_size / 2, 0, -resolution, m_top)
+        m_left -= pyramid.x_size / 2
+        m_right -= pyramid.x_size / 2
+
+    crosses_left, crosses_right = m_left < pyramid.left, m_right > pyramid.right
+    if crosses_left or crosses_right:
+        # mosaic crosses Antimeridian
+        logger.debug("mosaic crosses Antimeridian")
+        if crosses_left:
+            left_distance = abs(pyramid.left - m_left)
+            right_distance = abs(pyramid.left - m_right)
+            if left_distance > right_distance:
+                m_left += pyramid.x_size
+                m_right += pyramid.x_size
+        if crosses_right:
+            left_distance = abs(m_left - pyramid.right)
+            right_distance = abs(m_right - pyramid.right)
+            if right_distance > left_distance:
+                m_left -= pyramid.x_size
+                m_right -= pyramid.x_size
+        
+    logger.debug(Bounds(m_left, m_bottom, m_right, m_top))
     return ReferencedRaster(
         data=mosaic,
-        affine=affine,
+        affine=Affine(resolution, 0, m_left, 0, -resolution, m_top),
         bounds=Bounds(m_left, m_bottom, m_right, m_top),
         crs=tile.crs
     )
