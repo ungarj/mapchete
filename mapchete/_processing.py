@@ -13,7 +13,7 @@ from mapchete.config import get_process_func
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
 from mapchete._timer import Timer
-from mapchete._validate import deprecated_kwargs
+from mapchete.validate import deprecated_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ class TileProcess():
                     in_affine=parent_tile.affine,
                     out_tile=self.tile,
                     resampling=self.config_baselevels["higher"],
-                    nodataval=self.output_reader.output_params["nodata"]
+                    nodata=self.output_reader.output_params["nodata"]
                 )
             # resample from children tiles
             elif baselevel == "lower":
@@ -150,16 +150,19 @@ class TileProcess():
                     lower_tiles = [
                         y for y in chain(*[x.get_children() for x in output_tiles])
                     ]
-                mosaic = raster.create_mosaic([
-                    (lower_tile, self.output_reader.read(lower_tile))
-                    for lower_tile in lower_tiles
-                ])
+                mosaic = raster.create_mosaic(
+                    [
+                        (lower_tile, self.output_reader.read(lower_tile))
+                        for lower_tile in lower_tiles
+                    ],
+                    nodata=self.output_reader.output_params["nodata"]
+                )
                 process_data = raster.resample_from_array(
                     in_raster=mosaic.data,
                     in_affine=mosaic.affine,
                     out_tile=self.tile,
                     resampling=self.config_baselevels["lower"],
-                    nodataval=self.output_reader.output_params["nodata"]
+                    nodata=self.output_reader.output_params["nodata"]
                 )
         logger.debug((self.tile.id, "generated from baselevel", str(t)))
         return process_data
@@ -286,7 +289,9 @@ class MapcheteProcess(object):
         -------
         hillshade : array
         """
-        return commons_hillshade.hillshade(elevation, self, azimuth, altitude, z, scale)
+        return commons_hillshade.hillshade(
+            elevation, self.tile, azimuth, altitude, z, scale
+        )
 
     def contours(
         self, elevation, interval=100, field='elev', base=0

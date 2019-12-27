@@ -21,7 +21,7 @@ with open('README.rst') as f:
     readme = f.read()
 
 
-def parse_requirements(file):
+def _parse_requirements(file):
     return sorted(set(
         line.partition('#')[0].strip()
         for line in open(os.path.join(os.path.dirname(__file__), file))
@@ -62,12 +62,14 @@ setup(
         ],
         'mapchete.processes': [
             'example_process=mapchete.processes.examples.example_process',
-            'convert=mapchete.processes.convert'
+            'contours=mapchete.processes.contours',
+            'convert=mapchete.processes.convert',
+            'hillshade=mapchete.processes.hillshade'
         ]
     },
     package_dir={'static': 'static'},
     package_data={'mapchete.static': ['*']},
-    install_requires=parse_requirements('requirements.txt') if not on_rtd else [],
+    install_requires=_parse_requirements('requirements.txt') if not on_rtd else [],
     extras_require={
         'contours': ['matplotlib'],
         's3': ['boto3'],

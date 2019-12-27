@@ -230,14 +230,14 @@ class InputTile(base.InputTile):
 
     def read(
         self,
+        indexes=None,
+        resampling="nearest",
         tile_directory_zoom=None,
         matching_method="gdal",
         matching_max_zoom=None,
         matching_precision=8,
         fallback_to_higher_zoom=False,
-        resampling="nearest",
         validity_check=False,
-        indexes=None,
         dst_nodata=None,
         gdal_opts=None,
         **kwargs

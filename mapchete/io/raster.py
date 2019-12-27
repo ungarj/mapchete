@@ -21,6 +21,7 @@ import warnings
 
 from mapchete.tile import BufferedTile
 from mapchete.io import path_is_remote, get_gdal_options, path_exists
+from mapchete.validate import validate_write_window_params
 
 
 logger = logging.getLogger(__name__)
@@ -360,7 +361,7 @@ class RasterWindowMemoryFile():
     ):
         """Prepare data & profile."""
         out_tile = out_tile or in_tile
-        _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
+        validate_write_window_params(in_tile, out_tile, in_data, out_profile)
         self.data = extract_from_array(
             in_raster=in_data,
             in_affine=in_tile.affine,
@@ -415,7 +416,7 @@ def write_raster_window(
             "Please use RasterWindowMemoryFile."
         )
     out_tile = out_tile or in_tile
-    _validate_write_window_params(in_tile, out_tile, in_data, out_profile)
+    validate_write_window_params(in_tile, out_tile, in_data, out_profile)
 
     # extract data
     window_data = extract_from_array(
@@ -468,15 +469,6 @@ def _write_tags(dst, tags):
                 dst.update_tags(**{k: v})
 
 
-def _validate_write_window_params(in_tile, out_tile, in_data, out_profile):
-    if any([not isinstance(t, BufferedTile) for t in [in_tile, out_tile]]):
-        raise TypeError("in_tile and out_tile must be BufferedTile")
-    if not isinstance(in_data, ma.MaskedArray):
-        raise TypeError("in_data must be ma.MaskedArray")
-    if not isinstance(out_profile, dict):
-        raise TypeError("out_profile must be a dictionary")
-
-
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     """
     Extract raster data window array.
@@ -517,7 +509,8 @@ def resample_from_array(
     out_tile=None,
     in_crs=None,
     resampling="nearest",
-    nodataval=0
+    nodataval=None,
+    nodata=0
 ):
     """
     Extract and resample from array to target tile.
@@ -529,18 +522,21 @@ def resample_from_array(
     out_tile : ``BufferedTile``
     resampling : string
         one of rasterio's resampling methods (default: nearest)
-    nodataval : integer or float
+    nodata : integer or float
         raster nodata value (default: 0)
 
     Returns
     -------
     resampled array : array
     """
+    if nodataval is not None:
+        warnings.warn("'nodataval' is deprecated, please use 'nodata'")
+        nodata = nodata or nodataval
     # TODO rename function
     if isinstance(in_raster, ma.MaskedArray):
         pass
-    if isinstance(in_raster, np.ndarray):
-        in_raster = ma.MaskedArray(in_raster, mask=in_raster == nodataval)
+    elif isinstance(in_raster, np.ndarray):
+        in_raster = ma.MaskedArray(in_raster, mask=in_raster == nodata)
     elif isinstance(in_raster, ReferencedRaster):
         in_affine = in_raster.affine
         in_crs = in_raster.crs
@@ -548,13 +544,15 @@ def resample_from_array(
     elif isinstance(in_raster, tuple):
         in_raster = ma.MaskedArray(
             data=np.stack(in_raster),
-            mask=np.stack([
-                band.mask
-                if isinstance(band, ma.masked_array)
-                else np.where(band == nodataval, True, False)
-                for band in in_raster
-            ]),
-            fill_value=nodataval
+            mask=np.stack(
+                [
+                    band.mask
+                    if isinstance(band, ma.masked_array)
+                    else np.where(band == nodata, True, False)
+                    for band in in_raster
+                ]
+            ),
+            fill_value=nodata
         )
     else:
         raise TypeError("wrong input data type: %s" % type(in_raster))
@@ -564,29 +562,32 @@ def resample_from_array(
         pass
     else:
         raise TypeError("input array must have 2 or 3 dimensions")
-    if in_raster.fill_value != nodataval:
-        ma.set_fill_value(in_raster, nodataval)
-    out_shape = (in_raster.shape[0], ) + out_tile.shape
-    dst_data = np.empty(out_shape, in_raster.dtype)
-    in_raster = ma.masked_array(
-        data=in_raster.filled(), mask=in_raster.mask, fill_value=nodataval
+    if in_raster.fill_value != nodata:
+        ma.set_fill_value(in_raster, nodata)
+    dst_data = np.empty(
+        (in_raster.shape[0], ) + out_tile.shape,
+        in_raster.dtype
     )
     reproject(
-        in_raster,
+        in_raster.filled(),
         dst_data,
         src_transform=in_affine,
         src_crs=in_crs or out_tile.crs,
+        src_nodata=nodata,
         dst_transform=out_tile.affine,
         dst_crs=out_tile.crs,
+        dst_nodata=nodata,
         resampling=Resampling[resampling]
     )
-    return ma.MaskedArray(dst_data, mask=dst_data == nodataval)
+    return ma.MaskedArray(dst_data, mask=dst_data == nodata, fill_value=nodata)
 
 
 def create_mosaic(tiles, nodata=0):
     """
-    Create a mosaic from tiles. Tiles must be connected (also possible over Antimeridian),
-    otherwise strange things can happen!
+    Create a mosaic from tiles.
+
+    Tiles must be connected (also possible over Antimeridian), otherwise strange things
+    can happen!
 
     Parameters
     ----------
@@ -766,7 +767,7 @@ def _shift_required(tiles):
         else:
             # look at column gaps and try to determine the smallest distance
             def gen_groups(items):
-                """Groups tile columns by sequence."""
+                """Group tile columns by sequence."""
                 j = items[0]
                 group = [j]
                 for i in items[1:]:

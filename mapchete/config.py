@@ -27,7 +27,7 @@ from shapely.ops import cascaded_union
 from tilematrix._funcs import Bounds
 import warnings
 
-from mapchete._validate import (
+from mapchete.validate import (
     validate_bounds, validate_zooms, validate_values, validate_bufferedtilepyramid
 )
 from mapchete.errors import (

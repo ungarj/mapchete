@@ -1,5 +1,6 @@
 import logging
-from rasterio.dtypes import dtype_ranges
+from shapely.geometry import mapping, shape
+from shapely.ops import unary_union
 
 logger = logging.getLogger(__name__)
 
@@ -7,23 +8,23 @@ logger = logging.getLogger(__name__)
 def execute(
     mp,
     resampling="nearest",
+    interval=100,
+    field='elev',
+    base=0,
     td_matching_method="gdal",
     td_matching_max_zoom=None,
     td_matching_precision=8,
     td_fallback_to_higher_zoom=False,
     clip_pixelbuffer=0,
-    scale_ratio=1.,
-    scale_offset=0.,
-    clip_to_output_dtype=None,
     **kwargs
 ):
     """
-    Convert and optionally clip input raster data.
+    Generate hillshade from DEM.
 
     Inputs
     ------
-    raster
-        Singleband or multiband data input.
+    dem
+        Input DEM.
     clip (optional)
         Vector data used to clip output.
 
@@ -31,6 +32,12 @@ def execute(
     ----------
     resampling : str (default: 'nearest')
         Resampling used when reading from TileDirectory.
+    interval : integer
+        Elevation value interval when drawing contour lines.
+    field : string
+        Output field name containing elevation value.
+    base : integer
+        Elevation base value the intervals are computed from.
     td_matching_method : str ('gdal' or 'min') (default: 'gdal')
         gdal: Uses GDAL's standard method. Here, the target resolution is
             calculated by averaging the extent's pixel sizes over both x and y
@@ -51,16 +58,10 @@ def execute(
         areas with no data.
     clip_pixelbuffer : int
         Use pixelbuffer when clipping output by geometry. (default: 0)
-    scale_ratio : float
-        Scale factor for input values. (default: 1.0)
-    scale_offset : float
-        Offset to add to input values. (default: 0.0)
-    clip_to_output_dtype : str
-        Clip output values to range of given dtype. (default: None)
 
     Output
     ------
-    np.ndarray
+    list of GeoJSON-like features
     """
     # read clip geometry
     if "clip" in mp.params["input"]:
@@ -71,32 +72,45 @@ def execute(
     else:
         clip_geom = []
 
-    with mp.open("raster",) as raster:
+    with mp.open("dem",) as dem:
         logger.debug("reading input raster")
-        raster_data = raster.read(
+        dem_data = dem.read(
             resampling=resampling,
             matching_method=td_matching_method,
             matching_max_zoom=td_matching_max_zoom,
             matching_precision=td_matching_precision,
             fallback_to_higher_zoom=td_fallback_to_higher_zoom
         )
-        if raster_data.mask.all():
+        if dem_data.mask.all():
             logger.debug("raster empty")
             return "empty"
 
-    if scale_offset != 0.:
-        logger.debug("apply scale offset %s", scale_offset)
-        raster_data = raster_data.astype("float64", copy=False) + scale_offset
-    if scale_ratio != 1.:
-        logger.debug("apply scale ratio %s", scale_ratio)
-        raster_data = raster_data.astype("float64", copy=False) * scale_ratio
-    if (scale_offset != 0. or scale_ratio != 1.) and clip_to_output_dtype in dtype_ranges:
-        logger.debug("clip to output dtype ranges")
-        raster_data.clip(*dtype_ranges[clip_to_output_dtype], out=raster_data)
+    logger.debug("calculate hillshade")
+    contours = mp.contours(
+        dem_data,
+        interval=interval,
+        field=field,
+        base=base,
+    )
 
     if clip_geom:
         logger.debug("clipping output with geometry")
-        # apply original nodata mask and clip
-        return mp.clip(raster_data, clip_geom, clip_buffer=clip_pixelbuffer)
+        # use inverted clip geometry to extract contours
+        clip_geom = mp.tile.bbox.difference(
+            unary_union(
+                [shape(i["geometry"]) for i in clip_geom]
+            ).buffer(clip_pixelbuffer * mp.tile.pixel_x_size)
+        )
+        out_contours = []
+        for contour in contours:
+            out_geom = shape(contour["geometry"]).intersection(clip_geom)
+            if not out_geom.is_empty:
+                out_contours.append(
+                    dict(
+                        contour,
+                        geometry=mapping(out_geom),
+                    )
+                )
+        return out_contours
     else:
-        return raster_data
+        return contours

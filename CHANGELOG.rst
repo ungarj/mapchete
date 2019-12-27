@@ -7,6 +7,9 @@ Changelog
 ----
 * don't raise exception when one of the registered processes cannot be imported (#225)
 * don't close pool between zoom levels (#227)
+* ``_validate`` module renamed to ``validate`` (#230)
+* fix inverted hillshade & misleading tile reference (#229)
+* fix custom nodata values in overviews (#235)
 
 ----
 0.30
