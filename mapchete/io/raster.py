@@ -690,23 +690,19 @@ def create_mosaic(tiles, nodata=0):
         m_left -= pyramid.x_size / 2
         m_right -= pyramid.x_size / 2
 
-    crosses_left, crosses_right = m_left < pyramid.left, m_right > pyramid.right
-    if crosses_left or crosses_right:
+    # if mosaic crosses Antimeridian, make sure the mosaic output bounds are based on the
+    # hemisphere of the Antimeridian with the larger mosaic intersection
+    if m_left < pyramid.left or m_right > pyramid.right:
         # mosaic crosses Antimeridian
         logger.debug("mosaic crosses Antimeridian")
-        if crosses_left:
-            left_distance = abs(pyramid.left - m_left)
-            right_distance = abs(pyramid.left - m_right)
-            if left_distance > right_distance:
-                m_left += pyramid.x_size
-                m_right += pyramid.x_size
-        if crosses_right:
-            left_distance = abs(m_left - pyramid.right)
-            right_distance = abs(m_right - pyramid.right)
-            if right_distance > left_distance:
-                m_left -= pyramid.x_size
-                m_right -= pyramid.x_size
-        
+        left_distance = abs(pyramid.left - m_left)
+        right_distance = abs(pyramid.left - m_right)
+        # per default, the mosaic is placed on the right side of the Antimeridian, so we
+        # only need to move the bounds in case the larger part of the mosaic is on the
+        # left side
+        if left_distance > right_distance:
+            m_left += pyramid.x_size
+            m_right += pyramid.x_size
     logger.debug(Bounds(m_left, m_bottom, m_right, m_top))
     return ReferencedRaster(
         data=mosaic,
