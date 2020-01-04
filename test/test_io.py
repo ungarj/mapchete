@@ -14,6 +14,7 @@ from rasterio.errors import RasterioIOError
 from shapely.errors import TopologicalError
 from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString
 from shapely.ops import unary_union
+from tilematrix import Bounds
 from itertools import product
 
 import mapchete
@@ -451,12 +452,36 @@ def test_create_mosaic():
     assert isinstance(mosaic, ReferencedRaster)
     assert np.array_equal(data, mosaic.data)
     assert tile.affine == mosaic.affine
-    # multiple tiles
+    zoom = 5
+    # multiple tiles on top left corner of tile matrix
     for pixelbuffer in [0, 10]:
         tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
         tiles = [
-            (tp.tile(5, row, col), np.ones(tp.tile(5, row, col).shape))
+            (tp.tile(zoom, row, col), np.ones(tp.tile(zoom, row, col).shape))
             for row, col in product(range(4), range(4))
+        ]
+        # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
+        # also use tile generator
+        mosaic = create_mosaic((t for t in tiles))
+        assert isinstance(mosaic, ReferencedRaster)
+        assert np.all(np.where(mosaic.data == 1, True, False))
+        mosaic_bbox = box(
+            mosaic.affine[2],
+            mosaic.affine[5] + mosaic.data.shape[1] * mosaic.affine[4],
+            mosaic.affine[2] + mosaic.data.shape[2] * mosaic.affine[0],
+            mosaic.affine[5]
+        )
+        control_bbox = box(*unary_union([t.bbox for t, _ in tiles]).bounds)
+        assert mosaic_bbox.equals(control_bbox)
+    # multiple tiles on bottom right corner of tile matrix
+    for pixelbuffer in [0, 10]:
+        tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
+        tiles = [
+            (tp.tile(zoom, row, col), np.ones(tp.tile(zoom, row, col).shape))
+            for row, col in product(
+                range(tp.matrix_height(zoom) - 4, tp.matrix_height(zoom)),
+                range(tp.matrix_width(zoom) - 4, tp.matrix_width(zoom))
+            )
         ]
         # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
         # also use tile generator
@@ -480,18 +505,68 @@ def test_create_mosaic_antimeridian():
     pixelbuffer = 5
     tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
     west = tp.tile(zoom, row, 0)
-    east = tp.tile(zoom, row, tp.matrix_width(zoom)-1)
+    east = tp.tile(zoom, row, tp.matrix_width(zoom) - 1)
     mosaic = create_mosaic([
         (west, np.ones(west.shape).astype("uint8")),
         (east, np.ones(east.shape).astype("uint8") * 2)
     ])
     assert isinstance(mosaic, ReferencedRaster)
-    # Huge array gets initialized because the two tiles are on opposing sides
-    # of the projection area. The below test should pass if the tiles are
-    # stitched together next to each other.
-    assert mosaic.data.shape == (1, west.height, west.width*2-2*pixelbuffer)
+
+    # Huge array gets initialized because the two tiles are on opposing sides of the
+    # projection area. The below test should pass if the tiles are stitched together next
+    # to each other.
+    assert mosaic.data.shape == (1, west.height, west.width * 2 - 2 * pixelbuffer)
     assert mosaic.data[0][0][0] == 2
     assert mosaic.data[0][0][-1] == 1
+
+    # If tiles from opposing sides from Antimeridian are mosaicked it will happen that the
+    # output mosaic exceeds the CRS bounds (obviously). In such a case the mosaicking
+    # function shall make sure that the larger part of the output mosaic shall be inside
+    # the CRS bounds.
+
+    # (1) mosaic crosses Antimeridian in the West, larger part is on Western hemisphere:
+    tiles_ids = [
+        # Western hemisphere tiles
+        (zoom, row, 0),
+        (zoom, row, 1),
+        # Eastern hemisphere tile
+        (zoom, row, tp.matrix_width(zoom) - 1),
+    ]
+    tiles = [
+        (tp.tile(*tile_id), np.ones(tp.tile(*tile_id).shape))
+        for tile_id in tiles_ids
+    ]
+    mosaic = create_mosaic(tiles)
+    control_bounds = Bounds(
+        # Eastern tile has to be shifted
+        -(360 - tp.tile(*tiles_ids[2]).left),
+        tp.tile(*tiles_ids[2]).bottom,
+        tp.tile(*tiles_ids[1]).right,
+        tp.tile(*tiles_ids[1]).top,
+    )
+    assert mosaic.bounds == control_bounds
+
+    # (2) mosaic crosses Antimeridian in the West, larger part is on Eastern hemisphere:
+    tiles_ids = [
+        # Western hemisphere tile
+        (zoom, row, 0),
+        # Eastern hemisphere tiles
+        (zoom, row, tp.matrix_width(zoom) - 1),
+        (zoom, row, tp.matrix_width(zoom) - 2),
+    ]
+    tiles = [
+        (tp.tile(*tile_id), np.ones(tp.tile(*tile_id).shape))
+        for tile_id in tiles_ids
+    ]
+    mosaic = create_mosaic(tiles)
+    control_bounds = Bounds(
+        tp.tile(*tiles_ids[2]).left,
+        tp.tile(*tiles_ids[2]).bottom,
+        # Western tile has to be shifted
+        360 + tp.tile(*tiles_ids[0]).right,
+        tp.tile(*tiles_ids[0]).top,
+    )
+    assert mosaic.bounds == control_bounds
 
 
 def test_prepare_array_iterables():
