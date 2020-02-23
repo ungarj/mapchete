@@ -6,6 +6,7 @@ import os
 import pytest
 import rasterio
 from rasterio.io import MemoryFile
+from rio_cogeo.cogeo import cog_validate
 import shutil
 from tilematrix import Bounds
 
@@ -313,3 +314,67 @@ def test_output_single_gtiff_overviews(output_single_gtiff):
     with rasterio.open(mp.config.output.path) as src:
         assert src.overviews(1)
         assert src.tags(ns='rio_overview').get('resampling') == "bilinear"
+
+
+def test_output_single_gtiff_cog(output_single_gtiff_cog):
+    tile_id = (5, 3, 7)
+    with mapchete.open(output_single_gtiff_cog.dict) as mp:
+        process_tile = mp.config.process_pyramid.tile(*tile_id)
+        # basic functions
+        assert mp.config.output.profile()
+        assert mp.config.output.empty(process_tile).mask.all()
+        assert mp.config.output.get_path(process_tile)
+        # check if tile exists
+        assert not mp.config.output.tiles_exist(process_tile)
+        # write
+        mp.batch_process(multi=2)
+        # check if tile exists
+        assert mp.config.output.tiles_exist(process_tile)
+        # read again, this time with data
+        data = mp.config.output.read(process_tile)
+        assert isinstance(data, np.ndarray)
+        assert not data[0].mask.all()
+        # write empty array
+        data = ma.masked_array(
+            data=np.ones(process_tile.shape),
+            mask=np.ones(process_tile.shape),
+        )
+        mp.config.output.write(process_tile, data)
+    assert os.path.isfile(mp.config.output.path)
+    assert cog_validate(mp.config.output.path, strict=True)
+
+
+def test_output_single_gtiff_cog_tempfile(output_single_gtiff_cog):
+    tile_id = (5, 3, 7)
+    with mapchete.open(
+        dict(
+            output_single_gtiff_cog.dict,
+            output=dict(
+                output_single_gtiff_cog.dict["output"],
+                in_memory=False
+            )
+        )
+    ) as mp:
+        process_tile = mp.config.process_pyramid.tile(*tile_id)
+        # basic functions
+        assert mp.config.output.profile()
+        assert mp.config.output.empty(process_tile).mask.all()
+        assert mp.config.output.get_path(process_tile)
+        # check if tile exists
+        assert not mp.config.output.tiles_exist(process_tile)
+        # write
+        mp.batch_process(multi=2)
+        # check if tile exists
+        assert mp.config.output.tiles_exist(process_tile)
+        # read again, this time with data
+        data = mp.config.output.read(process_tile)
+        assert isinstance(data, np.ndarray)
+        assert not data[0].mask.all()
+        # write empty array
+        data = ma.masked_array(
+            data=np.ones(process_tile.shape),
+            mask=np.ones(process_tile.shape),
+        )
+        mp.config.output.write(process_tile, data)
+    assert os.path.isfile(mp.config.output.path)
+    assert cog_validate(mp.config.output.path, strict=True)

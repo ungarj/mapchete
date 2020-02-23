@@ -426,6 +426,13 @@ def output_single_gtiff():
 
 
 @pytest.fixture
+def output_single_gtiff_cog():
+    """Fixture for output_single_gtiff_cog.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "output_single_gtiff_cog.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)

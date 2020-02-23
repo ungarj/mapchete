@@ -31,6 +31,7 @@ compress: string
 """
 
 from affine import Affine
+from contextlib import ExitStack
 import logging
 import math
 import numpy as np
@@ -38,15 +39,18 @@ import numpy.ma as ma
 import os
 import rasterio
 from rasterio.enums import Resampling
+from rasterio.io import MemoryFile
+from rasterio.shutil import copy
 from rasterio.windows import from_bounds
 from shapely.geometry import box
+from tempfile import NamedTemporaryFile
 from tilematrix import Bounds
 import warnings
 
 from mapchete.config import validate_values, snap_bounds
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import get_boto3_bucket, path_exists
+from mapchete.io import get_boto3_bucket, path_exists, path_is_remote
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs,
     extract_from_array, read_raster_window
@@ -70,6 +74,7 @@ GTIFF_DEFAULT_PROFILE = {
     "interleave": "band",
     "nodata": 0
 }
+IN_MEMORY_THRESHOLD = int(os.environ.get("MP_IN_MEMORY_THRESHOLD", 20000 * 20000))
 
 
 class OutputDataReader():
@@ -398,13 +403,14 @@ class GTiffSingleFileOutputWriter(
     def __init__(self, output_params, **kwargs):
         """Initialize."""
         logger.debug("output is single file")
-        self.rio_file = None
+        self.dst = None
         super().__init__(output_params, **kwargs)
         self._set_attributes(output_params)
         if len(self.output_params["delimiters"]["zoom"]) != 1:
             raise ValueError("single file output only works with one zoom level")
         self.zoom = output_params["delimiters"]["zoom"][0]
-        if "overviews" in output_params:
+        self.cog = output_params.get("cog", False)
+        if self.cog or "overviews" in output_params:
             self.overviews = True
             self.overviews_resampling = output_params.get(
                 "overviews_resampling", "nearest"
@@ -414,6 +420,7 @@ class GTiffSingleFileOutputWriter(
             )
         else:
             self.overviews = False
+        self.in_memory = output_params.get("in_memory", True)
 
     def prepare(self, process_area=None, **kwargs):
         bounds = snap_bounds(
@@ -454,8 +461,11 @@ class GTiffSingleFileOutputWriter(
             }
         )
         logger.debug("single GTiff profile: %s", self._profile)
-        if height * width > 20000 * 20000:
-            raise ValueError("output GeoTIFF too big")
+        self.in_memory = (
+            self.in_memory
+            if self.in_memory is False
+            else height * width < IN_MEMORY_THRESHOLD
+        )
         # set up rasterio
         if path_exists(self.path):
             if self.output_params["mode"] != "overwrite":
@@ -466,7 +476,22 @@ class GTiffSingleFileOutputWriter(
                 logger.debug("remove existing file: %s", self.path)
                 os.remove(self.path)
         logger.debug("open output file: %s", self.path)
-        self.rio_file = rasterio.open(self.path, "w+", **self._profile)
+        self._ctx = ExitStack()
+        # (1) use memfile if output is remote or COG
+        if self.cog or path_is_remote(self.path):
+            if self.in_memory:
+                self._memfile = self._ctx.enter_context(MemoryFile())
+                self.dst = self._ctx.enter_context(self._memfile.open(**self._profile))
+            else:
+                # in case output raster is too big, use tempfile on disk
+                self._tempfile = self._ctx.enter_context(NamedTemporaryFile())
+                self.dst = self._ctx.enter_context(
+                    rasterio.open(self._tempfile.name, "w+", **self._profile)
+                )
+        else:
+            self.dst = self._ctx.enter_context(
+                rasterio.open(self.path, "w+", **self._profile)
+            )
 
     def read(self, output_tile, **kwargs):
         """
@@ -481,7 +506,7 @@ class GTiffSingleFileOutputWriter(
         -------
         NumPy array
         """
-        return read_raster_window(self.rio_file, output_tile)
+        return read_raster_window(self.dst, output_tile)
 
     def get_path(self, tile=None):
         """
@@ -547,13 +572,13 @@ class GTiffSingleFileOutputWriter(
                 out_tile = BufferedTile(tile, self.pixelbuffer)
                 write_window = from_bounds(
                     *out_tile.bounds,
-                    transform=self.rio_file.transform,
-                    height=self.rio_file.height,
-                    width=self.rio_file.width
+                    transform=self.dst.transform,
+                    height=self.dst.height,
+                    width=self.dst.width
                 ).round_lengths(pixel_precision=0).round_offsets(pixel_precision=0)
-                if _window_in_out_file(write_window, self.rio_file):
+                if _window_in_out_file(write_window, self.dst):
                     logger.debug("write data to window: %s", write_window)
-                    self.rio_file.write(
+                    self.dst.write(
                         extract_from_array(
                             in_raster=data,
                             in_affine=process_tile.affine,
@@ -574,23 +599,45 @@ class GTiffSingleFileOutputWriter(
         return self._profile
 
     def close(self, exc_type=None, exc_value=None, exc_traceback=None):
-        """Gets called if process is closed."""
+        """Build overviews and write file."""
         try:
-            if not exc_type and self.overviews and self.rio_file is not None:
-                logger.debug(
-                    "build overviews using %s resampling and levels %s",
-                    self.overviews_resampling, self.overviews_levels
-                )
-                self.rio_file.build_overviews(
-                    self.overviews_levels, Resampling[self.overviews_resampling]
-                )
-                self.rio_file.update_tags(
-                    ns='rio_overview', resampling=self.overviews_resampling
-                )
+            if not exc_type:
+                # build overviews
+                if self.overviews and self.dst is not None:
+                    logger.debug(
+                        "build overviews using %s resampling and levels %s",
+                        self.overviews_resampling, self.overviews_levels
+                    )
+                    self.dst.build_overviews(
+                        self.overviews_levels, Resampling[self.overviews_resampling]
+                    )
+                    self.dst.update_tags(
+                        ns='rio_overview', resampling=self.overviews_resampling
+                    )
+                # write
+                if self.cog:
+                    if path_is_remote(self.path):
+                        # remote COG: copy to memfile and upload to destination
+                        1/0
+                    else:
+                        # local COG: copy to destination
+                        logger.debug("copy memory file to destination")
+                        copy(
+                            self.dst,
+                            self.path,
+                            copy_src_overviews=True,
+                            **self._profile
+                        )
+                else:
+                    if path_is_remote(self.path):
+                        # remote GTiff: upload memfile or tempfile to destination
+                        1/0
+                    else:
+                        # local GTiff: already written, do nothing
+                        pass
+
         finally:
-            if self.rio_file is not None:
-                logger.debug("close rasterio file handle.")
-                self.rio_file.close()
+            self._ctx.close()
 
 
 def _window_in_out_file(window, rio_file):
