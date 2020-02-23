@@ -194,6 +194,17 @@ class MapcheteConfig(object):
         if mode not in ["memory", "continue", "readonly", "overwrite"]:
             raise MapcheteConfigError("unknown mode %s" % mode)
         self.mode = mode
+        # don't inititalize inputs on readonly mode or if only overviews are going to be
+        # built
+        self._init_inputs = False if (
+            self.mode == "readonly" or (
+                not len(
+                    set(self.baselevels["zooms"]).intersection(set(self.init_zoom_levels))
+                )
+                if self.baselevels
+                else False
+            )
+        ) else True
 
         # (5) prepare process parameters per zoom level without initializing
         # input and output classes
@@ -344,8 +355,13 @@ class MapcheteConfig(object):
         """
         Input items used for process stored in a dictionary.
 
-        Keys are the hashes of the input parameters, values the respective
-        InputData classes.
+        Keys are the hashes of the input parameters, values the respective InputData
+        classes.
+
+        If process mode is `readonly` or if only overviews are about to be built, no
+        inputs are required and thus not initialized due to performance reasons. However,
+        process bounds which otherwise are dependant on input bounds, may change if not
+        explicitly provided in process configuration.
         """
         # get input items only of initialized zoom levels
         raw_inputs = OrderedDict([
@@ -359,62 +375,59 @@ class MapcheteConfig(object):
             if v is not None
         ])
 
-        init_as_readonly = (
-            self.mode == "readonly" or
-            (
-                # in case only overview levels are about to be built
-                not len(
-                    set(self.baselevels["zooms"]).intersection(set(self.init_zoom_levels))
-                )
-                if self.baselevels
-                else False
-            )
-        )
-
         initalized_inputs = OrderedDict()
-        for k, v in raw_inputs.items():
 
-            # for files and tile directories
-            if isinstance(v, str):
-                logger.debug("load input reader for simple input %s",  v)
-                try:
-                    reader = load_input_reader(
-                        dict(
-                            path=absolute_path(path=v, base_dir=self.config_dir),
-                            pyramid=self.process_pyramid,
-                            pixelbuffer=self.process_pyramid.pixelbuffer,
-                            delimiters=self._delimiters
-                        ),
-                        readonly=init_as_readonly
-                    )
-                except Exception as e:
-                    logger.exception(e)
-                    raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
-                logger.debug("input reader for simple input %s is %s", v, reader)
+        if self._init_inputs:
+            for k, v in raw_inputs.items():
+                # for files and tile directories
+                if isinstance(v, str):
+                    logger.debug("load input reader for simple input %s",  v)
+                    try:
+                        reader = load_input_reader(
+                            dict(
+                                path=absolute_path(path=v, base_dir=self.config_dir),
+                                pyramid=self.process_pyramid,
+                                pixelbuffer=self.process_pyramid.pixelbuffer,
+                                delimiters=self._delimiters
+                            ),
+                            readonly=self.mode == "readonly"
+                        )
+                    except Exception as e:
+                        logger.exception(e)
+                        raise MapcheteDriverError(
+                            "error when loading input %s: %s" % (v, e)
+                        )
+                    logger.debug("input reader for simple input %s is %s", v, reader)
 
-            # for abstract inputs
-            elif isinstance(v, dict):
-                logger.debug("load input reader for abstract input %s", v)
-                try:
-                    reader = load_input_reader(
-                        dict(
-                            abstract=deepcopy(v),
-                            pyramid=self.process_pyramid,
-                            pixelbuffer=self.process_pyramid.pixelbuffer,
-                            delimiters=self._delimiters,
-                            conf_dir=self.config_dir
-                        ),
-                        readonly=init_as_readonly
-                    )
-                except Exception as e:
-                    logger.exception(e)
-                    raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
-                logger.debug("input reader for abstract input %s is %s", v, reader)
-            else:
-                raise MapcheteConfigError("invalid input type %s", type(v))
-            # trigger bbox creation
-            reader.bbox(out_crs=self.process_pyramid.crs)
-            initalized_inputs[k] = reader
+                # for abstract inputs
+                elif isinstance(v, dict):
+                    logger.debug("load input reader for abstract input %s", v)
+                    try:
+                        reader = load_input_reader(
+                            dict(
+                                abstract=deepcopy(v),
+                                pyramid=self.process_pyramid,
+                                pixelbuffer=self.process_pyramid.pixelbuffer,
+                                delimiters=self._delimiters,
+                                conf_dir=self.config_dir
+                            ),
+                            readonly=self.mode == "readonly"
+                        )
+                    except Exception as e:
+                        logger.exception(e)
+                        raise MapcheteDriverError(
+                            "error when loading input %s: %s" % (v, e)
+                        )
+                    logger.debug("input reader for abstract input %s is %s", v, reader)
+                else:
+                    raise MapcheteConfigError("invalid input type %s", type(v))
+                # trigger bbox creation
+                reader.bbox(out_crs=self.process_pyramid.crs)
+                initalized_inputs[k] = reader
+
+        else:
+            for k in raw_inputs.keys():
+                initalized_inputs[k] = None
 
         return initalized_inputs
 
@@ -532,6 +545,8 @@ class MapcheteConfig(object):
         -------
         process area : shapely geometry
         """
+        if not self._init_inputs:
+            return box(*self.process_pyramid.bounds)
         if zoom is None:
             if not self._cache_full_process_area:
                 logger.debug("calculate process area ...")
@@ -541,8 +556,7 @@ class MapcheteConfig(object):
             return self._cache_full_process_area
         else:
             if zoom not in self.init_zoom_levels:
-                raise ValueError(
-                    "zoom level not available with current configuration")
+                raise ValueError("zoom level not available with current configuration")
             return self._area_at_zoom(zoom)
 
     def _area_at_zoom(self, zoom):
