@@ -421,6 +421,9 @@ class GTiffSingleFileOutputWriter(
         else:
             self.overviews = False
         self.in_memory = output_params.get("in_memory", True)
+        _bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket_resource = get_boto3_bucket(_bucket) if _bucket else None
+
 
     def prepare(self, process_area=None, **kwargs):
         bounds = snap_bounds(
@@ -617,11 +620,22 @@ class GTiffSingleFileOutputWriter(
                 # write
                 if self.cog:
                     if path_is_remote(self.path):
-                        # remote COG: copy to memfile and upload to destination
-                        1/0
+                        # remote COG: copy to tempfile and upload to destination
+                        logger.debug("upload to %s", self.path)
+                        with NamedTemporaryFile() as tmp_dst:
+                            copy(
+                                self.dst,
+                                tmp_dst.name,
+                                copy_src_overviews=True,
+                                **self._profile
+                            )
+                            self._bucket_resource.upload_file(
+                                Filename=tmp_dst.name,
+                                Key="/".join(self.path.split("/")[3:]),
+                            )
                     else:
                         # local COG: copy to destination
-                        logger.debug("copy memory file to destination")
+                        logger.debug("write to %s", self.path)
                         copy(
                             self.dst,
                             self.path,
@@ -631,7 +645,17 @@ class GTiffSingleFileOutputWriter(
                 else:
                     if path_is_remote(self.path):
                         # remote GTiff: upload memfile or tempfile to destination
-                        1/0
+                        logger.debug("upload to %s", self.path)
+                        if self.in_memory:
+                            self._bucket_resource.put_object(
+                                Body=self._memfile,
+                                Key="/".join(self.path.split("/")[3:]),
+                            )
+                        else:
+                            self._bucket_resource.upload_file(
+                                Filename=self._tempfile.name,
+                                Key="/".join(self.path.split("/")[3:]),
+                            )
                     else:
                         # local GTiff: already written, do nothing
                         pass
