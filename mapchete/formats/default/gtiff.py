@@ -604,6 +604,7 @@ class GTiffSingleFileOutputWriter(
     def close(self, exc_type=None, exc_value=None, exc_traceback=None):
         """Build overviews and write file."""
         try:
+            # only in case no Exception was raised
             if not exc_type:
                 # build overviews
                 if self.overviews and self.dst is not None:
@@ -622,6 +623,11 @@ class GTiffSingleFileOutputWriter(
                     if path_is_remote(self.path):
                         # remote COG: copy to tempfile and upload to destination
                         logger.debug("upload to %s", self.path)
+                        # TODO this writes a memoryfile to disk and uploads the file,
+                        # this is inefficient but until we find a solution to copy
+                        # from one memoryfile to another the rasterio way (rasterio needs
+                        # to rearrange the data so the overviews are at the beginning of
+                        # the GTiff in order to be a valid COG).
                         with NamedTemporaryFile() as tmp_dst:
                             copy(
                                 self.dst,

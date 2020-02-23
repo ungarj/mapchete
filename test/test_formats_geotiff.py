@@ -243,10 +243,6 @@ def test_output_single_gtiff_errors(output_single_gtiff):
     with pytest.raises(ValueError):
         mapchete.open(dict(output_single_gtiff.dict, zoom_levels=[5, 6]))
 
-    # on zoom 13 with global extent, output raster would be too large
-    with pytest.raises(ValueError):
-        mapchete.open(dict(output_single_gtiff.dict, zoom_levels=13))
-
     # provide either process_tile or output_tile
     with mapchete.open(output_single_gtiff.path) as mp:
         tile = mp.config.process_pyramid.tile(5, 3, 7)
