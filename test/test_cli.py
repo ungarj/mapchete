@@ -7,6 +7,7 @@ import pytest
 from shapely import wkt
 import rasterio
 from rasterio.io import MemoryFile
+from rio_cogeo.cogeo import cog_validate
 import yaml
 
 import mapchete
@@ -282,6 +283,26 @@ def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
         data = src.read(masked=True)
         assert data.mask.any()
         assert not src.overviews(1)
+
+
+def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    single_gtiff = os.path.join(mp_tmpdir, "single_out_cog.tif")
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        single_gtiff,
+        "--output-pyramid", "geodetic",
+        "-z", "3",
+        "--cog"
+    ])
+    with rasterio.open(single_gtiff, "r") as src:
+        assert src.meta["driver"] == "GTiff"
+        assert src.meta["dtype"] == "uint16"
+        data = src.read(masked=True)
+        assert data.mask.any()
+    assert cog_validate(single_gtiff, strict=True)
+
 
 
 def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
