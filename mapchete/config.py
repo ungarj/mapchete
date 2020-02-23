@@ -193,14 +193,18 @@ class MapcheteConfig(object):
         # (4) set mode
         if mode not in ["memory", "continue", "readonly", "overwrite"]:
             raise MapcheteConfigError("unknown mode %s" % mode)
-        self.mode = "readonly" if (
-            # in case only overview levels are about to be built
-            not len(
-                set(self.baselevels["zooms"]).intersection(set(self.init_zoom_levels))
+        self.mode = mode
+        # don't inititalize inputs on readonly mode or if only overviews are going to be
+        # built
+        self._init_inputs = False if (
+            self.mode == "readonly" or (
+                not len(
+                    set(self.baselevels["zooms"]).intersection(set(self.init_zoom_levels))
+                )
+                if self.baselevels
+                else False
             )
-            if self.baselevels
-            else False
-        ) else mode
+        ) else True
 
         # (5) prepare process parameters per zoom level without initializing
         # input and output classes
@@ -373,11 +377,7 @@ class MapcheteConfig(object):
 
         initalized_inputs = OrderedDict()
 
-        if self.mode == "readonly":
-            for k in raw_inputs.keys():
-                initalized_inputs[k] = None
-
-        else:
+        if self._init_inputs:
             for k, v in raw_inputs.items():
                 # for files and tile directories
                 if isinstance(v, str):
@@ -424,6 +424,10 @@ class MapcheteConfig(object):
                 # trigger bbox creation
                 reader.bbox(out_crs=self.process_pyramid.crs)
                 initalized_inputs[k] = reader
+
+        else:
+            for k in raw_inputs.keys():
+                initalized_inputs[k] = None
 
         return initalized_inputs
 
@@ -541,7 +545,7 @@ class MapcheteConfig(object):
         -------
         process area : shapely geometry
         """
-        if self.mode == "readonly":
+        if not self._init_inputs:
             return box(*self.process_pyramid.bounds)
         if zoom is None:
             if not self._cache_full_process_area:
