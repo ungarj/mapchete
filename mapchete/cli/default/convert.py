@@ -86,7 +86,7 @@ OUTPUT_FORMATS = available_output_formats()
 @click.option(
     "--cog",
     is_flag=True,
-    help="If output is GTiff, write a valid COG."
+    help="Write a valid COG. This will automatically generate verviews. (GTiff only)"
 )
 @utils.opt_overwrite
 @utils.opt_verbose
