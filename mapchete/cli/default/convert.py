@@ -26,6 +26,14 @@ logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()
 
 
+def _validate_bidx(ctx, param, bidx):
+    if bidx:
+        try:
+            return list(map(int, bidx.split(",")))
+        except ValueError:
+            raise click.BadParameter("band indexes must be positive integer values")
+
+
 @click.command(help="Convert outputs or other geodata.")
 @utils.arg_input
 @utils.arg_output
@@ -37,6 +45,11 @@ OUTPUT_FORMATS = available_output_formats()
     "--clip-geometry", "-c",
     type=click.Path(exists=True),
     help="Clip output by geometry"
+)
+@click.option(
+    "--bidx",
+    callback=_validate_bidx,
+    help="Band indexes to copy."
 )
 @click.option(
     "--output-pyramid",
@@ -104,6 +117,7 @@ def convert(
     point=None,
     wkt_geometry=None,
     clip_geometry=None,
+    bidx=None,
     output_pyramid=None,
     output_metatiling=None,
     output_format=None,
@@ -177,7 +191,8 @@ def convert(
         zoom_levels=zoom or input_info["zoom_levels"],
         scale_ratio=scale_ratio,
         scale_offset=scale_offset,
-        resampling=resampling_method
+        resampling=resampling_method,
+        band_indexes=bidx
     )
 
     # assert all required information is there
@@ -187,6 +202,8 @@ def convert(
     if mapchete_config["output"]["format"] == "GTiff":
         mapchete_config["output"].update(cog=cog)
     output_type = OUTPUT_FORMATS[mapchete_config["output"]["format"]]["data_type"]
+    if bidx is not None:
+        mapchete_config["output"].update(bands=len(bidx))
     if mapchete_config["pyramid"] is None:
         raise click.BadOptionUsage("output-pyramid", "Output pyramid required.")
     elif mapchete_config["zoom_levels"] is None:

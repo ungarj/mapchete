@@ -267,6 +267,25 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
             assert data.mask.any()
 
 
+def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    single_gtiff = os.path.join(mp_tmpdir, "single_out_bidx.tif")
+    run_cli([
+        'convert',
+        cleantopo_br_tif,
+        single_gtiff,
+        "--output-pyramid", "geodetic",
+        "-z", "3",
+        "--bidx", "1"
+    ])
+    with rasterio.open(single_gtiff, "r") as src:
+        assert src.meta["driver"] == "GTiff"
+        assert src.meta["dtype"] == "uint16"
+        data = src.read(masked=True)
+        assert data.mask.any()
+        assert not src.overviews(1)
+
+
 def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
@@ -583,6 +602,19 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
         ],
         expected_exit_code=2,
         output_contains=("Could not determine output from extension"),
+        raise_exc=False
+    )
+
+    # malformed band index
+    run_cli(
+        [
+            'convert',
+            s2_band_jp2,
+            'output.tif',
+            "--bidx", "invalid"
+        ],
+        expected_exit_code=2,
+        output_contains=("Invalid value for \"--bidx\""),
         raise_exc=False
     )
 
