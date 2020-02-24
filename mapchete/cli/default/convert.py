@@ -83,6 +83,11 @@ OUTPUT_FORMATS = available_output_formats()
     default="cubic_spline",
     help="Resampling method used for overviews. (default: cubic_spline)"
 )
+@click.option(
+    "--cog",
+    is_flag=True,
+    help="Write a valid COG. This will automatically generate verviews. (GTiff only)"
+)
 @utils.opt_overwrite
 @utils.opt_verbose
 @utils.opt_no_pbar
@@ -109,6 +114,7 @@ def convert(
     resampling_method=None,
     overviews=False,
     overviews_resampling_method=None,
+    cog=False,
     overwrite=False,
     logfile=None,
     verbose=False,
@@ -178,6 +184,8 @@ def convert(
     if mapchete_config["output"]["format"] is None:
         # this happens if input file is e.g. JPEG2000 and output is a tile directory
         raise click.BadOptionUsage("output-format", "Output format required.")
+    if mapchete_config["output"]["format"] == "GTiff":
+        mapchete_config["output"].update(cog=cog)
     output_type = OUTPUT_FORMATS[mapchete_config["output"]["format"]]["data_type"]
     if mapchete_config["pyramid"] is None:
         raise click.BadOptionUsage("output-pyramid", "Output pyramid required.")

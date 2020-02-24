@@ -15,7 +15,7 @@ before_install:
   - export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 install:
   - pip install -e .[contours,s3,serve,vrt]
-  - pip install pytest coveralls pytest-cov pytest-flask
+  - pip install pytest coveralls pytest-cov pytest-flask rio-cogeo
 script:
   - pytest -v --cov mapchete test/
 after_success:
@@ -25,7 +25,7 @@ env:
     - secure: mruCUE32oWr5Kzy9FKIc+Lag/Hoq0ibZAjFZymQS98xh2gJSaQRbvkhfHhOuDKpfSNBdEvICcYHbtEf6waDjmKTu/2syfRNVoTDGNjAEstc7X0IHwi7cfuznRdNLxWpRqC9h/iJ3KRnDxMutcalasWTWNjx9xKPLO34ylH1pRTKdhTXSoVbRlwG53v4kH6arUTiJqk8M68czipumsdcLbPDyjuoply9LvV0yPTGu6VXuQWVptbPwi+5ZKGfsJ64iFeO/a1DRrBvtC5Gw1ZP56t31V9iaBSIbg+rYZ0JXoVukCJV+iMUVHcyjdDLvP6q25FBX9m6Npe2X/y3l988Q4Wyn3q4IwQn1JU1VoyiY1N9GkVWrrXUxvk+Oc7LR+IP2CY5K9fYlioXtsNukGHY0L4MtQMTSlOoNnhi5qHNxiiFFlC4o4sotGPpDa/vFqyJ8UkqpcFGKvI7m/vAlYWSPf2jYrF1yA5CglYw8V89EupBlI3Ha+zdIyNbgNYXJYWGcEmgD9oM3A8HXHMxXdhE/unWNykhnZQ9CPsIzK7q04qCUvR1m/+PUCeGqsWChsFDsICKFMLz0FuNuZkFvBSO3RuOUWxOCraYtBumZ5NgkD6ubwsB6WDtuEGvJuuGC9umKi9QbkSJlcjC+tcdyhBX01msicv1jxQTIt9+uKIVlbRY=
     - secure: dqUsCjzX1EjogDzE68tFuRAyE8SfzvWiAAn8IPPFQ0ZPEnN8oKv9lqVbnQdpQuFmvCAmnZJ2TFs5wS9Hbtg83Sths390YRYmE0MmBM8ab8SI9lU6vT8esKA/cD7Yq6FLJm25eASgG1DeVkn0HXBeAl1rIIwFpD7671xuLFT5c5fk2utF7boq9eZPTS7KMmqNTyCdRw45dyk+MOLrSUY29oRpFCqJsiwLo2k9hc4KtsMxHs820n8v4J5O+JazFXAfvtU3hiTBlE1up2jbJMEkiRV+oFEh1Kd3N/LbKRYIIVgThn4qyD+CgAjwDtGvRB4F6bZksseTT+ZhjOxSdS2QNgg4JbPQBu6VJ5tL6AbNtEYrIco6iN4MGsR9v/5/DTrzI+/Q3V/NQ6a0qrlU6mDvBIih4rwgPTO8iqv+RCKO+sRq+kMn35zRf6OcNctCQ2+VxbtrS9S0gakM1w2r6Dyosa9A5MfhjWSPl05xuXSyov2XxR6n5KjZAhW1z98wUlfmgGFA5YMR/p51xFwPBJ83ZW43HEERBQucDp1GDoWRSHDJub47qCTA89qCb+ehWWbxvoeTt1m+jiwXXsxrfeCXyIHKC3367dPxCbs+ebkBBE+v9jxwsvq10BaVZLeIcCW7xj5XYeMT9tZ8fA9kwm2OcQWia8+LZZDmO+zqCCIdz8U=
   matrix:
-    - RASTERIO_VERSION="1.0.21"
+    - RASTERIO_VERSION="1.0.28"
     - RASTERIO_VERSION="latest"
 
 matrix:

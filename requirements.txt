@@ -7,7 +7,7 @@ fiona>=1.8b1
 numpy>=1.16
 oyaml
 retry
-rasterio>=1.0.21
+rasterio>=1.0.28
 shapely
 tilematrix>=0.20
 tqdm
