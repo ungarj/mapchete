@@ -461,7 +461,8 @@ class GTiffSingleFileOutputWriter(
             **{
                 k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
                 for k in GTIFF_DEFAULT_PROFILE.keys()
-            }
+            },
+            bigtiff=self.output_params.get("bigtiff", "NO")
         )
         logger.debug("single GTiff profile: %s", self._profile)
         self.in_memory = (
