@@ -47,12 +47,13 @@ offsets to raster data.
       -g, --wkt-geometry TEXT         Take boundaries from WKT geometry in tile
                                       pyramid CRS.
       -c, --clip-geometry PATH        Clip output by geometry
-      --output-pyramid [geodetic|mercator]
+      --bidx TEXT                     Band indexes to copy.
+      --output-pyramid [mercator|geodetic]
                                       Output pyramid to write to.
       --output-metatiling INTEGER     Output metatiling.
-      --output-format [GeoJSON|xarray|GTiff|PNG_hillshade|PNG]
+      --output-format [GTiff|PNG_hillshade|xarray|GeoJSON|PNG]
                                       Output format.
-      --output-dtype [uint32|float32|int16|int8|uint16|float64|int32|uint8]
+      --output-dtype [int8|int16|float64|int32|uint8|uint32|uint16|float32]
                                       Output data type (for raster output only).
       --co, --profile NAME=VALUE      Driver specific creation options.See the
                                       documentation for the selected output driver

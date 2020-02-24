@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 def execute(
     mp,
     resampling="nearest",
+    band_indexes=None,
     td_matching_method="gdal",
     td_matching_max_zoom=None,
     td_matching_precision=8,
@@ -31,6 +32,8 @@ def execute(
     ----------
     resampling : str (default: 'nearest')
         Resampling used when reading from TileDirectory.
+    band_indexes : list
+        Bands to be read.
     td_matching_method : str ('gdal' or 'min') (default: 'gdal')
         gdal: Uses GDAL's standard method. Here, the target resolution is
             calculated by averaging the extent's pixel sizes over both x and y
@@ -74,6 +77,7 @@ def execute(
     with mp.open("raster",) as raster:
         logger.debug("reading input raster")
         raster_data = raster.read(
+            indexes=band_indexes,
             resampling=resampling,
             matching_method=td_matching_method,
             matching_max_zoom=td_matching_max_zoom,
