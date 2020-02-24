@@ -605,6 +605,19 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
         raise_exc=False
     )
 
+    # malformed band index
+    run_cli(
+        [
+            'convert',
+            s2_band_jp2,
+            'output.tif',
+            "--bidx", "invalid"
+        ],
+        expected_exit_code=2,
+        output_contains=("Could not determine output from extension"),
+        raise_exc=False
+    )
+
 
 def test_serve_cli_params(cleantopo_br, mp_tmpdir):
     """Test whether different CLI params pass."""
