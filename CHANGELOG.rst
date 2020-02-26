@@ -5,7 +5,6 @@ Changelog
 ----
 0.32
 ----
-changes:
 * default process bounds are now bounds of the process pyramid instead of union of inputs (#242)
 * fix overview pixelbuffer error at Antimeridian (#241)
 * increased rasterio dependency to version `1.0.28`
