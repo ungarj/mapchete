@@ -567,3 +567,9 @@ def test_bufferedtiles():
     assert a != tp_buffered.tile(5, 5, 5)
 
     assert a.get_neighbors() != a.get_neighbors(connectedness=4)
+
+
+def test_inputs_as_args(mp_tmpdir, inputs_as_args):
+    config = inputs_as_args.dict
+    with mapchete.open(config) as mp:
+        mp.execute((7, 61, 129))
