@@ -381,7 +381,7 @@ class MapcheteConfig(object):
             for k, v in raw_inputs.items():
                 # for files and tile directories
                 if isinstance(v, str):
-                    logger.debug("load input reader for simple input %s",  v)
+                    logger.debug("load input reader for simple input %s", v)
                     try:
                         reader = load_input_reader(
                             dict(
@@ -481,10 +481,24 @@ class MapcheteConfig(object):
         )
 
     def get_process_func_params(self, zoom):
-        return {
-            k: v for k, v in self.params_at_zoom(zoom).items()
+        all_params = self.params_at_zoom(zoom)
+        custom_params = {
+            k: v for k, v in all_params.items()
             if k in inspect.signature(self.process_func).parameters
         }
+        inputs = {
+            k: v for k, v in all_params["input"].items()
+            if k in inspect.signature(self.process_func).parameters
+        }
+        intersecting = set(custom_params).intersection(set(inputs))
+        if intersecting:
+            raise MapcheteConfigError(
+                "custom parameters and inputs cannot have the same key: %s" % intersecting
+            )
+        return dict(
+            inputs,
+            **custom_params,
+        )
 
     def get_inputs_for_tile(self, tile):
 

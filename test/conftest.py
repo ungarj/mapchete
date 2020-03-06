@@ -433,6 +433,13 @@ def output_single_gtiff_cog():
 
 
 @pytest.fixture
+def inputs_as_args():
+    """Fixture for inputs_as_args.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "inputs_as_args.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)

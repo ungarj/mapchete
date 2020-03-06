@@ -1,5 +1,6 @@
 from collections import namedtuple
 from functools import partial
+import inspect
 from itertools import chain
 import logging
 import multiprocessing
@@ -87,18 +88,39 @@ class TileProcess():
         process_func = get_process_func(
             process_path=self.process_path, config_dir=self.config_dir
         )
+        mp_obj = MapcheteProcess(
+            tile=self.tile,
+            params=self.process_func_params,
+            input=self.input,
+            output_params=self.output_params
+        )
+
+        def _open_input(i):
+            """Helper function to unpack input groups."""
+            ip = self.input[i]
+            if self.input[ip] is None:
+                return None
+            elif isinstance(ip, dict):
+                return {k: _open_input(v) for k, v in ip.items()}
+            else:
+                return mp_obj.open(ip)
         try:
             with Timer() as t:
+                print(self.process_func_params)
+                params = []
+                for p in inspect.signature(process_func).parameters:
+                    # magic mp object
+                    if p == "mp":
+                        params.append(mp_obj)
+                    # process input
+                    elif p in self.process_func_params and p in self.input:
+                        params.append(_open_input(mp_obj, p))
+                    # process parameter
+                    elif p in self.process_func_params:
+                        params.append(self.process_func_params[p])
+                print(params)
                 # Actually run process.
-                process_data = process_func(
-                    MapcheteProcess(
-                        tile=self.tile,
-                        params=self.process_func_params,
-                        input=self.input,
-                        output_params=self.output_params
-                    ),
-                    **self.process_func_params
-                )
+                process_data = process_func(*params)
         except MapcheteNodataTile:
             raise
         except Exception as e:

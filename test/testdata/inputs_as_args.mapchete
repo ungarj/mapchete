@@ -1,0 +1,40 @@
+# mandatory parameters
+######################
+# this is the location of user python code:
+process: inputs_as_args.py
+
+# zoom level range:
+zoom_levels:
+    min: 7
+    max: 11
+# or define single zoom level
+# zoom_levels: 5
+
+# geographical subset:
+# bounds: [1.0, 2.0, 3.0, 4.0]
+
+# output pyramid definition
+
+pyramid:
+    grid: geodetic
+    metatiling: 1 # can be 1, 2, 4, 8, 16 (default 1)
+
+
+input:
+    file1:
+        zoom>=10: dummy1.tif
+    file2: dummy2.tif
+output:
+    path: tmp/example
+    format: GTiff
+    dtype: float32
+    bands: 1
+
+# free parameters
+#################
+some_integer_parameter: 12
+some_float_parameter: 5.3
+some_string_parameter:
+    zoom<=7: string1
+    zoom>7: string2
+some_bool_parameter: true
