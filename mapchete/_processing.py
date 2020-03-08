@@ -1,6 +1,5 @@
 from collections import namedtuple
 from functools import partial
-import inspect
 from itertools import chain
 import logging
 import multiprocessing
@@ -94,31 +93,17 @@ class TileProcess():
             input=self.input,
             output_params=self.output_params
         )
-
-        def _open_input(i):
-            """Helper function to unpack input groups."""
-            ip = self.input[i]
-            if self.input[ip] is None:
-                return None
-            elif isinstance(ip, dict):
-                return {k: _open_input(v) for k, v in ip.items()}
-            else:
-                return mp_obj.open(ip)
         try:
             with Timer() as t:
-                print(self.process_func_params)
-                params = []
-                for p in inspect.signature(process_func).parameters:
+                params = [
                     # magic mp object
-                    if p == "mp":
-                        params.append(mp_obj)
+                    mp_obj if name == "mp"
                     # process input
-                    elif p in self.process_func_params and p in self.input:
-                        params.append(_open_input(mp_obj, p))
+                    else mp_obj.input[name] if name in mp_obj.input
                     # process parameter
-                    elif p in self.process_func_params:
-                        params.append(self.process_func_params[p])
-                print(params)
+                    else value
+                    for name, value in self.process_func_params.items()
+                ]
                 # Actually run process.
                 process_data = process_func(*params)
         except MapcheteNodataTile:

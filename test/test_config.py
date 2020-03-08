@@ -257,3 +257,11 @@ def test_init_zoom(cleantopo_br):
 
 def test_process_module(process_module):
     mapchete.open(process_module.dict)
+
+
+def test_inputs_as_args_intersection_error(mp_tmpdir, inputs_as_args):
+    config = inputs_as_args.dict
+    config.update(file1="some_str")
+    with pytest.raises(MapcheteConfigError):
+        with mapchete.open(config) as mp:
+            mp.execute((7, 61, 129))

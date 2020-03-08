@@ -313,7 +313,6 @@ def test_baselevels_output_buffer(mp_tmpdir, baselevels_output_buffer):
                 171.46155, -87.27184, 174.45159, -84.31281, transform=src.transform
             )
             subset = src.read(window=window, masked=True)
-            print(subset.shape)
             assert not subset.mask.any()
             pass
 
