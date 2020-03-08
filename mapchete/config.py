@@ -481,24 +481,54 @@ class MapcheteConfig(object):
         )
 
     def get_process_func_params(self, zoom):
-        all_params = self.params_at_zoom(zoom)
-        custom_params = {
-            k: v for k, v in all_params.items()
-            if k in inspect.signature(self.process_func).parameters
-        }
-        inputs = {
-            k: v for k, v in all_params["input"].items()
-            if k in inspect.signature(self.process_func).parameters
-        }
-        intersecting = set(custom_params).intersection(set(inputs))
+        """
+        Return process function parameters for zoom.
+
+        The dictionary returned is a snapshot for given zoom which combines custom process
+        parameters and input datasets.
+
+        This function also checks whether parameter names are also used as input names and
+        raises a MapcheteConfigError if this is the case.
+
+        Parameters
+        ----------
+        zoom : int
+            zoom level
+
+        Returns
+        -------
+        parameter map : dictionary
+        """
+        if zoom not in self.init_zoom_levels:
+            raise ValueError("zoom level not available with current configuration")
+        process_func_params = inspect.signature(self.process_func).parameters
+        all_config_params = self.params_at_zoom(zoom)
+
+        # look for config parameters which map on process function parameters
+        inputs = set(all_config_params["input"].keys()) & set(process_func_params)
+        custom_params = set(all_config_params.keys()) & set(process_func_params)
+
+        # verify no parameter name intersection is configured
+        intersecting = custom_params & inputs
         if intersecting:
             raise MapcheteConfigError(
                 "custom parameters and inputs cannot have the same key: %s" % intersecting
             )
-        return dict(
-            inputs,
-            **custom_params,
-        )
+
+        # bring all together
+        return OrderedDict([
+            # set mp value
+            (k, None) if k == "mp"
+            # input values from configuration
+            else (k, all_config_params["input"][k]) if k in all_config_params["input"]
+            # custom values from configuration
+            else (k, all_config_params[k]) if k in all_config_params
+            # default values from process function
+            else (k, v.default)
+            for k, v in process_func_params.items()
+            # excludes **kwargs from process function
+            if v.kind != v.VAR_KEYWORD
+        ])
 
     def get_inputs_for_tile(self, tile):
 
