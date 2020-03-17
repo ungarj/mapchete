@@ -1,6 +1,6 @@
 cachetools
 cached_property
-click>=7.0.0'
+click>=7.1.1
 click-plugins
 click-spinner
 fiona>=1.8b1
