@@ -613,7 +613,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             "--bidx", "invalid"
         ],
         expected_exit_code=2,
-        output_contains=("Invalid value for \"--bidx\""),
+        output_contains=("Invalid value for '--bidx'"),
         raise_exc=False
     )
 
