@@ -1,7 +1,7 @@
 """Install Mapchete."""
 
-from setuptools import find_packages, setup
 import os
+from setuptools import find_packages, setup
 
 # don't install dependencies when building win readthedocs
 on_rtd = os.environ.get("READTHEDOCS") == "True"
@@ -11,10 +11,8 @@ on_rtd = os.environ.get("READTHEDOCS") == "True"
 with open("mapchete/__init__.py") as f:
     for line in f:
         if line.find("__version__") >= 0:
-            version = line.split("=")[1].strip()
-            version = version.strip('"')
-            version = version.strip("'")
-            continue
+            version = line.split("=")[1].strip().strip('"').strip("'")
+            break
 
 # use README.rst for project long_description
 with open("README.rst") as f:
@@ -27,7 +25,7 @@ def _parse_requirements(file):
         for line in open(os.path.join(os.path.dirname(__file__), file))
     ) - set(""))
 
-
+# dependencies for extra features
 req_contours = ["matplotlib"]
 req_s3 = ["boto3"]
 req_serve = ["flask"]
