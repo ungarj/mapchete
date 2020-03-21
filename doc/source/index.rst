@@ -61,22 +61,19 @@ vector dataset could look like this:
 
     # content of hillshade.py
 
-    def execute(mp, resampling="nearest"):
+    def execute(mp, dem, land_polygons, resampling="nearest"):
 
-        # Open elevation model.
-        with mp.open("dem") as src:
-            # Skip tile if there is no data available or read data into a NumPy array.
-            if src.is_empty(1):
-                return "empty"
-            else:
-                dem = src.read(1, resampling=resampling)
+        # Skip tile if there is no data available or read data into a NumPy array.
+        if dem.is_empty(1):
+            return "empty"
+        else:
+            dem_data = dem.read(1, resampling=resampling)
 
         # Create hillshade using a built-in hillshade function.
-        hillshade = mp.hillshade(dem)
+        hillshade = mp.hillshade(dem_data)
 
         # Clip with polygons from vector file and return result.
-        with mp.open("land_polygons") as land_file:
-            return mp.clip(hillshade, land_file.read())
+        return mp.clip(hillshade, land_polygons.read())
 
 
 Examine the result in your browser by serving the process by pointing it to

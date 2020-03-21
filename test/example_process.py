@@ -1,13 +1,12 @@
 """Example process file."""
 
 
-def execute(mp):
+def execute(mp, file1):
     """User defined process."""
     # Reading and writing data works like this:
-    with mp.open("file1") as raster_file:
-        if raster_file.is_empty():
-            return "empty"
-            # This assures a transparent tile instead of a pink error tile
-            # is returned when using mapchete serve.
-        dem = raster_file.read(resampling="bilinear")
+    if file1.is_empty():
+        return "empty"
+        # This assures a transparent tile instead of a pink error tile
+        # is returned when using mapchete serve.
+    dem = file1.read(resampling="bilinear")
     return dem
