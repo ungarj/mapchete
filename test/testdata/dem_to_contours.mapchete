@@ -1,0 +1,17 @@
+process: mapchete.processes.contours
+zoom_levels: 3
+pyramid:
+    grid: geodetic
+input:
+    dem: cleantopo_landpoly.tif
+output:
+    grid: geodetic
+    format: GeoJSON
+    path: tmp/contours
+    data_type: vector
+    schema:
+        properties:
+            elev: int
+            id: int
+        geometry: Polygon
+interval: 1000
