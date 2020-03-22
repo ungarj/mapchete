@@ -7,6 +7,8 @@ logger = logging.getLogger(__name__)
 
 def execute(
     mp,
+    dem=None,
+    clip=None,
     resampling="nearest",
     interval=100,
     field='elev',
@@ -19,17 +21,14 @@ def execute(
     **kwargs
 ):
     """
-    Generate hillshade from DEM.
+    Generate contours from DEM.
 
-    Inputs
-    ------
+    Parameters
+    ----------
     dem
         Input DEM.
     clip (optional)
         Vector data used to clip output.
-
-    Parameters
-    ----------
     resampling : str (default: 'nearest')
         Resampling used when reading from TileDirectory.
     interval : integer
@@ -64,26 +63,25 @@ def execute(
     list of GeoJSON-like features
     """
     # read clip geometry
-    if "clip" in mp.params["input"]:
-        clip_geom = mp.open("clip").read()
+    if clip is None:
+        clip_geom = []
+    else:
+        clip_geom = clip.read()
         if not clip_geom:
             logger.debug("no clip data over tile")
             return "empty"
-    else:
-        clip_geom = []
 
-    with mp.open("dem",) as dem:
-        logger.debug("reading input raster")
-        dem_data = dem.read(
-            resampling=resampling,
-            matching_method=td_matching_method,
-            matching_max_zoom=td_matching_max_zoom,
-            matching_precision=td_matching_precision,
-            fallback_to_higher_zoom=td_fallback_to_higher_zoom
-        )
-        if dem_data.mask.all():
-            logger.debug("raster empty")
-            return "empty"
+    logger.debug("reading input raster")
+    dem_data = dem.read(
+        resampling=resampling,
+        matching_method=td_matching_method,
+        matching_max_zoom=td_matching_max_zoom,
+        matching_precision=td_matching_precision,
+        fallback_to_higher_zoom=td_fallback_to_higher_zoom
+    )
+    if dem_data.mask.all():
+        logger.debug("raster empty")
+        return "empty"
 
     logger.debug("calculate hillshade")
     contours = mp.contours(

@@ -155,6 +155,12 @@ def cleantopo_tl_tif():
 
 
 @pytest.fixture
+def cleantopo_landpoly_tif():
+    """Fixture for cleantopo_landpoly.tif"""
+    return os.path.join(TESTDATA_DIR, "cleantopo_landpoly.tif")
+
+
+@pytest.fixture
 def dummy1_3857_tif():
     """Fixture for dummy1_3857.tif"""
     return os.path.join(TESTDATA_DIR, "dummy1_3857.tif")
@@ -306,6 +312,13 @@ def mapchete_input():
 def dem_to_hillshade():
     """Fixture for dem_to_hillshade.mapchete."""
     path = os.path.join(TESTDATA_DIR, "dem_to_hillshade.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def dem_to_contours():
+    """Fixture for dem_to_contours.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "dem_to_contours.mapchete")
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 

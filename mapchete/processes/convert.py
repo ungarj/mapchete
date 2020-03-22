@@ -6,6 +6,8 @@ logger = logging.getLogger(__name__)
 
 def execute(
     mp,
+    raster=None,
+    clip=None,
     resampling="nearest",
     band_indexes=None,
     td_matching_method="gdal",
@@ -21,15 +23,12 @@ def execute(
     """
     Convert and optionally clip input raster data.
 
-    Inputs
-    ------
+    Parameters
+    ----------
     raster
         Singleband or multiband data input.
     clip (optional)
         Vector data used to clip output.
-
-    Parameters
-    ----------
     resampling : str (default: 'nearest')
         Resampling used when reading from TileDirectory.
     band_indexes : list
@@ -66,27 +65,26 @@ def execute(
     np.ndarray
     """
     # read clip geometry
-    if "clip" in mp.params["input"]:
-        clip_geom = mp.open("clip").read()
+    if clip is None:
+        clip_geom = []
+    else:
+        clip_geom = clip.read()
         if not clip_geom:
             logger.debug("no clip data over tile")
             return "empty"
-    else:
-        clip_geom = []
 
-    with mp.open("raster",) as raster:
-        logger.debug("reading input raster")
-        raster_data = raster.read(
-            indexes=band_indexes,
-            resampling=resampling,
-            matching_method=td_matching_method,
-            matching_max_zoom=td_matching_max_zoom,
-            matching_precision=td_matching_precision,
-            fallback_to_higher_zoom=td_fallback_to_higher_zoom
-        )
-        if raster_data.mask.all():
-            logger.debug("raster empty")
-            return "empty"
+    logger.debug("reading input raster")
+    raster_data = raster.read(
+        indexes=band_indexes,
+        resampling=resampling,
+        matching_method=td_matching_method,
+        matching_max_zoom=td_matching_max_zoom,
+        matching_precision=td_matching_precision,
+        fallback_to_higher_zoom=td_fallback_to_higher_zoom
+    )
+    if raster_data.mask.all():
+        logger.debug("raster empty")
+        return "empty"
 
     if scale_offset != 0.:
         logger.debug("apply scale offset %s", scale_offset)
