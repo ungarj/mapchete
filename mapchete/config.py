@@ -546,7 +546,7 @@ class MapcheteConfig(object):
         process area : shapely geometry
         """
         if not self._init_inputs:
-            return box(*self.process_pyramid.bounds)
+            return box(*self.init_bounds)
         if zoom is None:
             if not self._cache_full_process_area:
                 logger.debug("calculate process area ...")
