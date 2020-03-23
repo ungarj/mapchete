@@ -568,9 +568,6 @@ def resample_from_array(
         (in_raster.shape[0], ) + out_tile.shape,
         in_raster.dtype
     )
-    logger.debug(in_raster)
-    logger.debug(in_affine)
-    logger.debug(out_tile.affine)
     reproject(
         in_raster.filled(),
         dst_data,
@@ -582,10 +579,7 @@ def resample_from_array(
         dst_nodata=nodata,
         resampling=Resampling[resampling]
     )
-    logger.debug(dst_data)
-    hanse = ma.MaskedArray(dst_data, mask=dst_data == nodata, fill_value=nodata)
-    logger.debug(hanse)
-    return hanse
+    return ma.MaskedArray(dst_data, mask=dst_data == nodata, fill_value=nodata)
 
 
 def create_mosaic(tiles, nodata=0):
