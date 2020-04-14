@@ -8,6 +8,7 @@ import numpy as np
 import numpy.ma as ma
 import fiona
 from fiona.errors import DriverError
+import os
 from rasterio.crs import CRS
 from rasterio.enums import Compression
 from rasterio.errors import RasterioIOError
@@ -21,7 +22,7 @@ import mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.errors import GeometryTypeError
 from mapchete.io import (
-    get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level
+    get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level, path
 )
 from mapchete.io.raster import (
     read_raster_window, write_raster_window, extract_from_array,
@@ -864,7 +865,7 @@ def test_read_remote_json(s3_metadata_json, http_metadata_json):
     with pytest.raises(FileNotFoundError):
         read_json("s3://mapchete-test/invalid_metadata.json")
     with pytest.raises(FileNotFoundError):
-        read_json("https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/invalid_metadata.json")
+        read_json("https://ungarj.github.io/tiled_data/raster/cleantopo/invalid_metadata.json")
 
 
 def test_tile_to_zoom_level():
@@ -946,3 +947,60 @@ def test_tile_to_zoom_level():
             tp_merc,
             matching_method="invalid_method"
         )
+
+
+def test_path():
+    test_paths = [
+        {
+            "uri": "/vsicurl/https://ungarj.github.io/non-existing.tif",
+            "name": "/vsicurl/https://ungarj.github.io/non-existing.tif",
+            "path": "https://ungarj.github.io/non-existing.tif",
+            "gdal_prefix": "/vsicurl/",
+            "vsi_path": "/vsicurl/https://ungarj.github.io/non-existing.tif",
+            "is_remote": True
+        },
+        {
+            "uri": "https://ungarj.github.io/non-existing.tif",
+            "name": "https://ungarj.github.io/non-existing.tif",
+            "path": "https://ungarj.github.io/non-existing.tif",
+            "gdal_prefix": "/vsicurl/",
+            "vsi_path": "/vsicurl/https://ungarj.github.io/non-existing.tif",
+            "is_remote": True
+        },
+        {
+            "uri": "/vsis3/mapchete-test/non-existing.tif",
+            "name": "/vsis3/mapchete-test/non-existing.tif",
+            "path": "s3://mapchete-test/non-existing.tif",
+            "gdal_prefix": "/vsis3/",
+            "vsi_path": "/vsis3/mapchete-test/non-existing.tif",
+            "is_remote": True
+        },
+        {
+            "uri": "s3://mapchete-test/non-existing.tif",
+            "name": "s3://mapchete-test/non-existing.tif",
+            "path": "s3://mapchete-test/non-existing.tif",
+            "gdal_prefix": "/vsis3/",
+            "vsi_path": "/vsis3/mapchete-test/non-existing.tif",
+            "is_remote": True
+        },
+        {
+            "uri": "/some-local-path/file",
+            "name": "/some-local-path/file",
+            "path": "/some-local-path/file",
+            "gdal_prefix": None,
+            "vsi_path": "/some-local-path/file",
+            "is_remote": False
+        },
+    ]
+    for a in test_paths:
+        parsed = path.Path(a["uri"])
+        assert parsed.name == a["name"]
+        assert parsed.gdal_prefix == a["gdal_prefix"]
+        assert parsed.path == a["path"]
+        assert parsed.vsi_path == a["vsi_path"]
+        assert parsed.is_remote is a["is_remote"]
+        assert parsed.exists() is False
+
+    # not yet implemented remote url
+    with pytest.raises(ValueError):
+        path.Path("gs://mapchete-test/non-existing.tif")
