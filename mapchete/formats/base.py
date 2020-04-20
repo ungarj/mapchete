@@ -405,6 +405,10 @@ class TileDirectoryOutputReader(OutputDataReader):
         super().__init__(output_params, readonly=readonly)
         if not readonly:
             write_output_metadata(output_params)
+        self._cache = dict(
+            process_tiles=dict(),
+            output_tiles=dict()
+        )
 
     def tiles_exist(self, process_tile=None, output_tile=None):
         """
@@ -424,12 +428,18 @@ class TileDirectoryOutputReader(OutputDataReader):
         if process_tile and output_tile:
             raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
         if process_tile:
-            return any(
-                path_exists(self.get_path(tile))
-                for tile in self.pyramid.intersecting(process_tile)
-            )
+            if process_tile not in self._cache["process_tiles"]:
+                self._cache["process_tiles"][process_tile] = any(
+                    self.tiles_exist(output_tile=tile)
+                    for tile in self.pyramid.intersecting(process_tile)
+                )
+            return self._cache["process_tiles"][process_tile]
         if output_tile:
-            return path_exists(self.get_path(output_tile))
+            if output_tile not in self._cache["output_tiles"]:
+                self._cache["output_tiles"][output_tile] = path_exists(
+                    self.get_path(output_tile)
+                )
+            return self._cache["output_tiles"][output_tile]
 
     def _read_as_tiledir(
         self,
