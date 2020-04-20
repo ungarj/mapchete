@@ -1,10 +1,15 @@
 """Module to handle local and remote paths."""
+from collections import defaultdict
+import concurrent.futures
+import logging
 import os
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
 from mapchete.io._misc import get_boto3_bucket
 
+
+logger = logging.getLogger(__name__)
 
 REMOTE_SCHEMES = {
     "http://": "curl",
@@ -13,7 +18,7 @@ REMOTE_SCHEMES = {
 }
 
 
-class Path():
+class Path(str):
     """
     Class to abstract local and remote paths.
 
@@ -78,6 +83,20 @@ class Path():
         else:
             return self.path
 
+    @property
+    def bucket(self):
+        """Return bucket name in case of an S3 object."""
+        return self.path.split("/")[2] if self.scheme == "s3" else None
+
+    @property
+    def basekey(self):
+        """
+        Return basekey name in case of an S3 object.
+
+        e.g. from s3://my-bucket/foo/bar/ will return foo/bar/
+        """
+        return "/".join(self.path.split("/")[3:]) if self.scheme == "s3" else None
+
     def exists(self):
         """
         Return True if path exists locally or remotely.
@@ -95,6 +114,7 @@ class Path():
                     return False
                 else:
                     raise
+
         elif self.scheme == "s3":
             key = "/".join(self.path.split("/")[3:])
             for obj in get_boto3_bucket(self.path.split("/")[2]).objects.filter(
@@ -104,6 +124,7 @@ class Path():
                     return True
             else:
                 return False
+
         else:
             return os.path.exists(self.path)
 
@@ -149,15 +170,91 @@ class Path():
             return os.path.relpath(self.path, base)
 
 
-def paths_exist(paths):
+def process_tiles_exist(config=None, process_tiles=None):
     """
-    Check whether each path exists remotely or locally.
+    Yield process tiles and whether their output already exists or not.
 
-    Returns
-    -------
-    dict : keys are paths, values are True or False
+    The S3 part of the function are loosely inspired by
+    https://alexwlchan.net/2019/07/listing-s3-keys/
+
+    Parameters
+    ----------
+    config : mapchete.config.MapcheteConfig
+    process_tiles : iterator
+
+    Yields
+    ------
+    tuple : (process_tile, exists)
     """
-    raise NotImplementedError()
+    basepath = Path(config.output_reader.path)
+
+    # only on TileDirectories on S3
+    if (
+        not config.output_reader.path.endswith(config.output_reader.file_extension) and
+        basepath.scheme == "s3"
+    ):
+        import boto3
+
+        # determine current zoom
+        zoom = next(iter(process_tiles)).zoom
+        # make process tiles unique
+        process_tiles = set(process_tiles)
+        # get all output tiles for process tiles
+        output_tiles = set(
+            [
+                t
+                for process_tile in process_tiles
+                for t in config.output_pyramid.intersecting(process_tile)
+            ]
+        )
+        # create a mapping between paths and tiles
+        paths = dict()
+        # group tiles by row
+        rowgroups = defaultdict(list)
+        # remember already yielded tiles
+        yielded = set()
+        for output_tile in output_tiles:
+            if output_tile.zoom != zoom:
+                raise ValueError("tiles of different zoom levels cannot be mixed")
+            paths[config.output_reader.get_path(output_tile)] = output_tile
+            rowgroups[output_tile.row].append(output_tile)
+        # use prefix until row, page through api results
+        for row, tiles in rowgroups.items():
+            logger.debug("check existing tiles in row %s" % row)
+            prefix = os.path.join(*[basepath.basekey, str(zoom), str(row)])
+            logger.debug(
+                "read keys %s*" % os.path.join("s3://" + basepath.bucket, prefix)
+            )
+            s3 = boto3.client("s3")
+            paginator = s3.get_paginator("list_objects_v2")
+
+            for page in paginator.paginate(Bucket=basepath.bucket, Prefix=prefix):
+                logger.debug("read next page")
+                try:
+                    contents = page["Contents"]
+                except KeyError:
+                    break
+                for obj in contents:
+                    path = obj["Key"]
+                    # get matching process_tile
+                    process_tile = paths[os.path.join("s3://" + basepath.bucket, path)]
+                    # store and yield process tile if it was not already yielded
+                    if process_tile not in yielded:
+                        yielded.add(process_tile)
+                        yield (process_tile, True)
+
+        # finally, yield all process tiles which were not yet yielded as False
+        for process_tile in process_tiles.difference(yielded):
+            yield (process_tile, False)
+
+    else:
+        def _exists(tile):
+            return (tile, config.output_reader.tiles_exist(tile))
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            for future in concurrent.futures.as_completed(
+                (executor.submit(_exists, tile) for tile in process_tiles)
+            ):
+                yield future.result()
 
 
 def makedirs(path):

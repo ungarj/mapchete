@@ -8,7 +8,6 @@ import numpy as np
 import numpy.ma as ma
 import fiona
 from fiona.errors import DriverError
-import os
 from rasterio.crs import CRS
 from rasterio.enums import Compression
 from rasterio.errors import RasterioIOError
