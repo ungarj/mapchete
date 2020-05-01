@@ -1,11 +1,11 @@
 """Create dummy Mapchete and python process files."""
 
 import click
+from importlib_resources import files
 import os
 from string import Template
 from shutil import copyfile
 from oyaml import dump
-import pkg_resources
 
 from mapchete.cli import utils
 
@@ -13,18 +13,18 @@ FORMAT_MANDATORY = {
     "GTiff": {
         "bands": None,
         "dtype": None
-        },
+    },
     "PNG": {
         "bands": None,
         "dtype": None
-        },
+    },
     "PNG_hillshade": {
         "bands": 4,
         "dtype": "uint8"
-        },
+    },
     "GeoJSON": {
         "schema": {}
-        },
+    },
     "PostGIS": {
         "schema": {},
         "db_params": {
@@ -34,9 +34,9 @@ FORMAT_MANDATORY = {
             "user": None,
             "password": None,
             "table": None
-            }
         }
     }
+}
 
 
 @click.command(help="Create a new process.")
@@ -62,15 +62,14 @@ def create(
     out_path = out_path if out_path else os.path.join(os.getcwd(), "output")
 
     # copy file template to target directory
-    process_template = pkg_resources.resource_filename(
-        "mapchete.static", "process_template.py"
-    )
+    # Reads contents with UTF-8 encoding and returns str.
+    process_template = str(files("mapchete.static").joinpath("process_template.py"))
     process_file = os.path.join(os.getcwd(), process_file)
     copyfile(process_template, process_file)
 
     # modify and copy mapchete file template to target directory
-    mapchete_template = pkg_resources.resource_filename(
-        "mapchete.static", "mapchete_template.mapchete"
+    mapchete_template = str(
+        files("mapchete.static").joinpath("mapchete_template.mapchete")
     )
 
     output_options = dict(

@@ -1,5 +1,6 @@
 import logging
-import pkg_resources
+
+from mapchete._registered import processes
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,6 @@ def registered_processes(process_name=None):
     module
     """
     def _import():
-        # get all registered processes by name
-        processes = list(pkg_resources.iter_entry_points("mapchete.processes"))
         # try to load processes
         for v in processes:
             logger.debug("try to load %s", v)

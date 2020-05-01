@@ -7,16 +7,11 @@ correctly.
 """
 from itertools import chain
 import logging
-import pkg_resources
 import warnings
 
-all_mapchete_packages = set(
-    v.module_name.split(".")[0]
-    for v in chain(
-        pkg_resources.iter_entry_points("mapchete.formats.drivers"),
-        pkg_resources.iter_entry_points("mapchete.processes")
-    )
-)
+from mapchete._registered import drivers, processes
+
+all_mapchete_packages = set(v.value.split(".")[0] for v in chain(drivers, processes))
 
 key_value_replace_patterns = {
     "AWS_ACCESS_KEY_ID": "***",
