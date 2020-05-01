@@ -1,6 +1,7 @@
 """Create dummy Mapchete and python process files."""
 
 import click
+from importlib_resources import files
 import os
 from string import Template
 from shutil import copyfile
@@ -61,18 +62,15 @@ def create(
     out_path = out_path if out_path else os.path.join(os.getcwd(), "output")
 
     # copy file template to target directory
-    # process_template = pkg_resources.resource_filename(
-    #     "mapchete.static", "process_template.py"
-    # )
-    process_template = None
+    # Reads contents with UTF-8 encoding and returns str.
+    process_template = str(files("mapchete.static").joinpath("process_template.py"))
     process_file = os.path.join(os.getcwd(), process_file)
     copyfile(process_template, process_file)
 
     # modify and copy mapchete file template to target directory
-    # mapchete_template = pkg_resources.resource_filename(
-    #     "mapchete.static", "mapchete_template.mapchete"
-    # )
-    mapchete_template = None
+    mapchete_template = str(
+        files("mapchete.static").joinpath("mapchete_template.mapchete")
+    )
 
     output_options = dict(
         format=out_format, path=out_path, **FORMAT_MANDATORY[out_format]
