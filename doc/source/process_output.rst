@@ -53,6 +53,32 @@ output you like
         compress: deflate
 
 
+For single GeoTIFF files you can pass on optional flags:
+
+- ``bigtiff``: Pass on setting directly to GDAL. (``YES``, ``NO``, ``IF_NEEDED``, or
+  ``IF_SAFER``)
+- ``cog`` Create a valid Cloud Optimized GeoTIFF. Note that this setting will
+  automatically generate overviews. (``true`` or ``false``)
+- ``overviews`` Generate internal overviews. (``true`` or ``false``)
+- ``overviews_resampling`` ``rasterio`` Resampling method to be used. (default:
+  ``nearest``)
+- ``overviews_levels`` List of zoom levels to be written as overviews. (default: every
+  level up to level 0)
+
+**Example:**
+
+.. code-block:: yaml
+
+    output:
+        type: geodetic
+        format: GTiff
+        bands: 1
+        path: s3://my-bucket/my/output/directory/single_file.tif
+        dtype: uint8
+        compress: deflate
+        cog: true
+        overviews_resampling: bilinear
+
 PNG
 ---
 

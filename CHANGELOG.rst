@@ -3,6 +3,27 @@ Changelog
 #########
 
 ----
+0.33
+----
+* use init_bounds instead of pyramid bounds on readonly mode (#257)
+* clean up log messages (fix #251)
+
+
+----
+0.32
+----
+* default process bounds are now bounds of the process pyramid instead of union of inputs (#242)
+* fix overview pixelbuffer error at Antimeridian (#241)
+* increased rasterio dependency to version `1.0.28`
+* add hillshade and contour extraction to registered default processes (#237)
+* enable `bigtiff` and `cog` settings for single GTiff outputs (#247)
+* enable `--cog` option for `mapchete convert` (#247)
+* enable `--bidx` option (band subset) for `mapchete convert` (#248)
+* only initialize inputs if necessary (#242)
+* use `rio-cogeo` logic to determine whether to use a memory dataset or a temp file when writing a single GTiff (#217)
+
+
+----
 0.31
 ----
 * don't raise exception when one of the registered processes cannot be imported (#225)
@@ -10,6 +31,7 @@ Changelog
 * ``_validate`` module renamed to ``validate`` (#230)
 * fix inverted hillshade & misleading tile reference (#229)
 * fix custom nodata values in overviews (#235)
+
 
 ----
 0.30

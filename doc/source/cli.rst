@@ -47,23 +47,28 @@ offsets to raster data.
       -g, --wkt-geometry TEXT         Take boundaries from WKT geometry in tile
                                       pyramid CRS.
       -c, --clip-geometry PATH        Clip output by geometry
-      --output-pyramid [geodetic|mercator]
+      --bidx TEXT                     Band indexes to copy.
+      --output-pyramid [mercator|geodetic]
                                       Output pyramid to write to.
-      -m, --output-metatiling INTEGER
-                                      Output metatiling.
-      --output-format [GeoJSON|PNG_hillshade|GTiff|PNG]
+      --output-metatiling INTEGER     Output metatiling.
+      --output-format [GTiff|PNG_hillshade|xarray|GeoJSON|PNG]
                                       Output format.
-      --output-dtype [uint16|int16|float64|float32|uint32|int32|int8|uint8]
+      --output-dtype [int8|int16|float64|int32|uint8|uint32|uint16|float32]
                                       Output data type (for raster output only).
       --co, --profile NAME=VALUE      Driver specific creation options.See the
                                       documentation for the selected output driver
                                       for more information.
       --scale-ratio FLOAT             Scaling factor (for raster output only).
       --scale-offset FLOAT            Scaling offset (for raster output only).
-      -r, --resampling-method [nearest|bilinear|cubic|cubic_spline|lanczos|average|mode]
-                                      Resampling method to be used (nearest,
-                                      bilinear, cubic, cubic_spline, lanczos,
-                                      average or mode).
+      -r, --resampling-method [nearest|bilinear|cubic|cubic_spline|lanczos|average|mode|gauss]
+                                      Resampling method used. (default: nearest)
+      --overviews                     Generate overviews (single GTiff output
+                                      only).
+      --overviews-resampling-method [nearest|bilinear|cubic|cubic_spline|lanczos|average|mode|gauss]
+                                      Resampling method used for overviews.
+                                      (default: cubic_spline)
+      --cog                           Write a valid COG. This will automatically
+                                      generate verviews. (GTiff only)
       -o, --overwrite                 Overwrite if tile(s) already exist(s).
       -v, --verbose                   Print info for each process tile.
       --no-pbar                       Deactivate progress bar.

@@ -480,7 +480,7 @@ def test_custom_grid(mp_tmpdir, custom_grid):
     with mapchete.open(custom_grid.dict) as mp:
         mp.batch_process()
     # read written output
-    with mapchete.open(custom_grid.dict, mode="readonly") as mp:
+    with mapchete.open(custom_grid.dict) as mp:
         for tile in mp.get_process_tiles(5):
             data = mp.config.output.read(tile)
             assert data.any()

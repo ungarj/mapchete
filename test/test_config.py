@@ -4,8 +4,7 @@
 from copy import deepcopy
 import os
 import pytest
-from shapely.geometry import Polygon
-from shapely.wkt import loads
+from shapely.geometry import box, Polygon
 import oyaml as yaml
 
 import mapchete
@@ -157,8 +156,8 @@ def test_read_mapchete_input(mapchete_input):
     """Read Mapchete files as input files."""
     config = MapcheteConfig(mapchete_input.path)
     area = config.area_at_zoom(5)
-    testpolygon = "POLYGON ((4 1, 3 1, 2 1, 2 4, 3 4, 3 2, 4 2, 4 1))"
-    assert area.equals(loads(testpolygon))
+    testpolygon = box(-180, -90, 180, 90)
+    assert area.equals(testpolygon)
 
 
 def test_read_baselevels(baselevels):

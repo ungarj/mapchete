@@ -629,6 +629,7 @@ def create_mosaic(tiles, nodata=0):
     pyramid, resolution, dtype = _get_tiles_properties(tiles)
     # just handle antimeridian on global pyramid types
     shift = _shift_required(tiles)
+    logger.debug("shift: %s" % shift)
     # determine mosaic shape and reference
     m_left, m_bottom, m_right, m_top = None, None, None, None
     for tile, data in tiles:
@@ -677,12 +678,29 @@ def create_mosaic(tiles, nodata=0):
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = np.where(
             data.mask, existing_mask, data.mask
         )
+
     if shift:
         # shift back output mosaic
-        affine = Affine(resolution, 0, m_left - pyramid.x_size / 2, 0, -resolution, m_top)
+        m_left -= pyramid.x_size / 2
+        m_right -= pyramid.x_size / 2
+
+    # if mosaic crosses Antimeridian, make sure the mosaic output bounds are based on the
+    # hemisphere of the Antimeridian with the larger mosaic intersection
+    if m_left < pyramid.left or m_right > pyramid.right:
+        # mosaic crosses Antimeridian
+        logger.debug("mosaic crosses Antimeridian")
+        left_distance = abs(pyramid.left - m_left)
+        right_distance = abs(pyramid.left - m_right)
+        # per default, the mosaic is placed on the right side of the Antimeridian, so we
+        # only need to move the bounds in case the larger part of the mosaic is on the
+        # left side
+        if left_distance > right_distance:
+            m_left += pyramid.x_size
+            m_right += pyramid.x_size
+    logger.debug(Bounds(m_left, m_bottom, m_right, m_top))
     return ReferencedRaster(
         data=mosaic,
-        affine=affine,
+        affine=Affine(resolution, 0, m_left, 0, -resolution, m_top),
         bounds=Bounds(m_left, m_bottom, m_right, m_top),
         crs=tile.crs
     )

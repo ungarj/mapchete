@@ -161,12 +161,12 @@ from source:
 
 
 
-To make sure Rasterio and Fiona are properly built against your local GDAL installation,
-don't install the binaries but build them on your system:
+To make sure Rasterio, Fiona and Shapely are properly built against your local GDAL and
+GEOS installations, don't install the binaries but build them on your system:
 
 .. code-block:: shell
 
-    $ pip install --upgrade rasterio fiona --no-binary :all:
+    $ pip install --upgrade rasterio fiona shapely --no-binary :all:
 
 
 To keep the core dependencies minimal if you install mapchete using ``pip``, some features
@@ -193,6 +193,6 @@ License
 
 MIT License
 
-Copyright (c) 2015 - 2019 `EOX IT Services`_
+Copyright (c) 2015 - 2020 `EOX IT Services`_
 
 .. _`EOX IT Services`: https://eox.at/

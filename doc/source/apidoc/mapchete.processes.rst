@@ -13,7 +13,9 @@ Submodules
 
 .. toctree::
 
+   mapchete.processes.contours
    mapchete.processes.convert
+   mapchete.processes.hillshade
 
 Module contents
 ---------------
