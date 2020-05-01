@@ -4,6 +4,7 @@ click>=7.1.1
 click-plugins
 click-spinner
 fiona>=1.8b1
+importlib-metadata
 numpy>=1.16
 oyaml
 retry
