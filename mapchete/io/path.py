@@ -74,6 +74,38 @@ class Path():
         self.name = path
         self.path, self.scheme, self.is_remote, self.gdal_prefix = _parse_path(path)
 
+        for prefix, scheme in REMOTE_SCHEMES.items():
+            vsi_prefix = "/vsi{}/".format(scheme)
+
+            # for http://, https:// and s3:// paths
+            if path.startswith(prefix):
+                self.path = path
+                self.scheme = scheme
+                self.gdal_prefix = "/vsi{}/".format(scheme)
+
+            # for /vsicurl/ and /vsis3/ paths
+            elif path.startswith(vsi_prefix):
+                self.path = (
+                    path.replace(vsi_prefix, "") if scheme == "curl"
+                    else path.replace(vsi_prefix, prefix)
+                )
+                self.scheme = scheme
+                self.gdal_prefix = vsi_prefix
+
+            else:
+                continue
+            self.is_remote = True
+            break
+
+        else:
+            # for other yet unsupported paths like gs://
+            if "://" in path:
+                raise ValueError("unsupported URI: {}".format(path))
+            self.path = path
+            self.scheme = None
+            self.is_remote = False
+            self.gdal_prefix = None
+
     @property
     def vsi_path(self):
         """
@@ -300,3 +332,18 @@ def _parse_path(path):
         gdal_prefix = None
 
     return path, scheme, is_remote, gdal_prefix
+
+
+def makedirs(path):
+    """
+    Silently create all subdirectories of path if path is local.
+
+    Parameters
+    ----------
+    path : path
+    """
+    if not Path(path).is_remote:
+        try:
+            os.makedirs(path)
+        except OSError:
+            pass
