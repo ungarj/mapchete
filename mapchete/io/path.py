@@ -238,11 +238,13 @@ def process_tiles_exist(config=None, process_tiles=None):
         basepath.scheme == "s3"
     ):
         import boto3
+        s3 = boto3.client("s3")
+        paginator = s3.get_paginator("list_objects_v2")
 
-        # determine current zoom
-        zoom = next(iter(process_tiles)).zoom
         # make process tiles unique
         process_tiles = set(process_tiles)
+        # determine current zoom
+        zoom = next(iter(process_tiles)).zoom
         # get all output tiles for process tiles
         output_tiles = set(
             [
@@ -251,17 +253,19 @@ def process_tiles_exist(config=None, process_tiles=None):
                 for t in config.output_pyramid.intersecting(process_tile)
             ]
         )
-        # create a mapping between paths and tiles
+        # create a mapping between paths and process_tiles
         paths = dict()
-        # group tiles by row
+        # group process_tiles by row
         rowgroups = defaultdict(list)
-        # remember already yielded tiles
+        # remember already yielded process_tiles
         yielded = set()
         for output_tile in output_tiles:
             if output_tile.zoom != zoom:
                 raise ValueError("tiles of different zoom levels cannot be mixed")
-            paths[config.output_reader.get_path(output_tile)] = output_tile
-            rowgroups[output_tile.row].append(output_tile)
+            path = config.output_reader.get_path(output_tile)
+            process_tile = config.process_pyramid.intersecting(output_tile)[0]
+            paths[path] = process_tile
+            rowgroups[process_tile.row].append(process_tile)
         # use prefix until row, page through api results
         for row, tiles in rowgroups.items():
             logger.debug("check existing tiles in row %s" % row)
@@ -269,8 +273,6 @@ def process_tiles_exist(config=None, process_tiles=None):
             logger.debug(
                 "read keys %s*" % os.path.join("s3://" + basepath.bucket, prefix)
             )
-            s3 = boto3.client("s3")
-            paginator = s3.get_paginator("list_objects_v2")
 
             for page in paginator.paginate(Bucket=basepath.bucket, Prefix=prefix):
                 logger.debug("read next page")
