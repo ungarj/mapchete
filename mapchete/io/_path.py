@@ -46,7 +46,7 @@ def path_exists(path):
         except HTTPError as e:
             if e.code == 404:
                 return False
-            else:
+            else:  # pragma: no cover
                 raise
     elif path.startswith("s3://"):
         bucket = get_boto3_bucket(path.split("/")[2])
@@ -136,9 +136,9 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
     ------
     tuple : (tile, exists)
     """
-    if process_tiles is not None and output_tiles is not None:
+    if process_tiles is not None and output_tiles is not None:  # pragma: no cover
         raise ValueError("just one of 'process_tiles' and 'output_tiles' allowed")
-    elif process_tiles is None and output_tiles is None:
+    elif process_tiles is None and output_tiles is None:  # pragma: no cover
         raise ValueError("one of 'process_tiles' and 'output_tiles' has to be provided")
 
     basepath = config.output_reader.path
@@ -180,7 +180,7 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
         # remember rows
         rows = set()
         for output_tile in output_tiles:
-            if output_tile.zoom != zoom:
+            if output_tile.zoom != zoom:  # pragma: no cover
                 raise ValueError("tiles of different zoom levels cannot be mixed")
             path = config.output_reader.get_path(output_tile)
 
