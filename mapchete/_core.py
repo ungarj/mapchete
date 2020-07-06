@@ -1,13 +1,13 @@
 """Main module managing processes."""
 
 from cachetools import LRUCache
-import concurrent.futures
 import logging
 import multiprocessing
 import threading
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile
+from mapchete.io import tiles_exist
 from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
@@ -145,16 +145,10 @@ class Mapchete(object):
         ------
         tuples : (tile, skip)
         """
-        def _skip(config, tile):
-            return tile, config.output_reader.tiles_exist(tile)
-
         # only check for existing output in "continue" mode
         if self.config.mode == "continue":
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                for future in concurrent.futures.as_completed(
-                    (executor.submit(_skip, self.config, tile) for tile in tiles)
-                ):
-                    yield future.result()
+            yield from tiles_exist(config=self.config, process_tiles=tiles)
+        # otherwise don't skip tiles
         else:
             for tile in tiles:
                 yield (tile, False)

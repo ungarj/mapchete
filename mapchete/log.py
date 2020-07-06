@@ -7,6 +7,7 @@ correctly.
 """
 from itertools import chain
 import logging
+import sys
 import warnings
 
 from mapchete._registered import drivers, processes
@@ -67,7 +68,7 @@ class KeyValueFilter(logging.Filter):
 
 # lower stream output log level
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
-stream_handler = logging.StreamHandler()
+stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.WARNING)
 stream_handler.addFilter(KeyValueFilter(key_value_replace=key_value_replace_patterns))

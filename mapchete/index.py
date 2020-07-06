@@ -33,7 +33,7 @@ from xml.dom import minidom
 
 from mapchete.config import get_zoom_levels
 from mapchete.io import (
-    path_exists, path_is_remote, get_boto3_bucket, raster, relative_path
+    path_exists, path_is_remote, get_boto3_bucket, raster, relative_path, tiles_exist
 )
 
 logger = logging.getLogger(__name__)
@@ -148,8 +148,59 @@ def zoom_index_gen(
 
             logger.debug("use the following index writers: %s", index_writers)
 
-            def _worker(tile):
-                # if there are indexes to write to, check if output exists
+            # all output tiles for given process area
+            logger.debug("determine affected output tiles")
+            output_tiles = set(
+                mp.config.output_pyramid.tiles_from_geom(
+                    mp.config.area_at_zoom(zoom), zoom
+                )
+            )
+
+            # check which tiles exist in any index
+            logger.debug("check which tiles exist in index(es)")
+            existing_in_any_index = set(
+                tile for tile in output_tiles
+                if any(
+                    [
+                        i.entry_exists(
+                            tile=tile,
+                            path=_tile_path(
+                                orig_path=mp.config.output.get_path(tile),
+                                basepath=basepath,
+                                for_gdal=for_gdal
+                            )
+                        )
+                        for i in index_writers
+                    ]
+                )
+            )
+
+            logger.debug("{}/{} tiles found in index(es)".format(
+                len(existing_in_any_index), len(output_tiles))
+            )
+            # tiles which do not exist in any index
+            for tile, output_exists in tiles_exist(
+                mp.config, output_tiles=output_tiles.difference(existing_in_any_index)
+            ):
+                tile_path = _tile_path(
+                    orig_path=mp.config.output.get_path(tile),
+                    basepath=basepath,
+                    for_gdal=for_gdal
+                )
+                indexes = [
+                    i for i in index_writers
+                    if not i.entry_exists(tile=tile, path=tile_path)
+                ]
+                if indexes and output_exists:
+                    logger.debug("%s exists", tile_path)
+                    logger.debug("write to %s indexes" % len(indexes))
+                    for index in indexes:
+                        index.write(tile, tile_path)
+                # yield tile for progress information
+                yield tile
+
+            # tiles which exist in at least one index
+            for tile in existing_in_any_index:
                 tile_path = _tile_path(
                     orig_path=mp.config.output.get_path(tile),
                     basepath=basepath,
@@ -160,30 +211,12 @@ def zoom_index_gen(
                     if not i.entry_exists(tile=tile, path=tile_path)
                 ]
                 if indexes:
-                    output_exists = mp.config.output.tiles_exist(output_tile=tile)
-                else:
-                    output_exists = None
-                return tile, tile_path, indexes, output_exists
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                for task in concurrent.futures.as_completed(
-                    (
-                        executor.submit(_worker, i)
-                        for i in mp.config.output_pyramid.tiles_from_geom(
-                            mp.config.area_at_zoom(zoom), zoom
-                        )
-                    )
-                ):
-                    tile, tile_path, indexes, output_exists = task.result()
-                    # only write entries if there are indexes to write to and output
-                    # exists
-                    if indexes and output_exists:
-                        logger.debug("%s exists", tile_path)
-                        logger.debug("write to %s indexes" % len(indexes))
-                        for index in indexes:
-                            index.write(tile, tile_path)
-                    # yield tile for progress information
-                    yield tile
+                    logger.debug("%s exists", tile_path)
+                    logger.debug("write to %s indexes" % len(indexes))
+                    for index in indexes:
+                        index.write(tile, tile_path)
+                # yield tile for progress information
+                yield tile
 
 
 def _index_file_path(out_dir, zoom, ext):
@@ -496,7 +529,6 @@ class VRTFileWriter():
             rasterXSize=str(vrt_shape.width),
             rasterYSize=str(vrt_shape.height),
         )
-
         # generate pretty XML and write
         xmlstr = minidom.parseString(ET.tostring(vrt)).toprettyxml(indent="  ")
         if self._bucket:
