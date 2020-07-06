@@ -91,6 +91,4 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    setup_requires=["pytest-runner"],
-    tests_require=["pytest", "pytest-flask", "rio-cogeo"]
 )

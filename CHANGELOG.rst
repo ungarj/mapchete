@@ -3,6 +3,13 @@ Changelog
 #########
 
 ----
+0.33
+----
+* use init_bounds instead of pyramid bounds on readonly mode (#257)
+* clean up log messages (fix #251)
+
+
+----
 0.32
 ----
 * default process bounds are now bounds of the process pyramid instead of union of inputs (#242)
