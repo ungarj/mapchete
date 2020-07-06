@@ -7,11 +7,14 @@ correctly.
 """
 from itertools import chain
 import logging
+import sys
 import warnings
 
 from mapchete._registered import drivers, processes
 
 all_mapchete_packages = set(v.value.split(".")[0] for v in chain(drivers, processes))
+all_mapchete_packages.add("boto3")
+all_mapchete_packages.add("botocore")
 
 key_value_replace_patterns = {
     "AWS_ACCESS_KEY_ID": "***",
@@ -67,7 +70,7 @@ class KeyValueFilter(logging.Filter):
 
 # lower stream output log level
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
-stream_handler = logging.StreamHandler()
+stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.WARNING)
 stream_handler.addFilter(KeyValueFilter(key_value_replace=key_value_replace_patterns))

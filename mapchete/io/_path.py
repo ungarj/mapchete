@@ -1,4 +1,3 @@
-from collections import defaultdict
 import concurrent.futures
 import logging
 import os
@@ -119,9 +118,11 @@ def makedirs(path):
             pass
 
 
-def process_tiles_exist(config=None, process_tiles=None):
+def tiles_exist(config=None, output_tiles=None, process_tiles=None):
     """
-    Yield process tiles and whether their output already exists or not.
+    Yield tiles and whether their output already exists or not.
+
+    Either "output_tiles" or "process_tiles" have to be provided.
 
     The S3 part of the function are loosely inspired by
     https://alexwlchan.net/2019/07/listing-s3-keys/
@@ -133,53 +134,70 @@ def process_tiles_exist(config=None, process_tiles=None):
 
     Yields
     ------
-    tuple : (process_tile, exists)
+    tuple : (tile, exists)
     """
+    if process_tiles is not None and output_tiles is not None:
+        raise ValueError("just one of 'process_tiles' and 'output_tiles' allowed")
+    elif process_tiles is None and output_tiles is None:
+        raise ValueError("one of 'process_tiles' and 'output_tiles' has to be provided")
+
     basepath = config.output_reader.path
+    # make tiles unique
+    tiles = set(process_tiles) if process_tiles is not None else set(output_tiles)
+
+    # in case no tiles are provided
+    if not tiles:
+        return
 
     # only on TileDirectories on S3
     if (
         not config.output_reader.path.endswith(config.output_reader.file_extension) and
         basepath.startswith("s3://")
     ):
+        import boto3
         basekey = "/".join(basepath.split("/")[3:])
         bucket = basepath.split("/")[2]
-        import boto3
         s3 = boto3.client("s3")
         paginator = s3.get_paginator("list_objects_v2")
 
-        # make process tiles unique
-        process_tiles = set(process_tiles)
-        # determine current zoom
-        zoom = next(iter(process_tiles)).zoom
-        # get all output tiles for process tiles
-        output_tiles = set(
-            [
-                t
-                for process_tile in process_tiles
-                for t in config.output_pyramid.intersecting(process_tile)
-            ]
-        )
-        # create a mapping between paths and process_tiles
+        # determine zoom
+        zoom = next(iter(tiles)).zoom
+
+        # get all output tiles
+        if process_tiles:
+            output_tiles = set(
+                [
+                    t
+                    for process_tile in tiles
+                    for t in config.output_pyramid.intersecting(process_tile)
+                ]
+            )
+        else:
+            output_tiles = tiles
+
+        # create a mapping between paths and tiles
         paths = dict()
-        # group process_tiles by row
-        rowgroups = defaultdict(list)
-        # remember already yielded process_tiles
-        yielded = set()
+        # remember rows
+        rows = set()
         for output_tile in output_tiles:
             if output_tile.zoom != zoom:
                 raise ValueError("tiles of different zoom levels cannot be mixed")
             path = config.output_reader.get_path(output_tile)
-            process_tile = config.process_pyramid.intersecting(output_tile)[0]
-            paths[path] = process_tile
-            rowgroups[process_tile.row].append(process_tile)
-        # use prefix until row, page through api results
-        for row, tiles in rowgroups.items():
+
+            if process_tiles:
+                paths[path] = config.process_pyramid.intersecting(output_tile)[0]
+            else:
+                paths[path] = output_tile
+
+            rows.add(output_tile.row)
+
+        # remember already yielded tiles
+        yielded = set()
+        for row in rows:
+            # use prefix until row, page through api results
             logger.debug("check existing tiles in row %s" % row)
             prefix = os.path.join(*[basekey, str(zoom), str(row)])
-            logger.debug(
-                "read keys %s*" % os.path.join("s3://" + bucket, prefix)
-            )
+            logger.debug("read keys %s*" % os.path.join("s3://" + bucket, prefix))
 
             for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
                 logger.debug("read next page")
@@ -187,24 +205,28 @@ def process_tiles_exist(config=None, process_tiles=None):
                     contents = page["Contents"]
                 except KeyError:
                     break
-                for obj in contents:
-                    path = obj["Key"]
-                    # get matching process_tile
-                    process_tile = paths[os.path.join("s3://" + bucket, path)]
-                    # store and yield process tile if it was not already yielded
-                    if process_tile not in yielded:
-                        yielded.add(process_tile)
-                        yield (process_tile, True)
 
-        # finally, yield all process tiles which were not yet yielded as False
-        for process_tile in process_tiles.difference(yielded):
-            yield (process_tile, False)
+                for obj in contents:
+                    # get matching tile
+                    tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
+                    # store and yield process tile if it was not already yielded
+                    if tile not in yielded:
+                        yielded.add(tile)
+                        yield (tile, True)
+
+        # finally, yield all tiles which were not yet yielded as False
+        for tile in tiles.difference(yielded):
+            yield (tile, False)
 
     else:
         def _exists(tile):
-            return (tile, config.output_reader.tiles_exist(tile))
+            if process_tiles:
+                return (tile, config.output_reader.tiles_exist(process_tile=tile))
+            else:
+                return (tile, config.output_reader.tiles_exist(output_tile=tile))
+
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for future in concurrent.futures.as_completed(
-                (executor.submit(_exists, tile) for tile in process_tiles)
+                (executor.submit(_exists, tile) for tile in tiles)
             ):
                 yield future.result()

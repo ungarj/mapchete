@@ -7,7 +7,7 @@ import threading
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile
-from mapchete.io import process_tiles_exist
+from mapchete.io import tiles_exist
 from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
@@ -147,7 +147,7 @@ class Mapchete(object):
         """
         # only check for existing output in "continue" mode
         if self.config.mode == "continue":
-            yield from process_tiles_exist(config=self.config, process_tiles=tiles)
+            yield from tiles_exist(config=self.config, process_tiles=tiles)
         # otherwise don't skip tiles
         else:
             for tile in tiles:

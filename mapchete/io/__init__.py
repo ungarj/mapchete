@@ -15,7 +15,7 @@ from mapchete.io._misc import (
 from mapchete.io._path import (
     path_is_remote,
     path_exists,
-    process_tiles_exist,
+    tiles_exist,
     absolute_path,
     relative_path,
     makedirs,
@@ -29,7 +29,7 @@ __all__ = [
     "tile_to_zoom_level",
     "path_is_remote",
     "path_exists",
-    "process_tiles_exist",
+    "tiles_exist",
     "absolute_path",
     "relative_path",
     "makedirs",
