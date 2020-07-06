@@ -13,8 +13,6 @@ import warnings
 from mapchete._registered import drivers, processes
 
 all_mapchete_packages = set(v.value.split(".")[0] for v in chain(drivers, processes))
-all_mapchete_packages.add("boto3")
-all_mapchete_packages.add("botocore")
 
 key_value_replace_patterns = {
     "AWS_ACCESS_KEY_ID": "***",
