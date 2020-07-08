@@ -339,7 +339,7 @@ def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
     -------
     number of tiles
     """
-    if not 0 <= init_zoom <= minzoom <= maxzoom:
+    if not 0 <= init_zoom <= minzoom <= maxzoom:  # pragma: no cover
         raise ValueError("invalid zoom levels given")
     # tile buffers are not being taken into account
     unbuffered_pyramid = TilePyramid(

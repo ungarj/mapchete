@@ -546,7 +546,7 @@ def _run_multi(
 
         for i, zoom in enumerate(zoom_levels):
 
-            if skip_output_check:
+            if skip_output_check:  # pragma: no cover
                 # don't check outputs and simply proceed
                 todo = process.get_process_tiles(zoom)
             else:

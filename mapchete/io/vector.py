@@ -233,7 +233,7 @@ def _get_reprojected_features(
                 # this can be handled quietly
                 except GeometryTypeError:
                     pass
-                except TopologicalError as e:
+                except TopologicalError as e:  # pragma: no cover
                     logger.warning("feature omitted: %s", e)
 
     except Exception as e:

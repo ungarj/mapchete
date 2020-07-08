@@ -173,7 +173,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         """
         return (
             memory_file(self._prepare_array(data), self.profile()), "image/png"
-        )
+        )  # pragma: no cover
 
     def empty(self, process_tile):
         """
@@ -217,7 +217,7 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
         """
         data = self._prepare_array(data)
 
-        if data.mask.all():
+        if data.mask.all():  # pragma: no cover
             logger.debug("data empty, nothing to write")
         else:
             # in case of S3 output, create an boto3 resource
