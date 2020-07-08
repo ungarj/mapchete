@@ -98,7 +98,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             for i in ("does not exist in the file system", "No such file or directory"):
                 if i in str(e):
                     return self.empty(output_tile)
-            else:
+            else:  # pragma: no cover
                 raise
 
     def is_valid_with_config(self, config):
@@ -119,7 +119,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         if config["schema"]["geometry"] not in [
             "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
             "Polygon", "MultiPolygon"
-        ]:
+        ]:  # pragma: no cover
             raise TypeError("invalid geometry type")
         return True
 
@@ -179,13 +179,13 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
         """
         if data is None or len(data) == 0:
             return
-        if not isinstance(data, (list, types.GeneratorType)):
+        if not isinstance(data, (list, types.GeneratorType)):  # pragma: no cover
             raise TypeError(
                 "GeoJSON driver data has to be a list or generator of GeoJSON objects"
             )
 
         data = list(data)
-        if not len(data):
+        if not len(data):  # pragma: no cover
             logger.debug("no features to write")
         else:
             # in case of S3 output, create an boto3 resource
@@ -243,7 +243,7 @@ class InputTile(base.InputTile):
         features : list
             GeoJSON-like list of features
         """
-        if no_neighbors:
+        if no_neighbors:  # pragma: no cover
             raise NotImplementedError()
         return self._from_cache(validity_check=validity_check)
 

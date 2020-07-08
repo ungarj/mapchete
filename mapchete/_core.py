@@ -305,7 +305,7 @@ class Mapchete(object):
                 TileProcess(tile=process_tile, config=self.config).execute()
             )
         except MapcheteNodataTile:
-            if raise_nodata:
+            if raise_nodata:  # pragma: no cover
                 raise
             else:
                 return self.config.output.empty(process_tile)
@@ -482,7 +482,7 @@ class Mapchete(object):
                 if not process_event:
                     self.current_processes[process_tile.id] = threading.Event()
             # Wait and return.
-            if process_event:
+            if process_event:  # pragma: no cover
                 process_event.wait()
                 return self.process_tile_cache[process_tile.id]
             else:

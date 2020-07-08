@@ -348,7 +348,7 @@ class InputTile(base.InputTile):
                 matching_precision=matching_precision,
                 matching_max_zoom=matching_max_zoom,
             )
-        ) == 0
+        ) == 0  # pragma: no cover
 
     def _get_tiles_paths(
         self,

@@ -26,7 +26,7 @@ def registered_processes(process_name=None):
                 loaded = v.load()
                 if process_name is None or process_name == loaded.__name__:
                     yield loaded
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.warning("%s could not be imported: %s", str(v), str(e))
 
     # sort processes alphabetically

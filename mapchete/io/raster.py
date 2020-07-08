@@ -483,7 +483,7 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     -------
     extracted array : array
     """
-    if isinstance(in_raster, ReferencedRaster):
+    if isinstance(in_raster, ReferencedRaster):  # pragma: no cover
         in_affine, in_raster = in_raster.affine, in_raster.data
 
     # get range within array
@@ -743,7 +743,7 @@ def tiles_to_affine_shape(tiles):
     -------
     Affine, Shape
     """
-    if not tiles:
+    if not tiles:  # pragma: no cover
         raise TypeError("no tiles provided")
     pixel_size = tiles[0].pixel_x_size
     left, bottom, right, top = (
@@ -801,7 +801,7 @@ def _shift_required(tiles):
 
             groups = list(gen_groups(tile_cols))
             # in case there is only one group, don't shift
-            if len(groups) == 1:
+            if len(groups) == 1:  # pragma: no cover
                 return False
             # distance between first column of first group and last column of last group
             normal_distance = groups[-1][-1] - groups[0][0]
@@ -812,7 +812,7 @@ def _shift_required(tiles):
             ) - groups[-1][0]
             # return whether distance over antimeridian is shorter
             return antimeridian_distance < normal_distance
-    else:
+    else:  # pragma: no cover
         return False
 
 

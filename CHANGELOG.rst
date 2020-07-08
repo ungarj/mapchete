@@ -3,6 +3,13 @@ Changelog
 #########
 
 ----
+0.34
+----
+* speed up extension loading by using `importlib-metadata` and `importlib-resources` instead of `pkg_resources` (#267)
+* use `boto` paging to reduce requests to S3 bucket (#268)
+
+
+----
 0.33
 ----
 * use init_bounds instead of pyramid bounds on readonly mode (#257)

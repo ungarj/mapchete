@@ -183,7 +183,7 @@ def params_to_dump(params):
 def read_output_metadata(metadata_json):
     params = read_json(metadata_json)
     grid = params["pyramid"]["grid"]
-    if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:
+    if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:  # pragma: no cover
         warnings.warn(
             DeprecationWarning(
                 "Deprecated grid shape ordering found. "
@@ -227,14 +227,14 @@ def write_output_metadata(output_params):
             current_params = params_to_dump(output_params)
             logger.debug("current output parameters: %s", pformat(current_params))
             current_tp = BufferedTilePyramid(**current_params["pyramid"])
-            if existing_tp != current_tp:
+            if existing_tp != current_tp:  # pragma: no cover
                 raise MapcheteConfigError(
                     "pyramid definitions between existing and new output do not match: "
                     "%s != %s" % (existing_tp, current_tp)
                 )
             existing_format = existing_params["driver"]["format"]
             current_format = current_params["driver"]["format"]
-            if existing_format != current_format:
+            if existing_format != current_format:  # pragma: no cover
                 raise MapcheteConfigError(
                     "existing output format does not match new output format: "
                     "%s != %s" % (

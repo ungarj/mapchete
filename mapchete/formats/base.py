@@ -154,7 +154,7 @@ class OutputDataBaseFunctions():
     def __init__(self, output_params, readonly=False, **kwargs):
         """Initialize."""
         self.pixelbuffer = output_params["pixelbuffer"]
-        if "type" in output_params:
+        if "type" in output_params:  # pragma: no cover
             warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
             if "grid" not in output_params:
                 output_params["grid"] = output_params.pop("type")
@@ -421,7 +421,7 @@ class TileDirectoryOutputReader(OutputDataReader):
         -------
         exists : bool
         """
-        if process_tile and output_tile:
+        if process_tile and output_tile:  # pragma: no cover
             raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
         if process_tile:
             return any(
@@ -504,7 +504,7 @@ class SingleFileOutputReader(OutputDataReader):
         exists : bool
         """
         # TODO
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class SingleFileOutputWriter(OutputDataWriter, SingleFileOutputReader):

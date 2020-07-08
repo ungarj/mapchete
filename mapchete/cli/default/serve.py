@@ -53,7 +53,7 @@ def serve(
     )
     if os.environ.get("MAPCHETE_TEST") == "TRUE":
         logger.debug("don't run flask app, MAPCHETE_TEST environment detected")
-    else:
+    else:  # pragma: no cover
         app.run(
             threaded=True, debug=True, port=port, host='0.0.0.0',
             extra_files=[mapchete_file]
@@ -127,7 +127,7 @@ def _tile_response(mp, web_tile, debug):
     try:
         logger.debug("getting web tile %s", str(web_tile.id))
         return _valid_tile_response(mp, mp.get_raw_output(web_tile))
-    except Exception:
+    except Exception:  # pragma: no cover
         logger.exception("getting web tile %s failed", str(web_tile.id))
         if debug:
             raise
@@ -144,7 +144,7 @@ def _valid_tile_response(mp, data):
         response = make_response(send_file(out_data, mime_type))
     elif isinstance(out_data, list):
         response = make_response(jsonify(data))
-    else:
+    else:  # pragma: no cover
         raise TypeError("invalid response type for web")
     response.headers['Content-Type'] = mime_type
     response.cache_control.no_write = True
