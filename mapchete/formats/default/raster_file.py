@@ -126,7 +126,7 @@ class InputData(base.InputData):
         -------
         file exists : bool
         """
-        return os.path.isfile(self.path)
+        return os.path.isfile(self.path)  # pragma: no cover
 
 
 class InputTile(base.InputTile):
@@ -218,5 +218,7 @@ def get_segmentize_value(input_file=None, tile_pyramid=None):
     segmenize value : float
         length suggested of line segmentation to reproject file bounds
     """
-    warnings.warn(DeprecationWarning("get_segmentize_value() has moved to mapchete.io"))
-    return io.get_segmentize_value(input_file, tile_pyramid)
+    warnings.warn(
+        DeprecationWarning("get_segmentize_value() has moved to mapchete.io")
+    )  # pragma: no cover
+    return io.get_segmentize_value(input_file, tile_pyramid)  # pragma: no cover

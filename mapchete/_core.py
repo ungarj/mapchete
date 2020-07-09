@@ -1,13 +1,13 @@
 """Main module managing processes."""
 
 from cachetools import LRUCache
-import concurrent.futures
 import logging
 import multiprocessing
 import threading
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile
+from mapchete.io import tiles_exist
 from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
@@ -145,16 +145,10 @@ class Mapchete(object):
         ------
         tuples : (tile, skip)
         """
-        def _skip(config, tile):
-            return tile, config.output_reader.tiles_exist(tile)
-
         # only check for existing output in "continue" mode
         if self.config.mode == "continue":
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                for future in concurrent.futures.as_completed(
-                    (executor.submit(_skip, self.config, tile) for tile in tiles)
-                ):
-                    yield future.result()
+            yield from tiles_exist(config=self.config, process_tiles=tiles)
+        # otherwise don't skip tiles
         else:
             for tile in tiles:
                 yield (tile, False)
@@ -311,7 +305,7 @@ class Mapchete(object):
                 TileProcess(tile=process_tile, config=self.config).execute()
             )
         except MapcheteNodataTile:
-            if raise_nodata:
+            if raise_nodata:  # pragma: no cover
                 raise
             else:
                 return self.config.output.empty(process_tile)
@@ -488,7 +482,7 @@ class Mapchete(object):
                 if not process_event:
                     self.current_processes[process_tile.id] = threading.Event()
             # Wait and return.
-            if process_event:
+            if process_event:  # pragma: no cover
                 process_event.wait()
                 return self.process_tile_cache[process_tile.id]
             else:

@@ -710,7 +710,9 @@ def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
         return process_zoom_levels
     else:
         init_zoom_levels = validate_zooms(init_zoom_levels)
-        if not set(init_zoom_levels).issubset(set(process_zoom_levels)):
+        if not set(
+            init_zoom_levels
+        ).issubset(set(process_zoom_levels)):  # pragma: no cover
             raise ValueError("init zooms must be a subset of process zoom")
         return init_zoom_levels
 
@@ -976,7 +978,7 @@ def _element_at_zoom(name, element, zoom):
             else:
                 return element
         # Return all other types as they are.
-        else:
+        else:  # pragma: no cover
             return element
 
 
@@ -1046,7 +1048,7 @@ def _map_to_new_config(config):
     except Exception as e:
         raise MapcheteConfigError(e)
 
-    if "type" in config["output"]:
+    if "type" in config["output"]:  # pragma: no cover
         warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
         if "grid" not in config["output"]:
             config["output"]["grid"] = config["output"].pop("type")
