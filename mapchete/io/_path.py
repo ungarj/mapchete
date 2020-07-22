@@ -210,7 +210,7 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
                     # get matching tile
                     try:
                         tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
-                    except KeyError:
+                    except KeyError:  # pragma: no cover
                         continue
                     # store and yield process tile if it was not already yielded
                     if tile not in yielded:
