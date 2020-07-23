@@ -403,8 +403,7 @@ class Executor():
     def __exit__(self, *args):
         """Exit context manager."""
         logger.debug("closing %s and workers", self._pool)
-        self._pool.close()
-        self._pool.join()
+        self._pool.__exit__(*args)
         logger.debug("%s closed", self._pool)
 
 
