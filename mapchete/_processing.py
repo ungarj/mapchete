@@ -482,6 +482,7 @@ def _run_area(
             multi=multi,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
+            max_chunksize=max_chunksize,
             write_in_parent_process=True,
             skip_output_check=skip_output_check
         ):
@@ -497,6 +498,7 @@ def _run_area(
             multi=multi,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
+            max_chunksize=max_chunksize,
             write_in_parent_process=False,
             skip_output_check=skip_output_check
         ):
@@ -525,6 +527,7 @@ def _run_multi(
     multi=None,
     multiprocessing_start_method=None,
     multiprocessing_module=None,
+    max_chunksize=None,
     write_in_parent_process=False,
     fkwargs=None,
     skip_output_check=False
@@ -585,7 +588,8 @@ def _run_multi(
                         ) if skip_output_check else False
                     ) for tile in todo
                 ),
-                fkwargs=fkwargs
+                fkwargs=fkwargs,
+                chunksize=max_chunksize
             ):
                 # trigger output write for driver which require parent process for writing
                 if write_in_parent_process:
