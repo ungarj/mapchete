@@ -392,7 +392,7 @@ class Executor():
             for finished_task in self._pool.imap_unordered(
                 partial(_exception_wrapper, func, fargs, fkwargs),
                 iterable,
-                chunksize=chunksize
+                chunksize=chunksize or 1
             ):
                 yield finished_task
 
