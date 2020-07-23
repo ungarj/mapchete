@@ -11,7 +11,8 @@ before_install:
   - sudo apt-get install -y gdal-bin python-tk libopenjpeg-dev libgdal-dev
   - pip install numpy cython
   - 'pip install fiona shapely --no-binary :all:'
-  - if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
+  - if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:;
+    else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
   - export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 install:
   - pip install -e .[complete]
@@ -22,12 +23,10 @@ after_success:
   - coveralls
 env:
   global:
-    - secure: mruCUE32oWr5Kzy9FKIc+Lag/Hoq0ibZAjFZymQS98xh2gJSaQRbvkhfHhOuDKpfSNBdEvICcYHbtEf6waDjmKTu/2syfRNVoTDGNjAEstc7X0IHwi7cfuznRdNLxWpRqC9h/iJ3KRnDxMutcalasWTWNjx9xKPLO34ylH1pRTKdhTXSoVbRlwG53v4kH6arUTiJqk8M68czipumsdcLbPDyjuoply9LvV0yPTGu6VXuQWVptbPwi+5ZKGfsJ64iFeO/a1DRrBvtC5Gw1ZP56t31V9iaBSIbg+rYZ0JXoVukCJV+iMUVHcyjdDLvP6q25FBX9m6Npe2X/y3l988Q4Wyn3q4IwQn1JU1VoyiY1N9GkVWrrXUxvk+Oc7LR+IP2CY5K9fYlioXtsNukGHY0L4MtQMTSlOoNnhi5qHNxiiFFlC4o4sotGPpDa/vFqyJ8UkqpcFGKvI7m/vAlYWSPf2jYrF1yA5CglYw8V89EupBlI3Ha+zdIyNbgNYXJYWGcEmgD9oM3A8HXHMxXdhE/unWNykhnZQ9CPsIzK7q04qCUvR1m/+PUCeGqsWChsFDsICKFMLz0FuNuZkFvBSO3RuOUWxOCraYtBumZ5NgkD6ubwsB6WDtuEGvJuuGC9umKi9QbkSJlcjC+tcdyhBX01msicv1jxQTIt9+uKIVlbRY=
-    - secure: dqUsCjzX1EjogDzE68tFuRAyE8SfzvWiAAn8IPPFQ0ZPEnN8oKv9lqVbnQdpQuFmvCAmnZJ2TFs5wS9Hbtg83Sths390YRYmE0MmBM8ab8SI9lU6vT8esKA/cD7Yq6FLJm25eASgG1DeVkn0HXBeAl1rIIwFpD7671xuLFT5c5fk2utF7boq9eZPTS7KMmqNTyCdRw45dyk+MOLrSUY29oRpFCqJsiwLo2k9hc4KtsMxHs820n8v4J5O+JazFXAfvtU3hiTBlE1up2jbJMEkiRV+oFEh1Kd3N/LbKRYIIVgThn4qyD+CgAjwDtGvRB4F6bZksseTT+ZhjOxSdS2QNgg4JbPQBu6VJ5tL6AbNtEYrIco6iN4MGsR9v/5/DTrzI+/Q3V/NQ6a0qrlU6mDvBIih4rwgPTO8iqv+RCKO+sRq+kMn35zRf6OcNctCQ2+VxbtrS9S0gakM1w2r6Dyosa9A5MfhjWSPl05xuXSyov2XxR6n5KjZAhW1z98wUlfmgGFA5YMR/p51xFwPBJ83ZW43HEERBQucDp1GDoWRSHDJub47qCTA89qCb+ehWWbxvoeTt1m+jiwXXsxrfeCXyIHKC3367dPxCbs+ebkBBE+v9jxwsvq10BaVZLeIcCW7xj5XYeMT9tZ8fA9kwm2OcQWia8+LZZDmO+zqCCIdz8U=
+    - secure: LLyW7eNohPOtKfGFRUubo4ZYd+608dvVLD0CRH8cY3tT1aKQXRyoOsN+LVwpbeEMvbA3Oe1tB30ZnZiZ+PqSRjjm6YDPqc7ZFZhLG3x1b+BCY88WGfelVdpLHd3Ib9GbXQRW1a9vMvG0XdCaFlEvIQg0Ly/S0bzg1QRiN3ymh2iN/VqGKiLYTOwP9qdKkn9kL39VwWu4QtBM9H73NxrE+f/5aoe/VGdxwxYBfge8pC13mIK8Bl5dbVtjhSW0kP1jwLyxn9J7zpZj2yHCt+K4fU3cthWWFgdvg4vUW6oZdCubQtBZv51sSSHDIf0ba7M89NfAFGkG7DVKAlOzQBoz4j2StAw9nWe0lvNKntXgWLPeNeD9aVn7QhzeE1H1lJN9eyNXltAAQ7/r11HJwl2VOJ/A+Br+Dou4xzXG+akfrFUHDva8zQO9VKb5wXSPLq+F2/Cft10x/YyyIpAav4ykE+gsZGXt5NspD1aeSrypupdDxbDRMNn0MzaRLI+NWXR3PqQmab44AuhFzj6ugklx2i53ZliSRBvc3l+NLIrhfVRXJAwIgT58YYl/ESrPaJjkwLlKTidRGI9fPYLCTbPyQJegpi7uq4t5JfnQX3Mrio1etM0JhRpqxO5HuFA4AwOVoh8StrnyXIdTuuf0hyHSE99uxogOtF0XXxjIQfZmY3c=
   matrix:
     - RASTERIO_VERSION="1.0.28"
     - RASTERIO_VERSION="latest"
-
 matrix:
   allow_failures:
     - env: RASTERIO_VERSION="latest"

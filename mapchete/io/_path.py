@@ -51,7 +51,7 @@ def path_exists(path):
     elif path.startswith("s3://"):
         bucket = get_boto3_bucket(path.split("/")[2])
         key = "/".join(path.split("/")[3:])
-        for obj in bucket.objects.filter(Prefix=key):
+        for obj in bucket.objects.filter(Prefix=key, RequestPayer='requester'):
             if obj.key == key:
                 return True
         else:
@@ -208,7 +208,10 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
 
                 for obj in contents:
                     # get matching tile
-                    tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
+                    try:
+                        tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
+                    except KeyError:  # pragma: no cover
+                        continue
                     # store and yield process tile if it was not already yielded
                     if tile not in yielded:
                         yielded.add(tile)
