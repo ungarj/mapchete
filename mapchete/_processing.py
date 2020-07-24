@@ -404,7 +404,6 @@ class Executor():
     def __exit__(self, *args):
         """Exit context manager."""
         logger.debug("closing %s and workers", self._pool)
-        self._pool.close()
         self._pool.__exit__(*args)
         logger.debug("%s closed", self._pool)
 
@@ -418,7 +417,7 @@ class FinishedTask():
         fkwargs = fkwargs or {}
         try:
             self._result, self._exception = func(*fargs, **fkwargs), None
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             self._result, self._exception = None, e
 
     def result(self):
@@ -654,7 +653,7 @@ def _execute(tile_process=None):
         with Timer() as t:
             try:
                 output = tile_process.execute()
-            except MapcheteNodataTile:
+            except MapcheteNodataTile:  # pragma: no cover
                 output = "empty"
         processor_message = "processed in %s" % t
         logger.debug((tile_process.tile.id, processor_message))
