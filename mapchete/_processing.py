@@ -1,5 +1,4 @@
 from collections import namedtuple
-from contextlib import ExitStack
 from functools import partial
 from itertools import chain
 import logging
@@ -367,11 +366,8 @@ class Executor():
             "init %s Executor with start_method %s and %s workers",
             self.multiprocessing_module, self.start_method, self.max_workers
         )
-        self._ctx = ExitStack()
-        self._pool = self._ctx.enter_context(
-            self.multiprocessing_module.get_context(self.start_method).Pool(
-                self.max_workers
-            )
+        self._pool = self.multiprocessing_module.get_context(self.start_method).Pool(
+            self.max_workers
         )
 
     def as_completed(
@@ -402,12 +398,14 @@ class Executor():
 
     def __enter__(self):
         """Enter context manager."""
+        self._pool.__enter__()
         return self
 
     def __exit__(self, *args):
         """Exit context manager."""
         logger.debug("closing %s and workers", self._pool)
-        self._ctx.close()
+        self._pool.close()
+        self._pool.__exit__(*args)
         logger.debug("%s closed", self._pool)
 
 
