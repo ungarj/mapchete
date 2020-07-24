@@ -322,7 +322,6 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
     assert cog_validate(single_gtiff, strict=True)
 
 
-
 def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
