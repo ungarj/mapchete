@@ -137,7 +137,7 @@ class TileProcess():
                 )
             # resample from children tiles
             elif baselevel == "lower":
-                if self.output_reader.pyramid.pixelbuffer:
+                if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
                     lower_tiles = set([
                         y for y in chain(*[
                             self.output_reader.pyramid.tiles_from_bounds(
@@ -392,19 +392,19 @@ class Executor():
             for finished_task in self._pool.imap_unordered(
                 partial(_exception_wrapper, func, fargs, fkwargs),
                 iterable,
-                chunksize=chunksize
+                chunksize=chunksize or 1
             ):
                 yield finished_task
 
     def __enter__(self):
         """Enter context manager."""
+        self._pool.__enter__()
         return self
 
     def __exit__(self, *args):
         """Exit context manager."""
         logger.debug("closing %s and workers", self._pool)
-        self._pool.close()
-        self._pool.join()
+        self._pool.__exit__(*args)
         logger.debug("%s closed", self._pool)
 
 
@@ -417,7 +417,7 @@ class FinishedTask():
         fkwargs = fkwargs or {}
         try:
             self._result, self._exception = func(*fargs, **fkwargs), None
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             self._result, self._exception = None, e
 
     def result(self):
@@ -482,6 +482,7 @@ def _run_area(
             multi=multi,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
+            max_chunksize=max_chunksize,
             write_in_parent_process=True,
             skip_output_check=skip_output_check
         ):
@@ -497,6 +498,7 @@ def _run_area(
             multi=multi,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
+            max_chunksize=max_chunksize,
             write_in_parent_process=False,
             skip_output_check=skip_output_check
         ):
@@ -525,6 +527,7 @@ def _run_multi(
     multi=None,
     multiprocessing_start_method=None,
     multiprocessing_module=None,
+    max_chunksize=None,
     write_in_parent_process=False,
     fkwargs=None,
     skip_output_check=False
@@ -585,7 +588,8 @@ def _run_multi(
                         ) if skip_output_check else False
                     ) for tile in todo
                 ),
-                fkwargs=fkwargs
+                fkwargs=fkwargs,
+                chunksize=max_chunksize
             ):
                 # trigger output write for driver which require parent process for writing
                 if write_in_parent_process:
@@ -649,7 +653,7 @@ def _execute(tile_process=None):
         with Timer() as t:
             try:
                 output = tile_process.execute()
-            except MapcheteNodataTile:
+            except MapcheteNodataTile:  # pragma: no cover
                 output = "empty"
         processor_message = "processed in %s" % t
         logger.debug((tile_process.tile.id, processor_message))

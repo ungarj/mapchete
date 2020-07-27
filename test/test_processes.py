@@ -72,7 +72,28 @@ def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
         )
-        assert isinstance(convert.execute(user_process), np.ndarray)
+        # tile with data
+        default = convert.execute(user_process)
+        assert isinstance(default, np.ndarray)
+        # scale_offset
+        offset = convert.execute(
+            user_process,
+            scale_offset=2
+        )
+        assert isinstance(offset, np.ndarray)
+        # scale_ratio
+        ratio = convert.execute(
+            user_process,
+            scale_ratio=0.5
+        )
+        assert isinstance(ratio, np.ndarray)
+        # clip_to_output_dtype
+        clip_dtype = convert.execute(
+            user_process,
+            scale_ratio=2,
+            clip_to_output_dtype="uint8"
+        )
+        assert isinstance(clip_dtype, np.ndarray)
         # execute on empty tile
         tile = mp.config.process_pyramid.tile(
             zoom,

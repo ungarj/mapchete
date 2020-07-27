@@ -19,7 +19,6 @@ generate GPKG files 3.gpkg, 4.gpkg and 5.gpkg for zoom levels 3, 4 and 5.
 
 """
 
-import concurrent.futures
 from contextlib import ExitStack
 from copy import deepcopy
 import fiona
