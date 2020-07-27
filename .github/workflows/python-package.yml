@@ -28,7 +28,9 @@ jobs:
       env:
         RASTERIO_VERSION: ${{ matrix.rasterio-version }}
       run: |
-        if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio; else pip install rasterio==$RASTERIO_VERSION; fi;
+        sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable && sudo apt-get -y update && sudo apt-get install -y gdal-bin python-tk libgdal-dev
+        - 'pip install fiona shapely --no-binary :all:'
+        if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
         export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
         pip install --upgrade pytest coveralls pytest-cov pytest-flask rio-cogeo flake8
         pip install .[complete]
