@@ -39,8 +39,13 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 mapchete --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REQUEST_PAYER: ${{ secrets.AWS_REQUEST_PAYER }}
+        CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
       run: |
         pytest -v --cov mapchete
-    - name: submit to coveralls
+    - name: Submit to coveralls
       run: |
         coveralls
