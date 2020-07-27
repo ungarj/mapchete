@@ -16,6 +16,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.5, 3.6, 3.7, 3.8]
+        rasterio-version: [1.1.4, "latest"]
 
     steps:
     - uses: actions/checkout@v2
@@ -24,13 +25,11 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
+      env:
+        RASTERIO_VERSION: ${{ matrix.rasterio-version }}
       run: |
-        sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
-        sudo apt-get -y update
-        sudo apt-get install -y gdal-bin python-tk libopenjpeg-dev libgdal-dev
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        pip install numpy cython
+        sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable && sudo apt-get -y update && sudo apt-get install -y gdal-bin python-tk libopenjpeg-dev libgdal-dev
+        pip install --upgrade pip flake8 pytest numpy cython
         'pip install fiona shapely --no-binary :all:'
         if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
         export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
