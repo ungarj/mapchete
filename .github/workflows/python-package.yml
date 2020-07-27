@@ -30,7 +30,7 @@ jobs:
       run: |
         if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio; else pip install rasterio==$RASTERIO_VERSION; fi;
         export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-        pip install --upgrade pytest coveralls pytest-cov pytest-flask rio-cogeo
+        pip install --upgrade pytest coveralls pytest-cov pytest-flask rio-cogeo flake8
         pip install .[complete]
     - name: Lint with flake8
       run: |
