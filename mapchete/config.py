@@ -381,7 +381,7 @@ class MapcheteConfig(object):
             for k, v in raw_inputs.items():
                 # for files and tile directories
                 if isinstance(v, str):
-                    logger.debug("load input reader for simple input %s",  v)
+                    logger.debug("load input reader for simple input %s", v)
                     try:
                         reader = load_input_reader(
                             dict(
@@ -476,18 +476,20 @@ class MapcheteConfig(object):
 
     @cached_property
     def process_func(self):
+        """Import process function and make syntax check."""
         return get_process_func(
             process_path=self.process_path, config_dir=self.config_dir, run_compile=True
         )
 
     def get_process_func_params(self, zoom):
+        """Return function kwargs."""
         return {
             k: v for k, v in self.params_at_zoom(zoom).items()
             if k in inspect.signature(self.process_func).parameters
         }
 
     def get_inputs_for_tile(self, tile):
-
+        """Get and open all inputs for given tile."""
         def _open_inputs(i):
             for k, v in i.items():
                 if v is None:
@@ -675,7 +677,7 @@ def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
 
 def snap_bounds(bounds=None, pyramid=None, zoom=None):
     """
-    Snaps bounds to tiles boundaries of specific zoom level.
+    Snap bounds to tiles boundaries of specific zoom level.
 
     Parameters
     ----------
@@ -696,7 +698,7 @@ def snap_bounds(bounds=None, pyramid=None, zoom=None):
 
 def clip_bounds(bounds=None, clip=None):
     """
-    Clips bounds by clip.
+    Clip bounds by clip.
 
     Parameters
     ----------
@@ -719,7 +721,7 @@ def clip_bounds(bounds=None, clip=None):
 
 def raw_conf(mapchete_file):
     """
-    Loads a mapchete_file into a dictionary.
+    Load a mapchete_file into a dictionary.
 
     Parameters
     ----------
@@ -738,7 +740,7 @@ def raw_conf(mapchete_file):
 
 def raw_conf_process_pyramid(raw_conf):
     """
-    Loads the process pyramid of a raw configuration.
+    Load the process pyramid of a raw configuration.
 
     Parameters
     ----------
@@ -758,7 +760,7 @@ def raw_conf_process_pyramid(raw_conf):
 
 def raw_conf_output_pyramid(raw_conf):
     """
-    Loads the process pyramid of a raw configuration.
+    Load the process pyramid of a raw configuration.
 
     Parameters
     ----------
@@ -786,7 +788,7 @@ def bounds_from_opts(
     wkt_geometry=None, point=None, bounds=None, zoom=None, raw_conf=None
 ):
     """
-    Loads the process pyramid of a raw configuration.
+    Load the process pyramid of a raw configuration.
 
     Parameters
     ----------
@@ -812,6 +814,7 @@ def bounds_from_opts(
 
 
 def get_process_func(process_path=None, config_dir=None, run_compile=False):
+    """Import and return process function."""
     logger.debug("get process function from %s", process_path)
     process_module = _load_process_module(
         process_path=process_path, config_dir=config_dir, run_compile=run_compile
