@@ -137,7 +137,7 @@ class TileProcess():
                 )
             # resample from children tiles
             elif baselevel == "lower":
-                if self.output_reader.pyramid.pixelbuffer:
+                if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
                     lower_tiles = set([
                         y for y in chain(*[
                             self.output_reader.pyramid.tiles_from_bounds(
