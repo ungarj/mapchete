@@ -28,12 +28,13 @@ jobs:
     - name: Install dependencies
       env:
         RASTERIO_VERSION: ${{ matrix.rasterio-version }}
+        CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
       run: |
-        sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable && sudo apt-get -y update && sudo apt-get install -y gdal-bin python-tk libgdal-dev
-        python -m pip install --upgrade pip
-        pip install fiona shapely --no-binary :all:
-        if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
-        export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+        # sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable && sudo apt-get -y update && sudo apt-get install -y gdal-bin python-tk libgdal-dev
+        # python -m pip install --upgrade pip
+        # pip install fiona shapely --no-binary :all:
+        # if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
+        if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio; else pip install rasterio==$RASTERIO_VERSION; fi;
         pip install --upgrade pytest coveralls pytest-cov pytest-flask rio-cogeo flake8
         pip install .[complete]
     - name: Lint with flake8
