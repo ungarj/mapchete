@@ -52,6 +52,8 @@ jobs:
         pytest -v --cov mapchete
     - name: Coveralls GitHub Action
       uses: coverallsapp/github-action@v1.1.1
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
     # - name: Submit to coveralls
     #   run: |
     #     coveralls
