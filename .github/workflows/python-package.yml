@@ -50,6 +50,8 @@ jobs:
         CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
       run: |
         pytest -v --cov mapchete
-    - name: Submit to coveralls
-      run: |
-        coveralls
+    - name: Coveralls GitHub Action
+      uses: coverallsapp/github-action@v1.1.1
+    # - name: Submit to coveralls
+    #   run: |
+    #     coveralls
