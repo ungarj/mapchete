@@ -24,6 +24,7 @@ jobs:
         include:
           - rasterio-version: latest
             experimental: true
+            python-version: 3.8
 
     steps:
     - uses: actions/checkout@v2
