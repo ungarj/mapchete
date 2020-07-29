@@ -11,14 +11,15 @@ on:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
+    # runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-16.04
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         python-version: [3.6, 3.7, 3.8]
         rasterio-version: [1.1.4]
-        os: [ ubuntu-16.04, ubuntu-20.04 ]
+        # os: [ ubuntu-16.04, ubuntu-20.04 ]
         experimental: [false]
         include:
           - rasterio-version: latest
