@@ -120,6 +120,8 @@ def write_vector_window(
                     out_schema["geometry"]
                 )
             ):
+                if out_geom.is_empty:
+                    continue
                 out_features.append({
                     "geometry": mapping(out_geom),
                     "properties": feature["properties"]
