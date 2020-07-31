@@ -132,7 +132,6 @@ def write_vector_window(
 
     # write if there are output features
     if out_features:
-
         try:
             if out_path.startswith("s3://"):
                 # write data to remote file
