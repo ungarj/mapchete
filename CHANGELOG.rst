@@ -3,6 +3,15 @@ Changelog
 #########
 
 ----
+0.35
+----
+* fix index updates on remote TileDirectories (#274)
+* pass on chunksize to multiprocessing & use Pool.__exit__() to close (#276)
+* use GitHub actions instead of Travis CI
+* update Fiona dependency to `1.8.13.post1`
+
+
+----
 0.34
 ----
 * speed up extension loading by using `importlib-metadata` and `importlib-resources` instead of `pkg_resources` (#267)
