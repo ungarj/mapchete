@@ -1,6 +1,6 @@
 try:
     from importlib import metadata
-except ImportError:
+except ImportError:  # pragma: no cover
     # <PY38 use backport
     import importlib_metadata as metadata
 

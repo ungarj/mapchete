@@ -350,7 +350,7 @@ def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
         http_raster,
         single_gtiff,
         "--output-pyramid", "geodetic",
-        "-z", "3"
+        "-z", "1"
     ])
     with rasterio.open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"

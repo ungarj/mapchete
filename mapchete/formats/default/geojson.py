@@ -95,7 +95,11 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             with fiona.open(self.get_path(output_tile), "r") as src:
                 return list(src)
         except DriverError as e:
-            for i in ("does not exist in the file system", "No such file or directory"):
+            for i in (
+                "does not exist in the file system",
+                "No such file or directory",
+                "specified key does not exist."
+            ):
                 if i in str(e):
                     return self.empty(output_tile)
             else:  # pragma: no cover
