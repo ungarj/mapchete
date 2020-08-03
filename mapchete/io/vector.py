@@ -120,6 +120,8 @@ def write_vector_window(
                     out_schema["geometry"]
                 )
             ):
+                if out_geom.is_empty:
+                    continue
                 out_features.append({
                     "geometry": mapping(out_geom),
                     "properties": feature["properties"]
@@ -130,7 +132,6 @@ def write_vector_window(
 
     # write if there are output features
     if out_features:
-
         try:
             if out_path.startswith("s3://"):
                 # write data to remote file
