@@ -72,11 +72,8 @@ def cp(
 ):
     """Copy TileDirectory."""
     protocol, _, host = input.split("/")[:3]
-    src_fs = fsspec.filesystem(
-        _guess_fstype(input),
-        auth=BasicAuth(username, password)
-    )
-    dst_fs = fsspec.filesystem(_guess_fstype(output))
+    src_fs = fs_from_path(input, username=username, password=password)
+    dst_fs = fs_from_path(output, username=username, password=password)
 
     # read source TileDirectory metadata
     with src_fs.open(os.path.join(input, "metadata.json")) as src:
@@ -115,19 +112,34 @@ def _copy(src_fs, src_path, dst_fs, dst_path, overwrite=False):
         return
     elif not src_fs.exists(src_path):
         return
-    with src_fs.open(src_path, "rb") as src:
-        dst_fs.mkdir(os.path.dirname(dst_path), create_parents=True)
-        with dst_fs.open(dst_path, "wb") as dst:
-            dst.write(src.read())
 
-
-def _guess_fstype(path):
-    if path.startswith(("http://", "https://")):
-        return "https"
-    elif path.startswith(("s3://")):
-        return "s3"
+    dst_fs.mkdir(os.path.dirname(dst_path), create_parents=True)
+    if src_fs == dst_fs:
+        src_fs.copy(src_path, dst_path)
     else:
-        return "file"
+        with src_fs.open(src_path, "rb") as src:
+            with dst_fs.open(dst_path, "wb") as dst:
+                dst.write(src.read())
+
+
+def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
+    """Guess fsspec FileSystem from path."""
+    if path.startswith("s3://"):
+        return fsspec.filesystem(
+            "s3",
+            requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
+            config_kwargs=dict(connect_timeout=timeout, read_timeout=timeout),
+            session=session
+        )
+    elif path.startswith(("http://", "https://")):
+        return fsspec.filesystem(
+            "https",
+            auth=BasicAuth(username, password)
+        )
+    else:
+        return fsspec.filesystem(
+            "file",
+        )
 
 
 def _get_tile_path(tile, basepath=None):
