@@ -87,6 +87,7 @@ def cp(
         aoi_geom = box(*bounds)
     else:
         aoi_geom = box(*tp.bounds)
+    aoi_geom = aoi_geom.buffer(-0.0000001)
 
     # copy metadata to destination if necessary
     _copy(
