@@ -48,6 +48,7 @@ setup(
         ],
         "mapchete.cli.commands": [
             "convert=mapchete.cli.default.convert:convert",
+            "cp=mapchete.cli.default.cp:cp",
             "create=mapchete.cli.default.create:create",
             "execute=mapchete.cli.default.execute:execute",
             "formats=mapchete.cli.default.formats:formats",
