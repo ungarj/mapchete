@@ -100,6 +100,7 @@ def cp(
         click.echo(f"copy zoom {z}...")
         # materialize all tiles
         tiles = list(tp.tiles_from_geom(aoi_geom, z))
+
         # check which source tiles exist
         src_tiles_exist = {
             tile: exists
@@ -111,6 +112,7 @@ def cp(
                 process_pyramid=tp
             )
         }
+
         # chech which destination tiles exist
         dst_tiles_exist =  {
             tile: exists
