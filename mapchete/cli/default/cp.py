@@ -1,3 +1,4 @@
+from aiohttp import BasicAuth
 import click
 import fiona
 import fsspec

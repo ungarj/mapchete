@@ -4,6 +4,7 @@ click>=7.1.1
 click-plugins
 click-spinner
 fiona>=1.8.13.post1
+fsspec
 importlib-metadata
 importlib-resources
 numpy>=1.16
