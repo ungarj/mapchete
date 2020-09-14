@@ -1,36 +1,17 @@
 import click
 import fiona
+import fsspec
+import json
 import logging
-from multiprocessing import cpu_count
 import os
-import rasterio
-from rasterio.enums import Resampling
-from rasterio.dtypes import dtype_ranges
-from rasterio.rio.options import creation_options
-from shapely.geometry import box
-import sys
-import tilematrix
+from shapely.geometry import box, shape
+from shapely.ops import unary_union
+from tilematrix import TilePyramid
+import tqdm
 
 from mapchete.cli import utils
-from mapchete.config import raw_conf, raw_conf_output_pyramid
-from mapchete.formats import (
-    driver_from_file, available_output_formats, available_input_formats
-)
-from mapchete.io import read_json, get_best_zoom_level
-from mapchete.io.vector import reproject_geometry
-from mapchete.tile import BufferedTilePyramid
-from mapchete.validate import validate_zooms
 
 logger = logging.getLogger(__name__)
-OUTPUT_FORMATS = available_output_formats()
-
-
-def _validate_bidx(ctx, param, bidx):
-    if bidx:
-        try:
-            return list(map(int, bidx.split(",")))
-        except ValueError:
-            raise click.BadParameter("band indexes must be positive integer values")
 
 
 @click.command(help="Copy TileDirectory.")
@@ -40,6 +21,7 @@ def _validate_bidx(ctx, param, bidx):
 @utils.opt_bounds
 @utils.opt_point
 @utils.opt_wkt_geometry
+@utils.opt_aoi
 @utils.opt_overwrite
 @utils.opt_verbose
 @utils.opt_no_pbar
@@ -62,6 +44,7 @@ def cp(
     bounds=None,
     point=None,
     wkt_geometry=None,
+    aoi=None,
     overwrite=False,
     verbose=False,
     no_pbar=False,
@@ -71,12 +54,12 @@ def cp(
     password=None
 ):
     """Copy TileDirectory."""
-    protocol, _, host = input.split("/")[:3]
-    src_fs = fs_from_path(input, username=username, password=password)
+    protocol, _, host = input_.split("/")[:3]
+    src_fs = fs_from_path(input_, username=username, password=password)
     dst_fs = fs_from_path(output, username=username, password=password)
 
     # read source TileDirectory metadata
-    with src_fs.open(os.path.join(input, "metadata.json")) as src:
+    with src_fs.open(os.path.join(input_, "metadata.json")) as src:
         metadata = json.loads(src.read())
         tp = TilePyramid.from_dict(
             {
@@ -85,23 +68,33 @@ def cp(
             }
         )
 
+    # get aoi
+    if aoi:
+        with fiona.open(aoi) as src:
+            aoi_geom = unary_union([shape(f["geometry"]) for f in src])
+    elif bounds:
+        aoi_geom = box(*bounds)
+    else:
+        aoi_geom = box(*tp.bounds)
+
     # copy metadata to destination if necessary
     _copy(
         src_fs,
-        os.path.join(input, "metadata.json"),
+        os.path.join(input_, "metadata.json"),
         dst_fs,
         os.path.join(output, "metadata.json")
     )
-    for z in zoom:
+
+    for z in range(min(zoom), max(zoom) + 1):
         click.echo(f"copy zoom {z}...")
         for tile in tqdm.tqdm(
-            list(tp.tiles_from_bounds(bounds or tp.bounds, z)),
+            list(tp.tiles_from_geom(aoi_geom, z)),
             unit="tile",
             disable=debug or no_pbar
         ):
             _copy(
                 src_fs,
-                os.path.join(input, _get_tile_path(tile)),
+                os.path.join(input_, _get_tile_path(tile)),
                 dst_fs,
                 os.path.join(output, _get_tile_path(tile))
             )
