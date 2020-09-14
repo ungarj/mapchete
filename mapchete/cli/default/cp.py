@@ -87,7 +87,6 @@ def cp(
         aoi_geom = box(*bounds)
     else:
         aoi_geom = box(*tp.bounds)
-    aoi_geom = aoi_geom.buffer(-0.0000001)
 
     # copy metadata to destination if necessary
     _copy(
@@ -100,7 +99,10 @@ def cp(
     for z in range(min(zoom), max(zoom) + 1):
         click.echo(f"copy zoom {z}...")
         # materialize all tiles
-        tiles = list(tp.tiles_from_geom(aoi_geom, z))
+        tiles = [
+            t for t in tp.tiles_from_bounds(aoi_geom.bounds, z)
+            if aoi_geom.intersection(t.bbox()).area
+        ]
 
         # check which source tiles exist
         src_tiles_exist = {
