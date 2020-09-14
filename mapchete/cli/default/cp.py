@@ -11,6 +11,7 @@ from tilematrix import TilePyramid
 import tqdm
 
 from mapchete.cli import utils
+from mapchete.io import tiles_exist
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,15 @@ def cp(
     # read source TileDirectory metadata
     with src_fs.open(os.path.join(input_, "metadata.json")) as src:
         metadata = json.loads(src.read())
+        _format = metadata["driver"]["format"]
+        if _format == "GTiff":
+            file_extension = ".tif"
+        elif _format in ["PNG", "PNG_hillshade"]:
+            file_extension = ".png"
+        elif _format == "GeoJSON":
+            file_extension = ".geojson"
+        else:
+            raise TypeError(f"cannot determine file extension from format {_format}")
         tp = TilePyramid.from_dict(
             {
                 k: v for k, v in metadata.get("pyramid").items()
@@ -88,26 +98,62 @@ def cp(
 
     for z in range(min(zoom), max(zoom) + 1):
         click.echo(f"copy zoom {z}...")
+        # materialize all tiles
+        tiles = list(tp.tiles_from_geom(aoi_geom, z))
+        # check which source tiles exist
+        src_tiles_exist = {
+            tile: exists
+            for tile, exists in tiles_exist(
+                output_tiles=tiles,
+                basepath=input_,
+                file_extension=file_extension,
+                output_pyramid=tp,
+                process_pyramid=tp
+            )
+        }
+        # chech which destination tiles exist
+        dst_tiles_exist =  {
+            tile: exists
+            for tile, exists in tiles_exist(
+                output_tiles=tiles,
+                basepath=output,
+                file_extension=file_extension,
+                output_pyramid=tp,
+                process_pyramid=tp
+            )
+        }
+
+        # copy
         for tile in tqdm.tqdm(
-            list(tp.tiles_from_geom(aoi_geom, z)),
+            tiles,
             unit="tile",
             disable=debug or no_pbar
         ):
-            _copy(
-                src_fs,
-                os.path.join(input_, _get_tile_path(tile)),
-                dst_fs,
-                os.path.join(output, _get_tile_path(tile))
-            )
+            # only copy if source tile exists
+            if src_tiles_exist[tile]:
+                # skip if destination tile exists and overwrite is deactivated
+                if dst_tiles_exist[tile] and not overwrite:
+                    logger.debug(f"{tile}: destination tile exists")
+                    continue
+                # copy from source to target
+                else:
+                    logger.debug(f"{tile}: copy")
+                    _copy(
+                        src_fs,
+                        os.path.join(input_, _get_tile_path(tile)),
+                        dst_fs,
+                        os.path.join(output, _get_tile_path(tile))
+                    )
+            else:
+                logger.debug(f"{tile}: source tile does not exist")
 
 
-def _copy(src_fs, src_path, dst_fs, dst_path, overwrite=False):
-    if dst_fs.exists(dst_path) and not overwrite:
-        return
-    elif not src_fs.exists(src_path):
-        return
+def _copy(src_fs, src_path, dst_fs, dst_path):
+    # create parent directories on local filesystems
+    if dst_fs.protocol == "file":
+        dst_fs.mkdir(os.path.dirname(dst_path), create_parents=True)
 
-    dst_fs.mkdir(os.path.dirname(dst_path), create_parents=True)
+    # copy either within a filesystem or between filesystems
     if src_fs == dst_fs:
         src_fs.copy(src_path, dst_path)
     else:

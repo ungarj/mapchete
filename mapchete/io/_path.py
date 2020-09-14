@@ -118,7 +118,15 @@ def makedirs(path):
             pass
 
 
-def tiles_exist(config=None, output_tiles=None, process_tiles=None):
+def tiles_exist(
+    config=None,
+    output_tiles=None,
+    process_tiles=None,
+    basepath=None,
+    file_extension=None,
+    output_pyramid=None,
+    process_pyramid=None
+):
     """
     Yield tiles and whether their output already exists or not.
 
@@ -141,7 +149,17 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
     elif process_tiles is None and output_tiles is None:  # pragma: no cover
         raise ValueError("one of 'process_tiles' and 'output_tiles' has to be provided")
 
-    basepath = config.output_reader.path
+    if config:
+        basepath = config.output_reader.path
+        file_extension = config.output_reader.file_extension
+        process_pyramid = config.process_pyramid
+        output_pyramid = config.output_pyramid
+    else:
+        basepath = basepath
+        file_extension = file_extension
+        output_pyramid = output_pyramid
+        process_pyramid = process_pyramid
+
     # make tiles unique
     tiles = set(process_tiles) if process_tiles is not None else set(output_tiles)
 
@@ -151,7 +169,7 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
 
     # only on TileDirectories on S3
     if (
-        not config.output_reader.path.endswith(config.output_reader.file_extension) and
+        not basepath.endswith(file_extension) and
         basepath.startswith("s3://")
     ):
         import boto3
@@ -169,7 +187,7 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
                 [
                     t
                     for process_tile in tiles
-                    for t in config.output_pyramid.intersecting(process_tile)
+                    for t in output_pyramid.intersecting(process_tile)
                 ]
             )
         else:
@@ -182,10 +200,19 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
         for output_tile in output_tiles:
             if output_tile.zoom != zoom:  # pragma: no cover
                 raise ValueError("tiles of different zoom levels cannot be mixed")
-            path = config.output_reader.get_path(output_tile)
+
+            if config:
+                path = config.output_reader.get_path(output_tile)
+            else:
+                path = os.path.join(
+                    basepath,
+                    str(output_tile.zoom),
+                    str(output_tile.row),
+                    str(output_tile.col)
+                ) + file_extension
 
             if process_tiles:
-                paths[path] = config.process_pyramid.intersecting(output_tile)[0]
+                paths[path] = process_pyramid.intersecting(output_tile)[0]
             else:
                 paths[path] = output_tile
 
@@ -222,11 +249,17 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
             yield (tile, False)
 
     else:
-        def _exists(tile):
+        def _exists(tile, config=None, basepath=None):
             if process_tiles:
-                return (tile, config.output_reader.tiles_exist(process_tile=tile))
+                if config:
+                    return (tile, config.output_reader.tiles_exist(process_tile=tile))
+                else:
+                    raise NotImplementedError("please use MapcheteConfig as input")
             else:
-                return (tile, config.output_reader.tiles_exist(output_tile=tile))
+                if config:
+                    return (tile, config.output_reader.tiles_exist(output_tile=tile))
+                else:
+                    raise NotImplementedError("please use MapcheteConfig as input")
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for future in concurrent.futures.as_completed(
