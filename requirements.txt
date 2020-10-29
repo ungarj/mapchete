@@ -3,7 +3,7 @@ cached_property
 click>=7.1.1
 click-plugins
 click-spinner
-fiona>=1.8b1
+fiona>=1.8.13.post1
 importlib-metadata
 importlib-resources
 numpy>=1.16
