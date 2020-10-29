@@ -89,12 +89,11 @@ def cp(
         aoi_geom = box(*tp.bounds)
 
     # copy metadata to destination if necessary
-    _copy(
-        src_fs,
-        os.path.join(input_, "metadata.json"),
-        dst_fs,
-        os.path.join(output, "metadata.json")
-    )
+    src_path = os.path.join(input_, "metadata.json"),
+    dst_path = os.path.join(output, "metadata.json")
+    if not dst_fs.exists(dst_path):
+        logger.debug(f"copy {src_path} to {dst_path}")
+        _copy(src_fs, src_path, dst_fs, dst_path)
 
     for z in range(min(zoom), max(zoom) + 1):
         click.echo(f"copy zoom {z}...")
@@ -112,7 +111,8 @@ def cp(
                 basepath=input_,
                 file_extension=file_extension,
                 output_pyramid=tp,
-                process_pyramid=tp
+                process_pyramid=tp,
+                fs=src_fs
             )
         }
 
@@ -124,8 +124,8 @@ def cp(
                 basepath=output,
                 file_extension=file_extension,
                 output_pyramid=tp,
-                process_pyramid=tp
-            )
+                process_pyramid=tp,
+                fs=dst_fs            )
         }
 
         # copy
@@ -142,13 +142,10 @@ def cp(
                     continue
                 # copy from source to target
                 else:
-                    logger.debug(f"{tile}: copy")
-                    _copy(
-                        src_fs,
-                        os.path.join(input_, _get_tile_path(tile)),
-                        dst_fs,
-                        os.path.join(output, _get_tile_path(tile))
-                    )
+                    src_path = os.path.join(input_, _get_tile_path(tile))
+                    dst_path = os.path.join(output, _get_tile_path(tile))
+                    logger.debug(f"{tile}: copy {src_path} to {dst_path}")
+                    _copy(src_fs, src_path, dst_fs, dst_path)
             else:
                 logger.debug(f"{tile}: source tile does not exist")
 

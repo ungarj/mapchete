@@ -1,4 +1,5 @@
 import concurrent.futures
+from itertools import chain
 import logging
 import os
 from urllib.request import urlopen
@@ -125,7 +126,7 @@ def tiles_exist(
     basepath=None,
     file_extension=None,
     output_pyramid=None,
-    process_pyramid=None
+    fs=None
 ):
     """
     Yield tiles and whether their output already exists or not.
@@ -148,6 +149,20 @@ def tiles_exist(
         raise ValueError("just one of 'process_tiles' and 'output_tiles' allowed")
     elif process_tiles is None and output_tiles is None:  # pragma: no cover
         raise ValueError("one of 'process_tiles' and 'output_tiles' has to be provided")
+    elif config is None and output_pyramid is None and output_tiles is None:
+        raise ValueError(
+            "output_pyramid is required when no MapcheteConfig and process_tiles given"
+        )
+    elif config is None and file_extension is None:
+        raise ValueError("file_extension is required when no MapcheteConfig is given")
+
+    # get first tile and in case no tiles are provided return
+    try:
+        tiles_iter = iter(process_tiles) if output_tiles is None else iter(output_tiles)
+        first_tile = next(tiles_iter)
+        all_tiles_iter = chain([first_tile], tiles_iter)
+    except StopIteration:
+        return
 
     if config:
         basepath = config.output_reader.path
@@ -157,15 +172,8 @@ def tiles_exist(
     else:
         basepath = basepath
         file_extension = file_extension
-        output_pyramid = output_pyramid
-        process_pyramid = process_pyramid
-
-    # make tiles unique
-    tiles = set(process_tiles) if process_tiles is not None else set(output_tiles)
-
-    # in case no tiles are provided
-    if not tiles:
-        return
+        output_pyramid = output_pyramid or first_tile.tp if output_tiles else None
+        process_pyramid =  first_tile.tp if process_tiles else None
 
     # only on TileDirectories on S3
     if (
@@ -173,13 +181,14 @@ def tiles_exist(
         basepath.startswith("s3://")
     ):
         import boto3
+        tiles = set(all_tiles_iter)
         basekey = "/".join(basepath.split("/")[3:])
         bucket = basepath.split("/")[2]
         s3 = boto3.client("s3")
         paginator = s3.get_paginator("list_objects_v2")
 
         # determine zoom
-        zoom = next(iter(tiles)).zoom
+        zoom = first_tile.zoom
 
         # get all output tiles
         if process_tiles:
@@ -249,20 +258,54 @@ def tiles_exist(
             yield (tile, False)
 
     else:
-        def _exists(tile, config=None, basepath=None):
+        def _exists(
+            tile,
+            config=None,
+            basepath=None,
+            file_extension=None,
+            fs=None,
+            output_pyramid=None
+        ):
+
+            def _tile_path(basepath, tile, file_extension):
+                return os.path.join(
+                    basepath, f"{tile.zoom}/{tile.row}/{tile.col}{file_extension}"
+                )
+
             if process_tiles:
                 if config:
                     return (tile, config.output_reader.tiles_exist(process_tile=tile))
                 else:
+                    return (
+                        tile,
+                        any(
+                            [
+                                fs.exists(_tile_path(basepath, tile, file_extension))
+                                for output_tile in output_pyramid.intersecting(tile)
+                            ]
+                        )
+                    )
                     raise NotImplementedError("please use MapcheteConfig as input")
             else:
                 if config:
                     return (tile, config.output_reader.tiles_exist(output_tile=tile))
                 else:
-                    raise NotImplementedError("please use MapcheteConfig as input")
+                    return (tile, fs.exists(_tile_path(basepath, tile, file_extension)))
+
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
             for future in concurrent.futures.as_completed(
-                (executor.submit(_exists, tile) for tile in tiles)
+                (
+                    executor.submit(
+                        _exists,
+                        tile,
+                        config,
+                        basepath,
+                        file_extension,
+                        fs,
+                        output_pyramid
+                    )
+                    for tile in all_tiles_iter
+                )
             ):
                 yield future.result()
