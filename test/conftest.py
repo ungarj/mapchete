@@ -143,6 +143,12 @@ def landpoly_3857():
 
 
 @pytest.fixture
+def aoi_br_geojson():
+    """Fixture for aoi_br.geojson"""
+    return os.path.join(TESTDATA_DIR, "aoi_br.geojson")
+
+
+@pytest.fixture
 def cleantopo_br_tif():
     """Fixture for cleantopo_br.tif"""
     return os.path.join(TESTDATA_DIR, "cleantopo_br.tif")
@@ -429,6 +435,13 @@ def output_single_gtiff():
 def output_single_gtiff_cog():
     """Fixture for output_single_gtiff_cog.mapchete."""
     path = os.path.join(TESTDATA_DIR, "output_single_gtiff_cog.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def aoi_br():
+    """Fixture for aoi_br.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "aoi_br.mapchete")
     return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
 
 
