@@ -9,4 +9,4 @@ output:
     bands: 1
     format: GTiff
     path: tmp/cleantopo_br
-aoi: aoi_br.geojson
+area: aoi_br.geojson

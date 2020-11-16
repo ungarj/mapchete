@@ -55,16 +55,17 @@ _MANDATORY_PARAMETERS = [
 
 # parameters with special functions which cannot be used for user parameters
 _RESERVED_PARAMETERS = [
+    "area",              # geometry limiting process area
     "baselevels",       # enable interpolation from other zoom levels
     "bounds",           # process bounds
-    "process",          # path to .py file or module path
     "config_dir",       # configuration base directory
+    "metatiling",       # process metatile size (deprecated)
+    "pixelbuffer",      # buffer around each tile in pixels (deprecated)
+    "process",          # path to .py file or module path
     "process_minzoom",  # minimum zoom where process is valid (deprecated)
     "process_maxzoom",  # maximum zoom where process is valid (deprecated)
     "process_zoom",     # single zoom where process is valid (deprecated)
     "process_bounds",   # process boundaries (deprecated)
-    "metatiling",       # process metatile size (deprecated)
-    "pixelbuffer",      # buffer around each tile in pixels (deprecated)
 ]
 
 
