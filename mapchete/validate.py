@@ -97,6 +97,32 @@ def validate_bounds(bounds):
     return Bounds(*bounds)
 
 
+def validate_area(area):
+    """
+    Return validated area.
+
+    Area must be either a WKT, a GeoJSON mapping or a shapely Polygon.
+
+    Parameters
+    ----------
+    area : string or dict
+
+    Returns
+    -------
+    shapely.geometry.Polygon
+
+    Raises
+    ------
+    TypeError if type is invalid.
+    """
+    if not isinstance(area, (str, dict, )):
+        raise TypeError(
+            "area must be either a WKT, a GeoJSON mapping or a Fiona-readable path: %s" % str(area)
+        )
+    # TODO: parse
+    return area
+
+
 def validate_values(config, values):
     """
     Return True if all values are given and have the desired type.

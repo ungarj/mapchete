@@ -13,6 +13,7 @@ when initializing the configuration.
 from cached_property import cached_property
 from collections import OrderedDict
 from copy import deepcopy
+import fiona
 import imp
 import importlib
 import inspect
@@ -22,7 +23,8 @@ import os
 import oyaml as yaml
 import py_compile
 from shapely import wkt
-from shapely.geometry import box
+from shapely.geometry import box, shape
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import cascaded_union
 from tilematrix._funcs import Bounds
 import warnings
@@ -55,7 +57,7 @@ _MANDATORY_PARAMETERS = [
 
 # parameters with special functions which cannot be used for user parameters
 _RESERVED_PARAMETERS = [
-    "area",              # geometry limiting process area
+    "area",             # geometry limiting process area
     "baselevels",       # enable interpolation from other zoom levels
     "bounds",           # process bounds
     "config_dir",       # configuration base directory
@@ -115,10 +117,12 @@ class MapcheteConfig(object):
         process zoom levels
     bounds : tuple
         process bounds
-    init_zoom_levels : list
-        zoom levels the process configuration was initialized with
-    init_bounds : tuple
-        bounds the process configuration was initialized with
+    zoom : list or int
+        subset zoom levels provided in process configuration
+    bounds : tuple
+        subset bounds provided in process configuration
+    area : geometry
+        subset area provided in process configuration
     baselevels : dictionary
         base zoomlevels, where data is processed; zoom levels not included are
         generated from baselevels
@@ -140,8 +144,16 @@ class MapcheteConfig(object):
     """
 
     def __init__(
-        self, input_config, zoom=None, bounds=None, single_input_file=None,
-        mode="continue", debug=False
+        self,
+        input_config,
+        zoom=None,
+        area=None,
+        area_crs=None,
+        bounds=None,
+        bounds_crs=None,
+        single_input_file=None,
+        mode="continue",
+        debug=False
     ):
         """Initialize configuration."""
         # get dictionary representation of input_config and
@@ -149,6 +161,9 @@ class MapcheteConfig(object):
         self._raw = _map_to_new_config(_config_to_dict(input_config))
         self._raw["init_zoom_levels"] = zoom
         self._raw["init_bounds"] = bounds
+        self._raw["init_bounds_crs"] = bounds_crs
+        self._raw["init_area"] = area
+        self._raw["init_area_crs"] = area_crs
         self._cache_area_at_zoom = {}
         self._cache_full_process_area = None
 
@@ -212,7 +227,15 @@ class MapcheteConfig(object):
         logger.debug("preparing process parameters")
         self._params_at_zoom = _raw_at_zoom(self._raw, self.init_zoom_levels)
 
-        # (6) the delimiters are used by some input drivers
+        # (6) prepare process area and process boundaries
+        self.area = _get_process_area(
+            raw_conf=self._raw,
+            pyramid=self.process_pyramid,
+            base_dir=self.config_dir
+        )
+        self.bounds = self.area.bounds
+
+        # (7) the delimiters are used by some input drivers
         self._delimiters = dict(
             zoom=self.init_zoom_levels,
             bounds=self.init_bounds,
@@ -220,17 +243,17 @@ class MapcheteConfig(object):
             effective_bounds=self.effective_bounds
         )
 
-        # (7) initialize output
+        # (8) initialize output
         logger.debug("initializing output")
         self.output
 
-        # (8) initialize input items
+        # (9) initialize input items
         # depending on the inputs this action takes the longest and is done
         # in the end to let all other actions fail earlier if necessary
         logger.debug("initializing input")
         self.input
 
-        # (9) some output drivers such as the GeoTIFF single file driver also needs the
+        # (10) some output drivers such as the GeoTIFF single file driver also needs the
         # process area to prepare
         logger.debug("prepare output")
         self.output.prepare(process_area=self.area_at_zoom())
@@ -257,22 +280,11 @@ class MapcheteConfig(object):
             raise MapcheteConfigError(e)
 
     @cached_property
-    def bounds(self):
-        """Process bounds as defined in the configuration."""
-        if self._raw["bounds"] is None:
-            return self.process_pyramid.bounds
-        else:
-            try:
-                return validate_bounds(self._raw["bounds"])
-            except Exception as e:
-                raise MapcheteConfigError(e)
-
-    @cached_property
     def init_bounds(self):
         """
         Process bounds this process is currently initialized with.
 
-        This gets triggered by using the ``init_bounds`` kwarg. If not set, it will
+        This gets triggered by using the ``bounds`` kwarg. If not set, it will
         be equal to self.bounds.
         """
         if self._raw["init_bounds"] is None:
@@ -280,6 +292,22 @@ class MapcheteConfig(object):
         else:
             try:
                 return validate_bounds(self._raw["init_bounds"])
+            except Exception as e:
+                raise MapcheteConfigError(e)
+
+    @cached_property
+    def init_area(self):
+        """
+        Process area this process is currently initialized with.
+
+        This gets triggered by using the ``area`` kwarg. If not set, it will
+        be calculated using self.bounds.
+        """
+        if self._raw["init_area"] is None:
+            return self.area
+        else:
+            try:
+                return _guess_geometry(self._raw["init_area"])
             except Exception as e:
                 raise MapcheteConfigError(e)
 
@@ -573,11 +601,11 @@ class MapcheteConfig(object):
                     if v is not None
                 ])
                 self._cache_area_at_zoom[zoom] = input_union.intersection(
-                    box(*self.init_bounds)
-                ) if self.init_bounds else input_union
+                    self.init_area
+                ) if self.init_area else input_union
             # if no input items are available, just use init_bounds
             else:
-                self._cache_area_at_zoom[zoom] = box(*self.init_bounds)
+                self._cache_area_at_zoom[zoom] = self.init_area
         return self._cache_area_at_zoom[zoom]
 
     def bounds_at_zoom(self, zoom=None):
@@ -1072,3 +1100,70 @@ def _map_to_new_config(config):
         config["process"] = config.pop("process_file")
 
     return config
+
+
+def _get_process_area(raw_conf=None, pyramid=None, base_dir=None):
+    """
+    Determine process area by combining configuration with instantiation arguments.
+
+    In the configuration the process area can be provided by using the (1) ``area``
+    option, (2) ``bounds`` option or (3) a combination of both.
+
+    (1) If only ``area`` is provided, output shall be the area geometry
+    (2) If only ``bounds`` is provided, output shall be box(*self.bounds)
+    (3) If both are provided, output shall be the intersection between ``area`` and
+    ``bounds``
+
+    The area parameter can be provided in multiple variations, see _guess_geometry().
+    """
+    if raw_conf["bounds"] is None:
+        bounds = pyramid.bounds
+    else:
+        try:
+            bounds = validate_bounds(raw_conf["bounds"])
+        except Exception as e:
+            raise MapcheteConfigError(e)
+
+    if raw_conf["area"] is None:
+        area = box(*pyramid.bounds)
+    else:
+        try:
+            area = _guess_geometry(raw_conf["area"], base_dir=base_dir)
+        except Exception as e:
+            raise MapcheteConfigError(e)
+
+    return area.intersection(box(*bounds))
+
+
+def _guess_geometry(i, base_dir=None):
+    """
+    Guess and parse geometry if possible.
+
+    - a WKT string
+    - a GeoJSON mapping
+    - a shapely geometry
+    - a path to a Fiona-readable file
+    """
+    # WKT or path:
+    if isinstance(i, str):
+        if i.startswith(("POLYGON ", "MULTIPOLYGON ")):
+            geom = wkt.loads(i)
+        else:
+            with fiona.open(absolute_path(path=i, base_dir=base_dir)) as src:
+                geom = cascaded_union([shape(f["geometry"]) for f in src])
+    # GeoJSON mapping
+    elif isinstance(i, dict):
+        geom = shape(i)
+    # shapely geometry
+    elif isinstance(i, BaseGeometry):
+        geom = i
+    else:
+        raise TypeError(
+            "area must be either WKT, GeoJSON mapping, shapely geometry or a "
+            "Fiona-readable path."
+        )
+    if not geom.is_valid:
+        raise TypeError("area is not a valid geometry")
+    if geom.geom_type not in ["Polygon", "MultiPolygon"]:
+        raise TypeError("area must either be a Polygon or a MultiPolygon")
+    return geom
