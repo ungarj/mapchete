@@ -266,20 +266,24 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
 
     # read geojson geometry
     with fiona.open(aoi_br_geojson) as src:
-        aoi = shape(next(src)["geometry"])
+        area = shape(next(src)["geometry"])
     # read input tiff bounds
     with rasterio.open(cleantopo_br_tif) as src:
         raster = box(*src.bounds)
-    aoi = aoi.intersection(raster)
+    aoi = area.intersection(raster)
 
+    # area in mapchete config
     with mapchete.open(aoi_br.dict) as mp:
         aoi_tiles = list(mp.config.process_pyramid.tiles_from_geom(aoi, zoom))
         process_tiles = list(mp.get_process_tiles(zoom=zoom))
-        # for t in aoi_tiles:
-        #     print(t.bbox.wkt)
-        for t in process_tiles:
-            print(t.bbox.wkt)
-        # print(aoi_tiles)
-        # print(process_tiles)
+        assert len(aoi_tiles) == len(process_tiles)
+        assert set(aoi_tiles) == set(process_tiles)
+
+    # area in mapchete.open
+    with mapchete.open(
+        dict(aoi_br.dict, area=None),
+        area=aoi_br_geojson
+    ) as mp:
+        process_tiles = list(mp.get_process_tiles(zoom=zoom))
         assert len(aoi_tiles) == len(process_tiles)
         assert set(aoi_tiles) == set(process_tiles)

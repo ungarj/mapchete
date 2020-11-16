@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 def open(
-    config, mode="continue", zoom=None, bounds=None, single_input_file=None,
-    with_cache=False, debug=False
+    config,
+    with_cache=False,
+    **kwargs
 ):
     """
     Open a Mapchete process.
@@ -47,13 +48,7 @@ def open(
     Mapchete
         a Mapchete process object
     """
-    return Mapchete(
-        MapcheteConfig(
-            config, mode=mode, zoom=zoom, bounds=bounds,
-            single_input_file=single_input_file, debug=debug
-        ),
-        with_cache=with_cache
-    )
+    return Mapchete(MapcheteConfig(config, **kwargs), with_cache=with_cache)
 
 
 class Mapchete(object):

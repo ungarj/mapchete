@@ -153,7 +153,8 @@ class MapcheteConfig(object):
         bounds_crs=None,
         single_input_file=None,
         mode="continue",
-        debug=False
+        debug=False,
+        **kwargs
     ):
         """Initialize configuration."""
         # get dictionary representation of input_config and
@@ -1116,7 +1117,7 @@ def _get_process_area(raw_conf=None, pyramid=None, base_dir=None):
 
     The area parameter can be provided in multiple variations, see _guess_geometry().
     """
-    if raw_conf["bounds"] is None:
+    if raw_conf.get("bounds") is None:
         bounds = pyramid.bounds
     else:
         try:
@@ -1124,7 +1125,7 @@ def _get_process_area(raw_conf=None, pyramid=None, base_dir=None):
         except Exception as e:
             raise MapcheteConfigError(e)
 
-    if raw_conf["area"] is None:
+    if raw_conf.get("area") is None:
         area = box(*pyramid.bounds)
     else:
         try:
