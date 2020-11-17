@@ -228,13 +228,18 @@ class MapcheteConfig(object):
         logger.debug("preparing process parameters")
         self._params_at_zoom = _raw_at_zoom(self._raw, self.init_zoom_levels)
 
-        # (6) prepare process area and process boundaries
-        self.area = _get_process_area(
-            raw_conf=self._raw,
-            pyramid=self.process_pyramid,
-            base_dir=self.config_dir
+        # (6) determine process area and process boundaries both from config as well
+        # as from initialization
+        self.area = self._get_process_area(
+            area=self._raw.get("area"),
+            bounds=self._raw.get("bounds"),
         )
-        self.bounds = self.area.bounds
+        self.bounds = Bounds(*self.area.bounds)
+        self.init_area = self._get_process_area(
+            area=self._raw.get("init_area"),
+            bounds=self._raw.get("init_bounds"),
+        )
+        self.init_bounds = Bounds(*self.init_area.bounds)
 
         # (7) the delimiters are used by some input drivers
         self._delimiters = dict(
@@ -279,38 +284,6 @@ class MapcheteConfig(object):
             )
         except Exception as e:
             raise MapcheteConfigError(e)
-
-    @cached_property
-    def init_bounds(self):
-        """
-        Process bounds this process is currently initialized with.
-
-        This gets triggered by using the ``bounds`` kwarg. If not set, it will
-        be equal to self.bounds.
-        """
-        if self._raw["init_bounds"] is None:
-            return self.bounds
-        else:
-            try:
-                return validate_bounds(self._raw["init_bounds"])
-            except Exception as e:
-                raise MapcheteConfigError(e)
-
-    @cached_property
-    def init_area(self):
-        """
-        Process area this process is currently initialized with.
-
-        This gets triggered by using the ``area`` kwarg. If not set, it will
-        be calculated using self.bounds.
-        """
-        if self._raw["init_area"] is None:
-            return self.area
-        else:
-            try:
-                return _guess_geometry(self._raw["init_area"])
-            except Exception as e:
-                raise MapcheteConfigError(e)
 
     @cached_property
     def effective_bounds(self):
@@ -566,7 +539,7 @@ class MapcheteConfig(object):
 
     def area_at_zoom(self, zoom=None):
         """
-        Return process bounding box for zoom level.
+        Return process area for zoom level.
 
         Parameters
         ----------
@@ -627,6 +600,38 @@ class MapcheteConfig(object):
             if self.area_at_zoom(zoom).is_empty
             else Bounds(*self.area_at_zoom(zoom).bounds)
         )
+
+    def _get_process_area(self, area=None, bounds=None):
+        """
+        Determine process area by combining configuration with instantiation arguments.
+
+        In the configuration the process area can be provided by using the (1) ``area``
+        option, (2) ``bounds`` option or (3) a combination of both.
+
+        (1) If only ``area`` is provided, output shall be the area geometry
+        (2) If only ``bounds`` is provided, output shall be box(*self.bounds)
+        (3) If both are provided, output shall be the intersection between ``area`` and
+        ``bounds``
+
+        The area parameter can be provided in multiple variations, see _guess_geometry().
+        """
+        if bounds is None:
+            bounds = self.process_pyramid.bounds
+        else:
+            try:
+                bounds = validate_bounds(bounds)
+            except Exception as e:
+                raise MapcheteConfigError(e)
+
+        if area is None:
+            area = box(*self.process_pyramid.bounds)
+        else:
+            try:
+                area = _guess_geometry(area, base_dir=self.base_dir)
+            except Exception as e:
+                raise MapcheteConfigError(e)
+
+        return area.intersection(box(*bounds))
 
     # deprecated:
     #############
@@ -1101,39 +1106,6 @@ def _map_to_new_config(config):
         config["process"] = config.pop("process_file")
 
     return config
-
-
-def _get_process_area(raw_conf=None, pyramid=None, base_dir=None):
-    """
-    Determine process area by combining configuration with instantiation arguments.
-
-    In the configuration the process area can be provided by using the (1) ``area``
-    option, (2) ``bounds`` option or (3) a combination of both.
-
-    (1) If only ``area`` is provided, output shall be the area geometry
-    (2) If only ``bounds`` is provided, output shall be box(*self.bounds)
-    (3) If both are provided, output shall be the intersection between ``area`` and
-    ``bounds``
-
-    The area parameter can be provided in multiple variations, see _guess_geometry().
-    """
-    if raw_conf.get("bounds") is None:
-        bounds = pyramid.bounds
-    else:
-        try:
-            bounds = validate_bounds(raw_conf["bounds"])
-        except Exception as e:
-            raise MapcheteConfigError(e)
-
-    if raw_conf.get("area") is None:
-        area = box(*pyramid.bounds)
-    else:
-        try:
-            area = _guess_geometry(raw_conf["area"], base_dir=base_dir)
-        except Exception as e:
-            raise MapcheteConfigError(e)
-
-    return area.intersection(box(*bounds))
 
 
 def _guess_geometry(i, base_dir=None):
