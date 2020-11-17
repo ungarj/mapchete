@@ -50,7 +50,7 @@ import warnings
 from mapchete.config import validate_values, snap_bounds
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import get_boto3_bucket, path_exists, path_is_remote
+from mapchete.io import get_boto3_bucket, makedirs, path_exists, path_is_remote
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs,
     extract_from_array, read_raster_window
@@ -424,7 +424,6 @@ class GTiffSingleFileOutputWriter(
         _bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
         self._bucket_resource = get_boto3_bucket(_bucket) if _bucket else None
 
-
     def prepare(self, process_area=None, **kwargs):
         bounds = snap_bounds(
             bounds=Bounds(
@@ -479,6 +478,8 @@ class GTiffSingleFileOutputWriter(
             else:
                 logger.debug("remove existing file: %s", self.path)
                 os.remove(self.path)
+        # create output directory if necessary
+        makedirs(os.path.dirname(self.path))
         logger.debug("open output file: %s", self.path)
         self._ctx = ExitStack()
         # (1) use memfile if output is remote or COG
