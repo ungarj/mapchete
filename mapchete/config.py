@@ -168,6 +168,10 @@ class MapcheteConfig(object):
         self._cache_area_at_zoom = {}
         self._cache_full_process_area = None
 
+        if mode not in ["memory", "continue", "readonly", "overwrite"]:
+            raise MapcheteConfigError("unknown mode %s" % mode)
+        self.mode = mode
+
         # (1) assert mandatory params are available
         try:
             validate_values(self._raw, _MANDATORY_PARAMETERS)
@@ -175,10 +179,11 @@ class MapcheteConfig(object):
             raise MapcheteConfigError(e)
 
         # (2) check user process
-        logger.debug("validating process code")
         self.config_dir = self._raw["config_dir"]
         self.process_name = self.process_path = self._raw["process"]
-        self.process_func
+        if self.mode != "readonly":
+            logger.debug("validating process code")
+            self.process_func
 
         # (3) set process and output pyramids
         logger.debug("initializing pyramids")
@@ -207,10 +212,7 @@ class MapcheteConfig(object):
             logger.exception(e)
             raise MapcheteConfigError(e)
 
-        # (4) set mode
-        if mode not in ["memory", "continue", "readonly", "overwrite"]:
-            raise MapcheteConfigError("unknown mode %s" % mode)
-        self.mode = mode
+        # (4) set approach how to handle inputs
         # don't inititalize inputs on readonly mode or if only overviews are going to be
         # built
         self._init_inputs = False if (
@@ -495,9 +497,16 @@ class MapcheteConfig(object):
     @cached_property
     def process_func(self):
         """Import process function and make syntax check."""
-        return get_process_func(
-            process_path=self.process_path, config_dir=self.config_dir, run_compile=True
-        )
+        if self.mode == "readonly":
+            raise MapcheteConfigError(
+                "process function cannot be loaded in readonly mode."
+            )
+        else:
+            return get_process_func(
+                process_path=self.process_path,
+                config_dir=self.config_dir,
+                run_compile=True
+            )
 
     def get_process_func_params(self, zoom):
         """Return function kwargs."""
