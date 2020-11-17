@@ -67,7 +67,7 @@ class TileProcess():
         data : NumPy array or features
             process output
         """
-        if self.mode not in ["memory", "continue", "overwrite"]:
+        if self.mode not in ["memory", "continue", "overwrite"]:  # pragma: no cover
             raise ValueError("process mode must be memory, continue or overwrite")
 
         if self.tile.zoom not in self.config_zoom_levels:

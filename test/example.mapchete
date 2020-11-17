@@ -28,7 +28,7 @@ output:
     path: testdata/tmp/example
     format: GTiff
     dtype: float32
-    bands: 1
+    bands: 3
 
 # free parameters
 #################

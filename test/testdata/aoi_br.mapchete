@@ -1,0 +1,12 @@
+process: ../example_process.py
+zoom_levels: 7
+pyramid:
+    grid: geodetic
+input:
+    file1: cleantopo_br.tif
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/cleantopo_br
+area: aoi_br.geojson
