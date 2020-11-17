@@ -27,10 +27,11 @@ def _parse_requirements(file):
 
 # dependencies for extra features
 req_contours = ["matplotlib"]
-req_s3 = ["boto3"]
+req_http = ["fsspec[http]"]
+req_s3 = ["boto3", "fsspec[s3]"]
 req_serve = ["flask"]
 req_vrt = ["lxml"]
-req_complete = req_contours + req_s3 + req_serve + req_vrt
+req_complete = req_contours + req_http + req_s3 + req_serve + req_vrt
 
 setup(
     name="mapchete",

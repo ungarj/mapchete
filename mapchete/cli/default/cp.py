@@ -11,12 +11,12 @@ from tilematrix import TilePyramid
 import tqdm
 
 from mapchete.cli import utils
-from mapchete.io import tiles_exist
+from mapchete.io import fs_from_path, tiles_exist
 
 logger = logging.getLogger(__name__)
 
 
-@click.command(help="Copy TileDirectory.")
+@click.command(help="Copy TileDirectory from one source to another.")
 @utils.arg_input
 @utils.arg_output
 @utils.opt_zoom
@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @utils.opt_no_pbar
 @utils.opt_debug
 @utils.opt_logfile
+@utils.opt_multi
 @click.option(
     "--username", "-u",
     type=click.STRING,
@@ -52,6 +53,7 @@ def cp(
     no_pbar=False,
     debug=False,
     logfile=None,
+    multi=None,
     username=None,
     password=None
 ):
@@ -112,7 +114,8 @@ def cp(
                 file_extension=file_extension,
                 output_pyramid=tp,
                 process_pyramid=tp,
-                fs=src_fs
+                fs=src_fs,
+                multi=multi
             )
         }
 
@@ -125,7 +128,9 @@ def cp(
                 file_extension=file_extension,
                 output_pyramid=tp,
                 process_pyramid=tp,
-                fs=dst_fs            )
+                fs=dst_fs,
+                multi=multi
+           )
         }
 
         # copy
@@ -162,26 +167,6 @@ def _copy(src_fs, src_path, dst_fs, dst_path):
         with src_fs.open(src_path, "rb") as src:
             with dst_fs.open(dst_path, "wb") as dst:
                 dst.write(src.read())
-
-
-def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
-    """Guess fsspec FileSystem from path."""
-    if path.startswith("s3://"):
-        return fsspec.filesystem(
-            "s3",
-            requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
-            config_kwargs=dict(connect_timeout=timeout, read_timeout=timeout),
-            session=session
-        )
-    elif path.startswith(("http://", "https://")):
-        return fsspec.filesystem(
-            "https",
-            auth=BasicAuth(username, password)
-        )
-    else:
-        return fsspec.filesystem(
-            "file",
-        )
 
 
 def _get_tile_path(tile, basepath=None):

@@ -126,7 +126,8 @@ def tiles_exist(
     basepath=None,
     file_extension=None,
     output_pyramid=None,
-    fs=None
+    fs=None,
+    multi=None
 ):
     """
     Yield tiles and whether their output already exists or not.
@@ -176,6 +177,8 @@ def tiles_exist(
         process_pyramid =  first_tile.tp if process_tiles else None
 
     # only on TileDirectories on S3
+    # This implementation queries multiple keys at once by using paging and therefore
+    # requires less S3 requests and is in most cases faster.
     if (
         not basepath.endswith(file_extension) and
         basepath.startswith("s3://")
@@ -257,6 +260,7 @@ def tiles_exist(
         for tile in tiles.difference(yielded):
             yield (tile, False)
 
+    # This implementation is for all other storage backends.
     else:
         def _exists(
             tile,
@@ -292,20 +296,41 @@ def tiles_exist(
                 else:
                     return (tile, fs.exists(_tile_path(basepath, tile, file_extension)))
 
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            for future in concurrent.futures.as_completed(
-                (
-                    executor.submit(
-                        _exists,
-                        tile,
-                        config,
-                        basepath,
-                        file_extension,
-                        fs,
-                        output_pyramid
+        if multi == 1:
+            for tile in all_tiles_iter:
+                yield _exists(tile, config, basepath, file_extension, fs, output_pyramid)
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multi) as executor:
+                for future in concurrent.futures.as_completed(
+                    (
+                        executor.submit(
+                            _exists,
+                            tile,
+                            config,
+                            basepath,
+                            file_extension,
+                            fs,
+                            output_pyramid
+                        )
+                        for tile in all_tiles_iter
                     )
-                    for tile in all_tiles_iter
-                )
-            ):
-                yield future.result()
+                ):
+                    yield future.result()
+
+
+def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
+    """Guess fsspec FileSystem from path and initialize using the desired options."""
+    if path.startswith("s3://"):
+        return fsspec.filesystem(
+            "s3",
+            requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
+            config_kwargs=dict(connect_timeout=timeout, read_timeout=timeout),
+            session=session
+        )
+    elif path.startswith(("http://", "https://")):
+        return fsspec.filesystem(
+            "https",
+            auth=BasicAuth(username, password)
+        )
+    else:
+        return fsspec.filesystem("file")
