@@ -200,6 +200,11 @@ def test_execute_wkt_bounds(mp_tmpdir, example_mapchete, wkt_geom):
     run_cli(["execute", example_mapchete.path, "--wkt-geometry", wkt_geom])
 
 
+def test_execute_wkt_area(mp_tmpdir, example_mapchete, wkt_geom):
+    """Using area from WKT."""
+    run_cli(["execute", example_mapchete.path, "--area", wkt_geom])
+
+
 def test_execute_point(mp_tmpdir, example_mapchete, wkt_geom):
     """Using bounds from WKT."""
     g = wkt.loads(wkt_geom)
@@ -763,6 +768,21 @@ def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
     # generate index for zoom 3
     run_cli([
         "index", cleantopo_br.path, "--geojson", "--debug", "--wkt-geometry", wkt_geom
+    ])
+
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert len(files) == 7
+        assert "3.geojson" in files
+
+
+def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_br, wkt_geom):
+    # execute process at zoom 3
+    run_cli(["execute", cleantopo_br.path, "--debug", "--area", wkt_geom])
+
+    # generate index for zoom 3
+    run_cli([
+        "index", cleantopo_br.path, "--geojson", "--debug", "--area", wkt_geom
     ])
 
     with mapchete.open(cleantopo_br.dict) as mp:

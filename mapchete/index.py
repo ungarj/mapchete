@@ -261,7 +261,7 @@ class VectorFileWriter():
                     self.path, "w", driver=self.driver, crs=crs, schema=schema
                 )
                 self._existing = {}
-        else:
+        else:  # pragma: no cover
             if os.path.isfile(self.path):
                 logger.debug("read existing entries")
                 with fiona.open(self.path, "r") as src:
