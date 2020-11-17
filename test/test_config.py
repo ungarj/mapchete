@@ -3,18 +3,21 @@
 
 from copy import deepcopy
 import fiona
+from fiona.errors import DriverError
 import os
 import pytest
 import rasterio
-from shapely.geometry import box, Polygon, shape
+from shapely.errors import WKTReadingError
+from shapely.geometry import box, mapping, Polygon, shape
 import oyaml as yaml
 
 import mapchete
-from mapchete.config import MapcheteConfig, snap_bounds
+from mapchete.config import MapcheteConfig, snap_bounds, _guess_geometry
 from mapchete.errors import MapcheteDriverError, MapcheteConfigError
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
 
 def test_config_errors(example_mapchete):
@@ -272,14 +275,22 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
         raster = box(*src.bounds)
     aoi = area.intersection(raster)
 
-    # area in mapchete config
+    # area as path in mapchete config
     with mapchete.open(aoi_br.dict) as mp:
         aoi_tiles = list(mp.config.process_pyramid.tiles_from_geom(aoi, zoom))
         process_tiles = list(mp.get_process_tiles(zoom=zoom))
         assert len(aoi_tiles) == len(process_tiles)
         assert set(aoi_tiles) == set(process_tiles)
 
-    # area in mapchete.open
+    # area as WKT in mapchete config
+    with mapchete.open(
+        dict(aoi_br.dict, area=area.wkt),
+    ) as mp:
+        process_tiles = list(mp.get_process_tiles(zoom=zoom))
+        assert len(aoi_tiles) == len(process_tiles)
+        assert set(aoi_tiles) == set(process_tiles)
+
+    # area as path in mapchete.open
     with mapchete.open(
         dict(aoi_br.dict, area=None),
         area=aoi_br_geojson
@@ -287,3 +298,37 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
         process_tiles = list(mp.get_process_tiles(zoom=zoom))
         assert len(aoi_tiles) == len(process_tiles)
         assert set(aoi_tiles) == set(process_tiles)
+
+
+def test_guess_geometry(aoi_br_geojson):
+    with fiona.open(aoi_br_geojson) as src:
+        area = shape(next(src)["geometry"])
+
+    # WKT
+    assert _guess_geometry(area.wkt).is_valid
+
+    # GeoJSON mapping
+    assert _guess_geometry(mapping(area)).is_valid
+
+    # shapely Geometry
+    assert _guess_geometry(area).is_valid
+
+    # path
+    assert _guess_geometry(aoi_br_geojson).is_valid
+
+    # Errors
+    # malformed WKT
+    with pytest.raises(WKTReadingError):
+        _guess_geometry(area.wkt.rstrip(")"))
+    # non-existent path
+    with pytest.raises(DriverError):
+        _guess_geometry("/invalid_path.geojson")
+    # malformed GeoJSON mapping
+    with pytest.raises(AttributeError):
+        _guess_geometry(dict(mapping(area), type=None))
+    # unknown type
+    with pytest.raises(TypeError):
+        _guess_geometry(1)
+    # wrong geometry type
+    with pytest.raises(TypeError):
+        _guess_geometry(area.centroid)
