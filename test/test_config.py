@@ -11,9 +11,10 @@ from shapely.errors import WKTReadingError
 from shapely.geometry import box, mapping, Polygon, shape
 from shapely import wkt
 import oyaml as yaml
+from tilematrix._funcs import Bounds
 
 import mapchete
-from mapchete.config import MapcheteConfig, snap_bounds, _guess_geometry
+from mapchete.config import bounds_from_opts, MapcheteConfig, snap_bounds, _guess_geometry
 from mapchete.errors import MapcheteDriverError, MapcheteConfigError
 
 
@@ -271,7 +272,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
 
     # read geojson geometry
     with fiona.open(aoi_br_geojson) as src:
-        area = shape(next(src)["geometry"])
+        area = shape(next(iter(src))["geometry"])
     # read input tiff bounds
     with rasterio.open(cleantopo_br_tif) as src:
         raster = box(*src.bounds)
@@ -312,19 +313,27 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
 
 def test_guess_geometry(aoi_br_geojson):
     with fiona.open(aoi_br_geojson) as src:
-        area = shape(next(src)["geometry"])
+        area = shape(next(iter(src))["geometry"])
 
     # WKT
-    assert _guess_geometry(area.wkt).is_valid
+    geom, crs = _guess_geometry(area.wkt)
+    assert geom.is_valid
+    assert crs is None
 
     # GeoJSON mapping
-    assert _guess_geometry(mapping(area)).is_valid
+    geom, crs = _guess_geometry(mapping(area))
+    assert geom.is_valid
+    assert crs is None
 
     # shapely Geometry
-    assert _guess_geometry(area).is_valid
+    geom, crs = _guess_geometry(area)
+    assert geom.is_valid
+    assert crs is None
 
     # path
-    assert _guess_geometry(aoi_br_geojson).is_valid
+    geom, crs = _guess_geometry(aoi_br_geojson)
+    assert geom.is_valid
+    assert crs
 
     # Errors
     # malformed WKT
@@ -342,3 +351,49 @@ def test_guess_geometry(aoi_br_geojson):
     # wrong geometry type
     with pytest.raises(TypeError):
         _guess_geometry(area.centroid)
+
+
+def test_bounds_from_opts(example_mapchete, wkt_geom):
+    # WKT
+    assert isinstance(
+        bounds_from_opts(wkt_geometry=wkt_geom),
+        Bounds
+    )
+
+    # point
+    assert isinstance(
+        bounds_from_opts(
+            point=(0, 0),
+            raw_conf=example_mapchete.dict
+        ),
+        Bounds
+    )
+
+    # point from different CRS
+    assert isinstance(
+        bounds_from_opts(
+            point=(0, 0),
+            point_crs="EPSG:3857",
+            raw_conf=example_mapchete.dict
+        ),
+        Bounds
+    )
+
+    # bounds
+    assert isinstance(
+        bounds_from_opts(
+            bounds=(1, 2, 3, 4),
+            raw_conf=example_mapchete.dict
+        ),
+        Bounds
+    )
+
+    # bounds from different CRS
+    assert isinstance(
+        bounds_from_opts(
+            bounds=(1, 2, 3, 4),
+            bounds_crs="EPSG:3857",
+            raw_conf=example_mapchete.dict
+        ),
+        Bounds
+    )

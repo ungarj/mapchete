@@ -39,8 +39,11 @@ def _validate_bidx(ctx, param, bidx):
 @utils.arg_output
 @utils.opt_zoom
 @utils.opt_bounds
+@utils.opt_bounds_crs
 @utils.opt_area
+@utils.opt_area_crs
 @utils.opt_point
+@utils.opt_point_crs
 @utils.opt_wkt_geometry
 @click.option(
     "--clip-geometry", "-c",
@@ -115,8 +118,11 @@ def convert(
     output,
     zoom=None,
     bounds=None,
+    bounds_crs=None,
     area=None,
+    area_crs=None,
     point=None,
+    point_crs=None,
     wkt_geometry=None,
     clip_geometry=None,
     bidx=None,
@@ -254,6 +260,7 @@ def convert(
             if clip_geometry
             else inp_bounds
         ),
+        bounds_crs=bounds_crs,
         clip_to_output_dtype=mapchete_config["output"].get("dtype", None)
     )
     logger.debug("temporary config generated: %s", pformat(mapchete_config))
@@ -265,7 +272,11 @@ def convert(
         zoom=zoom,
         wkt_geometry=wkt_geometry,
         point=point,
+        point_crs=point_crs,
         bounds=bounds,
+        bounds_crs=bounds_crs,
+        area=area,
+        area_crs=area_crs,
         multi=multi or cpu_count(),
         verbose_dst=open(os.devnull, 'w') if debug or not verbose else sys.stdout,
         no_pbar=no_pbar,

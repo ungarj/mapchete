@@ -23,7 +23,7 @@ import os
 import oyaml as yaml
 import py_compile
 from shapely import wkt
-from shapely.geometry import box, shape
+from shapely.geometry import box, Point, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import cascaded_union
 from tilematrix._funcs import Bounds
@@ -40,6 +40,7 @@ from mapchete.formats import (
     load_output_reader, load_output_writer, available_output_formats, load_input_reader
 )
 from mapchete.io import absolute_path
+from mapchete.io.vector import reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid
 
@@ -58,8 +59,10 @@ _MANDATORY_PARAMETERS = [
 # parameters with special functions which cannot be used for user parameters
 _RESERVED_PARAMETERS = [
     "area",             # geometry limiting process area
+    "area_crs",         # optional CRS of area (default: process CRS)
     "baselevels",       # enable interpolation from other zoom levels
     "bounds",           # process bounds
+    "bounds_crs",       # optional CRS of bounds (default: process CRS)
     "config_dir",       # configuration base directory
     "metatiling",       # process metatile size (deprecated)
     "pixelbuffer",      # buffer around each tile in pixels (deprecated)
@@ -243,14 +246,18 @@ class MapcheteConfig(object):
             area=self._raw.get("area"),
             bounds=self._raw.get("bounds"),
             area_fallback=box(*self.process_pyramid.bounds),
-            bounds_fallback=self.process_pyramid.bounds
+            bounds_fallback=self.process_pyramid.bounds,
+            area_crs=area_crs,
+            bounds_crs=bounds_crs
         )
         self.bounds = Bounds(*self.area.bounds)
         self.init_area = self._get_process_area(
             area=self._raw.get("init_area"),
             bounds=self._raw.get("init_bounds"),
             area_fallback=self.area,
-            bounds_fallback=self.bounds
+            bounds_fallback=self.bounds,
+            area_crs=area_crs,
+            bounds_crs=bounds_crs
         )
         self.init_bounds = Bounds(*self.init_area.bounds)
         logger.debug(self.area)
@@ -630,7 +637,9 @@ class MapcheteConfig(object):
         area=None,
         bounds=None,
         area_fallback=None,
-        bounds_fallback=None
+        bounds_fallback=None,
+        area_crs=None,
+        bounds_crs=None
     ):
         """
         Determine process area by combining configuration with instantiation arguments.
@@ -647,6 +656,7 @@ class MapcheteConfig(object):
         """
         if bounds is None:
             bounds = bounds_fallback
+            bounds_crs = None
         else:
             try:
                 bounds = validate_bounds(bounds)
@@ -655,13 +665,29 @@ class MapcheteConfig(object):
 
         if area is None:
             area = area_fallback
+            area_crs = None
         else:
             try:
-                area = _guess_geometry(area, base_dir=self.config_dir)
+                area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                # in case vector file has no CRS use manually provided CRS
+                area_crs = crs or area_crs
             except Exception as e:
                 raise MapcheteConfigError(e)
 
-        return area.intersection(box(*bounds))
+        dst_crs = self.process_pyramid.crs
+
+        # reproject area and bounds to process CRS and return intersection
+        return reproject_geometry(
+            area,
+            src_crs=area_crs or dst_crs,
+            dst_crs=dst_crs
+        ).intersection(
+            reproject_geometry(
+                box(*bounds),
+                src_crs=bounds_crs or dst_crs,
+                dst_crs=dst_crs
+            ),
+        )
 
     # deprecated:
     #############
@@ -803,7 +829,7 @@ def raw_conf(mapchete_file):
         return _map_to_new_config(yaml.safe_load(open(mapchete_file, "r").read()))
 
 
-def raw_conf_process_pyramid(raw_conf):
+def raw_conf_process_pyramid(raw_conf, reset_pixelbuffer=False):
     """
     Load the process pyramid of a raw configuration.
 
@@ -816,10 +842,11 @@ def raw_conf_process_pyramid(raw_conf):
     -------
     BufferedTilePyramid
     """
+    pixelbuffer = 0 if reset_pixelbuffer else raw_conf["pyramid"].get("pixelbuffer", 0)
     return BufferedTilePyramid(
         raw_conf["pyramid"]["grid"],
         metatiling=raw_conf["pyramid"].get("metatiling", 1),
-        pixelbuffer=raw_conf["pyramid"].get("pixelbuffer", 0)
+        pixelbuffer=pixelbuffer
     )
 
 
@@ -850,13 +877,33 @@ def raw_conf_output_pyramid(raw_conf):
 
 
 def bounds_from_opts(
-    wkt_geometry=None, point=None, bounds=None, zoom=None, raw_conf=None
+    wkt_geometry=None,
+    point=None,
+    point_crs=None,
+    zoom=None,
+    bounds=None,
+    bounds_crs=None,
+    raw_conf=None
 ):
     """
-    Load the process pyramid of a raw configuration.
+    Return process bounds depending on given inputs.
 
     Parameters
     ----------
+    wkt_geometry : string
+        WKT geometry used to generate bounds.
+    point : iterable
+        x and y coordinates of point whose corresponding process tile bounds shall be
+        returned.
+    point_crs : str or CRS
+        CRS of point (default: process pyramid CRS)
+    zoom : int
+        Mandatory zoom level if point is provided.
+    bounds : iterable
+        Bounding coordinates to be used
+    bounds_crs : str or CRS
+        CRS of bounds (default: process pyramid CRS)
+
     raw_conf : dict
         Raw mapchete configuration as dictionary.
 
@@ -868,14 +915,32 @@ def bounds_from_opts(
         return Bounds(*wkt.loads(wkt_geometry).bounds)
     elif point:
         x, y = point
+        tp = raw_conf_process_pyramid(raw_conf)
+        if point_crs:
+            reproj = reproject_geometry(
+                Point(x, y), src_crs=point_crs, dst_crs=tp.crs
+            )
+            x = reproj.x
+            y = reproj.y
         zoom_levels = get_zoom_levels(
             process_zoom_levels=raw_conf["zoom_levels"],
             init_zoom_levels=zoom
         )
-        tp = raw_conf_process_pyramid(raw_conf)
         return Bounds(*tp.tile_from_xy(x, y, max(zoom_levels)).bounds)
+    elif bounds:
+        bounds = validate_bounds(bounds)
+        if bounds_crs:
+            tp = raw_conf_process_pyramid(raw_conf)
+            bounds = Bounds(
+                *reproject_geometry(
+                    box(*bounds),
+                    src_crs=bounds_crs,
+                    dst_crs=tp.crs
+                ).bounds
+            )
+        return bounds
     else:
-        return validate_bounds(bounds) if bounds is not None else bounds
+        return
 
 
 def get_process_func(process_path=None, config_dir=None, run_compile=False):
@@ -1147,6 +1212,7 @@ def _guess_geometry(i, base_dir=None):
     - a shapely geometry
     - a path to a Fiona-readable file
     """
+    crs = None
     # WKT or path:
     if isinstance(i, str):
         if i.upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
@@ -1154,6 +1220,7 @@ def _guess_geometry(i, base_dir=None):
         else:
             with fiona.open(absolute_path(path=i, base_dir=base_dir)) as src:
                 geom = cascaded_union([shape(f["geometry"]) for f in src])
+                crs = src.crs
     # GeoJSON mapping
     elif isinstance(i, dict):
         geom = shape(i)
@@ -1169,4 +1236,4 @@ def _guess_geometry(i, base_dir=None):
         raise TypeError("area is not a valid geometry")
     if geom.geom_type not in ["Polygon", "MultiPolygon"]:
         raise TypeError("area must either be a Polygon or a MultiPolygon")
-    return geom
+    return geom, crs

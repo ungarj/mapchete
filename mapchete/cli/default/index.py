@@ -32,8 +32,11 @@ logger = logging.getLogger(__name__)
 @utils.opt_for_gdal
 @utils.opt_zoom
 @utils.opt_bounds
+@utils.opt_bounds_crs
 @utils.opt_area
+@utils.opt_area_crs
 @utils.opt_point
+@utils.opt_point_crs
 @utils.opt_wkt_geometry
 @utils.opt_tile
 @utils.opt_verbose
@@ -53,8 +56,11 @@ def index(
     for_gdal=False,
     zoom=None,
     bounds=None,
+    bounds_crs=None,
     area=None,
+    area_crs=None,
     point=None,
+    point_crs=None,
     wkt_geometry=None,
     tile=None,
     verbose=False,
@@ -114,10 +120,13 @@ def index(
                     bounds=bounds_from_opts(
                         wkt_geometry=wkt_geometry,
                         point=point,
+                        point_crs=point_crs,
                         bounds=bounds,
+                        bounds_crs=bounds_crs,
                         raw_conf=raw_conf(mapchete_file)
                     ),
-                    area=area
+                    area=area,
+                    area_crs=area_crs
                 ) as mp:
                     spinner.stop()
                     logger.debug("process bounds: %s", mp.config.init_bounds)

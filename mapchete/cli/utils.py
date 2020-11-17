@@ -12,7 +12,7 @@ from mapchete.config import raw_conf, bounds_from_opts
 from mapchete.formats import available_output_formats
 from mapchete.index import zoom_index_gen
 from mapchete.log import set_log_level, setup_logfile
-from mapchete.validate import validate_bounds, validate_zooms
+from mapchete.validate import validate_bounds, validate_crs, validate_zooms
 
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,10 @@ def _validate_zoom(ctx, param, zoom):
 
 def _validate_bounds(ctx, param, bounds):
     return validate_bounds(bounds) if bounds else None
+
+
+def _validate_crs(ctx, param, crs):
+    return validate_crs(crs) if crs else None
 
 
 def _validate_mapchete_files(ctx, param, mapchete_files):
@@ -118,16 +122,31 @@ opt_bounds = click.option(
     callback=_validate_bounds,
     help="Left, bottom, right, top bounds in tile pyramid CRS.",
 )
+opt_bounds_crs = click.option(
+    "--bounds-crs",
+    callback=_validate_crs,
+    help="CRS of --bounds. (default: process CRS)",
+)
 opt_area = click.option(
     "--area", "-a",
     type=click.STRING,
     help="Process area as either WKT string or path to vector file.",
+)
+opt_area_crs = click.option(
+    "--area-crs",
+    callback=_validate_crs,
+    help="CRS of --area (does not override CRS of vector file). (default: process CRS)",
 )
 opt_point = click.option(
     "--point", "-p",
     type=click.FLOAT,
     nargs=2,
     help="Process tiles over single point location."
+)
+opt_point_crs = click.option(
+    "--point-crs",
+    callback=_validate_crs,
+    help="CRS of --point. (default: process CRS)"
 )
 opt_wkt_geometry = click.option(
     "--wkt-geometry", "-g",
@@ -350,8 +369,11 @@ def _process_area(
     zoom=None,
     wkt_geometry=None,
     point=None,
+    point_crs=None,
     bounds=None,
+    bounds_crs=None,
     area=None,
+    area_crs=None,
     input_file=None,
     multi=None,
     verbose_dst=None,
@@ -370,10 +392,13 @@ def _process_area(
                 bounds=bounds_from_opts(
                     wkt_geometry=wkt_geometry,
                     point=point,
+                    point_crs=point_crs,
                     bounds=bounds,
+                    bounds_crs=bounds_crs,
                     raw_conf=raw_conf(mapchete_config)
                 ),
                 area=area,
+                area_crs=area_crs,
                 single_input_file=input_file
             ) as mp:
                 spinner.stop()

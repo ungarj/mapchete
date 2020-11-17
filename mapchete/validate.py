@@ -193,7 +193,10 @@ def validate_crs(crs):
     if isinstance(crs, CRS):
         return crs
     elif isinstance(crs, str):
-        return CRS().from_epsg(int(crs))
+        try:
+            return CRS().from_epsg(int(crs))
+        except:
+            return CRS().from_string(crs)
     elif isinstance(crs, int):
         return CRS().from_epsg(crs)
     elif isinstance(crs, dict):
