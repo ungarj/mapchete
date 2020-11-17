@@ -9,6 +9,7 @@ import pytest
 import rasterio
 from shapely.errors import WKTReadingError
 from shapely.geometry import box, mapping, Polygon, shape
+from shapely import wkt
 import oyaml as yaml
 
 import mapchete
@@ -161,7 +162,8 @@ def test_read_mapchete_input(mapchete_input):
     """Read Mapchete files as input files."""
     config = MapcheteConfig(mapchete_input.path)
     area = config.area_at_zoom(5)
-    testpolygon = box(-180, -90, 180, 90)
+    # testpolygon = box(0.5, 1.5, 3.5, 3.5)
+    testpolygon = wkt.loads("POLYGON ((3 1.5, 3 1, 2 1, 2 1.5, 0.5 1.5, 0.5 3.5, 2 3.5, 2 4, 3 4, 3 3.5, 3.5 3.5, 3.5 1.5, 3 1.5))")
     assert area.equals(testpolygon)
 
 

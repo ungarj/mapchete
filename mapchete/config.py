@@ -229,17 +229,32 @@ class MapcheteConfig(object):
         self._params_at_zoom = _raw_at_zoom(self._raw, self.init_zoom_levels)
 
         # (6) determine process area and process boundaries both from config as well
-        # as from initialization
+        # as from initialization.
+        # First, the area and bounds parameters from the configuration are checked. If
+        # both are provided, the intersection will be taken into account. If none are,
+        # the process pyramid area is assumed.
+        # Second, they can be overrided by the area and bounds kwargs when constructing
+        # the configuration.
+        # To finally determine the process tiles, the intersection of process area and the
+        # union of all inputs is considered.
         self.area = self._get_process_area(
             area=self._raw.get("area"),
             bounds=self._raw.get("bounds"),
+            area_fallback=box(*self.process_pyramid.bounds),
+            bounds_fallback=self.process_pyramid.bounds
         )
         self.bounds = Bounds(*self.area.bounds)
         self.init_area = self._get_process_area(
             area=self._raw.get("init_area"),
             bounds=self._raw.get("init_bounds"),
+            area_fallback=self.area,
+            bounds_fallback=self.bounds
         )
         self.init_bounds = Bounds(*self.init_area.bounds)
+        logger.debug(self.area)
+        logger.debug(self.bounds)
+        logger.debug(self.init_area)
+        logger.debug(self.init_bounds)
 
         # (7) the delimiters are used by some input drivers
         self._delimiters = dict(
@@ -601,7 +616,13 @@ class MapcheteConfig(object):
             else Bounds(*self.area_at_zoom(zoom).bounds)
         )
 
-    def _get_process_area(self, area=None, bounds=None):
+    def _get_process_area(
+        self,
+        area=None,
+        bounds=None,
+        area_fallback=None,
+        bounds_fallback=None
+    ):
         """
         Determine process area by combining configuration with instantiation arguments.
 
@@ -616,7 +637,7 @@ class MapcheteConfig(object):
         The area parameter can be provided in multiple variations, see _guess_geometry().
         """
         if bounds is None:
-            bounds = self.process_pyramid.bounds
+            bounds = bounds_fallback
         else:
             try:
                 bounds = validate_bounds(bounds)
@@ -624,10 +645,10 @@ class MapcheteConfig(object):
                 raise MapcheteConfigError(e)
 
         if area is None:
-            area = box(*self.process_pyramid.bounds)
+            area = area_fallback
         else:
             try:
-                area = _guess_geometry(area, base_dir=self.base_dir)
+                area = _guess_geometry(area, base_dir=self.config_dir)
             except Exception as e:
                 raise MapcheteConfigError(e)
 
