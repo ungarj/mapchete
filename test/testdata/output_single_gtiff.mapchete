@@ -10,5 +10,5 @@ output:
     dtype: uint16
     bands: 1
     format: GTiff
-    path: tmp/cleantopo_br.tif
+    path: tmp/some_dir/cleantopo_br.tif
     pixelbuffer: 20
