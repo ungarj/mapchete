@@ -63,6 +63,7 @@
                 wrapDateLine: true
             }
 
+            // Terrain light
             var options = extend(defaults, {
                 url: "http://tiles.maps.eox.at/wmts/",
                 name: "EOX::Maps Terrain Light",
@@ -74,9 +75,55 @@
                 format: 'image/jpeg',
                 isBaseLayer:true,
             });
-            var terrain_light_WGS84_wmts_layer = new OpenLayers.Layer.WMTS(options);
-            map.addLayer(terrain_light_WGS84_wmts_layer);
+            var terrain_light_wmts_layer = new OpenLayers.Layer.WMTS(options);
+            map.addLayer(terrain_light_wmts_layer);
 
+            // Sentinel-2 Cloudless 2019
+            var options = extend(defaults, {
+                url: "http://tiles.maps.eox.at/wmts/",
+                name: "Sentinel-2 Cloudless 2019",
+                {% if is_mercator %}
+                layer: 's2cloudless-2019_3857',
+                {% else %}
+                layer: 's2cloudless-2019',
+                {% endif %}
+                format: 'image/jpeg',
+                isBaseLayer:true,
+            });
+            var s2cloudless2019_wmts_layer = new OpenLayers.Layer.WMTS(options);
+            map.addLayer(s2cloudless2019_wmts_layer);
+
+            // Sentinel-2 Cloudless 2018
+            var options = extend(defaults, {
+                url: "http://tiles.maps.eox.at/wmts/",
+                name: "Sentinel-2 Cloudless 2018",
+                {% if is_mercator %}
+                layer: 's2cloudless-2018_3857',
+                {% else %}
+                layer: 's2cloudless-2018',
+                {% endif %}
+                format: 'image/jpeg',
+                isBaseLayer:true,
+            });
+            var s2cloudless2018_wmts_layer = new OpenLayers.Layer.WMTS(options);
+            map.addLayer(s2cloudless2018_wmts_layer);
+
+            // OSM
+            var options = extend(defaults, {
+                url: "http://tiles.maps.eox.at/wmts/",
+                name: "OpenStreetMap",
+                {% if is_mercator %}
+                layer: 'osm_3857',
+                {% else %}
+                layer: 'osm',
+                {% endif %}
+                format: 'image/jpeg',
+                isBaseLayer:true,
+            });
+            var osm_wmts_layer = new OpenLayers.Layer.WMTS(options);
+            map.addLayer(osm_wmts_layer);
+
+            // Coastline
             var options = extend(defaults, {
                 url: "http://tiles.maps.eox.at/wmts/",
                 name: "EOX::Maps Coastline",
@@ -88,9 +135,10 @@
                 format: 'image/png',
                 isBaseLayer:true,
             });
-            var coastline_WGS84_wmts_layer = new OpenLayers.Layer.WMTS(options);
-            map.addLayer(coastline_WGS84_wmts_layer);
+            var coastline_wmts_layer = new OpenLayers.Layer.WMTS(options);
+            map.addLayer(coastline_wmts_layer);
 
+            // processes
             {% for process_name in process_names -%}
                 var options = extend(defaults, {
                     url: "/wmts_simple",
@@ -104,6 +152,7 @@
                 map.addLayer({{process_name}}_layer);
                 {%- endfor %}
 
+            // Overlay
             var options = extend(defaults, {
                 url: "http://tiles.maps.eox.at/wmts/",
                 name: "EOX::Maps Base Overlay",
@@ -115,8 +164,8 @@
                 format: 'image/png',
                 isBaseLayer:false,
             });
-            var overlay_WGS84_wmts_layer = new OpenLayers.Layer.WMTS(options);
-            map.addLayer(overlay_WGS84_wmts_layer);
+            var overlay_wmts_layer = new OpenLayers.Layer.WMTS(options);
+            map.addLayer(overlay_wmts_layer);
 
             // map.zoomToExtent(new OpenLayers.Bounds({{process_bounds}}));
             map.addControl(new OpenLayers.Control.LayerSwitcher());
