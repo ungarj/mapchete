@@ -1149,7 +1149,7 @@ def _guess_geometry(i, base_dir=None):
     """
     # WKT or path:
     if isinstance(i, str):
-        if i.startswith(("POLYGON ", "MULTIPOLYGON ")):
+        if i.upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
             geom = wkt.loads(i)
         else:
             with fiona.open(absolute_path(path=i, base_dir=base_dir)) as src:

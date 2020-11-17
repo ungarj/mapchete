@@ -112,7 +112,9 @@ def index(
                     mode="readonly",
                     zoom=zoom,
                     bounds=bounds_from_opts(
-                        wkt_geometry=wkt_geometry, point=point, bounds=bounds,
+                        wkt_geometry=wkt_geometry,
+                        point=point,
+                        bounds=bounds,
                         raw_conf=raw_conf(mapchete_file)
                     ),
                     area=area

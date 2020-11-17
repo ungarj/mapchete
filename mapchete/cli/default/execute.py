@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @utils.arg_mapchete_files
 @utils.opt_zoom
 @utils.opt_bounds
+@utils.opt_area
 @utils.opt_point
 @utils.opt_wkt_geometry
 @utils.opt_tile
@@ -38,6 +39,7 @@ def execute(
     mapchete_files,
     zoom=None,
     bounds=None,
+    area=None,
     point=None,
     wkt_geometry=None,
     tile=None,
@@ -83,6 +85,7 @@ def execute(
                 wkt_geometry=wkt_geometry,
                 point=point,
                 bounds=bounds,
+                area=area,
                 input_file=input_file,
                 multi=multi or cpu_count(),
                 verbose_dst=verbose_dst,

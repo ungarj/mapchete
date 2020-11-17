@@ -39,6 +39,7 @@ def _validate_bidx(ctx, param, bidx):
 @utils.arg_output
 @utils.opt_zoom
 @utils.opt_bounds
+@utils.opt_area
 @utils.opt_point
 @utils.opt_wkt_geometry
 @click.option(
@@ -114,6 +115,7 @@ def convert(
     output,
     zoom=None,
     bounds=None,
+    area=None,
     point=None,
     wkt_geometry=None,
     clip_geometry=None,

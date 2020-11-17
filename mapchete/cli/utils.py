@@ -351,6 +351,7 @@ def _process_area(
     wkt_geometry=None,
     point=None,
     bounds=None,
+    area=None,
     input_file=None,
     multi=None,
     verbose_dst=None,
@@ -372,6 +373,7 @@ def _process_area(
                     bounds=bounds,
                     raw_conf=raw_conf(mapchete_config)
                 ),
+                area=area,
                 single_input_file=input_file
             ) as mp:
                 spinner.stop()
