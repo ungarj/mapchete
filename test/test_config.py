@@ -301,6 +301,14 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
         assert len(aoi_tiles) == len(process_tiles)
         assert set(aoi_tiles) == set(process_tiles)
 
+    # errors
+    # non-existent path
+    with pytest.raises(MapcheteConfigError):
+        mapchete.open(
+            dict(aoi_br.dict, area=None),
+            area="/invalid_path.geojson"
+        )
+
 
 def test_guess_geometry(aoi_br_geojson):
     with fiona.open(aoi_br_geojson) as src:

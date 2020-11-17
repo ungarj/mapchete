@@ -1156,7 +1156,7 @@ def _guess_geometry(i, base_dir=None):
             "area must be either WKT, GeoJSON mapping, shapely geometry or a "
             "Fiona-readable path."
         )
-    if not geom.is_valid:
+    if not geom.is_valid:  # pragma: no cover
         raise TypeError("area is not a valid geometry")
     if geom.geom_type not in ["Polygon", "MultiPolygon"]:
         raise TypeError("area must either be a Polygon or a MultiPolygon")
