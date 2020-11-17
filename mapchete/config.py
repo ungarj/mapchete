@@ -118,14 +118,16 @@ class MapcheteConfig(object):
         driver specific output object
     zoom_levels : list
         process zoom levels
-    bounds : tuple
-        process bounds
     zoom : list or int
         subset zoom levels provided in process configuration
     bounds : tuple
-        subset bounds provided in process configuration
+        override bounds or area provided in process configuration
+    bounds_crs : str or CRS
+        CRS of bounds (default: process CRS)
     area : geometry
-        subset area provided in process configuration
+        override bounds or area provided in process configuration
+    area_crs : str or CRS
+        CRS of area (default: process CRS)
     baselevels : dictionary
         base zoomlevels, where data is processed; zoom levels not included are
         generated from baselevels
