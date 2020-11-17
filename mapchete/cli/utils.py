@@ -118,6 +118,11 @@ opt_bounds = click.option(
     callback=_validate_bounds,
     help="Left, bottom, right, top bounds in tile pyramid CRS.",
 )
+opt_area = click.option(
+    "--area", "-a",
+    type=click.STRING,
+    help="Process area as either WKT string or path to vector file.",
+)
 opt_point = click.option(
     "--point", "-p",
     type=click.FLOAT,

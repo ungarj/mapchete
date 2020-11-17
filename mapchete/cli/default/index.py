@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 @utils.opt_for_gdal
 @utils.opt_zoom
 @utils.opt_bounds
+@utils.opt_area
 @utils.opt_point
 @utils.opt_wkt_geometry
 @utils.opt_tile
@@ -52,6 +53,7 @@ def index(
     for_gdal=False,
     zoom=None,
     bounds=None,
+    area=None,
     point=None,
     wkt_geometry=None,
     tile=None,
@@ -112,10 +114,12 @@ def index(
                     bounds=bounds_from_opts(
                         wkt_geometry=wkt_geometry, point=point, bounds=bounds,
                         raw_conf=raw_conf(mapchete_file)
-                    )
+                    ),
+                    area=area
                 ) as mp:
                     spinner.stop()
                     logger.debug("process bounds: %s", mp.config.init_bounds)
+                    logger.debug("process area: %s", mp.config.init_area)
                     logger.debug("process zooms: %s", mp.config.init_zoom_levels)
                     logger.debug("fieldname: %s", fieldname)
                     for tile in tqdm.tqdm(
