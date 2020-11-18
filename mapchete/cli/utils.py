@@ -153,11 +153,6 @@ opt_wkt_geometry = click.option(
     type=click.STRING,
     help="Take boundaries from WKT geometry in tile pyramid CRS.",
 )
-opt_aoi = click.option(
-    "--aoi",
-    type=click.Path(),
-    help="Use AOI from vector dataset.",
-)
 opt_tile = click.option(
     "--tile", "-t",
     type=click.INT,

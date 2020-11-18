@@ -1,7 +1,6 @@
 from aiohttp import BasicAuth
 import click
 import fiona
-import fsspec
 import json
 import logging
 import os
@@ -20,10 +19,13 @@ logger = logging.getLogger(__name__)
 @utils.arg_input
 @utils.arg_output
 @utils.opt_zoom
+@utils.opt_area
+@utils.opt_area_crs
 @utils.opt_bounds
+@utils.opt_bounds_crs
 @utils.opt_point
+@utils.opt_point_crs
 @utils.opt_wkt_geometry
-@utils.opt_aoi
 @utils.opt_overwrite
 @utils.opt_verbose
 @utils.opt_no_pbar
@@ -44,8 +46,12 @@ def cp(
     input_,
     output,
     zoom=None,
+    area=None,
+    area_crs=None,
     bounds=None,
+    bounds_crs=None,
     point=None,
+    point_crs=None,
     wkt_geometry=None,
     aoi=None,
     overwrite=False,
@@ -58,7 +64,6 @@ def cp(
     password=None
 ):
     """Copy TileDirectory."""
-    protocol, _, host = input_.split("/")[:3]
     src_fs = fs_from_path(input_, username=username, password=password)
     dst_fs = fs_from_path(output, username=username, password=password)
 

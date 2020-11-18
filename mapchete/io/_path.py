@@ -3,8 +3,6 @@ import fsspec
 from itertools import chain
 import logging
 import os
-from urllib.request import urlopen
-from urllib.error import HTTPError
 
 from mapchete.io._misc import get_boto3_bucket
 
@@ -29,7 +27,7 @@ def path_is_remote(path, s3=True):
     return path.startswith(prefixes)
 
 
-def path_exists(path, **kwargs):
+def path_exists(path, fs=None, **kwargs):
     """
     Check if file exists either remote or local.
 
@@ -41,7 +39,30 @@ def path_exists(path, **kwargs):
     -------
     exists : bool
     """
-    return fs_from_path(path).exists(path)
+    # fs = fs or fs_from_path(path)
+    # return fs.exists(path)
+    if path.startswith(("http://", "https://")):
+        try:
+            urlopen(path).info()
+            return True
+        except HTTPError as e:
+            if e.code == 404:
+                return False
+            else:  # pragma: no cover
+                raise
+    elif path.startswith("s3://"):
+        bucket = get_boto3_bucket(path.split("/")[2])
+        key = "/".join(path.split("/")[3:])
+        for obj in bucket.objects.filter(
+            Prefix=key,
+            RequestPayer=os.environ.get("AWS_REQUEST_PAYER")
+        ):
+            if obj.key == key:
+                return True
+        else:
+            return False
+    else:
+        return os.path.exists(path)
 
 
 def absolute_path(path=None, base_dir=None):
@@ -304,6 +325,7 @@ def tiles_exist(
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
     if path.startswith("s3://"):
+        logger.debug("use s3 filesystem")
         return fsspec.filesystem(
             "s3",
             requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
@@ -311,9 +333,11 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
             session=session
         )
     elif path.startswith(("http://", "https://")):
+        logger.debug("use http filesystem")
         return fsspec.filesystem(
             "https",
             auth=BasicAuth(username, password)
         )
     else:
+        logger.debug("use local filesystem")
         return fsspec.filesystem("file")
