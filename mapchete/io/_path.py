@@ -1,4 +1,5 @@
 import concurrent.futures
+import fsspec
 from itertools import chain
 import logging
 import os
@@ -28,7 +29,7 @@ def path_is_remote(path, s3=True):
     return path.startswith(prefixes)
 
 
-def path_exists(path):
+def path_exists(path, **kwargs):
     """
     Check if file exists either remote or local.
 
@@ -40,25 +41,7 @@ def path_exists(path):
     -------
     exists : bool
     """
-    if path.startswith(("http://", "https://")):
-        try:
-            urlopen(path).info()
-            return True
-        except HTTPError as e:
-            if e.code == 404:
-                return False
-            else:  # pragma: no cover
-                raise
-    elif path.startswith("s3://"):
-        bucket = get_boto3_bucket(path.split("/")[2])
-        key = "/".join(path.split("/")[3:])
-        for obj in bucket.objects.filter(Prefix=key, RequestPayer='requester'):
-            if obj.key == key:
-                return True
-        else:
-            return False
-    else:
-        return os.path.exists(path)
+    return fs_from_path(path).exists(path)
 
 
 def absolute_path(path=None, base_dir=None):
