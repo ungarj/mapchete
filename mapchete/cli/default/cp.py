@@ -90,6 +90,10 @@ def cp(
     else:
         aoi_geom = box(*tp.bounds)
 
+    if aoi_geom.is_empty:
+        click.echo("AOI is empty, nothing to copy.")
+        return
+
     # copy metadata to destination if necessary
     src_path = os.path.join(input_, "metadata.json")
     dst_path = os.path.join(output, "metadata.json")

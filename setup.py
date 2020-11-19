@@ -27,7 +27,7 @@ def _parse_requirements(file):
 
 # dependencies for extra features
 req_contours = ["matplotlib"]
-req_http = ["fsspec[http]"]
+req_http = ["fsspec[http]", "aiohttp", "requests"]
 req_s3 = ["boto3", "fsspec[s3]", "s3fs"]
 req_serve = ["flask"]
 req_vrt = ["lxml"]

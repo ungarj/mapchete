@@ -34,13 +34,13 @@ from mapchete.validate import (
 )
 from mapchete.errors import (
     MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteProcessImportError,
-    MapcheteDriverError
+    MapcheteDriverError, GeometryTypeError
 )
 from mapchete.formats import (
     load_output_reader, load_output_writer, available_output_formats, load_input_reader
 )
 from mapchete.io import absolute_path
-from mapchete.io.vector import reproject_geometry
+from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid
 
@@ -1236,6 +1236,10 @@ def _guess_geometry(i, base_dir=None):
         )
     if not geom.is_valid:  # pragma: no cover
         raise TypeError("area is not a valid geometry")
-    if geom.geom_type not in ["Polygon", "MultiPolygon"]:
-        raise TypeError("area must either be a Polygon or a MultiPolygon")
+    try:
+        geom = clean_geometry_type(geom, "Polygon", allow_multipart=True)
+    except GeometryTypeError:
+        raise GeometryTypeError(
+            f"area must either be a Polygon or a MultiPolygon, not {geom.geom_type}"
+        )
     return geom, crs
