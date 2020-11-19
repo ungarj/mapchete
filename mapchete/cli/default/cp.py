@@ -62,6 +62,8 @@ def cp(
     password=None
 ):
     """Copy TileDirectory."""
+    if zoom is None:  # pragma: no cover
+        raise click.UsageError("zoom level(s) required")
     src_fs = fs_from_path(input_, username=username, password=password)
     dst_fs = fs_from_path(output, username=username, password=password)
 
@@ -90,9 +92,8 @@ def cp(
     else:
         aoi_geom = box(*tp.bounds)
 
-    if aoi_geom.is_empty:
-        click.echo("AOI is empty, nothing to copy.")
-        return
+    if aoi_geom.is_empty:  # pragma: no cover
+        raise click.UsageError("AOI is empty, nothing to copy.")
 
     # copy metadata to destination if necessary
     src_path = os.path.join(input_, "metadata.json")
