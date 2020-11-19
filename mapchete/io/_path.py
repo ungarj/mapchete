@@ -3,6 +3,8 @@ import fsspec
 from itertools import chain
 import logging
 import os
+from urllib.error import HTTPError
+from urllib.request import urlopen
 
 from mapchete.io._misc import get_boto3_bucket
 
@@ -39,30 +41,9 @@ def path_exists(path, fs=None, **kwargs):
     -------
     exists : bool
     """
-    # fs = fs or fs_from_path(path)
-    # return fs.exists(path)
-    if path.startswith(("http://", "https://")):
-        try:
-            urlopen(path).info()
-            return True
-        except HTTPError as e:
-            if e.code == 404:
-                return False
-            else:  # pragma: no cover
-                raise
-    elif path.startswith("s3://"):
-        bucket = get_boto3_bucket(path.split("/")[2])
-        key = "/".join(path.split("/")[3:])
-        for obj in bucket.objects.filter(
-            Prefix=key,
-            RequestPayer=os.environ.get("AWS_REQUEST_PAYER")
-        ):
-            if obj.key == key:
-                return True
-        else:
-            return False
-    else:
-        return os.path.exists(path)
+    fs = fs or fs_from_path(path, **kwargs)
+    fs.invalidate_cache(path=path)
+    return fs.exists(path)
 
 
 def absolute_path(path=None, base_dir=None):
@@ -154,11 +135,11 @@ def tiles_exist(
         raise ValueError("just one of 'process_tiles' and 'output_tiles' allowed")
     elif process_tiles is None and output_tiles is None:  # pragma: no cover
         raise ValueError("one of 'process_tiles' and 'output_tiles' has to be provided")
-    elif config is None and output_pyramid is None and output_tiles is None:
+    elif config is None and output_pyramid is None and output_tiles is None: # pragma: no cover
         raise ValueError(
             "output_pyramid is required when no MapcheteConfig and process_tiles given"
         )
-    elif config is None and file_extension is None:
+    elif config is None and file_extension is None:  # pragma: no cover
         raise ValueError("file_extension is required when no MapcheteConfig is given")
 
     # get first tile and in case no tiles are provided return
@@ -293,7 +274,6 @@ def tiles_exist(
                             ]
                         )
                     )
-                    raise NotImplementedError("please use MapcheteConfig as input")
             else:
                 if config:
                     return (tile, config.output_reader.tiles_exist(output_tile=tile))
@@ -330,13 +310,19 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
             "s3",
             requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
             config_kwargs=dict(connect_timeout=timeout, read_timeout=timeout),
-            session=session
+            session=session,
         )
     elif path.startswith(("http://", "https://")):
+        if username:  # pragma: no cover
+            from aiohttp import BasicAuth
+            auth = BasicAuth(username, password)
+        else:
+            auth = None
         logger.debug("use http filesystem")
         return fsspec.filesystem(
             "https",
-            auth=BasicAuth(username, password)
+            auth=auth,
+            asynchronous=False, 
         )
     else:
         logger.debug("use local filesystem")

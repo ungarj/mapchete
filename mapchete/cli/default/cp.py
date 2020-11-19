@@ -1,4 +1,3 @@
-from aiohttp import BasicAuth
 import click
 import fiona
 import json
@@ -9,8 +8,12 @@ from shapely.ops import unary_union
 from tilematrix import TilePyramid
 import tqdm
 
+import mapchete
 from mapchete.cli import utils
+from mapchete.config import _guess_geometry
+from mapchete.formats import file_extension_from_metadata, read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
+from mapchete.io.vector import reproject_geometry
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +26,6 @@ logger = logging.getLogger(__name__)
 @utils.opt_area_crs
 @utils.opt_bounds
 @utils.opt_bounds_crs
-@utils.opt_point
-@utils.opt_point_crs
 @utils.opt_wkt_geometry
 @utils.opt_overwrite
 @utils.opt_verbose
@@ -50,10 +51,7 @@ def cp(
     area_crs=None,
     bounds=None,
     bounds_crs=None,
-    point=None,
-    point_crs=None,
     wkt_geometry=None,
-    aoi=None,
     overwrite=False,
     verbose=False,
     no_pbar=False,
@@ -68,35 +66,32 @@ def cp(
     dst_fs = fs_from_path(output, username=username, password=password)
 
     # read source TileDirectory metadata
-    with src_fs.open(os.path.join(input_, "metadata.json")) as src:
-        metadata = json.loads(src.read())
-        _format = metadata["driver"]["format"]
-        if _format == "GTiff":
-            file_extension = ".tif"
-        elif _format in ["PNG", "PNG_hillshade"]:
-            file_extension = ".png"
-        elif _format == "GeoJSON":
-            file_extension = ".geojson"
-        else:
-            raise TypeError(f"cannot determine file extension from format {_format}")
-        tp = TilePyramid.from_dict(
-            {
-                k: v for k, v in metadata.get("pyramid").items()
-                if k in ["grid", "tile_size", "metatiling"]
-            }
-        )
+    metadata = read_output_metadata(
+        os.path.join(input_, "metadata.json"),
+        fs=src_fs
+    )
+    file_extension = file_extension_from_metadata(metadata)
+    tp = metadata["pyramid"]
 
     # get aoi
-    if aoi:
-        with fiona.open(aoi) as src:
-            aoi_geom = unary_union([shape(f["geometry"]) for f in src])
+    if area:
+        aoi, crs = _guess_geometry(area, base_dir=os.getcwd())
+        aoi_geom = reproject_geometry(
+            aoi,
+            src_crs=crs or area_crs or tp.crs,
+            dst_crs=tp.crs
+        )
     elif bounds:
-        aoi_geom = box(*bounds)
+        aoi_geom = reproject_geometry(
+            box(*bounds),
+            src_crs=bounds_crs or tp.crs,
+            dst_crs=tp.crs
+        )
     else:
         aoi_geom = box(*tp.bounds)
 
     # copy metadata to destination if necessary
-    src_path = os.path.join(input_, "metadata.json"),
+    src_path = os.path.join(input_, "metadata.json")
     dst_path = os.path.join(output, "metadata.json")
     if not dst_fs.exists(dst_path):
         logger.debug(f"copy {src_path} to {dst_path}")
@@ -107,7 +102,7 @@ def cp(
         # materialize all tiles
         tiles = [
             t for t in tp.tiles_from_bounds(aoi_geom.bounds, z)
-            if aoi_geom.intersection(t.bbox()).area
+            if aoi_geom.intersection(t.bbox).area
         ]
 
         # check which source tiles exist
@@ -118,24 +113,22 @@ def cp(
                 basepath=input_,
                 file_extension=file_extension,
                 output_pyramid=tp,
-                process_pyramid=tp,
                 fs=src_fs,
                 multi=multi
             )
         }
 
         # chech which destination tiles exist
-        dst_tiles_exist =  {
+        dst_tiles_exist = {
             tile: exists
             for tile, exists in tiles_exist(
                 output_tiles=tiles,
                 basepath=output,
                 file_extension=file_extension,
                 output_pyramid=tp,
-                process_pyramid=tp,
                 fs=dst_fs,
                 multi=multi
-           )
+            )
         }
 
         # copy

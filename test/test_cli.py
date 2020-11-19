@@ -15,6 +15,10 @@ from mapchete.cli.main import main as mapchete_cli
 from mapchete.errors import MapcheteProcessOutputError
 
 
+SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
+
+
 def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
     result = CliRunner(env=dict(MAPCHETE_TEST="TRUE")).invoke(mapchete_cli, args)
     if output_contains:
@@ -890,4 +894,69 @@ def test_callback_errors(cleantopo_tl):
         expected_exit_code=2,
         raise_exc=False,
         output_contains="zoom levels must be integer values"
+    )
+
+
+def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
+    """Using debug output."""
+    # generate TileDirectory
+    run_cli(
+        [
+            "execute", cleantopo_br.path,
+            "-z", "5",
+            "-b", "169.19251592399996", "-90", "180", "-80.18582802550002"
+        ]
+    )
+    out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
+
+    # copy tiles and subset by bounds
+    run_cli(
+        [
+            "cp",
+            out_path,
+            os.path.join(mp_tmpdir, "all"),
+            "-z", "5",
+            "-b", "169.19251592399996", "-90", "180", "-80.18582802550002"
+        ]
+    )
+    # copy all tiles
+    run_cli(
+        [
+            "cp",
+            out_path,
+            os.path.join(mp_tmpdir, "all"),
+            "-z", "5",
+        ]
+    )
+    # copy tiles and subset by area
+    run_cli(
+        [
+            "cp",
+            out_path,
+            os.path.join(mp_tmpdir, "all"),
+            "-z", "5",
+            "--area", wkt_geom
+        ]
+    )
+    # copy local tiles without using threads
+    run_cli(
+        [
+            "cp",
+            out_path,
+            os.path.join(mp_tmpdir, "all"),
+            "-z", "5",
+            "--multi", "1"
+        ]
+    )
+
+def test_cp_http(mp_tmpdir, http_tiledir):
+    # copy tiles and subset by bounds
+    run_cli(
+        [
+            "cp",
+            http_tiledir,
+            os.path.join(mp_tmpdir, "http"),
+            "-z", "4",
+            "-b", "3.0", "1.0", "4.0", "2.0"
+        ]
     )

@@ -173,15 +173,15 @@ def params_to_dump(params):
             pixelbuffer=params.get("pixelbuffer", 0),
         ).to_dict(),
         driver={
-           k: v
-           for k, v in params.items()
-           if k not in ["path", "grid", "pixelbuffer", "metatiling"]
+            k: v
+            for k, v in params.items()
+            if k not in ["path", "grid", "pixelbuffer", "metatiling"]
         }
     )
 
 
-def read_output_metadata(metadata_json):
-    params = read_json(metadata_json)
+def read_output_metadata(metadata_json, **kwargs):
+    params = read_json(metadata_json, **kwargs)
     grid = params["pyramid"]["grid"]
     if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:  # pragma: no cover
         warnings.warn(
@@ -246,3 +246,16 @@ def write_output_metadata(output_params):
             dump_params = params_to_dump(output_params)
             # dump output metadata
             write_json(metadata_path, dump_params)
+
+
+def file_extension_from_metadata(output_metadata=None):
+    """Return default file extension from output_metadata."""
+    _format = output_metadata["driver"]["format"]
+    if _format == "GTiff":
+        return ".tif"
+    elif _format in ["PNG", "PNG_hillshade"]:
+        return ".png"
+    elif _format == "GeoJSON":
+        return ".geojson"
+    else:
+        raise TypeError(f"cannot determine file extension from format {_format}")

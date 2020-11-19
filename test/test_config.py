@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test Mapchete config module."""
 
 from copy import deepcopy

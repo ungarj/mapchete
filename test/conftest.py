@@ -69,6 +69,12 @@ def http_raster():
 
 
 @pytest.fixture
+def http_tiledir():
+    """Fixture for HTTP TileDirectory."""
+    return "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/"
+
+
+@pytest.fixture
 def s2_band():
     """
     Fixture for Sentinel-2 raster band.
