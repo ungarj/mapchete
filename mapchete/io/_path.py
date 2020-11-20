@@ -250,4 +250,4 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
         )
     else:
         logger.debug("use local filesystem")
-        return fsspec.filesystem("file")
+        return fsspec.filesystem("file", asynchronous=False)
