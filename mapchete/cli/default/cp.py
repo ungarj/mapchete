@@ -33,16 +33,8 @@ logger = logging.getLogger(__name__)
 @utils.opt_debug
 @utils.opt_logfile
 @utils.opt_multi
-@click.option(
-    "--username", "-u",
-    type=click.STRING,
-    help="Username for HTTP Auth."
-)
-@click.option(
-    "--password", "-p",
-    type=click.STRING,
-    help="Password for HTTP Auth."
-)
+@utils.opt_http_username
+@utils.opt_http_password
 def cp(
     input_,
     output,
@@ -106,7 +98,8 @@ def cp(
                 # materialize all tiles
                 aoi_geom = src_mp.config.area_at_zoom(z)
                 tiles = [
-                    t for t in tp.tiles_from_bounds(aoi_geom.bounds, z)
+                    t for t in tp.tiles_from_geom(aoi_geom, z)
+                    # this is required to omit tiles touching the config area
                     if aoi_geom.intersection(t.bbox).area
                 ]
 
@@ -133,11 +126,7 @@ def cp(
                 }
 
                 # copy
-                for tile in tqdm.tqdm(
-                    tiles,
-                    unit="tile",
-                    disable=debug or no_pbar
-                ):
+                for tile in tqdm.tqdm(tiles, unit="tile", disable=debug or no_pbar):
                     src_path = src_mp.config.output_reader.get_path(tile)
                     # only copy if source tile exists
                     if src_tiles_exist[tile]:

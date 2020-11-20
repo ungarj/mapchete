@@ -876,6 +876,9 @@ def test_index_errors(mp_tmpdir, cleantopo_br):
     with pytest.raises(SystemExit):
         run_cli(["index", cleantopo_br.path, "-z", "5", "--debug"])
 
+    with pytest.raises(SystemExit):
+        run_cli(["index", "-z", "5", "--debug"])
+
 
 def test_processes():
     run_cli(["processes"])

@@ -9,7 +9,6 @@ import tqdm
 
 import mapchete
 from mapchete.cli import utils
-from mapchete.config import raw_conf, raw_conf_process_pyramid, bounds_from_opts
 from mapchete.index import zoom_index_gen
 
 
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @click.command(help="Create index of output tiles.")
-@utils.arg_mapchete_files
+@utils.arg_inputs
 @utils.opt_idx_out_dir
 @utils.opt_geojson
 @utils.opt_gpkg
@@ -39,12 +38,14 @@ logger = logging.getLogger(__name__)
 @utils.opt_point_crs
 @utils.opt_wkt_geometry
 @utils.opt_tile
+@utils.opt_http_username
+@utils.opt_http_password
 @utils.opt_verbose
 @utils.opt_no_pbar
 @utils.opt_debug
 @utils.opt_logfile
 def index(
-    mapchete_files,
+    inputs,
     idx_out_dir=None,
     geojson=False,
     gpkg=False,
@@ -63,6 +64,8 @@ def index(
     point_crs=None,
     wkt_geometry=None,
     tile=None,
+    username=None,
+    password=None,
     verbose=False,
     no_pbar=False,
     debug=False,
@@ -74,23 +77,25 @@ def index(
             """must be provided.""",
             param_type="option"
         )
-
     # send verbose messages to /dev/null if not activated
     verbose_dst = open(os.devnull, 'w') if debug or not verbose else sys.stdout
 
-    for mapchete_file in mapchete_files:
+    for input_ in inputs:
 
-        tqdm.tqdm.write("create index(es) for %s" % mapchete_file, file=verbose_dst)
+        tqdm.tqdm.write("create index(es) for %s" % input_, file=verbose_dst)
 
         with click_spinner.spinner(disable=debug) as spinner:
 
             # process single tile
             if tile:
-                tile = raw_conf_process_pyramid(raw_conf(mapchete_file)).tile(*tile)
                 with mapchete.open(
-                    mapchete_file, mode="readonly", bounds=tile.bounds, zoom=tile.zoom
+                    input_,
+                    mode="readonly",
+                    username=username,
+                    password=password
                 ) as mp:
                     spinner.stop()
+                    tile = mp.config.process_pyramid.tile(*tile)
                     for tile in tqdm.tqdm(
                         zoom_index_gen(
                             mp=mp,
@@ -114,19 +119,18 @@ def index(
             # process area
             else:
                 with mapchete.open(
-                    mapchete_file,
+                    input_,
                     mode="readonly",
                     zoom=zoom,
-                    bounds=bounds_from_opts(
-                        wkt_geometry=wkt_geometry,
-                        point=point,
-                        point_crs=point_crs,
-                        bounds=bounds,
-                        bounds_crs=bounds_crs,
-                        raw_conf=raw_conf(mapchete_file)
-                    ),
+                    wkt_geometry=wkt_geometry,
+                    point=point,
+                    point_crs=point_crs,
+                    bounds=bounds,
+                    bounds_crs=bounds_crs,
                     area=area,
-                    area_crs=area_crs
+                    area_crs=area_crs,
+                    username=username,
+                    password=password
                 ) as mp:
                     spinner.stop()
                     logger.debug("process bounds: %s", mp.config.init_bounds)
@@ -158,5 +162,5 @@ def index(
                         logger.debug("%s indexed", tile)
 
         tqdm.tqdm.write(
-            "index(es) creation for %s finished" % mapchete_file, file=verbose_dst
+            "index(es) creation for %s finished" % input_, file=verbose_dst
         )
