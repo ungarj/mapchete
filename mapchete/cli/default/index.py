@@ -77,7 +77,6 @@ def index(
             """must be provided.""",
             param_type="option"
         )
-
     # send verbose messages to /dev/null if not activated
     verbose_dst = open(os.devnull, 'w') if debug or not verbose else sys.stdout
 

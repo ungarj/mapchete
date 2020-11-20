@@ -120,7 +120,7 @@ arg_inputs = click.argument(
     "inputs",
     metavar="INPUTS",
     nargs=-1,
-    callback=_validate_mapchete_files
+    callback=_validate_inputs
 )
 arg_output = click.argument(
     "output",
