@@ -173,15 +173,15 @@ def params_to_dump(params):
             pixelbuffer=params.get("pixelbuffer", 0),
         ).to_dict(),
         driver={
-           k: v
-           for k, v in params.items()
-           if k not in ["path", "grid", "pixelbuffer", "metatiling"]
+            k: v
+            for k, v in params.items()
+            if k not in ["path", "grid", "pixelbuffer", "metatiling"]
         }
     )
 
 
-def read_output_metadata(metadata_json):
-    params = read_json(metadata_json)
+def read_output_metadata(metadata_json, **kwargs):
+    params = read_json(metadata_json, **kwargs)
     grid = params["pyramid"]["grid"]
     if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:  # pragma: no cover
         warnings.warn(

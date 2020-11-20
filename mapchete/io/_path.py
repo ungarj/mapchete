@@ -1,10 +1,8 @@
 import concurrent.futures
+import fsspec
+from itertools import chain
 import logging
 import os
-from urllib.request import urlopen
-from urllib.error import HTTPError
-
-from mapchete.io._misc import get_boto3_bucket
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +25,7 @@ def path_is_remote(path, s3=True):
     return path.startswith(prefixes)
 
 
-def path_exists(path):
+def path_exists(path, fs=None, **kwargs):
     """
     Check if file exists either remote or local.
 
@@ -39,25 +37,9 @@ def path_exists(path):
     -------
     exists : bool
     """
-    if path.startswith(("http://", "https://")):
-        try:
-            urlopen(path).info()
-            return True
-        except HTTPError as e:
-            if e.code == 404:
-                return False
-            else:  # pragma: no cover
-                raise
-    elif path.startswith("s3://"):
-        bucket = get_boto3_bucket(path.split("/")[2])
-        key = "/".join(path.split("/")[3:])
-        for obj in bucket.objects.filter(Prefix=key, RequestPayer='requester'):
-            if obj.key == key:
-                return True
-        else:
-            return False
-    else:
-        return os.path.exists(path)
+    fs = fs or fs_from_path(path, **kwargs)
+    fs.invalidate_cache(path=path)
+    return fs.exists(path)
 
 
 def absolute_path(path=None, base_dir=None):
@@ -118,7 +100,7 @@ def makedirs(path):
             pass
 
 
-def tiles_exist(config=None, output_tiles=None, process_tiles=None):
+def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
     """
     Yield tiles and whether their output already exists or not.
 
@@ -142,16 +124,17 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
         raise ValueError("one of 'process_tiles' and 'output_tiles' has to be provided")
 
     basepath = config.output_reader.path
-    # make tiles unique
-    tiles = set(process_tiles) if process_tiles is not None else set(output_tiles)
 
-    # in case no tiles are provided
-    if not tiles:
+    try:
+        tiles_iter = iter(process_tiles) if output_tiles is None else iter(output_tiles)
+        first_tile = next(tiles_iter)
+        all_tiles_iter = chain([first_tile], tiles_iter)
+    except StopIteration:
         return
 
     # only on TileDirectories on S3
     if (
-        not config.output_reader.path.endswith(config.output_reader.file_extension) and
+        not basepath.endswith(config.output_reader.file_extension) and
         basepath.startswith("s3://")
     ):
         import boto3
@@ -161,24 +144,23 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
         paginator = s3.get_paginator("list_objects_v2")
 
         # determine zoom
-        zoom = next(iter(tiles)).zoom
+        zoom = first_tile.zoom
 
         # get all output tiles
+        all_tiles = set(all_tiles_iter)
         if process_tiles:
-            output_tiles = set(
-                [
-                    t
-                    for process_tile in tiles
-                    for t in config.output_pyramid.intersecting(process_tile)
-                ]
+            output_tiles = (
+                t
+                for process_tile in all_tiles
+                for t in config.output_pyramid.intersecting(process_tile)
             )
         else:
-            output_tiles = tiles
+            output_tiles = all_tiles
 
         # create a mapping between paths and tiles
         paths = dict()
         # remember rows
-        rows = set()
+        output_rows = set()
         for output_tile in output_tiles:
             if output_tile.zoom != zoom:  # pragma: no cover
                 raise ValueError("tiles of different zoom levels cannot be mixed")
@@ -189,11 +171,11 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
             else:
                 paths[path] = output_tile
 
-            rows.add(output_tile.row)
+            output_rows.add(output_tile.row)
 
         # remember already yielded tiles
         yielded = set()
-        for row in rows:
+        for row in output_rows:
             # use prefix until row, page through api results
             logger.debug("check existing tiles in row %s" % row)
             prefix = os.path.join(*[basekey, str(zoom), str(row)])
@@ -211,6 +193,8 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
                     try:
                         tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
                     except KeyError:  # pragma: no cover
+                        # in case of an existing tile which was not passed on to this
+                        # function
                         continue
                     # store and yield process tile if it was not already yielded
                     if tile not in yielded:
@@ -218,18 +202,52 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None):
                         yield (tile, True)
 
         # finally, yield all tiles which were not yet yielded as False
-        for tile in tiles.difference(yielded):
+        for tile in all_tiles.difference(yielded):
             yield (tile, False)
 
     else:
         def _exists(tile):
-            if process_tiles:
-                return (tile, config.output_reader.tiles_exist(process_tile=tile))
-            else:
-                return (tile, config.output_reader.tiles_exist(output_tile=tile))
+            return (
+                tile,
+                config.output_reader.tiles_exist(
+                    **{"process_tile" if process_tiles else "output_tile": tile}
+                )
+            )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            for future in concurrent.futures.as_completed(
-                (executor.submit(_exists, tile) for tile in tiles)
-            ):
-                yield future.result()
+        if multi == 1:
+            for tile in all_tiles_iter:
+                yield _exists(tile=tile)
+        else:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=multi) as executor:
+                for future in concurrent.futures.as_completed(
+                    (executor.submit(_exists, tile) for tile in all_tiles_iter)
+                ):
+                    yield future.result()
+
+
+def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
+    """Guess fsspec FileSystem from path and initialize using the desired options."""
+    if path.startswith("s3://"):
+        logger.debug("use s3 filesystem")
+        return fsspec.filesystem(
+            "s3",
+            requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
+            config_kwargs=dict(connect_timeout=timeout, read_timeout=timeout),
+            session=session,
+            asynchronous=False,
+        )
+    elif path.startswith(("http://", "https://")):
+        if username:  # pragma: no cover
+            from aiohttp import BasicAuth
+            auth = BasicAuth(username, password)
+        else:
+            auth = None
+        logger.debug("use http filesystem")
+        return fsspec.filesystem(
+            "https",
+            auth=auth,
+            asynchronous=False,
+        )
+    else:
+        logger.debug("use local filesystem")
+        return fsspec.filesystem("file", asynchronous=False)

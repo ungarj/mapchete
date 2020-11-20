@@ -120,7 +120,7 @@ def write_vector_window(
                     out_schema["geometry"]
                 )
             ):
-                if out_geom.is_empty:
+                if out_geom.is_empty:  # pragma: no cover
                     continue
                 out_features.append({
                     "geometry": mapping(out_geom),

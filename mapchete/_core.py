@@ -3,11 +3,13 @@
 from cachetools import LRUCache
 import logging
 import multiprocessing
+import os
 import threading
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile
-from mapchete.io import tiles_exist
+from mapchete.formats import read_output_metadata
+from mapchete.io import fs_from_path, tiles_exist
 from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def open(
-    config,
+    some_input,
     with_cache=False,
     **kwargs
 ):
@@ -26,7 +28,8 @@ def open(
 
     Parameters
     ----------
-    config : MapcheteConfig object, config dict or path to mapchete file
+    some_input : MapcheteConfig object, config dict, path to mapchete file or path to
+        TileDirectory
         Mapchete process configuration
     mode : string
         * ``memory``: Generate process output on demand without reading
@@ -48,7 +51,38 @@ def open(
     Mapchete
         a Mapchete process object
     """
-    return Mapchete(MapcheteConfig(config, **kwargs), with_cache=with_cache)
+    if isinstance(some_input, str) and not some_input.endswith(".mapchete"):
+        logger.debug("assuming TileDirectory")
+        metadata_json = os.path.join(some_input, "metadata.json")
+        fs = kwargs.get("fs", fs_from_path(metadata_json, **kwargs))
+        logger.debug("read metadata.json")
+        metadata = read_output_metadata(
+            metadata_json,
+            fs=fs
+        )
+        config = dict(
+            process=None,
+            input=None,
+            pyramid=metadata["pyramid"].to_dict(),
+            output=dict(
+                {
+                    k: v for k, v in metadata["driver"].items()
+                    if k not in ["delimiters", "mode"]
+                },
+                path=some_input,
+                fs_kwargs=kwargs
+            ),
+            config_dir=os.getcwd(),
+            zoom_levels=kwargs.get("zoom")
+        )
+        return Mapchete(
+            MapcheteConfig(config, mode="readonly", **kwargs)
+        )
+    else:
+        return Mapchete(
+            MapcheteConfig(some_input, **kwargs),
+            with_cache=with_cache
+        )
 
 
 class Mapchete(object):

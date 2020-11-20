@@ -7,8 +7,14 @@ from rasterio.crs import CRS
 import mapchete
 from mapchete import errors
 from mapchete.formats import (
-    available_input_formats, available_output_formats, driver_from_file, base,
-    load_output_reader, load_output_writer, load_input_reader, read_output_metadata
+    available_input_formats,
+    available_output_formats,
+    base,
+    driver_from_file,
+    load_input_reader,
+    load_output_reader,
+    load_output_writer,
+    read_output_metadata
 )
 
 

@@ -13,6 +13,7 @@ from mapchete.io._misc import (
     get_gdal_options
 )
 from mapchete.io._path import (
+    fs_from_path,
     path_is_remote,
     path_exists,
     tiles_exist,
@@ -23,6 +24,7 @@ from mapchete.io._path import (
 
 
 __all__ = [
+    "fs_from_path",
     "GDAL_HTTP_OPTS",
     "get_best_zoom_level",
     "get_segmentize_value",

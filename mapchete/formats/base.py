@@ -165,6 +165,7 @@ class OutputDataBaseFunctions():
         )
         self.crs = self.pyramid.crs
         self._bucket = None
+        self._fs = None
 
     def is_valid_with_config(self, config):
         """
@@ -425,11 +426,11 @@ class TileDirectoryOutputReader(OutputDataReader):
             raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
         if process_tile:
             return any(
-                path_exists(self.get_path(tile))
+                path_exists(self.get_path(tile), fs=self._fs)
                 for tile in self.pyramid.intersecting(process_tile)
             )
         if output_tile:
-            return path_exists(self.get_path(output_tile))
+            return path_exists(self.get_path(output_tile), fs=self._fs)
 
     def _read_as_tiledir(
         self,

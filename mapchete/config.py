@@ -34,13 +34,13 @@ from mapchete.validate import (
 )
 from mapchete.errors import (
     MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteProcessImportError,
-    MapcheteDriverError
+    MapcheteDriverError, GeometryTypeError
 )
 from mapchete.formats import (
     load_output_reader, load_output_writer, available_output_formats, load_input_reader
 )
 from mapchete.io import absolute_path
-from mapchete.io.vector import reproject_geometry
+from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid
 
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 # parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process", str),                    # path to .py file or module path
+    ("process", (str, type(None))),      # path to .py file or module path
     ("pyramid", dict),                   # process pyramid definition
     ("input", (dict, type(None))),       # files & other types
     ("output", dict),                    # process output parameters
@@ -262,10 +262,10 @@ class MapcheteConfig(object):
             bounds_crs=bounds_crs
         )
         self.init_bounds = Bounds(*self.init_area.bounds)
-        logger.debug(self.area)
-        logger.debug(self.bounds)
-        logger.debug(self.init_area)
-        logger.debug(self.init_bounds)
+        logger.debug(f"process area: {self.area}")
+        logger.debug(f"process bounds: {self.bounds}")
+        logger.debug(f"init area: {self.init_area}")
+        logger.debug(f"init bounds: {self.init_bounds}")
 
         # (7) the delimiters are used by some input drivers
         self._delimiters = dict(
@@ -359,7 +359,10 @@ class MapcheteConfig(object):
     @cached_property
     def output(self):
         """Output writer class of driver."""
-        writer = load_output_writer(self._output_params)
+        writer = load_output_writer(
+            self._output_params,
+            readonly=self._output_params["mode"] == "readonly"
+        )
         try:
             writer.is_valid_with_config(self._output_params)
         except Exception as e:
@@ -1006,7 +1009,7 @@ def _config_to_dict(input_config):
                 mapchete_file=input_config
             )
     # throw error if unknown object
-    else:
+    else:  # pragma: no cover
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file.")
 
@@ -1236,6 +1239,10 @@ def _guess_geometry(i, base_dir=None):
         )
     if not geom.is_valid:  # pragma: no cover
         raise TypeError("area is not a valid geometry")
-    if geom.geom_type not in ["Polygon", "MultiPolygon"]:
-        raise TypeError("area must either be a Polygon or a MultiPolygon")
+    try:
+        geom = clean_geometry_type(geom, "Polygon", allow_multipart=True)
+    except GeometryTypeError:
+        raise GeometryTypeError(
+            f"area must either be a Polygon or a MultiPolygon, not {geom.geom_type}"
+        )
     return geom, crs

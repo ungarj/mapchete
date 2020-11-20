@@ -1,5 +1,6 @@
 """Test Mapchete io module."""
 
+import boto3
 import pytest
 import shutil
 import rasterio
@@ -8,6 +9,7 @@ import numpy as np
 import numpy.ma as ma
 import fiona
 from fiona.errors import DriverError
+import os
 from rasterio.crs import CRS
 from rasterio.enums import Compression
 from rasterio.errors import RasterioIOError
@@ -21,7 +23,8 @@ import mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.errors import GeometryTypeError
 from mapchete.io import (
-    get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level
+    get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level,
+    tiles_exist
 )
 from mapchete.io.raster import (
     read_raster_window, write_raster_window, extract_from_array,
@@ -33,6 +36,10 @@ from mapchete.io.vector import (
     segmentize_geometry, write_vector_window, _repair
 )
 from mapchete.tile import BufferedTilePyramid
+
+
+SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
 
 def test_best_zoom_level(dummy1_tif):
@@ -223,9 +230,10 @@ def test_write_raster_window():
     data = ma.masked_array(np.ones((2, ) + tile.shape))
     out_tile = BufferedTilePyramid("geodetic").tile(5, 5, 5)
     out_profile = dict(
-            driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
-            height=out_tile.height, width=out_tile.width,
-            affine=out_tile.affine)
+        driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
+        height=out_tile.height, width=out_tile.width,
+        affine=out_tile.affine
+    )
     try:
         write_raster_window(
             in_tile=tile, in_data=data, out_profile=out_profile,
@@ -946,3 +954,144 @@ def test_tile_to_zoom_level():
             tp_merc,
             matching_method="invalid_method"
         )
+
+
+def test_tiles_exist_local(example_mapchete):
+    bounds = (2.0, 0.0, 4.0, 2.0)
+    zoom = 10
+    with mapchete.open(
+        dict(
+            example_mapchete.dict,
+            pyramid=dict(
+                example_mapchete.dict["pyramid"],
+                metatiling=4
+            ),
+            output=dict(
+                example_mapchete.dict["output"],
+                metatiling=1
+            )
+        ),
+        bounds=bounds
+    ) as mp:
+        # generate tile directory
+        mp.batch_process(zoom=zoom)
+        process_tiles = list(mp.config.process_pyramid.tiles_from_bounds(bounds, zoom))
+        output_tiles = list(mp.config.output_pyramid.tiles_from_bounds(bounds, zoom))
+
+        # see which files were written and create set for output_tiles and process_tiles
+        out_path = os.path.join(
+            SCRIPTDIR,
+            example_mapchete.dict["output"]["path"],
+            str(zoom)
+        )
+        written_output_tiles = set()
+        for root, dirs, files in os.walk(out_path):
+            for file in files:
+                zoom, row = map(int, root.split("/")[-2:])
+                col = int(file.split(".")[0])
+                written_output_tiles.add(mp.config.output_pyramid.tile(zoom, row, col))
+        written_process_tiles = set(
+            [
+                mp.config.process_pyramid.intersecting(t)[0]
+                for t in written_output_tiles
+            ]
+        )
+
+        # process tiles
+        existing = set()
+        not_existing = set()
+        for tile, exists in tiles_exist(
+            config=mp.config,
+            process_tiles=process_tiles,
+            multi=4
+        ):
+            if exists:
+                existing.add(tile)
+            else:
+                not_existing.add(tile)
+        assert existing == written_process_tiles
+        assert not_existing
+        assert set(process_tiles) == existing.union(not_existing)
+
+        # output tiles
+        existing = set()
+        not_existing = set()
+        for tile, exists in tiles_exist(
+            config=mp.config,
+            output_tiles=output_tiles,
+            multi=1
+        ):
+            if exists:
+                existing.add(tile)
+            else:
+                not_existing.add(tile)
+        assert existing == written_output_tiles
+        assert not_existing
+        assert set(output_tiles) == existing.union(not_existing)
+
+
+def test_tiles_exist_s3(gtiff_s3, mp_s3_tmpdir):
+    bounds = (0, 0, 10, 10)
+    # bounds = (3, 1, 4, 2)
+    zoom = 5
+    with mapchete.open(
+        dict(
+            gtiff_s3.dict,
+            pyramid=dict(
+                gtiff_s3.dict["pyramid"],
+                metatiling=8
+            ),
+            output=dict(
+                gtiff_s3.dict["output"],
+                metatiling=1
+            )
+        ),
+        bounds=bounds,
+        mode="overwrite"
+    ) as mp:
+        # generate tile directory
+        mp.batch_process(zoom=zoom)
+        process_tiles = list(mp.config.process_pyramid.tiles_from_bounds(bounds, zoom))
+        output_tiles = list(mp.config.output_pyramid.tiles_from_bounds(bounds, zoom))
+
+        # manually check which tiles exist
+        written_output_tiles = set()
+        for t in output_tiles:
+            if mp.config.output_reader.tiles_exist(output_tile=t):
+                written_output_tiles.add(t)
+        written_process_tiles = set(
+            [
+                mp.config.process_pyramid.intersecting(t)[0]
+                for t in written_output_tiles
+            ]
+        )
+
+        # process tiles
+        existing = set()
+        not_existing = set()
+        for tile, exists in tiles_exist(
+            config=mp.config,
+            process_tiles=process_tiles,
+            multi=4
+        ):
+            if exists:
+                existing.add(tile)
+            else:
+                not_existing.add(tile)
+        assert existing == written_process_tiles
+        assert set(process_tiles) == existing.union(not_existing)
+
+        # output tiles
+        existing = set()
+        not_existing = set()
+        for tile, exists in tiles_exist(
+            config=mp.config,
+            output_tiles=output_tiles,
+            multi=1
+        ):
+            if exists:
+                existing.add(tile)
+            else:
+                not_existing.add(tile)
+        assert existing == written_output_tiles
+        assert set(output_tiles) == existing.union(not_existing)
