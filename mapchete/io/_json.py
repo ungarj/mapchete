@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 def write_json(path, params, fs=None, **kwargs):
     """Write local or remote."""
     logger.debug(f"write {params} to {path}")
-    with fsspec.open(path, "w") as dst:
+    fs = fs or fs_from_path(path, **kwargs)
+    with fs.open(path, "w") as dst:
         json.dump(params, dst, sort_keys=True, indent=4)
 
 

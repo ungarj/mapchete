@@ -234,6 +234,7 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
             requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
             config_kwargs=dict(connect_timeout=timeout, read_timeout=timeout),
             session=session,
+            asynchronous=False,
         )
     elif path.startswith(("http://", "https://")):
         if username:  # pragma: no cover
