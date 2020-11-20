@@ -142,7 +142,7 @@
             {% for process_name in process_names -%}
                 var options = extend(defaults, {
                     url: "/wmts_simple",
-                    name: "Mapchete Process",
+                    name: "{{process_name}}",
                     layer: "{{process_name}}",
                     format: 'image/png',
                     requestEncoding: 'REST',
