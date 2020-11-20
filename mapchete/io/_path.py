@@ -3,10 +3,6 @@ import fsspec
 from itertools import chain
 import logging
 import os
-from urllib.error import HTTPError
-from urllib.request import urlopen
-
-from mapchete.io._misc import get_boto3_bucket
 
 logger = logging.getLogger(__name__)
 
@@ -104,16 +100,7 @@ def makedirs(path):
             pass
 
 
-def tiles_exist(
-    config=None,
-    output_tiles=None,
-    process_tiles=None,
-    basepath=None,
-    file_extension=None,
-    output_pyramid=None,
-    fs=None,
-    multi=None
-):
+def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
     """
     Yield tiles and whether their output already exists or not.
 
@@ -135,14 +122,9 @@ def tiles_exist(
         raise ValueError("just one of 'process_tiles' and 'output_tiles' allowed")
     elif process_tiles is None and output_tiles is None:  # pragma: no cover
         raise ValueError("one of 'process_tiles' and 'output_tiles' has to be provided")
-    elif config is None and output_pyramid is None and output_tiles is None: # pragma: no cover
-        raise ValueError(
-            "output_pyramid is required when no MapcheteConfig and process_tiles given"
-        )
-    elif config is None and file_extension is None:  # pragma: no cover
-        raise ValueError("file_extension is required when no MapcheteConfig is given")
 
-    # get first tile and in case no tiles are provided return
+    basepath = config.output_reader.path
+
     try:
         tiles_iter = iter(process_tiles) if output_tiles is None else iter(output_tiles)
         first_tile = next(tiles_iter)
@@ -150,28 +132,12 @@ def tiles_exist(
     except StopIteration:
         return
 
-    if config:
-        basepath = config.output_reader.path
-        file_extension = config.output_reader.file_extension
-        process_pyramid = config.process_pyramid
-        output_pyramid = config.output_pyramid
-    else:
-        basepath = basepath
-        file_extension = file_extension
-        if output_pyramid is None and output_tiles:
-            output_pyramid = first_tile.tp
-        process_pyramid =  first_tile.tp if process_tiles else None
-    fs = fs or fs_from_path(basepath)
-
     # only on TileDirectories on S3
-    # This implementation queries multiple keys at once by using paging and therefore
-    # requires less S3 requests and is in most cases faster.
     if (
-        not basepath.endswith(file_extension) and
+        not basepath.endswith(config.output_reader.file_extension) and
         basepath.startswith("s3://")
     ):
         import boto3
-        tiles = set(all_tiles_iter)
         basekey = "/".join(basepath.split("/")[3:])
         bucket = basepath.split("/")[2]
         s3 = boto3.client("s3")
@@ -181,41 +147,35 @@ def tiles_exist(
         zoom = first_tile.zoom
 
         # get all output tiles
+        all_tiles = set(all_tiles_iter)
         if process_tiles:
-            output_tiles = set(
-                [
-                    t
-                    for process_tile in tiles
-                    for t in output_pyramid.intersecting(process_tile)
-                ]
+            output_tiles = (
+                t
+                for process_tile in all_tiles
+                for t in config.output_pyramid.intersecting(process_tile)
             )
         else:
-            output_tiles = tiles
+            output_tiles = all_tiles
 
         # create a mapping between paths and tiles
         paths = dict()
         # remember rows
-        rows = set()
+        output_rows = set()
         for output_tile in output_tiles:
             if output_tile.zoom != zoom:  # pragma: no cover
                 raise ValueError("tiles of different zoom levels cannot be mixed")
-
-            path = (
-                config.output_reader.get_path(output_tile)
-                if config
-                else _tile_path(basepath, output_tile, file_extension)
-            )
+            path = config.output_reader.get_path(output_tile)
 
             if process_tiles:
-                paths[path] = process_pyramid.intersecting(output_tile)[0]
+                paths[path] = config.process_pyramid.intersecting(output_tile)[0]
             else:
                 paths[path] = output_tile
 
-            rows.add(output_tile.row)
+            output_rows.add(output_tile.row)
 
         # remember already yielded tiles
         yielded = set()
-        for row in rows:
+        for row in output_rows:
             # use prefix until row, page through api results
             logger.debug("check existing tiles in row %s" % row)
             prefix = os.path.join(*[basekey, str(zoom), str(row)])
@@ -233,6 +193,8 @@ def tiles_exist(
                     try:
                         tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
                     except KeyError:  # pragma: no cover
+                        # in case of an existing tile which was not passed on to this
+                        # function
                         continue
                     # store and yield process tile if it was not already yielded
                     if tile not in yielded:
@@ -240,69 +202,27 @@ def tiles_exist(
                         yield (tile, True)
 
         # finally, yield all tiles which were not yet yielded as False
-        for tile in tiles.difference(yielded):
+        for tile in all_tiles.difference(yielded):
             yield (tile, False)
 
-    # This implementation is for all other storage backends.
     else:
-        def _exists(
-            tile,
-            config=None,
-            basepath=None,
-            file_extension=None,
-            fs=None,
-            output_pyramid=None
-        ):
-            if process_tiles:
-                if config:
-                    print(config.output_reader.get_path(tile))
-                    return (tile, config.output_reader.tiles_exist(process_tile=tile))
-                else:
-                    for output_tile in output_pyramid.intersecting(tile):
-                        print(_tile_path(basepath, tile, file_extension))
-                        if fs.exists(_tile_path(basepath, tile, file_extension)):
-                            return tile, True
-                    else:
-                        return tile, False
-            else:
-                if config:
-                    return (tile, config.output_reader.tiles_exist(output_tile=tile))
-                else:
-                    return (tile, fs.exists(_tile_path(basepath, tile, file_extension)))
+        def _exists(tile):
+            return (
+                tile,
+                config.output_reader.tiles_exist(
+                    **{"process_tile" if process_tiles else "output_tile": tile}
+                )
+            )
 
         if multi == 1:
             for tile in all_tiles_iter:
-                yield _exists(
-                    tile=tile,
-                    config=config,
-                    basepath=basepath,
-                    file_extension=file_extension,
-                    fs=fs,
-                    output_pyramid=output_pyramid
-                )
+                yield _exists(tile=tile)
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=multi) as executor:
                 for future in concurrent.futures.as_completed(
-                    (
-                        executor.submit(
-                            _exists,
-                            tile=tile,
-                            config=config,
-                            basepath=basepath,
-                            file_extension=file_extension,
-                            fs=fs,
-                            output_pyramid=output_pyramid
-                        )
-                        for tile in all_tiles_iter
-                    )
+                    (executor.submit(_exists, tile) for tile in all_tiles_iter)
                 ):
                     yield future.result()
-
-
-def _tile_path(basepath, tile, file_extension):
-    return os.path.join(
-        basepath, f"{tile.zoom}/{tile.row}/{tile.col}{file_extension}"
-    )
 
 
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
