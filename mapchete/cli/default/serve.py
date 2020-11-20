@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @click.command(help="Serve a process on localhost.")
-@utils.arg_mapchete_file
+@utils.arg_mapchete_files
 @utils.opt_port
 @utils.opt_internal_cache
 @utils.opt_zoom
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 @utils.opt_debug
 @utils.opt_logfile
 def serve(
-    mapchete_file,
+    mapchete_files,
     port=None,
     internal_cache=None,
     zoom=None,
@@ -47,16 +47,22 @@ def serve(
     WMTS simple REST endpoint.
     """
     app = create_app(
-        mapchete_files=[mapchete_file], zoom=zoom,
-        bounds=bounds, single_input_file=input_file,
-        mode=_get_mode(memory, readonly, overwrite), debug=debug
+        mapchete_files=mapchete_files,
+        zoom=zoom,
+        bounds=bounds,
+        single_input_file=input_file,
+        mode=_get_mode(memory, readonly, overwrite),
+        debug=debug
     )
     if os.environ.get("MAPCHETE_TEST") == "TRUE":
         logger.debug("don't run flask app, MAPCHETE_TEST environment detected")
     else:  # pragma: no cover
         app.run(
-            threaded=True, debug=True, port=port, host='0.0.0.0',
-            extra_files=[mapchete_file]
+            threaded=True,
+            debug=debug,
+            port=port,
+            host='0.0.0.0',
+            extra_files=mapchete_files
         )
 
 
