@@ -52,8 +52,10 @@ def open(
         a Mapchete process object
     """
     if isinstance(some_input, str) and not some_input.endswith(".mapchete"):
+        logger.debug("assuming TileDirectory")
         metadata_json = os.path.join(some_input, "metadata.json")
         fs = kwargs.get("fs", fs_from_path(metadata_json, **kwargs))
+        logger.debug("read metadata.json")
         metadata = read_output_metadata(
             metadata_json,
             fs=fs

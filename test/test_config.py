@@ -25,7 +25,7 @@ def test_config_errors(example_mapchete):
     """Test various configuration parsing errors."""
     config_orig = example_mapchete.dict
     # wrong config type
-    with pytest.raises(MapcheteConfigError):
+    with pytest.raises(FileNotFoundError):
         mapchete.open("not_a_config")
     # missing process
     with pytest.raises(MapcheteConfigError):

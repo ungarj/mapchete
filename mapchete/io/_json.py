@@ -24,7 +24,6 @@ def read_json(path, fs=None, **kwargs):
         with fs.open(path) as src:
             return json.loads(src.read())
     except Exception as e:
-        raise
         if path_exists(path, fs=fs):  # pragma: no cover
             raise e
         else:

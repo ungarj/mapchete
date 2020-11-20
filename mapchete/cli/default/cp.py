@@ -73,7 +73,7 @@ def cp(
         zoom=zoom,
         area=area,
         area_crs=area_crs,
-        bounds=bounds_crs,
+        bounds=bounds,
         bounds_crs=bounds_crs,
         wkt_geometry=wkt_geometry,
         username=username,
@@ -94,7 +94,7 @@ def cp(
             zoom=zoom,
             area=area,
             area_crs=area_crs,
-            bounds=bounds_crs,
+            bounds=bounds,
             bounds_crs=bounds_crs,
             wkt_geometry=wkt_geometry,
             username=username,
@@ -111,6 +111,7 @@ def cp(
                 ]
 
                 # check which source tiles exist
+                logger.debug("looking for existing source tiles...")
                 src_tiles_exist = {
                     tile: exists
                     for tile, exists in tiles_exist(
@@ -120,6 +121,7 @@ def cp(
                     )
                 }
 
+                logger.debug("looking for existing destination tiles...")
                 # chech which destination tiles exist
                 dst_tiles_exist = {
                     tile: exists

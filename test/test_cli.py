@@ -956,7 +956,7 @@ def test_cp_http(mp_tmpdir, http_tiledir):
             "cp",
             http_tiledir,
             os.path.join(mp_tmpdir, "http"),
-            "-z", "4",
+            "-z", "1",
             "-b", "3.0", "1.0", "4.0", "2.0"
         ]
     )

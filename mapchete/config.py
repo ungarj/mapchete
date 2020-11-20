@@ -262,10 +262,10 @@ class MapcheteConfig(object):
             bounds_crs=bounds_crs
         )
         self.init_bounds = Bounds(*self.init_area.bounds)
-        logger.debug(self.area)
-        logger.debug(self.bounds)
-        logger.debug(self.init_area)
-        logger.debug(self.init_bounds)
+        logger.debug(f"process area: {self.area}")
+        logger.debug(f"process bounds: {self.bounds}")
+        logger.debug(f"init area: {self.init_area}")
+        logger.debug(f"init bounds: {self.init_bounds}")
 
         # (7) the delimiters are used by some input drivers
         self._delimiters = dict(
@@ -1009,7 +1009,7 @@ def _config_to_dict(input_config):
                 mapchete_file=input_config
             )
     # throw error if unknown object
-    else:
+    else:  # pragma: no cover
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file.")
 
