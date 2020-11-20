@@ -50,7 +50,9 @@ import warnings
 from mapchete.config import validate_values, snap_bounds
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import get_boto3_bucket, makedirs, path_exists, path_is_remote
+from mapchete.io import (
+    fs_from_path, get_boto3_bucket, makedirs, path_exists, path_is_remote
+)
 from mapchete.io.raster import (
     write_raster_window, prepare_array, memory_file, read_raster_no_crs,
     extract_from_array, read_raster_window
@@ -243,6 +245,7 @@ class GTiffOutputReaderFunctions():
             nodata=output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
         )
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._fs = fs_from_path(self.path, **self.output_params.get("fs_kwargs", {}))
 
 
 class GTiffTileDirectoryOutputReader(

@@ -11,7 +11,6 @@ from mapchete.formats import (
     available_output_formats,
     base,
     driver_from_file,
-    file_extension_from_metadata,
     load_input_reader,
     load_output_reader,
     load_output_writer,
@@ -165,27 +164,3 @@ def test_old_style_metadata(old_style_metadata_json, old_geodetic_shape_metadata
     # deprecated geodetic shape
     params = read_output_metadata(old_geodetic_shape_metadata_json)
     assert params["pyramid"].grid.type == "geodetic"
-
-
-def test_file_extension_from_metadata():
-    # GTiff
-    assert file_extension_from_metadata(
-        dict(driver=dict(format="GTiff"))
-    ) == ".tif"
-    # PNG
-    assert file_extension_from_metadata(
-        dict(driver=dict(format="PNG"))
-    ) == ".png"
-    # PNG_hillshade
-    assert file_extension_from_metadata(
-        dict(driver=dict(format="PNG_hillshade"))
-    ) == ".png"
-    # GeoJSON
-    assert file_extension_from_metadata(
-        dict(driver=dict(format="GeoJSON"))
-    ) == ".geojson"
-    # unknown
-    with pytest.raises(TypeError):
-        file_extension_from_metadata(
-            dict(driver=dict(format="unknown"))
-        )

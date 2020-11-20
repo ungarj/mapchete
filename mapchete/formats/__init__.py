@@ -246,16 +246,3 @@ def write_output_metadata(output_params):
             dump_params = params_to_dump(output_params)
             # dump output metadata
             write_json(metadata_path, dump_params)
-
-
-def file_extension_from_metadata(output_metadata=None):
-    """Return default file extension from output_metadata."""
-    _format = output_metadata["driver"]["format"]
-    if _format == "GTiff":
-        return ".tif"
-    elif _format in ["PNG", "PNG_hillshade"]:
-        return ".png"
-    elif _format == "GeoJSON":
-        return ".geojson"
-    else:
-        raise TypeError(f"cannot determine file extension from format {_format}")

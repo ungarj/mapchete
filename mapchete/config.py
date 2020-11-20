@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 # parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process", str),                    # path to .py file or module path
+    ("process", (str, type(None))),      # path to .py file or module path
     ("pyramid", dict),                   # process pyramid definition
     ("input", (dict, type(None))),       # files & other types
     ("output", dict),                    # process output parameters
@@ -359,7 +359,10 @@ class MapcheteConfig(object):
     @cached_property
     def output(self):
         """Output writer class of driver."""
-        writer = load_output_writer(self._output_params)
+        writer = load_output_writer(
+            self._output_params,
+            readonly=self._output_params["mode"] == "readonly"
+        )
         try:
             writer.is_valid_with_config(self._output_params)
         except Exception as e:

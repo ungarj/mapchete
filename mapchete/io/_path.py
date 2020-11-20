@@ -245,7 +245,7 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
         return fsspec.filesystem(
             "https",
             auth=auth,
-            asynchronous=False, 
+            asynchronous=False,
         )
     else:
         logger.debug("use local filesystem")

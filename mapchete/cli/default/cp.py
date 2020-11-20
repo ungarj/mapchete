@@ -11,7 +11,7 @@ import tqdm
 import mapchete
 from mapchete.cli import utils
 from mapchete.config import _guess_geometry
-from mapchete.formats import file_extension_from_metadata, read_output_metadata
+from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
 from mapchete.io.vector import reproject_geometry
 
@@ -64,98 +64,92 @@ def cp(
     """Copy TileDirectory."""
     if zoom is None:  # pragma: no cover
         raise click.UsageError("zoom level(s) required")
+
     src_fs = fs_from_path(input_, username=username, password=password)
     dst_fs = fs_from_path(output, username=username, password=password)
-
-    # read source TileDirectory metadata
-    metadata = read_output_metadata(
-        os.path.join(input_, "metadata.json"),
+    # open source tile directory
+    with mapchete.open(
+        input_,
+        zoom=zoom,
+        area=area,
+        area_crs=area_crs,
+        bounds=bounds_crs,
+        bounds_crs=bounds_crs,
+        wkt_geometry=wkt_geometry,
+        username=username,
+        password=password,
         fs=src_fs
-    )
-    file_extension = file_extension_from_metadata(metadata)
-    tp = metadata["pyramid"]
+    ) as src_mp:
+        tp = src_mp.config.output_pyramid
 
-    # get aoi
-    if area:
-        aoi, crs = _guess_geometry(area, base_dir=os.getcwd())
-        aoi_geom = reproject_geometry(
-            aoi,
-            src_crs=crs or area_crs or tp.crs,
-            dst_crs=tp.crs
-        )
-    elif bounds:
-        aoi_geom = reproject_geometry(
-            box(*bounds),
-            src_crs=bounds_crs or tp.crs,
-            dst_crs=tp.crs
-        )
-    else:
-        aoi_geom = box(*tp.bounds)
+        # copy metadata to destination if necessary
+        src_metadata = os.path.join(input_, "metadata.json")
+        dst_metadata = os.path.join(output, "metadata.json")
+        if not dst_fs.exists(dst_metadata):
+            logger.debug(f"copy {src_metadata} to {dst_metadata}")
+            _copy(src_fs, src_metadata, dst_fs, dst_metadata)
 
-    if aoi_geom.is_empty:  # pragma: no cover
-        raise click.UsageError("AOI is empty, nothing to copy.")
+        with mapchete.open(
+            output,
+            zoom=zoom,
+            area=area,
+            area_crs=area_crs,
+            bounds=bounds_crs,
+            bounds_crs=bounds_crs,
+            wkt_geometry=wkt_geometry,
+            username=username,
+            password=password,
+            fs=dst_fs
+        ) as dst_mp:
+            for z in range(min(zoom), max(zoom) + 1):
+                click.echo(f"copy zoom {z}...")
+                # materialize all tiles
+                aoi_geom = src_mp.config.area_at_zoom(z)
+                tiles = [
+                    t for t in tp.tiles_from_bounds(aoi_geom.bounds, z)
+                    if aoi_geom.intersection(t.bbox).area
+                ]
 
-    # copy metadata to destination if necessary
-    src_path = os.path.join(input_, "metadata.json")
-    dst_path = os.path.join(output, "metadata.json")
-    if not dst_fs.exists(dst_path):
-        logger.debug(f"copy {src_path} to {dst_path}")
-        _copy(src_fs, src_path, dst_fs, dst_path)
+                # check which source tiles exist
+                src_tiles_exist = {
+                    tile: exists
+                    for tile, exists in tiles_exist(
+                        config=src_mp.config,
+                        output_tiles=tiles,
+                        multi=multi
+                    )
+                }
 
-    for z in range(min(zoom), max(zoom) + 1):
-        click.echo(f"copy zoom {z}...")
-        # materialize all tiles
-        tiles = [
-            t for t in tp.tiles_from_bounds(aoi_geom.bounds, z)
-            if aoi_geom.intersection(t.bbox).area
-        ]
+                # chech which destination tiles exist
+                dst_tiles_exist = {
+                    tile: exists
+                    for tile, exists in tiles_exist(
+                        config=dst_mp.config,
+                        output_tiles=tiles,
+                        multi=multi
+                    )
+                }
 
-        # check which source tiles exist
-        src_tiles_exist = {
-            tile: exists
-            for tile, exists in tiles_exist(
-                output_tiles=tiles,
-                basepath=input_,
-                file_extension=file_extension,
-                output_pyramid=tp,
-                fs=src_fs,
-                multi=multi
-            )
-        }
-
-        # chech which destination tiles exist
-        dst_tiles_exist = {
-            tile: exists
-            for tile, exists in tiles_exist(
-                output_tiles=tiles,
-                basepath=output,
-                file_extension=file_extension,
-                output_pyramid=tp,
-                fs=dst_fs,
-                multi=multi
-            )
-        }
-
-        # copy
-        for tile in tqdm.tqdm(
-            tiles,
-            unit="tile",
-            disable=debug or no_pbar
-        ):
-            # only copy if source tile exists
-            if src_tiles_exist[tile]:
-                # skip if destination tile exists and overwrite is deactivated
-                if dst_tiles_exist[tile] and not overwrite:
-                    logger.debug(f"{tile}: destination tile exists")
-                    continue
-                # copy from source to target
-                else:
-                    src_path = os.path.join(input_, _get_tile_path(tile))
-                    dst_path = os.path.join(output, _get_tile_path(tile))
-                    logger.debug(f"{tile}: copy {src_path} to {dst_path}")
-                    _copy(src_fs, src_path, dst_fs, dst_path)
-            else:
-                logger.debug(f"{tile}: source tile does not exist")
+                # copy
+                for tile in tqdm.tqdm(
+                    tiles,
+                    unit="tile",
+                    disable=debug or no_pbar
+                ):
+                    src_path = src_mp.config.output_reader.get_path(tile)
+                    # only copy if source tile exists
+                    if src_tiles_exist[tile]:
+                        # skip if destination tile exists and overwrite is deactivated
+                        if dst_tiles_exist[tile] and not overwrite:
+                            logger.debug(f"{tile}: destination tile exists")
+                            continue
+                        # copy from source to target
+                        else:
+                            dst_path = dst_mp.config.output_reader.get_path(tile)
+                            logger.debug(f"{tile}: copy {src_path} to {dst_path}")
+                            _copy(src_fs, src_path, dst_fs, dst_path)
+                    else:
+                        logger.debug(f"{tile}: source tile ({src_path}) does not exist")
 
 
 def _copy(src_fs, src_path, dst_fs, dst_path):
@@ -170,7 +164,3 @@ def _copy(src_fs, src_path, dst_fs, dst_path):
         with src_fs.open(src_path, "rb") as src:
             with dst_fs.open(dst_path, "wb") as dst:
                 dst.write(src.read())
-
-
-def _get_tile_path(tile, basepath=None):
-    return f"{tile.zoom}/{tile.row}/{tile.col}.tif"
