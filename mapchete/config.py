@@ -615,7 +615,6 @@ class MapcheteConfig(object):
                 ) if self.init_area else input_union
             # if no input items are available, just use init_bounds
             else:
-                print(self.init_area)
                 self._cache_area_at_zoom[zoom] = self.init_area
         return self._cache_area_at_zoom[zoom]
 
