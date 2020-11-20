@@ -59,6 +59,14 @@ def _validate_mapchete_files(ctx, param, mapchete_files):
     return mapchete_files
 
 
+def _validate_inputs(ctx, param, inputs):
+    if len(inputs) == 0:
+        raise click.MissingParameter(
+            "at least one mapchete file or path to Tile Directory required"
+        )
+    return inputs
+
+
 def _set_debug_log_level(ctx, param, debug):
     if debug:
         set_log_level(logging.DEBUG)
@@ -73,20 +81,51 @@ def _setup_logfile(ctx, param, logfile):
 
 # click arguments #
 ###################
-arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
-arg_create_mapchete_file = click.argument("mapchete_file", type=click.Path())
+arg_mapchete_file = click.argument(
+    "mapchete_file",
+    type=click.Path(exists=True)
+)
+arg_create_mapchete_file = click.argument(
+    "mapchete_file",
+    type=click.Path()
+)
 arg_mapchete_files = click.argument(
-    "mapchete_files", type=click.Path(exists=True), nargs=-1,
+    "mapchete_files",
+    type=click.Path(exists=True),
+    nargs=-1,
     callback=_validate_mapchete_files
 )
-arg_process_file = click.argument("process_file", type=click.Path())
-arg_out_format = click.argument(
-    "out_format", type=click.Choice(available_output_formats())
+arg_process_file = click.argument(
+    "process_file",
+    type=click.Path()
 )
-arg_input_raster = click.argument("input_raster", type=click.Path(exists=True))
-arg_out_dir = click.argument("output_dir", type=click.Path())
-arg_input = click.argument("input_", metavar="INPUT", type=click.STRING)
-arg_output = click.argument("output", type=click.STRING)
+arg_out_format = click.argument(
+    "out_format",
+    type=click.Choice(available_output_formats())
+)
+arg_input_raster = click.argument(
+    "input_raster",
+    type=click.Path(exists=True)
+)
+arg_out_dir = click.argument(
+    "output_dir",
+    type=click.Path()
+)
+arg_input = click.argument(
+    "input_",
+    metavar="INPUT",
+    type=click.STRING
+)
+arg_inputs = click.argument(
+    "inputs",
+    metavar="INPUTS",
+    nargs=-1,
+    callback=_validate_mapchete_files
+)
+arg_output = click.argument(
+    "output",
+    type=click.STRING
+)
 
 
 # click options #
@@ -292,6 +331,16 @@ opt_memory = click.option(
     "--memory", "-mo",
     is_flag=True,
     help="Always get output from freshly processed output."
+)
+opt_http_username = click.option(
+    "--username", "-u",
+    type=click.STRING,
+    help="Username for HTTP Auth."
+)
+opt_http_password = click.option(
+    "--password", "-p",
+    type=click.STRING,
+    help="Password for HTTP Auth."
 )
 
 

@@ -150,9 +150,14 @@ def zoom_index_gen(
             # all output tiles for given process area
             logger.debug("determine affected output tiles")
             output_tiles = set(
-                mp.config.output_pyramid.tiles_from_geom(
-                    mp.config.area_at_zoom(zoom), zoom
-                )
+                [
+                    tile
+                    for tile in mp.config.output_pyramid.tiles_from_geom(
+                        mp.config.area_at_zoom(zoom), zoom
+                    )
+                    # this is required to omit tiles touching the config area
+                    if tile.bbox.intersection(mp.config.area_at_zoom(zoom)).area
+                ]
             )
 
             # check which tiles exist in any index

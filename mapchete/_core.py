@@ -75,9 +75,8 @@ def open(
             config_dir=os.getcwd(),
             zoom_levels=kwargs.get("zoom")
         )
-        return Mapchete(
-            MapcheteConfig(config, mode="readonly", **kwargs)
-        )
+        kwargs.update(mode="readonly")
+        return Mapchete(MapcheteConfig(config, **kwargs))
     else:
         return Mapchete(
             MapcheteConfig(some_input, **kwargs),
