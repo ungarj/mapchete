@@ -8,6 +8,7 @@ import numpy as np
 import numpy.ma as ma
 import fiona
 from fiona.errors import DriverError
+import os
 from rasterio.crs import CRS
 from rasterio.enums import Compression
 from rasterio.errors import RasterioIOError
@@ -21,7 +22,8 @@ import mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.errors import GeometryTypeError
 from mapchete.io import (
-    get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level
+    get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level,
+    tiles_exist
 )
 from mapchete.io.raster import (
     read_raster_window, write_raster_window, extract_from_array,
@@ -33,6 +35,10 @@ from mapchete.io.vector import (
     segmentize_geometry, write_vector_window, _repair
 )
 from mapchete.tile import BufferedTilePyramid
+
+
+SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
+TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
 
 def test_best_zoom_level(dummy1_tif):
@@ -223,9 +229,10 @@ def test_write_raster_window():
     data = ma.masked_array(np.ones((2, ) + tile.shape))
     out_tile = BufferedTilePyramid("geodetic").tile(5, 5, 5)
     out_profile = dict(
-            driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
-            height=out_tile.height, width=out_tile.width,
-            affine=out_tile.affine)
+        driver="GTiff", count=2, dtype="uint8", compress="lzw", nodata=0,
+        height=out_tile.height, width=out_tile.width,
+        affine=out_tile.affine
+    )
     try:
         write_raster_window(
             in_tile=tile, in_data=data, out_profile=out_profile,
@@ -946,3 +953,98 @@ def test_tile_to_zoom_level():
             tp_merc,
             matching_method="invalid_method"
         )
+
+
+def test_tiles_exist(example_mapchete):
+    bounds = (3.0, 1.0, 4.0, 2.0)
+    zoom = 10
+    with mapchete.open(
+        dict(
+            example_mapchete.dict,
+            pyramid=dict(
+                example_mapchete.dict["pyramid"],
+                metatiling=4
+            ),
+            output=dict(
+                example_mapchete.dict["output"],
+                metatiling=1
+            )
+        ),
+        bounds=bounds
+    ) as mp:
+        # generate tile directory
+        mp.batch_process(zoom=zoom)
+        process_tiles = list(mp.config.process_pyramid.tiles_from_bounds(bounds, zoom))
+        output_tiles = list(mp.config.output_pyramid.tiles_from_bounds(bounds, zoom))
+
+        # process tiles
+        ###############
+
+        # with config
+        config_existing = set()
+        config_not_existing = set()
+        for tile, exists in tiles_exist(
+            config=mp.config,
+            process_tiles=process_tiles,
+            multi=1
+        ):
+            if exists:
+                config_existing.add(tile)
+            else:
+                config_not_existing.add(tile)
+        print(len(config_existing))
+        print(len(config_not_existing))
+
+        # without config
+        existing = set()
+        not_existing = set()
+        for tile, exists in tiles_exist(
+            process_tiles=process_tiles,
+            basepath=os.path.join(SCRIPTDIR, example_mapchete.dict["output"]["path"]),
+            file_extension=".tif",
+            output_pyramid=mp.config.output_pyramid,
+            multi=1
+        ):
+            if exists:
+                existing.add(tile)
+            else:
+                not_existing.add(tile)
+        print(len(existing))
+        print(len(not_existing))
+
+        print(mp.config.output.path)
+        print(os.path.join(SCRIPTDIR, example_mapchete.dict["output"]["path"]))
+
+        assert config_existing == existing
+        assert config_not_existing == not_existing
+
+        # output tiles
+        ###############
+
+        # with config
+        config_existing = set()
+        config_not_existing = set()
+        for tile, exists in tiles_exist(
+            config=mp.config,
+            output_tiles=output_tiles,
+        ):
+            if exists:
+                config_existing.add(tile)
+            else:
+                config_not_existing.add(tile)
+
+        # without config
+        existing = set()
+        not_existing = set()
+        for tile, exists in tiles_exist(
+            output_tiles=output_tiles,
+            basepath=os.path.join(TESTDATA_DIR, example_mapchete.dict["output"]["path"]),
+            file_extension=".tif",
+        ):
+            if exists:
+                existing.add(tile)
+            else:
+                not_existing.add(tile)
+
+        assert config_existing == existing
+        assert config_not_existing == not_existing

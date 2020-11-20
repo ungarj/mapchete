@@ -1,15 +1,13 @@
 """Main module managing processes."""
 
 from cachetools import LRUCache
-import json
 import logging
 import multiprocessing
-import os
 import threading
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile
-from mapchete.io import fs_from_path, tiles_exist
+from mapchete.io import tiles_exist
 from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer

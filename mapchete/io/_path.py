@@ -158,8 +158,10 @@ def tiles_exist(
     else:
         basepath = basepath
         file_extension = file_extension
-        output_pyramid = output_pyramid or first_tile.tp if output_tiles else None
+        if output_pyramid is None and output_tiles:
+            output_pyramid = first_tile.tp
         process_pyramid =  first_tile.tp if process_tiles else None
+    fs = fs or fs_from_path(basepath)
 
     # only on TileDirectories on S3
     # This implementation queries multiple keys at once by using paging and therefore
@@ -198,15 +200,11 @@ def tiles_exist(
             if output_tile.zoom != zoom:  # pragma: no cover
                 raise ValueError("tiles of different zoom levels cannot be mixed")
 
-            if config:
-                path = config.output_reader.get_path(output_tile)
-            else:
-                path = os.path.join(
-                    basepath,
-                    str(output_tile.zoom),
-                    str(output_tile.row),
-                    str(output_tile.col)
-                ) + file_extension
+            path = (
+                config.output_reader.get_path(output_tile)
+                if config
+                else _tile_path(basepath, output_tile, file_extension)
+            )
 
             if process_tiles:
                 paths[path] = process_pyramid.intersecting(output_tile)[0]
@@ -255,25 +253,17 @@ def tiles_exist(
             fs=None,
             output_pyramid=None
         ):
-
-            def _tile_path(basepath, tile, file_extension):
-                return os.path.join(
-                    basepath, f"{tile.zoom}/{tile.row}/{tile.col}{file_extension}"
-                )
-
             if process_tiles:
                 if config:
+                    print(config.output_reader.get_path(tile))
                     return (tile, config.output_reader.tiles_exist(process_tile=tile))
                 else:
-                    return (
-                        tile,
-                        any(
-                            [
-                                fs.exists(_tile_path(basepath, tile, file_extension))
-                                for output_tile in output_pyramid.intersecting(tile)
-                            ]
-                        )
-                    )
+                    for output_tile in output_pyramid.intersecting(tile):
+                        print(_tile_path(basepath, tile, file_extension))
+                        if fs.exists(_tile_path(basepath, tile, file_extension)):
+                            return tile, True
+                    else:
+                        return tile, False
             else:
                 if config:
                     return (tile, config.output_reader.tiles_exist(output_tile=tile))
@@ -282,24 +272,37 @@ def tiles_exist(
 
         if multi == 1:
             for tile in all_tiles_iter:
-                yield _exists(tile, config, basepath, file_extension, fs, output_pyramid)
+                yield _exists(
+                    tile=tile,
+                    config=config,
+                    basepath=basepath,
+                    file_extension=file_extension,
+                    fs=fs,
+                    output_pyramid=output_pyramid
+                )
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=multi) as executor:
                 for future in concurrent.futures.as_completed(
                     (
                         executor.submit(
                             _exists,
-                            tile,
-                            config,
-                            basepath,
-                            file_extension,
-                            fs,
-                            output_pyramid
+                            tile=tile,
+                            config=config,
+                            basepath=basepath,
+                            file_extension=file_extension,
+                            fs=fs,
+                            output_pyramid=output_pyramid
                         )
                         for tile in all_tiles_iter
                     )
                 ):
                     yield future.result()
+
+
+def _tile_path(basepath, tile, file_extension):
+    return os.path.join(
+        basepath, f"{tile.zoom}/{tile.row}/{tile.col}{file_extension}"
+    )
 
 
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
