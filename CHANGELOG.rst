@@ -7,16 +7,17 @@ Changelog
 0.36 - 2020-11-24
 -----------------
 * core
-  * create local output directory for single GTiff output files (#285)
-  * add process area parameter (#287)
-  * use optimized GDAL settings for baselayer creation (#291)
-  * raise generic MapcheteIOError on read fails (#292)
+ * create local output directory for single GTiff output files (#285)
+ * add process area parameter (#287)
+ * use optimized GDAL settings for baselayer creation (#291)
+ * raise generic MapcheteIOError on read fails (#292)
+
 * CLI
-  * add more baselayers in `serve` (#278)
-  * add `cp` command (#282)
-  * enable `serve` to host multiple mapchete files (#289)
-  * enable `index` to accept tile directories (#290)
-  * expose multiprocessing start method as option in `execute` (#293)
+ * add more baselayers in `serve` (#278)
+ * add `cp` command (#282)
+ * enable `serve` to host multiple mapchete files (#289)
+ * enable `index` to accept tile directories (#290)
+ * expose multiprocessing start method as option in `execute` (#293)
 
 
 -----------------
