@@ -35,3 +35,7 @@ class MapcheteNodataTile(Exception):
 
 class GeometryTypeError(TypeError):
     """Raised when geometry type does not fit."""
+
+
+class MapcheteIOError(IOError):
+    """Raised when mapchete cannot read a file."""

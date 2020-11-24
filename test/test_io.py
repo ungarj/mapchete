@@ -1,6 +1,5 @@
 """Test Mapchete io module."""
 
-import boto3
 import pytest
 import shutil
 import rasterio
@@ -12,7 +11,6 @@ from fiona.errors import DriverError
 import os
 from rasterio.crs import CRS
 from rasterio.enums import Compression
-from rasterio.errors import RasterioIOError
 from shapely.errors import TopologicalError
 from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString
 from shapely.ops import unary_union
@@ -21,7 +19,7 @@ from itertools import product
 
 import mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.errors import GeometryTypeError
+from mapchete.errors import GeometryTypeError, MapcheteIOError
 from mapchete.io import (
     get_best_zoom_level, path_exists, absolute_path, read_json, tile_to_zoom_level,
     tiles_exist
@@ -180,7 +178,7 @@ def test_read_raster_window_input_list(cleantopo_br):
 
 def test_read_raster_window_retry(invalid_tif):
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
-    with pytest.raises(RasterioIOError):
+    with pytest.raises(MapcheteIOError):
         read_raster_window(invalid_tif, tile)
     with pytest.raises(FileNotFoundError):
         read_raster_window("not_existing.tif", tile)
@@ -188,7 +186,7 @@ def test_read_raster_window_retry(invalid_tif):
 
 def test_read_raster_no_crs_errors():
     with tempfile.NamedTemporaryFile() as tmpfile:
-        with pytest.raises(RasterioIOError):
+        with pytest.raises(MapcheteIOError):
             read_raster_no_crs(tmpfile.name)
 
 
@@ -721,7 +719,7 @@ def test_read_vector_window_errors(invalid_geojson):
             "invalid_path",
             BufferedTilePyramid("geodetic").tile(0, 0, 0)
         )
-    with pytest.raises(DriverError):
+    with pytest.raises(MapcheteIOError):
         read_vector_window(
             invalid_geojson,
             BufferedTilePyramid("geodetic").tile(0, 0, 0)

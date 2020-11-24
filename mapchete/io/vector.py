@@ -12,7 +12,7 @@ from shapely.errors import TopologicalError
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
-from mapchete.errors import GeometryTypeError
+from mapchete.errors import GeometryTypeError, MapcheteIOError
 from mapchete.io._path import path_exists
 from mapchete.io._geometry_operations import (
     reproject_geometry,
@@ -55,13 +55,20 @@ def read_vector_window(input_files, tile, validity_check=True):
     features : list
       a list of reprojected GeoJSON-like features
     """
-    return [
-        feature
-        for feature in chain.from_iterable([
-            _read_vector_window(path, tile, validity_check=validity_check)
-            for path in (input_files if isinstance(input_files, list) else [input_files])
-        ])
-    ]
+    try:
+        return [
+            feature
+            for feature in chain.from_iterable([
+                _read_vector_window(path, tile, validity_check=validity_check)
+                for path in (
+                    input_files if isinstance(input_files, list) else [input_files]
+                )
+            ])
+        ]
+    except FileNotFoundError:  # pragma: no cover
+        raise
+    except Exception as e:  # pragma: no cover
+        raise MapcheteIOError(e)
 
 
 def _read_vector_window(input_file, tile, validity_check=True):
