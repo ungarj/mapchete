@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 @utils.opt_no_pbar
 @utils.opt_debug
 @utils.opt_max_chunksize
+@utils.opt_multiprocessing_start_method
 @utils.opt_vrt
 @utils.opt_idx_out_dir
 def execute(
@@ -57,6 +58,7 @@ def execute(
     no_pbar=False,
     debug=False,
     max_chunksize=None,
+    multiprocessing_start_method=None,
     vrt=False,
     idx_out_dir=None
 ):
@@ -99,6 +101,7 @@ def execute(
                 multi=multi or cpu_count(),
                 verbose_dst=verbose_dst,
                 max_chunksize=max_chunksize,
+                multiprocessing_start_method=multiprocessing_start_method,
                 no_pbar=no_pbar,
                 vrt=vrt,
                 idx_out_dir=idx_out_dir,

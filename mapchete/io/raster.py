@@ -20,8 +20,9 @@ from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
 from types import GeneratorType
 import warnings
 
-from mapchete.tile import BufferedTile
+from mapchete.errors import MapcheteIOError
 from mapchete.io import path_is_remote, get_gdal_options, path_exists
+from mapchete.tile import BufferedTile
 from mapchete.validate import validate_write_window_params
 
 
@@ -69,23 +70,31 @@ def read_raster_window(
     -------
     raster : MaskedArray
     """
-    with rasterio.Env(
-        **get_gdal_options(
-            gdal_opts,
-            is_remote=path_is_remote(
-                input_files[0] if isinstance(input_files, list) else input_files, s3=True
-            ) if isinstance(input_files, str) else False
-        )
-    ) as env:
-        logger.debug("reading %s with GDAL options %s", input_files, env.options)
-        return _read_raster_window(
-            input_files,
-            tile,
-            indexes=indexes,
-            resampling=resampling,
-            src_nodata=src_nodata,
-            dst_nodata=dst_nodata
-        )
+    try:
+        with rasterio.Env(
+            **get_gdal_options(
+                gdal_opts,
+                is_remote=path_is_remote(
+                    input_files[0]
+                    if isinstance(input_files, list) else
+                    input_files,
+                    s3=True
+                ) if isinstance(input_files, str) else False
+            )
+        ) as env:
+            logger.debug("reading %s with GDAL options %s", input_files, env.options)
+            return _read_raster_window(
+                input_files,
+                tile,
+                indexes=indexes,
+                resampling=resampling,
+                src_nodata=src_nodata,
+                dst_nodata=dst_nodata
+            )
+    except FileNotFoundError:  # pragma: no cover
+        raise
+    except Exception as e:  # pragma: no cover
+        raise MapcheteIOError(e)
 
 
 def _read_raster_window(
@@ -351,9 +360,9 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
         except RasterioIOError as e:
             try:
                 if path_exists(input_file):
-                    raise e
+                    raise MapcheteIOError(e)
             except:
-                raise e
+                raise MapcheteIOError(e)
             raise FileNotFoundError("%s not found" % input_file)
 
 

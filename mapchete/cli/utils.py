@@ -1,7 +1,7 @@
 import click
 import click_spinner
 import logging
-from multiprocessing import cpu_count
+from multiprocessing import cpu_count, get_all_start_methods
 import os
 from rasterio.enums import Resampling
 import tilematrix
@@ -16,6 +16,12 @@ from mapchete.validate import validate_bounds, validate_crs, validate_zooms
 
 
 logger = logging.getLogger(__name__)
+
+
+MULTIPROCESSING_START_METHODS = get_all_start_methods()
+MULTIPROCESSING_START_METHOD_DEFAULT = (
+    "fork" if "fork" in MULTIPROCESSING_START_METHODS else "spawn"
+)
 
 
 # verbose stdout writer #
@@ -241,6 +247,15 @@ opt_max_chunksize = click.option(
     default=1,
     help="Maximum number of process tiles to be queued for each  worker. (default: 1)"
 )
+opt_multiprocessing_start_method = click.option(
+    "--multiprocessing-start-method",
+    type=click.Choice(MULTIPROCESSING_START_METHODS),
+    default=MULTIPROCESSING_START_METHOD_DEFAULT,
+    help=(
+        "Method used by multiprocessing module to start child workers. Availability of "
+        f"methods depends on OS (default: {MULTIPROCESSING_START_METHOD_DEFAULT})"
+    )
+)
 opt_input_formats = click.option(
     "--input-formats", "-i",
     is_flag=True,
@@ -427,6 +442,7 @@ def _process_area(
     multi=None,
     verbose_dst=None,
     max_chunksize=None,
+    multiprocessing_start_method=None,
     no_pbar=None,
     vrt=None,
     idx_out_dir=None,
@@ -466,7 +482,8 @@ def _process_area(
                     mp.batch_processor(
                         multi=multi,
                         zoom=zoom,
-                        max_chunksize=max_chunksize
+                        max_chunksize=max_chunksize,
+                        multiprocessing_start_method=multiprocessing_start_method
                     ),
                     total=tiles_count,
                     unit="tile",

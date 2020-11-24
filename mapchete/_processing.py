@@ -354,7 +354,7 @@ class Executor():
 
     def __init__(
         self,
-        start_method="spawn",
+        start_method="fork",
         max_workers=None,
         multiprocessing_module=multiprocessing
     ):
