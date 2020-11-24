@@ -556,6 +556,7 @@ def _run_multi(
                 # check which process output already exists and which process tiles need
                 # to be added to todo list
                 todo = set()
+                logger.debug("check skippable tiles")
                 for process_info in _filter_skipable(
                     process=process,
                     tiles=process.get_process_tiles(zoom),

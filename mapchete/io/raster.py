@@ -6,6 +6,7 @@ import itertools
 import logging
 import numpy as np
 import numpy.ma as ma
+import os
 from retry import retry
 import rasterio
 from rasterio.enums import Resampling
@@ -339,9 +340,12 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
         try:
             with rasterio.Env(
                 **get_gdal_options(
-                    gdal_opts, is_remote=path_is_remote(input_file, s3=True)
-                )
-            ):
+                    gdal_opts,
+                    is_remote=path_is_remote(input_file, s3=True),
+                    allowed_remote_extensions=os.path.splitext(input_file)[1]
+                ),
+            ) as env:
+                logger.debug("reading %s with GDAL options %s", input_file, env.options)
                 with rasterio.open(input_file, "r") as src:
                     return src.read(indexes=indexes, masked=True)
         except RasterioIOError as e:

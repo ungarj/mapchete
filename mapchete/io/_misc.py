@@ -17,6 +17,7 @@ GDAL_HTTP_OPTS = dict(
     CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2, .png, .xml",
     GDAL_HTTP_TIMEOUT=30,
     GDAL_HTTP_MAX_RETRY=3,
+    GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=True,
     GDAL_HTTP_RETRY_DELAY=5
 )
 
@@ -183,7 +184,7 @@ def get_boto3_bucket(bucket_name):
     ).Bucket(bucket_name)
 
 
-def get_gdal_options(opts, is_remote=False):
+def get_gdal_options(opts, is_remote=False, allowed_remote_extensions=[]):
     """
     Return a merged set of custom and default GDAL/rasterio Env options.
 
@@ -202,6 +203,10 @@ def get_gdal_options(opts, is_remote=False):
     """
     user_opts = {} if opts is None else dict(**opts)
     if is_remote:
-        return dict(GDAL_HTTP_OPTS, **user_opts)
+        out = dict(GDAL_HTTP_OPTS)
+        if allowed_remote_extensions:
+            out.update(CPL_VSIL_CURL_ALLOWED_EXTENSIONS=allowed_remote_extensions)
+        out.update(user_opts)
+        return out
     else:
         return user_opts
