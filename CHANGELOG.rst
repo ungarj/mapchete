@@ -2,32 +2,50 @@
 Changelog
 #########
 
-----
-0.35
-----
+
+-----------------
+0.36 - 2020-11-24
+-----------------
+* core
+ * create local output directory for single GTiff output files (#285)
+ * add process area parameter (#287)
+ * use optimized GDAL settings for baselayer creation (#291)
+ * raise generic MapcheteIOError on read fails (#292)
+
+* CLI
+ * add more baselayers in `serve` (#278)
+ * add `cp` command (#282)
+ * enable `serve` to host multiple mapchete files (#289)
+ * enable `index` to accept tile directories (#290)
+ * expose multiprocessing start method as option in `execute` (#293)
+
+
+-----------------
+0.35 - 2020-08-04
+-----------------
 * fix index updates on remote TileDirectories (#274)
-* pass on chunksize to multiprocessing & use Pool.__exit__() to close (#276)
+* pass on chunksize to multiprocessing & use `Pool.__exit__()` to close (#276)
 * use GitHub actions instead of Travis CI
 * update Fiona dependency to `1.8.13.post1`
 
 
-----
-0.34
-----
+-----------------
+0.34 - 2020-07-08
+-----------------
 * speed up extension loading by using `importlib-metadata` and `importlib-resources` instead of `pkg_resources` (#267)
 * use `boto` paging to reduce requests to S3 bucket (#268)
 
 
-----
-0.33
-----
+-----------------
+0.33 - 2020-03-24
+-----------------
 * use init_bounds instead of pyramid bounds on readonly mode (#257)
 * clean up log messages (fix #251)
 
 
-----
-0.32
-----
+-----------------
+0.32 - 2020-02-24
+-----------------
 * default process bounds are now bounds of the process pyramid instead of union of inputs (#242)
 * fix overview pixelbuffer error at Antimeridian (#241)
 * increased rasterio dependency to version `1.0.28`
@@ -39,9 +57,9 @@ Changelog
 * use `rio-cogeo` logic to determine whether to use a memory dataset or a temp file when writing a single GTiff (#217)
 
 
-----
-0.31
-----
+-----------------
+0.31 - 2019-12-03
+-----------------
 * don't raise exception when one of the registered processes cannot be imported (#225)
 * don't close pool between zoom levels (#227)
 * ``_validate`` module renamed to ``validate`` (#230)
@@ -49,9 +67,9 @@ Changelog
 * fix custom nodata values in overviews (#235)
 
 
-----
-0.30
-----
+-----------------
+0.30 - 2019-10-22
+-----------------
 * fixed raise of ``FileNotFounderror`` on ``mapchete.io.raster.read_raster_no_crs()``
 * fixed overview ``get_parent()`` on zoom 0 in batch processing
 * sort processes alphabetically in ``mapchete processes``
@@ -66,9 +84,9 @@ Changelog
 * pass on output parameters to mapchete process (#215, fixes #214)
 
 
-----
-0.29
-----
+-----------------
+0.29 - 2019-07-12
+-----------------
 * fixed convert on single remote files (#205)
 * fixed ``FileNotFoundError`` on ``driver_from_file()`` (#201)
 * fixed zoom level order when processing multiple zooms (#207)
@@ -76,9 +94,9 @@ Changelog
 * AWS secrets get obfuscated in logs (#203)
 
 
-----
-0.28
-----
+-----------------
+0.28 - 2019-06-18
+-----------------
 
 * breaking changes
 
@@ -110,9 +128,9 @@ Changelog
 * minimum required NumPy version is now 1.15
 
 
-----
-0.27
-----
+-----------------
+0.27 - 2019-01-03
+-----------------
 
 * enable reading from output tile directories which have a different CRS
 * enable GeoPackage as single file input
@@ -134,9 +152,9 @@ Changelog
 * default log level now is ``logging.WARNING``, not ``logging.ERROR``
 
 
-----
-0.26
-----
+-----------------
+0.26 - 2018-11-27
+-----------------
 
 * enable VRT creation for indexes
 * added ``--vrt`` flag and ``--idx_out_dir`` option to ``mapchete execute``
@@ -151,9 +169,9 @@ Changelog
   whether tiles are passing the Antimeridian; fixes #141
 
 
-----
-0.25
-----
+-----------------
+0.25 - 2018-10-29
+-----------------
 
 * use ``concurrent.futures`` instead of ``multiprocessing``
 * make some dependencies optional (Flask, boto3, etc.)
@@ -161,9 +179,9 @@ Changelog
 * ``execute()`` function does not require explicit ``**kwargs`` anymore
 
 
-----
-0.24
-----
+-----------------
+0.24 - 2018-10-23
+-----------------
 
 * breaking changes:
 
@@ -177,9 +195,9 @@ Changelog
   a whole new file
 
 
-----
-0.23
-----
+-----------------
+0.23 - 2018-08-21
+-----------------
 
 * breaking change:
 
@@ -198,17 +216,17 @@ Changelog
   subcommands
 
 
-----
-0.22
-----
+-----------------
+0.22 - 2018-05-31
+-----------------
 
 * don't pass on ``mapchete_file`` to ``execute()`` kwargs
 * apply workaround for tqdm: https://github.com/tqdm/tqdm/issues/481
 
 
-----
-0.21
-----
+-----------------
+0.21 - 2018-05-30
+-----------------
 
 * breaking change:
 
@@ -222,9 +240,9 @@ Changelog
 * default ``max_chunksize`` to 1 (#113)
 
 
-----
-0.20
-----
+-----------------
+0.20 - 2018-04-07
+-----------------
 
 * fixed geometry reprojection for LineString and MultiLineString geometries (use buffer
   buffer to repair geometries does not work for these types)
@@ -243,9 +261,9 @@ Changelog
 * restructuring internal modules (core and config), no API changes
 
 
-----
-0.19
-----
+-----------------
+0.19 - 2018-02-16
+-----------------
 
 * made logging functionality now library friendly (#102)
 * added ``mapchete.log`` module with functions simplifying logging for user processes and
@@ -279,16 +297,16 @@ Changelog
 * introduced ``mapchete.io.path_is_remote()``
 
 
-----
-0.18
-----
+-----------------
+0.18 - 2018-02-02
+-----------------
 
 * verstion 0.17 was not properly deployed, therefore nev version
 
 
-----
-0.17
-----
+-----------------
+0.17 - 2018-02-02
+-----------------
 
 * ``write_raster_window`` now returns a ``rasterio.MemoryFile()`` if path is
   ``"memoryfile"``
@@ -328,33 +346,33 @@ Changelog
       * ``process_bounds()`` now called ``bounds_at_zoom()``
 
 
-----
-0.16
-----
+-----------------
+0.16 - 2018-01-12
+-----------------
 
 * added ``TileDirectory`` as additional input option (#89)
 * make all default output formats available in ``serve`` (#63)
 * remove Pillow from dependencies (related to #63)
 
 
-----
-0.15
-----
+-----------------
+0.15 - 2018-01-02
+-----------------
 
 * enabled optional ``cleanup()`` function for ``InputData`` objects when ``Mapchete`` is
   closed.
 
 
-----
-0.14
-----
+-----------------
+0.14 - 2018-01-02
+-----------------
 
 * added python 3.4, 3.5 and 3.6 support
 
 
-----
-0.13
-----
+-----------------
+0.13 - 2017-12-21
+-----------------
 
 * driver using ``InputData`` function must now accept ``**kwargs``
 * fixed ``resampling`` issue introduced with inapropriate usage of ``WarpedVRT`` in
@@ -365,9 +383,9 @@ Changelog
 * all resampling methods from ``rasterio.enums.Resampling`` are now available (#88)
 
 
-----
-0.12
-----
+-----------------
+0.12 - 2017-11-23
+-----------------
 
 * adapt chunksize formula to limit ``multiprocessing`` chunksize between 0 and 16; this
   resolves occuring ``MemoryError()`` and some performance impediments, closing #82
@@ -375,9 +393,9 @@ Changelog
   raise ``DeprecationWarning`` when latter is used
 
 
-----
-0.11
-----
+-----------------
+0.11 - 2017-11-09
+-----------------
 
 * ``vector.reproject_geometry()`` throws now ``shapely.errors.TopologicalError`` instead
   of ``RuntimeError`` if reprojected geometry is invalid
@@ -390,9 +408,9 @@ Changelog
   resampling issue
 
 
-----
-0.10
-----
+-----------------
+0.10 - 2017-10-23
+-----------------
 
 * better memory handling by detatching process output data from ``BufferedTile`` objects
 * breaking API changes:
@@ -416,26 +434,26 @@ Changelog
   default nodata value of 0 was assumed)
 
 
----
-0.9
----
+----------------
+0.9 - 2017-10-04
+----------------
 
 * removed GDAL from dependencies by reimplementing ogr ``segmentize()`` using shapely
 * use ``cascaded_union()`` instead of ``MultiPolygon`` to determine process area
 
 
----
-0.8
----
+----------------
+0.8 - 2017-09-22
+----------------
 
 * process file now will accept a simple ``execute(mp)`` function
 * current version number is now accessable at ``mapchete.__version`` (#77)
 * added ``--version`` flag to command line tools
 
 
----
-0.7
----
+----------------
+0.7 - 2017-09-20
+----------------
 
 * fixed PNG alpha band handling
 * added generic ``MapcheteEmptyInputTile`` exception
@@ -443,9 +461,9 @@ Changelog
 * closed #25: use HTTP errors instead of generating pink tiles in ``mapchete serve``
 
 
----
-0.6
----
+----------------
+0.6 - 2017-09-08
+----------------
 
 * ``input_files`` config option now raises a deprecation warning and will be replaced with
   ``input``
@@ -455,9 +473,9 @@ Changelog
 * improved baselevel generation performance (#74)
 
 
----
-0.5
----
+----------------
+0.5 - 2017-05-07
+----------------
 
 * introduced iterable input data groups
 * introduced pytest & test coverage of 92%
@@ -469,9 +487,9 @@ Changelog
 * documentation on readthedocs.io
 
 
----
-0.4
----
+----------------
+0.4 - 2017-03-02
+----------------
 
 * introduced pluggable format drivers (#47)
 * ``mapchete formats`` subcommand added; lists available input & output formats
@@ -483,9 +501,9 @@ Changelog
 * make documentation and docstrings compatible for readthedocs.org
 
 
----
-0.3
----
+----------------
+0.3 - 2016-09-20
+----------------
 
 * added new overall ``mapchete`` command line tool, which will replace
   ``mapchete_execute``, ``mapchete_serve`` and ``raster2pyramid``
@@ -497,9 +515,9 @@ Changelog
   self.params["input_files"]["identifier"]
 
 
----
-0.2
----
+----------------
+0.2 - 2016-09-07
+----------------
 
 * fixed installation bug (io_utils module could not be found)
 * rasterio's CRS() class now handles CRSes
@@ -508,9 +526,9 @@ Changelog
 * rewrote reproject_geometry() function
 
 
----
-0.1
----
+----------------
+0.1 - 2016-08-23
+----------------
 
 * added vector data read
 * added vector output (PostGIS & GeoJSON)
