@@ -4,6 +4,18 @@ Changelog
 
 
 -----------------
+0.37 - 2020-11-25
+-----------------
+* core
+  * make retry settings configurable via environment (#296)
+    * MAPCHETE_IO_RETRY_TRIES (default: 3)
+    * MAPCHETE_IO_RETRY_DELAY (default: 1)
+    * MAPCHETE_IO_RETRY_BACKOFF (default: 1)
+  * fix non-overlapping bounds if provided as extra kwarg (#295)
+  * don't pass on init bounds to mapchete input (#295)
+
+
+-----------------
 0.36 - 2020-11-24
 -----------------
 * core
