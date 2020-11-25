@@ -20,6 +20,11 @@ GDAL_HTTP_OPTS = dict(
     GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=True,
     GDAL_HTTP_RETRY_DELAY=5
 )
+MAPCHETE_IO_RETRY_SETTINGS = {
+    "tries": os.environ.get("MAPCHETE_IO_RETRY_TRIES", 3),
+    "delay": os.environ.get("MAPCHETE_IO_RETRY_DELAY", 1),
+    "backoff": os.environ.get("MAPCHETE_IO_RETRY_BACKOFF", 1),
+}
 
 
 def get_best_zoom_level(input_file, tile_pyramid_type):

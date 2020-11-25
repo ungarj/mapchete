@@ -22,6 +22,7 @@ import warnings
 
 from mapchete.errors import MapcheteIOError
 from mapchete.io import path_is_remote, get_gdal_options, path_exists
+from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.tile import BufferedTile
 from mapchete.validate import validate_write_window_params
 
@@ -259,7 +260,7 @@ def _get_warped_array(
         raise
 
 
-@retry(tries=3, logger=logger, exceptions=RasterioIOError, delay=1)
+@retry(logger=logger, exceptions=RasterioIOError, **MAPCHETE_IO_RETRY_SETTINGS)
 def _rasterio_read(
     input_file=None,
     indexes=None,
@@ -322,7 +323,7 @@ def _rasterio_read(
         )
 
 
-@retry(tries=3, logger=logger, exceptions=RasterioIOError, delay=1)
+@retry(logger=logger, exceptions=RasterioIOError, **MAPCHETE_IO_RETRY_SETTINGS)
 def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
     """
     Wrapper function around rasterio.open().read().
