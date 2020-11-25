@@ -13,6 +13,7 @@ from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
 from mapchete.errors import GeometryTypeError, MapcheteIOError
+from mapchete._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.io._path import path_exists
 from mapchete.io._geometry_operations import (
     reproject_geometry,
@@ -198,7 +199,9 @@ class VectorWindowMemoryFile():
 
 
 @retry(
-    tries=3, logger=logger, exceptions=(DriverError, FionaError, FionaValueError), delay=1
+    logger=logger,
+    exceptions=(DriverError, FionaError, FionaValueError),
+    **MAPCHETE_IO_RETRY_SETTINGS
 )
 def _get_reprojected_features(
     input_file=None, dst_bounds=None, dst_crs=None, validity_check=False
