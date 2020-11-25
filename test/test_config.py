@@ -396,3 +396,74 @@ def test_bounds_from_opts(example_mapchete, wkt_geom):
         ),
         Bounds
     )
+
+
+def test_init_overrides_config(example_mapchete):
+    process_bounds = (0, 1, 2, 3)
+    init_bounds = (3, 4, 5, 6)
+    process_area = box(*process_bounds)
+    init_area = box(*init_bounds)
+
+    # bounds
+    with mapchete.open(
+        dict(example_mapchete.dict, bounds=process_bounds),
+        bounds=init_bounds
+    ) as mp:
+        assert mp.config.bounds == process_bounds
+        assert mp.config.init_bounds == init_bounds
+
+    # area
+    with mapchete.open(
+        dict(example_mapchete.dict, area=process_area),
+        area=init_area
+    ) as mp:
+        assert mp.config.bounds == process_bounds
+        assert mp.config.init_bounds == init_bounds
+
+    # process bounds and init area
+    with mapchete.open(
+        dict(example_mapchete.dict, bounds=process_bounds),
+        area=init_area
+    ) as mp:
+        assert mp.config.bounds == process_bounds
+        assert mp.config.init_bounds == init_bounds
+
+    # process area and init bounds
+    with mapchete.open(
+        dict(example_mapchete.dict, area=process_area),
+        bounds=init_bounds
+    ) as mp:
+        assert mp.config.bounds == process_bounds
+        assert mp.config.init_bounds == init_bounds
+
+    # process bounds, init area and init bounds
+    with mapchete.open(
+        dict(example_mapchete.dict, bounds=process_bounds),
+        area=init_area,
+        bounds=init_bounds
+    ) as mp:
+        assert mp.config.bounds == process_bounds
+        assert mp.config.init_bounds == init_bounds
+
+    # process area, init area and init bounds
+    with mapchete.open(
+        dict(example_mapchete.dict, area=process_area),
+        area=init_area,
+        bounds=init_bounds
+    ) as mp:
+        assert mp.config.bounds == process_bounds
+        assert mp.config.init_bounds == init_bounds
+
+    # process area
+    with mapchete.open(
+        dict(example_mapchete.dict, area=process_area)
+    ) as mp:
+        assert mp.config.bounds == process_bounds
+        assert mp.config.init_bounds == process_bounds
+
+    # process bounds
+    with mapchete.open(
+        dict(example_mapchete.dict, bounds=process_bounds)
+    ) as mp:
+        assert mp.config.bounds == process_bounds
+        assert mp.config.init_bounds == process_bounds

@@ -162,6 +162,7 @@ class MapcheteConfig(object):
         **kwargs
     ):
         """Initialize configuration."""
+        logger.debug(f"parsing {input_config}")
         # get dictionary representation of input_config and
         # (0) map deprecated params to new structure
         self._raw = _map_to_new_config(_config_to_dict(input_config))
@@ -252,7 +253,9 @@ class MapcheteConfig(object):
             area_crs=area_crs,
             bounds_crs=bounds_crs
         )
+        logger.debug(f"process area: {self.area}")
         self.bounds = Bounds(*self.area.bounds)
+        logger.debug(f"process bounds: {self.bounds}")
         self.init_area = self._get_process_area(
             area=self._raw.get("init_area"),
             bounds=self._raw.get("init_bounds"),
@@ -261,10 +264,8 @@ class MapcheteConfig(object):
             area_crs=area_crs,
             bounds_crs=bounds_crs
         )
-        self.init_bounds = Bounds(*self.init_area.bounds)
-        logger.debug(f"process area: {self.area}")
-        logger.debug(f"process bounds: {self.bounds}")
         logger.debug(f"init area: {self.init_area}")
+        self.init_bounds = Bounds(*self.init_area.bounds)
         logger.debug(f"init bounds: {self.init_bounds}")
 
         # (7) the delimiters are used by some input drivers
@@ -659,40 +660,61 @@ class MapcheteConfig(object):
 
         The area parameter can be provided in multiple variations, see _guess_geometry().
         """
-        if bounds is None:
-            bounds = bounds_fallback
-            bounds_crs = None
-        else:
-            try:
-                bounds = validate_bounds(bounds)
-            except Exception as e:
-                raise MapcheteConfigError(e)
+        try:
+            dst_crs = self.process_pyramid.crs
 
-        if area is None:
-            area = area_fallback
-            area_crs = None
-        else:
-            try:
-                area, crs = _guess_geometry(area, base_dir=self.config_dir)
-                # in case vector file has no CRS use manually provided CRS
-                area_crs = crs or area_crs
-            except Exception as e:
-                raise MapcheteConfigError(e)
+            if bounds is None and area is None:
+                return area_fallback
 
-        dst_crs = self.process_pyramid.crs
+            elif bounds is None:
+                try:
+                    area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                    # in case vector file has no CRS use manually provided CRS
+                    area_crs = crs or area_crs
+                except Exception as e:
+                    raise MapcheteConfigError(e)
 
-        # reproject area and bounds to process CRS and return intersection
-        return reproject_geometry(
-            area,
-            src_crs=area_crs or dst_crs,
-            dst_crs=dst_crs
-        ).intersection(
-            reproject_geometry(
-                box(*bounds),
-                src_crs=bounds_crs or dst_crs,
-                dst_crs=dst_crs
-            ),
-        )
+                return reproject_geometry(
+                    area,
+                    src_crs=area_crs or dst_crs,
+                    dst_crs=dst_crs
+                )
+
+            elif area is None:
+                return reproject_geometry(
+                    box(*validate_bounds(bounds)),
+                    src_crs=bounds_crs or dst_crs,
+                    dst_crs=dst_crs
+                )
+
+
+            else:
+                try:
+                    area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                    # in case vector file has no CRS use manually provided CRS
+                    area_crs = crs or area_crs
+                except Exception as e:
+                    raise MapcheteConfigError(e)
+
+                try:
+                    bounds = validate_bounds(bounds)
+                except Exception as e:
+                    raise MapcheteConfigError(e)
+
+                # reproject area and bounds to process CRS and return intersection
+                return reproject_geometry(
+                    area,
+                    src_crs=area_crs or dst_crs,
+                    dst_crs=dst_crs
+                ).intersection(
+                    reproject_geometry(
+                        box(*validate_bounds(bounds)),
+                        src_crs=bounds_crs or dst_crs,
+                        dst_crs=dst_crs
+                    ),
+                )
+        except Exception as e:
+            raise MapcheteConfigError(e)
 
     # deprecated:
     #############
