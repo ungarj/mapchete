@@ -13,7 +13,7 @@ from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
 
 from mapchete.errors import GeometryTypeError, MapcheteIOError
-from mapchete._misc import MAPCHETE_IO_RETRY_SETTINGS
+from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.io._path import path_exists
 from mapchete.io._geometry_operations import (
     reproject_geometry,
