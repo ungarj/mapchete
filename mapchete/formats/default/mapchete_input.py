@@ -48,14 +48,7 @@ class InputData(base.InputData):
         """Initialize."""
         super().__init__(input_params, **kwargs)
         self.path = input_params["path"]
-        self.process = Mapchete(MapcheteConfig(
-            self.path, mode="readonly",
-            bounds=(
-                input_params["delimiters"]["bounds"]
-                if "delimiters" in input_params
-                else None
-            )
-        ))
+        self.process = Mapchete(MapcheteConfig(self.path, mode="readonly"))
 
     def open(self, tile, **kwargs):
         """
