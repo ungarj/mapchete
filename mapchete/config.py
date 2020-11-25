@@ -667,12 +667,9 @@ class MapcheteConfig(object):
                 return area_fallback
 
             elif bounds is None:
-                try:
-                    area, crs = _guess_geometry(area, base_dir=self.config_dir)
-                    # in case vector file has no CRS use manually provided CRS
-                    area_crs = crs or area_crs
-                except Exception as e:
-                    raise MapcheteConfigError(e)
+                area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                # in case vector file has no CRS use manually provided CRS
+                area_crs = crs or area_crs
 
                 return reproject_geometry(
                     area,
@@ -689,17 +686,11 @@ class MapcheteConfig(object):
 
 
             else:
-                try:
-                    area, crs = _guess_geometry(area, base_dir=self.config_dir)
-                    # in case vector file has no CRS use manually provided CRS
-                    area_crs = crs or area_crs
-                except Exception as e:
-                    raise MapcheteConfigError(e)
+                area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                # in case vector file has no CRS use manually provided CRS
+                area_crs = crs or area_crs
 
-                try:
-                    bounds = validate_bounds(bounds)
-                except Exception as e:
-                    raise MapcheteConfigError(e)
+                bounds = validate_bounds(bounds)
 
                 # reproject area and bounds to process CRS and return intersection
                 return reproject_geometry(
