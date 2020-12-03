@@ -96,7 +96,12 @@ def _read_vector_window(input_file, tile, validity_check=True):
 
 
 def write_vector_window(
-    in_data=None, out_schema=None, out_tile=None, out_path=None, bucket_resource=None
+    in_data=None,
+    out_schema=None,
+    out_tile=None,
+    out_path=None,
+    bucket_resource=None,
+    allow_multipart_geometries=True
 ):
     """
     Write features to GeoJSON file.
@@ -121,19 +126,24 @@ def write_vector_window(
     for feature in in_data:
         try:
             # clip feature geometry to tile bounding box and append for writing
-            # if clipped feature still
-            for out_geom in multipart_to_singleparts(
-                clean_geometry_type(
-                    to_shape(feature["geometry"]).intersection(out_tile.bbox),
-                    out_schema["geometry"]
-                )
-            ):
+            clipped = clean_geometry_type(
+                to_shape(feature["geometry"]).intersection(out_tile.bbox),
+                out_schema["geometry"]
+            )
+            if allow_multipart_geometries:
+                cleaned_output_fetures = [clipped]
+            else:
+                cleaned_output_fetures = multipart_to_singleparts(clipped)
+            for out_geom in cleaned_output_fetures:
                 if out_geom.is_empty:  # pragma: no cover
                     continue
-                out_features.append({
-                    "geometry": mapping(out_geom),
-                    "properties": feature["properties"]
-                })
+
+                out_features.append(
+                    {
+                        "geometry": mapping(out_geom),
+                        "properties": feature["properties"]
+                    }
+                )
         except Exception as e:
             logger.warning("failed to prepare geometry for writing: %s", e)
             continue

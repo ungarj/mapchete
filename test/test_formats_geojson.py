@@ -119,3 +119,49 @@ def test_s3_output_data_rw(mp_s3_tmpdir, geojson_s3):
         read_output = mp.get_raw_output(tile)
         assert isinstance(read_output, list)
         assert len(read_output)
+
+
+def test_multipolygon_output_data(mp_tmpdir, geojson):
+    """Check GeoJSON as output data."""
+    output_params = dict(
+        grid="geodetic",
+        format="GeoJSON",
+        path=mp_tmpdir,
+        schema=dict(
+            properties=dict(
+                id="int",
+                name="str",
+                area="float"
+            ),
+            geometry="MultiPolygon"
+        ),
+        pixelbuffer=0,
+        metatiling=2
+    )
+    output = formats.default.geojson.OutputDataWriter(output_params)
+    assert output.path == mp_tmpdir
+    assert output.file_extension == ".geojson"
+    assert isinstance(output_params, dict)
+
+    with mapchete.open(
+        dict(
+            geojson.dict,
+            zoom_levels=8,
+            output=output_params
+        )
+    ) as mp:
+        tile = mp.config.process_pyramid.tile(8, 45, 126)
+        # write empty
+        mp.write(tile, None)
+        # write data
+        raw_output = mp.get_raw_output(tile)
+        mp.write(tile, raw_output)
+        # read data
+        read_output = mp.get_raw_output(tile)
+        assert isinstance(read_output, list)
+        assert len(read_output)
+        for i in read_output:
+            if i["geometry"]["type"] == "MultiPolygon":
+                break
+        else:
+            raise TypeError("no MultiPolygon geometries found")

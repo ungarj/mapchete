@@ -205,7 +205,10 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
                     out_schema=self.output_params["schema"],
                     out_tile=out_tile,
                     out_path=out_path,
-                    bucket_resource=bucket_resource
+                    bucket_resource=bucket_resource,
+                    allow_multipart_geometries=(
+                        self.output_params["schema"]["geometry"].startswith("Multi")
+                    )
                 )
 
 

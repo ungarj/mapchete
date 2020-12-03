@@ -789,7 +789,7 @@ def test_repair_geometry():
 def test_write_vector_window_errors(landpoly):
     with fiona.open(landpoly) as src:
         feature = next(iter(src))
-    with pytest.raises((DriverError, ValueError)):
+    with pytest.raises((DriverError, ValueError, TypeError)):
         write_vector_window(
             in_data=[
                 "invalid",

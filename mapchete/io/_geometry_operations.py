@@ -209,7 +209,6 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         "MultiLineString": MultiLineString,
         "MultiPolygon": MultiPolygon
     }
-
     if target_type not in multipart_geoms.keys():
         raise TypeError("target type is not supported: %s" % target_type)
 
@@ -219,13 +218,16 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
     elif allow_multipart:
         target_multipart_type = multipart_geoms[target_type]
         if geometry.geom_type == "GeometryCollection":
-            return target_multipart_type([
-                clean_geometry_type(g, target_type, allow_multipart)
-                for g in geometry])
-        elif any([
-            isinstance(geometry, target_multipart_type),
+            return target_multipart_type(
+                [
+                    clean_geometry_type(g, target_type, allow_multipart)
+                    for g in geometry
+                ]
+            )
+        elif (
+            isinstance(geometry, target_multipart_type) or
             multipart_geoms[geometry.geom_type] == target_multipart_type
-        ]):
+        ):
             return geometry
 
     raise GeometryTypeError(
