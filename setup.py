@@ -19,17 +19,29 @@ with open("README.rst") as f:
     readme = f.read()
 
 
-def _parse_requirements(file):
-    return sorted(set(
-        line.partition("#")[0].strip()
-        for line in open(os.path.join(os.path.dirname(__file__), file))
-    ) - set(""))
-
 # dependencies for extra features
+install_requires = [
+    "cachetools",
+    "cached_property",
+    "click>=7.1.1",
+    "click-plugins",
+    "click-spinner",
+    "fiona>=1.8.13.post1",
+    "fsspec",
+    "importlib-metadata",
+    "importlib-resources",
+    "numpy>=1.16",
+    "oyaml",
+    "retry",
+    "rasterio>=1.0.28",
+    "shapely",
+    "tilematrix>=0.20",
+    "tqdm"
+]
 req_contours = ["matplotlib"]
 req_http = ["fsspec[http]", "aiohttp", "requests"]
 req_s3 = ["boto3", "fsspec[s3]", "s3fs"]
-req_serve = ["flask"]
+req_serve = ["flask", "werkzeug>=0.15"]
 req_vrt = ["lxml"]
 req_complete = req_contours + req_http + req_s3 + req_serve + req_vrt
 
@@ -76,7 +88,7 @@ setup(
     },
     package_dir={"static": "static"},
     package_data={"mapchete.static": ["*"]},
-    install_requires=_parse_requirements("requirements.txt") if not on_rtd else [],
+    install_requires=install_requires,
     extras_require={
         "complete": req_complete,
         "contours": req_contours,
