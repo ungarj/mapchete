@@ -583,21 +583,6 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
         raise_exc=False
     )
 
-    # unsupported format
-    run_cli(
-        [
-            "convert",
-            landpoly,
-            mp_tmpdir,
-            "--output-pyramid", "geodetic",
-            "--zoom", "5",
-            "--output-format", "GeoJSON"
-        ],
-        expected_exit_code=2,
-        output_contains=("driver vector_file is not supported"),
-        raise_exc=False
-    )
-
     # unsupported output format extension
     run_cli(
         [

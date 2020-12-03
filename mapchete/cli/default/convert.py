@@ -193,7 +193,7 @@ def convert(
             **dict(
                 overviews=True,
                 overviews_resampling=overviews_resampling_method
-            ) if overviews else dict()
+            ) if overviews else dict(),
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info["zoom_levels"],
@@ -230,6 +230,8 @@ def convert(
                 output_type, input_info["input_type"]
             )
         )
+    if output_metatiling:
+        mapchete_config["output"].update(metatiling=output_metatiling)
 
     # determine process bounds
     out_pyramid = BufferedTilePyramid.from_dict(mapchete_config["pyramid"])

@@ -134,6 +134,18 @@ def load_input_reader(input_params, readonly=False):
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 
+def driver_metadata(driver_name):
+    """Return driver metadata."""
+    for v in drivers:
+        driver_ = v.load()
+        if hasattr(driver_, "METADATA") and (
+            driver_.METADATA["driver_name"] == driver_name
+        ):
+            return dict(driver_.METADATA)
+    else:
+        raise ValueError(f"driver '{driver_name}' not found")
+
+
 def driver_from_file(input_file):
     """
     Guess driver from file extension.

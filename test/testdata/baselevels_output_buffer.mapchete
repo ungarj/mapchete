@@ -6,7 +6,7 @@ pyramid:
     grid: geodetic
     pixelbuffer: 64
 input:
-    raster: cleantopo_br.tif
+    inp: cleantopo_br.tif
 output:
     dtype: int16
     bands: 1

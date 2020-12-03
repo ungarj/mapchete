@@ -6,7 +6,9 @@ from shapely.geometry import box
 
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
-from mapchete.formats import base, load_output_writer, read_output_metadata
+from mapchete.formats import (
+    base, driver_metadata, load_output_writer, read_output_metadata
+)
 from mapchete.io import (path_exists, absolute_path, tile_to_zoom_level)
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
@@ -112,9 +114,7 @@ class InputData(base.InputData):
 
         # additional params
         self._bounds = self._params.get("bounds", self.td_pyramid.bounds)
-        self._file_type = (
-            "vector" if self._params["extension"] == "geojson" else "raster"
-        )
+        self._file_type = driver_metadata(self._params["format"]).get("data_type")
         if self._file_type == "raster":
             self._params["count"] = self._params.get(
                 "count", self._params.get("bands", None)
