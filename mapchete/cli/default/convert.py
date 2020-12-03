@@ -155,7 +155,7 @@ def convert(
     # collect mapchete configuration
     mapchete_config = dict(
         process="mapchete.processes.convert",
-        input=dict(raster=input_, clip=clip_geometry),
+        input=dict(inp=input_, clip=clip_geometry),
         pyramid=(
             dict(
                 grid=output_pyramid,
@@ -306,6 +306,9 @@ def _get_input_info(input_):
             logger.debug("input is raster_file")
             input_info = _input_rasterio_info(input_)
 
+        elif driver == "vector_file":
+            # this should be readable by Fiona
+            input_info = _input_fiona_info(input_)
         else:
             raise NotImplementedError("driver %s is not supported" % driver)
 
@@ -345,6 +348,21 @@ def _input_rasterio_info(input_):
             zoom_levels=None,
             pixel_size=src.transform[0],
             input_type="raster",
+            bounds=src.bounds
+        )
+
+
+def _input_fiona_info(input_):
+    with fiona.open(input_) as src:
+        return dict(
+            output_params=dict(
+                schema=src.schema,
+                format=src.driver if src.driver in available_input_formats() else None
+            ),
+            pyramid=None,
+            crs=src.crs,
+            zoom_levels=None,
+            input_type="vector",
             bounds=src.bounds
         )
 

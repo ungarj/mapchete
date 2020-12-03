@@ -166,7 +166,7 @@ def write_vector_window(
                 ) as memfile:
                     logger.debug((out_tile.id, "write tile", out_path))
                     with fs_from_path(out_path).open(out_path, "wb") as dst:
-                        dst.write(memfile.getbuffer())
+                        dst.write(memfile)
             else:
                 # write data to local file
                 with fiona.open(
@@ -213,7 +213,7 @@ class VectorWindowMemoryFile():
                 crs=self.tile.crs
             ) as dst:
                 dst.writerecords(self.features)
-            return self.fio_memfile
+            return self.fio_memfile.getbuffer()
 
     def __exit__(self, *args):
         """Make sure MemoryFile is closed."""

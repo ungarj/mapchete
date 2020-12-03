@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 from rasterio.dtypes import dtype_ranges
 
 logger = logging.getLogger(__name__)
@@ -74,9 +75,11 @@ def execute(
     else:
         clip_geom = []
 
-    with mp.open("raster",) as raster:
-        logger.debug("reading input raster")
-        raster_data = raster.read(
+    with mp.open("inp") as inp:
+        if inp.is_empty():
+            return "empty"
+        logger.debug("reading input data")
+        input_data = inp.read(
             indexes=band_indexes,
             resampling=resampling,
             matching_method=td_matching_method,
@@ -84,23 +87,39 @@ def execute(
             matching_precision=td_matching_precision,
             fallback_to_higher_zoom=td_fallback_to_higher_zoom
         )
-        if raster_data.mask.all():
-            logger.debug("raster empty")
-            return "empty"
+        if isinstance(input_data, np.ndarray):
+            input_type = "raster"
+        elif isinstance(input_data, list):
+            input_type = "vector"
+        else:
+            raise TypeError(
+                "input data type for this process has to either be a raster or a vector "
+                "dataset"
+            )
 
-    if scale_offset != 0.:
-        logger.debug("apply scale offset %s", scale_offset)
-        raster_data = raster_data.astype("float64", copy=False) + scale_offset
-    if scale_ratio != 1.:
-        logger.debug("apply scale ratio %s", scale_ratio)
-        raster_data = raster_data.astype("float64", copy=False) * scale_ratio
-    if (scale_offset != 0. or scale_ratio != 1.) and clip_to_output_dtype in dtype_ranges:
-        logger.debug("clip to output dtype ranges")
-        raster_data.clip(*dtype_ranges[clip_to_output_dtype], out=raster_data)
+    if input_type == "raster":
+        if scale_offset != 0.:
+            logger.debug("apply scale offset %s", scale_offset)
+            input_data = input_data.astype("float64", copy=False) + scale_offset
+        if scale_ratio != 1.:
+            logger.debug("apply scale ratio %s", scale_ratio)
+            input_data = input_data.astype("float64", copy=False) * scale_ratio
+        if (
+                (scale_offset != 0. or scale_ratio != 1.) and
+                clip_to_output_dtype in dtype_ranges
+        ):
+            logger.debug("clip to output dtype ranges")
+            input_data.clip(*dtype_ranges[clip_to_output_dtype], out=input_data)
 
-    if clip_geom:
-        logger.debug("clipping output with geometry")
-        # apply original nodata mask and clip
-        return mp.clip(raster_data, clip_geom, clip_buffer=clip_pixelbuffer)
-    else:
-        return raster_data
+        if clip_geom:
+            logger.debug("clipping output with geometry")
+            # apply original nodata mask and clip
+            return mp.clip(input_data, clip_geom, clip_buffer=clip_pixelbuffer)
+        else:
+            return input_data
+
+    elif input_type == "vector":
+        if clip_geom:
+            raise NotImplementedError
+        else:
+            return input_data
