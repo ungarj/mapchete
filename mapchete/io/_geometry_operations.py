@@ -225,8 +225,8 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
                 ]
             )
         elif (
-            isinstance(geometry, target_multipart_type)
-            or multipart_geoms[geometry.geom_type] == target_multipart_type
+            isinstance(geometry, target_multipart_type) or
+            multipart_geoms[geometry.geom_type] == target_multipart_type
         ):
             return geometry
 

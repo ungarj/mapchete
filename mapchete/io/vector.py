@@ -124,16 +124,16 @@ def write_vector_window(
 
     out_features = []
     for feature in in_data:
-        # clip feature geometry to tile bounding box and append for writing
-        clipped = clean_geometry_type(
-            to_shape(feature["geometry"]).intersection(out_tile.bbox),
-            out_schema["geometry"]
-        )
-        if allow_multipart_geometries:
-            cleaned_output_fetures = [clipped]
-        else:
-            cleaned_output_fetures = multipart_to_singleparts(clipped)
         try:
+            # clip feature geometry to tile bounding box and append for writing
+            clipped = clean_geometry_type(
+                to_shape(feature["geometry"]).intersection(out_tile.bbox),
+                out_schema["geometry"]
+            )
+            if allow_multipart_geometries:
+                cleaned_output_fetures = [clipped]
+            else:
+                cleaned_output_fetures = multipart_to_singleparts(clipped)
             for out_geom in cleaned_output_fetures:
                 if out_geom.is_empty:  # pragma: no cover
                     continue
