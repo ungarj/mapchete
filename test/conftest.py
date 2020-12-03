@@ -21,12 +21,14 @@ ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 # flask test app for mapchete serve
 @pytest.fixture
-def app(dem_to_hillshade, cleantopo_br, geojson, mp_tmpdir):
+def app(dem_to_hillshade, cleantopo_br, geobuf, geojson, mp_tmpdir):
     """Dummy Flask app."""
     return create_app(
-        mapchete_files=[dem_to_hillshade.path, cleantopo_br.path, geojson.path],
-        zoom=None, bounds=None, single_input_file=None, mode="overwrite",
-        debug=True)
+        mapchete_files=[
+            dem_to_hillshade.path, cleantopo_br.path, geojson.path, geobuf.path
+        ],
+        zoom=None, bounds=None, single_input_file=None, mode="overwrite", debug=True
+    )
 
 
 # temporary directory for I/O tests
@@ -402,6 +404,22 @@ def geojson():
 def geojson_s3():
     """Fixture for geojson.mapchete with updated output path."""
     path = os.path.join(TESTDATA_DIR, "geojson.mapchete")
+    config = _dict_from_mapchete(path)
+    config["output"].update(path=S3_TEMP_DIR)
+    return ExampleConfig(path=None, dict=config)
+
+
+@pytest.fixture
+def geobuf():
+    """Fixture for geobuf.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "geobuf.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def geobuf_s3():
+    """Fixture for geobuf.mapchete with updated output path."""
+    path = os.path.join(TESTDATA_DIR, "geobuf.mapchete")
     config = _dict_from_mapchete(path)
     config["output"].update(path=S3_TEMP_DIR)
     return ExampleConfig(path=None, dict=config)

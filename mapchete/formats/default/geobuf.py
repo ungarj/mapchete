@@ -1,8 +1,5 @@
 """
-Handles writing process output into a pyramid of GeoJSON files.
-
-This output format is restricted to the geodetic (WGS84) projection because it
-is the only projection the GeoJSON spec supports.
+Handles writing process output into a pyramid of Geobuf files.
 
 output configuration parameters
 -------------------------------
@@ -21,29 +18,26 @@ schema: key-value pairs
     Polygon, MultiPolygon)
 """
 
-import fiona
-from fiona.errors import DriverError
 import logging
-import types
+from shapely.geometry import mapping, shape
 
 from mapchete.config import validate_values
-from mapchete.formats import base
-from mapchete.io import get_boto3_bucket
-from mapchete.io.vector import write_vector_window
-from mapchete.tile import BufferedTile
+from mapchete.formats.default import geojson
+from mapchete.io import fs_from_path
+from mapchete.io._geometry_operations import _repair
 
 
 logger = logging.getLogger(__name__)
 METADATA = {
-    "driver_name": "GeoJSON",
+    "driver_name": "Geobuf",
     "data_type": "vector",
     "mode": "rw"
 }
 
 
-class OutputDataReader(base.TileDirectoryOutputReader):
+class OutputDataReader(geojson.OutputDataReader):
     """
-    Output reader class for GeoJSON.
+    Output reader class for Geobuf Tile Directory.
 
     Parameters
     ----------
@@ -55,7 +49,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
     path : string
         path to output directory
     file_extension : string
-        file extension for output files (.geojson)
+        file extension for output files (.geobuf)
     output_params : dictionary
         output parameters from Mapchete file
     pixelbuffer : integer
@@ -74,9 +68,9 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         """Initialize."""
         super().__init__(output_params)
         self.path = output_params["path"]
-        self.file_extension = ".geojson"
+        self.file_extension = ".pbf"
         self.output_params = output_params
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket = None
 
     def read(self, output_tile, **kwargs):
         """
@@ -91,19 +85,13 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         -------
         process output : list
         """
+        import geobuf
+        path = self.get_path(output_tile)
         try:
-            with fiona.open(self.get_path(output_tile), "r") as src:
-                return list(src)
-        except DriverError as e:
-            for i in (
-                "does not exist in the file system",
-                "No such file or directory",
-                "specified key does not exist."
-            ):
-                if i in str(e):
-                    return self.empty(output_tile)
-            else:  # pragma: no cover
-                raise
+            with fs_from_path(path).open(path, "rb") as src:
+                return geobuf.decode(src.read()).get("features", [])
+        except FileNotFoundError:
+            return self.empty(output_tile)
 
     def is_valid_with_config(self, config):
         """
@@ -127,21 +115,6 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             raise TypeError("invalid geometry type")
         return True
 
-    def empty(self, process_tile=None):
-        """
-        Return empty data.
-
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-
-        Returns
-        -------
-        empty data : list
-        """
-        return []
-
     def for_web(self, data):
         """
         Convert data to web output (raster only).
@@ -154,66 +127,31 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         -------
         web data : array
         """
-        return list(data), "application/json"
+        import geobuf
+        return geobuf.encode(
+            dict(
+                type="FeatureCollection",
+                features=[
+                    dict(
+                        f,
+                        geometry=mapping(_repair(shape(f["geometry"]))),
+                        type="Feature"
+                    )
+                    for f in data
+                ]
+            )
+        ), "application/octet-stream"
 
-    def open(self, tile, process):
-        """
-        Open process output as input for other process.
 
-        Parameters
-        ----------
-        tile : ``Tile``
-        process : ``MapcheteProcess``
-        """
-        return InputTile(tile, process)
-
-
-class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
+class OutputDataWriter(geojson.OutputDataWriter, OutputDataReader):
+    """
+    Output writer class.
+    """
 
     METADATA = METADATA
 
-    def write(self, process_tile, data):
-        """
-        Write data from process tiles into GeoJSON file(s).
 
-        Parameters
-        ----------
-        process_tile : ``BufferedTile``
-            must be member of process ``TilePyramid``
-        """
-        if data is None or len(data) == 0:
-            return
-        if not isinstance(data, (list, types.GeneratorType)):  # pragma: no cover
-            raise TypeError(
-                "GeoJSON driver data has to be a list or generator of GeoJSON objects"
-            )
-
-        data = list(data)
-        if not len(data):  # pragma: no cover
-            logger.debug("no features to write")
-        else:
-            # in case of S3 output, create an boto3 resource
-            bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
-
-            # Convert from process_tile to output_tiles
-            for tile in self.pyramid.intersecting(process_tile):
-                out_path = self.get_path(tile)
-                self.prepare_path(tile)
-                out_tile = BufferedTile(tile, self.pixelbuffer)
-                write_vector_window(
-                    in_data=data,
-                    out_driver=self.METADATA["driver_name"],
-                    out_schema=self.output_params["schema"],
-                    out_tile=out_tile,
-                    out_path=out_path,
-                    bucket_resource=bucket_resource,
-                    allow_multipart_geometries=(
-                        self.output_params["schema"]["geometry"].startswith("Multi")
-                    )
-                )
-
-
-class InputTile(base.InputTile):
+class InputTile(geojson.InputTile):
     """
     Target Tile representation of input data.
 

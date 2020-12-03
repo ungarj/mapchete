@@ -27,11 +27,12 @@ def _parse_requirements(file):
 
 # dependencies for extra features
 req_contours = ["matplotlib"]
+req_geobuf = ["geobuf"]
 req_http = ["fsspec[http]", "aiohttp", "requests"]
 req_s3 = ["boto3", "fsspec[s3]", "s3fs"]
 req_serve = ["flask"]
 req_vrt = ["lxml"]
-req_complete = req_contours + req_http + req_s3 + req_serve + req_vrt
+req_complete = req_contours + req_geobuf + req_http + req_s3 + req_serve + req_vrt
 
 setup(
     name="mapchete",
@@ -58,6 +59,7 @@ setup(
             "serve=mapchete.cli.default.serve:serve",
         ],
         "mapchete.formats.drivers": [
+            "geobuf=mapchete.formats.default.geobuf",
             "geojson=mapchete.formats.default.geojson",
             "gtiff=mapchete.formats.default.gtiff",
             "mapchete_input=mapchete.formats.default.mapchete_input",
@@ -80,6 +82,7 @@ setup(
     extras_require={
         "complete": req_complete,
         "contours": req_contours,
+        "geobuf": req_geobuf,
         "s3": req_s3,
         "serve": req_serve,
         "vrt": req_vrt,
