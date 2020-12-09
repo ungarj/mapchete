@@ -156,7 +156,8 @@ class OutputDataReader(geojson.OutputDataReader):
             )
             for tile, _ in tiles_paths
             for feature in self.read(tile)
-        ]
+        ]  # pragma: no cover
+        # --> this part is covered by the CLI tests but somehow gets omitted
 
 
 class OutputDataWriter(geojson.OutputDataWriter, OutputDataReader):
