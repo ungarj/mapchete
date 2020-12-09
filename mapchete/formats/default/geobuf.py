@@ -143,22 +143,20 @@ class OutputDataReader(geojson.OutputDataReader):
         ), "application/octet-stream"
 
     def _read_as_tiledir(self, out_tile=None, tiles_paths=None, **kwargs):
-        out_features = []
-        for tile, _ in tiles_paths:
-            for feature in self.read(tile):
-                out_features.append(
-                    dict(
-                        feature,
-                        geometry=mapping(
-                            reproject_geometry(
-                                shape(feature["geometry"]),
-                                src_crs=tile.crs,
-                                dst_crs=out_tile.crs
-                            ).intersection(out_tile.bbox)
-                        )
-                    )
+        return [
+            dict(
+                feature,
+                geometry=mapping(
+                    reproject_geometry(
+                        shape(feature["geometry"]),
+                        src_crs=tile.crs,
+                        dst_crs=out_tile.crs
+                    ).intersection(out_tile.bbox)
                 )
-        return out_features
+            )
+            for tile, _ in tiles_paths
+            for feature in self.read(tile)
+        ]
 
 
 class OutputDataWriter(geojson.OutputDataWriter, OutputDataReader):
