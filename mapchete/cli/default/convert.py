@@ -75,6 +75,11 @@ def _validate_bidx(ctx, param, bidx):
     type=click.Choice(dtype_ranges.keys()),
     help="Output data type (for raster output only)."
 )
+@click.option(
+    "--output-geometry-type",
+    type=click.STRING,
+    help="Output geometry type (for vector output only)."
+)
 @creation_options
 @click.option(
     "--scale-ratio",
@@ -130,6 +135,7 @@ def convert(
     output_metatiling=None,
     output_format=None,
     output_dtype=None,
+    output_geometry_type=None,
     creation_options=None,
     scale_ratio=None,
     scale_offset=None,
@@ -232,6 +238,10 @@ def convert(
         )
     if output_metatiling:
         mapchete_config["output"].update(metatiling=output_metatiling)
+    if input_info["output_params"].get("schema"):
+        mapchete_config["output"]["schema"].update(
+            geometry=output_geometry_type or input_info["output_params"].get("geometry")
+        )
 
     # determine process bounds
     out_pyramid = BufferedTilePyramid.from_dict(mapchete_config["pyramid"])
