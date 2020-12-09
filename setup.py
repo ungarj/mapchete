@@ -102,7 +102,7 @@ setup(
     tests_require=[
         "coveralls",
         "flake8",
-        "mapchete[complete]"
+        "mapchete[complete]",
         "pytest",
         "pytest-cov",
         "pytest-flask",
