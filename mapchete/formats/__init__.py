@@ -142,7 +142,7 @@ def driver_metadata(driver_name):
             driver_.METADATA["driver_name"] == driver_name
         ):
             return dict(driver_.METADATA)
-    else:
+    else:  # pragma: no cover
         raise ValueError(f"driver '{driver_name}' not found")
 
 
@@ -190,7 +190,7 @@ def data_type_from_extension(file_extension):
             driver_extensions = driver.METADATA.get("file_extensions")
             if driver_extensions and file_extension in driver_extensions:
                 return driver.METADATA["data_type"]
-        except AttributeError:
+        except AttributeError:  # pragma: no cover
             pass
     else:
         raise ValueError(

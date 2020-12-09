@@ -812,7 +812,7 @@ def test_segmentize_geometry():
         segmentize_geometry(polygon.centroid, 1)
 
 
-def test_clean_geometry_type():
+def test_clean_geometry_type(geometrycollection):
     """Filter and break up geometries."""
     polygon = box(-18, -9, 18, 9)
     # invalid type
@@ -821,7 +821,7 @@ def test_clean_geometry_type():
 
     # don't return geometry
     with pytest.raises(GeometryTypeError):
-        clean_geometry_type(polygon, "LineString") is None
+        clean_geometry_type(polygon, "LineString", raise_exception=True)
 
     # return geometry as is
     assert clean_geometry_type(polygon, "Polygon").geom_type == "Polygon"
@@ -829,7 +829,26 @@ def test_clean_geometry_type():
 
     # don't allow multipart geometries
     with pytest.raises(GeometryTypeError):
-        clean_geometry_type(MultiPolygon([polygon]), "Polygon", allow_multipart=False)
+        clean_geometry_type(
+            MultiPolygon([polygon]),
+            "Polygon",
+            allow_multipart=False,
+            raise_exception=True
+        )
+
+    # multipolygons from geometrycollection
+    result = clean_geometry_type(
+        geometrycollection, "Polygon", allow_multipart=True, raise_exception=False
+    )
+    assert result.geom_type == "MultiPolygon"
+    assert not result.is_empty
+
+    # polygons from geometrycollection
+    result = clean_geometry_type(
+        geometrycollection, "Polygon", allow_multipart=False, raise_exception=False
+    )
+    assert result.geom_type == "GeometryCollection"
+    assert result.is_empty
 
 
 @pytest.mark.remote

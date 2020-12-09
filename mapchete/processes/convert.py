@@ -91,7 +91,7 @@ def execute(
             input_type = "raster"
         elif isinstance(input_data, list):
             input_type = "vector"
-        else:
+        else:  # pragma: no cover
             raise TypeError(
                 "input data type for this process has to either be a raster or a vector "
                 "dataset"
@@ -119,7 +119,8 @@ def execute(
             return input_data
 
     elif input_type == "vector":
-        if clip_geom:
-            raise NotImplementedError
+        if clip_geom:  # pragma: no cover
+            raise NotImplementedError("clipping vector data is not yet implemented")
         else:
+            logger.debug(f"writing {len(input_data)} features")
             return input_data

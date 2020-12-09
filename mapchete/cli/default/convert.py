@@ -319,7 +319,7 @@ def _get_input_info(input_):
         elif driver == "vector_file":
             # this should be readable by Fiona
             input_info = _input_fiona_info(input_)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError("driver %s is not supported" % driver)
 
     # assuming tile directory

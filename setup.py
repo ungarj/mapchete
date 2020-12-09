@@ -99,6 +99,15 @@ setup(
         "serve": req_serve,
         "vrt": req_vrt,
     },
+    tests_require=[
+        "coveralls",
+        "flake8",
+        "mapchete[complete]"
+        "pytest",
+        "pytest-cov",
+        "pytest-flask",
+        "rio-cogeo",
+    ],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",

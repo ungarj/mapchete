@@ -254,21 +254,23 @@ def _get_reprojected_features(
                     # clip with bounds and omit if clipped geometry is empty
                     clipped_geom = original_geom.intersection(dst_bbox)
 
-                    if not clipped_geom.is_empty:
-                        # reproject each feature to tile CRS
-                        g = reproject_geometry(
-                            clean_geometry_type(clipped_geom, original_geom.geom_type),
-                            src_crs=src_crs,
-                            dst_crs=dst_crs,
-                            validity_check=validity_check
-                        )
+                    # reproject each feature to tile CRS
+                    g = reproject_geometry(
+                        clean_geometry_type(
+                            clipped_geom,
+                            original_geom.geom_type,
+                            raise_exception=False
+                        ),
+                        src_crs=src_crs,
+                        dst_crs=dst_crs,
+                        validity_check=validity_check
+                    )
+                    if not g.is_empty:
                         yield {
                             'properties': feature['properties'],
                             'geometry': mapping(g)
                         }
                 # this can be handled quietly
-                except GeometryTypeError:
-                    pass
                 except TopologicalError as e:  # pragma: no cover
                     logger.warning("feature omitted: %s", e)
 
