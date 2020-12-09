@@ -6,7 +6,10 @@ from shapely.geometry import box
 
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
-from mapchete.formats import base, load_output_writer, read_output_metadata
+from mapchete.formats import (
+    base, data_type_from_extension, driver_metadata, load_output_writer,
+    read_output_metadata
+)
 from mapchete.io import (path_exists, absolute_path, tile_to_zoom_level)
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
@@ -64,22 +67,36 @@ class InputData(base.InputData):
                 pixelbuffer=self._params.get("pixelbuffer", 0)
             )
             self._read_as_tiledir_func = base._read_as_tiledir
+            try:
+                self._tiledir_metadata_json = read_output_metadata(
+                    os.path.join(self.path, "metadata.json")
+                )
+                try:
+                    self._data_type = self._tiledir_metadata_json["driver"]["data_type"]
+                except KeyError:
+                    self._data_type = driver_metadata(
+                        self._tiledir_metadata_json["driver"]["format"]
+                    )["data_type"]
+            except FileNotFoundError:
+                # in case no metadata.json is available, try to guess data type via the
+                # format file extension
+                self._data_type = data_type_from_extension(self._params["extension"])
 
         elif "path" in input_params:
             self.path = absolute_path(
                 path=input_params["path"], base_dir=input_params.get("conf_dir")
             )
             try:
-                params = read_output_metadata(os.path.join(self.path, "metadata.json"))
-            except FileNotFoundError:
-                raise MapcheteConfigError(
-                    "Cannot find metadata.json in %s" % input_params["path"]
+                self._tiledir_metadata_json = read_output_metadata(
+                    os.path.join(self.path, "metadata.json")
                 )
+            except FileNotFoundError:
+                raise MapcheteConfigError(f"Cannot find metadata.json in {self.path}")
             # define pyramid
-            self.td_pyramid = params["pyramid"]
+            self.td_pyramid = self._tiledir_metadata_json["pyramid"]
             self.output_data = load_output_writer(
                 dict(
-                    params["driver"],
+                    self._tiledir_metadata_json["driver"],
                     metatiling=self.td_pyramid.metatiling,
                     pixelbuffer=self.td_pyramid.pixelbuffer,
                     pyramid=self.td_pyramid,
@@ -95,9 +112,12 @@ class InputData(base.InputData):
                 pixelbuffer=self.td_pyramid.pixelbuffer,
                 tile_size=self.td_pyramid.tile_size,
                 extension=self.output_data.file_extension.split(".")[-1],
-                **params["driver"]
+                **self._tiledir_metadata_json["driver"]
             )
             self._read_as_tiledir_func = self.output_data._read_as_tiledir
+            self._data_type = driver_metadata(
+                self._tiledir_metadata_json["driver"]["format"]
+            )["data_type"]
 
         # validate parameters
         validate_values(
@@ -112,10 +132,11 @@ class InputData(base.InputData):
 
         # additional params
         self._bounds = self._params.get("bounds", self.td_pyramid.bounds)
-        self._file_type = (
-            "vector" if self._params["extension"] == "geojson" else "raster"
+        self.METADATA.update(
+            data_type=self._data_type,
+            file_extensions=[self._params["extension"]]
         )
-        if self._file_type == "raster":
+        if self.METADATA.get("data_type") == "raster":
             self._params["count"] = self._params.get(
                 "count", self._params.get("bands", None)
             )
@@ -147,7 +168,7 @@ class InputData(base.InputData):
         """
         return InputTile(
             tile,
-            file_type=self._file_type,
+            data_type=self.METADATA.get("data_type"),
             basepath=self.path,
             file_extension=self._ext,
             profile=self._profile,
@@ -211,7 +232,7 @@ class InputTile(base.InputTile):
     def __init__(
         self,
         tile,
-        file_type=None,
+        data_type=None,
         basepath=None,
         file_extension=None,
         profile=None,
@@ -221,7 +242,7 @@ class InputTile(base.InputTile):
     ):
         """Initialize."""
         self.tile = tile
-        self._file_type = file_type
+        self._data_type = data_type
         self._basepath = basepath
         self._ext = file_extension
         self._profile = profile
@@ -284,7 +305,7 @@ class InputTile(base.InputTile):
         data : list for vector files or numpy array for raster files
         """
         return self._read_as_tiledir(
-            data_type=self._file_type,
+            data_type=self._data_type,
             out_tile=self.tile,
             td_crs=self._td_pyramid.crs,
             tiles_paths=self._get_tiles_paths(

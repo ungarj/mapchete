@@ -573,3 +573,5 @@ def _read_as_tiledir(
                 ),
                 mask=True
             )
+    else:  # pragma: no cover
+        raise NotImplementedError(f"driver data_type {data_type} not supported")

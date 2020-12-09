@@ -38,7 +38,7 @@ def test_example_process(cleantopo_tl):
 
 def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
     with mapchete.open(
-        dict(cleantopo_tl.dict, input=dict(raster=cleantopo_tl_tif))
+        dict(cleantopo_tl.dict, input=dict(inp=cleantopo_tl_tif))
     ) as mp:
         zoom = max(mp.config.zoom_levels)
         # execute without clip
@@ -63,7 +63,7 @@ def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
         assert convert.execute(user_process) == "empty"
 
     with mapchete.open(
-        dict(cleantopo_tl.dict, input=dict(raster=cleantopo_tl_tif, clip=landpoly))
+        dict(cleantopo_tl.dict, input=dict(inp=cleantopo_tl_tif, clip=landpoly))
     ) as mp:
         zoom = max(mp.config.zoom_levels)
         tile = next(mp.get_process_tiles(zoom))

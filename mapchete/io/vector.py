@@ -14,7 +14,7 @@ from itertools import chain
 
 from mapchete.errors import GeometryTypeError, MapcheteIOError
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
-from mapchete.io._path import path_exists
+from mapchete.io._path import fs_from_path, path_exists
 from mapchete.io._geometry_operations import (
     reproject_geometry,
     segmentize_geometry,
@@ -97,6 +97,7 @@ def _read_vector_window(input_file, tile, validity_check=True):
 
 def write_vector_window(
     in_data=None,
+    out_driver="GeoJSON",
     out_schema=None,
     out_tile=None,
     out_path=None,
@@ -104,17 +105,21 @@ def write_vector_window(
     allow_multipart_geometries=True
 ):
     """
-    Write features to GeoJSON file.
+    Write features to file.
+
+    When the output driver is 'Geobuf', the geobuf library will be used otherwise the
+    driver will be passed on to Fiona.
 
     Parameters
     ----------
     in_data : features
+    out_driver : string
     out_schema : dictionary
         output schema for fiona
     out_tile : ``BufferedTile``
         tile used for output extent
     out_path : string
-        output path for GeoJSON file
+        output path for file
     """
     # Delete existing file.
     try:
@@ -151,19 +156,17 @@ def write_vector_window(
     # write if there are output features
     if out_features:
         try:
-            if out_path.startswith("s3://"):
+            if out_path.startswith("s3://") or out_driver.lower() == "geobuf":
                 # write data to remote file
                 with VectorWindowMemoryFile(
                     tile=out_tile,
                     features=out_features,
                     schema=out_schema,
-                    driver="GeoJSON"
+                    driver=out_driver
                 ) as memfile:
-                    logger.debug((out_tile.id, "upload tile", out_path))
-                    bucket_resource.put_object(
-                        Key="/".join(out_path.split("/")[3:]),
-                        Body=memfile
-                    )
+                    logger.debug((out_tile.id, "write tile", out_path))
+                    with fs_from_path(out_path).open(out_path, "wb") as dst:
+                        dst.write(memfile)
             else:
                 # write data to local file
                 with fiona.open(
@@ -194,18 +197,30 @@ class VectorWindowMemoryFile():
 
     def __enter__(self):
         """Open MemoryFile, write data and return."""
-        self.fio_memfile = MemoryFile()
-        with self.fio_memfile.open(
-            schema=self.schema,
-            driver=self.driver,
-            crs=self.tile.crs
-        ) as dst:
-            dst.writerecords(self.features)
-        return self.fio_memfile
+        if self.driver.lower() == "geobuf":
+            import geobuf
+            return geobuf.encode(
+                dict(
+                    type="FeatureCollection",
+                    features=[dict(f, type="Feature") for f in self.features]
+                )
+            )
+        else:
+            self.fio_memfile = MemoryFile()
+            with self.fio_memfile.open(
+                schema=self.schema,
+                driver=self.driver,
+                crs=self.tile.crs
+            ) as dst:
+                dst.writerecords(self.features)
+            return self.fio_memfile.getbuffer()
 
     def __exit__(self, *args):
         """Make sure MemoryFile is closed."""
-        self.fio_memfile.close()
+        try:
+            self.fio_memfile.close()
+        except AttributeError:
+            pass
 
 
 @retry(
@@ -239,21 +254,23 @@ def _get_reprojected_features(
                     # clip with bounds and omit if clipped geometry is empty
                     clipped_geom = original_geom.intersection(dst_bbox)
 
-                    if not clipped_geom.is_empty:
-                        # reproject each feature to tile CRS
-                        g = reproject_geometry(
-                            clean_geometry_type(clipped_geom, original_geom.geom_type),
-                            src_crs=src_crs,
-                            dst_crs=dst_crs,
-                            validity_check=validity_check
-                        )
+                    # reproject each feature to tile CRS
+                    g = reproject_geometry(
+                        clean_geometry_type(
+                            clipped_geom,
+                            original_geom.geom_type,
+                            raise_exception=False
+                        ),
+                        src_crs=src_crs,
+                        dst_crs=dst_crs,
+                        validity_check=validity_check
+                    )
+                    if not g.is_empty:
                         yield {
                             'properties': feature['properties'],
                             'geometry': mapping(g)
                         }
                 # this can be handled quietly
-                except GeometryTypeError:
-                    pass
                 except TopologicalError as e:  # pragma: no cover
                     logger.warning("feature omitted: %s", e)
 

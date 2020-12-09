@@ -75,6 +75,11 @@ def _validate_bidx(ctx, param, bidx):
     type=click.Choice(dtype_ranges.keys()),
     help="Output data type (for raster output only)."
 )
+@click.option(
+    "--output-geometry-type",
+    type=click.STRING,
+    help="Output geometry type (for vector output only)."
+)
 @creation_options
 @click.option(
     "--scale-ratio",
@@ -130,6 +135,7 @@ def convert(
     output_metatiling=None,
     output_format=None,
     output_dtype=None,
+    output_geometry_type=None,
     creation_options=None,
     scale_ratio=None,
     scale_offset=None,
@@ -155,7 +161,7 @@ def convert(
     # collect mapchete configuration
     mapchete_config = dict(
         process="mapchete.processes.convert",
-        input=dict(raster=input_, clip=clip_geometry),
+        input=dict(inp=input_, clip=clip_geometry),
         pyramid=(
             dict(
                 grid=output_pyramid,
@@ -193,7 +199,7 @@ def convert(
             **dict(
                 overviews=True,
                 overviews_resampling=overviews_resampling_method
-            ) if overviews else dict()
+            ) if overviews else dict(),
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info["zoom_levels"],
@@ -230,6 +236,10 @@ def convert(
                 output_type, input_info["input_type"]
             )
         )
+    if output_metatiling:
+        mapchete_config["output"].update(metatiling=output_metatiling)
+    if input_info["output_params"].get("schema") and output_geometry_type:
+        mapchete_config["output"]["schema"].update(geometry=output_geometry_type)
 
     # determine process bounds
     out_pyramid = BufferedTilePyramid.from_dict(mapchete_config["pyramid"])
@@ -306,7 +316,10 @@ def _get_input_info(input_):
             logger.debug("input is raster_file")
             input_info = _input_rasterio_info(input_)
 
-        else:
+        elif driver == "vector_file":
+            # this should be readable by Fiona
+            input_info = _input_fiona_info(input_)
+        else:  # pragma: no cover
             raise NotImplementedError("driver %s is not supported" % driver)
 
     # assuming tile directory
@@ -345,6 +358,21 @@ def _input_rasterio_info(input_):
             zoom_levels=None,
             pixel_size=src.transform[0],
             input_type="raster",
+            bounds=src.bounds
+        )
+
+
+def _input_fiona_info(input_):
+    with fiona.open(input_) as src:
+        return dict(
+            output_params=dict(
+                schema=src.schema,
+                format=src.driver if src.driver in available_input_formats() else None
+            ),
+            pyramid=None,
+            crs=src.crs,
+            zoom_levels=None,
+            input_type="vector",
             bounds=src.bounds
         )
 

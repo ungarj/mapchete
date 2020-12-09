@@ -202,6 +202,7 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
                 out_tile = BufferedTile(tile, self.pixelbuffer)
                 write_vector_window(
                     in_data=data,
+                    out_driver=self.METADATA["driver_name"],
                     out_schema=self.output_params["schema"],
                     out_tile=out_tile,
                     out_path=out_path,

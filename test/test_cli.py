@@ -2,9 +2,11 @@
 
 from click.testing import CliRunner
 import fiona
+import geobuf
 import os
 import pytest
 from shapely import wkt
+from shapely.geometry import shape
 import rasterio
 from rasterio.io import MemoryFile
 from rio_cogeo.cogeo import cog_validate
@@ -529,6 +531,85 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
             assert data.mask.any()
 
 
+def test_convert_geojson(landpoly, mp_tmpdir):
+    run_cli([
+        "convert",
+        landpoly,
+        mp_tmpdir,
+        "--output-pyramid", "geodetic",
+        "--zoom", "4",
+    ])
+    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".geojson"])
+        with fiona.open(out_file, "r") as src:
+            assert len(src) == control
+            for f in src:
+                assert shape(f["geometry"]).is_valid
+
+
+def test_convert_geobuf(landpoly, mp_tmpdir):
+    # convert to geobuf
+    geobuf_outdir = os.path.join(mp_tmpdir, "geobuf")
+    run_cli([
+        "convert",
+        landpoly,
+        geobuf_outdir,
+        "--output-pyramid", "geodetic",
+        "--zoom", "4",
+        "--output-format", "Geobuf"
+    ])
+    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
+        out_file = os.path.join(*[geobuf_outdir, str(zoom), str(row), str(col) + ".pbf"])
+        with open(out_file, "rb") as src:
+            features = geobuf.decode(src.read())["features"]
+            assert len(features) == control
+            for f in features:
+                assert f["geometry"]["type"] == "Polygon"
+                assert shape(f["geometry"]).area
+
+    # convert from geobuf
+    geojson_outdir = os.path.join(mp_tmpdir, "geojson")
+    run_cli([
+        "convert",
+        geobuf_outdir,
+        geojson_outdir,
+        "--zoom", "4",
+        "--output-format", "GeoJSON"
+    ])
+    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
+        out_file = os.path.join(
+            *[geojson_outdir, str(zoom), str(row), str(col) + ".geojson"]
+        )
+        with fiona.open(out_file, "r") as src:
+            assert len(src) == control
+            for f in src:
+                assert shape(f["geometry"]).is_valid
+
+
+def test_convert_geobuf_multipolygon(landpoly, mp_tmpdir):
+    run_cli([
+        "convert",
+        landpoly,
+        mp_tmpdir,
+        "--output-pyramid", "geodetic",
+        "--zoom", "4",
+        "--output-format", "Geobuf",
+        "--output-geometry-type", "MultiPolygon"
+    ])
+    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [7, 30]):
+        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".pbf"])
+        with open(out_file, "rb") as src:
+            features = geobuf.decode(src.read())["features"]
+            assert len(features) == control
+            multipolygons = 0
+            for f in features:
+                assert f["geometry"]["type"] in ["Polygon", "MultiPolygon"]
+                assert shape(f["geometry"]).area
+                if f["geometry"]["type"] == "MultiPolygon":
+                    multipolygons += 1
+            assert multipolygons
+
+
 def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly):
     # output format required
     run_cli(
@@ -580,21 +661,6 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
         output_contains=(
             "Output format type (vector) is incompatible with input format (raster)."
         ),
-        raise_exc=False
-    )
-
-    # unsupported format
-    run_cli(
-        [
-            "convert",
-            landpoly,
-            mp_tmpdir,
-            "--output-pyramid", "geodetic",
-            "--zoom", "5",
-            "--output-format", "GeoJSON"
-        ],
-        expected_exit_code=2,
-        output_contains=("driver vector_file is not supported"),
         raise_exc=False
     )
 
@@ -951,6 +1017,7 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
             "--multi", "1"
         ]
     )
+
 
 def test_cp_http(mp_tmpdir, http_tiledir):
     # copy tiles and subset by bounds

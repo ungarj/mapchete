@@ -2,8 +2,8 @@ from fiona.transform import transform_geom
 from rasterio.crs import CRS
 from shapely.errors import TopologicalError
 from shapely.geometry import (
-    box, shape, mapping, MultiPoint, MultiLineString, MultiPolygon, Polygon,
-    LinearRing, LineString, base
+    box, GeometryCollection, shape, mapping, MultiPoint, MultiLineString, MultiPolygon,
+    Polygon, LinearRing, LineString, base
 )
 from shapely.validation import explain_validity
 
@@ -175,7 +175,9 @@ def multipart_to_singleparts(geom):
             yield geom
 
 
-def clean_geometry_type(geometry, target_type, allow_multipart=True):
+def clean_geometry_type(
+    geometry, target_type, allow_multipart=True, raise_exception=True
+):
     """
     Return geometry of a specific type if possible.
 
@@ -220,7 +222,9 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         if geometry.geom_type == "GeometryCollection":
             return target_multipart_type(
                 [
-                    clean_geometry_type(g, target_type, allow_multipart)
+                    clean_geometry_type(
+                        g, target_type, allow_multipart, raise_exception=raise_exception
+                    )
                     for g in geometry
                 ]
             )
@@ -230,6 +234,10 @@ def clean_geometry_type(geometry, target_type, allow_multipart=True):
         ):
             return geometry
 
-    raise GeometryTypeError(
-        "geometry type does not match: %s, %s" % (geometry.geom_type, target_type)
-    )
+    if raise_exception:
+        raise GeometryTypeError(
+            "geometry type does not match: %s, %s" % (geometry.geom_type, target_type)
+        )
+
+    else:
+        return GeometryCollection()

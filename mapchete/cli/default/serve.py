@@ -150,8 +150,8 @@ def _valid_tile_response(mp, data):
         response = make_response(send_file(out_data, mime_type))
     elif isinstance(out_data, list):
         response = make_response(jsonify(data))
-    else:  # pragma: no cover
-        raise TypeError("invalid response type for web")
+    else:
+        response = make_response(out_data)
     response.headers['Content-Type'] = mime_type
     response.cache_control.no_write = True
     return response

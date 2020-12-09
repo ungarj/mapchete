@@ -4,6 +4,7 @@ import boto3
 from collections import namedtuple
 import os
 import pytest
+from shapely import wkt
 import shutil
 import uuid
 import yaml
@@ -21,12 +22,14 @@ ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 # flask test app for mapchete serve
 @pytest.fixture
-def app(dem_to_hillshade, cleantopo_br, geojson, mp_tmpdir):
+def app(dem_to_hillshade, cleantopo_br, geobuf, geojson, mp_tmpdir):
     """Dummy Flask app."""
     return create_app(
-        mapchete_files=[dem_to_hillshade.path, cleantopo_br.path, geojson.path],
-        zoom=None, bounds=None, single_input_file=None, mode="overwrite",
-        debug=True)
+        mapchete_files=[
+            dem_to_hillshade.path, cleantopo_br.path, geojson.path, geobuf.path
+        ],
+        zoom=None, bounds=None, single_input_file=None, mode="overwrite", debug=True
+    )
 
 
 # temporary directory for I/O tests
@@ -152,6 +155,14 @@ def landpoly_3857():
 def aoi_br_geojson():
     """Fixture for aoi_br.geojson"""
     return os.path.join(TESTDATA_DIR, "aoi_br.geojson")
+
+
+@pytest.fixture
+def geometrycollection():
+    """Fixture for geometrycollection.geojson"""
+    return wkt.loads(
+        "GEOMETRYCOLLECTION (LINESTRING (-100.9423828125 78.75, -100.8984375 78.75), LINESTRING (-100.2392578125 78.75, -99.9755859375 78.75), POLYGON ((-101.25 78.9697265625, -101.25 79.013671875, -101.2060546875 79.013671875, -101.2060546875 78.9697265625, -100.986328125 78.9697265625, -100.986328125 78.92578125, -101.0302734375 78.92578125, -101.0302734375 78.8818359375, -101.07421875 78.8818359375, -101.1181640625 78.8818359375, -101.1181640625 78.837890625, -101.162109375 78.837890625, -101.2060546875 78.837890625, -101.2060546875 78.7939453125, -100.9423828125 78.7939453125, -100.9423828125 78.75, -101.25 78.75, -101.25 78.9697265625)), POLYGON ((-100.8984375 78.75, -100.8984375 78.7939453125, -100.5908203125 78.7939453125, -100.546875 78.7939453125, -100.546875 78.837890625, -100.3271484375 78.837890625, -100.3271484375 78.7939453125, -100.2392578125 78.7939453125, -100.2392578125 78.75, -100.8984375 78.75)))"
+    )
 
 
 @pytest.fixture
@@ -402,6 +413,22 @@ def geojson():
 def geojson_s3():
     """Fixture for geojson.mapchete with updated output path."""
     path = os.path.join(TESTDATA_DIR, "geojson.mapchete")
+    config = _dict_from_mapchete(path)
+    config["output"].update(path=S3_TEMP_DIR)
+    return ExampleConfig(path=None, dict=config)
+
+
+@pytest.fixture
+def geobuf():
+    """Fixture for geobuf.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "geobuf.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def geobuf_s3():
+    """Fixture for geobuf.mapchete with updated output path."""
+    path = os.path.join(TESTDATA_DIR, "geobuf.mapchete")
     config = _dict_from_mapchete(path)
     config["output"].update(path=S3_TEMP_DIR)
     return ExampleConfig(path=None, dict=config)
