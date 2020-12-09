@@ -238,10 +238,8 @@ def convert(
         )
     if output_metatiling:
         mapchete_config["output"].update(metatiling=output_metatiling)
-    if input_info["output_params"].get("schema"):
-        mapchete_config["output"]["schema"].update(
-            geometry=output_geometry_type or input_info["output_params"].get("geometry")
-        )
+    if input_info["output_params"].get("schema") and output_geometry_type:
+        mapchete_config["output"]["schema"].update(geometry=output_geometry_type)
 
     # determine process bounds
     out_pyramid = BufferedTilePyramid.from_dict(mapchete_config["pyramid"])

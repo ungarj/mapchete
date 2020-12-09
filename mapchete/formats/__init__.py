@@ -130,7 +130,7 @@ def load_input_reader(input_params, readonly=False):
         if hasattr(driver_, "METADATA") and (
             driver_.METADATA["driver_name"] == driver_name
         ):
-            return v.load().InputData(input_params, readonly=readonly)
+            return driver_.InputData(input_params, readonly=readonly)
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 
@@ -148,7 +148,7 @@ def driver_metadata(driver_name):
 
 def driver_from_file(input_file):
     """
-    Guess driver from file extension.
+    Guess driver from file by opening it.
 
     Returns
     -------
@@ -173,6 +173,29 @@ def driver_from_file(input_file):
                 )
             else:
                 raise FileNotFoundError("%s does not exist" % input_file)
+
+
+def data_type_from_extension(file_extension):
+    """
+    Guess data_type (raster or vector) from file extension.
+
+    Returns
+    -------
+    driver : string
+        driver name
+    """
+    for v in drivers:
+        driver = v.load()
+        try:
+            driver_extensions = driver.METADATA.get("file_extensions")
+            if driver_extensions and file_extension in driver_extensions:
+                return driver.METADATA["data_type"]
+        except AttributeError:
+            pass
+    else:
+        raise ValueError(
+            f"data type for file extension {file_extension} could not be found"
+        )
 
 
 def params_to_dump(params):
