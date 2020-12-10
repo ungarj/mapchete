@@ -1030,3 +1030,24 @@ def test_cp_http(mp_tmpdir, http_tiledir):
             "-b", "3.0", "1.0", "4.0", "2.0"
         ]
     )
+
+
+def test_rm(mp_tmpdir, cleantopo_br):
+    run_cli(
+        [
+            "execute", cleantopo_br.path,
+            "-z", "5",
+            "-b", "169.19251592399996", "-90", "180", "-80.18582802550002"
+        ]
+    )
+    out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
+    assert os.path.exists(os.path.join(*[out_path, "5", "3", "7.tif"]))
+    run_cli(
+        [
+            "rm", out_path,
+            "-z", "5",
+            "-b", "169.19251592399996", "-90", "180", "-80.18582802550002",
+            "-f"
+        ]
+    )
+    assert not os.path.exists(os.path.join(*[out_path, "5", "3", "7.tif"]))

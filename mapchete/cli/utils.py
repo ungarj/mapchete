@@ -357,7 +357,11 @@ opt_http_password = click.option(
     type=click.STRING,
     help="Password for HTTP Auth."
 )
-
+opt_force = click.option(
+    "-f", "--force",
+    is_flag=True,
+    help="Don't ask, just do."
+)
 
 # convenience processing functions #
 ####################################
