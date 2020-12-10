@@ -4,6 +4,29 @@ Changelog
 
 
 -----------------
+0.38 - 2020-12-10
+-----------------
+
+* core
+  * allow multipart geometries in GeoJSON (#300)
+  * add `Geobuf` output format as alternative to store vector data (#302)
+  * CLI:
+    * `convert`
+      * enable converting vector data (#302)
+      * add `--output-geometry-type` option for vector data output (#302)
+      * fix omission of `--output-metatiling` (#302)
+    * add `rm` command  (#306)
+  * add `mapchete.formats.driver_metadata()` (#302)
+  * add `mapchete.formats.data_type_from_extension()` (#302)
+  * enable guessing data type (raster or vector) when reading from Tile Directories (#302)
+  * `mapchete.io.clean_geometry_type()`: add `raise_exception` flag to disable raising and returning an empty geometry instead (#302)
+  * fix issue with `rasterio>1.1.4` (fix tile_to_zoom_level()) (#308)
+* packaging
+  * don't parse requirements.txt in setup.py (#301)
+  * add test requirements (#302)
+
+
+-----------------
 0.37 - 2020-11-25
 -----------------
 * core
