@@ -36,7 +36,7 @@ def test_example_process(cleantopo_tl):
         assert output == "empty"
 
 
-def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
+def test_convert_raster(cleantopo_tl, cleantopo_tl_tif, landpoly):
     with mapchete.open(
         dict(cleantopo_tl.dict, input=dict(inp=cleantopo_tl_tif))
     ) as mp:
@@ -106,6 +106,34 @@ def test_convert(cleantopo_tl, cleantopo_tl_tif, landpoly):
             input=mp.config.get_inputs_for_tile(tile),
         )
         assert convert.execute(user_process) == "empty"
+
+
+def test_convert_vector(cleantopo_tl, landpoly):
+    with mapchete.open(
+        dict(cleantopo_tl.dict, input=dict(inp=landpoly))
+    ) as mp:
+        zoom = max(mp.config.zoom_levels)
+        # execute without clip
+        tile = next(mp.get_process_tiles(zoom))
+        user_process = mapchete.MapcheteProcess(
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
+        )
+        assert isinstance(convert.execute(user_process), list)
+        # execute on empty tile
+        tile = mp.config.process_pyramid.tile(
+            zoom,
+            mp.config.process_pyramid.matrix_height(zoom) - 1,
+            mp.config.process_pyramid.matrix_width(zoom) - 1
+        )
+        user_process = mapchete.MapcheteProcess(
+            tile=tile,
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
+        )
+        assert convert.execute(user_process) == "empty"
+
 
 
 def test_contours(cleantopo_tl, cleantopo_tl_tif, landpoly):
