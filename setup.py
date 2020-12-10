@@ -23,7 +23,7 @@ with open("README.rst") as f:
 install_requires = [
     "cachetools",
     "cached_property",
-    "click>=7.1.1",
+    "click>=7.1.1,<8",
     "click-plugins",
     "click-spinner",
     "fiona>=1.8.13.post1",
