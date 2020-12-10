@@ -100,6 +100,31 @@ def makedirs(path):
             pass
 
 
+def rm(paths, fs=None, recursive=False):
+    """
+    Remove one or multiple paths from file system.
+
+    Note: all paths have to be from the same file system!
+
+    Parameters
+    ----------
+    paths : str or list
+    fs : fsspec.FileSystem
+    """
+    paths = [paths] if isinstance(paths, str) else paths
+    fs = fs or fs_from_path(paths[0])
+    logger.debug(f"got {len(paths)} path(s) on {fs}")
+
+    # s3fs enables multiple paths as input, so let's use this:
+    if fs.protocol == "s3":  # pragma: no cover
+        fs.rm(paths, recursive=recursive)
+
+    # otherwise, just iterate through the paths
+    else:
+        for path in paths:
+            fs.rm(path, recursive=recursive)
+
+
 def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
     """
     Yield tiles and whether their output already exists or not.

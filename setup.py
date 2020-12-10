@@ -68,6 +68,7 @@ setup(
             "formats=mapchete.cli.default.formats:formats",
             "index=mapchete.cli.default.index:index",
             "processes=mapchete.cli.default.processes:processes",
+            "rm=mapchete.cli.default.rm:rm_",
             "serve=mapchete.cli.default.serve:serve",
         ],
         "mapchete.formats.drivers": [
