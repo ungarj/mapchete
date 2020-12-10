@@ -929,6 +929,11 @@ def test_tile_to_zoom_level():
         tp_geod,
         matching_method="min"
     ) == 12
+    assert tile_to_zoom_level(
+        BufferedTilePyramid("mercator", metatiling=2, pixelbuffer=20).tile(4, 0, 7),
+        BufferedTilePyramid("geodetic", metatiling=8, pixelbuffer=20),
+        matching_method="gdal"
+    ) == 4
 
     # geodetic from mercator
     # at Northern boundary

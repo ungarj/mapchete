@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ 3.6, 3.7, 3.8 ]
-        rasterio-version: [ 1.1.4 ]
+        rasterio-version: [ 1.1.4, "latest" ]
         experimental: [ false ]
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}

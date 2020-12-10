@@ -129,15 +129,18 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
     else:
         if matching_method == "gdal":
             # use rasterio/GDAL method to calculate default warp target properties
-            transform, width, height = calculate_default_transform(
-                tile.tp.crs,
-                dst_pyramid.crs,
-                tile.width,
-                tile.height,
-                *tile.bounds
-            )
-            # this is the resolution the tile would have in destination TilePyramid CRS
-            tile_resolution = round(transform[0], precision)
+            # enabling CHECK_WITH_INVERT_PROJ fixes #269, otherwise this function would
+            # return a non-optimal zooom level for reprojection
+            with rasterio.Env(CHECK_WITH_INVERT_PROJ=True):
+                transform, width, height = calculate_default_transform(
+                    tile.tp.crs,
+                    dst_pyramid.crs,
+                    tile.width,
+                    tile.height,
+                    *tile.bounds
+                )
+                # this is the resolution the tile would have in destination CRS
+                tile_resolution = round(transform[0], precision)
         elif matching_method == "min":
             # calculate the minimum pixel size from the four tile corner pixels
             l, b, r, t = tile.bounds
