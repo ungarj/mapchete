@@ -253,7 +253,6 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
     if path.startswith("s3://"):
-        logger.debug("use s3 filesystem")
         return fsspec.filesystem(
             "s3",
             requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
@@ -266,12 +265,10 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
             auth = BasicAuth(username, password)
         else:
             auth = None
-        logger.debug("use http filesystem")
         return fsspec.filesystem(
             "https",
             auth=auth,
             asynchronous=False,
         )
     else:
-        logger.debug("use local filesystem")
         return fsspec.filesystem("file", asynchronous=False)

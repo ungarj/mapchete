@@ -161,12 +161,14 @@ def driver_from_file(input_file):
     try:
         with rasterio.open(input_file):
             return "raster_file"
-    except:
+    except Exception as rio_exception:
         try:
             with fiona.open(input_file):
                 return "vector_file"
-        except:
+        except Exception as fio_exception:
             if path_exists(input_file):
+                logger.exception(f"fiona error: {fio_exception}")
+                logger.exception(f"rasterio error: {rio_exception}")
                 raise MapcheteDriverError(
                     "%s has an unknown file extension or could not be opened by neither "
                     "rasterio nor fiona." % input_file
