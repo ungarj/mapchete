@@ -116,7 +116,7 @@ def rm(paths, fs=None, recursive=False):
     logger.debug(f"got {len(paths)} path(s) on {fs}")
 
     # s3fs enables multiple paths as input, so let's use this:
-    if fs.protocol == "s3":  # pragma: no cover
+    if "s3" in fs.protocol:  # pragma: no cover
         fs.rm(paths, recursive=recursive)
 
     # otherwise, just iterate through the paths
