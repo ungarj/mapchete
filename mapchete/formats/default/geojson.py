@@ -122,7 +122,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         validate_values(config["schema"], [("properties", dict), ("geometry", str)])
         if config["schema"]["geometry"] not in [
             "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
-            "Polygon", "MultiPolygon"
+            "Polygon", "MultiPolygon", "Unknown"
         ]:  # pragma: no cover
             raise TypeError("invalid geometry type")
         return True
