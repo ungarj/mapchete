@@ -435,6 +435,22 @@ def geobuf_s3():
 
 
 @pytest.fixture
+def flatgeobuf():
+    """Fixture for flatgeobuf.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "flatgeobuf.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
+def flatgeobuf_s3():
+    """Fixture for flatgeobuf.mapchete with updated output path."""
+    path = os.path.join(TESTDATA_DIR, "flatgeobuf.mapchete")
+    config = _dict_from_mapchete(path)
+    config["output"].update(path=S3_TEMP_DIR)
+    return ExampleConfig(path=None, dict=config)
+
+
+@pytest.fixture
 def geojson_tiledir():
     """Fixture for geojson_tiledir.mapchete."""
     path = os.path.join(TESTDATA_DIR, "geojson_tiledir.mapchete")

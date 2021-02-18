@@ -18,19 +18,11 @@ schema: key-value pairs
     Polygon, MultiPolygon)
 """
 
-import fiona
-from fiona.errors import DriverError
-import logging
-import types
+import warnings
 
-from mapchete.config import validate_values
 from mapchete.formats.default import _fiona_base
-from mapchete.io import get_boto3_bucket
-from mapchete.io.vector import write_vector_window
-from mapchete.tile import BufferedTile
 
 
-logger = logging.getLogger(__name__)
 METADATA = {
     "driver_name": "FlatGeobuf",
     "data_type": "vector",
@@ -72,6 +64,18 @@ class OutputDataReader(_fiona_base.OutputDataReader):
         super().__init__(output_params)
         self.path = output_params["path"]
         self.file_extension = ".fgb"
+
+        # make sure only field types allowed by FlatGeobuf are defined
+        for k, v in output_params["schema"]["properties"].items():
+            if v == "date":
+                warnings.warn(
+                    UserWarning(
+                        f"""'{k}' field has type '{v}' which is not allowed by FlatGeobuf """
+                        """and will be changed to 'string'"""
+                    )
+                )
+                output_params["schema"]["properties"][k] = "str"
+
         self.output_params = output_params
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
