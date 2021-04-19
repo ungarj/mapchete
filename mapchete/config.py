@@ -73,6 +73,16 @@ _RESERVED_PARAMETERS = [
     "process_bounds",   # process boundaries (deprecated)
 ]
 
+# parameters for output configuration
+_OUTPUT_PARAMETERS = [
+    "format",
+    "path",
+    "grid",
+    "pixelbuffer",
+    "metatiling",
+    "delimiters",
+    "mode"
+]
 
 class MapcheteConfig(object):
     """
