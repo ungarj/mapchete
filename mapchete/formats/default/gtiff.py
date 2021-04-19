@@ -447,6 +447,10 @@ class GTiffSingleFileOutputWriter(
         )
         logger.debug("output raster bounds: %s", bounds)
         logger.debug("output raster shape: %s, %s", height, width)
+        creation_options = {
+            k: v  for k, v in self.output_params.items()
+            if k not in _OUTPUT_PARAMETERS
+        }
         self._profile = dict(
             GTIFF_DEFAULT_PROFILE,
             driver="GTiff",
@@ -462,15 +466,14 @@ class GTiffSingleFileOutputWriter(
             width=width,
             count=self.output_params["bands"],
             crs=self.pyramid.crs,
-            **{
-                k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
-                for k in GTIFF_DEFAULT_PROFILE.keys()
-            },
-            bigtiff=self.output_params.get("bigtiff", "NO"),
-            **{
-                k: v  for k, v in self.output_params.items()
-                if k not in _OUTPUT_PARAMETERS
-            }
+            **dict(
+                {
+                    k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
+                    for k in GTIFF_DEFAULT_PROFILE.keys()
+                },
+                **creation_options
+            ),
+            bigtiff=self.output_params.get("bigtiff", "NO")
         )
         logger.debug("single GTiff profile: %s", self._profile)
         self.in_memory = (
