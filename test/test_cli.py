@@ -7,6 +7,7 @@ import os
 import pytest
 from shapely import wkt
 from shapely.geometry import shape
+import shapely.geos
 import rasterio
 from rasterio.io import MemoryFile
 from rio_cogeo.cogeo import cog_validate
@@ -19,6 +20,23 @@ from mapchete.errors import MapcheteProcessOutputError
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
+
+
+
+def version_is_greater_equal(a, b):
+    a_major, a_minor, a_patch = a
+    b_major, b_minor, b_patch = b
+    if a_major > b_major:
+        return True
+    elif a_major == b_major:
+        if a_minor > b_minor:
+            return True
+        elif a_minor == b_minor:
+            return a_patch >= b_patch
+        else:
+            return False
+    else:
+        return False
 
 
 def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
@@ -568,6 +586,12 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
                 assert shape(f["geometry"]).area
 
     # convert from geobuf
+    # NOTE: if shapely was built using GEOS 3.8.0 or smaller, there is one more feature
+    if version_is_greater_equal(shapely.geos.geos_version, (3, 9, 0)):
+        zoom9_control = 31
+    else:
+        zoom9_control = 32
+
     geojson_outdir = os.path.join(mp_tmpdir, "geojson")
     run_cli([
         "convert",
@@ -576,7 +600,7 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
         "--zoom", "4",
         "--output-format", "GeoJSON"
     ])
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
+    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, zoom9_control]):
         out_file = os.path.join(
             *[geojson_outdir, str(zoom), str(row), str(col) + ".geojson"]
         )
