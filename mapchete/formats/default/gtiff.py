@@ -47,7 +47,7 @@ from tempfile import NamedTemporaryFile
 from tilematrix import Bounds
 import warnings
 
-from mapchete.config import validate_values, snap_bounds
+from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import (
@@ -318,9 +318,11 @@ class GTiffTileDirectoryOutputReader(
         dst_metadata = dict(
             GTIFF_DEFAULT_PROFILE,
             count=self.output_params["bands"],
-            dtype=self.output_params["dtype"],
             driver="GTiff",
-            nodata=self.output_params["nodata"]
+            **{
+                k: v  for k, v in self.output_params.items()
+                if k not in _OUTPUT_PARAMETERS
+            }
         )
         dst_metadata.pop("transform", None)
         if tile is not None:
@@ -445,6 +447,10 @@ class GTiffSingleFileOutputWriter(
         )
         logger.debug("output raster bounds: %s", bounds)
         logger.debug("output raster shape: %s, %s", height, width)
+        creation_options = {
+            k: v  for k, v in self.output_params.items()
+            if k not in _OUTPUT_PARAMETERS
+        }
         self._profile = dict(
             GTIFF_DEFAULT_PROFILE,
             driver="GTiff",
@@ -460,10 +466,13 @@ class GTiffSingleFileOutputWriter(
             width=width,
             count=self.output_params["bands"],
             crs=self.pyramid.crs,
-            **{
-                k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
-                for k in GTIFF_DEFAULT_PROFILE.keys()
-            },
+            **dict(
+                {
+                    k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
+                    for k in GTIFF_DEFAULT_PROFILE.keys()
+                },
+                **creation_options
+            ),
             bigtiff=self.output_params.get("bigtiff", "NO")
         )
         logger.debug("single GTiff profile: %s", self._profile)
