@@ -133,7 +133,7 @@ def _read_raster_window(
                 ).astype(dst_array.dtype, copy=False),
                 mask=np.where(
                     f_array.mask, dst_array.mask, f_array.mask
-                ).astype(np.bool, copy=False)
+                ).astype(bool, copy=False)
             )
         return dst_array
     else:
