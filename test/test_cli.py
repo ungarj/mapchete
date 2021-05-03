@@ -11,6 +11,7 @@ import shapely.geos
 import rasterio
 from rasterio.io import MemoryFile
 from rio_cogeo.cogeo import cog_validate
+import warnings
 import yaml
 
 import mapchete
@@ -288,11 +289,13 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col) + ".png"])
-        with rasterio.open(out_file, "r") as src:
-            assert src.meta["driver"] == "PNG"
-            assert src.meta["dtype"] == "uint8"
-            data = src.read(masked=True)
-            assert data.mask.any()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with rasterio.open(out_file, "r") as src:
+                assert src.meta["driver"] == "PNG"
+                assert src.meta["dtype"] == "uint8"
+                data = src.read(masked=True)
+                assert data.mask.any()
 
 
 def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
@@ -751,19 +754,23 @@ def test_serve(client, mp_tmpdir):
         response = client.get(url)
         assert response.status_code == 200
         img = response.data
-        with MemoryFile(img) as memfile:
-            with memfile.open() as dataset:
-                data = dataset.read()
-                # get alpha band and assert some pixels are masked
-                assert data[3].any()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with MemoryFile(img) as memfile:
+                with memfile.open() as dataset:
+                    data = dataset.read()
+                    # get alpha band and assert some pixels are masked
+                    assert data[3].any()
     # test outside zoom range
     response = client.get(tile_base_url + "6/31/63.png")
     assert response.status_code == 200
     img = response.data
-    with MemoryFile(img) as memfile:
-        with memfile.open() as dataset:
-            data = dataset.read()
-            assert not data.all()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with MemoryFile(img) as memfile:
+            with memfile.open() as dataset:
+                data = dataset.read()
+                assert not data.all()
     # test invalid url
     response = client.get(tile_base_url + "invalid_url")
     assert response.status_code == 404

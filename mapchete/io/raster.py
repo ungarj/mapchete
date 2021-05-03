@@ -842,11 +842,13 @@ def memory_file(data=None, profile=None):
         rasterio profile for MemoryFile
     """
     memfile = MemoryFile()
-    with memfile.open(
-        **dict(profile, width=data.shape[-2], height=data.shape[-1])
-    ) as dataset:
-        dataset.write(data)
-    return memfile
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with memfile.open(
+            **dict(profile, width=data.shape[-2], height=data.shape[-1])
+        ) as dataset:
+            dataset.write(data)
+        return memfile
 
 
 def prepare_array(data, masked=True, nodata=0, dtype="int16"):
