@@ -96,7 +96,7 @@ def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
     )
     # edit configuration
     with open(temp_mapchete, "r") as config_file:
-        config = yaml.load(config_file)
+        config = yaml.safe_load(config_file)
         config["output"].update(bands=1, dtype="uint8", path=mp_tmpdir)
     with open(temp_mapchete, "w") as config_file:
         config_file.write(yaml.dump(config, default_flow_style=False))
@@ -141,7 +141,7 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     ])
     # edit configuration
     with open(temp_mapchete, "r") as config_file:
-        config = yaml.load(config_file)
+        config = yaml.safe_load(config_file)
         config["output"].update(bands=1, dtype="uint8", path=mp_tmpdir)
     with open(temp_mapchete, "w") as config_file:
         config_file.write(yaml.dump(config, default_flow_style=False))
