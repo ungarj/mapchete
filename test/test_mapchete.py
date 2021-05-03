@@ -15,13 +15,13 @@ except ImportError:
     from pickle import dumps
 from functools import partial
 from multiprocessing import Pool
-from shapely.geometry import shape
+from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
 import mapchete
 from mapchete.io.raster import create_mosaic, _shift_required
 from mapchete.errors import MapcheteProcessOutputError
-from mapchete.tile import BufferedTilePyramid
+from mapchete.tile import BufferedTilePyramid, count_tiles
 
 
 def test_empty_execute(mp_tmpdir, cleantopo_br):
@@ -445,6 +445,15 @@ def test_count_tiles(zoom_mapchete):
             assert len(list(mp.get_process_tiles())) == mapchete.count_tiles(
                 mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom,
                 maxzoom)
+
+
+def test_count_tiles_mercator():
+    for metatiling in [1, 2, 4, 8, 16]:
+        tp = BufferedTilePyramid("mercator", metatiling=metatiling)
+        for zoom in range(13):
+            count_by_geom = count_tiles(box(*tp.bounds), tp, zoom, zoom)
+            count_by_tp = tp.matrix_width(zoom) * tp.matrix_height(zoom)
+            assert count_by_geom == count_by_tp
 
 
 def test_batch_process(mp_tmpdir, cleantopo_tl):
