@@ -75,6 +75,7 @@ class DefaultGTiffProfile(Profile):
         "tiled": True,
         "dtype": "uint8",
         "compress": "deflate",
+        "predictor": 2,
         "interleave": "band",
         "nodata": 0
     }
