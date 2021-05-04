@@ -14,7 +14,6 @@ from cached_property import cached_property
 from collections import OrderedDict
 from copy import deepcopy
 import fiona
-import imp
 import importlib
 import inspect
 import logging
@@ -26,6 +25,7 @@ from shapely import wkt
 from shapely.geometry import box, Point, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import cascaded_union
+import sys
 from tilematrix._funcs import Bounds
 import warnings
 
@@ -995,15 +995,19 @@ def get_process_func(process_path=None, config_dir=None, run_compile=False):
 
 def _load_process_module(process_path=None, config_dir=None, run_compile=False):
     if process_path.endswith(".py"):
-        abs_path = os.path.join(config_dir, process_path)
-        if not os.path.isfile(abs_path):
-            raise MapcheteConfigError("%s is not available" % abs_path)
+        module_path = os.path.join(config_dir, process_path)
+        if not os.path.isfile(module_path):
+            raise MapcheteConfigError(f"{module_path} is not available")
         try:
             if run_compile:
-                py_compile.compile(abs_path, doraise=True)
-            module = imp.load_source(
-                os.path.splitext(os.path.basename(abs_path))[0], abs_path
-            )
+                py_compile.compile(module_path, doraise=True)
+            module_name = os.path.splitext(os.path.basename(module_path))[0]
+            # load module
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            # required to make imported module available using multiprocessing
+            sys.modules[module_name] = module
             # configure process file logger
             add_module_logger(module.__name__)
         except py_compile.PyCompileError as e:

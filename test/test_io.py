@@ -394,7 +394,7 @@ def test_resample_from_array():
     out_tile = BufferedTilePyramid("geodetic").tile(6, 10, 10)
     out_array = resample_from_array(in_data, in_tile.affine, out_tile)
     # deprecated
-    resample_from_array(in_data, in_tile.affine, out_tile, nodataval=-9999)
+    resample_from_array(in_data, in_tile.affine, out_tile, nodata=-9999)
     # errors
     with pytest.raises(TypeError):
         in_data = "invalid_type"

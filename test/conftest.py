@@ -486,6 +486,6 @@ def s3_example_tile(gtiff_s3):
 
 # helper functions
 def _dict_from_mapchete(path):
-    config = yaml.load(open(path).read())
+    config = yaml.safe_load(open(path).read())
     config.update(config_dir=os.path.dirname(path))
     return config

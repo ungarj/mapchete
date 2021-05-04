@@ -531,7 +531,10 @@ class GTiffSingleFileOutputWriter(
         -------
         NumPy array
         """
-        return read_raster_window(self.dst, output_tile)
+        return self.dst.read(
+            window=self.dst.window(*output_tile.bounds),
+            masked=True
+        )
 
     def get_path(self, tile=None):
         """

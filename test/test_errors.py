@@ -130,7 +130,7 @@ def test_wrong_bounds(example_mapchete):
     with pytest.raises(errors.MapcheteConfigError):
         MapcheteConfig(example_mapchete.dict, bounds=[2, 3])
     with pytest.raises(errors.MapcheteConfigError):
-        MapcheteConfig(dict(example_mapchete.dict, process_bounds=[2, 3]))
+        MapcheteConfig(dict(example_mapchete.dict, bounds=[2, 3]))
 
 
 def test_empty_input_files(example_mapchete):
@@ -183,7 +183,8 @@ def test_invalid_zoom_levels(example_mapchete):
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
         config.pop("zoom_levels")
-        MapcheteConfig(config)
+        with pytest.deprecated_call():
+            MapcheteConfig(config)
     # invalid single zoom level
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
