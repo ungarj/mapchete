@@ -547,7 +547,7 @@ def resample_from_array(
     -------
     resampled array : array
     """
-    if nodataval is not None:
+    if nodataval is not None:  # pragma: no cover
         warnings.warn("'nodataval' is deprecated, please use 'nodata'")
         nodata = nodata or nodataval
     # TODO rename function
