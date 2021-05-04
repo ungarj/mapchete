@@ -315,8 +315,12 @@ def _rasterio_read(
             except:
                 raise e
             raise FileNotFoundError("%s not found" % input_file)
-    else:
+    else:  # pragma: no cover
         logger.debug("assuming file object %s", input_file)
+        warnings.warn(
+            "passing on a rasterio dataset object is not recommended, see "
+            "https://github.com/mapbox/rasterio/issues/1309"
+        )
         return _read(
             input_file, indexes, dst_bounds, dst_shape, dst_crs, resampling,
             src_nodata, dst_nodata
