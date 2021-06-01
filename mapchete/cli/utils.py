@@ -28,10 +28,13 @@ MULTIPROCESSING_START_METHOD_DEFAULT = (
 #########################
 def write_verbose_msg(process_info, dst):
     tqdm.tqdm.write(
-        "Tile %s: %s, %s" % (
-            tuple(process_info.tile.id), process_info.process_msg, process_info.write_msg
+        "Tile %s: %s, %s"
+        % (
+            tuple(process_info.tile.id),
+            process_info.process_msg,
+            process_info.write_msg,
         ),
-        file=dst
+        file=dst,
     )
 
 
@@ -87,68 +90,42 @@ def _setup_logfile(ctx, param, logfile):
 
 # click arguments #
 ###################
-arg_mapchete_file = click.argument(
-    "mapchete_file",
-    type=click.Path(exists=True)
-)
-arg_create_mapchete_file = click.argument(
-    "mapchete_file",
-    type=click.Path()
-)
+arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
+arg_create_mapchete_file = click.argument("mapchete_file", type=click.Path())
 arg_mapchete_files = click.argument(
     "mapchete_files",
     type=click.Path(exists=True),
     nargs=-1,
-    callback=_validate_mapchete_files
+    callback=_validate_mapchete_files,
 )
-arg_process_file = click.argument(
-    "process_file",
-    type=click.Path()
-)
+arg_process_file = click.argument("process_file", type=click.Path())
 arg_out_format = click.argument(
-    "out_format",
-    type=click.Choice(available_output_formats())
+    "out_format", type=click.Choice(available_output_formats())
 )
-arg_input_raster = click.argument(
-    "input_raster",
-    type=click.Path(exists=True)
-)
-arg_out_dir = click.argument(
-    "output_dir",
-    type=click.Path()
-)
-arg_input = click.argument(
-    "input_",
-    metavar="INPUT",
-    type=click.STRING
-)
+arg_input_raster = click.argument("input_raster", type=click.Path(exists=True))
+arg_out_dir = click.argument("output_dir", type=click.Path())
+arg_input = click.argument("input_", metavar="INPUT", type=click.STRING)
 arg_inputs = click.argument(
-    "inputs",
-    metavar="INPUTS",
-    nargs=-1,
-    callback=_validate_inputs
+    "inputs", metavar="INPUTS", nargs=-1, callback=_validate_inputs
 )
-arg_output = click.argument(
-    "output",
-    type=click.STRING
-)
+arg_output = click.argument("output", type=click.STRING)
 
 
 # click options #
 #################
 opt_out_path = click.option(
-    "--out-path", "-op",
+    "--out-path",
+    "-op",
     type=click.Path(),
     default=os.path.join(os.getcwd(), "output"),
-    help="Process output path."
+    help="Process output path.",
 )
 opt_idx_out_dir = click.option(
-    "--idx-out-dir", "-od",
-    type=click.Path(),
-    help="Index output directory."
+    "--idx-out-dir", "-od", type=click.Path(), help="Index output directory."
 )
 opt_input_file = click.option(
-    "--input-file", "-i",
+    "--input-file",
+    "-i",
     type=click.Path(),
     help=(
         """Specify an input file via command line (in mapchete file, """
@@ -156,12 +133,14 @@ opt_input_file = click.option(
     ),
 )
 opt_zoom = click.option(
-    "--zoom", "-z",
+    "--zoom",
+    "-z",
     callback=_validate_zoom,
     help="Single zoom level or min and max separated by ','.",
 )
 opt_bounds = click.option(
-    "--bounds", "-b",
+    "--bounds",
+    "-b",
     type=click.FLOAT,
     nargs=4,
     callback=_validate_bounds,
@@ -173,7 +152,8 @@ opt_bounds_crs = click.option(
     help="CRS of --bounds. (default: process CRS)",
 )
 opt_area = click.option(
-    "--area", "-a",
+    "--area",
+    "-a",
     type=click.STRING,
     help="Process area as either WKT string or path to vector file.",
 )
@@ -183,69 +163,60 @@ opt_area_crs = click.option(
     help="CRS of --area (does not override CRS of vector file). (default: process CRS)",
 )
 opt_point = click.option(
-    "--point", "-p",
+    "--point",
+    "-p",
     type=click.FLOAT,
     nargs=2,
-    help="Process tiles over single point location."
+    help="Process tiles over single point location.",
 )
 opt_point_crs = click.option(
-    "--point-crs",
-    callback=_validate_crs,
-    help="CRS of --point. (default: process CRS)"
+    "--point-crs", callback=_validate_crs, help="CRS of --point. (default: process CRS)"
 )
 opt_wkt_geometry = click.option(
-    "--wkt-geometry", "-g",
+    "--wkt-geometry",
+    "-g",
     type=click.STRING,
     help="Take boundaries from WKT geometry in tile pyramid CRS.",
 )
 opt_tile = click.option(
-    "--tile", "-t",
-    type=click.INT,
-    nargs=3,
-    help="Zoom, row, column of single tile."
+    "--tile", "-t", type=click.INT, nargs=3, help="Zoom, row, column of single tile."
 )
 opt_overwrite = click.option(
-    "--overwrite", "-o",
-    is_flag=True,
-    help="Overwrite if tile(s) already exist(s)."
+    "--overwrite", "-o", is_flag=True, help="Overwrite if tile(s) already exist(s)."
 )
 opt_multi = click.option(
-    "--multi", "-m",
+    "--multi",
+    "-m",
     type=click.INT,
     help="Number of concurrent processes.",
 )
 opt_force = click.option(
-    "--force", "-f",
-    is_flag=True,
-    help="Overwrite if files already exist."
+    "--force", "-f", is_flag=True, help="Overwrite if files already exist."
 )
 opt_logfile = click.option(
-    "--logfile", "-l",
+    "--logfile",
+    "-l",
     type=click.Path(),
     callback=_setup_logfile,
-    help="Write debug log infos into file."
+    help="Write debug log infos into file.",
 )
 opt_verbose = click.option(
-    "--verbose", "-v",
-    is_flag=True,
-    help="Print info for each process tile."
+    "--verbose", "-v", is_flag=True, help="Print info for each process tile."
 )
-opt_no_pbar = click.option(
-    "--no-pbar",
-    is_flag=True,
-    help="Deactivate progress bar."
-)
+opt_no_pbar = click.option("--no-pbar", is_flag=True, help="Deactivate progress bar.")
 opt_debug = click.option(
-    "--debug", "-d",
+    "--debug",
+    "-d",
     is_flag=True,
     callback=_set_debug_log_level,
-    help="Deactivate progress bar and print debug log output."
+    help="Deactivate progress bar and print debug log output.",
 )
 opt_max_chunksize = click.option(
-    "--max-chunksize", "-c",
+    "--max-chunksize",
+    "-c",
     type=click.INT,
     default=1,
-    help="Maximum number of process tiles to be queued for each  worker. (default: 1)"
+    help="Maximum number of process tiles to be queued for each  worker. (default: 1)",
 )
 opt_multiprocessing_start_method = click.option(
     "--multiprocessing-start-method",
@@ -254,114 +225,89 @@ opt_multiprocessing_start_method = click.option(
     help=(
         "Method used by multiprocessing module to start child workers. Availability of "
         f"methods depends on OS (default: {MULTIPROCESSING_START_METHOD_DEFAULT})"
-    )
+    ),
 )
 opt_input_formats = click.option(
-    "--input-formats", "-i",
-    is_flag=True,
-    help="Show only input formats."
+    "--input-formats", "-i", is_flag=True, help="Show only input formats."
 )
 opt_output_formats = click.option(
-    "--output-formats", "-o",
-    is_flag=True,
-    help="Show only output formats."
+    "--output-formats", "-o", is_flag=True, help="Show only output formats."
 )
-opt_geojson = click.option(
-    "--geojson",
-    is_flag=True,
-    help="Write GeoJSON index."
-)
-opt_gpkg = click.option(
-    "--gpkg",
-    is_flag=True,
-    help="Write GeoPackage index."
-)
-opt_shp = click.option(
-    "--shp",
-    is_flag=True,
-    help="Write Shapefile index."
-)
-opt_vrt = click.option(
-    "--vrt",
-    is_flag=True,
-    help="Write VRT file."
-)
+opt_geojson = click.option("--geojson", is_flag=True, help="Write GeoJSON index.")
+opt_gpkg = click.option("--gpkg", is_flag=True, help="Write GeoPackage index.")
+opt_shp = click.option("--shp", is_flag=True, help="Write Shapefile index.")
+opt_vrt = click.option("--vrt", is_flag=True, help="Write VRT file.")
 opt_txt = click.option(
-    "--txt",
-    is_flag=True,
-    help="Write output tile paths to text file."
+    "--txt", is_flag=True, help="Write output tile paths to text file."
 )
 opt_fieldname = click.option(
     "--fieldname",
     type=click.STRING,
     default="location",
-    help="Field to store tile paths in."
+    help="Field to store tile paths in.",
 )
 opt_basepath = click.option(
     "--basepath",
     type=click.STRING,
-    help="Use other base path than given process output path."
+    help="Use other base path than given process output path.",
 )
 opt_for_gdal = click.option(
     "--for-gdal",
     is_flag=True,
-    help="Make remote paths readable by GDAL (not applied for txt output)."
+    help="Make remote paths readable by GDAL (not applied for txt output).",
 )
 opt_output_format = click.option(
-    "--output-format", "-of",
+    "--output-format",
+    "-of",
     type=click.Choice(["GTiff", "PNG"]),
     default="GTiff",
-    help="Output data format (GTiff or PNG)."
+    help="Output data format (GTiff or PNG).",
 )
 opt_pyramid_type = click.option(
-    "--pyramid-type", "-pt",
+    "--pyramid-type",
+    "-pt",
     type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
     default="geodetic",
-    help="Output pyramid type. (default: geodetic)"
+    help="Output pyramid type. (default: geodetic)",
 )
 opt_resampling_method = click.option(
-    "--resampling-method", "-r",
+    "--resampling-method",
+    "-r",
     type=click.Choice([it.name for it in Resampling if it.value in range(8)]),
     default="nearest",
     help=("Resampling method used. (default: nearest)"),
 )
 opt_port = click.option(
-    "--port", "-p",
+    "--port",
+    "-p",
     type=click.INT,
     default=5000,
     help="Port process is hosted on. (default: 5000)",
 )
 opt_internal_cache = click.option(
-    "--internal-cache", "-c",
+    "--internal-cache",
+    "-c",
     type=click.INT,
     default=1024,
     help="Number of web tiles to be cached in RAM. (default: 1024)",
 )
 opt_readonly = click.option(
-    "--readonly", "-ro",
-    is_flag=True,
-    help="Just read process output without writing."
+    "--readonly", "-ro", is_flag=True, help="Just read process output without writing."
 )
 opt_memory = click.option(
-    "--memory", "-mo",
+    "--memory",
+    "-mo",
     is_flag=True,
-    help="Always get output from freshly processed output."
+    help="Always get output from freshly processed output.",
 )
 opt_http_username = click.option(
-    "--username", "-u",
-    type=click.STRING,
-    help="Username for HTTP Auth."
+    "--username", "-u", type=click.STRING, help="Username for HTTP Auth."
 )
 opt_http_password = click.option(
-    "--password", "-p",
-    type=click.STRING,
-    help="Password for HTTP Auth."
+    "--password", "-p", type=click.STRING, help="Password for HTTP Auth."
 )
-opt_force = click.option(
-    "-f", "--force",
-    is_flag=True,
-    help="Don't ask, just do."
-)
+opt_force = click.option("-f", "--force", is_flag=True, help="Don't ask, just do.")
+
 
 # convenience processing functions #
 ####################################
@@ -375,7 +321,7 @@ def _process_single_tile(
     verbose_dst=None,
     vrt=None,
     idx_out_dir=None,
-    no_pbar=None
+    no_pbar=None,
 ):
     with click_spinner.spinner(disable=debug) as spinner:
         with mapchete.Timer() as t:
@@ -385,7 +331,7 @@ def _process_single_tile(
                 mode=mode,
                 bounds=tile.bounds,
                 zoom=tile.zoom,
-                single_input_file=input_file
+                single_input_file=input_file,
             ) as mp:
                 spinner.stop()
                 tqdm.tqdm.write("processing 1 tile", file=verbose_dst)
@@ -400,7 +346,7 @@ def _process_single_tile(
                     if isinstance(mapchete_config, str)
                     else "processing finished in %s" % t
                 ),
-                file=verbose_dst
+                file=verbose_dst,
             )
 
             # write VRT index
@@ -416,7 +362,7 @@ def _process_single_tile(
                         ),
                         total=mp.count_tiles(tile.zoom, tile.zoom),
                         unit="tile",
-                        disable=debug or no_pbar
+                        disable=debug or no_pbar,
                     ):
                         logger.debug("%s indexed", tile)
 
@@ -426,7 +372,7 @@ def _process_single_tile(
                             if isinstance(mapchete_config, str)
                             else "VRT(s) created in %s" % t_vrt
                         ),
-                        file=verbose_dst
+                        file=verbose_dst,
                     )
 
 
@@ -464,21 +410,20 @@ def _process_area(
                     point_crs=point_crs,
                     bounds=bounds,
                     bounds_crs=bounds_crs,
-                    raw_conf=raw_conf(mapchete_config)
+                    raw_conf=raw_conf(mapchete_config),
                 ),
                 area=area,
                 area_crs=area_crs,
-                single_input_file=input_file
+                single_input_file=input_file,
             ) as mp:
                 spinner.stop()
                 tiles_count = mp.count_tiles(
-                    min(mp.config.init_zoom_levels),
-                    max(mp.config.init_zoom_levels)
+                    min(mp.config.init_zoom_levels), max(mp.config.init_zoom_levels)
                 )
 
                 tqdm.tqdm.write(
                     "processing %s tile(s) on %s worker(s)" % (tiles_count, multi),
-                    file=verbose_dst
+                    file=verbose_dst,
                 )
 
                 # run process on tiles
@@ -487,11 +432,11 @@ def _process_area(
                         multi=multi,
                         zoom=zoom,
                         max_chunksize=max_chunksize,
-                        multiprocessing_start_method=multiprocessing_start_method
+                        multiprocessing_start_method=multiprocessing_start_method,
                     ),
                     total=tiles_count,
                     unit="tile",
-                    disable=debug or no_pbar
+                    disable=debug or no_pbar,
                 ):
                     write_verbose_msg(process_info, dst=verbose_dst)
 
@@ -501,7 +446,7 @@ def _process_area(
                     if isinstance(mapchete_config, str)
                     else "processing finished in %s" % t
                 ),
-                file=verbose_dst
+                file=verbose_dst,
             )
 
             # write VRT index
@@ -513,14 +458,14 @@ def _process_area(
                             mp=mp,
                             zoom=mp.config.init_zoom_levels,
                             out_dir=idx_out_dir or mp.config.output.path,
-                            vrt=vrt
+                            vrt=vrt,
                         ),
                         total=mp.count_tiles(
                             min(mp.config.init_zoom_levels),
-                            max(mp.config.init_zoom_levels)
+                            max(mp.config.init_zoom_levels),
                         ),
                         unit="tile",
-                        disable=debug or no_pbar
+                        disable=debug or no_pbar,
                     ):
                         logger.debug("%s indexed", tile)
 
@@ -530,5 +475,5 @@ def _process_area(
                             if isinstance(mapchete_config, str)
                             else "VRT(s) created in %s" % t_vrt
                         ),
-                        file=verbose_dst
+                        file=verbose_dst,
                     )

@@ -60,12 +60,12 @@ def execute(
     max_chunksize=None,
     multiprocessing_start_method=None,
     vrt=False,
-    idx_out_dir=None
+    idx_out_dir=None,
 ):
     """Execute a Mapchete process."""
     mode = "overwrite" if overwrite else "continue"
     # send verbose messages to /dev/null if not activated
-    verbose_dst = open(os.devnull, 'w') if debug or not verbose else sys.stdout
+    verbose_dst = open(os.devnull, "w") if debug or not verbose else sys.stdout
 
     for mapchete_file in mapchete_files:
         tqdm.tqdm.write("preparing to process %s" % mapchete_file, file=verbose_dst)
@@ -81,7 +81,7 @@ def execute(
                 verbose_dst=verbose_dst,
                 vrt=vrt,
                 idx_out_dir=idx_out_dir,
-                no_pbar=no_pbar
+                no_pbar=no_pbar,
             )
         # process area
         else:

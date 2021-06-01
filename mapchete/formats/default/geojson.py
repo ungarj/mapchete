@@ -23,11 +23,7 @@ schema: key-value pairs
 
 from mapchete.formats.default import _fiona_base
 
-METADATA = {
-    "driver_name": "GeoJSON",
-    "data_type": "vector",
-    "mode": "rw"
-}
+METADATA = {"driver_name": "GeoJSON", "data_type": "vector", "mode": "rw"}
 
 
 class OutputDataReader(_fiona_base.OutputDataReader):
@@ -65,7 +61,9 @@ class OutputDataReader(_fiona_base.OutputDataReader):
         self.path = output_params["path"]
         self.file_extension = ".geojson"
         self.output_params = output_params
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket = (
+            self.path.split("/")[2] if self.path.startswith("s3://") else None
+        )
 
 
 class OutputDataWriter(_fiona_base.OutputDataWriter, OutputDataReader):
@@ -87,4 +85,5 @@ class InputTile(_fiona_base.InputTile):
     tile : ``Tile``
     process : ``MapcheteProcess``
     """
+
     pass

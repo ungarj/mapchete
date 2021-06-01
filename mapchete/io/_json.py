@@ -3,7 +3,7 @@ import json
 import logging
 import os
 
-from mapchete.io._path import fs_from_path, makedirs, path_exists, makedirs
+from mapchete.io._path import fs_from_path, makedirs, path_exists
 from mapchete.io._misc import get_boto3_bucket
 
 

@@ -74,11 +74,15 @@ def calculate_slope_aspect(elevation, xres, yres, z=1.0, scale=1.0):
     scale = float(scale)
     height, width = elevation.shape[0] - 2, elevation.shape[1] - 2
     w = [
-        z * elevation[row:(row + height), col:(col + width)]
+        z * elevation[row : (row + height), col : (col + width)]
         for (row, col) in product(range(3), range(3))
     ]
-    x = ((w[0] + w[3] + w[3] + w[6]) - (w[2] + w[5] + w[5] + w[8])) / (8.0 * xres * scale)
-    y = ((w[6] + w[7] + w[7] + w[8]) - (w[0] + w[1] + w[1] + w[2])) / (8.0 * yres * scale)
+    x = ((w[0] + w[3] + w[3] + w[6]) - (w[2] + w[5] + w[5] + w[8])) / (
+        8.0 * xres * scale
+    )
+    y = ((w[6] + w[7] + w[7] + w[8]) - (w[0] + w[1] + w[1] + w[2])) / (
+        8.0 * yres * scale
+    )
     # in radians, from 0 to pi/2
     slope = math.pi / 2 - np.arctan(np.sqrt(x * x + y * y))
     # in radians counterclockwise, from -pi at north back to pi
@@ -120,24 +124,14 @@ def hillshade(
     scale = float(scale)
     xres = tile.pixel_x_size
     yres = -tile.pixel_y_size
-    slope, aspect = calculate_slope_aspect(
-        elevation,
-        xres,
-        yres,
-        z=z,
-        scale=scale
-    )
+    slope, aspect = calculate_slope_aspect(elevation, xres, yres, z=z, scale=scale)
     deg2rad = math.pi / 180.0
     # shaded has values between -1.0 and +1.0
-    shaded = np.sin(altitude * deg2rad) * np.sin(slope) \
-        + np.cos(altitude * deg2rad) * np.cos(slope) \
-        * np.cos((azimuth - 90.0) * deg2rad - aspect)
+    shaded = np.sin(altitude * deg2rad) * np.sin(slope) + np.cos(
+        altitude * deg2rad
+    ) * np.cos(slope) * np.cos((azimuth - 90.0) * deg2rad - aspect)
     # stretch to 0 - 255 and add one pixel padding using the edge values
     return ma.masked_array(
-        data=np.pad(
-            np.clip(shaded * 255.0, 1, 255).astype("uint8"),
-            1,
-            mode='edge'
-        ),
-        mask=elevation.mask
+        data=np.pad(np.clip(shaded * 255.0, 1, 255).astype("uint8"), 1, mode="edge"),
+        mask=elevation.mask,
     )

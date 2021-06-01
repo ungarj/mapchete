@@ -54,7 +54,7 @@ def rm_(
         bounds_crs=bounds_crs,
         wkt_geometry=wkt_geometry,
         fs=src_fs,
-        mode="readonly"
+        mode="readonly",
     ) as src_mp:
         tp = src_mp.config.output_pyramid
 
@@ -66,11 +66,12 @@ def rm_(
             for tile, exists in tiles_exist(
                 config=src_mp.config,
                 output_tiles=[
-                    t for t in tp.tiles_from_geom(src_mp.config.area_at_zoom(z), z)
+                    t
+                    for t in tp.tiles_from_geom(src_mp.config.area_at_zoom(z), z)
                     # this is required to omit tiles touching the config area
                     if src_mp.config.area_at_zoom(z).intersection(t.bbox).area
                 ],
-                multi=multi
+                multi=multi,
             ):
                 if exists:
                     tiles[z].append(tile)
@@ -88,7 +89,7 @@ def rm_(
                         for zoom_tiles in tiles.values()
                         for tile in zoom_tiles
                     ],
-                    fs=src_fs
+                    fs=src_fs,
                 )
         else:  # pragma: no cover
             click.echo("No tiles found to delete.")

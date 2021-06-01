@@ -69,16 +69,16 @@ def index(
     verbose=False,
     no_pbar=False,
     debug=False,
-    logfile=None
+    logfile=None,
 ):
     if not any([geojson, gpkg, shp, txt, vrt]):
         raise click.MissingParameter(
             """At least one of '--geojson', '--gpkg', '--shp', '--vrt' or '--txt'"""
             """must be provided.""",
-            param_type="option"
+            param_type="option",
         )
     # send verbose messages to /dev/null if not activated
-    verbose_dst = open(os.devnull, 'w') if debug or not verbose else sys.stdout
+    verbose_dst = open(os.devnull, "w") if debug or not verbose else sys.stdout
 
     for input_ in inputs:
 
@@ -89,10 +89,7 @@ def index(
             # process single tile
             if tile:
                 with mapchete.open(
-                    input_,
-                    mode="readonly",
-                    username=username,
-                    password=password
+                    input_, mode="readonly", username=username, password=password
                 ) as mp:
                     spinner.stop()
                     tile = mp.config.process_pyramid.tile(*tile)
@@ -100,7 +97,9 @@ def index(
                         zoom_index_gen(
                             mp=mp,
                             zoom=tile.zoom,
-                            out_dir=idx_out_dir if idx_out_dir else mp.config.output.path,
+                            out_dir=idx_out_dir
+                            if idx_out_dir
+                            else mp.config.output.path,
                             geojson=geojson,
                             gpkg=gpkg,
                             shapefile=shp,
@@ -108,11 +107,11 @@ def index(
                             txt=txt,
                             fieldname=fieldname,
                             basepath=basepath,
-                            for_gdal=for_gdal
+                            for_gdal=for_gdal,
                         ),
                         total=mp.count_tiles(tile.zoom, tile.zoom),
                         unit="tile",
-                        disable=debug or no_pbar
+                        disable=debug or no_pbar,
                     ):
                         logger.debug("%s indexed", tile)
 
@@ -130,7 +129,7 @@ def index(
                     area=area,
                     area_crs=area_crs,
                     username=username,
-                    password=password
+                    password=password,
                 ) as mp:
                     spinner.stop()
                     logger.debug("process bounds: %s", mp.config.init_bounds)
@@ -151,16 +150,15 @@ def index(
                             txt=txt,
                             fieldname=fieldname,
                             basepath=basepath,
-                            for_gdal=for_gdal),
+                            for_gdal=for_gdal,
+                        ),
                         total=mp.count_tiles(
                             min(mp.config.init_zoom_levels),
-                            max(mp.config.init_zoom_levels)
+                            max(mp.config.init_zoom_levels),
                         ),
                         unit="tile",
-                        disable=debug or no_pbar
+                        disable=debug or no_pbar,
                     ):
                         logger.debug("%s indexed", tile)
 
-        tqdm.tqdm.write(
-            "index(es) creation for %s finished" % input_, file=verbose_dst
-        )
+        tqdm.tqdm.write("index(es) creation for %s finished" % input_, file=verbose_dst)

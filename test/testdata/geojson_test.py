@@ -16,8 +16,8 @@ def execute(mp):
                 properties=dict(
                     name=feature["properties"].get("NAME_0", None),
                     id=feature["properties"].get("ID_0", None),
-                    area=shape(feature["geometry"]).area
-                )
+                    area=shape(feature["geometry"]).area,
+                ),
             )
             for feature in vector_file.read()
         ]

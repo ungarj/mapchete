@@ -18,7 +18,10 @@ from mapchete.errors import MapcheteProcessOutputError, MapcheteNodataTile
 from mapchete.formats import write_output_metadata
 from mapchete.io import makedirs, path_exists
 from mapchete.io.raster import (
-    create_mosaic, extract_from_array, prepare_array, read_raster_window
+    create_mosaic,
+    extract_from_array,
+    prepare_array,
+    read_raster_window,
 )
 from mapchete.io.vector import read_vector_window
 from mapchete.tile import BufferedTilePyramid
@@ -45,11 +48,7 @@ class InputData(object):
         object describing the process coordinate reference system
     """
 
-    METADATA = {
-        "driver_name": None,
-        "data_type": None,
-        "mode": "r"
-    }
+    METADATA = {"driver_name": None, "data_type": None, "mode": "r"}
 
     def __init__(self, input_params, **kwargs):
         """Initialize relevant input information."""
@@ -147,7 +146,7 @@ class InputTile(object):
         pass
 
 
-class OutputDataBaseFunctions():
+class OutputDataBaseFunctions:
 
     write_in_parent_process = False
 
@@ -155,13 +154,15 @@ class OutputDataBaseFunctions():
         """Initialize."""
         self.pixelbuffer = output_params["pixelbuffer"]
         if "type" in output_params:  # pragma: no cover
-            warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
+            warnings.warn(
+                DeprecationWarning("'type' is deprecated and should be 'grid'")
+            )
             if "grid" not in output_params:
                 output_params["grid"] = output_params.pop("type")
         self.pyramid = BufferedTilePyramid(
             grid=output_params["grid"],
             metatiling=output_params["metatiling"],
-            pixelbuffer=output_params["pixelbuffer"]
+            pixelbuffer=output_params["pixelbuffer"],
         )
         self.crs = self.pyramid.crs
         self._bucket = None
@@ -195,12 +196,14 @@ class OutputDataBaseFunctions():
         -------
         path : string
         """
-        return os.path.join(*[
-            self.path,
-            str(tile.zoom),
-            str(tile.row),
-            str(tile.col) + self.file_extension
-        ])
+        return os.path.join(
+            *[
+                self.path,
+                str(tile.zoom),
+                str(tile.row),
+                str(tile.col) + self.file_extension,
+            ]
+        )
 
     def extract_subset(self, input_data_tiles=None, out_tile=None):
         """
@@ -217,14 +220,15 @@ class OutputDataBaseFunctions():
                 in_raster=prepare_array(
                     mosaic.data,
                     nodata=self.output_params["nodata"],
-                    dtype=self.output_params["dtype"]
+                    dtype=self.output_params["dtype"],
                 ),
                 in_affine=mosaic.affine,
-                out_tile=out_tile
+                out_tile=out_tile,
             )
         elif self.METADATA["data_type"] == "vector":
             return [
-                feature for feature in list(
+                feature
+                for feature in list(
                     chain.from_iterable([features for _, features in input_data_tiles])
                 )
                 if shape(feature["geometry"]).intersects(out_tile.bbox)
@@ -235,7 +239,6 @@ class OutputDataBaseFunctions():
 
 
 class OutputDataReader(OutputDataBaseFunctions):
-
     def read(self, output_tile):
         """
         Read existing process output.
@@ -313,11 +316,7 @@ class OutputDataWriter(OutputDataReader):
         object describing the process coordinate reference system
     """
 
-    METADATA = {
-        "driver_name": None,
-        "data_type": None,
-        "mode": "w"
-    }
+    METADATA = {"driver_name": None, "data_type": None, "mode": "w"}
 
     def write(self, process_tile, data):
         """
@@ -354,10 +353,9 @@ class OutputDataWriter(OutputDataReader):
         True or False
         """
         if self.METADATA["data_type"] == "raster":
-            return (
-                is_numpy_or_masked_array(process_data) or
-                is_numpy_or_masked_array_with_tags(process_data)
-            )
+            return is_numpy_or_masked_array(
+                process_data
+            ) or is_numpy_or_masked_array_with_tags(process_data)
         elif self.METADATA["data_type"] == "vector":
             return is_feature_list(process_data)
 
@@ -400,7 +398,6 @@ class OutputDataWriter(OutputDataReader):
 
 
 class TileDirectoryOutputReader(OutputDataReader):
-
     def __init__(self, output_params, readonly=False):
         """Initialize."""
         super().__init__(output_params, readonly=readonly)
@@ -443,7 +440,7 @@ class TileDirectoryOutputReader(OutputDataReader):
         resampling=None,
         dst_nodata=None,
         gdal_opts=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Read reprojected & resampled input data.
@@ -476,7 +473,7 @@ class TileDirectoryOutputReader(OutputDataReader):
             resampling=resampling,
             dst_nodata=dst_nodata,
             gdal_opts=gdal_opts,
-            **{k: v for k, v in kwargs.items() if k != "data_type"}
+            **{k: v for k, v in kwargs.items() if k != "data_type"},
         )
 
 
@@ -518,10 +515,10 @@ def is_numpy_or_masked_array(data):
 
 def is_numpy_or_masked_array_with_tags(data):
     return (
-        isinstance(data, tuple) and
-        len(data) == 2 and
-        is_numpy_or_masked_array(data[0]) and
-        isinstance(data[1], dict)
+        isinstance(data, tuple)
+        and len(data) == 2
+        and is_numpy_or_masked_array(data[0])
+        and isinstance(data[1], dict)
     )
 
 
@@ -540,7 +537,7 @@ def _read_as_tiledir(
     resampling=None,
     dst_nodata=None,
     gdal_opts=None,
-    **kwargs
+    **kwargs,
 ):
     logger.debug("reading data from CRS %s to CRS %s", td_crs, out_tile.tp.crs)
     if data_type == "vector":
@@ -548,7 +545,7 @@ def _read_as_tiledir(
             return read_vector_window(
                 [path for _, path in tiles_paths],
                 out_tile,
-                validity_check=validity_check
+                validity_check=validity_check,
             )
         else:
             return []
@@ -561,7 +558,7 @@ def _read_as_tiledir(
                 resampling=resampling,
                 src_nodata=profile["nodata"],
                 dst_nodata=dst_nodata,
-                gdal_opts=gdal_opts
+                gdal_opts=gdal_opts,
             )
         else:
             bands = len(indexes) if indexes else profile["count"]
@@ -569,9 +566,9 @@ def _read_as_tiledir(
                 data=np.full(
                     (bands, out_tile.height, out_tile.width),
                     profile["nodata"],
-                    dtype=profile["dtype"]
+                    dtype=profile["dtype"],
                 ),
-                mask=True
+                mask=True,
             )
     else:  # pragma: no cover
         raise NotImplementedError(f"driver data_type {data_type} not supported")

@@ -39,7 +39,9 @@ def validate_zooms(zooms, expand=True):
         zmin = validate_zoom(zooms["min"])
         zmax = validate_zoom(zooms["max"])
         if zmin > zmax:
-            raise TypeError("max zoom must not be smaller than min zoom: %s" % str(zooms))
+            raise TypeError(
+                "max zoom must not be smaller than min zoom: %s" % str(zooms)
+            )
         return list(range(zmin, zmax + 1)) if expand else zooms
     elif isinstance(zooms, list):
         if len(zooms) == 1:
@@ -195,7 +197,7 @@ def validate_crs(crs):
     elif isinstance(crs, str):
         try:
             return CRS().from_epsg(int(crs))
-        except:
+        except Exception:
             return CRS().from_string(crs)
     elif isinstance(crs, int):
         return CRS().from_epsg(crs)
@@ -219,12 +221,14 @@ def validate_write_window_params(in_tile, out_tile, in_data, out_profile):
 # decorators #
 ##############
 
+
 def deprecated_kwargs(func):
     """Decorator for open() functions warning of keyword argument usage."""
+
     def func_wrapper(*args, **kwargs):
         if kwargs:
             warnings.warn(
-                'Using kwargs such in open() is deprecated and will have no effect.'
+                "Using kwargs such in open() is deprecated and will have no effect."
             )
         if "resampling" in kwargs:
             raise DeprecationWarning(
@@ -232,4 +236,5 @@ def deprecated_kwargs(func):
                 "function."
             )
         return func(*args, **kwargs)
+
     return func_wrapper

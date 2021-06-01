@@ -16,7 +16,7 @@ METADATA = {
     "driver_name": "vector_file",
     "data_type": "vector",
     "mode": "r",
-    "file_extensions": ["shp", "geojson", "gpkg"]
+    "file_extensions": ["shp", "geojson", "gpkg"],
 }
 
 
@@ -47,7 +47,7 @@ class InputData(base.InputData):
         "driver_name": "vector_file",
         "data_type": "vector",
         "mode": "r",
-        "file_extensions": ["shp", "geojson"]
+        "file_extensions": ["shp", "geojson"],
     }
 
     def __init__(self, input_params, **kwargs):
@@ -146,8 +146,9 @@ class InputTile(base.InputTile):
     def _read_from_cache(self, validity_check):
         checked = "checked" if validity_check else "not_checked"
         if checked not in self._cache:
-            self._cache[checked] = list(read_vector_window(
-                self.vector_file.path, self.tile,
-                validity_check=validity_check)
+            self._cache[checked] = list(
+                read_vector_window(
+                    self.vector_file.path, self.tile, validity_check=validity_check
+                )
             )
         return self._cache[checked]

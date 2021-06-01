@@ -39,7 +39,7 @@ def read_raster_window(
     resampling="nearest",
     src_nodata=None,
     dst_nodata=None,
-    gdal_opts=None
+    gdal_opts=None,
 ):
     """
     Return NumPy arrays from an input raster.
@@ -76,11 +76,11 @@ def read_raster_window(
             **get_gdal_options(
                 gdal_opts,
                 is_remote=path_is_remote(
-                    input_files[0]
-                    if isinstance(input_files, list) else
-                    input_files,
-                    s3=True
-                ) if isinstance(input_files, str) else False
+                    input_files[0] if isinstance(input_files, list) else input_files,
+                    s3=True,
+                )
+                if isinstance(input_files, str)
+                else False,
             )
         ) as env:
             logger.debug("reading %s with GDAL options %s", input_files, env.options)
@@ -90,7 +90,7 @@ def read_raster_window(
                 indexes=indexes,
                 resampling=resampling,
                 src_nodata=src_nodata,
-                dst_nodata=dst_nodata
+                dst_nodata=dst_nodata,
             )
     except FileNotFoundError:  # pragma: no cover
         raise
@@ -104,7 +104,7 @@ def _read_raster_window(
     indexes=None,
     resampling="nearest",
     src_nodata=None,
-    dst_nodata=None
+    dst_nodata=None,
 ):
     if isinstance(input_files, list):
         # in case multiple input files are given, merge output into one array
@@ -115,7 +115,7 @@ def _read_raster_window(
             indexes=indexes,
             resampling=resampling,
             src_nodata=src_nodata,
-            dst_nodata=dst_nodata
+            dst_nodata=dst_nodata,
         )
         # read subsequent files and merge
         for f in input_files[1:]:
@@ -125,15 +125,15 @@ def _read_raster_window(
                 indexes=indexes,
                 resampling=resampling,
                 src_nodata=src_nodata,
-                dst_nodata=dst_nodata
+                dst_nodata=dst_nodata,
             )
             dst_array = ma.MaskedArray(
-                data=np.where(
-                    f_array.mask, dst_array, f_array
-                ).astype(dst_array.dtype, copy=False),
-                mask=np.where(
-                    f_array.mask, dst_array.mask, f_array.mask
-                ).astype(bool, copy=False)
+                data=np.where(f_array.mask, dst_array, f_array).astype(
+                    dst_array.dtype, copy=False
+                ),
+                mask=np.where(f_array.mask, dst_array.mask, f_array.mask).astype(
+                    bool, copy=False
+                ),
             )
         return dst_array
     else:
@@ -157,7 +157,7 @@ def _read_raster_window(
                 dst_shape=dst_shape,
                 resampling=resampling,
                 src_nodata=src_nodata,
-                dst_nodata=dst_nodata
+                dst_nodata=dst_nodata,
             )
 
         # If tile boundaries don't exceed pyramid boundaries, simply read window
@@ -171,7 +171,7 @@ def _read_raster_window(
                 dst_crs=tile.crs,
                 resampling=resampling,
                 src_nodata=src_nodata,
-                dst_nodata=dst_nodata
+                dst_nodata=dst_nodata,
             )
 
 
@@ -182,9 +182,11 @@ def _get_warped_edge_array(
     dst_shape=None,
     resampling=None,
     src_nodata=None,
-    dst_nodata=None
+    dst_nodata=None,
 ):
-    tile_boxes = clip_geometry_to_srs_bounds(tile.bbox, tile.tile_pyramid, multipart=True)
+    tile_boxes = clip_geometry_to_srs_bounds(
+        tile.bbox, tile.tile_pyramid, multipart=True
+    )
     parts_metadata = dict(left=None, middle=None, right=None, none=None)
     # Split bounding box into multiple parts & request each numpy array
     # separately.
@@ -217,20 +219,23 @@ def _get_warped_edge_array(
             parts_metadata.update(none=part_metadata)
     # Finally, stitch numpy arrays together into one. Axis -1 is the last axis
     # which in case of rasterio arrays always is the width (West-East).
-    return ma.concatenate([
-        _get_warped_array(
-            input_file=input_file,
-            indexes=indexes,
-            dst_bounds=parts_metadata[part]["bounds"],
-            dst_shape=parts_metadata[part]["shape"],
-            dst_crs=tile.crs,
-            resampling=resampling,
-            src_nodata=src_nodata,
-            dst_nodata=dst_nodata
-        )
-        for part in ["none", "left", "middle", "right"]
-        if parts_metadata[part]
-    ], axis=-1)
+    return ma.concatenate(
+        [
+            _get_warped_array(
+                input_file=input_file,
+                indexes=indexes,
+                dst_bounds=parts_metadata[part]["bounds"],
+                dst_shape=parts_metadata[part]["shape"],
+                dst_crs=tile.crs,
+                resampling=resampling,
+                src_nodata=src_nodata,
+                dst_nodata=dst_nodata,
+            )
+            for part in ["none", "left", "middle", "right"]
+            if parts_metadata[part]
+        ],
+        axis=-1,
+    )
 
 
 def _get_warped_array(
@@ -241,7 +246,7 @@ def _get_warped_array(
     dst_crs=None,
     resampling=None,
     src_nodata=None,
-    dst_nodata=None
+    dst_nodata=None,
 ):
     """Extract a numpy array from a raster file."""
     try:
@@ -253,7 +258,7 @@ def _get_warped_array(
             dst_crs=dst_crs,
             resampling=resampling,
             src_nodata=src_nodata,
-            dst_nodata=dst_nodata
+            dst_nodata=dst_nodata,
         )
     except Exception as e:
         logger.exception("error while reading file %s: %s", input_file, e)
@@ -271,7 +276,6 @@ def _rasterio_read(
     src_nodata=None,
     dst_nodata=None,
 ):
-
     def _read(
         src, indexes, dst_bounds, dst_shape, dst_crs, resampling, src_nodata, dst_nodata
     ):
@@ -292,27 +296,34 @@ def _rasterio_read(
             transform=affine_from_bounds(
                 dst_left, dst_bottom, dst_right, dst_top, width, height
             ),
-            resampling=Resampling[resampling]
+            resampling=Resampling[resampling],
         ) as vrt:
             return vrt.read(
                 window=vrt.window(*dst_bounds),
                 out_shape=dst_shape,
                 indexes=indexes,
-                masked=True
+                masked=True,
             )
+
     if isinstance(input_file, str):
         logger.debug("got file path %s", input_file)
         try:
             with rasterio.open(input_file, "r") as src:
                 return _read(
-                    src, indexes, dst_bounds, dst_shape, dst_crs, resampling, src_nodata,
-                    dst_nodata
+                    src,
+                    indexes,
+                    dst_bounds,
+                    dst_shape,
+                    dst_crs,
+                    resampling,
+                    src_nodata,
+                    dst_nodata,
                 )
         except RasterioIOError as e:
             try:
                 if path_exists(input_file):
                     raise e
-            except:
+            except Exception:
                 raise e
             raise FileNotFoundError("%s not found" % input_file)
     else:  # pragma: no cover
@@ -322,8 +333,14 @@ def _rasterio_read(
             "https://github.com/mapbox/rasterio/issues/1309"
         )
         return _read(
-            input_file, indexes, dst_bounds, dst_shape, dst_crs, resampling,
-            src_nodata, dst_nodata
+            input_file,
+            indexes,
+            dst_bounds,
+            dst_shape,
+            dst_crs,
+            resampling,
+            src_nodata,
+            dst_nodata,
         )
 
 
@@ -356,7 +373,7 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
                 **get_gdal_options(
                     gdal_opts,
                     is_remote=path_is_remote(input_file, s3=True),
-                    allowed_remote_extensions=os.path.splitext(input_file)[1]
+                    allowed_remote_extensions=os.path.splitext(input_file)[1],
                 ),
             ) as env:
                 logger.debug("reading %s with GDAL options %s", input_file, env.options)
@@ -366,12 +383,12 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
             try:
                 if path_exists(input_file):
                     raise MapcheteIOError(e)
-            except:
+            except Exception:
                 raise MapcheteIOError(e)
             raise FileNotFoundError("%s not found" % input_file)
 
 
-class RasterWindowMemoryFile():
+class RasterWindowMemoryFile:
     """Context manager around rasterio.io.MemoryFile."""
 
     def __init__(
@@ -381,9 +398,7 @@ class RasterWindowMemoryFile():
         out_tile = out_tile or in_tile
         validate_write_window_params(in_tile, out_tile, in_data, out_profile)
         self.data = extract_from_array(
-            in_raster=in_data,
-            in_affine=in_tile.affine,
-            out_tile=out_tile
+            in_raster=in_data, in_affine=in_tile.affine, out_tile=out_tile
         )
         # use transform instead of affine
         if "affine" in out_profile:
@@ -405,8 +420,13 @@ class RasterWindowMemoryFile():
 
 
 def write_raster_window(
-    in_tile=None, in_data=None, out_profile=None, out_tile=None, out_path=None,
-    tags=None, bucket_resource=None
+    in_tile=None,
+    in_data=None,
+    out_profile=None,
+    out_tile=None,
+    out_path=None,
+    tags=None,
+    bucket_resource=None,
 ):
     """
     Write a window from a numpy array to an output file.
@@ -437,11 +457,13 @@ def write_raster_window(
     validate_write_window_params(in_tile, out_tile, in_data, out_profile)
 
     # extract data
-    window_data = extract_from_array(
-        in_raster=in_data,
-        in_affine=in_tile.affine,
-        out_tile=out_tile
-    ) if in_tile != out_tile else in_data
+    window_data = (
+        extract_from_array(
+            in_raster=in_data, in_affine=in_tile.affine, out_tile=out_tile
+        )
+        if in_tile != out_tile
+        else in_data
+    )
 
     # use transform instead of affine
     if "affine" in out_profile:
@@ -457,15 +479,14 @@ def write_raster_window(
                     in_data=window_data,
                     out_profile=out_profile,
                     out_tile=out_tile,
-                    tags=tags
+                    tags=tags,
                 ) as memfile:
                     logger.debug((out_tile.id, "upload tile", out_path))
                     bucket_resource.put_object(
-                        Key="/".join(out_path.split("/")[3:]),
-                        Body=memfile
+                        Key="/".join(out_path.split("/")[3:]), Body=memfile
                     )
             else:
-                with rasterio.open(out_path, 'w', **out_profile) as dst:
+                with rasterio.open(out_path, "w", **out_profile) as dst:
                     logger.debug((out_tile.id, "write tile", out_path))
                     dst.write(window_data.astype(out_profile["dtype"], copy=False))
                     _write_tags(dst, tags)
@@ -510,10 +531,10 @@ def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     )
     # if output window is within input window
     if (
-        minrow >= 0 and
-        mincol >= 0 and
-        maxrow <= in_raster.shape[-2] and
-        maxcol <= in_raster.shape[-1]
+        minrow >= 0
+        and mincol >= 0
+        and maxrow <= in_raster.shape[-2]
+        and maxcol <= in_raster.shape[-1]
     ):
         return in_raster[..., minrow:maxrow, mincol:maxcol]
     # raise error if output is not fully within input
@@ -528,7 +549,7 @@ def resample_from_array(
     in_crs=None,
     resampling="nearest",
     nodataval=None,
-    nodata=0
+    nodata=0,
 ):
     """
     Extract and resample from array to target tile.
@@ -570,7 +591,7 @@ def resample_from_array(
                     for band in in_raster
                 ]
             ),
-            fill_value=nodata
+            fill_value=nodata,
         )
     else:
         raise TypeError("wrong input data type: %s" % type(in_raster))
@@ -582,10 +603,7 @@ def resample_from_array(
         raise TypeError("input array must have 2 or 3 dimensions")
     if in_raster.fill_value != nodata:
         ma.set_fill_value(in_raster, nodata)
-    dst_data = np.empty(
-        (in_raster.shape[0], ) + out_tile.shape,
-        in_raster.dtype
-    )
+    dst_data = np.empty((in_raster.shape[0],) + out_tile.shape, in_raster.dtype)
     reproject(
         in_raster.filled(),
         dst_data,
@@ -595,7 +613,7 @@ def resample_from_array(
         dst_transform=out_tile.affine,
         dst_crs=out_tile.crs,
         dst_nodata=nodata,
-        resampling=Resampling[resampling]
+        resampling=Resampling[resampling],
     )
     return ma.MaskedArray(dst_data, mask=dst_data == nodata, fill_value=nodata)
 
@@ -624,10 +642,12 @@ def create_mosaic(tiles, nodata=0):
         raise TypeError("tiles must be either a list or generator")
     if not all([isinstance(pair, tuple) for pair in tiles]):
         raise TypeError("tiles items must be tuples")
-    if not all([
-        all([isinstance(tile, BufferedTile), isinstance(data, np.ndarray)])
-        for tile, data in tiles
-    ]):
+    if not all(
+        [
+            all([isinstance(tile, BufferedTile), isinstance(data, np.ndarray)])
+            for tile, data in tiles
+        ]
+    ):
         raise TypeError("tuples must be pairs of BufferedTile and array")
     if len(tiles) == 0:
         raise ValueError("tiles list is empty")
@@ -637,10 +657,7 @@ def create_mosaic(tiles, nodata=0):
     if len(tiles) == 1:
         tile, data = tiles[0]
         return ReferencedRaster(
-            data=data,
-            affine=tile.affine,
-            bounds=tile.bounds,
-            crs=tile.crs
+            data=data, affine=tile.affine, bounds=tile.bounds, crs=tile.crs
         )
 
     # assert all tiles have same properties
@@ -670,7 +687,7 @@ def create_mosaic(tiles, nodata=0):
     # initialize empty mosaic
     mosaic = ma.MaskedArray(
         data=np.full((num_bands, height, width), dtype=dtype, fill_value=nodata),
-        mask=np.ones((num_bands, height, width))
+        mask=np.ones((num_bands, height, width)),
     )
     # create Affine
     affine = Affine(resolution, 0, m_left, 0, -resolution, m_top)
@@ -688,11 +705,13 @@ def create_mosaic(tiles, nodata=0):
         minrow, maxrow, mincol, maxcol = bounds_to_ranges(
             out_bounds=(t_left, t_bottom, t_right, t_top),
             in_affine=affine,
-            in_shape=(height, width)
+            in_shape=(height, width),
         )
         existing_data = mosaic[:, minrow:maxrow, mincol:maxcol]
         existing_mask = mosaic.mask[:, minrow:maxrow, mincol:maxcol]
-        mosaic[:, minrow:maxrow, mincol:maxcol] = np.where(data.mask, existing_data, data)
+        mosaic[:, minrow:maxrow, mincol:maxcol] = np.where(
+            data.mask, existing_data, data
+        )
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = np.where(
             data.mask, existing_mask, data.mask
         )
@@ -720,7 +739,7 @@ def create_mosaic(tiles, nodata=0):
         data=mosaic,
         affine=Affine(resolution, 0, m_left, 0, -resolution, m_top),
         bounds=Bounds(m_left, m_bottom, m_right, m_top),
-        crs=tile.crs
+        crs=tile.crs,
     )
 
 
@@ -744,7 +763,10 @@ def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
     return itertools.chain(
         *from_bounds(
             *out_bounds, transform=in_affine, height=in_shape[-2], width=in_shape[-1]
-        ).round_lengths(pixel_precision=0).round_offsets(pixel_precision=0).toranges()
+        )
+        .round_lengths(pixel_precision=0)
+        .round_offsets(pixel_precision=0)
+        .toranges()
     )
 
 
@@ -775,7 +797,7 @@ def tiles_to_affine_shape(tiles):
         Shape(
             width=int(round((right - left) / pixel_size, 0)),
             height=int(round((top - bottom) / pixel_size, 0)),
-        )
+        ),
     )
 
 
@@ -909,22 +931,21 @@ def _prepare_iterable(data, masked, nodata, dtype):
     out_mask = ()
     for band in data:
         if isinstance(band, ma.MaskedArray):
-            out_data += (band.data, )
+            out_data += (band.data,)
             if masked:
                 if band.shape == band.mask.shape:
-                    out_mask += (band.mask, )
+                    out_mask += (band.mask,)
                 else:
-                    out_mask += (np.where(band.data == nodata, True, False), )
+                    out_mask += (np.where(band.data == nodata, True, False),)
         elif isinstance(band, np.ndarray):
-            out_data += (band, )
+            out_data += (band,)
             if masked:
-                out_mask += (np.where(band == nodata, True, False), )
+                out_mask += (np.where(band == nodata, True, False),)
         else:
             raise ValueError("input data bands must be NumPy arrays")
     if masked:
         return ma.MaskedArray(
-            data=np.stack(out_data).astype(dtype, copy=False),
-            mask=np.stack(out_mask)
+            data=np.stack(out_data).astype(dtype, copy=False), mask=np.stack(out_mask)
         )
     else:
         return np.stack(out_data).astype(dtype, copy=False)

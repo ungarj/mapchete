@@ -32,8 +32,8 @@ def test_output_data(mp_tmpdir):
             bounds=Bounds(-180.0, -90.0, 180.0, 90.0),
             effective_bounds=Bounds(-180.439453125, -90.0, 180.439453125, 90.0),
             zoom=[5],
-            process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0)
-        )
+            process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0),
+        ),
     )
     output = gtiff.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
@@ -41,8 +41,7 @@ def test_output_data(mp_tmpdir):
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     # get_path
-    assert output.get_path(tile) == os.path.join(*[
-        mp_tmpdir, "5", "5", "5"+".tif"])
+    assert output.get_path(tile) == os.path.join(*[mp_tmpdir, "5", "5", "5" + ".tif"])
     # prepare_path
     try:
         temp_dir = os.path.join(*[mp_tmpdir, "5", "5"])
@@ -54,7 +53,7 @@ def test_output_data(mp_tmpdir):
     assert isinstance(output.profile(tile), dict)
     # write
     try:
-        data = np.ones((1, ) + tile.shape)*128
+        data = np.ones((1,) + tile.shape) * 128
         output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
@@ -100,15 +99,15 @@ def test_output_data(mp_tmpdir):
 
 def test_for_web(client, mp_tmpdir):
     """Send GTiff via flask."""
-    tile_base_url = '/wmts_simple/1.0.0/cleantopo_br/default/WGS84/'
+    tile_base_url = "/wmts_simple/1.0.0/cleantopo_br/default/WGS84/"
     for url in ["/"]:
         response = client.get(url)
         assert response.status_code == 200
     for url in [
-        tile_base_url+"5/30/62.tif",
-        tile_base_url+"5/30/63.tif",
-        tile_base_url+"5/31/62.tif",
-        tile_base_url+"5/31/63.tif",
+        tile_base_url + "5/30/62.tif",
+        tile_base_url + "5/30/63.tif",
+        tile_base_url + "5/31/62.tif",
+        tile_base_url + "5/31/63.tif",
     ]:
         response = client.get(url)
         assert response.status_code == 200
@@ -138,13 +137,15 @@ def test_input_data(mp_tmpdir, cleantopo_br):
                 bounds=Bounds(-180.0, -90.0, 180.0, 90.0),
                 effective_bounds=Bounds(-180.439453125, -90.0, 180.439453125, 90.0),
                 zoom=[5],
-                process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0)
-            )
+                process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0),
+            ),
         )
         output = gtiff.OutputDataWriter(output_params)
         with output.open(tile, mp) as input_tile:
             for data in [
-                input_tile.read(), input_tile.read(1), input_tile.read([1]),
+                input_tile.read(),
+                input_tile.read(1),
+                input_tile.read([1]),
                 # TODO assert valid indexes are passed input_tile.read([1, 2])
             ]:
                 assert isinstance(data, ma.masked_array)
@@ -154,9 +155,7 @@ def test_input_data(mp_tmpdir, cleantopo_br):
             pass
 
 
-def test_write_geotiff_tags(
-    mp_tmpdir, cleantopo_br, write_rasterfile_tags_py
-):
+def test_write_geotiff_tags(mp_tmpdir, cleantopo_br, write_rasterfile_tags_py):
     """Pass on metadata tags from user process to rasterio."""
     conf = dict(**cleantopo_br.dict)
     conf.update(process=write_rasterfile_tags_py)
@@ -260,7 +259,7 @@ def test_output_single_gtiff_pixelbuffer(output_single_gtiff):
     with mapchete.open(
         dict(
             output_single_gtiff.dict,
-            output=dict(output_single_gtiff.dict["output"], pixelbuffer=5)
+            output=dict(output_single_gtiff.dict["output"], pixelbuffer=5),
         ),
     ) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
@@ -285,7 +284,7 @@ def test_output_single_gtiff_compression(output_single_gtiff):
     with mapchete.open(
         dict(
             output_single_gtiff.dict,
-            output=dict(output_single_gtiff.dict["output"], compress="deflate")
+            output=dict(output_single_gtiff.dict["output"], compress="deflate"),
         ),
     ) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
@@ -305,8 +304,8 @@ def test_output_single_gtiff_overviews(output_single_gtiff):
             output=dict(
                 output_single_gtiff.dict["output"],
                 overviews=True,
-                overviews_resampling="bilinear"
-            )
+                overviews_resampling="bilinear",
+            ),
         ),
     ) as mp:
         tile_id = (5, 3, 7)
@@ -315,7 +314,7 @@ def test_output_single_gtiff_overviews(output_single_gtiff):
 
     with rasterio.open(mp.config.output.path) as src:
         assert src.overviews(1)
-        assert src.tags(ns='rio_overview').get('resampling') == "bilinear"
+        assert src.tags(ns="rio_overview").get("resampling") == "bilinear"
 
 
 @pytest.mark.remote
@@ -326,8 +325,8 @@ def test_output_single_gtiff_s3(output_single_gtiff, mp_s3_tmpdir):
             output_single_gtiff.dict,
             output=dict(
                 output_single_gtiff.dict["output"],
-                path=os.path.join(mp_s3_tmpdir, "temp.tif")
-            )
+                path=os.path.join(mp_s3_tmpdir, "temp.tif"),
+            ),
         )
     ) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
@@ -363,8 +362,8 @@ def test_output_single_gtiff_s3_tempfile(output_single_gtiff, mp_s3_tmpdir):
             output=dict(
                 output_single_gtiff.dict["output"],
                 path=os.path.join(mp_s3_tmpdir, "temp.tif"),
-                in_memory=False
-            )
+                in_memory=False,
+            ),
         )
     ) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
@@ -424,10 +423,7 @@ def test_output_single_gtiff_cog_tempfile(output_single_gtiff_cog):
     with mapchete.open(
         dict(
             output_single_gtiff_cog.dict,
-            output=dict(
-                output_single_gtiff_cog.dict["output"],
-                in_memory=False
-            )
+            output=dict(output_single_gtiff_cog.dict["output"], in_memory=False),
         )
     ) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
@@ -463,8 +459,8 @@ def test_output_single_gtiff_cog_s3(output_single_gtiff_cog, mp_s3_tmpdir):
             output_single_gtiff_cog.dict,
             output=dict(
                 output_single_gtiff_cog.dict["output"],
-                path=os.path.join(mp_s3_tmpdir, "cog.tif")
-            )
+                path=os.path.join(mp_s3_tmpdir, "cog.tif"),
+            ),
         )
     ) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)

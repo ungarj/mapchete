@@ -158,85 +158,25 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
         return
 
     # only on TileDirectories on S3
-    if (
-        not basepath.endswith(config.output_reader.file_extension) and
-        basepath.startswith("s3://")
-    ):
-        import boto3
-        basekey = "/".join(basepath.split("/")[3:])
-        bucket = basepath.split("/")[2]
-        s3 = boto3.client("s3")
-        paginator = s3.get_paginator("list_objects_v2")
-
-        # determine zoom
-        zoom = first_tile.zoom
-
-        # get all output tiles
-        all_tiles = set(all_tiles_iter)
-        if process_tiles:
-            output_tiles = (
-                t
-                for process_tile in all_tiles
-                for t in config.output_pyramid.intersecting(process_tile)
-            )
-        else:
-            output_tiles = all_tiles
-
-        # create a mapping between paths and tiles
-        paths = dict()
-        # remember rows
-        output_rows = set()
-        for output_tile in output_tiles:
-            if output_tile.zoom != zoom:  # pragma: no cover
-                raise ValueError("tiles of different zoom levels cannot be mixed")
-            path = config.output_reader.get_path(output_tile)
-
-            if process_tiles:
-                paths[path] = config.process_pyramid.intersecting(output_tile)[0]
-            else:
-                paths[path] = output_tile
-
-            output_rows.add(output_tile.row)
-
-        # remember already yielded tiles
-        yielded = set()
-        for row in output_rows:
-            # use prefix until row, page through api results
-            logger.debug("check existing tiles in row %s" % row)
-            prefix = os.path.join(*[basekey, str(zoom), str(row)])
-            logger.debug("read keys %s*" % os.path.join("s3://" + bucket, prefix))
-
-            for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-                logger.debug("read next page")
-                try:
-                    contents = page["Contents"]
-                except KeyError:
-                    break
-
-                for obj in contents:
-                    # get matching tile
-                    try:
-                        tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
-                    except KeyError:  # pragma: no cover
-                        # in case of an existing tile which was not passed on to this
-                        # function
-                        continue
-                    # store and yield process tile if it was not already yielded
-                    if tile not in yielded:
-                        yielded.add(tile)
-                        yield (tile, True)
-
-        # finally, yield all tiles which were not yet yielded as False
-        for tile in all_tiles.difference(yielded):
-            yield (tile, False)
-
+    if not basepath.endswith(
+        config.output_reader.file_extension
+    ) and basepath.startswith("s3://"):
+        yield from _s3_tiledirectories(
+            basepath=basepath,
+            first_tile=first_tile,
+            all_tiles_iter=all_tiles_iter,
+            process_tiles=process_tiles,
+            output_tiles=output_tiles,
+            config=config,
+        )
     else:
+
         def _exists(tile):
             return (
                 tile,
                 config.output_reader.tiles_exist(
                     **{"process_tile" if process_tiles else "output_tile": tile}
-                )
+                ),
             )
 
         if multi == 1:
@@ -248,6 +188,84 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
                     (executor.submit(_exists, tile) for tile in all_tiles_iter)
                 ):
                     yield future.result()
+
+
+def _s3_tiledirectories(
+    basepath=None,
+    first_tile=None,
+    all_tiles_iter=None,
+    process_tiles=None,
+    output_tiles=None,
+    config=None,
+):
+    import boto3
+
+    basekey = "/".join(basepath.split("/")[3:])
+    bucket = basepath.split("/")[2]
+    s3 = boto3.client("s3")
+    paginator = s3.get_paginator("list_objects_v2")
+
+    # determine zoom
+    zoom = first_tile.zoom
+
+    # get all output tiles
+    all_tiles = set(all_tiles_iter)
+    if process_tiles:
+        output_tiles = (
+            t
+            for process_tile in all_tiles
+            for t in config.output_pyramid.intersecting(process_tile)
+        )
+    else:
+        output_tiles = all_tiles
+
+    # create a mapping between paths and tiles
+    paths = dict()
+    # remember rows
+    output_rows = set()
+    for output_tile in output_tiles:
+        if output_tile.zoom != zoom:  # pragma: no cover
+            raise ValueError("tiles of different zoom levels cannot be mixed")
+        path = config.output_reader.get_path(output_tile)
+
+        if process_tiles:
+            paths[path] = config.process_pyramid.intersecting(output_tile)[0]
+        else:
+            paths[path] = output_tile
+
+        output_rows.add(output_tile.row)
+
+    # remember already yielded tiles
+    yielded = set()
+    for row in output_rows:
+        # use prefix until row, page through api results
+        logger.debug("check existing tiles in row %s" % row)
+        prefix = os.path.join(*[basekey, str(zoom), str(row)])
+        logger.debug("read keys %s*" % os.path.join("s3://" + bucket, prefix))
+
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            logger.debug("read next page")
+            try:
+                contents = page["Contents"]
+            except KeyError:
+                break
+
+            for obj in contents:
+                # get matching tile
+                try:
+                    tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
+                except KeyError:  # pragma: no cover
+                    # in case of an existing tile which was not passed on to this
+                    # function
+                    continue
+                # store and yield process tile if it was not already yielded
+                if tile not in yielded:
+                    yielded.add(tile)
+                    yield (tile, True)
+
+    # finally, yield all tiles which were not yet yielded as False
+    for tile in all_tiles.difference(yielded):
+        yield (tile, False)
 
 
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
@@ -262,6 +280,7 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
     elif path.startswith(("http://", "https://")):
         if username:  # pragma: no cover
             from aiohttp import BasicAuth
+
             auth = BasicAuth(username, password)
         else:
             auth = None

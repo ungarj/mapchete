@@ -13,11 +13,7 @@ from mapchete.tile import BufferedTilePyramid
 def test_output_data(mp_tmpdir):
     """Check PNG as output data."""
     output_params = dict(
-        grid="geodetic",
-        format="PNG",
-        path=mp_tmpdir,
-        pixelbuffer=0,
-        metatiling=1
+        grid="geodetic", format="PNG", path=mp_tmpdir, pixelbuffer=0, metatiling=1
     )
     try:
         output = png.OutputDataWriter(output_params)
@@ -30,7 +26,9 @@ def test_output_data(mp_tmpdir):
 
     # get_path
     try:
-        assert output.get_path(tile) == os.path.join(*[mp_tmpdir, "5", "5", "5"+".png"])
+        assert output.get_path(tile) == os.path.join(
+            *[mp_tmpdir, "5", "5", "5" + ".png"]
+        )
     finally:
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
@@ -47,7 +45,7 @@ def test_output_data(mp_tmpdir):
 
     # write
     try:
-        data = np.ones((1, ) + tile.shape)*128
+        data = np.ones((1,) + tile.shape) * 128
         output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
@@ -64,21 +62,17 @@ def test_output_data(mp_tmpdir):
     assert isinstance(empty, ma.MaskedArray)
     assert not empty.any()
     # write empty
-    output.write(tile, np.zeros((3, ) + tile.shape))
-    output.write(tile, np.zeros((4, ) + tile.shape))
+    output.write(tile, np.zeros((3,) + tile.shape))
+    output.write(tile, np.zeros((4,) + tile.shape))
     with pytest.raises(TypeError):
-        output.write(tile, np.zeros((5, ) + tile.shape))
+        output.write(tile, np.zeros((5,) + tile.shape))
 
 
 @pytest.mark.remote
 def test_s3_write_output_data(mp_s3_tmpdir):
     """Write and read output."""
     output_params = dict(
-        grid="geodetic",
-        format="PNG",
-        path=mp_s3_tmpdir,
-        pixelbuffer=0,
-        metatiling=1
+        grid="geodetic", format="PNG", path=mp_s3_tmpdir, pixelbuffer=0, metatiling=1
     )
     output = png.OutputDataWriter(output_params)
     assert output.path == mp_s3_tmpdir
@@ -86,13 +80,13 @@ def test_s3_write_output_data(mp_s3_tmpdir):
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     # get_path
-    assert output.get_path(tile) == os.path.join(*[
-        mp_s3_tmpdir, "5", "5", "5"+".png"
-    ])
+    assert output.get_path(tile) == os.path.join(
+        *[mp_s3_tmpdir, "5", "5", "5" + ".png"]
+    )
     # profile
     assert isinstance(output.profile(tile), dict)
     # write
-    data = np.ones((1, ) + tile.shape)*128
+    data = np.ones((1,) + tile.shape) * 128
     output.write(tile, data)
     # tiles_exist
     assert output.tiles_exist(tile)

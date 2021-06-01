@@ -7,10 +7,13 @@ from shapely.geometry import box
 from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import (
-    base, data_type_from_extension, driver_metadata, load_output_writer,
-    read_output_metadata
+    base,
+    data_type_from_extension,
+    driver_metadata,
+    load_output_writer,
+    read_output_metadata,
 )
-from mapchete.io import (path_exists, absolute_path, tile_to_zoom_level)
+from mapchete.io import path_exists, absolute_path, tile_to_zoom_level
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
@@ -20,7 +23,7 @@ METADATA = {
     "driver_name": "TileDirectory",
     "data_type": None,
     "mode": "r",
-    "file_extensions": None
+    "file_extensions": None,
 }
 
 
@@ -55,8 +58,7 @@ class InputData(base.InputData):
         if "abstract" in input_params:
             self._params = input_params["abstract"]
             self.path = absolute_path(
-                path=self._params["path"],
-                base_dir=input_params["conf_dir"]
+                path=self._params["path"], base_dir=input_params["conf_dir"]
             )
             logger.debug("InputData params: %s", input_params)
             # define pyramid
@@ -64,7 +66,7 @@ class InputData(base.InputData):
                 self._params["grid"],
                 metatiling=self._params.get("metatiling", 1),
                 tile_size=self._params.get("tile_size", 256),
-                pixelbuffer=self._params.get("pixelbuffer", 0)
+                pixelbuffer=self._params.get("pixelbuffer", 0),
             )
             self._read_as_tiledir_func = base._read_as_tiledir
             try:
@@ -101,9 +103,9 @@ class InputData(base.InputData):
                     pixelbuffer=self.td_pyramid.pixelbuffer,
                     pyramid=self.td_pyramid,
                     grid=self.td_pyramid.grid,
-                    path=self.path
+                    path=self.path,
                 ),
-                readonly=True
+                readonly=True,
             )
             self._params = dict(
                 path=self.path,
@@ -112,7 +114,7 @@ class InputData(base.InputData):
                 pixelbuffer=self.td_pyramid.pixelbuffer,
                 tile_size=self.td_pyramid.tile_size,
                 extension=self.output_data.file_extension.split(".")[-1],
-                **self._tiledir_metadata_json["driver"]
+                **self._tiledir_metadata_json["driver"],
             )
             self._read_as_tiledir_func = self.output_data._read_as_tiledir
             self._data_type = driver_metadata(
@@ -121,20 +123,14 @@ class InputData(base.InputData):
 
         # validate parameters
         validate_values(
-            self._params,
-            [
-                ("path", str),
-                ("grid", (str, dict)),
-                ("extension", str)
-            ]
+            self._params, [("path", str), ("grid", (str, dict)), ("extension", str)]
         )
         self._ext = self._params["extension"]
 
         # additional params
         self._bounds = self._params.get("bounds", self.td_pyramid.bounds)
         self.METADATA.update(
-            data_type=self._data_type,
-            file_extensions=[self._params["extension"]]
+            data_type=self._data_type, file_extensions=[self._params["extension"]]
         )
         if self.METADATA.get("data_type") == "raster":
             self._params["count"] = self._params.get(
@@ -144,16 +140,12 @@ class InputData(base.InputData):
             self._profile = {
                 "nodata": self._params.get("nodata", 0),
                 "dtype": self._params["dtype"],
-                "count": self._params["count"]
+                "count": self._params["count"],
             }
         else:
             self._profile = None
 
-    def open(
-        self,
-        tile,
-        **kwargs
-    ):
+    def open(self, tile, **kwargs):
         """
         Return InputTile object.
 
@@ -174,7 +166,7 @@ class InputData(base.InputData):
             profile=self._profile,
             td_pyramid=self.td_pyramid,
             read_as_tiledir_func=self._read_as_tiledir_func,
-            **kwargs
+            **kwargs,
         )
 
     def bbox(self, out_crs=None):
@@ -194,7 +186,7 @@ class InputData(base.InputData):
         return reproject_geometry(
             box(*self._bounds),
             src_crs=self.td_pyramid.crs,
-            dst_crs=self.pyramid.crs if out_crs is None else out_crs
+            dst_crs=self.pyramid.crs if out_crs is None else out_crs,
         )
 
 
@@ -204,9 +196,11 @@ def _get_tiles_paths(basepath=None, ext=None, pyramid=None, bounds=None, zoom=No
         for _tile, _path in [
             (
                 t,
-                "%s.%s" % (
-                    os.path.join(*([basepath, str(t.zoom), str(t.row), str(t.col)])), ext
-                )
+                "%s.%s"
+                % (
+                    os.path.join(*([basepath, str(t.zoom), str(t.row), str(t.col)])),
+                    ext,
+                ),
             )
             for t in pyramid.tiles_from_bounds(bounds, zoom)
         ]
@@ -238,7 +232,7 @@ class InputTile(base.InputTile):
         profile=None,
         td_crs=None,
         td_pyramid=None,
-        read_as_tiledir_func=None
+        read_as_tiledir_func=None,
     ):
         """Initialize."""
         self.tile = tile
@@ -261,7 +255,7 @@ class InputTile(base.InputTile):
         validity_check=False,
         dst_nodata=None,
         gdal_opts=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Read reprojected & resampled input data.
@@ -321,7 +315,7 @@ class InputTile(base.InputTile):
             resampling=resampling,
             dst_nodata=dst_nodata,
             gdal_opts=gdal_opts,
-            **{k: v for k, v in kwargs.items() if k != "data_type"}
+            **{k: v for k, v in kwargs.items() if k != "data_type"},
         )
 
     def is_empty(
@@ -361,15 +355,18 @@ class InputTile(base.InputTile):
         -------
         is empty : bool
         """
-        return len(
-            self._get_tiles_paths(
-                tile_directory_zoom=tile_directory_zoom,
-                fallback_to_higher_zoom=fallback_to_higher_zoom,
-                matching_method=matching_method,
-                matching_precision=matching_precision,
-                matching_max_zoom=matching_max_zoom,
+        return (
+            len(
+                self._get_tiles_paths(
+                    tile_directory_zoom=tile_directory_zoom,
+                    fallback_to_higher_zoom=fallback_to_higher_zoom,
+                    matching_method=matching_method,
+                    matching_precision=matching_precision,
+                    matching_max_zoom=matching_max_zoom,
+                )
             )
-        ) == 0  # pragma: no cover
+            == 0
+        )  # pragma: no cover
 
     def _get_tiles_paths(
         self,
@@ -381,9 +378,7 @@ class InputTile(base.InputTile):
     ):
         # determine tile bounds in TileDirectory CRS
         td_bounds = reproject_geometry(
-            self.tile.bbox,
-            src_crs=self.tile.tp.crs,
-            dst_crs=self._td_pyramid.crs
+            self.tile.bbox, src_crs=self.tile.tp.crs, dst_crs=self._td_pyramid.crs
         ).bounds
 
         # find target zoom level
@@ -392,7 +387,7 @@ class InputTile(base.InputTile):
                 self.tile,
                 dst_pyramid=self._td_pyramid,
                 matching_method=matching_method,
-                precision=matching_precision
+                precision=matching_precision,
             )
             if matching_max_zoom is not None:
                 zoom = min([zoom, matching_max_zoom])
@@ -408,9 +403,11 @@ class InputTile(base.InputTile):
                     ext=self._ext,
                     pyramid=self._td_pyramid,
                     bounds=td_bounds,
-                    zoom=zoom
+                    zoom=zoom,
                 )
-                logger.debug("%s existing tiles found at zoom %s", len(tiles_paths), zoom)
+                logger.debug(
+                    "%s existing tiles found at zoom %s", len(tiles_paths), zoom
+                )
                 zoom -= 1
         else:
             tiles_paths = _get_tiles_paths(
@@ -418,7 +415,7 @@ class InputTile(base.InputTile):
                 ext=self._ext,
                 pyramid=self._td_pyramid,
                 bounds=td_bounds,
-                zoom=zoom
+                zoom=zoom,
             )
             logger.debug("%s existing tiles found at zoom %s", len(tiles_paths), zoom)
 

@@ -15,7 +15,9 @@ import tilematrix
 from mapchete.cli import utils
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import (
-    driver_from_file, available_output_formats, available_input_formats
+    driver_from_file,
+    available_output_formats,
+    available_input_formats,
 )
 from mapchete.io import read_json, get_best_zoom_level
 from mapchete.io.vector import reproject_geometry
@@ -46,19 +48,16 @@ def _validate_bidx(ctx, param, bidx):
 @utils.opt_point_crs
 @utils.opt_wkt_geometry
 @click.option(
-    "--clip-geometry", "-c",
+    "--clip-geometry",
+    "-c",
     type=click.Path(exists=True),
-    help="Clip output by geometry"
+    help="Clip output by geometry",
 )
-@click.option(
-    "--bidx",
-    callback=_validate_bidx,
-    help="Band indexes to copy."
-)
+@click.option("--bidx", callback=_validate_bidx, help="Band indexes to copy.")
 @click.option(
     "--output-pyramid",
     type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
-    help="Output pyramid to write to."
+    help="Output pyramid to write to.",
 )
 @click.option(
     "--output-metatiling",
@@ -68,47 +67,45 @@ def _validate_bidx(ctx, param, bidx):
 @click.option(
     "--output-format",
     type=click.Choice(available_output_formats()),
-    help="Output format."
+    help="Output format.",
 )
 @click.option(
     "--output-dtype",
     type=click.Choice(dtype_ranges.keys()),
-    help="Output data type (for raster output only)."
+    help="Output data type (for raster output only).",
 )
 @click.option(
     "--output-geometry-type",
     type=click.STRING,
-    help="Output geometry type (for vector output only)."
+    help="Output geometry type (for vector output only).",
 )
 @creation_options
 @click.option(
     "--scale-ratio",
     type=click.FLOAT,
-    default=1.,
-    help="Scaling factor (for raster output only)."
+    default=1.0,
+    help="Scaling factor (for raster output only).",
 )
 @click.option(
     "--scale-offset",
     type=click.FLOAT,
-    default=0.,
-    help="Scaling offset (for raster output only)."
+    default=0.0,
+    help="Scaling offset (for raster output only).",
 )
 @utils.opt_resampling_method
 @click.option(
-    "--overviews",
-    is_flag=True,
-    help="Generate overviews (single GTiff output only)."
+    "--overviews", is_flag=True, help="Generate overviews (single GTiff output only)."
 )
 @click.option(
     "--overviews-resampling-method",
     type=click.Choice([it.name for it in Resampling if it.value in range(8)]),
     default="cubic_spline",
-    help="Resampling method used for overviews. (default: cubic_spline)"
+    help="Resampling method used for overviews. (default: cubic_spline)",
 )
 @click.option(
     "--cog",
     is_flag=True,
-    help="Write a valid COG. This will automatically generate verviews. (GTiff only)"
+    help="Write a valid COG. This will automatically generate verviews. (GTiff only)",
 )
 @utils.opt_overwrite
 @utils.opt_verbose
@@ -150,7 +147,7 @@ def convert(
     debug=False,
     multi=None,
     vrt=False,
-    idx_out_dir=None
+    idx_out_dir=None,
 ):
     try:
         input_info = _get_input_info(input_)
@@ -166,8 +163,8 @@ def convert(
             dict(
                 grid=output_pyramid,
                 metatiling=(
-                    output_metatiling or
-                    (
+                    output_metatiling
+                    or (
                         input_info["pyramid"].get("metatiling", 1)
                         if input_info["pyramid"]
                         else 1
@@ -177,7 +174,7 @@ def convert(
                     input_info["pyramid"].get("pixelbuffer", 0)
                     if input_info["pyramid"]
                     else 0
-                )
+                ),
             )
             if output_pyramid
             else input_info["pyramid"]
@@ -190,23 +187,22 @@ def convert(
             },
             path=output,
             format=(
-                output_format or
-                output_info["driver"] or
-                input_info["output_params"]["format"]
+                output_format
+                or output_info["driver"]
+                or input_info["output_params"]["format"]
             ),
             dtype=output_dtype or input_info["output_params"].get("dtype"),
             **creation_options,
-            **dict(
-                overviews=True,
-                overviews_resampling=overviews_resampling_method
-            ) if overviews else dict(),
+            **dict(overviews=True, overviews_resampling=overviews_resampling_method)
+            if overviews
+            else dict(),
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info["zoom_levels"],
         scale_ratio=scale_ratio,
         scale_offset=scale_offset,
         resampling=resampling_method,
-        band_indexes=bidx
+        band_indexes=bidx,
     )
 
     # assert all required information is there
@@ -225,16 +221,15 @@ def convert(
             mapchete_config.update(
                 zoom_levels=dict(
                     min=0,
-                    max=get_best_zoom_level(input_, mapchete_config["pyramid"]["grid"])
+                    max=get_best_zoom_level(input_, mapchete_config["pyramid"]["grid"]),
                 )
             )
-        except:
+        except Exception:
             raise click.BadOptionUsage("zoom", "Zoom levels required.")
     elif input_info["input_type"] != output_type:
         raise click.BadArgumentUsage(
-            "Output format type (%s) is incompatible with input format (%s)." % (
-                output_type, input_info["input_type"]
-            )
+            "Output format type (%s) is incompatible with input format (%s)."
+            % (output_type, input_info["input_type"])
         )
     if output_metatiling:
         mapchete_config["output"].update(metatiling=output_metatiling)
@@ -244,11 +239,11 @@ def convert(
     # determine process bounds
     out_pyramid = BufferedTilePyramid.from_dict(mapchete_config["pyramid"])
     inp_bounds = (
-        bounds or
-        reproject_geometry(
+        bounds
+        or reproject_geometry(
             box(*input_info["bounds"]),
             src_crs=input_info["crs"],
-            dst_crs=out_pyramid.crs
+            dst_crs=out_pyramid.crs,
         ).bounds
         if input_info["bounds"]
         else out_pyramid.bounds
@@ -265,13 +260,9 @@ def convert(
             return
     # add process bounds and output type
     mapchete_config.update(
-        bounds=(
-            clip_intersection.bounds
-            if clip_geometry
-            else inp_bounds
-        ),
+        bounds=(clip_intersection.bounds if clip_geometry else inp_bounds),
         bounds_crs=bounds_crs,
-        clip_to_output_dtype=mapchete_config["output"].get("dtype", None)
+        clip_to_output_dtype=mapchete_config["output"].get("dtype", None),
     )
     logger.debug("temporary config generated: %s", pformat(mapchete_config))
 
@@ -288,10 +279,10 @@ def convert(
         area=area,
         area_crs=area_crs,
         multi=multi or cpu_count(),
-        verbose_dst=open(os.devnull, 'w') if debug or not verbose else sys.stdout,
+        verbose_dst=open(os.devnull, "w") if debug or not verbose else sys.stdout,
         no_pbar=no_pbar,
         vrt=vrt,
-        idx_out_dir=idx_out_dir
+        idx_out_dir=idx_out_dir,
     )
 
 
@@ -341,7 +332,7 @@ def _input_mapchete_info(input_):
         zoom_levels=validate_zooms(conf["zoom_levels"], expand=False),
         pixel_size=None,
         input_type=OUTPUT_FORMATS[output_params["format"]]["data_type"],
-        bounds=conf.get("bounds")
+        bounds=conf.get("bounds"),
     )
 
 
@@ -351,14 +342,14 @@ def _input_rasterio_info(input_):
             output_params=dict(
                 bands=src.meta["count"],
                 dtype=src.meta["dtype"],
-                format=src.driver if src.driver in available_input_formats() else None
+                format=src.driver if src.driver in available_input_formats() else None,
             ),
             pyramid=None,
             crs=src.crs,
             zoom_levels=None,
             pixel_size=src.transform[0],
             input_type="raster",
-            bounds=src.bounds
+            bounds=src.bounds,
         )
 
 
@@ -367,13 +358,13 @@ def _input_fiona_info(input_):
         return dict(
             output_params=dict(
                 schema=src.schema,
-                format=src.driver if src.driver in available_input_formats() else None
+                format=src.driver if src.driver in available_input_formats() else None,
             ),
             pyramid=None,
             crs=src.crs,
             zoom_levels=None,
             input_type="vector",
-            bounds=src.bounds
+            bounds=src.bounds,
         )
 
 
@@ -387,21 +378,15 @@ def _input_tile_directory_info(input_):
         zoom_levels=None,
         pixel_size=None,
         input_type=OUTPUT_FORMATS[conf["driver"]["format"]]["data_type"],
-        bounds=None
+        bounds=None,
     )
 
 
 def _get_output_info(output):
     _, file_ext = os.path.splitext(output)
     if not file_ext:
-        return dict(
-            type="TileDirectory",
-            driver=None
-        )
+        return dict(type="TileDirectory", driver=None)
     elif file_ext == ".tif":
-        return dict(
-            type="SingleFile",
-            driver="GTiff"
-        )
+        return dict(type="SingleFile", driver="GTiff")
     else:
         raise TypeError("Could not determine output from extension: %s", file_ext)

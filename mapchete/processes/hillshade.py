@@ -74,14 +74,16 @@ def execute(
     else:
         clip_geom = []
 
-    with mp.open("dem",) as dem:
+    with mp.open(
+        "dem",
+    ) as dem:
         logger.debug("reading input raster")
         dem_data = dem.read(
             resampling=resampling,
             matching_method=td_matching_method,
             matching_max_zoom=td_matching_max_zoom,
             matching_precision=td_matching_precision,
-            fallback_to_higher_zoom=td_fallback_to_higher_zoom
+            fallback_to_higher_zoom=td_fallback_to_higher_zoom,
         )
         if dem_data.mask.all():
             logger.debug("raster empty")

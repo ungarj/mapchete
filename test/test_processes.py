@@ -37,9 +37,7 @@ def test_example_process(cleantopo_tl):
 
 
 def test_convert_raster(cleantopo_tl, cleantopo_tl_tif, landpoly):
-    with mapchete.open(
-        dict(cleantopo_tl.dict, input=dict(inp=cleantopo_tl_tif))
-    ) as mp:
+    with mapchete.open(dict(cleantopo_tl.dict, input=dict(inp=cleantopo_tl_tif))) as mp:
         zoom = max(mp.config.zoom_levels)
         # execute without clip
         tile = next(mp.get_process_tiles(zoom))
@@ -53,7 +51,7 @@ def test_convert_raster(cleantopo_tl, cleantopo_tl_tif, landpoly):
         tile = mp.config.process_pyramid.tile(
             zoom,
             mp.config.process_pyramid.matrix_height(zoom) - 1,
-            mp.config.process_pyramid.matrix_width(zoom) - 1
+            mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
             tile=tile,
@@ -76,29 +74,21 @@ def test_convert_raster(cleantopo_tl, cleantopo_tl_tif, landpoly):
         default = convert.execute(user_process)
         assert isinstance(default, np.ndarray)
         # scale_offset
-        offset = convert.execute(
-            user_process,
-            scale_offset=2
-        )
+        offset = convert.execute(user_process, scale_offset=2)
         assert isinstance(offset, np.ndarray)
         # scale_ratio
-        ratio = convert.execute(
-            user_process,
-            scale_ratio=0.5
-        )
+        ratio = convert.execute(user_process, scale_ratio=0.5)
         assert isinstance(ratio, np.ndarray)
         # clip_to_output_dtype
         clip_dtype = convert.execute(
-            user_process,
-            scale_ratio=2,
-            clip_to_output_dtype="uint8"
+            user_process, scale_ratio=2, clip_to_output_dtype="uint8"
         )
         assert isinstance(clip_dtype, np.ndarray)
         # execute on empty tile
         tile = mp.config.process_pyramid.tile(
             zoom,
             mp.config.process_pyramid.matrix_height(zoom) - 1,
-            mp.config.process_pyramid.matrix_width(zoom) - 1
+            mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
             tile=tile,
@@ -109,9 +99,7 @@ def test_convert_raster(cleantopo_tl, cleantopo_tl_tif, landpoly):
 
 
 def test_convert_vector(cleantopo_tl, landpoly):
-    with mapchete.open(
-        dict(cleantopo_tl.dict, input=dict(inp=landpoly))
-    ) as mp:
+    with mapchete.open(dict(cleantopo_tl.dict, input=dict(inp=landpoly))) as mp:
         zoom = max(mp.config.zoom_levels)
         # execute without clip
         tile = next(mp.get_process_tiles(zoom))
@@ -125,7 +113,7 @@ def test_convert_vector(cleantopo_tl, landpoly):
         tile = mp.config.process_pyramid.tile(
             zoom,
             mp.config.process_pyramid.matrix_height(zoom) - 1,
-            mp.config.process_pyramid.matrix_width(zoom) - 1
+            mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
             tile=tile,
@@ -135,11 +123,8 @@ def test_convert_vector(cleantopo_tl, landpoly):
         assert convert.execute(user_process) == "empty"
 
 
-
 def test_contours(cleantopo_tl, cleantopo_tl_tif, landpoly):
-    with mapchete.open(
-        dict(cleantopo_tl.dict, input=dict(dem=cleantopo_tl_tif))
-    ) as mp:
+    with mapchete.open(dict(cleantopo_tl.dict, input=dict(dem=cleantopo_tl_tif))) as mp:
         zoom = max(mp.config.zoom_levels)
         # execute without clip
         tile = next(mp.get_process_tiles(zoom))
@@ -155,7 +140,7 @@ def test_contours(cleantopo_tl, cleantopo_tl_tif, landpoly):
         tile = mp.config.process_pyramid.tile(
             zoom,
             mp.config.process_pyramid.matrix_height(zoom) - 1,
-            mp.config.process_pyramid.matrix_width(zoom) - 1
+            mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
             tile=tile,
@@ -181,7 +166,7 @@ def test_contours(cleantopo_tl, cleantopo_tl_tif, landpoly):
         tile = mp.config.process_pyramid.tile(
             zoom,
             mp.config.process_pyramid.matrix_height(zoom) - 1,
-            mp.config.process_pyramid.matrix_width(zoom) - 1
+            mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
             tile=tile,
@@ -192,9 +177,7 @@ def test_contours(cleantopo_tl, cleantopo_tl_tif, landpoly):
 
 
 def test_hillshade(cleantopo_tl, cleantopo_tl_tif, landpoly):
-    with mapchete.open(
-        dict(cleantopo_tl.dict, input=dict(dem=cleantopo_tl_tif))
-    ) as mp:
+    with mapchete.open(dict(cleantopo_tl.dict, input=dict(dem=cleantopo_tl_tif))) as mp:
         zoom = max(mp.config.zoom_levels)
         # execute without clip
         tile = next(mp.get_process_tiles(zoom))
@@ -208,7 +191,7 @@ def test_hillshade(cleantopo_tl, cleantopo_tl_tif, landpoly):
         tile = mp.config.process_pyramid.tile(
             zoom,
             mp.config.process_pyramid.matrix_height(zoom) - 1,
-            mp.config.process_pyramid.matrix_width(zoom) - 1
+            mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
             tile=tile,
@@ -232,7 +215,7 @@ def test_hillshade(cleantopo_tl, cleantopo_tl_tif, landpoly):
         tile = mp.config.process_pyramid.tile(
             zoom,
             mp.config.process_pyramid.matrix_height(zoom) - 1,
-            mp.config.process_pyramid.matrix_width(zoom) - 1
+            mp.config.process_pyramid.matrix_width(zoom) - 1,
         )
         user_process = mapchete.MapcheteProcess(
             tile=tile,

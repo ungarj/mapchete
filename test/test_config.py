@@ -13,7 +13,12 @@ import oyaml as yaml
 from tilematrix._funcs import Bounds
 
 import mapchete
-from mapchete.config import bounds_from_opts, MapcheteConfig, snap_bounds, _guess_geometry
+from mapchete.config import (
+    bounds_from_opts,
+    MapcheteConfig,
+    snap_bounds,
+    _guess_geometry,
+)
 from mapchete.errors import MapcheteDriverError, MapcheteConfigError
 
 
@@ -115,16 +120,14 @@ def test_override_zoom_levels(minmax_zoom):
 def test_read_bounds(zoom_mapchete):
     """Read bounds from config file."""
     config = MapcheteConfig(zoom_mapchete.path)
-    test_polygon = Polygon([
-        [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
+    test_polygon = Polygon([[3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
     assert config.area_at_zoom(5).equals(test_polygon)
 
 
 def test_override_bounds(zoom_mapchete):
     """Override bounds when construcing configuration."""
     config = MapcheteConfig(zoom_mapchete.path, bounds=[3, 2, 3.5, 1.5])
-    test_polygon = Polygon([
-        [3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
+    test_polygon = Polygon([[3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
     assert config.area_at_zoom(5).equals(test_polygon)
 
 
@@ -132,30 +135,33 @@ def test_bounds_from_input_files(files_bounds):
     """Read bounds from input files."""
     config = MapcheteConfig(files_bounds.path)
     test_polygon = Polygon(
-        [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]])
+        [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
+    )
     assert config.area_at_zoom(10).equals(test_polygon)
 
 
 def test_effective_bounds(files_bounds, baselevels):
     config = MapcheteConfig(files_bounds.dict)
     assert config.effective_bounds == snap_bounds(
-        bounds=config.bounds, pyramid=config.process_pyramid, zoom=min(config.zoom_levels)
+        bounds=config.bounds,
+        pyramid=config.process_pyramid,
+        zoom=min(config.zoom_levels),
     )
 
-    config = MapcheteConfig(
-        baselevels.dict, zoom=[5, 7], bounds=(0, 1, 2, 3)
-    )
+    config = MapcheteConfig(baselevels.dict, zoom=[5, 7], bounds=(0, 1, 2, 3))
     assert config.effective_bounds != config.init_bounds
     assert config.effective_bounds == snap_bounds(
         bounds=config.init_bounds, pyramid=config.process_pyramid, zoom=5
     )
 
     with pytest.raises(MapcheteConfigError):
-        MapcheteConfig(dict(
-            baselevels.dict,
-            zoom_levels=dict(min=7, max=7),
-            baselevels=dict(lower="cubic", max=7)
-        ))
+        MapcheteConfig(
+            dict(
+                baselevels.dict,
+                zoom_levels=dict(min=7, max=7),
+                baselevels=dict(lower="cubic", max=7),
+            )
+        )
 
 
 def test_read_mapchete_input(mapchete_input):
@@ -163,7 +169,9 @@ def test_read_mapchete_input(mapchete_input):
     config = MapcheteConfig(mapchete_input.path)
     area = config.area_at_zoom(5)
     # testpolygon = box(0.5, 1.5, 3.5, 3.5)
-    testpolygon = wkt.loads("POLYGON ((3 1.5, 3 1, 2 1, 2 1.5, 0.5 1.5, 0.5 3.5, 2 3.5, 2 4, 3 4, 3 3.5, 3.5 3.5, 3.5 1.5, 3 1.5))")
+    testpolygon = wkt.loads(
+        "POLYGON ((3 1.5, 3 1, 2 1, 2 1.5, 0.5 1.5, 0.5 3.5, 2 3.5, 2 4, 3 4, 3 3.5, 3.5 3.5, 3.5 1.5, 3 1.5))"
+    )
     assert area.equals(testpolygon)
 
 
@@ -231,23 +239,19 @@ def test_input_zooms(files_zooms):
     config = MapcheteConfig(files_zooms.path)
     # zoom 7
     input_files = config.params_at_zoom(7)["input"]
-    assert os.path.basename(
-        input_files["greater_smaller"].path) == "dummy1.tif"
+    assert os.path.basename(input_files["greater_smaller"].path) == "dummy1.tif"
     assert os.path.basename(input_files["equals"].path) == "dummy1.tif"
     # zoom 8
     input_files = config.params_at_zoom(8)["input"]
-    assert os.path.basename(
-        input_files["greater_smaller"].path) == "dummy1.tif"
+    assert os.path.basename(input_files["greater_smaller"].path) == "dummy1.tif"
     assert os.path.basename(input_files["equals"].path) == "dummy2.tif"
     # zoom 9
     input_files = config.params_at_zoom(9)["input"]
-    assert os.path.basename(
-        input_files["greater_smaller"].path) == "dummy2.tif"
+    assert os.path.basename(input_files["greater_smaller"].path) == "dummy2.tif"
     assert os.path.basename(input_files["equals"].path) == "cleantopo_br.tif"
     # zoom 10
     input_files = config.params_at_zoom(10)["input"]
-    assert os.path.basename(
-        input_files["greater_smaller"].path) == "dummy2.tif"
+    assert os.path.basename(input_files["greater_smaller"].path) == "dummy2.tif"
     assert os.path.basename(input_files["equals"].path) == "cleantopo_tl.tif"
 
 
@@ -293,10 +297,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
         assert set(aoi_tiles) == set(process_tiles)
 
     # area as path in mapchete.open
-    with mapchete.open(
-        dict(aoi_br.dict, area=None),
-        area=aoi_br_geojson
-    ) as mp:
+    with mapchete.open(dict(aoi_br.dict, area=None), area=aoi_br_geojson) as mp:
         process_tiles = list(mp.get_process_tiles(zoom=zoom))
         assert len(aoi_tiles) == len(process_tiles)
         assert set(aoi_tiles) == set(process_tiles)
@@ -304,10 +305,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
     # errors
     # non-existent path
     with pytest.raises(MapcheteConfigError):
-        mapchete.open(
-            dict(aoi_br.dict, area=None),
-            area="/invalid_path.geojson"
-        )
+        mapchete.open(dict(aoi_br.dict, area=None), area="/invalid_path.geojson")
 
 
 def test_guess_geometry(aoi_br_geojson):
@@ -354,47 +352,32 @@ def test_guess_geometry(aoi_br_geojson):
 
 def test_bounds_from_opts(example_mapchete, wkt_geom):
     # WKT
-    assert isinstance(
-        bounds_from_opts(wkt_geometry=wkt_geom),
-        Bounds
-    )
+    assert isinstance(bounds_from_opts(wkt_geometry=wkt_geom), Bounds)
 
     # point
     assert isinstance(
-        bounds_from_opts(
-            point=(0, 0),
-            raw_conf=example_mapchete.dict
-        ),
-        Bounds
+        bounds_from_opts(point=(0, 0), raw_conf=example_mapchete.dict), Bounds
     )
 
     # point from different CRS
     assert isinstance(
         bounds_from_opts(
-            point=(0, 0),
-            point_crs="EPSG:3857",
-            raw_conf=example_mapchete.dict
+            point=(0, 0), point_crs="EPSG:3857", raw_conf=example_mapchete.dict
         ),
-        Bounds
+        Bounds,
     )
 
     # bounds
     assert isinstance(
-        bounds_from_opts(
-            bounds=(1, 2, 3, 4),
-            raw_conf=example_mapchete.dict
-        ),
-        Bounds
+        bounds_from_opts(bounds=(1, 2, 3, 4), raw_conf=example_mapchete.dict), Bounds
     )
 
     # bounds from different CRS
     assert isinstance(
         bounds_from_opts(
-            bounds=(1, 2, 3, 4),
-            bounds_crs="EPSG:3857",
-            raw_conf=example_mapchete.dict
+            bounds=(1, 2, 3, 4), bounds_crs="EPSG:3857", raw_conf=example_mapchete.dict
         ),
-        Bounds
+        Bounds,
     )
 
 
@@ -406,32 +389,28 @@ def test_init_overrides_config(example_mapchete):
 
     # bounds
     with mapchete.open(
-        dict(example_mapchete.dict, bounds=process_bounds),
-        bounds=init_bounds
+        dict(example_mapchete.dict, bounds=process_bounds), bounds=init_bounds
     ) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == init_bounds
 
     # area
     with mapchete.open(
-        dict(example_mapchete.dict, area=process_area),
-        area=init_area
+        dict(example_mapchete.dict, area=process_area), area=init_area
     ) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == init_bounds
 
     # process bounds and init area
     with mapchete.open(
-        dict(example_mapchete.dict, bounds=process_bounds),
-        area=init_area
+        dict(example_mapchete.dict, bounds=process_bounds), area=init_area
     ) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == init_bounds
 
     # process area and init bounds
     with mapchete.open(
-        dict(example_mapchete.dict, area=process_area),
-        bounds=init_bounds
+        dict(example_mapchete.dict, area=process_area), bounds=init_bounds
     ) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == init_bounds
@@ -440,7 +419,7 @@ def test_init_overrides_config(example_mapchete):
     with mapchete.open(
         dict(example_mapchete.dict, bounds=process_bounds),
         area=init_area,
-        bounds=init_bounds
+        bounds=init_bounds,
     ) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == init_bounds
@@ -449,21 +428,17 @@ def test_init_overrides_config(example_mapchete):
     with mapchete.open(
         dict(example_mapchete.dict, area=process_area),
         area=init_area,
-        bounds=init_bounds
+        bounds=init_bounds,
     ) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == init_bounds
 
     # process area
-    with mapchete.open(
-        dict(example_mapchete.dict, area=process_area)
-    ) as mp:
+    with mapchete.open(dict(example_mapchete.dict, area=process_area)) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == process_bounds
 
     # process bounds
-    with mapchete.open(
-        dict(example_mapchete.dict, bounds=process_bounds)
-    ) as mp:
+    with mapchete.open(dict(example_mapchete.dict, bounds=process_bounds)) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == process_bounds

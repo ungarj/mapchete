@@ -18,7 +18,7 @@ def test_output_data(mp_tmpdir):
         format="PNG_hillshade",
         path=mp_tmpdir,
         pixelbuffer=0,
-        metatiling=1
+        metatiling=1,
     )
     output = png_hillshade.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
@@ -26,8 +26,7 @@ def test_output_data(mp_tmpdir):
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     # get_path
-    assert output.get_path(tile) == os.path.join(*[
-        mp_tmpdir, "5", "5", "5"+".png"])
+    assert output.get_path(tile) == os.path.join(*[mp_tmpdir, "5", "5", "5" + ".png"])
     # prepare_path
     try:
         temp_dir = os.path.join(*[mp_tmpdir, "5", "5"])
@@ -41,7 +40,7 @@ def test_output_data(mp_tmpdir):
     assert isinstance(output.profile(tile), dict)
     # write full array
     try:
-        data = np.ones(tile.shape)*128
+        data = np.ones(tile.shape) * 128
         output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
@@ -53,11 +52,11 @@ def test_output_data(mp_tmpdir):
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # write half masked array
     try:
-        half_shape = (tile.shape[0], tile.shape[1]//2)
+        half_shape = (tile.shape[0], tile.shape[1] // 2)
         data = ma.masked_array(
-            data=np.ones(tile.shape)*128,
-            mask=np.concatenate(
-                [np.zeros(half_shape), np.ones(half_shape)], axis=1))
+            data=np.ones(tile.shape) * 128,
+            mask=np.concatenate([np.zeros(half_shape), np.ones(half_shape)], axis=1),
+        )
         output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
@@ -75,7 +74,7 @@ def test_output_data(mp_tmpdir):
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     try:
-        data = np.ones(tile.shape)*128
+        data = np.ones(tile.shape) * 128
         output.write(tile, data)
         # tiles_exist
         assert output.tiles_exist(tile)
@@ -103,7 +102,7 @@ def test_s3_write_output_data(mp_s3_tmpdir):
         format="PNG_hillshade",
         path=mp_s3_tmpdir,
         pixelbuffer=0,
-        metatiling=1
+        metatiling=1,
     )
     output = png_hillshade.OutputDataWriter(output_params)
     assert output.path == mp_s3_tmpdir
@@ -111,8 +110,9 @@ def test_s3_write_output_data(mp_s3_tmpdir):
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
     # get_path
-    assert output.get_path(tile) == os.path.join(*[
-        mp_s3_tmpdir, "5", "5", "5"+".png"])
+    assert output.get_path(tile) == os.path.join(
+        *[mp_s3_tmpdir, "5", "5", "5" + ".png"]
+    )
     # profile
     assert isinstance(output.profile(tile), dict)
     # write full array

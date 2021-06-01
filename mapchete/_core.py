@@ -10,7 +10,12 @@ from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile
 from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
-from mapchete._processing import _run_on_single_tile, _run_area, ProcessInfo, TileProcess
+from mapchete._processing import (
+    _run_on_single_tile,
+    _run_area,
+    ProcessInfo,
+    TileProcess,
+)
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
 from mapchete.validate import validate_tile, validate_zooms
@@ -18,11 +23,7 @@ from mapchete.validate import validate_tile, validate_zooms
 logger = logging.getLogger(__name__)
 
 
-def open(
-    some_input,
-    with_cache=False,
-    **kwargs
-):
+def open(some_input, with_cache=False, **kwargs):
     """
     Open a Mapchete process.
 
@@ -56,32 +57,27 @@ def open(
         metadata_json = os.path.join(some_input, "metadata.json")
         fs = kwargs.get("fs", fs_from_path(metadata_json, **kwargs))
         logger.debug("read metadata.json")
-        metadata = read_output_metadata(
-            metadata_json,
-            fs=fs
-        )
+        metadata = read_output_metadata(metadata_json, fs=fs)
         config = dict(
             process=None,
             input=None,
             pyramid=metadata["pyramid"].to_dict(),
             output=dict(
                 {
-                    k: v for k, v in metadata["driver"].items()
+                    k: v
+                    for k, v in metadata["driver"].items()
                     if k not in ["delimiters", "mode"]
                 },
                 path=some_input,
-                fs_kwargs=kwargs
+                fs_kwargs=kwargs,
             ),
             config_dir=os.getcwd(),
-            zoom_levels=kwargs.get("zoom")
+            zoom_levels=kwargs.get("zoom"),
         )
         kwargs.update(mode="readonly")
         return Mapchete(MapcheteConfig(config, **kwargs))
     else:
-        return Mapchete(
-            MapcheteConfig(some_input, **kwargs),
-            with_cache=with_cache
-        )
+        return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
 
 
 class Mapchete(object):
@@ -189,7 +185,7 @@ class Mapchete(object):
         max_chunksize=1,
         multiprocessing_module=None,
         multiprocessing_start_method="fork",
-        skip_output_check=False
+        skip_output_check=False,
     ):
         """
         Process a large batch of tiles.
@@ -219,15 +215,17 @@ class Mapchete(object):
             skip checking whether process tiles already have existing output before
             starting to process;
         """
-        list(self.batch_processor(
-            zoom=zoom,
-            tile=tile,
-            multi=multi or multiprocessing.cpu_count(),
-            max_chunksize=max_chunksize,
-            multiprocessing_module=multiprocessing_module or multiprocessing,
-            multiprocessing_start_method=multiprocessing_start_method,
-            skip_output_check=skip_output_check
-        ))
+        list(
+            self.batch_processor(
+                zoom=zoom,
+                tile=tile,
+                multi=multi or multiprocessing.cpu_count(),
+                max_chunksize=max_chunksize,
+                multiprocessing_module=multiprocessing_module or multiprocessing,
+                multiprocessing_start_method=multiprocessing_start_method,
+                skip_output_check=skip_output_check,
+            )
+        )
 
     def batch_processor(
         self,
@@ -237,7 +235,7 @@ class Mapchete(object):
         max_chunksize=1,
         multiprocessing_module=None,
         multiprocessing_start_method="fork",
-        skip_output_check=False
+        skip_output_check=False,
     ):
         """
         Process a large batch of tiles and yield report messages per tile.
@@ -271,8 +269,7 @@ class Mapchete(object):
         # run single tile
         if tile:
             yield _run_on_single_tile(
-                process=self,
-                tile=self.config.process_pyramid.tile(*tuple(tile))
+                process=self, tile=self.config.process_pyramid.tile(*tuple(tile))
             )
         # run area
         else:
@@ -283,7 +280,7 @@ class Mapchete(object):
                 max_chunksize=max_chunksize,
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
-                skip_output_check=skip_output_check
+                skip_output_check=skip_output_check,
             ):
                 yield process_info
 
@@ -305,8 +302,11 @@ class Mapchete(object):
         """
         if (minzoom, maxzoom) not in self._count_tiles_cache:
             self._count_tiles_cache[(minzoom, maxzoom)] = count_tiles(
-                self.config.area_at_zoom(), self.config.process_pyramid,
-                minzoom, maxzoom, init_zoom=0
+                self.config.area_at_zoom(),
+                self.config.process_pyramid,
+                minzoom,
+                maxzoom,
+                init_zoom=0,
             )
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
@@ -383,7 +383,7 @@ class Mapchete(object):
                 processed=False,
                 process_msg=None,
                 written=False,
-                write_msg=message
+                write_msg=message,
             )
         elif data is None:
             message = "output empty, nothing written"
@@ -393,7 +393,7 @@ class Mapchete(object):
                 processed=False,
                 process_msg=None,
                 written=False,
-                write_msg=message
+                write_msg=message,
             )
         else:
             with Timer() as t:
@@ -405,7 +405,7 @@ class Mapchete(object):
                 processed=False,
                 process_msg=None,
                 written=True,
-                write_msg=message
+                write_msg=message,
             )
 
     def get_raw_output(self, tile, _baselevel_readonly=False):
@@ -450,7 +450,7 @@ class Mapchete(object):
             return self._extract(
                 in_tile=process_tile,
                 in_data=self._execute_using_cache(process_tile),
-                out_tile=tile
+                out_tile=tile,
             )
 
         # TODO: cases where tile intersects with multiple process tiles
@@ -458,9 +458,9 @@ class Mapchete(object):
 
         # get output_tiles that intersect with current tile
         if tile.pixelbuffer > self.config.output.pixelbuffer:
-            output_tiles = list(self.config.output_pyramid.tiles_from_bounds(
-                tile.bounds, tile.zoom
-            ))
+            output_tiles = list(
+                self.config.output_pyramid.tiles_from_bounds(tile.bounds, tile.zoom)
+            )
         else:
             output_tiles = self.config.output_pyramid.intersecting(tile)
 
@@ -484,17 +484,12 @@ class Mapchete(object):
             output = self.execute(process_tile)
 
         self.write(process_tile, output)
-        return self._extract(
-            in_tile=process_tile,
-            in_data=output,
-            out_tile=tile
-        )
+        return self._extract(in_tile=process_tile, in_data=output, out_tile=tile)
 
     def _read_existing_output(self, tile, output_tiles):
         return self.config.output.extract_subset(
             input_data_tiles=[
-                (output_tile, self.read(output_tile))
-                for output_tile in output_tiles
+                (output_tile, self.read(output_tile)) for output_tile in output_tiles
             ],
             out_tile=tile,
         )
@@ -522,16 +517,14 @@ class Mapchete(object):
                     return self.process_tile_cache[process_tile.id]
                 finally:
                     with self.process_lock:
-                        process_event = self.current_processes.get(
-                            process_tile.id)
+                        process_event = self.current_processes.get(process_tile.id)
                         del self.current_processes[process_tile.id]
                         process_event.set()
 
     def _extract(self, in_tile=None, in_data=None, out_tile=None):
         """Extract data from tile."""
         return self.config.output.extract_subset(
-            input_data_tiles=[(in_tile, in_data)],
-            out_tile=out_tile
+            input_data_tiles=[(in_tile, in_data)], out_tile=out_tile
         )
 
     def __enter__(self):
@@ -557,4 +550,6 @@ class Mapchete(object):
 
 def _get_zoom_level(zoom, process):
     """Determine zoom levels."""
-    return reversed(process.config.zoom_levels) if zoom is None else validate_zooms(zoom)
+    return (
+        reversed(process.config.zoom_levels) if zoom is None else validate_zooms(zoom)
+    )

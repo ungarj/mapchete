@@ -2,5 +2,5 @@
 
 
 def execute():
-    """"Function needs to have exactly one argument."""
+    """ "Function needs to have exactly one argument."""
     pass

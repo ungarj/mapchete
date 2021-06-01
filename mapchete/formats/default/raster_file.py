@@ -25,7 +25,7 @@ METADATA = {
     "driver_name": "raster_file",
     "data_type": "raster",
     "mode": "r",
-    "file_extensions": ["tif", "vrt", "png", "jp2"]
+    "file_extensions": ["tif", "vrt", "png", "jp2"],
 }
 
 
@@ -58,7 +58,7 @@ class InputData(base.InputData):
         "driver_name": "raster_file",
         "data_type": "raster",
         "mode": "r",
-        "file_extensions": ["tif", "vrt", "png", "jp2"]
+        "file_extensions": ["tif", "vrt", "png", "jp2"],
     }
 
     def __init__(self, input_params, **kwargs):
@@ -110,10 +110,9 @@ class InputData(base.InputData):
             # estimate segmentize value (raster pixel size * tile size)
             # and get reprojected bounding box
             return reproject_geometry(
-                segmentize_geometry(
-                    bbox, inp.transform[0] * self.pyramid.tile_size
-                ),
-                src_crs=inp_crs, dst_crs=out_crs
+                segmentize_geometry(bbox, inp.transform[0] * self.pyramid.tile_size),
+                src_crs=inp_crs,
+                dst_crs=out_crs,
             )
         else:
             return out_bbox
@@ -156,7 +155,7 @@ class InputTile(base.InputTile):
             file_ext = os.path.splitext(raster_file.path)[1]
             self.gdal_opts = {
                 "GDAL_DISABLE_READDIR_ON_OPEN": True,
-                "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext
+                "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext,
             }
         else:
             self.gdal_opts = {}
@@ -174,7 +173,7 @@ class InputTile(base.InputTile):
             self.tile,
             indexes=self._get_band_indexes(indexes),
             resampling=resampling,
-            gdal_opts=self.gdal_opts
+            gdal_opts=self.gdal_opts,
         )
 
     def is_empty(self, indexes=None):
@@ -186,7 +185,9 @@ class InputTile(base.InputTile):
         is empty : bool
         """
         # empty if tile does not intersect with file bounding box
-        return not self.tile.bbox.intersects(self.raster_file.bbox(out_crs=self.tile.crs))
+        return not self.tile.bbox.intersects(
+            self.raster_file.bbox(out_crs=self.tile.crs)
+        )
 
     def _get_band_indexes(self, indexes=None):
         """Return valid band indexes."""

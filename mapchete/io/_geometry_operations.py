@@ -2,8 +2,17 @@ from fiona.transform import transform_geom
 from rasterio.crs import CRS
 from shapely.errors import TopologicalError
 from shapely.geometry import (
-    box, GeometryCollection, shape, mapping, MultiPoint, MultiLineString, MultiPolygon,
-    Polygon, LinearRing, LineString, base
+    box,
+    GeometryCollection,
+    shape,
+    mapping,
+    MultiPoint,
+    MultiLineString,
+    MultiPolygon,
+    Polygon,
+    LinearRing,
+    LineString,
+    base,
 )
 from shapely.validation import explain_validity
 
@@ -13,17 +22,21 @@ from mapchete.validate import validate_crs
 
 CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/wgs-84/
-    'epsg:4326': (-180., -90., 180., 90.),
+    "epsg:4326": (-180.0, -90.0, 180.0, 90.0),
     # unknown source
-    'epsg:3857': (-180., -85.0511, 180., 85.0511),
+    "epsg:3857": (-180.0, -85.0511, 180.0, 85.0511),
     # http://spatialreference.org/ref/epsg/3035/
-    'epsg:3035': (-10.6700, 34.5000, 31.5500, 71.0500)
+    "epsg:3035": (-10.6700, 34.5000, 31.5500, 71.0500),
 }
 
 
 def reproject_geometry(
-    geometry, src_crs=None, dst_crs=None, error_on_clip=False, validity_check=True,
-    antimeridian_cutting=False
+    geometry,
+    src_crs=None,
+    dst_crs=None,
+    error_on_clip=False,
+    validity_check=True,
+    antimeridian_cutting=False,
 ):
     """
     Reproject a geometry to target CRS.
@@ -64,7 +77,7 @@ def reproject_geometry(
                     src_crs.to_dict(),
                     dst_crs.to_dict(),
                     mapping(geometry),
-                    antimeridian_cutting=antimeridian_cutting
+                    antimeridian_cutting=antimeridian_cutting,
                 )
             )
             return _repair(out_geom) if validity_check else out_geom
@@ -75,9 +88,10 @@ def reproject_geometry(
 
     # geometry needs to be clipped to its CRS bounds
     elif (
-        dst_crs.is_epsg_code and               # just in case for an CRS with EPSG code
-        dst_crs.get("init") in CRS_BOUNDS and  # if CRS has defined bounds
-        dst_crs.get("init") != "epsg:4326"     # and is not WGS84 (does not need clipping)
+        dst_crs.is_epsg_code
+        and dst_crs.get("init") in CRS_BOUNDS  # just in case for an CRS with EPSG code
+        and dst_crs.get("init")  # if CRS has defined bounds
+        != "epsg:4326"  # and is not WGS84 (does not need clipping)
     ):
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
@@ -101,7 +115,8 @@ def _repair(geom):
         return repaired
     else:
         raise TopologicalError(
-            "geometry is invalid (%s) and cannot be repaired" % explain_validity(repaired)
+            "geometry is invalid (%s) and cannot be repaired"
+            % explain_validity(repaired)
         )
 
 
@@ -124,19 +139,22 @@ def segmentize_geometry(geometry, segmentize_value):
         raise TypeError("segmentize geometry type must be Polygon")
 
     return Polygon(
-        LinearRing([
-            p
-            # pick polygon linestrings
-            for l in map(
-                lambda x: LineString([x[0], x[1]]),
-                zip(geometry.exterior.coords[:-1], geometry.exterior.coords[1:])
-            )
-            # interpolate additional points in between and don't forget end point
-            for p in [
-                l.interpolate(segmentize_value * i).coords[0]
-                for i in range(int(l.length / segmentize_value))
-            ] + [l.coords[1]]
-        ])
+        LinearRing(
+            [
+                p
+                # pick polygon linestrings
+                for l in map(
+                    lambda x: LineString([x[0], x[1]]),
+                    zip(geometry.exterior.coords[:-1], geometry.exterior.coords[1:]),
+                )
+                # interpolate additional points in between and don't forget end point
+                for p in [
+                    l.interpolate(segmentize_value * i).coords[0]
+                    for i in range(int(l.length / segmentize_value))
+                ]
+                + [l.coords[1]]
+            ]
+        )
     )
 
 
@@ -212,7 +230,7 @@ def clean_geometry_type(
         "Polygon": MultiPolygon,
         "MultiPoint": MultiPoint,
         "MultiLineString": MultiLineString,
-        "MultiPolygon": MultiPolygon
+        "MultiPolygon": MultiPolygon,
     }
     if target_type not in multipart_geoms.keys():
         raise TypeError("target type is not supported: %s" % target_type)
@@ -232,8 +250,8 @@ def clean_geometry_type(
                 ]
             )
         elif (
-            isinstance(geometry, target_multipart_type) or
-            multipart_geoms[geometry.geom_type] == target_multipart_type
+            isinstance(geometry, target_multipart_type)
+            or multipart_geoms[geometry.geom_type] == target_multipart_type
         ):
             return geometry
 

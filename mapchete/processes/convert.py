@@ -14,10 +14,10 @@ def execute(
     td_matching_precision=8,
     td_fallback_to_higher_zoom=False,
     clip_pixelbuffer=0,
-    scale_ratio=1.,
-    scale_offset=0.,
+    scale_ratio=1.0,
+    scale_offset=0.0,
     clip_to_output_dtype=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Convert and optionally clip input raster data.
@@ -85,7 +85,7 @@ def execute(
             matching_method=td_matching_method,
             matching_max_zoom=td_matching_max_zoom,
             matching_precision=td_matching_precision,
-            fallback_to_higher_zoom=td_fallback_to_higher_zoom
+            fallback_to_higher_zoom=td_fallback_to_higher_zoom,
         )
         if isinstance(input_data, np.ndarray):
             input_type = "raster"
@@ -98,16 +98,15 @@ def execute(
             )
 
     if input_type == "raster":
-        if scale_offset != 0.:
+        if scale_offset != 0.0:
             logger.debug("apply scale offset %s", scale_offset)
             input_data = input_data.astype("float64", copy=False) + scale_offset
-        if scale_ratio != 1.:
+        if scale_ratio != 1.0:
             logger.debug("apply scale ratio %s", scale_ratio)
             input_data = input_data.astype("float64", copy=False) * scale_ratio
         if (
-                (scale_offset != 0. or scale_ratio != 1.) and
-                clip_to_output_dtype in dtype_ranges
-        ):
+            scale_offset != 0.0 or scale_ratio != 1.0
+        ) and clip_to_output_dtype in dtype_ranges:
             logger.debug("clip to output dtype ranges")
             input_data.clip(*dtype_ranges[clip_to_output_dtype], out=input_data)
 

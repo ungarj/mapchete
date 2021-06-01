@@ -72,9 +72,7 @@ def load_output_reader(output_params):
         _driver = v.load()
         if all(
             [hasattr(_driver, attr) for attr in ["OutputDataReader", "METADATA"]]
-            ) and (
-            _driver.METADATA["driver_name"] == driver_name
-        ):
+        ) and (_driver.METADATA["driver_name"] == driver_name):
             return _driver.OutputDataReader(output_params, readonly=True)
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
@@ -95,9 +93,7 @@ def load_output_writer(output_params, readonly=False):
         _driver = v.load()
         if all(
             [hasattr(_driver, attr) for attr in ["OutputDataWriter", "METADATA"]]
-            ) and (
-            _driver.METADATA["driver_name"] == driver_name
-        ):
+        ) and (_driver.METADATA["driver_name"] == driver_name):
             return _driver.OutputDataWriter(output_params, readonly=readonly)
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
@@ -213,7 +209,7 @@ def params_to_dump(params):
             k: v
             for k, v in params.items()
             if k not in ["path", "grid", "pixelbuffer", "metatiling"]
-        }
+        },
     )
 
 
@@ -224,8 +220,7 @@ def read_output_metadata(metadata_json, **kwargs):
         warnings.warn(
             DeprecationWarning(
                 "Deprecated grid shape ordering found. "
-                "Please change grid shape from [2, 1] to [1, 2] in %s."
-                % metadata_json
+                "Please change grid shape from [2, 1] to [1, 2] in %s." % metadata_json
             )
         )
         params["pyramid"]["grid"]["shape"] = [1, 2]
@@ -234,9 +229,8 @@ def read_output_metadata(metadata_json, **kwargs):
         warnings.warn(
             DeprecationWarning(
                 "Deprecated 'srs' found in %s: '%s'. "
-                "Use WKT representation instead: %s" % (
-                    metadata_json, grid["crs"], pformat(dict(wkt=crs.to_wkt()))
-                )
+                "Use WKT representation instead: %s"
+                % (metadata_json, grid["crs"], pformat(dict(wkt=crs.to_wkt())))
             )
         )
         params["pyramid"]["grid"].update(srs=dict(wkt=crs.to_wkt()))
@@ -245,7 +239,7 @@ def read_output_metadata(metadata_json, **kwargs):
             params["pyramid"]["grid"],
             metatiling=params["pyramid"].get("metatiling", 1),
             tile_size=params["pyramid"].get("tile_size", 256),
-            pixelbuffer=params["pyramid"].get("pixelbuffer", 0)
+            pixelbuffer=params["pyramid"].get("pixelbuffer", 0),
         )
     )
     return params
@@ -274,9 +268,7 @@ def write_output_metadata(output_params):
             if existing_format != current_format:  # pragma: no cover
                 raise MapcheteConfigError(
                     "existing output format does not match new output format: "
-                    "%s != %s" % (
-                        (existing_format, current_format)
-                    )
+                    "%s != %s" % ((existing_format, current_format))
                 )
         except FileNotFoundError:
             logger.debug("%s does not exist", metadata_path)

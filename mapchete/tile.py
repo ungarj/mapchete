@@ -28,12 +28,12 @@ class BufferedTilePyramid(TilePyramid):
         tile buffer size in pixels
     """
 
-    def __init__(
-        self, grid=None, metatiling=1, tile_size=256, pixelbuffer=0
-    ):
+    def __init__(self, grid=None, metatiling=1, tile_size=256, pixelbuffer=0):
         """Initialize."""
         TilePyramid.__init__(self, grid, metatiling=metatiling, tile_size=tile_size)
-        self.tile_pyramid = TilePyramid(grid, metatiling=metatiling, tile_size=tile_size)
+        self.tile_pyramid = TilePyramid(
+            grid, metatiling=metatiling, tile_size=tile_size
+        )
         self.metatiling = metatiling
         if isinstance(pixelbuffer, int) and pixelbuffer >= 0:
             self.pixelbuffer = pixelbuffer
@@ -139,7 +139,7 @@ class BufferedTilePyramid(TilePyramid):
             grid=self.grid.to_dict(),
             metatiling=self.metatiling,
             tile_size=self.tile_size,
-            pixelbuffer=self.pixelbuffer
+            pixelbuffer=self.pixelbuffer,
         )
 
     def from_dict(config_dict):
@@ -149,8 +149,9 @@ class BufferedTilePyramid(TilePyramid):
         return BufferedTilePyramid(**config_dict)
 
     def __repr__(self):
-        return 'BufferedTilePyramid(%s, tile_size=%s, metatiling=%s, pixelbuffer=%s)' % (
-            self.grid, self.tile_size, self.metatiling, self.pixelbuffer
+        return (
+            "BufferedTilePyramid(%s, tile_size=%s, metatiling=%s, pixelbuffer=%s)"
+            % (self.grid, self.tile_size, self.metatiling, self.pixelbuffer)
         )
 
 
@@ -188,9 +189,7 @@ class BufferedTile(Tile):
         """Initialize."""
         if isinstance(tile, BufferedTile):
             tile = TilePyramid(
-                tile.tp.grid,
-                tile_size=tile.tp.tile_size,
-                metatiling=tile.tp.metatiling
+                tile.tp.grid, tile_size=tile.tp.tile_size, metatiling=tile.tp.metatiling
             ).tile(*tile.id)
         Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
         self._tile = tile
@@ -297,26 +296,28 @@ class BufferedTile(Tile):
     def is_on_edge(self):
         """Determine whether tile touches or goes over pyramid edge."""
         return (
-            self.left <= self.tile_pyramid.left or      # touches_left
-            self.bottom <= self.tile_pyramid.bottom or  # touches_bottom
-            self.right >= self.tile_pyramid.right or    # touches_right
-            self.top >= self.tile_pyramid.top           # touches_top
+            self.left <= self.tile_pyramid.left
+            or self.bottom <= self.tile_pyramid.bottom  # touches_left
+            or self.right >= self.tile_pyramid.right  # touches_bottom
+            or self.top >= self.tile_pyramid.top  # touches_right  # touches_top
         )
 
     def __eq__(self, other):
         return (
-            isinstance(other, self.__class__) and
-            self.pixelbuffer == other.pixelbuffer and
-            self.tp == other.tp and
-            self.id == other.id
+            isinstance(other, self.__class__)
+            and self.pixelbuffer == other.pixelbuffer
+            and self.tp == other.tp
+            and self.id == other.id
         )
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return 'BufferedTile(%s, tile_pyramid=%s, pixelbuffer=%s)' % (
-            self.id, self.tp, self.pixelbuffer
+        return "BufferedTile(%s, tile_pyramid=%s, pixelbuffer=%s)" % (
+            self.id,
+            self.tp,
+            self.pixelbuffer,
         )
 
     def __hash__(self):
@@ -343,8 +344,7 @@ def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
         raise ValueError("invalid zoom levels given")
     # tile buffers are not being taken into account
     unbuffered_pyramid = TilePyramid(
-        pyramid.grid, tile_size=pyramid.tile_size,
-        metatiling=pyramid.metatiling
+        pyramid.grid, tile_size=pyramid.tile_size, metatiling=pyramid.metatiling
     )
     # make sure no rounding errors occur
     geometry = geometry.buffer(-0.000000001)
@@ -354,9 +354,12 @@ def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
             for tile_id in product(
                 [init_zoom],
                 range(pyramid.matrix_height(init_zoom)),
-                range(pyramid.matrix_width(init_zoom))
+                range(pyramid.matrix_width(init_zoom)),
             )
-        ], geometry, minzoom, maxzoom
+        ],
+        geometry,
+        minzoom,
+        maxzoom,
     )
 
 
@@ -379,7 +382,10 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
             # if tile is half full, analyze each descendant
             # also do this if the tile children are not four in which case we cannot use
             # the count formula below
-            if tile_intersection.area < tile.bbox().area or len(tile.get_children()) != 4:
+            if (
+                tile_intersection.area < tile.bbox().area
+                or len(tile.get_children()) != 4
+            ):
                 count += _count_tiles(
                     tile.get_children(), tile_intersection, minzoom, maxzoom
                 )
@@ -387,13 +393,16 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
             # if tile is full, all of its descendants will be full as well
             else:
                 # sum up tiles for each remaining zoom level
-                count += sum([
-                    4**z for z in range(
-                        # only count zoom levels which are greater than minzoom or
-                        # count all zoom levels from tile zoom level to maxzoom
-                        minzoom - tile.zoom if tile.zoom < minzoom else 1,
-                        maxzoom - tile.zoom + 1
-                    )
-                ])
+                count += sum(
+                    [
+                        4 ** z
+                        for z in range(
+                            # only count zoom levels which are greater than minzoom or
+                            # count all zoom levels from tile zoom level to maxzoom
+                            minzoom - tile.zoom if tile.zoom < minzoom else 1,
+                            maxzoom - tile.zoom + 1,
+                        )
+                    ]
+                )
 
     return count

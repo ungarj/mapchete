@@ -36,7 +36,7 @@ install_requires = [
     "rasterio>=1.0.28",
     "shapely",
     "tilematrix>=0.20",
-    "tqdm"
+    "tqdm",
 ]
 req_contours = ["matplotlib"]
 req_geobuf = ["geobuf"]
@@ -57,9 +57,7 @@ setup(
     license="MIT",
     packages=find_packages(),
     entry_points={
-        "console_scripts": [
-            "mapchete=mapchete.cli.main:main"
-        ],
+        "console_scripts": ["mapchete=mapchete.cli.main:main"],
         "mapchete.cli.commands": [
             "convert=mapchete.cli.default.convert:convert",
             "cp=mapchete.cli.default.cp:cp",
@@ -81,14 +79,14 @@ setup(
             "png=mapchete.formats.default.png",
             "raster_file=mapchete.formats.default.raster_file",
             "vector_file=mapchete.formats.default.vector_file",
-            "tile_directory=mapchete.formats.default.tile_directory"
+            "tile_directory=mapchete.formats.default.tile_directory",
         ],
         "mapchete.processes": [
             "example_process=mapchete.processes.examples.example_process",
             "contours=mapchete.processes.contours",
             "convert=mapchete.processes.convert",
-            "hillshade=mapchete.processes.hillshade"
-        ]
+            "hillshade=mapchete.processes.hillshade",
+        ],
     },
     package_dir={"static": "static"},
     package_data={"mapchete.static": ["*"]},

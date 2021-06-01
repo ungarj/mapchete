@@ -17,17 +17,21 @@ def test_remote_indexes(mp_s3_tmpdir, gtiff_s3):
 
     def gen_indexes_and_check():
         # generate indexes
-        list(zoom_index_gen(
-            mp=mp,
-            zoom=zoom,
-            out_dir=mp.config.output.path,
-            geojson=True,
-            txt=True,
-            vrt=True
-        ))
+        list(
+            zoom_index_gen(
+                mp=mp,
+                zoom=zoom,
+                out_dir=mp.config.output.path,
+                geojson=True,
+                txt=True,
+                vrt=True,
+            )
+        )
 
         # assert GeoJSON exists
-        with fiona.open(os.path.join(mp.config.output.path, "%s.geojson" % zoom)) as src:
+        with fiona.open(
+            os.path.join(mp.config.output.path, "%s.geojson" % zoom)
+        ) as src:
             assert len(src) == 2
 
         # assert TXT exists
@@ -36,8 +40,8 @@ def test_remote_indexes(mp_s3_tmpdir, gtiff_s3):
         key = "/".join(txt_index.split("/")[3:])
         for obj in bucket.objects.filter(Prefix=key):
             if obj.key == key:
-                content = obj.get()['Body'].read().decode()
-                assert len([l + '\n' for l in content.split('\n') if l]) == 2
+                content = obj.get()["Body"].read().decode()
+                assert len([l + "\n" for l in content.split("\n") if l]) == 2
 
         # assert VRT exists
         with rasterio.open(os.path.join(mp.config.output.path, "%s.vrt" % zoom)) as src:
@@ -56,17 +60,21 @@ def test_remote_indexes(mp_s3_tmpdir, gtiff_s3):
 
 def test_vrt(mp_tmpdir, cleantopo_br):
     zoom = 8
-    with mapchete.open(dict(cleantopo_br.dict, zoom_levels=dict(min=0, max=zoom))) as mp:
+    with mapchete.open(
+        dict(cleantopo_br.dict, zoom_levels=dict(min=0, max=zoom))
+    ) as mp:
         # generate output
         mp.batch_process(zoom=zoom)
 
         # generate index
-        list(zoom_index_gen(
-            mp=mp,
-            zoom=zoom,
-            out_dir=mp.config.output.path,
-            vrt=True,
-        ))
+        list(
+            zoom_index_gen(
+                mp=mp,
+                zoom=zoom,
+                out_dir=mp.config.output.path,
+                vrt=True,
+            )
+        )
         output_tiles = list(
             mp.config.output_pyramid.tiles_from_bounds(
                 mp.config.bounds_at_zoom(zoom=zoom), zoom=zoom
@@ -94,8 +102,12 @@ def test_vrt(mp_tmpdir, cleantopo_br):
 
     # generate a VRT using GDAL and compare
     out_dir = os.path.join(mp_tmpdir, "cleantopo_br")
-    temp_vrt = os.path.join(out_dir, str(zoom)+"_gdal.vrt")
-    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (temp_vrt, out_dir, zoom)
+    temp_vrt = os.path.join(out_dir, str(zoom) + "_gdal.vrt")
+    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
+        temp_vrt,
+        out_dir,
+        zoom,
+    )
     os.system(gdalbuildvrt)
     with rasterio.open(temp_vrt, "r") as gdal_vrt:
         assert gdal_vrt.dtypes[0] == "uint16"
@@ -107,17 +119,21 @@ def test_vrt(mp_tmpdir, cleantopo_br):
         assert np.array_equal(vrt_data, gdal_vrt_data)
 
     # make sure handling an existing VRT works
-    with mapchete.open(dict(cleantopo_br.dict, zoom_levels=dict(min=0, max=zoom))) as mp:
+    with mapchete.open(
+        dict(cleantopo_br.dict, zoom_levels=dict(min=0, max=zoom))
+    ) as mp:
         # generate output
         mp.batch_process(zoom=zoom)
 
         # generate index
-        list(zoom_index_gen(
-            mp=mp,
-            zoom=zoom,
-            out_dir=mp.config.output.path,
-            vrt=True,
-        ))
+        list(
+            zoom_index_gen(
+                mp=mp,
+                zoom=zoom,
+                out_dir=mp.config.output.path,
+                vrt=True,
+            )
+        )
 
 
 def test_vrt_mercator(mp_tmpdir, cleantopo_br_mercator):
@@ -129,12 +145,14 @@ def test_vrt_mercator(mp_tmpdir, cleantopo_br_mercator):
         mp.batch_process(zoom=zoom)
 
         # generate index
-        list(zoom_index_gen(
-            mp=mp,
-            zoom=zoom,
-            out_dir=mp.config.output.path,
-            vrt=True,
-        ))
+        list(
+            zoom_index_gen(
+                mp=mp,
+                zoom=zoom,
+                out_dir=mp.config.output.path,
+                vrt=True,
+            )
+        )
         output_tiles = list(
             mp.config.output_pyramid.tiles_from_bounds(
                 mp.config.bounds_at_zoom(zoom=zoom), zoom=zoom
@@ -163,8 +181,12 @@ def test_vrt_mercator(mp_tmpdir, cleantopo_br_mercator):
 
     # generate a VRT using GDAL and compare
     out_dir = os.path.join(mp_tmpdir, "cleantopo_br_mercator")
-    temp_vrt = os.path.join(out_dir, str(zoom)+"_gdal.vrt")
-    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (temp_vrt, out_dir, zoom)
+    temp_vrt = os.path.join(out_dir, str(zoom) + "_gdal.vrt")
+    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
+        temp_vrt,
+        out_dir,
+        zoom,
+    )
     os.system(gdalbuildvrt)
     with rasterio.open(temp_vrt, "r") as gdal_vrt:
         assert gdal_vrt.dtypes[0] == "uint16"
@@ -185,9 +207,11 @@ def test_vrt_mercator(mp_tmpdir, cleantopo_br_mercator):
         mp.batch_process(zoom=zoom)
 
         # generate index
-        list(zoom_index_gen(
-            mp=mp,
-            zoom=zoom,
-            out_dir=mp.config.output.path,
-            vrt=True,
-        ))
+        list(
+            zoom_index_gen(
+                mp=mp,
+                zoom=zoom,
+                out_dir=mp.config.output.path,
+                vrt=True,
+            )
+        )

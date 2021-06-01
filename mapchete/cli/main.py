@@ -8,7 +8,7 @@ from mapchete._registered import commands
 
 
 @with_plugins(commands)
-@click.version_option(version=__version__, message='%(version)s')
+@click.version_option(version=__version__, message="%(version)s")
 @click.group()
 def main():
     pass

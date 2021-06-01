@@ -18,10 +18,10 @@ from mapchete.validate import deprecated_kwargs
 logger = logging.getLogger(__name__)
 
 
-ProcessInfo = namedtuple('ProcessInfo', 'tile processed process_msg written write_msg')
+ProcessInfo = namedtuple("ProcessInfo", "tile processed process_msg written write_msg")
 
 
-class TileProcess():
+class TileProcess:
     """
     Class to process on a specific process tile.
 
@@ -95,7 +95,7 @@ class TileProcess():
                         tile=self.tile,
                         params=self.process_func_params,
                         input=self.input,
-                        output_params=self.output_params
+                        output_params=self.output_params,
                     ),
                     **self.process_func_params
                 )
@@ -133,19 +133,24 @@ class TileProcess():
                     in_affine=parent_tile.affine,
                     out_tile=self.tile,
                     resampling=self.config_baselevels["higher"],
-                    nodata=self.output_reader.output_params["nodata"]
+                    nodata=self.output_reader.output_params["nodata"],
                 )
             # resample from children tiles
             elif baselevel == "lower":
                 if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
-                    lower_tiles = set([
-                        y for y in chain(*[
-                            self.output_reader.pyramid.tiles_from_bounds(
-                                x.bounds, x.zoom + 1
+                    lower_tiles = set(
+                        [
+                            y
+                            for y in chain(
+                                *[
+                                    self.output_reader.pyramid.tiles_from_bounds(
+                                        x.bounds, x.zoom + 1
+                                    )
+                                    for x in output_tiles
+                                ]
                             )
-                            for x in output_tiles
-                        ])
-                    ])
+                        ]
+                    )
                 else:
                     lower_tiles = [
                         y for y in chain(*[x.get_children() for x in output_tiles])
@@ -155,14 +160,14 @@ class TileProcess():
                         (lower_tile, self.output_reader.read(lower_tile))
                         for lower_tile in lower_tiles
                     ],
-                    nodata=self.output_reader.output_params["nodata"]
+                    nodata=self.output_reader.output_params["nodata"],
                 )
                 process_data = raster.resample_from_array(
                     in_raster=mosaic.data,
                     in_affine=mosaic.affine,
                     out_tile=self.tile,
                     resampling=self.config_baselevels["lower"],
-                    nodata=self.output_reader.output_params["nodata"]
+                    nodata=self.output_reader.output_params["nodata"],
                 )
         logger.debug((self.tile.id, "generated from baselevel", str(t)))
         return process_data
@@ -205,12 +210,7 @@ class MapcheteProcess(object):
     """
 
     def __init__(
-        self,
-        tile=None,
-        params=None,
-        input=None,
-        output_params=None,
-        config=None
+        self, tile=None, params=None, input=None, output_params=None, config=None
     ):
         """Initialize Mapchete process."""
         self.identifier = ""
@@ -265,9 +265,7 @@ class MapcheteProcess(object):
             raise ValueError("%s not found in config as input" % input_id)
         return self.input[input_id]
 
-    def hillshade(
-        self, elevation, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0
-    ):
+    def hillshade(self, elevation, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0):
         """
         Calculate hillshading from elevation data.
 
@@ -293,9 +291,7 @@ class MapcheteProcess(object):
             elevation, self.tile, azimuth, altitude, z, scale
         )
 
-    def contours(
-        self, elevation, interval=100, field='elev', base=0
-    ):
+    def contours(self, elevation, interval=100, field="elev", base=0):
         """
         Extract contour lines from elevation data.
 
@@ -319,9 +315,7 @@ class MapcheteProcess(object):
             elevation, self.tile, interval=interval, field=field, base=base
         )
 
-    def clip(
-        self, array, geometries, inverted=False, clip_buffer=0
-    ):
+    def clip(self, array, geometries, inverted=False, clip_buffer=0):
         """
         Clip array by geometry.
 
@@ -341,22 +335,25 @@ class MapcheteProcess(object):
         clipped array : array
         """
         return commons_clip.clip_array_with_vector(
-            array, self.tile.affine, geometries,
-            inverted=inverted, clip_buffer=clip_buffer * self.tile.pixel_x_size
+            array,
+            self.tile.affine,
+            geometries,
+            inverted=inverted,
+            clip_buffer=clip_buffer * self.tile.pixel_x_size,
         )
 
 
 #############################################################
 # wrappers helping to abstract multiprocessing and billiard #
 #############################################################
-class Executor():
+class Executor:
     """Wrapper class to be used with multiprocessing or billiard."""
 
     def __init__(
         self,
         start_method="fork",
         max_workers=None,
-        multiprocessing_module=multiprocessing
+        multiprocessing_module=multiprocessing,
     ):
         """Set attributes."""
         self.start_method = start_method
@@ -364,19 +361,16 @@ class Executor():
         self.multiprocessing_module = multiprocessing_module
         logger.debug(
             "init %s Executor with start_method %s and %s workers",
-            self.multiprocessing_module, self.start_method, self.max_workers
+            self.multiprocessing_module,
+            self.start_method,
+            self.max_workers,
         )
         self._pool = self.multiprocessing_module.get_context(self.start_method).Pool(
             self.max_workers
         )
 
     def as_completed(
-        self,
-        func=None,
-        iterable=None,
-        fargs=None,
-        fkwargs=None,
-        chunksize=1
+        self, func=None, iterable=None, fargs=None, fkwargs=None, chunksize=1
     ):
         """Yield finished tasks."""
         fargs = fargs or []
@@ -387,12 +381,13 @@ class Executor():
         else:
             logger.debug(
                 "open multiprocessing.Pool and %s %s workers",
-                self.start_method, self.max_workers
+                self.start_method,
+                self.max_workers,
             )
             for finished_task in self._pool.imap_unordered(
                 partial(_exception_wrapper, func, fargs, fkwargs),
                 iterable,
-                chunksize=chunksize or 1
+                chunksize=chunksize or 1,
             ):
                 yield finished_task
 
@@ -408,7 +403,7 @@ class Executor():
         logger.debug("%s closed", self._pool)
 
 
-class FinishedTask():
+class FinishedTask:
     """Wrapper class to encapsulate exceptions."""
 
     def __init__(self, func, fargs=None, fkwargs=None):
@@ -446,6 +441,7 @@ def _exception_wrapper(func, fargs, fkwargs, i):
 # batch execution options #
 ###########################
 
+
 def _run_on_single_tile(process=None, tile=None):
     logger.debug("run process on single tile")
     return _execute_and_write(
@@ -453,11 +449,11 @@ def _run_on_single_tile(process=None, tile=None):
             tile=tile,
             config=process.config,
             skip=(
-                process.config.mode == "continue" and
-                process.config.output_reader.tiles_exist(tile)
-            )
+                process.config.mode == "continue"
+                and process.config.output_reader.tiles_exist(tile)
+            ),
         ),
-        output_writer=process.config.output
+        output_writer=process.config.output,
     )
 
 
@@ -468,7 +464,7 @@ def _run_area(
     max_chunksize=None,
     multiprocessing_module=None,
     multiprocessing_start_method=None,
-    skip_output_check=False
+    skip_output_check=False,
 ):
     logger.debug("run process on area")
     zoom_levels.sort(reverse=True)
@@ -484,7 +480,7 @@ def _run_area(
             multiprocessing_module=multiprocessing_module,
             max_chunksize=max_chunksize,
             write_in_parent_process=True,
-            skip_output_check=skip_output_check
+            skip_output_check=skip_output_check,
         ):
             yield process_info
 
@@ -500,7 +496,7 @@ def _run_area(
             multiprocessing_module=multiprocessing_module,
             max_chunksize=max_chunksize,
             write_in_parent_process=False,
-            skip_output_check=skip_output_check
+            skip_output_check=skip_output_check,
         ):
             yield process_info
 
@@ -514,7 +510,7 @@ def _filter_skipable(process=None, tiles=None, todo=None, target_set=None):
                 processed=False,
                 process_msg="output already exists",
                 written=False,
-                write_msg="nothing written"
+                write_msg="nothing written",
             )
         else:
             todo.add(tile)
@@ -530,7 +526,7 @@ def _run_multi(
     max_chunksize=None,
     write_in_parent_process=False,
     fkwargs=None,
-    skip_output_check=False
+    skip_output_check=False,
 ):
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     workers = min([multi, total_tiles])
@@ -544,7 +540,7 @@ def _run_multi(
     with Timer() as t, Executor(
         max_workers=workers,
         start_method=multiprocessing_start_method,
-        multiprocessing_module=multiprocessing_module
+        multiprocessing_module=multiprocessing_module,
     ) as executor:
 
         for i, zoom in enumerate(zoom_levels):
@@ -572,7 +568,7 @@ def _run_multi(
                         total_tiles,
                         process_info.tile,
                         process_info.process_msg,
-                        process_info.write_msg
+                        process_info.write_msg,
                     )
                     yield process_info
 
@@ -584,13 +580,16 @@ def _run_multi(
                         tile=tile,
                         config=process.config,
                         skip=(
-                            process.mode == "continue" and
-                            process.config.output_reader.tiles_exist(tile)
-                        ) if skip_output_check else False
-                    ) for tile in todo
+                            process.mode == "continue"
+                            and process.config.output_reader.tiles_exist(tile)
+                        )
+                        if skip_output_check
+                        else False,
+                    )
+                    for tile in todo
                 ),
                 fkwargs=fkwargs,
-                chunksize=max_chunksize
+                chunksize=max_chunksize,
             ):
                 # trigger output write for driver which require parent process for writing
                 if write_in_parent_process:
@@ -608,10 +607,10 @@ def _run_multi(
                     # in case of building overviews from baselevels, remember which parent
                     # tile needs to be updated later on
                     if (
-                        not skip_output_check and
-                        process.config.baselevels and
-                        process_info.processed and
-                        process_info.tile.zoom > 0
+                        not skip_output_check
+                        and process.config.baselevels
+                        and process_info.processed
+                        and process_info.tile.zoom > 0
                     ):
                         overview_parents.add(process_info.tile.get_parent())
 
@@ -622,7 +621,7 @@ def _run_multi(
                     total_tiles,
                     process_info.tile,
                     process_info.process_msg,
-                    process_info.write_msg
+                    process_info.write_msg,
                 )
                 yield process_info
 
@@ -632,6 +631,7 @@ def _run_multi(
 ###############################
 # execute and write functions #
 ###############################
+
 
 def _execute(tile_process=None):
     logger.debug(
@@ -646,7 +646,7 @@ def _execute(tile_process=None):
             processed=False,
             process_msg="output already exists",
             written=False,
-            write_msg="nothing written"
+            write_msg="nothing written",
         )
 
     # execute on process tile
@@ -663,7 +663,7 @@ def _execute(tile_process=None):
             processed=True,
             process_msg=processor_message,
             written=None,
-            write_msg=None
+            write_msg=None,
         )
 
 
@@ -681,7 +681,7 @@ def _write(process_info=None, output_data=None, output_writer=None):
                 processed=process_info.processed,
                 process_msg=process_info.process_msg,
                 written=False,
-                write_msg=message
+                write_msg=message,
             )
         else:
             with Timer() as t:
@@ -693,7 +693,7 @@ def _write(process_info=None, output_data=None, output_writer=None):
                 processed=process_info.processed,
                 process_msg=process_info.process_msg,
                 written=True,
-                write_msg=message
+                write_msg=message,
             )
     else:
         return process_info
@@ -702,7 +702,5 @@ def _write(process_info=None, output_data=None, output_writer=None):
 def _execute_and_write(tile_process=None, output_writer=None):
     output_data, process_info = _execute(tile_process=tile_process)
     return _write(
-        process_info=process_info,
-        output_data=output_data,
-        output_writer=output_writer
+        process_info=process_info, output_data=output_data, output_writer=output_writer
     )

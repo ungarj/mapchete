@@ -32,19 +32,19 @@ from xml.dom import minidom
 
 from mapchete.config import get_zoom_levels
 from mapchete.io import (
-    path_exists, path_is_remote, get_boto3_bucket, raster, relative_path, tiles_exist
+    path_exists,
+    path_is_remote,
+    get_boto3_bucket,
+    raster,
+    relative_path,
+    tiles_exist,
 )
 
 logger = logging.getLogger(__name__)
 
 spatial_schema = {
     "geometry": "Polygon",
-    "properties": {
-        "tile_id": "str:254",
-        "zoom": "int",
-        "row": "int",
-        "col": "int"
-    }
+    "properties": {"tile_id": "str:254", "zoom": "int", "row": "int", "col": "int"},
 }
 
 
@@ -102,7 +102,7 @@ def zoom_index_gen(
                             driver="GeoJSON",
                             out_path=_index_file_path(out_dir, zoom, "geojson"),
                             crs=mp.config.output_pyramid.crs,
-                            fieldname=fieldname
+                            fieldname=fieldname,
                         )
                     )
                 )
@@ -113,7 +113,7 @@ def zoom_index_gen(
                             driver="GPKG",
                             out_path=_index_file_path(out_dir, zoom, "gpkg"),
                             crs=mp.config.output_pyramid.crs,
-                            fieldname=fieldname
+                            fieldname=fieldname,
                         )
                     )
                 )
@@ -124,7 +124,7 @@ def zoom_index_gen(
                             driver="ESRI Shapefile",
                             out_path=_index_file_path(out_dir, zoom, "shp"),
                             crs=mp.config.output_pyramid.crs,
-                            fieldname=fieldname
+                            fieldname=fieldname,
                         )
                     )
                 )
@@ -140,7 +140,7 @@ def zoom_index_gen(
                         VRTFileWriter(
                             out_path=_index_file_path(out_dir, zoom, "vrt"),
                             output=mp.config.output,
-                            out_pyramid=mp.config.output_pyramid
+                            out_pyramid=mp.config.output_pyramid,
                         )
                     )
                 )
@@ -163,7 +163,8 @@ def zoom_index_gen(
             # check which tiles exist in any index
             logger.debug("check which tiles exist in index(es)")
             existing_in_any_index = set(
-                tile for tile in output_tiles
+                tile
+                for tile in output_tiles
                 if any(
                     [
                         i.entry_exists(
@@ -171,16 +172,18 @@ def zoom_index_gen(
                             path=_tile_path(
                                 orig_path=mp.config.output.get_path(tile),
                                 basepath=basepath,
-                                for_gdal=for_gdal
-                            )
+                                for_gdal=for_gdal,
+                            ),
                         )
                         for i in index_writers
                     ]
                 )
             )
 
-            logger.debug("{}/{} tiles found in index(es)".format(
-                len(existing_in_any_index), len(output_tiles))
+            logger.debug(
+                "{}/{} tiles found in index(es)".format(
+                    len(existing_in_any_index), len(output_tiles)
+                )
             )
             # tiles which do not exist in any index
             for tile, output_exists in tiles_exist(
@@ -189,10 +192,11 @@ def zoom_index_gen(
                 tile_path = _tile_path(
                     orig_path=mp.config.output.get_path(tile),
                     basepath=basepath,
-                    for_gdal=for_gdal
+                    for_gdal=for_gdal,
                 )
                 indexes = [
-                    i for i in index_writers
+                    i
+                    for i in index_writers
                     if not i.entry_exists(tile=tile, path=tile_path)
                 ]
                 if indexes and output_exists:
@@ -208,10 +212,11 @@ def zoom_index_gen(
                 tile_path = _tile_path(
                     orig_path=mp.config.output.get_path(tile),
                     basepath=basepath,
-                    for_gdal=for_gdal
+                    for_gdal=for_gdal,
                 )
                 indexes = [
-                    i for i in index_writers
+                    i
+                    for i in index_writers
                     if not i.entry_exists(tile=tile, path=tile_path)
                 ]
                 if indexes:
@@ -229,7 +234,8 @@ def _index_file_path(out_dir, zoom, ext):
 
 def _tile_path(orig_path=None, basepath=None, for_gdal=True):
     path = (
-        os.path.join(basepath, "/".join(orig_path.split("/")[-3:])) if basepath
+        os.path.join(basepath, "/".join(orig_path.split("/")[-3:]))
+        if basepath
         else orig_path
     )
     if for_gdal and path.startswith(("http://", "https://")):
@@ -240,12 +246,10 @@ def _tile_path(orig_path=None, basepath=None, for_gdal=True):
         return path
 
 
-class VectorFileWriter():
+class VectorFileWriter:
     """Writes GeoJSON or GeoPackage files."""
 
-    def __init__(
-        self, out_path=None, crs=None, fieldname=None, driver=None
-    ):
+    def __init__(self, out_path=None, crs=None, fieldname=None, driver=None):
         self._append = "a" in fiona.supported_drivers[driver]
         logger.debug("initialize %s writer with append %s", driver, self._append)
         self.path = out_path
@@ -291,16 +295,18 @@ class VectorFileWriter():
     def write(self, tile, path):
         if not self.entry_exists(tile=tile):
             logger.debug("write %s to %s", path, self)
-            self.sink.write({
-                "geometry": mapping(tile.bbox),
-                "properties": {
-                    "tile_id": str(tile.id),
-                    "zoom": str(tile.zoom),
-                    "row": str(tile.row),
-                    "col": str(tile.col),
-                    self.fieldname: path
+            self.sink.write(
+                {
+                    "geometry": mapping(tile.bbox),
+                    "properties": {
+                        "tile_id": str(tile.id),
+                        "zoom": str(tile.zoom),
+                        "row": str(tile.row),
+                        "col": str(tile.col),
+                        self.fieldname: path,
+                    },
                 }
-            })
+            )
             self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
@@ -313,11 +319,14 @@ class VectorFileWriter():
         self.sink.close()
 
 
-class TextFileWriter():
+class TextFileWriter:
     """Writes tile paths into text file."""
+
     def __init__(self, out_path=None):
         self.path = out_path
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket = (
+            self.path.split("/")[2] if self.path.startswith("s3://") else None
+        )
         self.bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
         logger.debug("initialize TXT writer")
         if path_exists(self.path):
@@ -326,8 +335,8 @@ class TextFileWriter():
                 for obj in self.bucket_resource.objects.filter(Prefix=key):
                     if obj.key == key:
                         self._existing = {
-                            l + '\n'
-                            for l in obj.get()['Body'].read().decode().split('\n')
+                            l + "\n"
+                            for l in obj.get()["Body"].read().decode().split("\n")
                             if l
                         }
             else:
@@ -361,7 +370,7 @@ class TextFileWriter():
     def write(self, tile, path):
         if not self.entry_exists(path=path):
             logger.debug("write %s to %s", path, self)
-            self._write_line(path + '\n')
+            self._write_line(path + "\n")
             self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
@@ -379,15 +388,19 @@ class TextFileWriter():
             self.sink.close()
 
 
-class VRTFileWriter():
+class VRTFileWriter:
     """Generates GDAL-style VRT file."""
+
     def __init__(self, out_path=None, output=None, out_pyramid=None):
         # see if lxml is installed before checking all output tiles
         from lxml.builder import ElementMaker
+
         self.path = out_path
         self._tp = out_pyramid
         self._output = output
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket = (
+            self.path.split("/")[2] if self.path.startswith("s3://") else None
+        )
         self.bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
         logger.debug("initialize VRT writer for %s", self.path)
         if path_exists(self.path):
@@ -396,8 +409,9 @@ class VRTFileWriter():
                 for obj in self.bucket_resource.objects.filter(Prefix=key):
                     if obj.key == key:
                         self._existing = {
-                            k: v for k, v in self._xml_to_entries(
-                                obj.get()['Body'].read().decode()
+                            k: v
+                            for k, v in self._xml_to_entries(
+                                obj.get()["Body"].read().decode()
                             )
                         }
             else:
@@ -472,12 +486,12 @@ class VRTFileWriter():
                     *[
                         E.ComplexSource(
                             E.SourceFilename(
-                                _tile_path(orig_path=path, for_gdal=True) if
-                                path_is_remote(path) else
-                                relative_path(
+                                _tile_path(orig_path=path, for_gdal=True)
+                                if path_is_remote(path)
+                                else relative_path(
                                     path=path, base_dir=os.path.split(self.path)[0]
                                 ),
-                                relativeToVRT="0" if path_is_remote(path) else "1"
+                                relativeToVRT="0" if path_is_remote(path) else "1",
                             ),
                             E.SourceBand(str(b_idx)),
                             E.SourceProperties(
@@ -503,30 +517,34 @@ class VRTFileWriter():
                             ),
                             E.DstRect(
                                 xOff=str(
-                                    list(raster.bounds_to_ranges(
-                                        out_bounds=tile.bounds,
-                                        in_affine=vrt_affine,
-                                        in_shape=vrt_shape
-                                    ))[2]
+                                    list(
+                                        raster.bounds_to_ranges(
+                                            out_bounds=tile.bounds,
+                                            in_affine=vrt_affine,
+                                            in_shape=vrt_shape,
+                                        )
+                                    )[2]
                                 ),
                                 yOff=str(
-                                    list(raster.bounds_to_ranges(
-                                        out_bounds=tile.bounds,
-                                        in_affine=vrt_affine,
-                                        in_shape=vrt_shape
-                                    ))[0]
+                                    list(
+                                        raster.bounds_to_ranges(
+                                            out_bounds=tile.bounds,
+                                            in_affine=vrt_affine,
+                                            in_shape=vrt_shape,
+                                        )
+                                    )[0]
                                 ),
                                 xSize=str(tile.shape.width),
                                 ySize=str(tile.shape.height),
                             ),
-                            E.NODATA(str(vrt_nodata))
+                            E.NODATA(str(vrt_nodata)),
                         )
                         for tile, path in sorted(
                             all_entries.items(), key=operator.itemgetter(1)
                         )
                     ],
                     dataType=vrt_dtype,
-                    band=str(b_idx)
+                    band=str(b_idx),
                 )
                 for b_idx in range(1, self._output.profile()["count"] + 1)
             ],

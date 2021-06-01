@@ -52,11 +52,19 @@ from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import (
-    fs_from_path, get_boto3_bucket, makedirs, path_exists, path_is_remote
+    fs_from_path,
+    get_boto3_bucket,
+    makedirs,
+    path_exists,
+    path_is_remote,
 )
 from mapchete.io.raster import (
-    write_raster_window, prepare_array, memory_file, read_raster_no_crs,
-    extract_from_array, read_raster_window
+    write_raster_window,
+    prepare_array,
+    memory_file,
+    read_raster_no_crs,
+    extract_from_array,
+    read_raster_window,
 )
 from mapchete.tile import BufferedTile
 from mapchete.validate import deprecated_kwargs
@@ -77,19 +85,16 @@ class DefaultGTiffProfile(Profile):
         "compress": "deflate",
         "predictor": 2,
         "interleave": "band",
-        "nodata": 0
+        "nodata": 0,
     }
 
-METADATA = {
-    "driver_name": "GTiff",
-    "data_type": "raster",
-    "mode": "rw"
-}
+
+METADATA = {"driver_name": "GTiff", "data_type": "raster", "mode": "rw"}
 GTIFF_DEFAULT_PROFILE = DefaultGTiffProfile()
 IN_MEMORY_THRESHOLD = int(os.environ.get("MP_IN_MEMORY_THRESHOLD", 20000 * 20000))
 
 
-class OutputDataReader():
+class OutputDataReader:
     """
     Constructor class which returns GTiffTileDirectoryOutputReader.
 
@@ -123,7 +128,7 @@ class OutputDataReader():
         return GTiffTileDirectoryOutputReader(output_params, **kwargs)
 
 
-class OutputDataWriter():
+class OutputDataWriter:
     """
     Constructor class which either returns GTiffSingleFileOutputWriter or
     GTiffTileDirectoryOutputWriter.
@@ -163,7 +168,7 @@ class OutputDataWriter():
             return GTiffTileDirectoryOutputWriter(output_params, **kwargs)
 
 
-class GTiffOutputReaderFunctions():
+class GTiffOutputReaderFunctions:
     """Common functions."""
 
     METADATA = METADATA
@@ -185,11 +190,11 @@ class GTiffOutputReaderFunctions():
         profile = self.profile(process_tile)
         return ma.masked_array(
             data=np.full(
-                (profile["count"], ) + process_tile.shape,
+                (profile["count"],) + process_tile.shape,
                 profile["nodata"],
-                dtype=profile["dtype"]
+                dtype=profile["dtype"],
             ),
-            mask=True
+            mask=True,
         )
 
     def for_web(self, data):
@@ -204,15 +209,18 @@ class GTiffOutputReaderFunctions():
         -------
         web data : array
         """
-        return memory_file(
-            prepare_array(
-                data,
-                masked=True,
-                nodata=self.output_params["nodata"],
-                dtype=self.profile()["dtype"]
+        return (
+            memory_file(
+                prepare_array(
+                    data,
+                    masked=True,
+                    nodata=self.output_params["nodata"],
+                    dtype=self.profile()["dtype"],
+                ),
+                self.profile(),
             ),
-            self.profile()
-        ), "image/tiff"
+            "image/tiff",
+        )
 
     @deprecated_kwargs
     def open(self, tile, process, **kwargs):
@@ -240,28 +248,24 @@ class GTiffOutputReaderFunctions():
         -------
         is_valid : bool
         """
-        return validate_values(
-            config, [
-                ("bands", int),
-                ("path", str),
-                ("dtype", str)]
-        )
+        return validate_values(config, [("bands", int), ("path", str), ("dtype", str)])
 
     def _set_attributes(self, output_params):
         self.path = output_params["path"]
         self.file_extension = ".tif"
         self.output_params = dict(
             output_params,
-            nodata=output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"])
+            nodata=output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"]),
         )
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket = (
+            self.path.split("/")[2] if self.path.startswith("s3://") else None
+        )
         self._fs = fs_from_path(self.path, **self.output_params.get("fs_kwargs", {}))
 
 
 class GTiffTileDirectoryOutputReader(
     GTiffOutputReaderFunctions, base.TileDirectoryOutputReader
 ):
-
     def __init__(self, output_params, **kwargs):
         """Initialize."""
         logger.debug("output is tile directory")
@@ -304,12 +308,12 @@ class GTiffTileDirectoryOutputReader(
         profile = self.profile(process_tile)
         return ma.masked_array(
             data=np.full(
-                (profile["count"], ) + process_tile.shape,
+                (profile["count"],) + process_tile.shape,
                 profile["nodata"],
-                dtype=profile["dtype"]
+                dtype=profile["dtype"],
             ),
             mask=True,
-            fill_value=profile["nodata"]
+            fill_value=profile["nodata"],
         )
 
     def profile(self, tile=None):
@@ -329,17 +333,15 @@ class GTiffTileDirectoryOutputReader(
             GTIFF_DEFAULT_PROFILE,
             count=self.output_params["bands"],
             **{
-                k: v  for k, v in self.output_params.items()
+                k: v
+                for k, v in self.output_params.items()
                 if k not in _OUTPUT_PARAMETERS
             }
         )
         dst_metadata.pop("transform", None)
         if tile is not None:
             dst_metadata.update(
-                crs=tile.crs,
-                width=tile.width,
-                height=tile.height,
-                affine=tile.affine
+                crs=tile.crs, width=tile.width, height=tile.height, affine=tile.affine
             )
         else:
             for k in ["crs", "width", "height", "affine"]:
@@ -371,11 +373,7 @@ class GTiffTileDirectoryOutputWriter(
             must be member of process ``TilePyramid``
         data : ``np.ndarray``
         """
-        if (
-            isinstance(data, tuple) and
-            len(data) == 2 and
-            isinstance(data[1], dict)
-        ):
+        if isinstance(data, tuple) and len(data) == 2 and isinstance(data[1], dict):
             data, tags = data
         else:
             tags = {}
@@ -383,7 +381,7 @@ class GTiffTileDirectoryOutputWriter(
             data,
             masked=True,
             nodata=self.output_params["nodata"],
-            dtype=self.profile(process_tile)["dtype"]
+            dtype=self.profile(process_tile)["dtype"],
         )
 
         if data.mask.all():
@@ -404,7 +402,7 @@ class GTiffTileDirectoryOutputWriter(
                     out_tile=out_tile,
                     out_path=out_path,
                     tags=tags,
-                    bucket_resource=bucket_resource
+                    bucket_resource=bucket_resource,
                 )
 
 
@@ -430,7 +428,7 @@ class GTiffSingleFileOutputWriter(
                 "overviews_resampling", "nearest"
             )
             self.overviews_levels = output_params.get(
-                "overviews_levels", [2**i for i in range(1, self.zoom + 1)]
+                "overviews_levels", [2 ** i for i in range(1, self.zoom + 1)]
             )
         else:
             self.overviews = False
@@ -439,15 +437,19 @@ class GTiffSingleFileOutputWriter(
         self._bucket_resource = get_boto3_bucket(_bucket) if _bucket else None
 
     def prepare(self, process_area=None, **kwargs):
-        bounds = snap_bounds(
-            bounds=Bounds(
-                *process_area.intersection(
-                    box(*self.output_params["delimiters"]["effective_bounds"])
-                ).bounds
-            ),
-            pyramid=self.pyramid,
-            zoom=self.zoom
-        ) if process_area else self.output_params["delimiters"]["effective_bounds"]
+        bounds = (
+            snap_bounds(
+                bounds=Bounds(
+                    *process_area.intersection(
+                        box(*self.output_params["delimiters"]["effective_bounds"])
+                    ).bounds
+                ),
+                pyramid=self.pyramid,
+                zoom=self.zoom,
+            )
+            if process_area
+            else self.output_params["delimiters"]["effective_bounds"]
+        )
         height = math.ceil(
             (bounds.top - bounds.bottom) / self.pyramid.pixel_x_size(self.zoom)
         )
@@ -457,8 +459,7 @@ class GTiffSingleFileOutputWriter(
         logger.debug("output raster bounds: %s", bounds)
         logger.debug("output raster shape: %s, %s", height, width)
         creation_options = {
-            k: v  for k, v in self.output_params.items()
-            if k not in _OUTPUT_PARAMETERS
+            k: v for k, v in self.output_params.items() if k not in _OUTPUT_PARAMETERS
         }
         self._profile = dict(
             GTIFF_DEFAULT_PROFILE,
@@ -468,7 +469,7 @@ class GTiffSingleFileOutputWriter(
                 bounds.left,
                 0,
                 -self.pyramid.pixel_y_size(self.zoom),
-                bounds.top
+                bounds.top,
             ),
             height=height,
             width=width,
@@ -531,10 +532,7 @@ class GTiffSingleFileOutputWriter(
         -------
         NumPy array
         """
-        return self.dst.read(
-            window=self.dst.window(*output_tile.bounds),
-            masked=True
-        )
+        return self.dst.read(window=self.dst.window(*output_tile.bounds), masked=True)
 
     def get_path(self, tile=None):
         """
@@ -589,7 +587,7 @@ class GTiffSingleFileOutputWriter(
             data,
             masked=True,
             nodata=self.output_params["nodata"],
-            dtype=self.profile(process_tile)["dtype"]
+            dtype=self.profile(process_tile)["dtype"],
         )
 
         if data.mask.all():
@@ -598,20 +596,26 @@ class GTiffSingleFileOutputWriter(
             # Convert from process_tile to output_tiles and write
             for tile in self.pyramid.intersecting(process_tile):
                 out_tile = BufferedTile(tile, self.pixelbuffer)
-                write_window = from_bounds(
-                    *out_tile.bounds,
-                    transform=self.dst.transform,
-                    height=self.dst.height,
-                    width=self.dst.width
-                ).round_lengths(pixel_precision=0).round_offsets(pixel_precision=0)
+                write_window = (
+                    from_bounds(
+                        *out_tile.bounds,
+                        transform=self.dst.transform,
+                        height=self.dst.height,
+                        width=self.dst.width
+                    )
+                    .round_lengths(pixel_precision=0)
+                    .round_offsets(pixel_precision=0)
+                )
                 if _window_in_out_file(write_window, self.dst):
                     logger.debug("write data to window: %s", write_window)
                     self.dst.write(
                         extract_from_array(
                             in_raster=data,
                             in_affine=process_tile.affine,
-                            out_tile=out_tile
-                        ) if process_tile != out_tile else data,
+                            out_tile=out_tile,
+                        )
+                        if process_tile != out_tile
+                        else data,
                         window=write_window,
                     )
 
@@ -635,13 +639,14 @@ class GTiffSingleFileOutputWriter(
                 if self.overviews and self.dst is not None:
                     logger.debug(
                         "build overviews using %s resampling and levels %s",
-                        self.overviews_resampling, self.overviews_levels
+                        self.overviews_resampling,
+                        self.overviews_levels,
                     )
                     self.dst.build_overviews(
                         self.overviews_levels, Resampling[self.overviews_resampling]
                     )
                     self.dst.update_tags(
-                        ns='rio_overview', resampling=self.overviews_resampling
+                        ns="rio_overview", resampling=self.overviews_resampling
                     )
                 # write
                 if self.cog:
@@ -696,12 +701,14 @@ class GTiffSingleFileOutputWriter(
 
 
 def _window_in_out_file(window, rio_file):
-    return all([
-        window.row_off >= 0,
-        window.col_off >= 0,
-        window.row_off + window.height <= rio_file.height,
-        window.col_off + window.width <= rio_file.width,
-    ])
+    return all(
+        [
+            window.row_off >= 0,
+            window.col_off >= 0,
+            window.row_off + window.height <= rio_file.height,
+            window.col_off + window.width <= rio_file.width,
+        ]
+    )
 
 
 class InputTile(base.InputTile):
