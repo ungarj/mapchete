@@ -1,0 +1,8 @@
+black
+coveralls
+flake8
+pre-commit
+pytest
+pytest-cov
+pytest-flask
+rio-cogeo
