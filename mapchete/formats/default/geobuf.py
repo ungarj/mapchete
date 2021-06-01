@@ -28,11 +28,7 @@ from mapchete.io._geometry_operations import _repair, reproject_geometry
 
 
 logger = logging.getLogger(__name__)
-METADATA = {
-    "driver_name": "Geobuf",
-    "data_type": "vector",
-    "mode": "rw"
-}
+METADATA = {"driver_name": "Geobuf", "data_type": "vector", "mode": "rw"}
 
 
 class OutputDataReader(geojson.OutputDataReader):
@@ -86,6 +82,7 @@ class OutputDataReader(geojson.OutputDataReader):
         process output : list
         """
         import geobuf
+
         path = self.get_path(output_tile)
         try:
             with fs_from_path(path).open(path, "rb") as src:
@@ -109,8 +106,13 @@ class OutputDataReader(geojson.OutputDataReader):
         validate_values(config, [("schema", dict), ("path", str)])
         validate_values(config["schema"], [("properties", dict), ("geometry", str)])
         if config["schema"]["geometry"] not in [
-            "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
-            "Polygon", "MultiPolygon"
+            "Geometry",
+            "Point",
+            "MultiPoint",
+            "Line",
+            "MultiLine",
+            "Polygon",
+            "MultiPolygon",
         ]:  # pragma: no cover
             raise TypeError("invalid geometry type")
         return True
@@ -128,19 +130,23 @@ class OutputDataReader(geojson.OutputDataReader):
         web data : array
         """
         import geobuf
-        return geobuf.encode(
-            dict(
-                type="FeatureCollection",
-                features=[
-                    dict(
-                        f,
-                        geometry=mapping(_repair(shape(f["geometry"]))),
-                        type="Feature"
-                    )
-                    for f in data
-                ]
-            )
-        ), "application/octet-stream"
+
+        return (
+            geobuf.encode(
+                dict(
+                    type="FeatureCollection",
+                    features=[
+                        dict(
+                            f,
+                            geometry=mapping(_repair(shape(f["geometry"]))),
+                            type="Feature",
+                        )
+                        for f in data
+                    ],
+                )
+            ),
+            "application/octet-stream",
+        )
 
     def _read_as_tiledir(self, out_tile=None, tiles_paths=None, **kwargs):
         return [
@@ -150,9 +156,9 @@ class OutputDataReader(geojson.OutputDataReader):
                     reproject_geometry(
                         shape(feature["geometry"]),
                         src_crs=tile.crs,
-                        dst_crs=out_tile.crs
+                        dst_crs=out_tile.crs,
                     ).intersection(out_tile.bbox)
-                )
+                ),
             )
             for tile, _ in tiles_paths
             for feature in self.read(tile)

@@ -27,23 +27,17 @@ from mapchete.config import validate_values
 from mapchete.formats import base
 from mapchete.io import get_boto3_bucket
 from mapchete.io.raster import (
-    write_raster_window, prepare_array, memory_file, read_raster_no_crs
+    write_raster_window,
+    prepare_array,
+    memory_file,
+    read_raster_no_crs,
 )
 from mapchete.tile import BufferedTile
 
 
 logger = logging.getLogger(__name__)
-METADATA = {
-    "driver_name": "PNG",
-    "data_type": "raster",
-    "mode": "w"
-}
-PNG_DEFAULT_PROFILE = {
-    "dtype": "uint8",
-    "driver": "PNG",
-    "count": 4,
-    "nodata": 0
-}
+METADATA = {"driver_name": "PNG", "data_type": "raster", "mode": "w"}
+PNG_DEFAULT_PROFILE = {"dtype": "uint8", "driver": "PNG", "count": 4, "nodata": 0}
 
 
 class OutputDataReader(base.TileDirectoryOutputReader):
@@ -85,9 +79,11 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         self.output_params = dict(
             output_params,
             nodata=output_params.get("nodata", PNG_DEFAULT_PROFILE["nodata"]),
-            dtype=PNG_DEFAULT_PROFILE["dtype"]
+            dtype=PNG_DEFAULT_PROFILE["dtype"],
         )
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket = (
+            self.path.split("/")[2] if self.path.startswith("s3://") else None
+        )
 
     def read(self, output_tile, **kwargs):
         """
@@ -139,8 +135,8 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         dst_metadata.pop("transform", None)
         if tile is not None:
             dst_metadata.update(
-                width=tile.width, height=tile.height, affine=tile.affine,
-                crs=tile.crs)
+                width=tile.width, height=tile.height, affine=tile.affine, crs=tile.crs
+            )
         try:
             dst_metadata.update(count=self.output_params["count"])
         except KeyError:
@@ -161,7 +157,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         """
         rgba = self._prepare_array_for_png(data)
         data = ma.masked_where(rgba == self.output_params["nodata"], rgba)
-        return memory_file(data, self.profile()), 'image/png'
+        return memory_file(data, self.profile()), "image/png"
 
     def empty(self, process_tile):
         """
@@ -183,29 +179,38 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             else PNG_DEFAULT_PROFILE["count"]
         )
         return ma.masked_array(
-            data=ma.zeros((bands, ) + process_tile.shape),
-            mask=ma.zeros((bands, ) + process_tile.shape),
-            dtype=PNG_DEFAULT_PROFILE["dtype"]
+            data=ma.zeros((bands,) + process_tile.shape),
+            mask=ma.zeros((bands,) + process_tile.shape),
+            dtype=PNG_DEFAULT_PROFILE["dtype"],
         )
 
     def _prepare_array_for_png(self, data):
         data = prepare_array(data, dtype=np.uint8)
         # Create 3D NumPy array with alpha channel.
         if len(data) == 1:
-            rgba = np.stack((
-                data[0], data[0], data[0],
-                np.where(
-                    data[0].data == self.output_params["nodata"], 0, 255)
-                .astype("uint8")
-            ))
+            rgba = np.stack(
+                (
+                    data[0],
+                    data[0],
+                    data[0],
+                    np.where(
+                        data[0].data == self.output_params["nodata"], 0, 255
+                    ).astype("uint8"),
+                )
+            )
         elif len(data) == 2:
             rgba = np.stack((data[0], data[0], data[0], data[1]))
         elif len(data) == 3:
-            rgba = np.stack((
-                data[0], data[1], data[2], np.where(
-                    data[0].data == self.output_params["nodata"], 0, 255
-                ).astype("uint8", copy=False)
-            ))
+            rgba = np.stack(
+                (
+                    data[0],
+                    data[1],
+                    data[2],
+                    np.where(
+                        data[0].data == self.output_params["nodata"], 0, 255
+                    ).astype("uint8", copy=False),
+                )
+            )
         elif len(data) == 4:
             rgba = np.array(data).astype("uint8", copy=False)
         else:
@@ -246,5 +251,5 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
                     out_profile=self.profile(out_tile),
                     out_tile=out_tile,
                     out_path=out_path,
-                    bucket_resource=bucket_resource
+                    bucket_resource=bucket_resource,
                 )

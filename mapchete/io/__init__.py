@@ -10,7 +10,7 @@ from mapchete.io._misc import (
     get_segmentize_value,
     tile_to_zoom_level,
     get_boto3_bucket,
-    get_gdal_options
+    get_gdal_options,
 )
 from mapchete.io._path import (
     fs_from_path,
@@ -40,5 +40,5 @@ __all__ = [
     "write_json",
     "read_json",
     "get_boto3_bucket",
-    "get_gdal_options"
+    "get_gdal_options",
 ]

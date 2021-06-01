@@ -10,21 +10,10 @@ from oyaml import dump
 from mapchete.cli import utils
 
 FORMAT_MANDATORY = {
-    "GTiff": {
-        "bands": None,
-        "dtype": None
-    },
-    "PNG": {
-        "bands": None,
-        "dtype": None
-    },
-    "PNG_hillshade": {
-        "bands": 4,
-        "dtype": "uint8"
-    },
-    "GeoJSON": {
-        "schema": {}
-    },
+    "GTiff": {"bands": None, "dtype": None},
+    "PNG": {"bands": None, "dtype": None},
+    "PNG_hillshade": {"bands": 4, "dtype": "uint8"},
+    "GeoJSON": {"schema": {}},
     "PostGIS": {
         "schema": {},
         "db_params": {
@@ -33,9 +22,9 @@ FORMAT_MANDATORY = {
             "db": None,
             "user": None,
             "password": None,
-            "table": None
-        }
-    }
+            "table": None,
+        },
+    },
 }
 
 
@@ -52,7 +41,7 @@ def create(
     out_format,
     out_path=None,
     pyramid_type=None,
-    force=False
+    force=False,
 ):
     """Create an empty Mapchete and process file in a given directory."""
     if os.path.isfile(process_file) or os.path.isfile(mapchete_file):
@@ -76,15 +65,15 @@ def create(
         format=out_format, path=out_path, **FORMAT_MANDATORY[out_format]
     )
 
-    pyramid_options = {'grid': pyramid_type}
+    pyramid_options = {"grid": pyramid_type}
 
     substitute_elements = {
-        'process_file': process_file,
-        'output': dump({'output': output_options}, default_flow_style=False),
-        'pyramid': dump({'pyramid': pyramid_options}, default_flow_style=False)
+        "process_file": process_file,
+        "output": dump({"output": output_options}, default_flow_style=False),
+        "pyramid": dump({"pyramid": pyramid_options}, default_flow_style=False),
     }
-    with open(mapchete_template, 'r') as config_template:
+    with open(mapchete_template, "r") as config_template:
         config = Template(config_template.read())
         customized_config = config.substitute(substitute_elements)
-    with open(mapchete_file, 'w') as target_config:
+    with open(mapchete_file, "w") as target_config:
         target_config.write(customized_config)

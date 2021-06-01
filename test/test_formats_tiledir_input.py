@@ -66,14 +66,19 @@ def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
     conf = deepcopy(conf_dict)
     conf["pyramid"].update(metatiling=metatiling)
     with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
-        assert any([
-            next(iter(mp.config.input.values())).open(tile).read().any()
-            for tile in mp.get_process_tiles(4)
-        ])
+        assert any(
+            [
+                next(iter(mp.config.input.values())).open(tile).read().any()
+                for tile in mp.get_process_tiles(4)
+            ]
+        )
         # read empty tile
-        assert not next(iter(mp.config.input.values())).open(
-            mp.config.process_pyramid.tile(4, 0, 0)
-        ).read().any()
+        assert (
+            not next(iter(mp.config.input.values()))
+            .open(mp.config.process_pyramid.tile(4, 0, 0))
+            .read()
+            .any()
+        )
         shutil.rmtree(mp.config.output.path, ignore_errors=True)
 
 
@@ -88,35 +93,49 @@ def test_read_reprojected_raster_data(
 
     with mapchete.open(cleantopo_br_tiledir_mercator.dict, mode="overwrite") as mp:
         # read some data
-        assert any([
-            next(iter(mp.config.input.values())).open(tile).read().any()
-            for tile in mp.get_process_tiles(zoom)
-        ])
+        assert any(
+            [
+                next(iter(mp.config.input.values())).open(tile).read().any()
+                for tile in mp.get_process_tiles(zoom)
+            ]
+        )
         # read empty tile
-        assert not next(iter(mp.config.input.values())).open(
-            mp.config.process_pyramid.tile(zoom, 0, 0)
-        ).read().any()
+        assert (
+            not next(iter(mp.config.input.values()))
+            .open(mp.config.process_pyramid.tile(zoom, 0, 0))
+            .read()
+            .any()
+        )
         # read from fixed zoom
-        assert not any([
-            next(iter(mp.config.input.values())).open(
-                tile
-            ).read(tile_directory_zoom=5).any()
-            for tile in mp.get_process_tiles(zoom)
-        ])
+        assert not any(
+            [
+                next(iter(mp.config.input.values()))
+                .open(tile)
+                .read(tile_directory_zoom=5)
+                .any()
+                for tile in mp.get_process_tiles(zoom)
+            ]
+        )
         # read using maxzoom
-        assert not any([
-            next(iter(mp.config.input.values())).open(
-                tile
-            ).read(matching_max_zoom=3).any()
-            for tile in mp.get_process_tiles(zoom)
-        ])
+        assert not any(
+            [
+                next(iter(mp.config.input.values()))
+                .open(tile)
+                .read(matching_max_zoom=3)
+                .any()
+                for tile in mp.get_process_tiles(zoom)
+            ]
+        )
         # use fallback zoom
-        assert any([
-            next(iter(mp.config.input.values())).open(
-                tile
-            ).read(fallback_to_higher_zoom=True).any()
-            for tile in mp.get_process_tiles(5)
-        ])
+        assert any(
+            [
+                next(iter(mp.config.input.values()))
+                .open(tile)
+                .read(fallback_to_higher_zoom=True)
+                .any()
+                for tile in mp.get_process_tiles(5)
+            ]
+        )
 
 
 def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
@@ -142,9 +161,12 @@ def test_no_metadata_json(mp_tmpdir, cleantopo_br_tiledir):
 def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):
     """Read raster data."""
     with mapchete.open(cleantopo_remote.path) as mp:
-        assert all([
-            next(iter(mp.config.input.values())).open(tile).read().any()
-            for tile in mp.get_process_tiles(1)])
+        assert all(
+            [
+                next(iter(mp.config.input.values())).open(tile).read().any()
+                for tile in mp.get_process_tiles(1)
+            ]
+        )
 
 
 def test_parse_errors(geojson_tiledir, cleantopo_br_tiledir):

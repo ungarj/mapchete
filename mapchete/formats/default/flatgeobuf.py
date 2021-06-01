@@ -23,11 +23,7 @@ import warnings
 from mapchete.formats.default import _fiona_base
 
 
-METADATA = {
-    "driver_name": "FlatGeobuf",
-    "data_type": "vector",
-    "mode": "rw"
-}
+METADATA = {"driver_name": "FlatGeobuf", "data_type": "vector", "mode": "rw"}
 
 
 class OutputDataReader(_fiona_base.OutputDataReader):
@@ -77,7 +73,9 @@ class OutputDataReader(_fiona_base.OutputDataReader):
                 output_params["schema"]["properties"][k] = "str"
 
         self.output_params = output_params
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket = (
+            self.path.split("/")[2] if self.path.startswith("s3://") else None
+        )
 
 
 class OutputDataWriter(_fiona_base.OutputDataWriter, OutputDataReader):
@@ -99,4 +97,5 @@ class InputTile(_fiona_base.InputTile):
     tile : ``Tile``
     process : ``MapcheteProcess``
     """
+
     pass

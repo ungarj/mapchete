@@ -64,7 +64,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             for i in (
                 "does not exist in the file system",
                 "No such file or directory",
-                "specified key does not exist."
+                "specified key does not exist.",
             ):
                 if i in str(e):
                     return self.empty(output_tile)
@@ -87,8 +87,14 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         validate_values(config, [("schema", dict), ("path", str)])
         validate_values(config["schema"], [("properties", dict), ("geometry", str)])
         if config["schema"]["geometry"] not in [
-            "Geometry", "Point", "MultiPoint", "Line", "MultiLine",
-            "Polygon", "MultiPolygon", "Unknown"
+            "Geometry",
+            "Point",
+            "MultiPoint",
+            "Line",
+            "MultiLine",
+            "Polygon",
+            "MultiPolygon",
+            "Unknown",
         ]:  # pragma: no cover
             raise TypeError("invalid geometry type")
         return True
@@ -135,7 +141,6 @@ class OutputDataReader(base.TileDirectoryOutputReader):
 
 
 class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
-
     def write(self, process_tile, data):
         """
         Write data from process tiles into vector file(s).
@@ -173,7 +178,7 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
                     bucket_resource=bucket_resource,
                     allow_multipart_geometries=(
                         self.output_params["schema"]["geometry"].startswith("Multi")
-                    )
+                    ),
                 )
 
 

@@ -13,7 +13,8 @@ class Timer:
 
     based on http://preshing.com/20110924/timing-your-code-using-pythons-with-statement/
     """
-    def __init__(self, elapsed=0., str_round=3):
+
+    def __init__(self, elapsed=0.0, str_round=3):
         self._elapsed = elapsed
         self._str_round = str_round
         self.start = None
@@ -53,7 +54,9 @@ class Timer:
 
     def __repr__(self):
         return "Timer(start=%s, end=%s, elapsed=%s)" % (
-            self.start, self.end, self.__str__()
+            self.start,
+            self.end,
+            self.__str__(),
         )
 
     def __str__(self):
@@ -68,4 +71,6 @@ class Timer:
 
     @property
     def elapsed(self):
-        return time.time() - self.start if self.start and not self.end else self._elapsed
+        return (
+            time.time() - self.start if self.start and not self.end else self._elapsed
+        )

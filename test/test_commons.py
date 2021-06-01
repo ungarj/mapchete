@@ -27,12 +27,13 @@ def test_clip(geojson):
             assert not clipped.mask.all()
             # inverted clip
             clipped_inverted = user_process.clip(
-                test_array, vector_file.read(), inverted=True)
+                test_array, vector_file.read(), inverted=True
+            )
             assert isinstance(clipped_inverted, ma.masked_array)
             assert clipped_inverted.mask.any()
             assert not clipped_inverted.mask.all()
             # compare results
-            assert (clipped+clipped_inverted).mask.all()
+            assert (clipped + clipped_inverted).mask.all()
             # using empty Geometries
             geoms = [dict(geometry=Point())]
             clipped = user_process.clip(test_array, geoms)
@@ -45,13 +46,11 @@ def test_clip(geojson):
             clipped = user_process.clip(test_array, geoms)
             assert clipped.mask.all()
             # using Geometry Collections
-            geoms = [dict(
-                geometry=GeometryCollection([tile.bbox.centroid, tile.bbox]))]
+            geoms = [dict(geometry=GeometryCollection([tile.bbox.centroid, tile.bbox]))]
             clipped = user_process.clip(test_array, geoms)
             assert not clipped.mask.any()
             # using 3D array
-            test_array = ma.masked_array(
-                np.ones((1, ) + user_process.tile.shape))
+            test_array = ma.masked_array(np.ones((1,) + user_process.tile.shape))
             clipped = user_process.clip(test_array, vector_file.read())
             assert isinstance(clipped, ma.masked_array)
             assert clipped.mask.any()

@@ -26,9 +26,16 @@ def app(dem_to_hillshade, cleantopo_br, geobuf, geojson, mp_tmpdir):
     """Dummy Flask app."""
     return create_app(
         mapchete_files=[
-            dem_to_hillshade.path, cleantopo_br.path, geojson.path, geobuf.path
+            dem_to_hillshade.path,
+            cleantopo_br.path,
+            geojson.path,
+            geobuf.path,
         ],
-        zoom=None, bounds=None, single_input_file=None, mode="overwrite", debug=True
+        zoom=None,
+        bounds=None,
+        single_input_file=None,
+        mode="overwrite",
+        debug=True,
     )
 
 
@@ -48,8 +55,10 @@ def mp_s3_tmpdir():
     """Setup and teardown temporary directory."""
 
     def _cleanup():
-        for obj in boto3.resource('s3').Bucket(S3_TEMP_DIR.split("/")[2]).objects.filter(
-            Prefix="/".join(S3_TEMP_DIR.split("/")[-2:])
+        for obj in (
+            boto3.resource("s3")
+            .Bucket(S3_TEMP_DIR.split("/")[2])
+            .objects.filter(Prefix="/".join(S3_TEMP_DIR.split("/")[-2:]))
         ):
             obj.delete()
 

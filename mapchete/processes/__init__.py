@@ -18,6 +18,7 @@ def registered_processes(process_name=None):
     -------
     module
     """
+
     def _import():
         # try to load processes
         for v in processes:

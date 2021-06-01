@@ -10,7 +10,7 @@ METADATA = {
     "driver_name": "Mapchete",
     "data_type": None,
     "mode": "r",
-    "file_extensions": ["mapchete"]
+    "file_extensions": ["mapchete"],
 }
 
 
@@ -41,7 +41,7 @@ class InputData(base.InputData):
         "driver_name": "Mapchete",
         "data_type": None,
         "mode": "r",
-        "file_extensions": ["mapchete"]
+        "file_extensions": ["mapchete"],
     }
 
     def __init__(self, input_params, **kwargs):
@@ -82,5 +82,5 @@ class InputData(base.InputData):
         return reproject_geometry(
             self.process.config.area_at_zoom(),
             src_crs=self.process.config.process_pyramid.crs,
-            dst_crs=self.pyramid.crs if out_crs is None else out_crs
+            dst_crs=self.pyramid.crs if out_crs is None else out_crs,
         )

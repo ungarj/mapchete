@@ -21,7 +21,7 @@ from mapchete.io._geometry_operations import (
     to_shape,
     multipart_to_singleparts,
     clean_geometry_type,
-    _repair
+    _repair,
 )
 
 __all__ = [
@@ -29,7 +29,7 @@ __all__ = [
     "segmentize_geometry",
     "to_shape",
     "multipart_to_singleparts",
-    "clean_geometry_type"
+    "clean_geometry_type",
 ]
 
 logger = logging.getLogger(__name__)
@@ -59,12 +59,14 @@ def read_vector_window(input_files, tile, validity_check=True):
     try:
         return [
             feature
-            for feature in chain.from_iterable([
-                _read_vector_window(path, tile, validity_check=validity_check)
-                for path in (
-                    input_files if isinstance(input_files, list) else [input_files]
-                )
-            ])
+            for feature in chain.from_iterable(
+                [
+                    _read_vector_window(path, tile, validity_check=validity_check)
+                    for path in (
+                        input_files if isinstance(input_files, list) else [input_files]
+                    )
+                ]
+            )
         ]
     except FileNotFoundError:  # pragma: no cover
         raise
@@ -79,7 +81,7 @@ def _read_vector_window(input_file, tile, validity_check=True):
                 input_file=input_file,
                 dst_bounds=bbox.bounds,
                 dst_crs=tile.crs,
-                validity_check=validity_check
+                validity_check=validity_check,
             )
             for bbox in clip_geometry_to_srs_bounds(
                 tile.bbox, tile.tile_pyramid, multipart=True
@@ -90,7 +92,7 @@ def _read_vector_window(input_file, tile, validity_check=True):
             input_file=input_file,
             dst_bounds=tile.bounds,
             dst_crs=tile.crs,
-            validity_check=validity_check
+            validity_check=validity_check,
         )
         return features
 
@@ -102,7 +104,7 @@ def write_vector_window(
     out_tile=None,
     out_path=None,
     bucket_resource=None,
-    allow_multipart_geometries=True
+    allow_multipart_geometries=True,
 ):
     """
     Write features to file.
@@ -133,7 +135,7 @@ def write_vector_window(
             # clip feature geometry to tile bounding box and append for writing
             clipped = clean_geometry_type(
                 to_shape(feature["geometry"]).intersection(out_tile.bbox),
-                out_schema["geometry"]
+                out_schema["geometry"],
             )
             if allow_multipart_geometries:
                 cleaned_output_fetures = [clipped]
@@ -144,10 +146,7 @@ def write_vector_window(
                     continue
 
                 out_features.append(
-                    {
-                        "geometry": mapping(out_geom),
-                        "properties": feature["properties"]
-                    }
+                    {"geometry": mapping(out_geom), "properties": feature["properties"]}
                 )
         except Exception as e:
             logger.warning("failed to prepare geometry for writing: %s", e)
@@ -162,7 +161,7 @@ def write_vector_window(
                     tile=out_tile,
                     features=out_features,
                     schema=out_schema,
-                    driver=out_driver
+                    driver=out_driver,
                 ) as memfile:
                     logger.debug((out_tile.id, "write tile", out_path))
                     with fs_from_path(out_path).open(out_path, "wb") as dst:
@@ -176,7 +175,7 @@ def write_vector_window(
                     "w",
                     schema=out_schema,
                     driver=out_driver,
-                    crs=out_tile.crs.to_dict()
+                    crs=out_tile.crs.to_dict(),
                 ) as dst:
                     logger.debug((out_tile.id, "write tile", out_path))
                     dst.writerecords(out_features)
@@ -188,12 +187,10 @@ def write_vector_window(
         logger.debug((out_tile.id, "nothing to write", out_path))
 
 
-class VectorWindowMemoryFile():
+class VectorWindowMemoryFile:
     """Context manager around fiona.io.MemoryFile."""
 
-    def __init__(
-        self, tile=None, features=None, schema=None, driver=None
-    ):
+    def __init__(self, tile=None, features=None, schema=None, driver=None):
         """Prepare data & profile."""
         self.tile = tile
         self.schema = schema
@@ -204,10 +201,11 @@ class VectorWindowMemoryFile():
         """Open MemoryFile, write data and return."""
         if self.driver.lower() == "geobuf":
             import geobuf
+
             return geobuf.encode(
                 dict(
                     type="FeatureCollection",
-                    features=[dict(f, type="Feature") for f in self.features]
+                    features=[dict(f, type="Feature") for f in self.features],
                 )
             )
         else:  # pragma: no cover
@@ -215,9 +213,7 @@ class VectorWindowMemoryFile():
             # to S3
             self.fio_memfile = MemoryFile()
             with self.fio_memfile.open(
-                schema=self.schema,
-                driver=self.driver,
-                crs=self.tile.crs
+                schema=self.schema, driver=self.driver, crs=self.tile.crs
             ) as dst:
                 dst.writerecords(self.features)
             return self.fio_memfile.getbuffer()
@@ -240,7 +236,7 @@ def _get_reprojected_features(
 ):
     logger.debug("reading %s", input_file)
     try:
-        with fiona.open(input_file, 'r') as src:
+        with fiona.open(input_file, "r") as src:
             src_crs = CRS(src.crs)
             # reproject tile bounding box to source file CRS for filter
             if src_crs == dst_crs:
@@ -250,13 +246,13 @@ def _get_reprojected_features(
                     box(*dst_bounds),
                     src_crs=dst_crs,
                     dst_crs=src_crs,
-                    validity_check=True
+                    validity_check=True,
                 )
             for feature in src.filter(bbox=dst_bbox.bounds):
 
                 try:
                     # check validity
-                    original_geom = _repair(to_shape(feature['geometry']))
+                    original_geom = _repair(to_shape(feature["geometry"]))
 
                     # clip with bounds and omit if clipped geometry is empty
                     clipped_geom = original_geom.intersection(dst_bbox)
@@ -264,18 +260,16 @@ def _get_reprojected_features(
                     # reproject each feature to tile CRS
                     g = reproject_geometry(
                         clean_geometry_type(
-                            clipped_geom,
-                            original_geom.geom_type,
-                            raise_exception=False
+                            clipped_geom, original_geom.geom_type, raise_exception=False
                         ),
                         src_crs=src_crs,
                         dst_crs=dst_crs,
-                        validity_check=validity_check
+                        validity_check=validity_check,
                     )
                     if not g.is_empty:
                         yield {
-                            'properties': feature['properties'],
-                            'geometry': mapping(g)
+                            "properties": feature["properties"],
+                            "geometry": mapping(g),
                         }
                 # this can be handled quietly
                 except TopologicalError as e:  # pragma: no cover

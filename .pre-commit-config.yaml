@@ -1,0 +1,15 @@
+repos:
+-   repo: https://github.com/ambv/black
+    rev: 21.5b2
+    hooks:
+    - id: black
+      language_version: python3.8
+      exclude: test/testdata/syntax_error.py
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v1.2.3
+    hooks:
+    - id: flake8
+-   repo: https://gitlab.com/pycqa/flake8
+    rev: 3.9.2
+    hooks:
+    - id: flake8

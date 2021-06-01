@@ -11,7 +11,5 @@ def execute(mp):
             # This assures a transparent tile instead of a pink error tile
             # is returned when using mapchete serve.
         dem = raster_file.read(resampling="bilinear")
-    tags = {
-        1: {"band_tag": True},
-        "filewide_tag": "value"}
+    tags = {1: {"band_tag": True}, "filewide_tag": "value"}
     return dem, tags

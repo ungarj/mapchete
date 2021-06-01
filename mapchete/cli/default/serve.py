@@ -38,7 +38,7 @@ def serve(
     memory=False,
     input_file=None,
     debug=False,
-    logfile=None
+    logfile=None,
 ):
     """
     Serve a Mapchete process.
@@ -52,7 +52,7 @@ def serve(
         bounds=bounds,
         single_input_file=input_file,
         mode=_get_mode(memory, readonly, overwrite),
-        debug=debug
+        debug=debug,
     )
     if os.environ.get("MAPCHETE_TEST") == "TRUE":
         logger.debug("don't run flask app, MAPCHETE_TEST environment detected")
@@ -61,23 +61,33 @@ def serve(
             threaded=True,
             debug=debug,
             port=port,
-            host='0.0.0.0',
-            extra_files=mapchete_files
+            host="0.0.0.0",
+            extra_files=mapchete_files,
         )
 
 
 def create_app(
-    mapchete_files=None, zoom=None, bounds=None, single_input_file=None,
-    mode="continue", debug=None
+    mapchete_files=None,
+    zoom=None,
+    bounds=None,
+    single_input_file=None,
+    mode="continue",
+    debug=None,
 ):
     """Configure and create Flask app."""
     from flask import Flask, render_template_string
+
     app = Flask(__name__)
     mapchete_processes = {
         os.path.splitext(os.path.basename(mapchete_file))[0]: mapchete.open(
-            mapchete_file, zoom=zoom, bounds=bounds,
-            single_input_file=single_input_file, mode=mode, with_cache=True,
-            debug=debug)
+            mapchete_file,
+            zoom=zoom,
+            bounds=bounds,
+            single_input_file=single_input_file,
+            mode=mode,
+            with_cache=True,
+            debug=debug,
+        )
         for mapchete_file in mapchete_files
     }
 
@@ -88,32 +98,42 @@ def create_app(
     grid = "g" if pyramid_srid == 3857 else "WGS84"
     web_pyramid = BufferedTilePyramid(pyramid_type)
 
-    @app.route('/', methods=['GET'])
+    @app.route("/", methods=["GET"])
     def index():
         """Render and hosts the appropriate OpenLayers instance."""
         return render_template_string(
-            pkgutil.get_data(
-                'mapchete.static', 'index.html').decode("utf-8"),
+            pkgutil.get_data("mapchete.static", "index.html").decode("utf-8"),
             srid=pyramid_srid,
             process_bounds=process_bounds,
             is_mercator=(pyramid_srid == 3857),
-            process_names=mapchete_processes.keys()
+            process_names=mapchete_processes.keys(),
         )
 
     @app.route(
-        "/".join([
-            "", "wmts_simple", "1.0.0", "<string:mp_name>", "default",
-            grid, "<int:zoom>", "<int:row>", "<int:col>.<string:file_ext>"]),
-        methods=['GET'])
+        "/".join(
+            [
+                "",
+                "wmts_simple",
+                "1.0.0",
+                "<string:mp_name>",
+                "default",
+                grid,
+                "<int:zoom>",
+                "<int:row>",
+                "<int:col>.<string:file_ext>",
+            ]
+        ),
+        methods=["GET"],
+    )
     def get(mp_name, zoom, row, col, file_ext):
         """Return processed, empty or error (in pink color) tile."""
         logger.debug(
-            "received tile (%s, %s, %s) for process %s", zoom, row, col,
-            mp_name)
+            "received tile (%s, %s, %s) for process %s", zoom, row, col, mp_name
+        )
         # convert zoom, row, col into tile object using web pyramid
         return _tile_response(
-            mapchete_processes[mp_name], web_pyramid.tile(zoom, row, col),
-            debug)
+            mapchete_processes[mp_name], web_pyramid.tile(zoom, row, col), debug
+        )
 
     return app
 
@@ -139,11 +159,13 @@ def _tile_response(mp, web_tile, debug):
             raise
         else:
             from flask import abort
+
             abort(500)
 
 
 def _valid_tile_response(mp, data):
     from flask import send_file, make_response, jsonify
+
     out_data, mime_type = mp.config.output.for_web(data)
     logger.debug("create tile response %s", mime_type)
     if isinstance(out_data, MemoryFile):
@@ -152,6 +174,6 @@ def _valid_tile_response(mp, data):
         response = make_response(jsonify(data))
     else:
         response = make_response(out_data)
-    response.headers['Content-Type'] = mime_type
+    response.headers["Content-Type"] = mime_type
     response.cache_control.no_write = True
     return response

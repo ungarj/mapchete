@@ -42,16 +42,16 @@ def test_input_data_read(mp_tmpdir, geojson, landpoly_3857):
 
 def test_for_web(client, mp_tmpdir):
     """Send GTiff via flask."""
-    tile_base_url = '/wmts_simple/1.0.0/geojson/default/WGS84/'
+    tile_base_url = "/wmts_simple/1.0.0/geojson/default/WGS84/"
     for url in ["/"]:
         response = client.get(url)
         assert response.status_code == 200
     features = 0
     for url in [
-        tile_base_url+"4/12/31.geojson",
-        tile_base_url+"4/12/30.geojson",
-        tile_base_url+"4/11/31.geojson",
-        tile_base_url+"4/11/30.geojson",
+        tile_base_url + "4/12/31.geojson",
+        tile_base_url + "4/12/30.geojson",
+        tile_base_url + "4/11/31.geojson",
+        tile_base_url + "4/11/30.geojson",
     ]:
         response = client.get(url)
         assert response.status_code == 200
@@ -69,7 +69,7 @@ def test_output_data(mp_tmpdir, geojson):
         path=mp_tmpdir,
         schema=dict(properties=dict(id="int"), geometry="Polygon"),
         pixelbuffer=0,
-        metatiling=1
+        metatiling=1,
     )
     output = formats.default.geojson.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
@@ -98,7 +98,7 @@ def test_s3_output_data(mp_s3_tmpdir, geojson_s3):
         path=mp_s3_tmpdir,
         schema=dict(properties=dict(id="int"), geometry="Polygon"),
         pixelbuffer=0,
-        metatiling=1
+        metatiling=1,
     )
     output = formats.default.geojson.OutputDataWriter(output_params)
     assert output.path == mp_s3_tmpdir
@@ -128,28 +128,17 @@ def test_multipolygon_output_data(mp_tmpdir, geojson):
         format="GeoJSON",
         path=mp_tmpdir,
         schema=dict(
-            properties=dict(
-                id="int",
-                name="str",
-                area="float"
-            ),
-            geometry="MultiPolygon"
+            properties=dict(id="int", name="str", area="float"), geometry="MultiPolygon"
         ),
         pixelbuffer=0,
-        metatiling=2
+        metatiling=2,
     )
     output = formats.default.geojson.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
     assert output.file_extension == ".geojson"
     assert isinstance(output_params, dict)
 
-    with mapchete.open(
-        dict(
-            geojson.dict,
-            zoom_levels=8,
-            output=output_params
-        )
-    ) as mp:
+    with mapchete.open(dict(geojson.dict, zoom_levels=8, output=output_params)) as mp:
         tile = mp.config.process_pyramid.tile(8, 45, 126)
         # write empty
         mp.write(tile, None)

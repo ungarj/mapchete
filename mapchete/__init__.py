@@ -6,7 +6,7 @@ from mapchete.tile import count_tiles
 from mapchete._timer import Timer
 
 
-__all__ = ['open', 'count_tiles', 'Mapchete', 'MapcheteProcess', 'Timer']
+__all__ = ["open", "count_tiles", "Mapchete", "MapcheteProcess", "Timer"]
 __version__ = "0.38"
 
 

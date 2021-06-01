@@ -48,7 +48,7 @@ def test_output_data(mp_tmpdir, flatgeobuf):
         path=mp_tmpdir,
         schema=dict(properties=dict(id="int"), geometry="Polygon"),
         pixelbuffer=0,
-        metatiling=1
+        metatiling=1,
     )
     output = formats.default.flatgeobuf.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
@@ -77,7 +77,7 @@ def test_s3_output_data(mp_s3_tmpdir, flatgeobuf_s3):
         path=mp_s3_tmpdir,
         schema=dict(properties=dict(id="int"), geometry="Polygon"),
         pixelbuffer=0,
-        metatiling=1
+        metatiling=1,
     )
     output = formats.default.flatgeobuf.OutputDataWriter(output_params)
     assert output.path == mp_s3_tmpdir
@@ -107,15 +107,10 @@ def test_multipolygon_output_data(mp_tmpdir, flatgeobuf):
         format="FlatGeobuf",
         path=mp_tmpdir,
         schema=dict(
-            properties=dict(
-                id="int",
-                name="str",
-                area="float"
-            ),
-            geometry="MultiPolygon"
+            properties=dict(id="int", name="str", area="float"), geometry="MultiPolygon"
         ),
         pixelbuffer=0,
-        metatiling=2
+        metatiling=2,
     )
     output = formats.default.flatgeobuf.OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
@@ -123,11 +118,7 @@ def test_multipolygon_output_data(mp_tmpdir, flatgeobuf):
     assert isinstance(output_params, dict)
 
     with mapchete.open(
-        dict(
-            flatgeobuf.dict,
-            zoom_levels=8,
-            output=output_params
-        )
+        dict(flatgeobuf.dict, zoom_levels=8, output=output_params)
     ) as mp:
         tile = mp.config.process_pyramid.tile(8, 45, 126)
         # write empty

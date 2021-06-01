@@ -67,7 +67,7 @@ class KeyValueFilter(logging.Filter):
 
 
 # lower stream output log level
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
+formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 stream_handler.setLevel(logging.WARNING)

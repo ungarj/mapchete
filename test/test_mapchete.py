@@ -9,6 +9,7 @@ from rasterio import windows
 import numpy as np
 import numpy.ma as ma
 import pkg_resources
+
 try:
     from cPickle import dumps
 except ImportError:
@@ -70,10 +71,12 @@ def test_read_existing_output_vector(mp_tmpdir, geojson):
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         data = list(
-            chain(*[
-                mp.config.output.read(t)
-                for t in mp.config.output.pyramid.intersecting(tile)
-            ])
+            chain(
+                *[
+                    mp.config.output.read(t)
+                    for t in mp.config.output.pyramid.intersecting(tile)
+                ]
+            )
         )
         assert data
         for feature in data:
@@ -176,10 +179,12 @@ def test_baselevels(mp_tmpdir, baselevels):
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read from baselevel
-        assert any([
-            not mp.get_raw_output(upper_tile).mask.all()
-            for upper_tile in tile.get_children()
-        ])
+        assert any(
+            [
+                not mp.get_raw_output(upper_tile).mask.all()
+                for upper_tile in tile.get_children()
+            ]
+        )
 
 
 def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
@@ -209,31 +214,31 @@ def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read from baselevel
-        assert any([
-            not mp.get_raw_output(upper_tile).mask.all()
-            for upper_tile in tile.get_children()
-        ])
+        assert any(
+            [
+                not mp.get_raw_output(upper_tile).mask.all()
+                for upper_tile in tile.get_children()
+            ]
+        )
         # assert fill_value is set and all data are not 0
-        assert all([
-            mp.get_raw_output(upper_tile).fill_value == fill_value
-            for upper_tile in tile.get_children()
-        ])
-        assert all([
-            mp.get_raw_output(upper_tile).data.all()
-            for upper_tile in tile.get_children()
-        ])
+        assert all(
+            [
+                mp.get_raw_output(upper_tile).fill_value == fill_value
+                for upper_tile in tile.get_children()
+            ]
+        )
+        assert all(
+            [
+                mp.get_raw_output(upper_tile).data.all()
+                for upper_tile in tile.get_children()
+            ]
+        )
 
 
 def test_update_baselevels(mp_tmpdir, baselevels):
     """Baselevel interpolation."""
     conf = dict(baselevels.dict)
-    conf.update(
-        zoom_levels=[7, 8],
-        baselevels=dict(
-            min=8,
-            max=8
-        )
-    )
+    conf.update(zoom_levels=[7, 8], baselevels=dict(min=8, max=8))
     baselevel_tile = (8, 125, 260)
     overview_tile = (7, 62, 130)
     with mapchete.open(conf, mode="continue") as mp:
@@ -253,11 +258,16 @@ def test_update_baselevels(mp_tmpdir, baselevels):
         mp.batch_process()
 
     # delete baselevel tile
-    written_tile = os.path.join(*[
-        baselevels.dict["config_dir"],
-        baselevels.dict["output"]["path"],
-        *map(str, baselevel_tile),
-    ]) + ".tif"
+    written_tile = (
+        os.path.join(
+            *[
+                baselevels.dict["config_dir"],
+                baselevels.dict["output"]["path"],
+                *map(str, baselevel_tile),
+            ]
+        )
+        + ".tif"
+    )
     os.remove(written_tile)
     assert not os.path.exists(written_tile)
 
@@ -293,10 +303,12 @@ def test_baselevels_buffer(mp_tmpdir, baselevels):
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
         # read from baselevel
-        assert any([
-            not mp.get_raw_output(upper_tile).mask.all()
-            for upper_tile in tile.get_children()
-        ])
+        assert any(
+            [
+                not mp.get_raw_output(upper_tile).mask.all()
+                for upper_tile in tile.get_children()
+            ]
+        )
 
 
 def test_baselevels_output_buffer(mp_tmpdir, baselevels_output_buffer):
@@ -328,7 +340,7 @@ def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):
     with mapchete.open(config) as mp:
         # write data left and right of antimeridian
         west = mp.config.process_pyramid.tile(zoom, row, 0)
-        shape = (3, ) + west.shape
+        shape = (3,) + west.shape
         mp.write(west, np.ones(shape) * 0)
         east = mp.config.process_pyramid.tile(
             zoom, row, mp.config.process_pyramid.matrix_width(zoom) - 1
@@ -355,9 +367,12 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                     mp.write(tile, output)
                 mosaic = create_mosaic(tiles)
                 try:
-                    temp_vrt = os.path.join(mp_tmpdir, str(zoom)+".vrt")
+                    temp_vrt = os.path.join(mp_tmpdir, str(zoom) + ".vrt")
                     gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-                        temp_vrt, mp.config.output.path, zoom)
+                        temp_vrt,
+                        mp.config.output.path,
+                        zoom,
+                    )
                     os.system(gdalbuildvrt)
                     with rasterio.open(temp_vrt, "r") as testfile:
                         for file_item, mosaic_item in zip(
@@ -410,21 +425,18 @@ def test_write_empty(mp_tmpdir, cleantopo_tl):
 def test_process_template(dummy1_tif, mp_tmpdir):
     """Template used to create an empty process."""
     process_template = pkg_resources.resource_filename(
-        "mapchete.static", "process_template.py")
+        "mapchete.static", "process_template.py"
+    )
     mp = mapchete.open(
         dict(
             process=process_template,
             pyramid=dict(grid="geodetic"),
             input=dict(file1=dummy1_tif),
-            output=dict(
-                format="GTiff",
-                path=mp_tmpdir,
-                bands=1,
-                dtype="uint8"
-            ),
+            output=dict(format="GTiff", path=mp_tmpdir, bands=1, dtype="uint8"),
             config_dir=mp_tmpdir,
-            zoom_levels=4
-        ))
+            zoom_levels=4,
+        )
+    )
     process_tile = next(mp.get_process_tiles(zoom=4))
     # Mapchete throws a RuntimeError if process output is empty
     with pytest.raises(MapcheteProcessOutputError):
@@ -437,14 +449,16 @@ def test_count_tiles(zoom_mapchete):
     conf = zoom_mapchete.dict
     conf.update(
         zoom_levels=dict(max=maxzoom),
-        bounds=[14.0625, 47.8125, 16.875, 50.625], input=None)
+        bounds=[14.0625, 47.8125, 16.875, 50.625],
+        input=None,
+    )
     conf["pyramid"].update(metatiling=8, pixelbuffer=5)
     for minzoom in range(0, 14):
         conf["zoom_levels"].update(min=minzoom)
         with mapchete.open(conf) as mp:
             assert len(list(mp.get_process_tiles())) == mapchete.count_tiles(
-                mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom,
-                maxzoom)
+                mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom, maxzoom
+            )
 
 
 def test_count_tiles_mercator():
@@ -513,13 +527,11 @@ def test_snap_bounds_to_zoom():
             )
             for zoom in range(3, 5):
                 snapped_bounds = mapchete.config.snap_bounds(
-                    bounds=bounds,
-                    pyramid=pyramid,
-                    zoom=zoom
+                    bounds=bounds, pyramid=pyramid, zoom=zoom
                 )
-                control_bounds = unary_union([
-                    t.bbox for t in pyramid.tiles_from_bounds(bounds, zoom)
-                ]).bounds
+                control_bounds = unary_union(
+                    [t.bbox for t in pyramid.tiles_from_bounds(bounds, zoom)]
+                ).bounds
                 assert snapped_bounds == control_bounds
 
 
@@ -528,7 +540,12 @@ def test_snap_bounds_errors():
     with pytest.raises(TypeError):
         mapchete.config.snap_bounds(bounds="invalid")
     with pytest.raises(ValueError):
-        mapchete.config.snap_bounds(bounds=(0, 1, ))
+        mapchete.config.snap_bounds(
+            bounds=(
+                0,
+                1,
+            )
+        )
     with pytest.raises(TypeError):
         mapchete.config.snap_bounds(bounds=bounds, pyramid="invalid")
 

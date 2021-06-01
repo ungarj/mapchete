@@ -51,7 +51,7 @@ def cp(
     logfile=None,
     multi=None,
     username=None,
-    password=None
+    password=None,
 ):
     """Copy TileDirectory."""
     if zoom is None:  # pragma: no cover
@@ -70,7 +70,7 @@ def cp(
         wkt_geometry=wkt_geometry,
         username=username,
         password=password,
-        fs=src_fs
+        fs=src_fs,
     ) as src_mp:
         tp = src_mp.config.output_pyramid
 
@@ -91,14 +91,15 @@ def cp(
             wkt_geometry=wkt_geometry,
             username=username,
             password=password,
-            fs=dst_fs
+            fs=dst_fs,
         ) as dst_mp:
             for z in range(min(zoom), max(zoom) + 1):
                 click.echo(f"copy zoom {z}...")
                 # materialize all tiles
                 aoi_geom = src_mp.config.area_at_zoom(z)
                 tiles = [
-                    t for t in tp.tiles_from_geom(aoi_geom, z)
+                    t
+                    for t in tp.tiles_from_geom(aoi_geom, z)
                     # this is required to omit tiles touching the config area
                     if aoi_geom.intersection(t.bbox).area
                 ]
@@ -108,9 +109,7 @@ def cp(
                 src_tiles_exist = {
                     tile: exists
                     for tile, exists in tiles_exist(
-                        config=src_mp.config,
-                        output_tiles=tiles,
-                        multi=multi
+                        config=src_mp.config, output_tiles=tiles, multi=multi
                     )
                 }
 
@@ -119,9 +118,7 @@ def cp(
                 dst_tiles_exist = {
                     tile: exists
                     for tile, exists in tiles_exist(
-                        config=dst_mp.config,
-                        output_tiles=tiles,
-                        multi=multi
+                        config=dst_mp.config, output_tiles=tiles, multi=multi
                     )
                 }
 

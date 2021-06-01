@@ -28,23 +28,17 @@ from mapchete.config import validate_values
 from mapchete.formats import base
 from mapchete.io import get_boto3_bucket
 from mapchete.io.raster import (
-    write_raster_window, prepare_array, memory_file, read_raster_no_crs
+    write_raster_window,
+    prepare_array,
+    memory_file,
+    read_raster_no_crs,
 )
 from mapchete.tile import BufferedTile
 
 
 logger = logging.getLogger(__name__)
-METADATA = {
-    "driver_name": "PNG_hillshade",
-    "data_type": "raster",
-    "mode": "w"
-}
-PNG_DEFAULT_PROFILE = {
-    "dtype": "uint8",
-    "driver": "PNG",
-    "count": 2,
-    "nodata": 255
-}
+METADATA = {"driver_name": "PNG_hillshade", "data_type": "raster", "mode": "w"}
+PNG_DEFAULT_PROFILE = {"dtype": "uint8", "driver": "PNG", "count": 2, "nodata": 255}
 
 
 class OutputDataReader(base.TileDirectoryOutputReader):
@@ -87,7 +81,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         self.output_params = dict(
             output_params,
             nodata=output_params.get("nodata", PNG_DEFAULT_PROFILE["nodata"]),
-            dtype=PNG_DEFAULT_PROFILE["dtype"]
+            dtype=PNG_DEFAULT_PROFILE["dtype"],
         )
         self._profile = dict(PNG_DEFAULT_PROFILE)
         try:
@@ -96,7 +90,9 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         except KeyError:
             self.old_band_num = False
         self.output_params.update(dtype=self._profile["dtype"])
-        self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
+        self._bucket = (
+            self.path.split("/")[2] if self.path.startswith("s3://") else None
+        )
 
     def read(self, output_tile, **kwargs):
         """
@@ -116,7 +112,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
                 read_raster_no_crs(
                     self.get_path(output_tile), indexes=(4 if self.old_band_num else 2)
                 ),
-                0
+                0,
             )
         except FileNotFoundError:
             return self.empty(output_tile)
@@ -154,8 +150,9 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             dst_metadata.update(
                 width=tile.width,
                 height=tile.height,
-                affine=tile.affine, driver="PNG",
-                crs=tile.crs
+                affine=tile.affine,
+                driver="PNG",
+                crs=tile.crs,
             )
         return dst_metadata
 
@@ -172,7 +169,8 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         MemoryFile(), MIME type
         """
         return (
-            memory_file(self._prepare_array(data), self.profile()), "image/png"
+            memory_file(self._prepare_array(data), self.profile()),
+            "image/png",
         )  # pragma: no cover
 
     def empty(self, process_tile):
@@ -234,5 +232,5 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
                     out_profile=self.profile(out_tile),
                     out_tile=out_tile,
                     out_path=out_path,
-                    bucket_resource=bucket_resource
+                    bucket_resource=bucket_resource,
                 )

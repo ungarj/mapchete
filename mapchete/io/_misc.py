@@ -18,7 +18,7 @@ GDAL_HTTP_OPTS = dict(
     GDAL_HTTP_TIMEOUT=30,
     GDAL_HTTP_MAX_RETRY=3,
     GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=True,
-    GDAL_HTTP_RETRY_DELAY=5
+    GDAL_HTTP_RETRY_DELAY=5,
 )
 MAPCHETE_IO_RETRY_SETTINGS = {
     "tries": os.environ.get("MAPCHETE_IO_RETRY_TRIES", 3),
@@ -47,20 +47,19 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
         xmin, ymin, xmax, ymax = reproject_geometry(
             segmentize_geometry(
                 box(
-                    src.bounds.left, src.bounds.bottom, src.bounds.right,
-                    src.bounds.top
+                    src.bounds.left, src.bounds.bottom, src.bounds.right, src.bounds.top
                 ),
-                get_segmentize_value(input_file, tile_pyramid)
+                get_segmentize_value(input_file, tile_pyramid),
             ),
-            src_crs=src.crs, dst_crs=tile_pyramid.crs
+            src_crs=src.crs,
+            dst_crs=tile_pyramid.crs,
         ).bounds
         x_dif = xmax - xmin
         y_dif = ymax - ymin
         size = float(src.width + src.height)
-        avg_resolution = (
-            (x_dif / float(src.width)) * (float(src.width) / size) +
-            (y_dif / float(src.height)) * (float(src.height) / size)
-        )
+        avg_resolution = (x_dif / float(src.width)) * (float(src.width) / size) + (
+            y_dif / float(src.height)
+        ) * (float(src.height) / size)
 
     for zoom in range(0, 40):
         if tile_pyramid.pixel_x_size(zoom) <= avg_resolution:
@@ -115,6 +114,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
     -------
     zoom : int
     """
+
     def width_height(bounds):
         try:
             l, b, r, t = reproject_geometry(
@@ -133,11 +133,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
             # return a non-optimal zooom level for reprojection
             with rasterio.Env(CHECK_WITH_INVERT_PROJ=True):
                 transform, width, height = calculate_default_transform(
-                    tile.tp.crs,
-                    dst_pyramid.crs,
-                    tile.width,
-                    tile.height,
-                    *tile.bounds
+                    tile.tp.crs, dst_pyramid.crs, tile.width, tile.height, *tile.bounds
                 )
                 # this is the resolution the tile would have in destination CRS
                 tile_resolution = round(transform[0], precision)
@@ -151,7 +147,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
                 (l, t - y, l + x, t),  # left top
                 (l, b, l + x, b + y),  # left bottom
                 (r - x, b, r, b + y),  # right bottom
-                (r - x, t - y, r, t)   # right top
+                (r - x, t - y, r, t),  # right top
             ]:
                 try:
                     w, h = width_height(bounds)
@@ -166,7 +162,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
             raise ValueError("invalid method given: %s", matching_method)
         logger.debug(
             "we are looking for a zoom level interpolating to %s resolution",
-            tile_resolution
+            tile_resolution,
         )
         zoom = 0
         while True:
@@ -174,21 +170,24 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
             if td_resolution <= tile_resolution:
                 break
             zoom += 1
-        logger.debug("target zoom for %s: %s (%s)", tile_resolution, zoom, td_resolution)
+        logger.debug(
+            "target zoom for %s: %s (%s)", tile_resolution, zoom, td_resolution
+        )
         return zoom
 
 
 def get_boto3_bucket(bucket_name):
     """Return boto3.Bucket object from bucket name."""
     import boto3
+
     url = os.environ.get("AWS_S3_ENDPOINT")
     return boto3.resource(
-        's3',
+        "s3",
         endpoint_url=(
             "https://" + url
             if url and not url.startswith(("http://", "https://"))
             else url
-        )
+        ),
     ).Bucket(bucket_name)
 
 

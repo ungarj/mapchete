@@ -8,9 +8,9 @@ class Process(MapcheteProcess):
         """Process initialization."""
         # init process
         MapcheteProcess.__init__(self, **kwargs)
-        self.identifier = "my_process_id",
-        self.title = "My long process title",
-        self.version = "0.1",
+        self.identifier = ("my_process_id",)
+        self.title = ("My long process title",)
+        self.version = ("0.1",)
         self.abstract = "short description on what my process does"
 
     def execute(self):

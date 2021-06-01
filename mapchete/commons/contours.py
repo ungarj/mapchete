@@ -3,13 +3,7 @@
 from shapely.geometry import LineString, mapping
 
 
-def extract_contours(
-    array,
-    tile,
-    interval=100,
-    field='elev',
-    base=0
-):
+def extract_contours(array, tile, interval=100, field="elev", base=0):
     """
     Extract contour lines from an array.
 
@@ -32,8 +26,8 @@ def extract_contours(
         contours as GeoJSON-like pairs of properties and geometry
     """
     import matplotlib.pyplot as plt
-    levels = _get_contour_values(
-        array.min(), array.max(), interval=interval, base=base)
+
+    levels = _get_contour_values(array.min(), array.max(), interval=interval, base=base)
     if not levels:
         return []
     contours = plt.contour(array, levels)
@@ -55,7 +49,7 @@ def extract_contours(
                 out_contours.append(
                     dict(
                         properties={field: elevation},
-                        geometry=mapping(LineString(out_coords))
+                        geometry=mapping(LineString(out_coords)),
                     )
                 )
     return out_contours

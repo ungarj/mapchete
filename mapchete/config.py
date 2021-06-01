@@ -30,14 +30,23 @@ from tilematrix._funcs import Bounds
 import warnings
 
 from mapchete.validate import (
-    validate_bounds, validate_zooms, validate_values, validate_bufferedtilepyramid
+    validate_bounds,
+    validate_zooms,
+    validate_values,
+    validate_bufferedtilepyramid,
 )
 from mapchete.errors import (
-    MapcheteConfigError, MapcheteProcessSyntaxError, MapcheteProcessImportError,
-    MapcheteDriverError, GeometryTypeError
+    MapcheteConfigError,
+    MapcheteProcessSyntaxError,
+    MapcheteProcessImportError,
+    MapcheteDriverError,
+    GeometryTypeError,
 )
 from mapchete.formats import (
-    load_output_reader, load_output_writer, available_output_formats, load_input_reader
+    load_output_reader,
+    load_output_writer,
+    available_output_formats,
+    load_input_reader,
 )
 from mapchete.io import absolute_path
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
@@ -49,28 +58,28 @@ logger = logging.getLogger(__name__)
 
 # parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process", (str, type(None))),      # path to .py file or module path
-    ("pyramid", dict),                   # process pyramid definition
-    ("input", (dict, type(None))),       # files & other types
-    ("output", dict),                    # process output parameters
-    ("zoom_levels", (int, dict, list))   # process zoom levels
+    ("process", (str, type(None))),  # path to .py file or module path
+    ("pyramid", dict),  # process pyramid definition
+    ("input", (dict, type(None))),  # files & other types
+    ("output", dict),  # process output parameters
+    ("zoom_levels", (int, dict, list)),  # process zoom levels
 ]
 
 # parameters with special functions which cannot be used for user parameters
 _RESERVED_PARAMETERS = [
-    "area",             # geometry limiting process area
-    "area_crs",         # optional CRS of area (default: process CRS)
-    "baselevels",       # enable interpolation from other zoom levels
-    "bounds",           # process bounds
-    "bounds_crs",       # optional CRS of bounds (default: process CRS)
-    "config_dir",       # configuration base directory
-    "metatiling",       # process metatile size (deprecated)
-    "pixelbuffer",      # buffer around each tile in pixels (deprecated)
-    "process",          # path to .py file or module path
+    "area",  # geometry limiting process area
+    "area_crs",  # optional CRS of area (default: process CRS)
+    "baselevels",  # enable interpolation from other zoom levels
+    "bounds",  # process bounds
+    "bounds_crs",  # optional CRS of bounds (default: process CRS)
+    "config_dir",  # configuration base directory
+    "metatiling",  # process metatile size (deprecated)
+    "pixelbuffer",  # buffer around each tile in pixels (deprecated)
+    "process",  # path to .py file or module path
     "process_minzoom",  # minimum zoom where process is valid (deprecated)
     "process_maxzoom",  # maximum zoom where process is valid (deprecated)
-    "process_zoom",     # single zoom where process is valid (deprecated)
-    "process_bounds",   # process boundaries (deprecated)
+    "process_zoom",  # single zoom where process is valid (deprecated)
+    "process_bounds",  # process boundaries (deprecated)
 ]
 
 # parameters for output configuration
@@ -81,8 +90,9 @@ _OUTPUT_PARAMETERS = [
     "pixelbuffer",
     "metatiling",
     "delimiters",
-    "mode"
+    "mode",
 ]
+
 
 class MapcheteConfig(object):
     """
@@ -169,7 +179,7 @@ class MapcheteConfig(object):
         single_input_file=None,
         mode="continue",
         debug=False,
-        **kwargs
+        **kwargs,
     ):
         """Initialize configuration."""
         logger.debug(f"parsing {input_config}")
@@ -208,22 +218,26 @@ class MapcheteConfig(object):
             # output metatiling defaults to process metatiling if not set
             # explicitly
             output_metatiling = self._raw["output"].get(
-                "metatiling", process_metatiling)
+                "metatiling", process_metatiling
+            )
             # we cannot properly handle output tiles which are bigger than
             # process tiles
             if output_metatiling > process_metatiling:
                 raise ValueError(
-                    "output metatiles must be smaller than process metatiles")
+                    "output metatiles must be smaller than process metatiles"
+                )
             # these two BufferedTilePyramid instances will help us with all
             # the tile geometries etc.
             self.process_pyramid = BufferedTilePyramid(
                 self._raw["pyramid"]["grid"],
                 metatiling=process_metatiling,
-                pixelbuffer=self._raw["pyramid"].get("pixelbuffer", 0))
+                pixelbuffer=self._raw["pyramid"].get("pixelbuffer", 0),
+            )
             self.output_pyramid = BufferedTilePyramid(
                 self._raw["pyramid"]["grid"],
                 metatiling=output_metatiling,
-                pixelbuffer=self._raw["output"].get("pixelbuffer", 0))
+                pixelbuffer=self._raw["output"].get("pixelbuffer", 0),
+            )
         except Exception as e:
             logger.exception(e)
             raise MapcheteConfigError(e)
@@ -231,15 +245,22 @@ class MapcheteConfig(object):
         # (4) set approach how to handle inputs
         # don't inititalize inputs on readonly mode or if only overviews are going to be
         # built
-        self._init_inputs = False if (
-            self.mode == "readonly" or (
-                not len(
-                    set(self.baselevels["zooms"]).intersection(set(self.init_zoom_levels))
+        self._init_inputs = (
+            False
+            if (
+                self.mode == "readonly"
+                or (
+                    not len(
+                        set(self.baselevels["zooms"]).intersection(
+                            set(self.init_zoom_levels)
+                        )
+                    )
+                    if self.baselevels
+                    else False
                 )
-                if self.baselevels
-                else False
             )
-        ) else True
+            else True
+        )
 
         # (5) prepare process parameters per zoom level without initializing
         # input and output classes
@@ -261,7 +282,7 @@ class MapcheteConfig(object):
             area_fallback=box(*self.process_pyramid.bounds),
             bounds_fallback=self.process_pyramid.bounds,
             area_crs=area_crs,
-            bounds_crs=bounds_crs
+            bounds_crs=bounds_crs,
         )
         logger.debug(f"process area: {self.area}")
         self.bounds = Bounds(*self.area.bounds)
@@ -272,7 +293,7 @@ class MapcheteConfig(object):
             area_fallback=self.area,
             bounds_fallback=self.bounds,
             area_crs=area_crs,
-            bounds_crs=bounds_crs
+            bounds_crs=bounds_crs,
         )
         logger.debug(f"init area: {self.init_area}")
         self.init_bounds = Bounds(*self.init_area.bounds)
@@ -283,7 +304,7 @@ class MapcheteConfig(object):
             zoom=self.init_zoom_levels,
             bounds=self.init_bounds,
             process_bounds=self.bounds,
-            effective_bounds=self.effective_bounds
+            effective_bounds=self.effective_bounds,
         )
 
         # (8) initialize output
@@ -317,7 +338,7 @@ class MapcheteConfig(object):
         try:
             return get_zoom_levels(
                 process_zoom_levels=self._raw["zoom_levels"],
-                init_zoom_levels=self._raw["init_zoom_levels"]
+                init_zoom_levels=self._raw["init_zoom_levels"],
             )
         except Exception as e:
             raise MapcheteConfigError(e)
@@ -331,13 +352,13 @@ class MapcheteConfig(object):
         tiles have to be covered as well.
         """
         return snap_bounds(
-            bounds=clip_bounds(bounds=self.init_bounds, clip=self.process_pyramid.bounds),
+            bounds=clip_bounds(
+                bounds=self.init_bounds, clip=self.process_pyramid.bounds
+            ),
             pyramid=self.process_pyramid,
-            zoom=min(
-                self.baselevels["zooms"]
-            ) if self.baselevels else min(
-                self.init_zoom_levels
-            )
+            zoom=min(self.baselevels["zooms"])
+            if self.baselevels
+            else min(self.init_zoom_levels),
         )
 
     @cached_property
@@ -349,7 +370,7 @@ class MapcheteConfig(object):
             pixelbuffer=self.output_pyramid.pixelbuffer,
             metatiling=self.output_pyramid.metatiling,
             delimiters=self._delimiters,
-            mode=self.mode
+            mode=self.mode,
         )
         if "path" in output_params:
             output_params.update(
@@ -361,9 +382,8 @@ class MapcheteConfig(object):
 
         if output_params["format"] not in available_output_formats():
             raise MapcheteConfigError(
-                "format %s not available in %s" % (
-                    output_params["format"], str(available_output_formats())
-                )
+                "format %s not available in %s"
+                % (output_params["format"], str(available_output_formats()))
             )
         return output_params
 
@@ -371,17 +391,15 @@ class MapcheteConfig(object):
     def output(self):
         """Output writer class of driver."""
         writer = load_output_writer(
-            self._output_params,
-            readonly=self._output_params["mode"] == "readonly"
+            self._output_params, readonly=self._output_params["mode"] == "readonly"
         )
         try:
             writer.is_valid_with_config(self._output_params)
         except Exception as e:
             logger.exception(e)
             raise MapcheteConfigError(
-                "driver %s not compatible with configuration: %s" % (
-                    writer.METADATA["driver_name"], e
-                )
+                "driver %s not compatible with configuration: %s"
+                % (writer.METADATA["driver_name"], e)
             )
         return writer
 
@@ -407,16 +425,18 @@ class MapcheteConfig(object):
         explicitly provided in process configuration.
         """
         # get input items only of initialized zoom levels
-        raw_inputs = OrderedDict([
-            # convert input definition to hash
-            (get_hash(v), v)
-            for zoom in self.init_zoom_levels
-            if "input" in self._params_at_zoom[zoom]
-            # to preserve file groups, "flatten" the input tree and use
-            # the tree paths as keys
-            for key, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
-            if v is not None
-        ])
+        raw_inputs = OrderedDict(
+            [
+                # convert input definition to hash
+                (get_hash(v), v)
+                for zoom in self.init_zoom_levels
+                if "input" in self._params_at_zoom[zoom]
+                # to preserve file groups, "flatten" the input tree and use
+                # the tree paths as keys
+                for key, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
+                if v is not None
+            ]
+        )
 
         initalized_inputs = OrderedDict()
 
@@ -431,9 +451,9 @@ class MapcheteConfig(object):
                                 path=absolute_path(path=v, base_dir=self.config_dir),
                                 pyramid=self.process_pyramid,
                                 pixelbuffer=self.process_pyramid.pixelbuffer,
-                                delimiters=self._delimiters
+                                delimiters=self._delimiters,
                             ),
-                            readonly=self.mode == "readonly"
+                            readonly=self.mode == "readonly",
                         )
                     except Exception as e:
                         logger.exception(e)
@@ -452,9 +472,9 @@ class MapcheteConfig(object):
                                 pyramid=self.process_pyramid,
                                 pixelbuffer=self.process_pyramid.pixelbuffer,
                                 delimiters=self._delimiters,
-                                conf_dir=self.config_dir
+                                conf_dir=self.config_dir,
                             ),
-                            readonly=self.mode == "readonly"
+                            readonly=self.mode == "readonly",
                         )
                     except Exception as e:
                         logger.exception(e)
@@ -498,9 +518,11 @@ class MapcheteConfig(object):
                     "invalid baselevel zoom parameter given: %s" % minmax.values()
                 )
 
-        zooms = list(range(
-            minmax.get("min", min(self.zoom_levels)),
-            minmax.get("max", max(self.zoom_levels)) + 1)
+        zooms = list(
+            range(
+                minmax.get("min", min(self.zoom_levels)),
+                minmax.get("max", max(self.zoom_levels)) + 1,
+            )
         )
 
         if not set(self.zoom_levels).difference(set(zooms)):
@@ -513,8 +535,8 @@ class MapcheteConfig(object):
             tile_pyramid=BufferedTilePyramid(
                 self.output_pyramid.grid,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
-                metatiling=self.process_pyramid.metatiling
-            )
+                metatiling=self.process_pyramid.metatiling,
+            ),
         )
 
     @cached_property
@@ -528,18 +550,20 @@ class MapcheteConfig(object):
             return get_process_func(
                 process_path=self.process_path,
                 config_dir=self.config_dir,
-                run_compile=True
+                run_compile=True,
             )
 
     def get_process_func_params(self, zoom):
         """Return function kwargs."""
         return {
-            k: v for k, v in self.params_at_zoom(zoom).items()
+            k: v
+            for k, v in self.params_at_zoom(zoom).items()
             if k in inspect.signature(self.process_func).parameters
         }
 
     def get_inputs_for_tile(self, tile):
         """Get and open all inputs for given tile."""
+
         def _open_inputs(i):
             for k, v in i.items():
                 if v is None:
@@ -568,9 +592,7 @@ class MapcheteConfig(object):
         if zoom not in self.init_zoom_levels:
             raise ValueError("zoom level not available with current configuration")
         out = OrderedDict(
-            self._params_at_zoom[zoom],
-            input=OrderedDict(),
-            output=self.output
+            self._params_at_zoom[zoom], input=OrderedDict(), output=self.output
         )
         if "input" in self._params_at_zoom[zoom]:
             flat_inputs = OrderedDict()
@@ -602,8 +624,8 @@ class MapcheteConfig(object):
         if zoom is None:
             if not self._cache_full_process_area:
                 logger.debug("calculate process area ...")
-                self._cache_full_process_area = cascaded_union([
-                    self._area_at_zoom(z) for z in self.init_zoom_levels]
+                self._cache_full_process_area = cascaded_union(
+                    [self._area_at_zoom(z) for z in self.init_zoom_levels]
                 ).buffer(0)
             return self._cache_full_process_area
         else:
@@ -616,14 +638,18 @@ class MapcheteConfig(object):
             # use union of all input items and, if available, intersect with
             # init_bounds
             if "input" in self._params_at_zoom[zoom]:
-                input_union = cascaded_union([
-                    self.input[get_hash(v)].bbox(self.process_pyramid.crs)
-                    for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
-                    if v is not None
-                ])
-                self._cache_area_at_zoom[zoom] = input_union.intersection(
-                    self.init_area
-                ) if self.init_area else input_union
+                input_union = cascaded_union(
+                    [
+                        self.input[get_hash(v)].bbox(self.process_pyramid.crs)
+                        for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
+                        if v is not None
+                    ]
+                )
+                self._cache_area_at_zoom[zoom] = (
+                    input_union.intersection(self.init_area)
+                    if self.init_area
+                    else input_union
+                )
             # if no input items are available, just use init_bounds
             else:
                 self._cache_area_at_zoom[zoom] = self.init_area
@@ -655,7 +681,7 @@ class MapcheteConfig(object):
         area_fallback=None,
         bounds_fallback=None,
         area_crs=None,
-        bounds_crs=None
+        bounds_crs=None,
     ):
         """
         Determine process area by combining configuration with instantiation arguments.
@@ -682,18 +708,15 @@ class MapcheteConfig(object):
                 area_crs = crs or area_crs
 
                 return reproject_geometry(
-                    area,
-                    src_crs=area_crs or dst_crs,
-                    dst_crs=dst_crs
+                    area, src_crs=area_crs or dst_crs, dst_crs=dst_crs
                 )
 
             elif area is None:
                 return reproject_geometry(
                     box(*validate_bounds(bounds)),
                     src_crs=bounds_crs or dst_crs,
-                    dst_crs=dst_crs
+                    dst_crs=dst_crs,
                 )
-
 
             else:
                 area, crs = _guess_geometry(area, base_dir=self.config_dir)
@@ -704,14 +727,12 @@ class MapcheteConfig(object):
 
                 # reproject area and bounds to process CRS and return intersection
                 return reproject_geometry(
-                    area,
-                    src_crs=area_crs or dst_crs,
-                    dst_crs=dst_crs
+                    area, src_crs=area_crs or dst_crs, dst_crs=dst_crs
                 ).intersection(
                     reproject_geometry(
                         box(*validate_bounds(bounds)),
                         src_crs=bounds_crs or dst_crs,
-                        dst_crs=dst_crs
+                        dst_crs=dst_crs,
                     ),
                 )
         except Exception as e:
@@ -730,7 +751,9 @@ class MapcheteConfig(object):
     def metatiling(self):
         """Deprecated."""
         warnings.warn(
-            DeprecationWarning("self.metatiling is now self.process_pyramid.metatiling.")
+            DeprecationWarning(
+                "self.metatiling is now self.process_pyramid.metatiling."
+            )
         )
         return self.process_pyramid.metatiling
 
@@ -758,7 +781,9 @@ class MapcheteConfig(object):
 
     def at_zoom(self, zoom):
         """Deprecated."""
-        warnings.warn(DeprecationWarning("Method renamed to self.params_at_zoom(zoom)."))
+        warnings.warn(
+            DeprecationWarning("Method renamed to self.params_at_zoom(zoom).")
+        )
         return self.params_at_zoom(zoom)
 
     def process_area(self, zoom=None):
@@ -768,7 +793,9 @@ class MapcheteConfig(object):
 
     def process_bounds(self, zoom=None):
         """Deprecated."""
-        warnings.warn(DeprecationWarning("Method renamed to self.bounds_at_zoom(zoom)."))
+        warnings.warn(
+            DeprecationWarning("Method renamed to self.bounds_at_zoom(zoom).")
+        )
         return self.bounds_at_zoom(zoom)
 
 
@@ -787,9 +814,9 @@ def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
         return process_zoom_levels
     else:
         init_zoom_levels = validate_zooms(init_zoom_levels)
-        if not set(
-            init_zoom_levels
-        ).issubset(set(process_zoom_levels)):  # pragma: no cover
+        if not set(init_zoom_levels).issubset(
+            set(process_zoom_levels)
+        ):  # pragma: no cover
             raise ValueError("init zooms must be a subset of process zoom")
         return init_zoom_levels
 
@@ -834,7 +861,7 @@ def clip_bounds(bounds=None, clip=None):
         max(bounds.left, clip.left),
         max(bounds.bottom, clip.bottom),
         min(bounds.right, clip.right),
-        min(bounds.top, clip.top)
+        min(bounds.top, clip.top),
     )
 
 
@@ -874,7 +901,7 @@ def raw_conf_process_pyramid(raw_conf, reset_pixelbuffer=False):
     return BufferedTilePyramid(
         raw_conf["pyramid"]["grid"],
         metatiling=raw_conf["pyramid"].get("metatiling", 1),
-        pixelbuffer=pixelbuffer
+        pixelbuffer=pixelbuffer,
     )
 
 
@@ -894,13 +921,11 @@ def raw_conf_output_pyramid(raw_conf):
     return BufferedTilePyramid(
         raw_conf["pyramid"]["grid"],
         metatiling=raw_conf["output"].get(
-            "metatiling",
-            raw_conf["pyramid"].get("metatiling", 1)
+            "metatiling", raw_conf["pyramid"].get("metatiling", 1)
         ),
         pixelbuffer=raw_conf["pyramid"].get(
-            "pixelbuffer",
-            raw_conf["pyramid"].get("pixelbuffer", 0)
-        )
+            "pixelbuffer", raw_conf["pyramid"].get("pixelbuffer", 0)
+        ),
     )
 
 
@@ -911,7 +936,7 @@ def bounds_from_opts(
     zoom=None,
     bounds=None,
     bounds_crs=None,
-    raw_conf=None
+    raw_conf=None,
 ):
     """
     Return process bounds depending on given inputs.
@@ -945,14 +970,11 @@ def bounds_from_opts(
         x, y = point
         tp = raw_conf_process_pyramid(raw_conf)
         if point_crs:
-            reproj = reproject_geometry(
-                Point(x, y), src_crs=point_crs, dst_crs=tp.crs
-            )
+            reproj = reproject_geometry(Point(x, y), src_crs=point_crs, dst_crs=tp.crs)
             x = reproj.x
             y = reproj.y
         zoom_levels = get_zoom_levels(
-            process_zoom_levels=raw_conf["zoom_levels"],
-            init_zoom_levels=zoom
+            process_zoom_levels=raw_conf["zoom_levels"], init_zoom_levels=zoom
         )
         return Bounds(*tp.tile_from_xy(x, y, max(zoom_levels)).bounds)
     elif bounds:
@@ -961,9 +983,7 @@ def bounds_from_opts(
             tp = raw_conf_process_pyramid(raw_conf)
             bounds = Bounds(
                 *reproject_geometry(
-                    box(*bounds),
-                    src_crs=bounds_crs,
-                    dst_crs=tp.crs
+                    box(*bounds), src_crs=bounds_crs, dst_crs=tp.crs
                 ).bounds
             )
         return bounds
@@ -986,9 +1006,7 @@ def get_process_func(process_path=None, config_dir=None, run_compile=False):
         if hasattr(process_module, "execute"):
             return process_module.execute
         else:
-            raise ImportError(
-                "No execute() function found in %s" % process_path
-            )
+            raise ImportError("No execute() function found in %s" % process_path)
     except ImportError as e:
         raise MapcheteProcessImportError(e)
 
@@ -1033,12 +1051,13 @@ def _config_to_dict(input_config):
             return OrderedDict(
                 yaml.safe_load(config_file.read()),
                 config_dir=os.path.dirname(os.path.realpath(input_config)),
-                mapchete_file=input_config
+                mapchete_file=input_config,
             )
     # throw error if unknown object
     else:  # pragma: no cover
         raise MapcheteConfigError(
-            "Configuration has to be a dictionary or a .mapchete file.")
+            "Configuration has to be a dictionary or a .mapchete file."
+        )
 
 
 def _raw_at_zoom(config, zooms):
@@ -1056,51 +1075,51 @@ def _raw_at_zoom(config, zooms):
 
 
 def _element_at_zoom(name, element, zoom):
-        """
-        Return the element filtered by zoom level.
+    """
+    Return the element filtered by zoom level.
 
-        - An input integer or float gets returned as is.
-        - An input string is checked whether it starts with "zoom". Then, the
-          provided zoom level gets parsed and compared with the actual zoom
-          level. If zoom levels match, the element gets returned.
-        TODOs/gotchas:
-        - Provided zoom levels for one element in config file are not allowed
-          to "overlap", i.e. there is not yet a decision mechanism implemented
-          which handles this case.
-        """
-        # If element is a dictionary, analyze subitems.
-        if isinstance(element, dict):
-            if "format" in element:
-                # we have an input or output driver here
-                return element
-            out_elements = OrderedDict()
-            for sub_name, sub_element in element.items():
-                out_element = _element_at_zoom(sub_name, sub_element, zoom)
-                if name == "input":
-                    out_elements[sub_name] = out_element
-                elif out_element is not None:
-                    out_elements[sub_name] = out_element
-            # If there is only one subelement, collapse unless it is
-            # input. In such case, return a dictionary.
-            if len(out_elements) == 1 and name != "input":
-                return next(iter(out_elements.values()))
-            # If subelement is empty, return None
-            if len(out_elements) == 0:
-                return None
-            return out_elements
-        # If element is a zoom level statement, filter element.
-        elif isinstance(name, str):
-            if name.startswith("zoom"):
-                return _filter_by_zoom(
-                    conf_string=name.strip("zoom").strip(), zoom=zoom,
-                    element=element)
-            # If element is a string but not a zoom level statement, return
-            # element.
-            else:
-                return element
-        # Return all other types as they are.
-        else:  # pragma: no cover
+    - An input integer or float gets returned as is.
+    - An input string is checked whether it starts with "zoom". Then, the
+      provided zoom level gets parsed and compared with the actual zoom
+      level. If zoom levels match, the element gets returned.
+    TODOs/gotchas:
+    - Provided zoom levels for one element in config file are not allowed
+      to "overlap", i.e. there is not yet a decision mechanism implemented
+      which handles this case.
+    """
+    # If element is a dictionary, analyze subitems.
+    if isinstance(element, dict):
+        if "format" in element:
+            # we have an input or output driver here
             return element
+        out_elements = OrderedDict()
+        for sub_name, sub_element in element.items():
+            out_element = _element_at_zoom(sub_name, sub_element, zoom)
+            if name == "input":
+                out_elements[sub_name] = out_element
+            elif out_element is not None:
+                out_elements[sub_name] = out_element
+        # If there is only one subelement, collapse unless it is
+        # input. In such case, return a dictionary.
+        if len(out_elements) == 1 and name != "input":
+            return next(iter(out_elements.values()))
+        # If subelement is empty, return None
+        if len(out_elements) == 0:
+            return None
+        return out_elements
+    # If element is a zoom level statement, filter element.
+    elif isinstance(name, str):
+        if name.startswith("zoom"):
+            return _filter_by_zoom(
+                conf_string=name.strip("zoom").strip(), zoom=zoom, element=element
+            )
+        # If element is a string but not a zoom level statement, return
+        # element.
+        else:
+            return element
+    # Return all other types as they are.
+    else:  # pragma: no cover
+        return element
 
 
 def _filter_by_zoom(element=None, conf_string=None, zoom=None):
@@ -1181,7 +1200,8 @@ def _map_to_new_config(config):
         config["pyramid"] = dict(
             grid=config["output"]["grid"],
             metatiling=config.get("metatiling", 1),
-            pixelbuffer=config.get("pixelbuffer", 0))
+            pixelbuffer=config.get("pixelbuffer", 0),
+        )
 
     if "zoom_levels" not in config:
         warnings.warn(
@@ -1192,12 +1212,9 @@ def _map_to_new_config(config):
         )
         if "process_zoom" in config:
             config["zoom_levels"] = config["process_zoom"]
-        elif all([
-            i in config for i in ["process_minzoom", "process_maxzoom"]
-        ]):
+        elif all([i in config for i in ["process_minzoom", "process_maxzoom"]]):
             config["zoom_levels"] = dict(
-                min=config["process_minzoom"],
-                max=config["process_maxzoom"]
+                min=config["process_minzoom"], max=config["process_maxzoom"]
             )
         else:
             raise MapcheteConfigError("process zoom levels not provided in config")
@@ -1216,7 +1233,9 @@ def _map_to_new_config(config):
     if "input" not in config:
         if "input_files" in config:
             warnings.warn(
-                DeprecationWarning("'input_files' are deprecated and renamed to 'input'")
+                DeprecationWarning(
+                    "'input_files' are deprecated and renamed to 'input'"
+                )
             )
             config["input"] = config["input_files"]
         else:
@@ -1224,7 +1243,8 @@ def _map_to_new_config(config):
 
     elif "input_files" in config:
         raise MapcheteConfigError(
-            "'input' and 'input_files' are not allowed at the same time")
+            "'input' and 'input_files' are not allowed at the same time"
+        )
 
     if "process_file" in config:
         warnings.warn(

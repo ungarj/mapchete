@@ -14,20 +14,22 @@ from mapchete.formats import (
     load_input_reader,
     load_output_reader,
     load_output_writer,
-    read_output_metadata
+    read_output_metadata,
 )
 
 
 def test_available_input_formats():
     """Check if default input formats can be listed."""
-    assert set(['Mapchete', 'raster_file', 'vector_file']).issubset(
-        set(available_input_formats()))
+    assert set(["Mapchete", "raster_file", "vector_file"]).issubset(
+        set(available_input_formats())
+    )
 
 
 def test_available_output_formats():
     """Check if default output formats can be listed."""
-    assert set(['GTiff', 'PNG', 'PNG_hillshade', 'GeoJSON']).issubset(
-        set(available_output_formats()))
+    assert set(["GTiff", "PNG", "PNG_hillshade", "GeoJSON"]).issubset(
+        set(available_output_formats())
+    )
 
 
 def test_output_writer_errors():

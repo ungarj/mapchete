@@ -291,7 +291,7 @@ def test_output_error(mp_tmpdir, cleantopo_br, output_error_py):
 
 def _raise_error(i):
     """Helper function for test_finished_task()"""
-    1/0
+    1 / 0
 
 
 def test_finished_task():

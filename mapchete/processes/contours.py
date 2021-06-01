@@ -9,7 +9,7 @@ def execute(
     mp,
     resampling="nearest",
     interval=100,
-    field='elev',
+    field="elev",
     base=0,
     td_matching_method="gdal",
     td_matching_max_zoom=None,
@@ -72,14 +72,16 @@ def execute(
     else:
         clip_geom = []
 
-    with mp.open("dem",) as dem:
+    with mp.open(
+        "dem",
+    ) as dem:
         logger.debug("reading input raster")
         dem_data = dem.read(
             resampling=resampling,
             matching_method=td_matching_method,
             matching_max_zoom=td_matching_max_zoom,
             matching_precision=td_matching_precision,
-            fallback_to_higher_zoom=td_fallback_to_higher_zoom
+            fallback_to_higher_zoom=td_fallback_to_higher_zoom,
         )
         if dem_data.mask.all():
             logger.debug("raster empty")
@@ -97,9 +99,9 @@ def execute(
         logger.debug("clipping output with geometry")
         # use inverted clip geometry to extract contours
         clip_geom = mp.tile.bbox.difference(
-            unary_union(
-                [shape(i["geometry"]) for i in clip_geom]
-            ).buffer(clip_pixelbuffer * mp.tile.pixel_x_size)
+            unary_union([shape(i["geometry"]) for i in clip_geom]).buffer(
+                clip_pixelbuffer * mp.tile.pixel_x_size
+            )
         )
         out_contours = []
         for contour in contours:
