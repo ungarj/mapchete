@@ -133,7 +133,7 @@ def _read_raster_window(
                 ).astype(dst_array.dtype, copy=False),
                 mask=np.where(
                     f_array.mask, dst_array.mask, f_array.mask
-                ).astype(np.bool, copy=False)
+                ).astype(bool, copy=False)
             )
         return dst_array
     else:
@@ -315,8 +315,12 @@ def _rasterio_read(
             except:
                 raise e
             raise FileNotFoundError("%s not found" % input_file)
-    else:
+    else:  # pragma: no cover
         logger.debug("assuming file object %s", input_file)
+        warnings.warn(
+            "passing on a rasterio dataset object is not recommended, see "
+            "https://github.com/mapbox/rasterio/issues/1309"
+        )
         return _read(
             input_file, indexes, dst_bounds, dst_shape, dst_crs, resampling,
             src_nodata, dst_nodata
@@ -543,7 +547,7 @@ def resample_from_array(
     -------
     resampled array : array
     """
-    if nodataval is not None:
+    if nodataval is not None:  # pragma: no cover
         warnings.warn("'nodataval' is deprecated, please use 'nodata'")
         nodata = nodata or nodataval
     # TODO rename function
@@ -842,11 +846,13 @@ def memory_file(data=None, profile=None):
         rasterio profile for MemoryFile
     """
     memfile = MemoryFile()
-    with memfile.open(
-        **dict(profile, width=data.shape[-2], height=data.shape[-1])
-    ) as dataset:
-        dataset.write(data)
-    return memfile
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with memfile.open(
+            **dict(profile, width=data.shape[-2], height=data.shape[-1])
+        ) as dataset:
+            dataset.write(data)
+        return memfile
 
 
 def prepare_array(data, masked=True, nodata=0, dtype="int16"):

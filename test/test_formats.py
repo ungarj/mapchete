@@ -160,7 +160,9 @@ def test_invalid_input_type(example_mapchete):
 
 def test_old_style_metadata(old_style_metadata_json, old_geodetic_shape_metadata_json):
     # deprecated CRS definitions
-    assert read_output_metadata(old_style_metadata_json)
+    with pytest.deprecated_call():
+        assert read_output_metadata(old_style_metadata_json)
     # deprecated geodetic shape
-    params = read_output_metadata(old_geodetic_shape_metadata_json)
-    assert params["pyramid"].grid.type == "geodetic"
+    with pytest.deprecated_call():
+        params = read_output_metadata(old_geodetic_shape_metadata_json)
+        assert params["pyramid"].grid.type == "geodetic"

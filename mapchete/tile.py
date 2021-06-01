@@ -377,7 +377,9 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
         if tile.zoom < maxzoom:
 
             # if tile is half full, analyze each descendant
-            if tile_intersection.area < tile.bbox().area:
+            # also do this if the tile children are not four in which case we cannot use
+            # the count formula below
+            if tile_intersection.area < tile.bbox().area or len(tile.get_children()) != 4:
                 count += _count_tiles(
                     tile.get_children(), tile_intersection, minzoom, maxzoom
                 )

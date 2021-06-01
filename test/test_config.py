@@ -215,7 +215,7 @@ def test_read_input_groups(file_groups):
 def test_read_input_order(file_groups):
     """Assert input objects are represented in the same order as configured."""
     with mapchete.open(file_groups.path) as mp:
-        inputs = yaml.load(open(file_groups.path).read())["input"]
+        inputs = yaml.safe_load(open(file_groups.path).read())["input"]
         tile = mp.config.process_pyramid.tile(0, 0, 0)
         # read written data from within MapcheteProcess object
         user_process = mapchete.MapcheteProcess(

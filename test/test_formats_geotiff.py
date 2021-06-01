@@ -9,6 +9,7 @@ from rasterio.io import MemoryFile
 from rio_cogeo.cogeo import cog_validate
 import shutil
 from tilematrix import Bounds
+import warnings
 
 import mapchete
 from mapchete.errors import MapcheteConfigError
@@ -79,6 +80,7 @@ def test_output_data(mp_tmpdir):
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # deflate with predictor
     try:
+        # with pytest.deprecated_call():
         output_params.update(compress="deflate", predictor=2)
         output = gtiff.OutputDataWriter(output_params)
         assert output.profile(tile)["compress"] == "deflate"
@@ -87,10 +89,11 @@ def test_output_data(mp_tmpdir):
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # using deprecated "compression" property
     try:
-        output_params.update(compression="deflate", predictor=2)
-        output = gtiff.OutputDataWriter(output_params)
-        assert output.profile(tile)["compress"] == "deflate"
-        assert output.profile(tile)["predictor"] == 2
+        with pytest.deprecated_call():
+            output_params.update(compression="deflate", predictor=2)
+            output = gtiff.OutputDataWriter(output_params)
+            assert output.profile(tile)["compress"] == "deflate"
+            assert output.profile(tile)["predictor"] == 2
     finally:
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
@@ -110,9 +113,11 @@ def test_for_web(client, mp_tmpdir):
         response = client.get(url)
         assert response.status_code == 200
         img = response.data
-        with MemoryFile(img) as memfile:
-            with memfile.open() as dataset:
-                assert dataset.read().any()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with MemoryFile(img) as memfile:
+                with memfile.open() as dataset:
+                    assert dataset.read().any()
 
 
 def test_input_data(mp_tmpdir, cleantopo_br):

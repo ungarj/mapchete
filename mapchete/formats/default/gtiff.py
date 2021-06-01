@@ -40,6 +40,7 @@ import os
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
+from rasterio.profiles import Profile
 from rasterio.shutil import copy
 from rasterio.windows import from_bounds
 from shapely.geometry import box
@@ -47,7 +48,7 @@ from tempfile import NamedTemporaryFile
 from tilematrix import Bounds
 import warnings
 
-from mapchete.config import validate_values, snap_bounds
+from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import (
@@ -62,20 +63,29 @@ from mapchete.validate import deprecated_kwargs
 
 
 logger = logging.getLogger(__name__)
+
+
+class DefaultGTiffProfile(Profile):
+    """Tiled, band-interleaved, DEFLATE-compressed, 8-bit GTiff."""
+
+    defaults = {
+        "driver": "GTiff",
+        "blockysize": 512,
+        "blockxsize": 512,
+        "tiled": True,
+        "dtype": "uint8",
+        "compress": "deflate",
+        "predictor": 2,
+        "interleave": "band",
+        "nodata": 0
+    }
+
 METADATA = {
     "driver_name": "GTiff",
     "data_type": "raster",
     "mode": "rw"
 }
-GTIFF_DEFAULT_PROFILE = {
-    "blockysize": 256,
-    "blockxsize": 256,
-    "tiled": True,
-    "dtype": "uint8",
-    "compress": "lzw",
-    "interleave": "band",
-    "nodata": 0
-}
+GTIFF_DEFAULT_PROFILE = DefaultGTiffProfile()
 IN_MEMORY_THRESHOLD = int(os.environ.get("MP_IN_MEMORY_THRESHOLD", 20000 * 20000))
 
 
@@ -318,9 +328,10 @@ class GTiffTileDirectoryOutputReader(
         dst_metadata = dict(
             GTIFF_DEFAULT_PROFILE,
             count=self.output_params["bands"],
-            dtype=self.output_params["dtype"],
-            driver="GTiff",
-            nodata=self.output_params["nodata"]
+            **{
+                k: v  for k, v in self.output_params.items()
+                if k not in _OUTPUT_PARAMETERS
+            }
         )
         dst_metadata.pop("transform", None)
         if tile is not None:
@@ -445,9 +456,12 @@ class GTiffSingleFileOutputWriter(
         )
         logger.debug("output raster bounds: %s", bounds)
         logger.debug("output raster shape: %s, %s", height, width)
+        creation_options = {
+            k: v  for k, v in self.output_params.items()
+            if k not in _OUTPUT_PARAMETERS
+        }
         self._profile = dict(
             GTIFF_DEFAULT_PROFILE,
-            driver="GTiff",
             transform=Affine(
                 self.pyramid.pixel_x_size(self.zoom),
                 0,
@@ -460,10 +474,13 @@ class GTiffSingleFileOutputWriter(
             width=width,
             count=self.output_params["bands"],
             crs=self.pyramid.crs,
-            **{
-                k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
-                for k in GTIFF_DEFAULT_PROFILE.keys()
-            },
+            **dict(
+                {
+                    k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
+                    for k in GTIFF_DEFAULT_PROFILE.keys()
+                },
+                **creation_options
+            ),
             bigtiff=self.output_params.get("bigtiff", "NO")
         )
         logger.debug("single GTiff profile: %s", self._profile)
@@ -514,7 +531,10 @@ class GTiffSingleFileOutputWriter(
         -------
         NumPy array
         """
-        return read_raster_window(self.dst, output_tile)
+        return self.dst.read(
+            window=self.dst.window(*output_tile.bounds),
+            masked=True
+        )
 
     def get_path(self, tile=None):
         """
