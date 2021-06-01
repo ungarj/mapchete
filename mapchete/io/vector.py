@@ -167,8 +167,10 @@ def write_vector_window(
                     logger.debug((out_tile.id, "write tile", out_path))
                     with fs_from_path(out_path).open(out_path, "wb") as dst:
                         dst.write(memfile)
-            else:
+            else:  # pragma: no cover
                 # write data to local file
+                # this part is not covered by tests as we now try to let fiona directly
+                # write to S3
                 with fiona.open(
                     out_path,
                     "w",

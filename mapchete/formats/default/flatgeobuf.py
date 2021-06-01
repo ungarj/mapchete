@@ -67,7 +67,7 @@ class OutputDataReader(_fiona_base.OutputDataReader):
 
         # make sure only field types allowed by FlatGeobuf are defined
         for k, v in output_params["schema"]["properties"].items():
-            if v == "date":
+            if v == "date":  # pragma: no cover
                 warnings.warn(
                     UserWarning(
                         f"""'{k}' field has type '{v}' which is not allowed by FlatGeobuf """
