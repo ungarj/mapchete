@@ -210,7 +210,9 @@ class VectorWindowMemoryFile():
                     features=[dict(f, type="Feature") for f in self.features]
                 )
             )
-        else:
+        else:  # pragma: no cover
+            # this part is excluded now for tests as we try to let fiona write directly
+            # to S3
             self.fio_memfile = MemoryFile()
             with self.fio_memfile.open(
                 schema=self.schema,
