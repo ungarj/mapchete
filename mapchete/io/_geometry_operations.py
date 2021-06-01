@@ -203,6 +203,9 @@ def clean_geometry_type(
     ------
     GeometryTypeError : if geometry type does not match target_type
     """
+    if target_type == "Unknown":  # pragma: no cover
+        return geometry
+
     multipart_geoms = {
         "Point": MultiPoint,
         "LineString": MultiLineString,

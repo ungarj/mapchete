@@ -72,6 +72,7 @@ setup(
             "serve=mapchete.cli.default.serve:serve",
         ],
         "mapchete.formats.drivers": [
+            "flatgeobuf=mapchete.formats.default.flatgeobuf",
             "geobuf=mapchete.formats.default.geobuf",
             "geojson=mapchete.formats.default.geojson",
             "gtiff=mapchete.formats.default.gtiff",

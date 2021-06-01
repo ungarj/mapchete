@@ -1,8 +1,5 @@
 """
-Handles writing process output into a pyramid of GeoJSON files.
-
-This output format is restricted to the geodetic (WGS84) projection because it
-is the only projection the GeoJSON spec supports.
+Handles writing process output into a pyramid of FlatGeobuf files.
 
 output configuration parameters
 -------------------------------
@@ -21,10 +18,13 @@ schema: key-value pairs
     Polygon, MultiPolygon)
 """
 
+import warnings
+
 from mapchete.formats.default import _fiona_base
 
+
 METADATA = {
-    "driver_name": "GeoJSON",
+    "driver_name": "FlatGeobuf",
     "data_type": "vector",
     "mode": "rw"
 }
@@ -32,7 +32,7 @@ METADATA = {
 
 class OutputDataReader(_fiona_base.OutputDataReader):
     """
-    Output reader class for GeoJSON.
+    Output reader class for FlatGeobuf.
 
     Parameters
     ----------
@@ -44,7 +44,7 @@ class OutputDataReader(_fiona_base.OutputDataReader):
     path : string
         path to output directory
     file_extension : string
-        file extension for output files (.geojson)
+        file extension for output files (.fgb)
     output_params : dictionary
         output parameters from Mapchete file
     pixelbuffer : integer
@@ -63,7 +63,19 @@ class OutputDataReader(_fiona_base.OutputDataReader):
         """Initialize."""
         super().__init__(output_params)
         self.path = output_params["path"]
-        self.file_extension = ".geojson"
+        self.file_extension = ".fgb"
+
+        # make sure only field types allowed by FlatGeobuf are defined
+        for k, v in output_params["schema"]["properties"].items():
+            if v == "date":  # pragma: no cover
+                warnings.warn(
+                    UserWarning(
+                        f"""'{k}' field has type '{v}' which is not allowed by FlatGeobuf """
+                        """and will be changed to 'string'"""
+                    )
+                )
+                output_params["schema"]["properties"][k] = "str"
+
         self.output_params = output_params
         self._bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
 
