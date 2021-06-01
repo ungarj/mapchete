@@ -156,7 +156,7 @@ def write_vector_window(
     # write if there are output features
     if out_features:
         try:
-            if out_path.startswith("s3://") or out_driver.lower() == "geobuf":
+            if out_driver.lower() in ["geobuf"]:
                 # write data to remote file
                 with VectorWindowMemoryFile(
                     tile=out_tile,
@@ -170,7 +170,10 @@ def write_vector_window(
             else:
                 # write data to local file
                 with fiona.open(
-                    out_path, 'w', schema=out_schema, driver="GeoJSON",
+                    out_path,
+                    "w",
+                    schema=out_schema,
+                    driver=out_driver,
                     crs=out_tile.crs.to_dict()
                 ) as dst:
                     logger.debug((out_tile.id, "write tile", out_path))
