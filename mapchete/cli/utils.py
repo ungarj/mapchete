@@ -114,9 +114,21 @@ def _cb_key_val(ctx, param, value):
                 )
             else:
                 k, v = pair.split("=", 1)
-                out[k.lower()] = (
-                    None if v.lower() in ["none", "null", "nil", "nada"] else v
-                )
+                # cast numbers
+                for func in (int, float):
+                    try:
+                        v = func(v)
+                    except Exception:
+                        pass
+                # cast bools and None
+                if isinstance(v, str):
+                    if v.lower() in ["true", "yes"]:
+                        v = True
+                    elif v.lower() in ["false", "no"]:
+                        v = False
+                    elif v.lower() in ["none", "null", "nil", "nada"]:
+                        v = None
+                out[k.lower()] = v
         return out
 
 
