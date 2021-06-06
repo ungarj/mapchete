@@ -359,15 +359,16 @@ class Executor:
         self.start_method = start_method
         self.max_workers = max_workers or os.cpu_count()
         self.multiprocessing_module = multiprocessing_module
-        logger.debug(
-            "init %s Executor with start_method %s and %s workers",
-            self.multiprocessing_module,
-            self.start_method,
-            self.max_workers,
-        )
-        self._pool = self.multiprocessing_module.get_context(self.start_method).Pool(
-            self.max_workers
-        )
+        if self.max_workers != 1:
+            logger.debug(
+                "init %s Executor with start_method %s and %s workers",
+                self.multiprocessing_module,
+                self.start_method,
+                self.max_workers,
+            )
+            self._pool = self.multiprocessing_module.get_context(
+                self.start_method
+            ).Pool(self.max_workers)
 
     def as_completed(
         self, func=None, iterable=None, fargs=None, fkwargs=None, chunksize=1
@@ -393,14 +394,16 @@ class Executor:
 
     def __enter__(self):
         """Enter context manager."""
-        self._pool.__enter__()
+        if self.max_workers != 1:
+            self._pool.__enter__()
         return self
 
     def __exit__(self, *args):
         """Exit context manager."""
-        logger.debug("closing %s and workers", self._pool)
-        self._pool.__exit__(*args)
-        logger.debug("%s closed", self._pool)
+        if self.max_workers != 1:
+            logger.debug("closing %s and workers", self._pool)
+            self._pool.__exit__(*args)
+            logger.debug("%s closed", self._pool)
 
 
 class FinishedTask:
