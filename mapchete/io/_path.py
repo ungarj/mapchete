@@ -202,7 +202,7 @@ def _s3_tiledirectories(
 
     basekey = "/".join(basepath.split("/")[3:])
     bucket = basepath.split("/")[2]
-    s3 = boto3.client("s3")
+    s3 = boto3.client("s3", **config.output_reader._fs_kwargs)
     paginator = s3.get_paginator("list_objects_v2")
 
     # determine zoom
@@ -270,12 +270,14 @@ def _s3_tiledirectories(
 
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
+    logger.debug(f"create new FileSystem for path {path}")
     if path.startswith("s3://"):
         return fsspec.filesystem(
             "s3",
             requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
             config_kwargs=dict(connect_timeout=timeout, read_timeout=timeout),
             session=session,
+            client_kwargs=kwargs,
         )
     elif path.startswith(("http://", "https://")):
         if username:  # pragma: no cover
@@ -284,10 +286,6 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
             auth = BasicAuth(username, password)
         else:
             auth = None
-        return fsspec.filesystem(
-            "https",
-            auth=auth,
-            asynchronous=False,
-        )
+        return fsspec.filesystem("https", auth=auth, asynchronous=False, **kwargs)
     else:
-        return fsspec.filesystem("file", asynchronous=False)
+        return fsspec.filesystem("file", asynchronous=False, **kwargs)

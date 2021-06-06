@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 @utils.opt_multi
 @utils.opt_http_username
 @utils.opt_http_password
+@utils.opt_src_fs_opts
+@utils.opt_dst_fs_opts
 def cp(
     input_,
     output,
@@ -52,13 +54,16 @@ def cp(
     multi=None,
     username=None,
     password=None,
+    src_fs_opts=None,
+    dst_fs_opts=None,
 ):
     """Copy TileDirectory."""
     if zoom is None:  # pragma: no cover
         raise click.UsageError("zoom level(s) required")
 
-    src_fs = fs_from_path(input_, username=username, password=password)
-    dst_fs = fs_from_path(output, username=username, password=password)
+    src_fs = fs_from_path(input_, username=username, password=password, **src_fs_opts)
+    dst_fs = fs_from_path(output, username=username, password=password, **dst_fs_opts)
+
     # open source tile directory
     with mapchete.open(
         input_,
@@ -71,6 +76,7 @@ def cp(
         username=username,
         password=password,
         fs=src_fs,
+        fs_kwargs=src_fs_opts,
     ) as src_mp:
         tp = src_mp.config.output_pyramid
 
@@ -92,6 +98,7 @@ def cp(
             username=username,
             password=password,
             fs=dst_fs,
+            fs_kwargs=dst_fs_opts,
         ) as dst_mp:
             for z in range(min(zoom), max(zoom) + 1):
                 click.echo(f"copy zoom {z}...")
