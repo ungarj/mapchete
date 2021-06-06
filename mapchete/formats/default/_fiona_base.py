@@ -91,6 +91,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             "Point",
             "MultiPoint",
             "Line",
+            "LineString",
             "MultiLine",
             "Polygon",
             "MultiPolygon",
