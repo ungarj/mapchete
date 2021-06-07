@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 from rasterio.dtypes import dtype_ranges
+import warnings
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +21,12 @@ def execute(
     **kwargs,
 ):
     """
-    Convert and optionally clip input raster data.
+    Convert and optionally clip input raster or vector data.
 
     Inputs
     ------
-    raster
-        Singleband or multiband data input.
+    inp
+        Raster or vector input.
     clip (optional)
         Vector data used to clip output.
 
@@ -75,7 +76,16 @@ def execute(
     else:
         clip_geom = []
 
-    with mp.open("inp") as inp:
+    if "raster" in mp.input:  # pragma: no cover
+        warnings.warn(
+            UserWarning(
+                "'raster' input name in the mapchete configuration is deprecated and has to be named 'inp'"
+            )
+        )
+        inp_key = "raster"
+    else:
+        inp_key = "inp"
+    with mp.open(inp_key) as inp:
         if inp.is_empty():
             return "empty"
         logger.debug("reading input data")
