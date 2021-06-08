@@ -4,24 +4,75 @@ Changelog
 
 
 -----------------
+0.39 - 2021-06-08
+-----------------
+
+* core
+
+  * fix warnings by removing deprecated calls (#336)
+  * fix tiles count (#334)
+  * default drivers
+
+    * GTiff
+
+      * pass on custom creation options to GTiff output driver / rasterio (#328)
+      * change default GTiff profile (#335, #332)
+
+        * compression: deflate
+        * predictor: 2
+        * blocksize: 512
+
+    * GeoJSON
+
+      * add LineString geometry type to available output schema (#338)
+
+    * FlatGeobuf
+
+      * add tiled FlatGeobuf output driver (#321)
+
+  * CLI
+
+    * ``cp`` and ``rm``
+
+      * add fsspec filesystem creation options ``--src-fs-opts``, ``--dst-fs-opts`` and ``--fs-opts`` (#339)
+
+  * default processes
+
+    * ``convert``
+
+      * print user warning if deprecated input name is used (#340)
+
+* packaging
+
+  * add black & flake8 code formatting tools (#337)
+
+
+-----------------
 0.38 - 2020-12-10
 -----------------
 
 * core
+
   * allow multipart geometries in GeoJSON (#300)
-  * add `Geobuf` output format as alternative to store vector data (#302)
+  * add ``Geobuf`` output format as alternative to store vector data (#302)
   * CLI:
-    * `convert`
+
+    * ``convert``
+
       * enable converting vector data (#302)
-      * add `--output-geometry-type` option for vector data output (#302)
-      * fix omission of `--output-metatiling` (#302)
-    * add `rm` command  (#306)
-  * add `mapchete.formats.driver_metadata()` (#302)
-  * add `mapchete.formats.data_type_from_extension()` (#302)
+      * add ``--output-geometry-type`` option for vector data output (#302)
+      * fix omission of ``--output-metatiling`` (#302)
+
+    * add ``rm`` command  (#306)
+
+  * add ``mapchete.formats.driver_metadata()`` (#302)
+  * add ``mapchete.formats.data_type_from_extension()`` (#302)
   * enable guessing data type (raster or vector) when reading from Tile Directories (#302)
-  * `mapchete.io.clean_geometry_type()`: add `raise_exception` flag to disable raising and returning an empty geometry instead (#302)
-  * fix issue with `rasterio>1.1.4` (fix tile_to_zoom_level()) (#308)
+  * ``mapchete.io.clean_geometry_type()``: add ``raise_exception`` flag to disable raising and returning an empty geometry instead (#302)
+  * fix issue with ``rasterio>1.1.4`` (fix tile_to_zoom_level()) (#308)
+
 * packaging
+
   * don't parse requirements.txt in setup.py (#301)
   * add test requirements (#302)
 
@@ -29,11 +80,15 @@ Changelog
 -----------------
 0.37 - 2020-11-25
 -----------------
+
 * core
+
   * make retry settings configurable via environment (#296)
+
     * MAPCHETE_IO_RETRY_TRIES (default: 3)
     * MAPCHETE_IO_RETRY_DELAY (default: 1)
     * MAPCHETE_IO_RETRY_BACKOFF (default: 1)
+
   * fix non-overlapping bounds if provided as extra kwarg (#295)
   * don't pass on init bounds to mapchete input (#295)
 
@@ -41,34 +96,37 @@ Changelog
 -----------------
 0.36 - 2020-11-24
 -----------------
+
 * core
- * create local output directory for single GTiff output files (#285)
- * add process area parameter (#287)
- * use optimized GDAL settings for baselayer creation (#291)
- * raise generic MapcheteIOError on read fails (#292)
+
+  * create local output directory for single GTiff output files (#285)
+  * add process area parameter (#287)
+  * use optimized GDAL settings for baselayer creation (#291)
+  * raise generic MapcheteIOError on read fails (#292)
 
 * CLI
- * add more baselayers in `serve` (#278)
- * add `cp` command (#282)
- * enable `serve` to host multiple mapchete files (#289)
- * enable `index` to accept tile directories (#290)
- * expose multiprocessing start method as option in `execute` (#293)
+
+  * add more baselayers in ``serve`` (#278)
+  * add ``cp`` command (#282)
+  * enable ``serve`` to host multiple mapchete files (#289)
+  * enable ``index`` to accept tile directories (#290)
+  * expose multiprocessing start method as option in ``execute`` (#293)
 
 
 -----------------
 0.35 - 2020-08-04
 -----------------
 * fix index updates on remote TileDirectories (#274)
-* pass on chunksize to multiprocessing & use `Pool.__exit__()` to close (#276)
+* pass on chunksize to multiprocessing & use ``Pool.__exit__()`` to close (#276)
 * use GitHub actions instead of Travis CI
-* update Fiona dependency to `1.8.13.post1`
+* update Fiona dependency to ``1.8.13.post1``
 
 
 -----------------
 0.34 - 2020-07-08
 -----------------
-* speed up extension loading by using `importlib-metadata` and `importlib-resources` instead of `pkg_resources` (#267)
-* use `boto` paging to reduce requests to S3 bucket (#268)
+* speed up extension loading by using ``importlib-metadata`` and ``importlib-resources`` instead of ``pkg_resources`` (#267)
+* use ``boto`` paging to reduce requests to S3 bucket (#268)
 
 
 -----------------
@@ -83,13 +141,13 @@ Changelog
 -----------------
 * default process bounds are now bounds of the process pyramid instead of union of inputs (#242)
 * fix overview pixelbuffer error at Antimeridian (#241)
-* increased rasterio dependency to version `1.0.28`
+* increased rasterio dependency to version ``1.0.28``
 * add hillshade and contour extraction to registered default processes (#237)
-* enable `bigtiff` and `cog` settings for single GTiff outputs (#247)
-* enable `--cog` option for `mapchete convert` (#247)
-* enable `--bidx` option (band subset) for `mapchete convert` (#248)
+* enable ``bigtiff`` and ``cog`` settings for single GTiff outputs (#247)
+* enable ``--cog`` option for ``mapchete convert`` (#247)
+* enable ``--bidx`` option (band subset) for ``mapchete convert`` (#248)
 * only initialize inputs if necessary (#242)
-* use `rio-cogeo` logic to determine whether to use a memory dataset or a temp file when writing a single GTiff (#217)
+* use ``rio-cogeo`` logic to determine whether to use a memory dataset or a temp file when writing a single GTiff (#217)
 
 
 -----------------
