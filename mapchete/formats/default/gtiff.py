@@ -260,7 +260,7 @@ class GTiffOutputReaderFunctions:
         self._bucket = (
             self.path.split("/")[2] if self.path.startswith("s3://") else None
         )
-        self._fs = fs_from_path(self.path, **self.output_params.get("fs_kwargs", {}))
+        self._fs = self.output_params.get("fs") or fs_from_path(self.path)
 
 
 class GTiffTileDirectoryOutputReader(

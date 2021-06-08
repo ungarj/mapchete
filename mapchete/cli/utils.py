@@ -88,6 +88,50 @@ def _setup_logfile(ctx, param, logfile):
     return logfile
 
 
+def _cb_key_val(ctx, param, value):
+
+    """
+    from: https://github.com/mapbox/rasterio/blob/69305c72b58b15a96330d371ad90ef31c209e981/rasterio/rio/options.py
+
+    click callback to validate `--opt KEY1=VAL1 --opt KEY2=VAL2` and collect
+    in a dictionary like the one below, which is what the CLI function receives.
+    If no value or `None` is received then an empty dictionary is returned.
+        {
+            'KEY1': 'VAL1',
+            'KEY2': 'VAL2'
+        }
+    Note: `==VAL` breaks this as `str.split('=', 1)` is used.
+    """
+
+    if not value:
+        return {}
+    else:
+        out = {}
+        for pair in value:
+            if "=" not in pair:
+                raise click.BadParameter(
+                    "Invalid syntax for KEY=VAL arg: {}".format(pair)
+                )
+            else:
+                k, v = pair.split("=", 1)
+                # cast numbers
+                for func in (int, float):
+                    try:
+                        v = func(v)
+                    except Exception:
+                        pass
+                # cast bools and None
+                if isinstance(v, str):
+                    if v.lower() in ["true", "yes"]:
+                        v = True
+                    elif v.lower() in ["false", "no"]:
+                        v = False
+                    elif v.lower() in ["none", "null", "nil", "nada"]:
+                        v = None
+                out[k.lower()] = v
+        return out
+
+
 # click arguments #
 ###################
 arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
@@ -307,6 +351,27 @@ opt_http_password = click.option(
     "--password", "-p", type=click.STRING, help="Password for HTTP Auth."
 )
 opt_force = click.option("-f", "--force", is_flag=True, help="Don't ask, just do.")
+opt_src_fs_opts = click.option(
+    "--src-fs-opts",
+    metavar="NAME=VALUE",
+    multiple=True,
+    callback=_cb_key_val,
+    help="Configuration options for source fsspec filesystem. ",
+)
+opt_dst_fs_opts = click.option(
+    "--dst-fs-opts",
+    metavar="NAME=VALUE",
+    multiple=True,
+    callback=_cb_key_val,
+    help="Configuration options for destination fsspec filesystem. ",
+)
+opt_fs_opts = click.option(
+    "--fs-opts",
+    metavar="NAME=VALUE",
+    multiple=True,
+    callback=_cb_key_val,
+    help="Configuration options for destination fsspec filesystem. ",
+)
 
 
 # convenience processing functions #

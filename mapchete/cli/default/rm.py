@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @utils.opt_debug
 @utils.opt_logfile
 @utils.opt_force
+@utils.opt_fs_opts
 def rm_(
     input_,
     zoom=None,
@@ -37,12 +38,13 @@ def rm_(
     debug=False,
     logfile=None,
     force=None,
+    fs_opts=None,
 ):
     """Copy TileDirectory."""
     if zoom is None:  # pragma: no cover
         raise click.UsageError("zoom level(s) required")
 
-    src_fs = fs_from_path(input_)
+    src_fs = fs_from_path(input_, **fs_opts)
 
     # open source tile directory
     with mapchete.open(
@@ -54,6 +56,7 @@ def rm_(
         bounds_crs=bounds_crs,
         wkt_geometry=wkt_geometry,
         fs=src_fs,
+        fs_kwargs=fs_opts,
         mode="readonly",
     ) as src_mp:
         tp = src_mp.config.output_pyramid
