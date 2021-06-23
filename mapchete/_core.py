@@ -23,7 +23,7 @@ from mapchete.validate import validate_tile, validate_zooms
 logger = logging.getLogger(__name__)
 
 
-def open(some_input, with_cache=False, **kwargs):
+def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
     """
     Open a Mapchete process.
 
@@ -46,6 +46,10 @@ def open(some_input, with_cache=False, **kwargs):
         single input file if supported by process
     with_cache : bool
         process output data cached in memory
+    fs : fsspec FileSystem
+        Any FileSystem object for the mapchete output.
+    fs_kwargs : dict
+        Special configuration parameters if FileSystem object has to be created.
 
     Returns
     -------
@@ -55,7 +59,8 @@ def open(some_input, with_cache=False, **kwargs):
     if isinstance(some_input, str) and not some_input.endswith(".mapchete"):
         logger.debug("assuming TileDirectory")
         metadata_json = os.path.join(some_input, "metadata.json")
-        fs = kwargs.get("fs", fs_from_path(metadata_json, **kwargs))
+        fs_kwargs = fs_kwargs or {}
+        fs = fs or fs_from_path(metadata_json, **fs_kwargs)
         logger.debug("read metadata.json")
         metadata = read_output_metadata(metadata_json, fs=fs)
         config = dict(
@@ -69,7 +74,9 @@ def open(some_input, with_cache=False, **kwargs):
                     if k not in ["delimiters", "mode"]
                 },
                 path=some_input,
-                fs_kwargs=kwargs,
+                fs=fs,
+                fs_kwargs=fs_kwargs,
+                **kwargs
             ),
             config_dir=os.getcwd(),
             zoom_levels=kwargs.get("zoom"),

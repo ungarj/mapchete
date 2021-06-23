@@ -16,6 +16,7 @@ import yaml
 
 import mapchete
 from mapchete.cli.main import main as mapchete_cli
+from mapchete.cli import utils
 from mapchete.errors import MapcheteProcessOutputError
 
 
@@ -1222,3 +1223,54 @@ def test_rm(mp_tmpdir, cleantopo_br):
         ]
     )
     assert not os.path.exists(os.path.join(*[out_path, "5", "3", "7.tif"]))
+
+
+def test_rm_storage_option_errors(cleantopo_br):
+    out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
+    run_cli(
+        [
+            "rm",
+            out_path,
+            "-z",
+            "5",
+            "-b",
+            "169.19251592399996",
+            "-90",
+            "180",
+            "-80.18582802550002",
+            "-f",
+            "--fs-opts",
+            "invalid_opt",
+        ],
+        output_contains="Error: Invalid value for '--fs-opts': Invalid syntax for KEY=VAL arg: invalid_opt",
+        expected_exit_code=2,
+        raise_exc=False,
+    )
+
+
+def test_fs_opt_extractor():
+    kwargs = utils._cb_key_val(
+        None,
+        None,
+        [
+            "str=bar",
+            "int=2",
+            "float=1.5",
+            "bool1=true",
+            "bool2=FALSE",
+            "bool3=yes",
+            "bool4=no",
+            "none=none",
+            "none2=null",
+        ],
+    )
+    assert isinstance(kwargs, dict)
+    assert kwargs["str"] == "bar"
+    assert kwargs["int"] == 2
+    assert kwargs["float"] == 1.5
+    assert kwargs["bool1"] is True
+    assert kwargs["bool2"] is False
+    assert kwargs["bool3"] is True
+    assert kwargs["bool4"] is False
+    assert kwargs["none"] is None
+    assert kwargs["none2"] is None
