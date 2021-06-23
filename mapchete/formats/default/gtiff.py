@@ -477,6 +477,11 @@ class GTiffSingleFileOutputWriter(
         )
         logger.debug("single GTiff profile: %s", self._profile)
 
+        logger.debug(
+            get_maximum_overview_level(
+                width, height, minsize=self._profile["blockxsize"]
+            )
+        )
         if self.cog or "overviews" in self.output_params:
             self.overviews = True
             self.overviews_resampling = self.output_params.get(
@@ -494,7 +499,6 @@ class GTiffSingleFileOutputWriter(
                     )
                 ],
             )
-            logger.debug(self.overviews_levels)
         else:
             self.overviews = False
 

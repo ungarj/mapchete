@@ -399,7 +399,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
             "--output-pyramid",
             "geodetic",
             "-z",
-            "3",
+            "7",
             "--overviews",
             "--overviews-resampling-method",
             "bilinear",

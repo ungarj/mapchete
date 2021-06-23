@@ -314,17 +314,12 @@ def test_output_single_gtiff_overviews(output_single_gtiff):
 
     with rasterio.open(mp.config.output.path) as src:
         assert src.overviews(1)
-        assert src.tags(ns="rio_overview").get("resampling") == "bilinear"
+        assert src.tags().get("OVR_RESAMPLING_ALG").lower() == "bilinear"
         for o in [1, 2, 4, 8]:
             a = src.read(
                 masked=True, out_shape=(1, int(src.height / o), int(src.width / o))
             )
-            masked = a.mask.sum()
-            _all = a.shape[0] * a.shape[1] * a.shape[2]
-            perc_masked = masked / _all
-            print(perc_masked)
             assert not a.mask.all()
-        1 / 0
 
 
 @pytest.mark.remote
