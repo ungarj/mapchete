@@ -41,6 +41,7 @@ import rasterio
 from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
 from rasterio.profiles import Profile
+from rasterio.rio.overview import get_maximum_overview_level
 from rasterio.shutil import copy
 from rasterio.windows import from_bounds
 from shapely.geometry import box
@@ -422,16 +423,6 @@ class GTiffSingleFileOutputWriter(
             raise ValueError("single file output only works with one zoom level")
         self.zoom = output_params["delimiters"]["zoom"][0]
         self.cog = output_params.get("cog", False)
-        if self.cog or "overviews" in output_params:
-            self.overviews = True
-            self.overviews_resampling = output_params.get(
-                "overviews_resampling", "nearest"
-            )
-            self.overviews_levels = output_params.get(
-                "overviews_levels", [2 ** i for i in range(1, self.zoom + 1)]
-            )
-        else:
-            self.overviews = False
         self.in_memory = output_params.get("in_memory", True)
         _bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
         self._bucket_resource = get_boto3_bucket(_bucket) if _bucket else None
@@ -485,11 +476,34 @@ class GTiffSingleFileOutputWriter(
             bigtiff=self.output_params.get("bigtiff", "NO"),
         )
         logger.debug("single GTiff profile: %s", self._profile)
+
+        if self.cog or "overviews" in self.output_params:
+            self.overviews = True
+            self.overviews_resampling = self.output_params.get(
+                "overviews_resampling", "nearest"
+            )
+            self.overviews_levels = self.output_params.get(
+                "overviews_levels",
+                [
+                    2 ** i
+                    for i in range(
+                        1,
+                        get_maximum_overview_level(
+                            width, height, minsize=self._profile["blockxsize"]
+                        ),
+                    )
+                ],
+            )
+            logger.debug(self.overviews_levels)
+        else:
+            self.overviews = False
+
         self.in_memory = (
             self.in_memory
             if self.in_memory is False
             else height * width < IN_MEMORY_THRESHOLD
         )
+
         # set up rasterio
         if path_exists(self.path):
             if self.output_params["mode"] != "overwrite":
