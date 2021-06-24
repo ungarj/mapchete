@@ -2,6 +2,18 @@
 Changelog
 #########
 
+-----------------
+0.40 - 2021-06-24
+-----------------
+
+* core
+
+  * fix overviews creation in sinlge GTiff output (#325)
+
+* packaging
+
+  * drop Python 3.6 support
+
 
 -----------------
 0.39 - 2021-06-08
