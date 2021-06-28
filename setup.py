@@ -72,6 +72,7 @@ setup(
             "processes=mapchete.cli.default.processes:processes",
             "rm=mapchete.cli.default.rm:rm",
             "serve=mapchete.cli.default.serve:serve",
+            "stac=mapchete.cli.default.stac:stac",
         ],
         "mapchete.formats.drivers": [
             "flatgeobuf=mapchete.formats.default.flatgeobuf",
