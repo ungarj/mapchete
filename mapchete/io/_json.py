@@ -3,7 +3,7 @@ import json
 import logging
 import os
 
-from mapchete.io._path import fs_from_path, makedirs, path_exists
+from mapchete.io._path import fs_from_path, path_exists
 from mapchete.io._misc import get_boto3_bucket
 
 
@@ -15,7 +15,7 @@ def write_json(path, params, fs=None, **kwargs):
     logger.debug(f"write {params} to {path}")
     fs = fs or fs_from_path(path, **kwargs)
     # using python 3.7 or higher we can use the fs.mkdir() call
-    makedirs(os.path.dirname(path))
+    fs.mkdir(os.path.dirname(path))
     with fs.open(path, "w") as dst:
         json.dump(params, dst, sort_keys=True, indent=4)
 
