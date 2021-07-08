@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @utils.opt_wkt_geometry
 @utils.opt_tile
 @utils.opt_overwrite
+@utils.opt_dask_scheduler
 @utils.opt_multi
 @utils.opt_input_file
 @utils.opt_logfile
@@ -51,6 +52,7 @@ def execute(
     wkt_geometry=None,
     tile=None,
     overwrite=False,
+    dask_scheduler=None,
     multi=None,
     input_file=None,
     logfile=None,
@@ -98,6 +100,7 @@ def execute(
                 area=area,
                 area_crs=area_crs,
                 input_file=input_file,
+                dask_scheduler=dask_scheduler,
                 multi=multi or cpu_count(),
                 verbose_dst=verbose_dst,
                 max_chunksize=max_chunksize,

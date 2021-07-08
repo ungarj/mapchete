@@ -372,6 +372,9 @@ opt_fs_opts = click.option(
     callback=_cb_key_val,
     help="Configuration options for destination fsspec filesystem. ",
 )
+opt_dask_scheduler = click.option(
+    "--dask-scheduler", type=click.STRING, help="Address for dask scheduler."
+)
 
 
 # convenience processing functions #
@@ -454,6 +457,7 @@ def _process_area(
     area=None,
     area_crs=None,
     input_file=None,
+    dask_scheduler=None,
     multi=None,
     verbose_dst=None,
     max_chunksize=None,
@@ -494,6 +498,7 @@ def _process_area(
                 # run process on tiles
                 for process_info in tqdm.tqdm(
                     mp.batch_processor(
+                        dask_scheduler=dask_scheduler,
                         multi=multi,
                         zoom=zoom,
                         max_chunksize=max_chunksize,
