@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 ################################################################################
 class Executor:
     def __new__(self, *args, distributed=False, **kwargs):
-        distributed = distributed or kwargs["dask_scheduler"] is not None
+        distributed = distributed or kwargs.get("dask_scheduler") is not None
         if distributed:
             try:
                 return DaskExecutor(*args, **kwargs)
@@ -45,7 +45,12 @@ class DaskExecutor:
         logger.debug(f"init DaskExecutor with cluster at {self.dask_scheduler}")
 
     def as_completed(
-        self, func=None, iterable=None, fargs=None, fkwargs=None, chunksize=1
+        self,
+        func=None,
+        iterable=None,
+        fargs=None,
+        fkwargs=None,
+        **kwargs,
     ):
         from dask.distributed import as_completed
 
@@ -100,7 +105,13 @@ class MultiprocessingExecutor:
             ).Pool(self.max_workers)
 
     def as_completed(
-        self, func=None, iterable=None, fargs=None, fkwargs=None, chunksize=1
+        self,
+        func=None,
+        iterable=None,
+        fargs=None,
+        fkwargs=None,
+        chunksize=1,
+        **kwargs,
     ):
         """Yield finished tasks."""
         fargs = fargs or []
