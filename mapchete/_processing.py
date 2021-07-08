@@ -1,5 +1,4 @@
 from collections import namedtuple
-from functools import partial
 from itertools import chain
 import logging
 import multiprocessing
@@ -10,6 +9,7 @@ from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import get_process_func
+from mapchete._distributed import Executor
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
 from mapchete._timer import Timer
@@ -343,103 +343,6 @@ class MapcheteProcess(object):
         )
 
 
-#############################################################
-# wrappers helping to abstract multiprocessing and billiard #
-#############################################################
-class Executor:
-    """Wrapper class to be used with multiprocessing or billiard."""
-
-    def __init__(
-        self,
-        start_method="fork",
-        max_workers=None,
-        multiprocessing_module=multiprocessing,
-    ):
-        """Set attributes."""
-        self.start_method = start_method
-        self.max_workers = max_workers or os.cpu_count()
-        self.multiprocessing_module = multiprocessing_module
-        if self.max_workers != 1:
-            logger.debug(
-                "init %s Executor with start_method %s and %s workers",
-                self.multiprocessing_module,
-                self.start_method,
-                self.max_workers,
-            )
-            self._pool = self.multiprocessing_module.get_context(
-                self.start_method
-            ).Pool(self.max_workers)
-
-    def as_completed(
-        self, func=None, iterable=None, fargs=None, fkwargs=None, chunksize=1
-    ):
-        """Yield finished tasks."""
-        fargs = fargs or []
-        fkwargs = fkwargs or {}
-        if self.max_workers == 1:
-            for i in iterable:
-                yield _exception_wrapper(func, fargs, fkwargs, i)
-        else:
-            logger.debug(
-                "open multiprocessing.Pool and %s %s workers",
-                self.start_method,
-                self.max_workers,
-            )
-            for finished_task in self._pool.imap_unordered(
-                partial(_exception_wrapper, func, fargs, fkwargs),
-                iterable,
-                chunksize=chunksize or 1,
-            ):
-                yield finished_task
-
-    def __enter__(self):
-        """Enter context manager."""
-        if self.max_workers != 1:
-            self._pool.__enter__()
-        return self
-
-    def __exit__(self, *args):
-        """Exit context manager."""
-        if self.max_workers != 1:
-            logger.debug("closing %s and workers", self._pool)
-            self._pool.__exit__(*args)
-            logger.debug("%s closed", self._pool)
-
-
-class FinishedTask:
-    """Wrapper class to encapsulate exceptions."""
-
-    def __init__(self, func, fargs=None, fkwargs=None):
-        """Set attributes."""
-        fargs = fargs or []
-        fkwargs = fkwargs or {}
-        try:
-            self._result, self._exception = func(*fargs, **fkwargs), None
-        except Exception as e:  # pragma: no cover
-            self._result, self._exception = None, e
-
-    def result(self):
-        """Return task result."""
-        if self._exception:
-            logger.exception(self._exception)
-            raise self._exception
-        else:
-            return self._result
-
-    def exception(self):
-        """Raise task exception if any."""
-        return self._exception
-
-    def __repr__(self):
-        """Return string representation."""
-        return "FinishedTask(result=%s, exception=%s)" % (self._result, self._exception)
-
-
-def _exception_wrapper(func, fargs, fkwargs, i):
-    """Wrap function around FinishedTask object."""
-    return FinishedTask(func, list(chain([i], fargs)), fkwargs)
-
-
 ###########################
 # batch execution options #
 ###########################
@@ -463,6 +366,8 @@ def _run_on_single_tile(process=None, tile=None):
 def _run_area(
     process=None,
     zoom_levels=None,
+    distributed=False,
+    dask_scheduler=None,
     multi=None,
     max_chunksize=None,
     multiprocessing_module=None,
@@ -478,6 +383,8 @@ def _run_area(
             func=_execute,
             zoom_levels=zoom_levels,
             process=process,
+            distributed=distributed,
+            dask_scheduler=dask_scheduler,
             multi=multi,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
@@ -494,6 +401,8 @@ def _run_area(
             fkwargs=dict(output_writer=process.config.output),
             zoom_levels=zoom_levels,
             process=process,
+            dask_scheduler=dask_scheduler,
+            distributed=distributed,
             multi=multi,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
@@ -523,6 +432,8 @@ def _run_multi(
     func=None,
     zoom_levels=None,
     process=None,
+    distributed=False,
+    dask_scheduler=None,
     multi=None,
     multiprocessing_start_method=None,
     multiprocessing_module=None,
@@ -534,7 +445,6 @@ def _run_multi(
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     workers = min([multi, total_tiles])
     num_processed = 0
-    logger.debug("run process on %s tiles using %s workers", total_tiles, workers)
 
     # here we store the parents of processed tiles so we can update overviews
     # also in "continue" mode in case there were updates at the baselevel
@@ -544,7 +454,10 @@ def _run_multi(
         max_workers=workers,
         start_method=multiprocessing_start_method,
         multiprocessing_module=multiprocessing_module,
+        dask_scheduler=dask_scheduler,
+        distributed=distributed,
     ) as executor:
+        logger.debug("run process on %s tiles using %s workers", total_tiles, workers)
 
         for i, zoom in enumerate(zoom_levels):
 

@@ -350,3 +350,6 @@ opt_fs_opts = click.option(
     callback=_cb_key_val,
     help="Configuration options for destination fsspec filesystem.",
 )
+opt_dask_scheduler = click.option(
+    "--dask-scheduler", type=click.STRING, help="Address for dask scheduler."
+)

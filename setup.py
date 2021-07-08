@@ -39,12 +39,15 @@ install_requires = [
     "tqdm",
 ]
 req_contours = ["matplotlib"]
+req_dask = ["dask", "distributed"]
 req_geobuf = ["geobuf"]
 req_http = ["fsspec[http]", "aiohttp", "requests"]
 req_s3 = ["boto3", "fsspec[s3]", "s3fs>=0.5.1"]
 req_serve = ["flask", "werkzeug>=0.15"]
 req_vrt = ["lxml"]
-req_complete = req_contours + req_geobuf + req_http + req_s3 + req_serve + req_vrt
+req_complete = (
+    req_contours + req_dask + req_geobuf + req_http + req_s3 + req_serve + req_vrt
+)
 
 setup(
     name="mapchete",
@@ -94,6 +97,7 @@ setup(
     extras_require={
         "complete": req_complete,
         "contours": req_contours,
+        "dask": req_dask,
         "geobuf": req_geobuf,
         "s3": req_s3,
         "serve": req_serve,
