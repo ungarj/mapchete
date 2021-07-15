@@ -153,6 +153,8 @@ arg_inputs = click.argument(
     "inputs", metavar="INPUTS", nargs=-1, callback=_validate_inputs
 )
 arg_output = click.argument("output", type=click.STRING)
+arg_src_tiledir = click.argument("src_tiledir", type=click.STRING)
+arg_dst_tiledir = click.argument("dst_tiledir", type=click.STRING)
 
 
 # click options #
@@ -356,21 +358,21 @@ opt_src_fs_opts = click.option(
     metavar="NAME=VALUE",
     multiple=True,
     callback=_cb_key_val,
-    help="Configuration options for source fsspec filesystem. ",
+    help="Configuration options for source fsspec filesystem.",
 )
 opt_dst_fs_opts = click.option(
     "--dst-fs-opts",
     metavar="NAME=VALUE",
     multiple=True,
     callback=_cb_key_val,
-    help="Configuration options for destination fsspec filesystem. ",
+    help="Configuration options for destination fsspec filesystem.",
 )
 opt_fs_opts = click.option(
     "--fs-opts",
     metavar="NAME=VALUE",
     multiple=True,
     callback=_cb_key_val,
-    help="Configuration options for destination fsspec filesystem. ",
+    help="Configuration options for destination fsspec filesystem.",
 )
 
 

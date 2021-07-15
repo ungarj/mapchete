@@ -291,7 +291,7 @@ class Mapchete(object):
             ):
                 yield process_info
 
-    def count_tiles(self, minzoom, maxzoom, init_zoom=0):
+    def count_tiles(self, minzoom=None, maxzoom=None, init_zoom=0):
         """
         Count number of tiles intersecting with process area at given zoom levels.
 
@@ -307,6 +307,8 @@ class Mapchete(object):
         -------
         number of tiles
         """
+        minzoom = min(self.config.init_zoom_levels) if minzoom is None else minzoom
+        maxzoom = max(self.config.init_zoom_levels) if maxzoom is None else maxzoom
         if (minzoom, maxzoom) not in self._count_tiles_cache:
             self._count_tiles_cache[(minzoom, maxzoom)] = count_tiles(
                 self.config.area_at_zoom(),
