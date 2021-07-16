@@ -5,13 +5,15 @@ Subpackages
 -----------
 
 .. toctree::
+   :maxdepth: 4
 
-    mapchete.processes.examples
+   mapchete.processes.examples
 
 Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    mapchete.processes.contours
    mapchete.processes.convert
@@ -21,6 +23,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.processes
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

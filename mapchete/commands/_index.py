@@ -95,7 +95,7 @@ def index(
     --------
     >>> index("foo", vrt=True, zoom=5)
 
-    This will run the whole copy process.
+    This will run the whole index process.
 
     >>> for i in index("foo", vrt=True, zoom=5, as_iterator=True):
     >>>     print(i)

@@ -83,14 +83,14 @@ def execute(
     --------
     >>> execute("foo")
 
-    This will run the whole copy process.
+    This will run the whole execute process.
 
     >>> for i in execute("foo", as_iterator=True):
     >>>     print(i)
 
     This will return a generator where through iteration, tiles are copied.
 
-    >>> list(tqdm.tqdm(index("foo", as_iterator=True)))
+    >>> list(tqdm.tqdm(execute("foo", as_iterator=True)))
 
     Usage within a process bar.
     """

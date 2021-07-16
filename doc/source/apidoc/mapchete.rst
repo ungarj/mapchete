@@ -5,17 +5,20 @@ Subpackages
 -----------
 
 .. toctree::
+   :maxdepth: 4
 
-    mapchete.cli
-    mapchete.commons
-    mapchete.formats
-    mapchete.io
-    mapchete.processes
+   mapchete.cli
+   mapchete.commands
+   mapchete.commons
+   mapchete.formats
+   mapchete.io
+   mapchete.processes
 
 Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    mapchete.config
    mapchete.errors
@@ -28,6 +31,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
