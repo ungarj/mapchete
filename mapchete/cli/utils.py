@@ -149,12 +149,11 @@ arg_out_format = click.argument(
 arg_input_raster = click.argument("input_raster", type=click.Path(exists=True))
 arg_out_dir = click.argument("output_dir", type=click.Path())
 arg_input = click.argument("input_", metavar="INPUT", type=click.STRING)
-arg_inputs = click.argument(
-    "inputs", metavar="INPUTS", nargs=-1, callback=_validate_inputs
-)
+arg_inputs = click.argument("inputs", nargs=-1, callback=_validate_inputs)
 arg_output = click.argument("output", type=click.STRING)
 arg_src_tiledir = click.argument("src_tiledir", type=click.STRING)
 arg_dst_tiledir = click.argument("dst_tiledir", type=click.STRING)
+arg_tiledir = click.argument("tiledir", type=click.STRING)
 
 
 # click options #

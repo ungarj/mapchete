@@ -74,16 +74,16 @@ def cp(
 
     Examples
     --------
-    >>> cp("foo", "bar")
+    >>> cp("foo", "bar", zoom=5)
 
     This will run the whole copy process.
 
-    >>> for i in cp("foo", "bar", as_iterator=True):
+    >>> for i in cp("foo", "bar", zoom=5, as_iterator=True):
     >>>     print(i)
 
     This will return a generator where through iteration, tiles are copied.
 
-    >>> list(tqdm.tqdm(cp("foo", "bar", as_iterator=True)))
+    >>> list(tqdm.tqdm(cp("foo", "bar", zoom=5, as_iterator=True)))
 
     Usage within a process bar.
     """

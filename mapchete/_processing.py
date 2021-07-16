@@ -21,22 +21,6 @@ logger = logging.getLogger(__name__)
 ProcessInfo = namedtuple("ProcessInfo", "tile processed process_msg written write_msg")
 
 
-class ResultGenerator:
-    """
-    Class to encapsulate processing generator while exposing generator length.
-    """
-
-    def __init__(self, generator, length):
-        self._generator = generator
-        self._length = length
-
-    def __len__(self):
-        return self._length
-
-    def __iter__(self):
-        return self._generator
-
-
 class TileProcess:
     """
     Class to process on a specific process tile.

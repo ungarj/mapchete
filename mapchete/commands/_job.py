@@ -24,7 +24,7 @@ class Job:
         return self._total
 
     def __iter__(self):
-        if not self._as_iterator:
+        if not self._as_iterator:  # pragma: no cover
             raise TypeError("initialize with 'as_iterator=True'")
         return self.func(*self.fargs, **self.fkwargs)
 

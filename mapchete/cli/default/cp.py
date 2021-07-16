@@ -25,6 +25,7 @@ from mapchete.cli import utils
 @utils.opt_dst_fs_opts
 def cp(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwargs):
     """Copy TileDirectory."""
+    # handle deprecated options
     for x in ["password", "username"]:
         if kwargs.get(x):  # pragma: no cover
             raise click.BadOptionUsage(
@@ -32,6 +33,7 @@ def cp(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwargs)
                 f"'--{x} foo' is deprecated. You should use '--src-fs-opts {x}=foo' instead.",
             )
         kwargs.pop(x)
+    # copy
     list(
         tqdm.tqdm(
             commands.cp(
