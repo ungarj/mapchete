@@ -1,5 +1,3 @@
-"""Create index for process output."""
-
 import logging
 import os
 from rasterio.crs import CRS
@@ -38,6 +36,7 @@ def index(
     fs_opts: dict = None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
+    **kwargs,
 ) -> Job:
     """
     Create one or more indexes from a TileDirectory.

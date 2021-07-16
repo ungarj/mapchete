@@ -76,7 +76,7 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
                 path=some_input,
                 fs=fs,
                 fs_kwargs=fs_kwargs,
-                **kwargs
+                **kwargs,
             ),
             config_dir=os.getcwd(),
             zoom_levels=kwargs.get("zoom"),
@@ -545,8 +545,10 @@ class Mapchete(object):
         # run input drivers cleanup
         for ip in self.config.input.values():
             if ip is not None:
+                logger.debug(f"running cleanup on {ip}...")
                 ip.cleanup()
         # run output driver cleanup
+        logger.debug(f"closing output driver {self.config.output}...")
         self.config.output.close(
             exc_type=exc_type, exc_value=exc_value, exc_traceback=exc_traceback
         )

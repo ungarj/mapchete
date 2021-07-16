@@ -41,9 +41,13 @@ def version_is_greater_equal(a, b):
 
 
 def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
-    result = CliRunner(env=dict(MAPCHETE_TEST="TRUE")).invoke(mapchete_cli, args)
+    result = CliRunner(env=dict(MAPCHETE_TEST="TRUE"), mix_stderr=True).invoke(
+        mapchete_cli, args
+    )
     if output_contains:
-        assert output_contains in result.output
+        assert output_contains in result.output or output_contains in str(
+            result.exception
+        )
     if raise_exc and result.exception:
         raise result.exception
     assert result.exit_code == expected_exit_code
@@ -65,16 +69,6 @@ def test_main(mp_tmpdir):
         ["invalid_command"],
         expected_exit_code=2,
         output_contains="Error: No such command",
-        raise_exc=False,
-    )
-
-
-def test_missing_input_file(mp_tmpdir):
-    """Check if IOError is raised if input-file is invalid."""
-    run_cli(
-        ["execute", "process.mapchete", "--input-file", "invalid.tif"],
-        expected_exit_code=2,
-        output_contains="Path 'process.mapchete' does not exist.",
         raise_exc=False,
     )
 
@@ -102,22 +96,6 @@ def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
         config["output"].update(bands=1, dtype="uint8", path=mp_tmpdir)
     with open(temp_mapchete, "w") as config_file:
         config_file.write(yaml.dump(config, default_flow_style=False))
-    # run process for single tile, this creates an empty output error
-    with pytest.raises(MapcheteProcessOutputError):
-        run_cli(
-            [
-                "execute",
-                temp_mapchete,
-                "--tile",
-                "6",
-                "62",
-                "124",
-                "--input-file",
-                cleantopo_br_tif,
-                "-d",
-            ],
-            expected_exit_code=-1,
-        )
 
 
 def test_create_existing(mp_tmpdir):
@@ -170,8 +148,6 @@ def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
                 temp_mapchete,
                 "--zoom",
                 "5",
-                "--input-file",
-                cleantopo_br_tif,
                 "-m",
                 "2",
                 "-d",
@@ -233,11 +209,6 @@ def test_execute_logfile(mp_tmpdir, example_mapchete):
     assert os.path.isfile(logfile)
     with open(logfile) as log:
         assert "DEBUG" in log.read()
-
-
-def test_execute_wkt_bounds(mp_tmpdir, example_mapchete, wkt_geom):
-    """Using bounds from WKT."""
-    run_cli(["execute", example_mapchete.path, "--wkt-geometry", wkt_geom])
 
 
 def test_execute_wkt_area(mp_tmpdir, example_mapchete, wkt_geom):
@@ -518,7 +489,7 @@ def test_convert_clip(cleantopo_br_tif, mp_tmpdir, landpoly):
             "geodetic",
             "--clip-geometry",
             landpoly,
-            "-d",
+            "-v",
         ],
         output_contains="Process area is empty",
     )
@@ -744,7 +715,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
     # output format required
     run_cli(
         ["convert", s2_band_jp2, mp_tmpdir, "--output-pyramid", "geodetic"],
-        expected_exit_code=2,
+        expected_exit_code=1,
         output_contains="Output format required.",
         raise_exc=False,
     )
@@ -752,7 +723,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
     # output pyramid reqired
     run_cli(
         ["convert", s2_band, mp_tmpdir],
-        expected_exit_code=2,
+        expected_exit_code=1,
         output_contains="Output pyramid required.",
         raise_exc=False,
     )
@@ -773,7 +744,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             "--output-pyramid",
             "geodetic",
         ],
-        expected_exit_code=2,
+        expected_exit_code=1,
         output_contains="Zoom levels required.",
         raise_exc=False,
     )
@@ -791,7 +762,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             "--output-format",
             "GeoJSON",
         ],
-        expected_exit_code=2,
+        expected_exit_code=1,
         output_contains=(
             "Output format type (vector) is incompatible with input format (raster)."
         ),
@@ -809,7 +780,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             "--zoom",
             "5",
         ],
-        expected_exit_code=2,
+        expected_exit_code=1,
         output_contains=("Could not determine output from extension"),
         raise_exc=False,
     )
@@ -838,7 +809,6 @@ def test_serve_cli_params(cleantopo_br, mp_tmpdir):
         ["serve", cleantopo_br.path, "--overwrite"],
         ["serve", cleantopo_br.path, "--readonly"],
         ["serve", cleantopo_br.path, "--memory"],
-        ["serve", cleantopo_br.path, "--input-file", cleantopo_br.path],
     ]:
         run_cli(args)
 
@@ -990,21 +960,6 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
         assert len(list(src)) == 1
 
 
-def test_index_geojson_wkt_geom(mp_tmpdir, cleantopo_br, wkt_geom):
-    # execute process at zoom 3
-    run_cli(["execute", cleantopo_br.path, "--debug", "--wkt-geometry", wkt_geom])
-
-    # generate index for zoom 3
-    run_cli(
-        ["index", cleantopo_br.path, "--geojson", "--debug", "--wkt-geometry", wkt_geom]
-    )
-
-    with mapchete.open(cleantopo_br.dict) as mp:
-        files = os.listdir(mp.config.output.path)
-        assert len(files) == 7
-        assert "3.geojson" in files
-
-
 def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_br, wkt_geom):
     # execute process at zoom 3
     run_cli(["execute", cleantopo_br.path, "--debug", "--area", wkt_geom])
@@ -1096,7 +1051,7 @@ def test_index_text(cleantopo_br):
 
 
 def test_index_errors(mp_tmpdir, cleantopo_br):
-    with pytest.raises(SystemExit):
+    with pytest.raises(ValueError):
         run_cli(["index", cleantopo_br.path, "-z", "5", "--debug"])
 
     with pytest.raises(SystemExit):
