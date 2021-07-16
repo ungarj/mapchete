@@ -52,6 +52,7 @@ def zoom_index_gen(
     mp=None,
     out_dir=None,
     zoom=None,
+    tile=None,
     geojson=False,
     gpkg=False,
     shapefile=False,
@@ -149,16 +150,23 @@ def zoom_index_gen(
 
             # all output tiles for given process area
             logger.debug("determine affected output tiles")
-            output_tiles = set(
-                [
-                    tile
-                    for tile in mp.config.output_pyramid.tiles_from_geom(
-                        mp.config.area_at_zoom(zoom), zoom
+            if tile:
+                output_tiles = set(
+                    mp.config.output_pyramid.intersecting(
+                        mp.config.process_pyramid.tile(*tile)
                     )
-                    # this is required to omit tiles touching the config area
-                    if tile.bbox.intersection(mp.config.area_at_zoom(zoom)).area
-                ]
-            )
+                )
+            else:
+                output_tiles = set(
+                    [
+                        tile
+                        for tile in mp.config.output_pyramid.tiles_from_geom(
+                            mp.config.area_at_zoom(zoom), zoom
+                        )
+                        # this is required to omit tiles touching the config area
+                        if tile.bbox.intersection(mp.config.area_at_zoom(zoom)).area
+                    ]
+                )
 
             # check which tiles exist in any index
             logger.debug("check which tiles exist in index(es)")

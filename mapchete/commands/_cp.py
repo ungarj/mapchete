@@ -7,7 +7,6 @@ from shapely.geometry import box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from tilematrix import TilePyramid
-import tqdm
 from typing import Callable, List, Tuple, Union
 
 import mapchete
@@ -25,9 +24,9 @@ def cp(
     dst_tiledir: str,
     zoom: Union[int, List[int]] = None,
     area: Union[BaseGeometry, str, dict] = None,
-    area_crs: str = None,
+    area_crs: Union[CRS, str] = None,
     bounds: Tuple[float] = None,
-    bounds_crs: Tuple[CRS, str] = None,
+    bounds_crs: Union[CRS, str] = None,
     overwrite: bool = False,
     multi: int = None,
     src_fs_opts: dict = None,

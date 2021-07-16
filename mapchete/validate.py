@@ -124,7 +124,9 @@ def validate_values(config, values):
         if value not in config:
             raise ValueError("%s not given" % value)
         if not isinstance(config[value], vtype):
-            raise TypeError("%s must be %s" % (value, vtype))
+            if config[value] is None:
+                raise ValueError("%s not given" % value)
+            raise TypeError("%s must be %s, not %s" % (value, vtype, config[value]))
     return True
 
 
