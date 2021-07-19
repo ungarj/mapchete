@@ -97,25 +97,3 @@ def test_execute_tile(mp_tmpdir, cleantopo_br):
             mp.config.output.get_path(mp.config.output_pyramid.tile(*tile))
         ) as src:
             assert not src.read(masked=True).mask.all()
-
-
-def test_execute_vrt(mp_tmpdir, cleantopo_br):
-    """Using debug output."""
-    execute(cleantopo_br.path, zoom=5, vrt=True)
-    with mapchete.open(cleantopo_br.dict) as mp:
-        vrt_path = os.path.join(mp.config.output.path, "5.vrt")
-        with rasterio.open(vrt_path) as src:
-            assert src.read().any()
-
-    # run again, this time with custom output directory
-    execute(cleantopo_br.path, zoom=5, vrt=True, idx_out_dir=mp_tmpdir)
-    with mapchete.open(cleantopo_br.dict) as mp:
-        vrt_path = os.path.join(mp_tmpdir, "5.vrt")
-        with rasterio.open(vrt_path) as src:
-            assert src.read().any()
-
-    # run with single tile
-    execute(cleantopo_br.path, tile=(5, 3, 7), vrt=True)
-
-    # no new entries
-    execute(cleantopo_br.path, tile=(5, 0, 0), vrt=True)

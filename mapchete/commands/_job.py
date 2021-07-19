@@ -31,7 +31,7 @@ class Job:
         yield from self.func(*self.fargs, **self.fkwargs)
         self._finished = True
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return (
             f"<Job with {self._total} {'' if self._finished else 'un'}finished tasks.>"
         )

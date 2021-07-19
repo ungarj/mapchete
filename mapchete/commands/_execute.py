@@ -26,8 +26,6 @@ def execute(
     multi: int = None,
     max_chunksize: int = None,
     multiprocessing_start_method: str = None,
-    vrt: bool = False,
-    idx_out_dir: str = None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
 ) -> Job:
@@ -66,10 +64,6 @@ def execute(
     multiprocessing_start_method : str
         Method used by multiprocessing module to start child workers. Availability of methods
         depends on OS.
-    vrt : bool
-        Activate VRT index creation.
-    idx_out_dir : str
-        Alternative output dir for index. Defaults to TileDirectory path.
     msg_callback : Callable
         Optional callback function for process messages.
     as_iterator : bool

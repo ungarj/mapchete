@@ -129,10 +129,11 @@ def index(
         area=area,
         area_crs=area_crs,
     ) as mp:
+
         return Job(
             zoom_index_gen,
             mp=mp,
-            zoom=mp.config.init_zoom_levels,
+            zoom=None if tile else mp.config.init_zoom_levels,
             tile=tile,
             out_dir=idx_out_dir if idx_out_dir else mp.config.output.path,
             geojson=geojson,

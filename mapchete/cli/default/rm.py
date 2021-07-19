@@ -46,5 +46,5 @@ def rm(
                     disable=debug or no_pbar,
                 )
             )
-    else:
+    else:  # pragma: no cover
         tqdm.tqdm.write("No tiles found to delete.")

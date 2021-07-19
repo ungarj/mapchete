@@ -55,8 +55,6 @@ def convert(
     overviews: bool = False,
     overviews_resampling_method: str = "cubic_spline",
     cog: bool = False,
-    vrt: bool = False,
-    idx_out_dir=None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
 ) -> Job:
@@ -125,10 +123,6 @@ def convert(
         Resampling method used for overviews. (default: cubic_spline)
     cog : bool
         Write a valid COG. This will automatically generate verviews. (GTiff only)
-    vrt : bool
-        Activate VRT index creation.
-    idx_out_dir : str
-        Alternative output dir for index. Defaults to TileDirectory path.
     msg_callback : Callable
         Optional callback function for process messages.
     as_iterator : bool
@@ -284,8 +278,6 @@ def convert(
         area=area,
         area_crs=area_crs,
         multi=multi or cpu_count(),
-        vrt=vrt,
-        idx_out_dir=idx_out_dir,
         as_iterator=as_iterator,
         msg_callback=msg_callback,
     )
