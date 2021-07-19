@@ -711,6 +711,29 @@ def test_convert_geobuf_multipolygon(landpoly, mp_tmpdir):
             assert multipolygons
 
 
+def test_convert_vrt(cleantopo_br_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    run_cli(
+        [
+            "convert",
+            cleantopo_br_tif,
+            mp_tmpdir,
+            "--output-pyramid",
+            "geodetic",
+            "--vrt",
+            "--zoom",
+            "1,4",
+        ]
+    )
+    for zoom in [4, 3, 2, 1]:
+        out_file = os.path.join(*[mp_tmpdir, str(zoom) + ".vrt"])
+        with rasterio.open(out_file, "r") as src:
+            assert src.meta["driver"] == "VRT"
+            assert src.meta["dtype"] == "uint16"
+            data = src.read(masked=True)
+            assert data.mask.any()
+
+
 def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly):
     # output format required
     run_cli(

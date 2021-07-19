@@ -24,20 +24,6 @@ MULTIPROCESSING_START_METHOD_DEFAULT = (
 )
 
 
-# verbose stdout writer #
-#########################
-def write_verbose_msg(process_info, dst):
-    tqdm.tqdm.write(
-        "Tile %s: %s, %s"
-        % (
-            tuple(process_info.tile.id),
-            process_info.process_msg,
-            process_info.write_msg,
-        ),
-        file=dst,
-    )
-
-
 # click callbacks #
 ###################
 def _validate_zoom(ctx, param, zoom):
@@ -66,14 +52,6 @@ def _validate_mapchete_files(ctx, param, mapchete_files):
     if len(mapchete_files) == 0:
         raise click.MissingParameter("at least one mapchete file required")
     return mapchete_files
-
-
-def _validate_inputs(ctx, param, inputs):
-    if len(inputs) == 0:
-        raise click.MissingParameter(
-            "at least one mapchete file or path to Tile Directory required"
-        )
-    return inputs
 
 
 def _set_debug_log_level(ctx, param, debug):
@@ -149,7 +127,6 @@ arg_out_format = click.argument(
 arg_input_raster = click.argument("input_raster", type=click.Path(exists=True))
 arg_out_dir = click.argument("output_dir", type=click.Path())
 arg_input = click.argument("input_", metavar="INPUT", type=click.STRING)
-arg_inputs = click.argument("inputs", nargs=-1, callback=_validate_inputs)
 arg_output = click.argument("output", type=click.STRING)
 arg_src_tiledir = click.argument("src_tiledir", type=click.STRING)
 arg_dst_tiledir = click.argument("dst_tiledir", type=click.STRING)

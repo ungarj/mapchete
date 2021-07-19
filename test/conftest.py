@@ -6,6 +6,7 @@ import os
 import pytest
 from shapely import wkt
 import shutil
+from tempfile import TemporaryDirectory
 import uuid
 import yaml
 
@@ -47,6 +48,8 @@ def mp_tmpdir():
     os.makedirs(TEMP_DIR)
     yield TEMP_DIR
     shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    # with TemporaryDirectory() as t:
+    #     yield t
 
 
 # temporary directory for I/O tests

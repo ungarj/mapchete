@@ -139,7 +139,7 @@ def execute(
             total=1 if tile else tiles_count,
         )
     # explicitly exit the mp object on failure
-    except Exception:
+    except Exception:  # pragma: no cover
         mp.__exit__(None, None, None)
 
 

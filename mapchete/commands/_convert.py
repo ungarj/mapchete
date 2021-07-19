@@ -263,10 +263,7 @@ def convert(
             msg_callback(
                 "Process area is empty: clip bounds don't intersect with input bounds."
             )
-
-            def _empty_gen():
-                raise StopIteration()
-
+            # this returns a Job with an empty iterator
             return Job(iter, [], as_iterator=as_iterator, total=0)
     # add process bounds and output type
     mapchete_config.update(

@@ -1,7 +1,9 @@
 import os
+import rasterio
+from tilematrix import TilePyramid
 
 import mapchete
-from mapchete.commands import cp, rm
+from mapchete.commands import convert, cp, execute, index, rm
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -65,3 +67,55 @@ def test_rm(mp_tmpdir, cleantopo_br):
     # remove tiles but this time they should already have been removed
     tiles = rm(out_path, zoom=5)
     assert len(tiles) == 0
+
+
+def test_execute(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
+    zoom = 5
+    config = cleantopo_br.dict
+    config["pyramid"].update(metatiling=1)
+    tp = TilePyramid("geodetic")
+    tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
+    job = execute(config, zoom=zoom)
+    assert len(tiles) == len(job)
+    with mapchete.open(config) as mp:
+        for t in tiles:
+            with rasterio.open(mp.config.output.get_path(t)) as src:
+                assert not src.read(masked=True).mask.all()
+
+
+def test_execute_tile(mp_tmpdir, cleantopo_br):
+    tile = (5, 30, 63)
+
+    config = cleantopo_br.dict
+    config["pyramid"].update(metatiling=1)
+    job = execute(config, tile=tile)
+
+    assert len(job) == 1
+
+    with mapchete.open(config) as mp:
+        with rasterio.open(
+            mp.config.output.get_path(mp.config.output_pyramid.tile(*tile))
+        ) as src:
+            assert not src.read(masked=True).mask.all()
+
+
+def test_execute_vrt(mp_tmpdir, cleantopo_br):
+    """Using debug output."""
+    execute(cleantopo_br.path, zoom=5, vrt=True)
+    with mapchete.open(cleantopo_br.dict) as mp:
+        vrt_path = os.path.join(mp.config.output.path, "5.vrt")
+        with rasterio.open(vrt_path) as src:
+            assert src.read().any()
+
+    # run again, this time with custom output directory
+    execute(cleantopo_br.path, zoom=5, vrt=True, idx_out_dir=mp_tmpdir)
+    with mapchete.open(cleantopo_br.dict) as mp:
+        vrt_path = os.path.join(mp_tmpdir, "5.vrt")
+        with rasterio.open(vrt_path) as src:
+            assert src.read().any()
+
+    # run with single tile
+    execute(cleantopo_br.path, tile=(5, 3, 7), vrt=True)
+
+    # no new entries
+    execute(cleantopo_br.path, tile=(5, 0, 0), vrt=True)

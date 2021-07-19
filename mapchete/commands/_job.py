@@ -10,15 +10,17 @@ class Job:
         *fargs: dict,
         as_iterator: bool = False,
         total: int = None,
-        **fkwargs: dict
+        **fkwargs: dict,
     ):
         self.func = func
         self.fargs = fargs
         self.fkwargs = fkwargs
         self._total = total
         self._as_iterator = as_iterator
+        self._finished = False
         if not as_iterator:
             list(self.func(*self.fargs, **self.fkwargs))
+            self._finished = True
 
     def __len__(self):
         return self._total
@@ -26,7 +28,13 @@ class Job:
     def __iter__(self):
         if not self._as_iterator:  # pragma: no cover
             raise TypeError("initialize with 'as_iterator=True'")
-        return self.func(*self.fargs, **self.fkwargs)
+        yield from self.func(*self.fargs, **self.fkwargs)
+        self._finished = True
+
+    def __repr__(self):
+        return (
+            f"<Job with {self._total} {'' if self._finished else 'un'}finished tasks.>"
+        )
 
 
 def empty_callback(*args, **kwargs):
