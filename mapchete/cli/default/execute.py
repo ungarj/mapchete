@@ -1,20 +1,9 @@
-"""Command line utility to execute a Mapchete process."""
-
 import click
-import logging
-from multiprocessing import cpu_count
-import os
-import sys
 import tqdm
 
+import mapchete
+from mapchete import commands
 from mapchete.cli import utils
-from mapchete.config import raw_conf_process_pyramid
-
-
-# workaround for https://github.com/tqdm/tqdm/issues/481
-tqdm.monitor_interval = 0
-
-logger = logging.getLogger(__name__)
 
 
 @click.command(help="Execute a process.")
@@ -26,7 +15,6 @@ logger = logging.getLogger(__name__)
 @utils.opt_area_crs
 @utils.opt_point
 @utils.opt_point_crs
-@utils.opt_wkt_geometry
 @utils.opt_tile
 @utils.opt_overwrite
 @utils.opt_multi
@@ -41,68 +29,54 @@ logger = logging.getLogger(__name__)
 @utils.opt_idx_out_dir
 def execute(
     mapchete_files,
-    zoom=None,
-    bounds=None,
-    bounds_crs=None,
-    area=None,
-    area_crs=None,
-    point=None,
-    point_crs=None,
-    wkt_geometry=None,
-    tile=None,
-    overwrite=False,
-    multi=None,
-    input_file=None,
-    logfile=None,
-    verbose=False,
-    no_pbar=False,
-    debug=False,
-    max_chunksize=None,
-    multiprocessing_start_method=None,
+    *args,
     vrt=False,
     idx_out_dir=None,
+    debug=False,
+    no_pbar=False,
+    verbose=False,
+    logfile=None,
+    input_file=None,
+    **kwargs,
 ):
-    """Execute a Mapchete process."""
-    mode = "overwrite" if overwrite else "continue"
-    # send verbose messages to /dev/null if not activated
-    verbose_dst = open(os.devnull, "w") if debug or not verbose else sys.stdout
-
+    if input_file is not None:  # pragma: no cover
+        raise click.BadOptionUsage(
+            "input-file",
+            "'--input-file' is deprecated.",
+        )
     for mapchete_file in mapchete_files:
-        tqdm.tqdm.write("preparing to process %s" % mapchete_file, file=verbose_dst)
-        # process single tile
-        if tile:
-            utils._process_single_tile(
-                raw_conf_process_pyramid=raw_conf_process_pyramid,
-                mapchete_config=mapchete_file,
-                tile=tile,
-                mode=mode,
-                input_file=input_file,
-                debug=debug,
-                verbose_dst=verbose_dst,
-                vrt=vrt,
-                idx_out_dir=idx_out_dir,
-                no_pbar=no_pbar,
+        tqdm.tqdm.write(f"preparing to process {mapchete_file}")
+        with mapchete.Timer() as t:
+            list(
+                tqdm.tqdm(
+                    commands.execute(
+                        mapchete_file,
+                        *args,
+                        as_iterator=True,
+                        msg_callback=tqdm.tqdm.write if verbose else None,
+                        **kwargs,
+                    ),
+                    unit="tile",
+                    disable=debug or no_pbar,
+                )
             )
-        # process area
-        else:
-            utils._process_area(
-                debug=debug,
-                mapchete_config=mapchete_file,
-                mode=mode,
-                zoom=zoom,
-                wkt_geometry=wkt_geometry,
-                point=point,
-                point_crs=point_crs,
-                bounds=bounds,
-                bounds_crs=bounds_crs,
-                area=area,
-                area_crs=area_crs,
-                input_file=input_file,
-                multi=multi or cpu_count(),
-                verbose_dst=verbose_dst,
-                max_chunksize=max_chunksize,
-                multiprocessing_start_method=multiprocessing_start_method,
-                no_pbar=no_pbar,
-                vrt=vrt,
-                idx_out_dir=idx_out_dir,
+            tqdm.tqdm.write(f"processing {mapchete_file} finished in {t}")
+
+        if vrt:
+            tqdm.tqdm.write("creating VRT(s)")
+            list(
+                tqdm.tqdm(
+                    commands.index(
+                        mapchete_file,
+                        *args,
+                        vrt=vrt,
+                        idx_out_dir=idx_out_dir,
+                        as_iterator=True,
+                        msg_callback=tqdm.tqdm.write if verbose else None,
+                        **kwargs,
+                    ),
+                    unit="tile",
+                    disable=debug or no_pbar,
+                )
             )
+            tqdm.tqdm.write(f"index(es) creation for {mapchete_file} finished")

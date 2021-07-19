@@ -73,6 +73,12 @@ def wkt_geom():
     return "Polygon ((2.8125 11.25, 2.8125 14.0625, 0 14.0625, 0 11.25, 2.8125 11.25))"
 
 
+@pytest.fixture
+def wkt_geom_tl():
+    """Example WKT geometry."""
+    return "Polygon ((-176.04949 85.59671, -174.57652 73.86651, -159.98073 74.58961, -161.74829 83.05249, -176.04949 85.59671))"
+
+
 # example files
 @pytest.fixture
 def http_raster():

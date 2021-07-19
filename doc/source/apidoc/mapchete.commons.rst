@@ -5,6 +5,7 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
    mapchete.commons.clip
    mapchete.commons.contours
@@ -14,6 +15,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.commons
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

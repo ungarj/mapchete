@@ -76,7 +76,7 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
                 path=some_input,
                 fs=fs,
                 fs_kwargs=fs_kwargs,
-                **kwargs
+                **kwargs,
             ),
             config_dir=os.getcwd(),
             zoom_levels=kwargs.get("zoom"),
@@ -291,7 +291,7 @@ class Mapchete(object):
             ):
                 yield process_info
 
-    def count_tiles(self, minzoom, maxzoom, init_zoom=0):
+    def count_tiles(self, minzoom=None, maxzoom=None, init_zoom=0):
         """
         Count number of tiles intersecting with process area at given zoom levels.
 
@@ -307,6 +307,8 @@ class Mapchete(object):
         -------
         number of tiles
         """
+        minzoom = min(self.config.init_zoom_levels) if minzoom is None else minzoom
+        maxzoom = max(self.config.init_zoom_levels) if maxzoom is None else maxzoom
         if (minzoom, maxzoom) not in self._count_tiles_cache:
             self._count_tiles_cache[(minzoom, maxzoom)] = count_tiles(
                 self.config.area_at_zoom(),
@@ -543,8 +545,10 @@ class Mapchete(object):
         # run input drivers cleanup
         for ip in self.config.input.values():
             if ip is not None:
+                logger.debug(f"running cleanup on {ip}...")
                 ip.cleanup()
         # run output driver cleanup
+        logger.debug(f"closing output driver {self.config.output}...")
         self.config.output.close(
             exc_type=exc_type, exc_value=exc_value, exc_traceback=exc_traceback
         )

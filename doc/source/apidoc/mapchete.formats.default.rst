@@ -5,7 +5,10 @@ Submodules
 ----------
 
 .. toctree::
+   :maxdepth: 4
 
+   mapchete.formats.default.flatgeobuf
+   mapchete.formats.default.geobuf
    mapchete.formats.default.geojson
    mapchete.formats.default.gtiff
    mapchete.formats.default.mapchete_input
@@ -19,6 +22,6 @@ Module contents
 ---------------
 
 .. automodule:: mapchete.formats.default
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:

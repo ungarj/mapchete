@@ -590,7 +590,9 @@ class MapcheteConfig(object):
         zoom level dependent process configuration
         """
         if zoom not in self.init_zoom_levels:
-            raise ValueError("zoom level not available with current configuration")
+            raise ValueError(
+                f"zoom level {zoom} not available with current configuration: {self.init_zoom_levels}"
+            )
         out = OrderedDict(
             self._params_at_zoom[zoom], input=OrderedDict(), output=self.output
         )
@@ -630,7 +632,9 @@ class MapcheteConfig(object):
             return self._cache_full_process_area
         else:
             if zoom not in self.init_zoom_levels:
-                raise ValueError("zoom level not available with current configuration")
+                raise ValueError(
+                    f"zoom level {zoom} not available with current configuration: {self.init_zoom_levels}"
+                )
             return self._area_at_zoom(zoom)
 
     def _area_at_zoom(self, zoom):
