@@ -353,3 +353,6 @@ opt_fs_opts = click.option(
 opt_dask_scheduler = click.option(
     "--dask-scheduler", type=click.STRING, help="Address for dask scheduler."
 )
+opt_dask_scheduler = click.option(
+    "--dask-scheduler", type=click.STRING, help="Address for dask scheduler."
+)
