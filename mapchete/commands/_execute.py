@@ -135,6 +135,7 @@ def execute(
     # explicitly exit the mp object on failure
     except Exception:  # pragma: no cover
         mp.__exit__(None, None, None)
+        raise
 
 
 def _msg_wrapper(msg_callback, mp, **kwargs):

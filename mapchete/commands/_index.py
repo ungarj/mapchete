@@ -22,7 +22,7 @@ def index(
     shp: bool = False,
     vrt: bool = False,
     txt: bool = False,
-    fieldname: str = None,
+    fieldname: str = "location",
     basepath: str = None,
     for_gdal: bool = False,
     zoom: Union[int, List[int]] = None,

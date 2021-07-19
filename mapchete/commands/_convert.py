@@ -148,6 +148,8 @@ def convert(
     Usage within a process bar.
     """
     msg_callback = msg_callback or empty_callback
+    creation_options = creation_options or {}
+    bidx = [bidx] if isinstance(bidx, int) else bidx
     try:
         input_info = _get_input_info(tiledir)
         output_info = _get_output_info(output)
