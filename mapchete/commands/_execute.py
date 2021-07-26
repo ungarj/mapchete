@@ -28,6 +28,7 @@ def execute(
     multiprocessing_start_method: str = None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
+    dask_scheduler: str = ''
 ) -> Job:
     """
     Execute a Mapchete process.
