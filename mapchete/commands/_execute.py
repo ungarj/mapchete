@@ -132,6 +132,7 @@ def execute(
             multiprocessing_start_method=multiprocessing_start_method,
             as_iterator=as_iterator,
             total=1 if tile else tiles_count,
+            dask_scheduler=dask_scheduler,
         )
     # explicitly exit the mp object on failure
     except Exception:  # pragma: no cover
