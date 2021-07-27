@@ -1,0 +1,210 @@
+from cached_property import cached_property
+import concurrent.futures
+from functools import partial
+from itertools import chain
+import logging
+import multiprocessing
+import os
+
+
+logger = logging.getLogger(__name__)
+
+
+class Executor:
+    """
+    Executor factory for dask and concurrent.futures executor
+
+    Will move into the mapchete core package.
+    """
+
+    def __new__(self, *args, concurrency=None, **kwargs):
+        if concurrency == "dask":
+            try:
+                return DaskExecutor(*args, **kwargs)
+            except ImportError as e:  # pragma: no cover
+                raise ImportError(
+                    f"this feature requires the mapchete[dask] extra: {e}"
+                )
+        elif concurrency is None or kwargs.get("max_workers") == 1:
+            return SequentialExecutor(*args, **kwargs)
+        elif concurrency in ["processes", "threads"]:
+            return ConcurrentFuturesExecutor(*args, **kwargs)
+        else:  # pragma: no cover
+            raise ValueError(
+                f"concurrency must be one of 'processes', 'threads' or 'dask', not {concurrency}"
+            )
+
+
+class _ExecutorBase:
+    """Define base methods and properties of executors."""
+
+    futures = []
+    _as_completed = None
+    _executor = None
+    _executor_cls = None
+    _executor_args = ()
+    _executor_kwargs = {}
+
+    def as_completed(self, func, iterable, fargs=None, fkwargs=None):
+        """Yield finished tasks."""
+        fargs = fargs or ()
+        fkwargs = fkwargs or {}
+        logger.debug("submitting tasks to executor")
+        futures = [
+            self._executor.submit(func, *chain([item], fargs), **fkwargs)
+            for item in iterable
+        ]
+        self.futures.extend(futures)
+        logger.debug(f"added {len(futures)} tasks")
+        for future in self._as_completed(futures):
+            logger.debug(future)
+            yield future
+
+    def cancel(self):
+        logger.debug(f"cancel {len(self.futures)} futures...")
+        for future in self.futures:
+            future.cancel()
+        logger.debug(f"{len(self.futures)} futures cancelled")
+
+    def close(self):  # pragma: no cover
+        self.__exit__(None, None, None)
+
+    def _as_completed(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError()
+
+    @cached_property
+    def _executor(self):
+        return self._executor_cls(*self._executor_args, **self._executor_kwargs)
+
+    def __enter__(self):
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, *args):
+        """Exit context manager."""
+        logger.debug(f"closing executor {self._executor}...")
+        self._executor.__exit__(*args)
+        logger.debug(f"closed executor {self._executor}")
+
+
+class DaskExecutor(_ExecutorBase):
+    """Execute tasks using dask cluster."""
+
+    def __init__(
+        self,
+        *args,
+        address=None,
+        dask_scheduler=None,
+        max_workers=None,
+        **kwargs,
+    ):
+        from dask.distributed import Client, LocalCluster
+
+        local_cluster_kwargs = dict(
+            n_workers=max_workers or os.cpu_count(), threads_per_worker=1
+        )
+        self._executor_cls = Client
+        self._executor_kwargs = dict(
+            address=dask_scheduler or LocalCluster(**local_cluster_kwargs)
+        )
+        logger.debug(
+            f"starting dask.distributed.Client with kwargs {self._executor_kwargs}"
+        )
+
+    def cancel(self):
+        logger.debug(f"cancel {len(self.futures)} futures...")
+        self._executor.cancel(self.futures)
+        logger.debug(f"{len(self.futures)} futures cancelled")
+
+    def _as_completed(self, futures):
+        from dask.distributed import as_completed
+
+        for future in as_completed(futures):
+            yield future
+
+
+class ConcurrentFuturesExecutor(_ExecutorBase):
+    """Execute tasks using concurrent.futures."""
+
+    def __init__(
+        self,
+        *args,
+        max_workers=None,
+        concurrency="processes",
+        **kwargs,
+    ):
+        """Set attributes."""
+        self.max_workers = max_workers or os.cpu_count()
+        self.futures = []
+        if concurrency == "processes":
+            self._executor_cls = concurrent.futures.ProcessPoolExecutor
+        elif concurrency == "threads":
+            self._executor_cls = concurrent.futures.ThreadPoolExecutor
+        else:  # pragma: no cover
+            raise ValueError("concurrency must either be 'processes' or 'threads'")
+        logger.debug(
+            f"init ConcurrentFuturesExecutor using {concurrency} with {self.max_workers} workers"
+        )
+
+    def _as_completed(self, futures):
+        """Yield finished tasks."""
+        for future in concurrent.futures.as_completed(futures):
+            yield future
+
+
+class SequentialExecutor(_ExecutorBase):
+    """Execute tasks sequentially in single process."""
+
+    def __init__(self, *args, **kwargs):
+        """Set attributes."""
+        logger.debug("init SequentialExecutor")
+        self.futures = []
+        self._cancel = False
+
+    def as_completed(self, func, iterable, fargs=None, fkwargs=None):
+        """Yield finished tasks."""
+        fargs = fargs or []
+        fkwargs = fkwargs or {}
+        for i in iterable:
+            if self._cancel:
+                return
+            yield FakeFuture(func, i, fargs=fargs, fkwargs=fkwargs)
+
+    def cancel(self):
+        self._cancel = True
+
+    def close(self):
+        pass
+
+    def __exit__(self, *args):
+        """Exit context manager."""
+        pass
+
+
+class FakeFuture:
+    """Wrapper class to mimick future interface."""
+
+    def __init__(self, func, i, fargs=None, fkwargs=None):
+        """Set attributes."""
+        fargs = fargs or []
+        fkwargs = fkwargs or {}
+        try:
+            self._result, self._exception = func(i, *fargs, **fkwargs), None
+        except Exception as e:  # pragma: no cover
+            self._result, self._exception = None, e
+
+    def result(self):
+        """Return task result."""
+        if self._exception:
+            logger.exception(self._exception)
+            raise self._exception
+        else:
+            return self._result
+
+    def exception(self):
+        """Raise task exception if any."""
+        return self._exception
+
+    def __repr__(self):
+        """Return string representation."""
+        return f"FinishedTask(result={self._result}, exception={self._exception})"

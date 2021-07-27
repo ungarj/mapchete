@@ -7,7 +7,6 @@ import tqdm
 from typing import Callable, List, Tuple, Union
 
 import mapchete
-from mapchete.commands._job import empty_callback, Job
 from mapchete.cli import utils
 from mapchete.index import zoom_index_gen
 
@@ -37,7 +36,7 @@ def index(
     msg_callback: Callable = None,
     as_iterator: bool = False,
     **kwargs,
-) -> Job:
+) -> mapchete.Job:
     """
     Create one or more indexes from a TileDirectory.
 
@@ -89,7 +88,7 @@ def index(
 
     Returns
     -------
-    Job instance either with already processed items or a generator with known length.
+    mapchete.Job instance either with already processed items or a generator with known length.
 
     Examples
     --------
@@ -112,7 +111,11 @@ def index(
             """At least one of '--geojson', '--gpkg', '--shp', '--vrt' or '--txt'"""
             """must be provided."""
         )
-    msg_callback = msg_callback or empty_callback
+
+    def _empty_callback(*args):
+        pass
+
+    msg_callback = msg_callback or _empty_callback
     fs_opts = fs_opts or {}
 
     msg_callback(f"create index(es) for {tiledir}")
@@ -130,20 +133,22 @@ def index(
         area_crs=area_crs,
     ) as mp:
 
-        return Job(
+        return mapchete.Job(
             zoom_index_gen,
-            mp=mp,
-            zoom=None if tile else mp.config.init_zoom_levels,
-            tile=tile,
-            out_dir=idx_out_dir if idx_out_dir else mp.config.output.path,
-            geojson=geojson,
-            gpkg=gpkg,
-            shapefile=shp,
-            vrt=vrt,
-            txt=txt,
-            fieldname=fieldname,
-            basepath=basepath,
-            for_gdal=for_gdal,
+            fkwargs=dict(
+                mp=mp,
+                zoom=None if tile else mp.config.init_zoom_levels,
+                tile=tile,
+                out_dir=idx_out_dir if idx_out_dir else mp.config.output.path,
+                geojson=geojson,
+                gpkg=gpkg,
+                shapefile=shp,
+                vrt=vrt,
+                txt=txt,
+                fieldname=fieldname,
+                basepath=basepath,
+                for_gdal=for_gdal,
+            ),
             as_iterator=as_iterator,
             total=1 if tile else mp.count_tiles(),
         )

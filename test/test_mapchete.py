@@ -500,10 +500,10 @@ def test_skip_tiles(mp_tmpdir, cleantopo_tl):
 def test_custom_grid(mp_tmpdir, custom_grid):
     """Cutom grid processing."""
     # process and save
-    with mapchete.open(custom_grid.dict) as mp:
+    with mapchete.open(custom_grid.path) as mp:
         mp.batch_process()
     # read written output
-    with mapchete.open(custom_grid.dict) as mp:
+    with mapchete.open(custom_grid.path) as mp:
         for tile in mp.get_process_tiles(5):
             data = mp.config.output.read(tile)
             assert data.any()

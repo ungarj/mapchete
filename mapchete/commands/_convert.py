@@ -12,7 +12,6 @@ from typing import Callable, List, Tuple, Union
 
 import mapchete
 from mapchete.commands._execute import execute
-from mapchete.commands._job import empty_callback, Job
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import (
     driver_from_file,
@@ -57,7 +56,7 @@ def convert(
     cog: bool = False,
     msg_callback: Callable = None,
     as_iterator: bool = False,
-) -> Job:
+) -> mapchete.Job:
     """
     Convert mapchete outputs or other geodata.
 
@@ -130,7 +129,7 @@ def convert(
 
     Returns
     -------
-    Job instance either with already processed items or a generator with known length.
+    mapchete.Job instance either with already processed items or a generator with known length.
 
     Examples
     --------
@@ -147,7 +146,11 @@ def convert(
 
     Usage within a process bar.
     """
-    msg_callback = msg_callback or empty_callback
+
+    def _empty_callback(*args, **kwargs):
+        pass
+
+    msg_callback = msg_callback or _empty_callback
     creation_options = creation_options or {}
     bidx = [bidx] if isinstance(bidx, int) else bidx
     try:
@@ -260,7 +263,7 @@ def convert(
                 "Process area is empty: clip bounds don't intersect with input bounds."
             )
             # this returns a Job with an empty iterator
-            return Job(iter, [], as_iterator=as_iterator, total=0)
+            return mapchete.Job(None, (), as_iterator=as_iterator, total=0)
     # add process bounds and output type
     mapchete_config.update(
         bounds=(clip_intersection.bounds if clip_geometry else inp_bounds),

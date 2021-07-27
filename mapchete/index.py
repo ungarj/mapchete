@@ -62,6 +62,7 @@ def zoom_index_gen(
     basepath=None,
     for_gdal=True,
     threading=False,
+    **kwargs,
 ):
     """
     Generate indexes for given zoom level.

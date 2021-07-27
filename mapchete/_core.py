@@ -195,6 +195,7 @@ class Mapchete(object):
         multiprocessing_module=None,
         multiprocessing_start_method="fork",
         skip_output_check=False,
+        executor=None,
     ):
         """
         Process a large batch of tiles.
@@ -235,6 +236,7 @@ class Mapchete(object):
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
+                executor=None,
             )
         )
 
@@ -249,6 +251,7 @@ class Mapchete(object):
         multiprocessing_module=None,
         multiprocessing_start_method="fork",
         skip_output_check=False,
+        executor=None,
     ):
         """
         Process a large batch of tiles and yield report messages per tile.
@@ -282,7 +285,9 @@ class Mapchete(object):
         # run single tile
         if tile:
             yield _run_on_single_tile(
-                process=self, tile=self.config.process_pyramid.tile(*tuple(tile))
+                executor=executor,
+                process=self,
+                tile=self.config.process_pyramid.tile(*tuple(tile)),
             )
         # run area
         else:
@@ -296,6 +301,7 @@ class Mapchete(object):
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
+                executor=executor,
             ):
                 yield process_info
 

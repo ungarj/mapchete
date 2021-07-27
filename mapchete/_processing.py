@@ -4,12 +4,13 @@ import logging
 import multiprocessing
 import os
 from traceback import format_exc
+from typing import Generator
 
 from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import get_process_func
-from mapchete._distributed import Executor
+from mapchete._executor import Executor
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
 from mapchete._timer import Timer
@@ -19,6 +20,69 @@ logger = logging.getLogger(__name__)
 
 
 ProcessInfo = namedtuple("ProcessInfo", "tile processed process_msg written write_msg")
+
+
+class Job:
+    """
+    Wraps the output of a processing function into a generator with known length.
+
+    This class also exposes the internal Executor.cancel() function in order to cancel all remaining
+    tasks/futures.
+
+    Will move into the mapchete core package.
+    """
+
+    def __init__(
+        self,
+        func: Generator,
+        fargs: tuple = None,
+        fkwargs: dict = None,
+        as_iterator: bool = False,
+        total: int = None,
+        executor_concurrency: str = "processes",
+        executor_kwargs: dict = None,
+    ):
+        self.func = func
+        self.fargs = fargs or ()
+        self.fkwargs = fkwargs or {}
+        self.status = "pending"
+        self.executor = None
+        self.executor_concurrency = executor_concurrency
+        self.executor_kwargs = executor_kwargs or {}
+        self._total = total
+        self._as_iterator = as_iterator
+        if not as_iterator:
+            self._results = list(self._run())
+
+    def _run(self):
+        if self._total == 0:
+            return
+        with Executor(
+            concurrency=self.executor_concurrency, **self.executor_kwargs
+        ) as self.executor:
+            self.status = "running"
+            yield from self.func(*self.fargs, executor=self.executor, **self.fkwargs)
+            self.status = "finished"
+
+    def cancel(self):
+        if self._as_iterator:
+            # requires client and futures
+            if self.executor is None:
+                raise ValueError("nothing to cancel because no executor is running")
+            self.executor.cancel()
+            self.status = "canceled"
+
+    def __len__(self):
+        return self._total
+
+    def __iter__(self):
+        if self._as_iterator:
+            yield from self._run()
+        else:
+            return self._results
+
+    def __repr__(self):  # pragma: no cover
+        return f"<{self.status} Job with {self._total} tasks.>"
 
 
 class TileProcess:
@@ -97,7 +161,7 @@ class TileProcess:
                         input=self.input,
                         output_params=self.output_params,
                     ),
-                    **self.process_func_params
+                    **self.process_func_params,
                 )
         except MapcheteNodataTile:
             raise
@@ -348,7 +412,7 @@ class MapcheteProcess(object):
 ###########################
 
 
-def _run_on_single_tile(process=None, tile=None):
+def _run_on_single_tile(executor=None, process=None, tile=None):
     logger.debug("run process on single tile")
     return _execute_and_write(
         tile_process=TileProcess(
@@ -364,6 +428,7 @@ def _run_on_single_tile(process=None, tile=None):
 
 
 def _run_area(
+    executor=None,
     process=None,
     zoom_levels=None,
     distributed=False,
@@ -380,6 +445,7 @@ def _run_area(
     # for output drivers requiring writing data in parent process
     if process.config.output.write_in_parent_process:
         for process_info in _run_multi(
+            executor=executor,
             func=_execute,
             zoom_levels=zoom_levels,
             process=process,
@@ -397,6 +463,7 @@ def _run_area(
     # for output drivers which can write data in child processes
     else:
         for process_info in _run_multi(
+            executor=executor,
             func=_execute_and_write,
             fkwargs=dict(output_writer=process.config.output),
             zoom_levels=zoom_levels,
@@ -429,6 +496,7 @@ def _filter_skipable(process=None, tiles=None, todo=None, target_set=None):
 
 
 def _run_multi(
+    executor=None,
     func=None,
     zoom_levels=None,
     process=None,
@@ -450,33 +518,95 @@ def _run_multi(
     # also in "continue" mode in case there were updates at the baselevel
     overview_parents = set()
 
-    with Timer() as t, Executor(
+    # If an Executor is passed on, don't close after processing. If no Executor is passed on,
+    # create one and properly close it afterwards.
+    create_executor = executor is None
+    executor = executor or Executor(
         max_workers=workers,
+        concurrency="dask" if dask_scheduler else "processes",
         start_method=multiprocessing_start_method,
         multiprocessing_module=multiprocessing_module,
         dask_scheduler=dask_scheduler,
-        distributed=distributed,
-    ) as executor:
-        logger.debug("run process on %s tiles using %s workers", total_tiles, workers)
+    )
 
-        for i, zoom in enumerate(zoom_levels):
+    try:
+        with Timer() as t:
+            logger.debug(
+                "run process on %s tiles using %s workers", total_tiles, workers
+            )
 
-            if skip_output_check:  # pragma: no cover
-                # don't check outputs and simply proceed
-                todo = process.get_process_tiles(zoom)
-            else:
-                # check which process output already exists and which process tiles need
-                # to be added to todo list
-                todo = set()
-                logger.debug("check skippable tiles")
-                for process_info in _filter_skipable(
-                    process=process,
-                    tiles=process.get_process_tiles(zoom),
-                    todo=todo,
-                    target_set=(
-                        overview_parents if process.config.baselevels and i else None
+            for i, zoom in enumerate(zoom_levels):
+
+                if skip_output_check:  # pragma: no cover
+                    # don't check outputs and simply proceed
+                    todo = process.get_process_tiles(zoom)
+                else:
+                    # check which process output already exists and which process tiles need
+                    # to be added to todo list
+                    todo = set()
+                    logger.debug("check skippable tiles")
+                    for process_info in _filter_skipable(
+                        process=process,
+                        tiles=process.get_process_tiles(zoom),
+                        todo=todo,
+                        target_set=(
+                            overview_parents
+                            if process.config.baselevels and i
+                            else None
+                        ),
+                    ):
+                        num_processed += 1
+                        logger.info(
+                            "tile %s/%s finished: %s, %s, %s",
+                            num_processed,
+                            total_tiles,
+                            process_info.tile,
+                            process_info.process_msg,
+                            process_info.write_msg,
+                        )
+                        yield process_info
+
+                # process all remaining tiles using todo list from before
+                for future in executor.as_completed(
+                    func=func,
+                    iterable=(
+                        TileProcess(
+                            tile=tile,
+                            config=process.config,
+                            skip=(
+                                process.mode == "continue"
+                                and process.config.output_reader.tiles_exist(tile)
+                            )
+                            if skip_output_check
+                            else False,
+                        )
+                        for tile in todo
                     ),
+                    fkwargs=fkwargs,
                 ):
+                    # trigger output write for driver which require parent process for writing
+                    if write_in_parent_process:
+                        output_data, process_info = future.result()
+                        process_info = _write(
+                            process_info=process_info,
+                            output_data=output_data,
+                            output_writer=process.config.output,
+                        )
+
+                    # output already has been written, so just use task process info
+                    else:
+                        process_info = future.result()
+
+                        # in case of building overviews from baselevels, remember which parent
+                        # tile needs to be updated later on
+                        if (
+                            not skip_output_check
+                            and process.config.baselevels
+                            and process_info.processed
+                            and process_info.tile.zoom > 0
+                        ):
+                            overview_parents.add(process_info.tile.get_parent())
+
                     num_processed += 1
                     logger.info(
                         "tile %s/%s finished: %s, %s, %s",
@@ -488,58 +618,9 @@ def _run_multi(
                     )
                     yield process_info
 
-            # process all remaining tiles using todo list from before
-            for task in executor.as_completed(
-                func=func,
-                iterable=(
-                    TileProcess(
-                        tile=tile,
-                        config=process.config,
-                        skip=(
-                            process.mode == "continue"
-                            and process.config.output_reader.tiles_exist(tile)
-                        )
-                        if skip_output_check
-                        else False,
-                    )
-                    for tile in todo
-                ),
-                fkwargs=fkwargs,
-                chunksize=max_chunksize,
-            ):
-                # trigger output write for driver which require parent process for writing
-                if write_in_parent_process:
-                    output_data, process_info = task.result()
-                    process_info = _write(
-                        process_info=process_info,
-                        output_data=output_data,
-                        output_writer=process.config.output,
-                    )
-
-                # output already has been written, so just use task process info
-                else:
-                    process_info = task.result()
-
-                    # in case of building overviews from baselevels, remember which parent
-                    # tile needs to be updated later on
-                    if (
-                        not skip_output_check
-                        and process.config.baselevels
-                        and process_info.processed
-                        and process_info.tile.zoom > 0
-                    ):
-                        overview_parents.add(process_info.tile.get_parent())
-
-                num_processed += 1
-                logger.info(
-                    "tile %s/%s finished: %s, %s, %s",
-                    num_processed,
-                    total_tiles,
-                    process_info.tile,
-                    process_info.process_msg,
-                    process_info.write_msg,
-                )
-                yield process_info
+    finally:
+        if create_executor:
+            executor.close()
 
     logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
 

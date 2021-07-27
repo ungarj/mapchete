@@ -5,7 +5,6 @@ from typing import Callable, List, Tuple, Union
 
 import mapchete
 from mapchete.cli import utils
-from mapchete.commands._job import empty_callback, Job
 from mapchete.io import fs_from_path, tiles_exist
 
 logger = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ def rm(
     fs_opts: dict = None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
-) -> Job:
+) -> mapchete.Job:
     """
     Remove tiles from TileDirectory.
 
@@ -53,7 +52,7 @@ def rm(
 
     Returns
     -------
-    Job instance either with already processed items or a generator with known length.
+    mapchete.Job instance either with already processed items or a generator with known length.
 
     Examples
     --------
@@ -71,7 +70,11 @@ def rm(
     Usage within a process bar.
 
     """
-    msg_callback = msg_callback or empty_callback
+
+    def _empty_callback(*args):
+        pass
+
+    msg_callback = msg_callback or _empty_callback
     fs_opts = fs_opts or {}
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom level(s) required")
@@ -114,17 +117,19 @@ def rm(
             for zoom_tiles in tiles.values()
             for tile in zoom_tiles
         ]
-        return Job(
+        return mapchete.Job(
             _rm,
-            paths,
-            fs,
-            msg_callback,
+            fargs=(
+                paths,
+                fs,
+                msg_callback,
+            ),
             as_iterator=as_iterator,
             total=len(paths),
         )
 
 
-def _rm(paths, fs, msg_callback, recursive=False):
+def _rm(paths, fs, msg_callback, recursive=False, **kwargs):
     """
     Remove one or multiple paths from file system.
 

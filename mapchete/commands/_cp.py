@@ -10,7 +10,6 @@ from tilematrix import TilePyramid
 from typing import Callable, List, Tuple, Union
 
 import mapchete
-from mapchete.commands._job import empty_callback, Job
 from mapchete.config import _guess_geometry
 from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
@@ -33,7 +32,7 @@ def cp(
     dst_fs_opts: dict = None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
-) -> Job:
+) -> mapchete.Job:
     """
     Copy TileDirectory from source to destination.
 
@@ -69,7 +68,7 @@ def cp(
 
     Returns
     -------
-    Job instance either with already processed items or a generator with known length.
+    mapchete.Job instance either with already processed items or a generator with known length.
 
     Examples
     --------
@@ -86,7 +85,11 @@ def cp(
 
     Usage within a process bar.
     """
-    msg_callback = msg_callback or empty_callback
+
+    def _empty_callback(*args):
+        pass
+
+    msg_callback = msg_callback or _empty_callback
     src_fs_opts = src_fs_opts or {}
     dst_fs_opts = dst_fs_opts or {}
     if zoom is None:  # pragma: no cover
@@ -127,16 +130,19 @@ def cp(
             fs=dst_fs,
             fs_kwargs=dst_fs_opts,
         ) as dst_mp:
-            return Job(
+            return mapchete.Job(
                 _copy_tiles,
-                msg_callback,
-                src_mp,
-                dst_mp,
-                tp,
-                multi,
-                src_fs,
-                dst_fs,
-                overwrite,
+                fargs=(
+                    msg_callback,
+                    src_mp,
+                    dst_mp,
+                    tp,
+                    multi,
+                    src_fs,
+                    dst_fs,
+                    overwrite,
+                ),
+                executor_concurrency=None,
                 as_iterator=as_iterator,
                 total=src_mp.count_tiles(),
             )
@@ -151,6 +157,7 @@ def _copy_tiles(
     src_fs,
     dst_fs,
     overwrite,
+    executor=None,
 ):
     for z in src_mp.config.init_zoom_levels:
         msg_callback(f"copy tiles for zoom {z}...")
@@ -183,29 +190,48 @@ def _copy_tiles(
 
         # copy
         copied = 0
-        for tile in tiles:
-            src_path = src_mp.config.output_reader.get_path(tile)
-            # only copy if source tile exists
-            if src_tiles_exist[tile]:
-                # skip if destination tile exists and overwrite is deactivated
-                if dst_tiles_exist[tile] and not overwrite:
-                    msg = f"{tile}: destination tile exists"
-                    logger.debug(msg)
-                    yield msg
-                    continue
-                # copy from source to target
-                else:
-                    dst_path = dst_mp.config.output_reader.get_path(tile)
-                    _copy(src_fs, src_path, dst_fs, dst_path)
-                    copied += 1
-                    msg = f"{tile}: copy {src_path} to {dst_path}"
-                    logger.debug(msg)
-                    yield msg
-            else:
-                msg = f"{tile}: source tile ({src_path}) does not exist"
-                logger.debug(msg)
-                yield msg
+        for future in executor.as_completed(
+            _copy_tile,
+            tiles,
+            fargs=(
+                src_mp,
+                dst_mp,
+                src_tiles_exist,
+                dst_tiles_exist,
+                src_fs,
+                dst_fs,
+                overwrite,
+            ),
+        ):
+            c, msg = future.result()
+            copied += c
+            yield msg
+
         msg_callback(f"{copied} tiles copied")
+
+
+def _copy_tile(
+    tile, src_mp, dst_mp, src_tiles_exist, dst_tiles_exist, src_fs, dst_fs, overwrite
+):
+    src_path = src_mp.config.output_reader.get_path(tile)
+    # only copy if source tile exists
+    if src_tiles_exist[tile]:
+        # skip if destination tile exists and overwrite is deactivated
+        if dst_tiles_exist[tile] and not overwrite:
+            msg = f"{tile}: destination tile exists"
+            logger.debug(msg)
+            return 0, msg
+        # copy from source to target
+        else:
+            dst_path = dst_mp.config.output_reader.get_path(tile)
+            _copy(src_fs, src_path, dst_fs, dst_path)
+            msg = f"{tile}: copy {src_path} to {dst_path}"
+            logger.debug(msg)
+            return 1, msg
+    else:
+        msg = f"{tile}: source tile ({src_path}) does not exist"
+        logger.debug(msg)
+        return 0, msg
 
 
 def _copy(src_fs, src_path, dst_fs, dst_path):
