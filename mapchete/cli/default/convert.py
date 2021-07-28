@@ -7,7 +7,7 @@ import tqdm
 
 import mapchete
 from mapchete import commands
-from mapchete.cli import utils
+from mapchete.cli import options
 from mapchete.formats import available_output_formats
 
 OUTPUT_FORMATS = available_output_formats()
@@ -22,15 +22,15 @@ def _validate_bidx(ctx, param, bidx):
 
 
 @click.command(help="Convert outputs or other geodata.")
-@utils.arg_tiledir
-@utils.arg_output
-@utils.opt_zoom
-@utils.opt_bounds
-@utils.opt_bounds_crs
-@utils.opt_area
-@utils.opt_area_crs
-@utils.opt_point
-@utils.opt_point_crs
+@options.arg_tiledir
+@options.arg_output
+@options.opt_zoom
+@options.opt_bounds
+@options.opt_bounds_crs
+@options.opt_area
+@options.opt_area_crs
+@options.opt_point
+@options.opt_point_crs
 @click.option(
     "--clip-geometry",
     "-c",
@@ -76,7 +76,7 @@ def _validate_bidx(ctx, param, bidx):
     default=0.0,
     help="Scaling offset (for raster output only).",
 )
-@utils.opt_resampling_method
+@options.opt_resampling_method
 @click.option(
     "--overviews", is_flag=True, help="Generate overviews (single GTiff output only)."
 )
@@ -91,15 +91,16 @@ def _validate_bidx(ctx, param, bidx):
     is_flag=True,
     help="Write a valid COG. This will automatically generate verviews. (GTiff only)",
 )
-@utils.opt_overwrite
-@utils.opt_verbose
-@utils.opt_no_pbar
-@utils.opt_debug
-@utils.opt_multi
-@utils.opt_concurrency
-@utils.opt_logfile
-@utils.opt_vrt
-@utils.opt_idx_out_dir
+@options.opt_overwrite
+@options.opt_verbose
+@options.opt_no_pbar
+@options.opt_debug
+@options.opt_workers
+@options.opt_multi
+@options.opt_concurrency
+@options.opt_logfile
+@options.opt_vrt
+@options.opt_idx_out_dir
 def convert(
     tiledir,
     output,

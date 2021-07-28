@@ -3,32 +3,33 @@ import tqdm
 
 import mapchete
 from mapchete import commands
-from mapchete.cli import utils
+from mapchete.cli import options
 
 
 @click.command(help="Execute a process.")
-@utils.arg_mapchete_files
-@utils.opt_zoom
-@utils.opt_bounds
-@utils.opt_bounds_crs
-@utils.opt_area
-@utils.opt_area_crs
-@utils.opt_point
-@utils.opt_point_crs
-@utils.opt_tile
-@utils.opt_overwrite
-@utils.opt_concurrency
-@utils.opt_multi
-@utils.opt_dask_scheduler
-@utils.opt_input_file
-@utils.opt_logfile
-@utils.opt_verbose
-@utils.opt_no_pbar
-@utils.opt_debug
-@utils.opt_max_chunksize
-@utils.opt_multiprocessing_start_method
-@utils.opt_vrt
-@utils.opt_idx_out_dir
+@options.arg_mapchete_files
+@options.opt_zoom
+@options.opt_bounds
+@options.opt_bounds_crs
+@options.opt_area
+@options.opt_area_crs
+@options.opt_point
+@options.opt_point_crs
+@options.opt_tile
+@options.opt_overwrite
+@options.opt_concurrency
+@options.opt_workers
+@options.opt_multi
+@options.opt_dask_scheduler
+@options.opt_input_file
+@options.opt_logfile
+@options.opt_verbose
+@options.opt_no_pbar
+@options.opt_debug
+@options.opt_max_chunksize
+@options.opt_multiprocessing_start_method
+@options.opt_vrt
+@options.opt_idx_out_dir
 def execute(
     mapchete_files,
     *args,

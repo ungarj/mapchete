@@ -1,6 +1,7 @@
 import fiona
 import json
 import logging
+from multiprocessing import cpu_count
 import os
 from rasterio.crs import CRS
 from shapely.geometry import box, shape
@@ -8,6 +9,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from tilematrix import TilePyramid
 from typing import Callable, List, Tuple, Union
+import warnings
 
 import mapchete
 from mapchete.config import _guess_geometry
@@ -27,7 +29,10 @@ def cp(
     bounds: Tuple[float] = None,
     bounds_crs: Union[CRS, str] = None,
     overwrite: bool = False,
+    workers: int = None,
     multi: int = None,
+    concurrency: str = None,
+    dask_scheduler: str = None,
     src_fs_opts: dict = None,
     dst_fs_opts: dict = None,
     msg_callback: Callable = None,
@@ -55,7 +60,7 @@ def cp(
         CRS of area (default: process CRS).
     overwrite : bool
         Overwrite existing output.
-    multi : int
+    workers : int
         Number of threads used to check whether tiles exist.
     src_fs_opts : dict
         Configuration options for source fsspec filesystem.
@@ -90,6 +95,9 @@ def cp(
         pass
 
     msg_callback = msg_callback or _empty_callback
+    if multi is not None:  # pragma: no cover
+        warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
+    workers = workers or multi or cpu_count()
     src_fs_opts = src_fs_opts or {}
     dst_fs_opts = dst_fs_opts or {}
     if zoom is None:  # pragma: no cover
@@ -137,12 +145,15 @@ def cp(
                     src_mp,
                     dst_mp,
                     tp,
-                    multi,
+                    workers,
                     src_fs,
                     dst_fs,
                     overwrite,
                 ),
-                executor_concurrency=None,
+                executor_concurrency=concurrency,
+                executor_kwargs=dict(
+                    max_workers=workers, dask_scheduler=dask_scheduler
+                ),
                 as_iterator=as_iterator,
                 total=src_mp.count_tiles(),
             )
@@ -153,7 +164,7 @@ def _copy_tiles(
     src_mp,
     dst_mp,
     tp,
-    multi,
+    workers,
     src_fs,
     dst_fs,
     overwrite,
@@ -175,7 +186,7 @@ def _copy_tiles(
         src_tiles_exist = {
             tile: exists
             for tile, exists in tiles_exist(
-                config=src_mp.config, output_tiles=tiles, multi=multi
+                config=src_mp.config, output_tiles=tiles, multi=workers
             )
         }
 
@@ -184,7 +195,7 @@ def _copy_tiles(
         dst_tiles_exist = {
             tile: exists
             for tile, exists in tiles_exist(
-                config=dst_mp.config, output_tiles=tiles, multi=multi
+                config=dst_mp.config, output_tiles=tiles, multi=workers
             )
         }
 

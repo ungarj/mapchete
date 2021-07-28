@@ -9,6 +9,7 @@ from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 import tilematrix
 from typing import Callable, List, Tuple, Union
+import warnings
 
 import mapchete
 from mapchete.commands._execute import execute
@@ -40,6 +41,8 @@ def convert(
     tile: Tuple[int, int, int] = None,
     overwrite: bool = False,
     concurrency: str = "processes",
+    dask_scheduler: str = None,
+    workers: int = None,
     multi: int = None,
     clip_geometry: str = None,
     bidx: List[int] = None,
@@ -93,8 +96,8 @@ def convert(
         Zoom, row and column of tile to be processed (cannot be used with zoom)
     overwrite : bool
         Overwrite existing output.
-    multi : int
-        Number of processes used to paralellize tile execution.
+    workers : int
+        Number of execution workers when processing concurrently.
     clip_geometry : str
         Path to Fiona-readable file by which output will be clipped.
     bidx : list of integers
@@ -152,6 +155,9 @@ def convert(
         pass
 
     msg_callback = msg_callback or _empty_callback
+    if multi is not None:  # pragma: no cover
+        warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
+    workers = workers or multi or cpu_count()
     creation_options = creation_options or {}
     bidx = [bidx] if isinstance(bidx, int) else bidx
     try:
@@ -284,7 +290,8 @@ def convert(
         area=area,
         area_crs=area_crs,
         concurrency=concurrency,
-        multi=multi or cpu_count(),
+        dask_scheduler=dask_scheduler,
+        workers=workers,
         as_iterator=as_iterator,
         msg_callback=msg_callback,
     )

@@ -8,7 +8,7 @@ import sys
 import tqdm
 
 import mapchete
-from mapchete.cli import utils
+from mapchete.cli import options
 from mapchete import commands
 
 
@@ -19,31 +19,31 @@ logger = logging.getLogger(__name__)
 
 
 @click.command(help="Create index of output tiles.")
-@utils.arg_tiledir
-@utils.opt_idx_out_dir
-@utils.opt_geojson
-@utils.opt_gpkg
-@utils.opt_shp
-@utils.opt_vrt
-@utils.opt_txt
-@utils.opt_fieldname
-@utils.opt_basepath
-@utils.opt_for_gdal
-@utils.opt_zoom
-@utils.opt_bounds
-@utils.opt_bounds_crs
-@utils.opt_area
-@utils.opt_area_crs
-@utils.opt_point
-@utils.opt_point_crs
-@utils.opt_tile
-@utils.opt_http_username
-@utils.opt_http_password
-@utils.opt_fs_opts
-@utils.opt_verbose
-@utils.opt_no_pbar
-@utils.opt_debug
-@utils.opt_logfile
+@options.arg_tiledir
+@options.opt_idx_out_dir
+@options.opt_geojson
+@options.opt_gpkg
+@options.opt_shp
+@options.opt_vrt
+@options.opt_txt
+@options.opt_fieldname
+@options.opt_basepath
+@options.opt_for_gdal
+@options.opt_zoom
+@options.opt_bounds
+@options.opt_bounds_crs
+@options.opt_area
+@options.opt_area_crs
+@options.opt_point
+@options.opt_point_crs
+@options.opt_tile
+@options.opt_http_username
+@options.opt_http_password
+@options.opt_fs_opts
+@options.opt_verbose
+@options.opt_no_pbar
+@options.opt_debug
+@options.opt_logfile
 def index(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwargs):
     """Create various index files from process output."""
     # handle deprecated options

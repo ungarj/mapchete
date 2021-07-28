@@ -4,7 +4,6 @@ from shapely.geometry.base import BaseGeometry
 from typing import Callable, List, Tuple, Union
 
 import mapchete
-from mapchete.cli import utils
 from mapchete.io import fs_from_path, tiles_exist
 
 logger = logging.getLogger(__name__)

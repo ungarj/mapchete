@@ -3,6 +3,7 @@ from multiprocessing import cpu_count
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 from typing import Callable, List, Tuple, Union
+import warnings
 
 import mapchete
 from mapchete.config import bounds_from_opts, raw_conf, raw_conf_process_pyramid
@@ -23,10 +24,11 @@ def execute(
     overwrite: bool = False,
     mode: str = "continue",
     concurrency: str = "processes",
+    workers: int = None,
     multi: int = None,
     max_chunksize: int = None,
     multiprocessing_start_method: str = None,
-    dask_scheduler=None,
+    dask_scheduler: str = None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
 ) -> mapchete.Job:
@@ -58,8 +60,8 @@ def execute(
         Overwrite existing output.
     mode : str
         Set process mode. One of "readonly", "continue" or "overwrite".
-    multi : int
-        Number of processes used to paralellize tile execution.
+    workers : int
+        Number of execution workers when processing concurrently.
     max_chunksize : int
         Maximum number of process tiles to be queued for each  worker. (default: 1)
     multiprocessing_start_method : str
@@ -95,7 +97,9 @@ def execute(
         pass
 
     msg_callback = msg_callback or _empty_callback
-    multi = multi or cpu_count()
+    if multi is not None:  # pragma: no cover
+        warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
+    workers = workers or multi or cpu_count()
 
     if tile:
         tile = raw_conf_process_pyramid(raw_conf(mapchete_config)).tile(*tile)

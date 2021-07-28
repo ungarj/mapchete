@@ -2,27 +2,29 @@ import click
 import tqdm
 
 from mapchete import commands
-from mapchete.cli import utils
+from mapchete.cli import options
 
 
 @click.command(help="Copy TileDirectory from one source to another.")
-@utils.arg_src_tiledir
-@utils.arg_dst_tiledir
-@utils.opt_zoom
-@utils.opt_area
-@utils.opt_area_crs
-@utils.opt_bounds
-@utils.opt_bounds_crs
-@utils.opt_overwrite
-@utils.opt_verbose
-@utils.opt_no_pbar
-@utils.opt_debug
-@utils.opt_logfile
-@utils.opt_multi
-@utils.opt_http_username
-@utils.opt_http_password
-@utils.opt_src_fs_opts
-@utils.opt_dst_fs_opts
+@options.arg_src_tiledir
+@options.arg_dst_tiledir
+@options.opt_zoom
+@options.opt_area
+@options.opt_area_crs
+@options.opt_bounds
+@options.opt_bounds_crs
+@options.opt_overwrite
+@options.opt_verbose
+@options.opt_no_pbar
+@options.opt_debug
+@options.opt_logfile
+@options.opt_workers
+@options.opt_dask_scheduler
+@options.opt_concurrency
+@options.opt_http_username
+@options.opt_http_password
+@options.opt_src_fs_opts
+@options.opt_dst_fs_opts
 def cp(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwargs):
     """Copy TileDirectory."""
     # handle deprecated options

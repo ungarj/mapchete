@@ -3,7 +3,7 @@
 import click
 import logging
 
-from mapchete.cli import utils
+from mapchete.cli import options
 from mapchete.processes import process_names_docstrings
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--process_name", "-n", type=click.STRING, help="Print docstring of process."
 )
-@utils.opt_debug
+@options.opt_debug
 def processes(process_name=None, docstrings=False, debug=False):
     """List available processes."""
     processes = process_names_docstrings(process_name=process_name)

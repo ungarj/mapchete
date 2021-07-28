@@ -141,13 +141,12 @@ arg_tiledir = click.argument("tiledir", type=click.STRING)
 #################
 opt_out_path = click.option(
     "--out-path",
-    "-op",
     type=click.Path(),
     default=os.path.join(os.getcwd(), "output"),
     help="Process output path.",
 )
 opt_idx_out_dir = click.option(
-    "--idx-out-dir", "-od", type=click.Path(), help="Index output directory."
+    "--idx-out-dir", type=click.Path(), help="Index output directory."
 )
 opt_input_file = click.option(
     "--input-file",
@@ -214,7 +213,13 @@ opt_multi = click.option(
     "--multi",
     "-m",
     type=click.INT,
-    help="Number of concurrent processes.",
+    help="Number of workers when processing concurrently.",
+)
+opt_workers = click.option(
+    "--workers",
+    "-w",
+    type=click.INT,
+    help="Number of workers when processing concurrently.",
 )
 opt_force = click.option(
     "--force", "-f", is_flag=True, help="Overwrite if files already exist."
@@ -239,10 +244,9 @@ opt_debug = click.option(
 )
 opt_max_chunksize = click.option(
     "--max-chunksize",
-    "-c",
     type=click.INT,
     default=1,
-    help="Maximum number of process tiles to be queued for each  worker. (default: 1)",
+    help="Maximum number of tasks to be queued for each  worker. (default: 1)",
 )
 opt_multiprocessing_start_method = click.option(
     "--multiprocessing-start-method",

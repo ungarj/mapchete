@@ -7,7 +7,6 @@ import tqdm
 from typing import Callable, List, Tuple, Union
 
 import mapchete
-from mapchete.cli import utils
 from mapchete.index import zoom_index_gen
 
 logger = logging.getLogger(__name__)
