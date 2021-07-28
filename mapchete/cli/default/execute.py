@@ -17,8 +17,9 @@ from mapchete.cli import utils
 @utils.opt_point_crs
 @utils.opt_tile
 @utils.opt_overwrite
-@utils.opt_dask_scheduler
+@utils.opt_concurrency
 @utils.opt_multi
+@utils.opt_dask_scheduler
 @utils.opt_input_file
 @utils.opt_logfile
 @utils.opt_verbose

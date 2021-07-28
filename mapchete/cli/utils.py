@@ -110,6 +110,10 @@ def _cb_key_val(ctx, param, value):
         return out
 
 
+def _cb_none_concurrency(ctx, param, value):
+    return None if value == "none" else value
+
+
 # click arguments #
 ###################
 arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
@@ -353,6 +357,10 @@ opt_fs_opts = click.option(
 opt_dask_scheduler = click.option(
     "--dask-scheduler", type=click.STRING, help="Address for dask scheduler."
 )
-opt_dask_scheduler = click.option(
-    "--dask-scheduler", type=click.STRING, help="Address for dask scheduler."
+opt_concurrency = click.option(
+    "--concurrency",
+    type=click.Choice(["processes", "threads", "dask", "none"]),
+    default="processes",
+    callback=_cb_none_concurrency,
+    help="Decide which Executor to use for concurrent processing.",
 )

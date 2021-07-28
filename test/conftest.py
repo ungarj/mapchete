@@ -390,6 +390,13 @@ def cleantopo_br():
 
 
 @pytest.fixture
+def cleantopo_br_metatiling_1():
+    """Fixture for cleantopo_br.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "cleantopo_br_metatiling_1.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def cleantopo_remote():
     """Fixture for cleantopo_remote.mapchete."""
     path = os.path.join(TESTDATA_DIR, "cleantopo_remote.mapchete")

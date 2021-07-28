@@ -22,6 +22,7 @@ def execute(
     tile: Tuple[int, int, int] = None,
     overwrite: bool = False,
     mode: str = "continue",
+    concurrency: str = "processes",
     multi: int = None,
     max_chunksize: int = None,
     multiprocessing_start_method: str = None,
@@ -124,12 +125,15 @@ def execute(
             msg_callback("processing 1 tile")
         else:
             msg_callback(f"processing {tiles_count} tile(s) on {multi} worker(s)")
+        # automatically use dask Executor if dask scheduler is defined
         if dask_scheduler:  # pragma: no cover
             concurrency = "dask"
-        elif tiles_count == 1 or multi == 1 or multi is None:
+        # use sequential Executor if only one tile or only one worker is defined
+        elif tiles_count == 1 or multi == 1:
+            logger.debug(
+                f"using sequential Executor because there is only one {'tile' if tiles_count == 1 else 'worker'}"
+            )
             concurrency = None
-        else:
-            concurrency = "processes"
         return mapchete.Job(
             _msg_wrapper,
             fargs=(

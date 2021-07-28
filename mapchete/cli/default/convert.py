@@ -96,6 +96,7 @@ def _validate_bidx(ctx, param, bidx):
 @utils.opt_no_pbar
 @utils.opt_debug
 @utils.opt_multi
+@utils.opt_concurrency
 @utils.opt_logfile
 @utils.opt_vrt
 @utils.opt_idx_out_dir

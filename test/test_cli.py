@@ -118,43 +118,55 @@ def test_create_existing(mp_tmpdir):
         run_cli(args, expected_exit_code=-1)
 
 
-def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
-    """Run mapchete execute with multiple workers."""
-    temp_mapchete = os.path.join(mp_tmpdir, "temp.mapchete")
-    temp_process = os.path.join(mp_tmpdir, "temp.py")
-    out_format = "GTiff"
-    # create from template
+def test_execute_concurrent_processes(mp_tmpdir, cleantopo_br_metatiling_1):
+    # """Run mapchete execute with multiple workers."""
     run_cli(
         [
-            "create",
-            temp_mapchete,
-            temp_process,
-            out_format,
-            "--pyramid-type",
-            "geodetic",
+            "execute",
+            cleantopo_br_metatiling_1.path,
+            "--zoom",
+            "5",
+            "-m",
+            "2",
+            "-d",
+            "--concurrency",
+            "processes",
         ]
     )
-    # edit configuration
-    with open(temp_mapchete, "r") as config_file:
-        config = yaml.safe_load(config_file)
-        config["output"].update(bands=1, dtype="uint8", path=mp_tmpdir)
-    with open(temp_mapchete, "w") as config_file:
-        config_file.write(yaml.dump(config, default_flow_style=False))
-    # run process with multiprocessing
-    with pytest.raises(MapcheteProcessOutputError):
-        run_cli(
-            [
-                "execute",
-                temp_mapchete,
-                "--zoom",
-                "5",
-                "-m",
-                "2",
-                "-d",
-            ]
-        )
-    # run example process with multiprocessing
-    run_cli(["execute", cleantopo_br.path, "--zoom", "5", "-m", "2", "-d"])
+
+
+def test_execute_concurrent_threads(mp_tmpdir, cleantopo_br_metatiling_1):
+    """Run mapchete execute with multiple workers."""
+    run_cli(
+        [
+            "execute",
+            cleantopo_br_metatiling_1.path,
+            "--zoom",
+            "5",
+            "-m",
+            "2",
+            "-d",
+            "--concurrency",
+            "threads",
+        ],
+    )
+
+
+def test_execute_concurrent_dask(mp_tmpdir, cleantopo_br_metatiling_1):
+    """Run mapchete execute with multiple workers."""
+    run_cli(
+        [
+            "execute",
+            cleantopo_br_metatiling_1.path,
+            "--zoom",
+            "5",
+            "-m",
+            "2",
+            "-d",
+            "--concurrency",
+            "dask",
+        ],
+    )
 
 
 def test_execute_debug(mp_tmpdir, example_mapchete):

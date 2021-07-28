@@ -31,7 +31,7 @@ class Executor:
             return ConcurrentFuturesExecutor(*args, concurrency=concurrency, **kwargs)
         else:  # pragma: no cover
             raise ValueError(
-                f"concurrency must be one of 'processes', 'threads' or 'dask', not {concurrency}"
+                f"concurrency must be one of None, 'processes', 'threads' or 'dask', not {concurrency}"
             )
 
 
@@ -122,8 +122,9 @@ class DaskExecutor(_ExecutorBase):
     def _as_completed(self, futures):
         from dask.distributed import as_completed
 
-        for future in as_completed(futures):
-            yield future
+        if futures:
+            for future in as_completed(futures):
+                yield future
 
 
 class ConcurrentFuturesExecutor(_ExecutorBase):
@@ -137,10 +138,17 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
         **kwargs,
     ):
         """Set attributes."""
+
         self.max_workers = max_workers or os.cpu_count()
         self.futures = []
+        self._executor_kwargs = dict(max_workers=self.max_workers)
         if concurrency == "processes":
             self._executor_cls = concurrent.futures.ProcessPoolExecutor
+            self._executor_kwargs.update(
+                mp_context=multiprocessing.get_context(
+                    method=kwargs.get("multiprocessing_start_method")
+                )
+            )
         elif concurrency == "threads":
             self._executor_cls = concurrent.futures.ThreadPoolExecutor
         else:  # pragma: no cover
@@ -176,12 +184,9 @@ class SequentialExecutor(_ExecutorBase):
     def cancel(self):
         self._cancel = True
 
-    def close(self):  # pragma: no cover
-        pass
-
     def __exit__(self, *args):
         """Exit context manager."""
-        pass
+        logger.debug("SequentialExecutor closed")
 
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
