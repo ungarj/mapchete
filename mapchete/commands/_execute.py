@@ -128,12 +128,12 @@ def execute(
         if tile:
             msg_callback("processing 1 tile")
         else:
-            msg_callback(f"processing {tiles_count} tile(s) on {multi} worker(s)")
+            msg_callback(f"processing {tiles_count} tile(s) on {workers} worker(s)")
         # automatically use dask Executor if dask scheduler is defined
         if dask_scheduler:  # pragma: no cover
             concurrency = "dask"
         # use sequential Executor if only one tile or only one worker is defined
-        elif tiles_count == 1 or multi == 1:
+        elif tiles_count == 1 or workers == 1:
             logger.debug(
                 f"using sequential Executor because there is only one {'tile' if tiles_count == 1 else 'worker'}"
             )
@@ -146,7 +146,7 @@ def execute(
             ),
             fkwargs=dict(
                 tile=tile,
-                multi=multi,
+                multi=workers,
                 zoom=None if tile else zoom,
             ),
             executor_concurrency=concurrency,

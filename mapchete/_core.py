@@ -6,7 +6,7 @@ import multiprocessing
 import os
 import threading
 
-from mapchete.config import MapcheteConfig
+from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.errors import MapcheteNodataTile
 from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
@@ -193,7 +193,7 @@ class Mapchete(object):
         multi=None,
         max_chunksize=1,
         multiprocessing_module=None,
-        multiprocessing_start_method="fork",
+        multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check=False,
         executor=None,
     ):
@@ -220,7 +220,7 @@ class Mapchete(object):
             (default: multiprocessing)
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
-            (default: "fork")
+            (default: "spawn")
         skip_output_check : bool
             skip checking whether process tiles already have existing output before
             starting to process;
@@ -249,7 +249,7 @@ class Mapchete(object):
         multi=None,
         max_chunksize=1,
         multiprocessing_module=None,
-        multiprocessing_start_method="fork",
+        multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check=False,
         executor=None,
     ):
@@ -274,7 +274,7 @@ class Mapchete(object):
             (default: multiprocessing)
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
-            (default: "fork")
+            (default: "spawn")
         skip_output_check : bool
             skip checking whether process tiles already have existing output before
             starting to process;

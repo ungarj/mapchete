@@ -6,6 +6,8 @@ import logging
 import multiprocessing
 import os
 
+from mapchete.log import set_log_level
+
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +143,11 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
 
         self.max_workers = max_workers or os.cpu_count()
         self.futures = []
-        self._executor_kwargs = dict(max_workers=self.max_workers)
+        self._executor_kwargs = dict(
+            max_workers=self.max_workers,
+            initializer=set_log_level,
+            initargs=(logger.getEffectiveLevel(),),
+        )
         if concurrency == "processes":
             self._executor_cls = concurrent.futures.ProcessPoolExecutor
             self._executor_kwargs.update(

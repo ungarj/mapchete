@@ -8,7 +8,11 @@ import tilematrix
 import tqdm
 
 import mapchete
-from mapchete.config import raw_conf, bounds_from_opts
+from mapchete.config import (
+    raw_conf,
+    bounds_from_opts,
+    MULTIPROCESSING_DEFAULT_START_METHOD,
+)
 from mapchete.formats import available_output_formats
 from mapchete.index import zoom_index_gen
 from mapchete.log import set_log_level, setup_logfile
@@ -19,9 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 MULTIPROCESSING_START_METHODS = get_all_start_methods()
-MULTIPROCESSING_START_METHOD_DEFAULT = (
-    "fork" if "fork" in MULTIPROCESSING_START_METHODS else "spawn"
-)
 
 
 # click callbacks #
@@ -251,10 +252,10 @@ opt_max_chunksize = click.option(
 opt_multiprocessing_start_method = click.option(
     "--multiprocessing-start-method",
     type=click.Choice(MULTIPROCESSING_START_METHODS),
-    default=MULTIPROCESSING_START_METHOD_DEFAULT,
+    default=MULTIPROCESSING_DEFAULT_START_METHOD,
     help=(
         "Method used by multiprocessing module to start child workers. Availability of "
-        f"methods depends on OS (default: {MULTIPROCESSING_START_METHOD_DEFAULT})"
+        f"methods depends on OS (default: {MULTIPROCESSING_DEFAULT_START_METHOD})"
     ),
 )
 opt_input_formats = click.option(

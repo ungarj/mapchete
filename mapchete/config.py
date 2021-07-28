@@ -93,6 +93,8 @@ _OUTPUT_PARAMETERS = [
     "mode",
 ]
 
+MULTIPROCESSING_DEFAULT_START_METHOD = "spawn"
+
 
 class MapcheteConfig(object):
     """
