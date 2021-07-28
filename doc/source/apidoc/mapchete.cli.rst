@@ -16,7 +16,7 @@ Submodules
    :maxdepth: 4
 
    mapchete.cli.main
-   mapchete.cli.utils
+   mapchete.cli.options
 
 Module contents
 ---------------
