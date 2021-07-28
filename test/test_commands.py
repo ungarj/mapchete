@@ -82,11 +82,25 @@ def test_execute(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     tp = TilePyramid("geodetic")
     tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
     job = execute(config, zoom=zoom)
+    for t in job:
+        assert t
     assert len(tiles) == len(job)
     with mapchete.open(config) as mp:
         for t in tiles:
             with rasterio.open(mp.config.output.get_path(t)) as src:
                 assert not src.read(masked=True).mask.all()
+
+
+def test_execute_cancel(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
+    zoom = 5
+    config = cleantopo_br.dict
+    config["pyramid"].update(metatiling=1)
+    job = execute(config, zoom=zoom, as_iterator=True)
+    for i, t in enumerate(job):
+        job.cancel()
+        break
+    assert i == 0
+    assert job.status == "cancelled"
 
 
 def test_execute_tile(mp_tmpdir, cleantopo_br):

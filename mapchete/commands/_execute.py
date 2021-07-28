@@ -124,7 +124,7 @@ def execute(
             msg_callback("processing 1 tile")
         else:
             msg_callback(f"processing {tiles_count} tile(s) on {multi} worker(s)")
-        if dask_scheduler:
+        if dask_scheduler:  # pragma: no cover
             concurrency = "dask"
         elif tiles_count == 1 or multi == 1 or multi is None:
             concurrency = None

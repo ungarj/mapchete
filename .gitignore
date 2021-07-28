@@ -11,3 +11,4 @@ venv/
 htmlcov/
 .pytest*
 .env
+dask-worker-space/

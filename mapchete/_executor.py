@@ -28,7 +28,7 @@ class Executor:
         elif concurrency is None or kwargs.get("max_workers") == 1:
             return SequentialExecutor(*args, **kwargs)
         elif concurrency in ["processes", "threads"]:
-            return ConcurrentFuturesExecutor(*args, **kwargs)
+            return ConcurrentFuturesExecutor(*args, concurrency=concurrency, **kwargs)
         else:  # pragma: no cover
             raise ValueError(
                 f"concurrency must be one of 'processes', 'threads' or 'dask', not {concurrency}"
@@ -85,6 +85,9 @@ class _ExecutorBase:
         logger.debug(f"closing executor {self._executor}...")
         self._executor.__exit__(*args)
         logger.debug(f"closed executor {self._executor}")
+
+    def __repr__(self):  # pragma: no cover
+        return f"<Executor ({self._executor_cls})>"
 
 
 class DaskExecutor(_ExecutorBase):
@@ -168,28 +171,32 @@ class SequentialExecutor(_ExecutorBase):
         for i in iterable:
             if self._cancel:
                 return
-            yield FakeFuture(func, i, fargs=fargs, fkwargs=fkwargs)
+            yield FakeFuture(func, fargs=[i, *fargs], fkwargs=fkwargs)
 
     def cancel(self):
         self._cancel = True
 
-    def close(self):
+    def close(self):  # pragma: no cover
         pass
 
     def __exit__(self, *args):
         """Exit context manager."""
         pass
 
+    def __repr__(self):  # pragma: no cover
+        """Return string representation."""
+        return "SequentialExecutor"
+
 
 class FakeFuture:
     """Wrapper class to mimick future interface."""
 
-    def __init__(self, func, i, fargs=None, fkwargs=None):
+    def __init__(self, func, fargs=None, fkwargs=None):
         """Set attributes."""
         fargs = fargs or []
         fkwargs = fkwargs or {}
         try:
-            self._result, self._exception = func(i, *fargs, **fkwargs), None
+            self._result, self._exception = func(*fargs, **fkwargs), None
         except Exception as e:  # pragma: no cover
             self._result, self._exception = None, e
 
@@ -205,6 +212,6 @@ class FakeFuture:
         """Raise task exception if any."""
         return self._exception
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         """Return string representation."""
-        return f"FinishedTask(result={self._result}, exception={self._exception})"
+        return f"FakeFuture(result={self._result}, exception={self._exception})"

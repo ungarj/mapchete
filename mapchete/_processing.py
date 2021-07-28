@@ -67,10 +67,10 @@ class Job:
     def cancel(self):
         if self._as_iterator:
             # requires client and futures
-            if self.executor is None:
+            if self.executor is None:  # pragma: no cover
                 raise ValueError("nothing to cancel because no executor is running")
             self.executor.cancel()
-            self.status = "canceled"
+            self.status = "cancelled"
 
     def __len__(self):
         return self._total
