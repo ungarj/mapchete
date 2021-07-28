@@ -223,6 +223,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         zoom=7,
         overviews=True,
         overviews_resampling_method="bilinear",
+        concurrency=None,
     )
     assert len(job)
     with rasterio.open(single_gtiff, "r") as src:
@@ -236,7 +237,9 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
-    job = convert(http_raster, single_gtiff, output_pyramid="geodetic", zoom=1)
+    job = convert(
+        http_raster, single_gtiff, output_pyramid="geodetic", zoom=1, concurrency=None
+    )
     assert len(job)
     with rasterio.open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
