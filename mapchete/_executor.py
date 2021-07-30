@@ -6,6 +6,7 @@ import logging
 import multiprocessing
 import os
 
+from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.log import set_log_level
 
 
@@ -152,7 +153,10 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
             self._executor_cls = concurrent.futures.ProcessPoolExecutor
             self._executor_kwargs.update(
                 mp_context=multiprocessing.get_context(
-                    method=kwargs.get("multiprocessing_start_method")
+                    method=kwargs.get(
+                        "multiprocessing_start_method",
+                        MULTIPROCESSING_DEFAULT_START_METHOD,
+                    )
                 )
             )
         elif concurrency == "threads":
