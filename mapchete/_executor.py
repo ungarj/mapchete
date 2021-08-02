@@ -151,13 +151,12 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
         )
         if concurrency == "processes":
             self._executor_cls = concurrent.futures.ProcessPoolExecutor
+            start_method = (
+                kwargs.get("multiprocessing_start_method")
+                or MULTIPROCESSING_DEFAULT_START_METHOD
+            )
             self._executor_kwargs.update(
-                mp_context=multiprocessing.get_context(
-                    method=kwargs.get(
-                        "multiprocessing_start_method",
-                        MULTIPROCESSING_DEFAULT_START_METHOD,
-                    )
-                )
+                mp_context=multiprocessing.get_context(method=start_method)
             )
         elif concurrency == "threads":
             self._executor_cls = concurrent.futures.ThreadPoolExecutor
