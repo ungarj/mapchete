@@ -542,7 +542,7 @@ class MapcheteConfig(object):
             ),
         )
 
-    @property
+    @cached_property
     def process_func(self):
         """Import process function and make syntax check."""
         if self.mode == "readonly":
@@ -1000,7 +1000,7 @@ def bounds_from_opts(
 
 def get_process_func(process=None, config_dir=None, run_compile=False):
     """Import and return process function."""
-    logger.debug("get process function from %s", process)
+    logger.debug(f"get process function from {process}")
     process_module = _load_process_module(
         process=process, config_dir=config_dir, run_compile=run_compile
     )
@@ -1029,7 +1029,7 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
                     dst.write(line + "\n")
             process = tmpfile.name
         if process.endswith(".py"):
-            module_path = os.path.join(config_dir, process)
+            module_path = absolute_path(path=process, base_dir=config_dir)
             if not os.path.isfile(module_path):
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
@@ -1053,6 +1053,7 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
                 module = importlib.import_module(process)
             except ImportError as e:
                 raise MapcheteProcessImportError(e)
+        logger.debug(f"return process func: {module}")
     finally:
         if tmpfile:
             logger.debug(f"removing {tmpfile.name}")
