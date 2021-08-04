@@ -362,6 +362,13 @@ def example_mapchete():
 
 
 @pytest.fixture
+def example_custom_process_mapchete():
+    """Fixture for example.mapchete."""
+    path = os.path.join(TESTDATA_DIR, "example_custom_process.mapchete")
+    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+
+
+@pytest.fixture
 def zoom_mapchete():
     """Fixture for zoom.mapchete."""
     path = os.path.join(TESTDATA_DIR, "zoom.mapchete")

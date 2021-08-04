@@ -100,7 +100,7 @@ class TileProcess:
         self.skip = skip
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
-        self.process_path = None if skip else config.process_path
+        self.process = None if skip else config.process
         self.config_dir = None if skip else config.config_dir
         if skip or self.tile.zoom not in self.config_zoom_levels:
             self.input, self.process_func_params, self.output_params = {}, {}, {}
@@ -149,7 +149,7 @@ class TileProcess:
                 return self._interpolate_from_baselevel("higher")
         # Otherwise, execute from process file.
         process_func = get_process_func(
-            process_path=self.process_path, config_dir=self.config_dir
+            process=self.process, config_dir=self.config_dir
         )
         try:
             with Timer() as t:

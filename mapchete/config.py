@@ -26,6 +26,7 @@ from shapely.geometry import box, Point, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import cascaded_union
 import sys
+from tempfile import NamedTemporaryFile
 from tilematrix._funcs import Bounds
 import warnings
 
@@ -58,7 +59,7 @@ logger = logging.getLogger(__name__)
 
 # parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process", (str, type(None))),  # path to .py file or module path
+    ("process", (str, list, type(None))),  # path to .py file or module path
     ("pyramid", dict),  # process pyramid definition
     ("input", (dict, type(None))),  # files & other types
     ("output", dict),  # process output parameters
@@ -208,7 +209,7 @@ class MapcheteConfig(object):
 
         # (2) check user process
         self.config_dir = self._raw["config_dir"]
-        self.process_name = self.process_path = self._raw["process"]
+        self.process_name = self.process_path = self.process = self._raw["process"]
         if self.mode != "readonly":
             logger.debug("validating process code")
             self.process_func
@@ -541,7 +542,7 @@ class MapcheteConfig(object):
             ),
         )
 
-    @cached_property
+    @property
     def process_func(self):
         """Import process function and make syntax check."""
         if self.mode == "readonly":
@@ -550,7 +551,7 @@ class MapcheteConfig(object):
             )
         else:
             return get_process_func(
-                process_path=self.process_path,
+                process=self.process,
                 config_dir=self.config_dir,
                 run_compile=True,
             )
@@ -997,11 +998,11 @@ def bounds_from_opts(
         return
 
 
-def get_process_func(process_path=None, config_dir=None, run_compile=False):
+def get_process_func(process=None, config_dir=None, run_compile=False):
     """Import and return process function."""
-    logger.debug("get process function from %s", process_path)
+    logger.debug("get process function from %s", process)
     process_module = _load_process_module(
-        process_path=process_path, config_dir=config_dir, run_compile=run_compile
+        process=process, config_dir=config_dir, run_compile=run_compile
     )
     try:
         if hasattr(process_module, "Process"):
@@ -1012,37 +1013,50 @@ def get_process_func(process_path=None, config_dir=None, run_compile=False):
         if hasattr(process_module, "execute"):
             return process_module.execute
         else:
-            raise ImportError("No execute() function found in %s" % process_path)
+            raise ImportError("No execute() function found in %s" % process)
     except ImportError as e:
         raise MapcheteProcessImportError(e)
 
 
-def _load_process_module(process_path=None, config_dir=None, run_compile=False):
-    if process_path.endswith(".py"):
-        module_path = os.path.join(config_dir, process_path)
-        if not os.path.isfile(module_path):
-            raise MapcheteConfigError(f"{module_path} is not available")
-        try:
-            if run_compile:
-                py_compile.compile(module_path, doraise=True)
-            module_name = os.path.splitext(os.path.basename(module_path))[0]
-            # load module
-            spec = importlib.util.spec_from_file_location(module_name, module_path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            # required to make imported module available using multiprocessing
-            sys.modules[module_name] = module
-            # configure process file logger
-            add_module_logger(module.__name__)
-        except py_compile.PyCompileError as e:
-            raise MapcheteProcessSyntaxError(e)
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
-    else:
-        try:
-            module = importlib.import_module(process_path)
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
+def _load_process_module(process=None, config_dir=None, run_compile=False):
+    tmpfile = None
+    try:
+        if isinstance(process, list):
+            tmpfile = NamedTemporaryFile(suffix=".py")
+            logger.debug(f"writing process code to temporary file {tmpfile.name}")
+            with open(tmpfile.name, "w") as dst:
+                for line in process:
+                    dst.write(line + "\n")
+            process = tmpfile.name
+        if process.endswith(".py"):
+            module_path = os.path.join(config_dir, process)
+            if not os.path.isfile(module_path):
+                raise MapcheteConfigError(f"{module_path} is not available")
+            try:
+                if run_compile:
+                    py_compile.compile(module_path, doraise=True)
+                module_name = os.path.splitext(os.path.basename(module_path))[0]
+                # load module
+                spec = importlib.util.spec_from_file_location(module_name, module_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                # required to make imported module available using multiprocessing
+                sys.modules[module_name] = module
+                # configure process file logger
+                add_module_logger(module.__name__)
+            except py_compile.PyCompileError as e:
+                raise MapcheteProcessSyntaxError(e)
+            except ImportError as e:
+                raise MapcheteProcessImportError(e)
+        else:
+            try:
+                module = importlib.import_module(process)
+            except ImportError as e:
+                raise MapcheteProcessImportError(e)
+    finally:
+        if tmpfile:
+            logger.debug(f"removing {tmpfile.name}")
+            tmpfile.close()
     return module
 
 
