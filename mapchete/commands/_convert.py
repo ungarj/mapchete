@@ -42,6 +42,7 @@ def convert(
     overwrite: bool = False,
     concurrency: str = "processes",
     dask_scheduler: str = None,
+    dask_client=None,
     workers: int = None,
     multi: int = None,
     clip_geometry: str = None,
@@ -98,6 +99,12 @@ def convert(
         Overwrite existing output.
     workers : int
         Number of execution workers when processing concurrently.
+    concurrency : str
+        Concurrency to be used. Could either be "processes", "threads" or "dask".
+    dask_scheduler : str
+        URL to dask scheduler if required.
+    dask_client : dask.distributed.Client
+        Reusable Client instance if required. Otherwise a new client will be created.
     clip_geometry : str
         Path to Fiona-readable file by which output will be clipped.
     bidx : list of integers
@@ -291,6 +298,7 @@ def convert(
         area_crs=area_crs,
         concurrency=concurrency,
         dask_scheduler=dask_scheduler,
+        dask_client=dask_client,
         workers=workers,
         as_iterator=as_iterator,
         msg_callback=msg_callback,

@@ -1,4 +1,5 @@
 from collections import namedtuple
+from concurrent.futures._base import CancelledError
 from itertools import chain
 import logging
 import multiprocessing
@@ -62,6 +63,8 @@ class Job:
         ) as self.executor:
             self.status = "running"
             yield from self.func(*self.fargs, executor=self.executor, **self.fkwargs)
+            if self.status == "cancelled":
+                return
             self.status = "finished"
 
     def cancel(self):
@@ -584,6 +587,8 @@ def _run_multi(
                     ),
                     fkwargs=fkwargs,
                 ):
+                    if future.cancelled():
+                        raise CancelledError(f"future {future} cancelled")
                     # trigger output write for driver which require parent process for writing
                     if write_in_parent_process:
                         output_data, process_info = future.result()
@@ -630,7 +635,7 @@ def _run_multi(
 ###############################
 
 
-def _execute(tile_process=None):
+def _execute(tile_process=None, **kwargs):
     logger.debug(
         (tile_process.tile.id, "running on %s" % multiprocessing.current_process().name)
     )
@@ -664,7 +669,7 @@ def _execute(tile_process=None):
         )
 
 
-def _write(process_info=None, output_data=None, output_writer=None):
+def _write(process_info=None, output_data=None, output_writer=None, **kwargs):
     if process_info.processed:
         try:
             output_data = output_writer.streamline_output(output_data)
@@ -696,7 +701,7 @@ def _write(process_info=None, output_data=None, output_writer=None):
         return process_info
 
 
-def _execute_and_write(tile_process=None, output_writer=None):
+def _execute_and_write(tile_process=None, output_writer=None, **kwargs):
     output_data, process_info = _execute(tile_process=tile_process)
     return _write(
         process_info=process_info, output_data=output_data, output_writer=output_writer

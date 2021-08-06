@@ -41,7 +41,7 @@ class Executor:
 class _ExecutorBase:
     """Define base methods and properties of executors."""
 
-    futures = []
+    futures = None
     _as_completed = None
     _executor = None
     _executor_cls = None
@@ -54,13 +54,12 @@ class _ExecutorBase:
         fkwargs = fkwargs or {}
         logger.debug("submitting tasks to executor")
         futures = [
-            self._executor.submit(func, *chain([item], fargs), **fkwargs)
+            self._executor.submit(func, *chain([item], fargs), pure=False, **fkwargs)
             for item in iterable
         ]
         self.futures.extend(futures)
         logger.debug(f"added {len(futures)} tasks")
         for future in self._as_completed(futures):
-            logger.debug(future)
             yield future
 
     def cancel(self):
@@ -86,7 +85,10 @@ class _ExecutorBase:
     def __exit__(self, *args):
         """Exit context manager."""
         logger.debug(f"closing executor {self._executor}...")
-        self._executor.__exit__(*args)
+        try:
+            self._executor.close()
+        except Exception:
+            self._executor.__exit__(*args)
         logger.debug(f"closed executor {self._executor}")
 
     def __repr__(self):  # pragma: no cover
@@ -101,25 +103,32 @@ class DaskExecutor(_ExecutorBase):
         *args,
         address=None,
         dask_scheduler=None,
+        dask_client=None,
         max_workers=None,
         **kwargs,
     ):
         from dask.distributed import Client, LocalCluster
 
-        local_cluster_kwargs = dict(
-            n_workers=max_workers or os.cpu_count(), threads_per_worker=1
-        )
-        self._executor_cls = Client
-        self._executor_kwargs = dict(
-            address=dask_scheduler or LocalCluster(**local_cluster_kwargs)
-        )
-        logger.debug(
-            f"starting dask.distributed.Client with kwargs {self._executor_kwargs}"
-        )
+        self.futures = []
+        if dask_client:
+            self._executor_client = dask_client
+            logger.debug(f"using existing dask client: {dask_client}")
+        else:
+            local_cluster_kwargs = dict(
+                n_workers=max_workers or os.cpu_count(), threads_per_worker=1
+            )
+            self._executor_cls = Client
+            self._executor_kwargs = dict(
+                address=dask_scheduler or LocalCluster(**local_cluster_kwargs),
+            )
+            logger.debug(
+                f"starting dask.distributed.Client with kwargs {self._executor_kwargs}"
+            )
 
     def cancel(self):
         logger.debug(f"cancel {len(self.futures)} futures...")
-        self._executor.cancel(self.futures)
+        for future in self.futures:
+            future.cancel()
         logger.debug(f"{len(self.futures)} futures cancelled")
 
     def _as_completed(self, futures):
@@ -128,6 +137,25 @@ class DaskExecutor(_ExecutorBase):
         if futures:
             for future in as_completed(futures):
                 yield future
+
+    @cached_property
+    def _executor(self):
+        if self._executor_client:
+            return self._executor_client
+        else:
+            return self._executor_cls(*self._executor_args, **self._executor_kwargs)
+
+    def __exit__(self, *args):
+        """Exit context manager."""
+        if self._executor_client:
+            logger.debug("client not closing as it was passed on as kwarg")
+        else:
+            logger.debug(f"closing executor {self._executor}...")
+            try:
+                self._executor.close()
+            except Exception:
+                self._executor.__exit__(*args)
+            logger.debug(f"closed executor {self._executor}")
 
 
 class ConcurrentFuturesExecutor(_ExecutorBase):

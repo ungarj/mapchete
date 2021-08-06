@@ -33,6 +33,7 @@ def cp(
     multi: int = None,
     concurrency: str = None,
     dask_scheduler: str = None,
+    dask_client=None,
     src_fs_opts: dict = None,
     dst_fs_opts: dict = None,
     msg_callback: Callable = None,
@@ -62,6 +63,12 @@ def cp(
         Overwrite existing output.
     workers : int
         Number of threads used to check whether tiles exist.
+    concurrency : str
+        Concurrency to be used. Could either be "processes", "threads" or "dask".
+    dask_scheduler : str
+        URL to dask scheduler if required.
+    dask_client : dask.distributed.Client
+        Reusable Client instance if required. Otherwise a new client will be created.
     src_fs_opts : dict
         Configuration options for source fsspec filesystem.
     dst_fs_opts : dict
@@ -152,7 +159,9 @@ def cp(
                 ),
                 executor_concurrency=concurrency,
                 executor_kwargs=dict(
-                    max_workers=workers, dask_scheduler=dask_scheduler
+                    max_workers=workers,
+                    dask_scheduler=dask_scheduler,
+                    dask_client=dask_client,
                 ),
                 as_iterator=as_iterator,
                 total=src_mp.count_tiles(),

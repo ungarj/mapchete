@@ -29,6 +29,7 @@ def execute(
     max_chunksize: int = None,
     multiprocessing_start_method: str = None,
     dask_scheduler: str = None,
+    dask_client=None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
 ) -> mapchete.Job:
@@ -67,6 +68,12 @@ def execute(
     multiprocessing_start_method : str
         Method used by multiprocessing module to start child workers. Availability of methods
         depends on OS.
+    concurrency : str
+        Concurrency to be used. Could either be "processes", "threads" or "dask".
+    dask_scheduler : str
+        URL to dask scheduler if required.
+    dask_client : dask.distributed.Client
+        Reusable Client instance if required. Otherwise a new client will be created.
     msg_callback : Callable
         Optional callback function for process messages.
     as_iterator : bool
@@ -130,7 +137,7 @@ def execute(
         else:
             msg_callback(f"processing {tiles_count} tile(s) on {workers} worker(s)")
         # automatically use dask Executor if dask scheduler is defined
-        if dask_scheduler:  # pragma: no cover
+        if dask_scheduler or dask_client:  # pragma: no cover
             concurrency = "dask"
         # use sequential Executor if only one tile or only one worker is defined
         elif tiles_count == 1 or workers == 1:
@@ -152,6 +159,7 @@ def execute(
             executor_concurrency=concurrency,
             executor_kwargs=dict(
                 dask_scheduler=dask_scheduler,
+                dask_client=dask_client,
                 max_chunksize=max_chunksize,
                 multiprocessing_start_method=multiprocessing_start_method,
             ),
