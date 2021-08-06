@@ -54,7 +54,7 @@ class _ExecutorBase:
         fkwargs = fkwargs or {}
         logger.debug("submitting tasks to executor")
         futures = [
-            self._executor.submit(func, *chain([item], fargs), pure=False, **fkwargs)
+            self._executor.submit(func, *chain([item], fargs), **fkwargs)
             for item in iterable
         ]
         self.futures.extend(futures)
@@ -110,8 +110,8 @@ class DaskExecutor(_ExecutorBase):
         from dask.distributed import Client, LocalCluster
 
         self.futures = []
-        if dask_client:
-            self._executor_client = dask_client
+        self._executor_client = dask_client
+        if self._executor_client:  # pragma: no cover
             logger.debug(f"using existing dask client: {dask_client}")
         else:
             local_cluster_kwargs = dict(
@@ -140,20 +140,19 @@ class DaskExecutor(_ExecutorBase):
 
     @cached_property
     def _executor(self):
-        if self._executor_client:
-            return self._executor_client
-        else:
-            return self._executor_cls(*self._executor_args, **self._executor_kwargs)
+        return self._executor_client or self._executor_cls(
+            *self._executor_args, **self._executor_kwargs
+        )
 
     def __exit__(self, *args):
         """Exit context manager."""
-        if self._executor_client:
+        if self._executor_client:  # pragma: no cover
             logger.debug("client not closing as it was passed on as kwarg")
         else:
             logger.debug(f"closing executor {self._executor}...")
             try:
                 self._executor.close()
-            except Exception:
+            except Exception:  # pragma: no cover
                 self._executor.__exit__(*args)
             logger.debug(f"closed executor {self._executor}")
 
@@ -253,6 +252,9 @@ class FakeFuture:
     def exception(self):
         """Raise task exception if any."""
         return self._exception
+
+    def cancelled(self):
+        return False
 
     def __repr__(self):  # pragma: no cover
         """Return string representation."""

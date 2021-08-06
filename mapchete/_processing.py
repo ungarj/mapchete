@@ -559,7 +559,7 @@ def _run_multi(
                         ),
                     ):
                         num_processed += 1
-                        logger.info(
+                        logger.debug(
                             "tile %s/%s finished: %s, %s, %s",
                             num_processed,
                             total_tiles,
@@ -613,7 +613,7 @@ def _run_multi(
                             overview_parents.add(process_info.tile.get_parent())
 
                     num_processed += 1
-                    logger.info(
+                    logger.debug(
                         "tile %s/%s finished: %s, %s, %s",
                         num_processed,
                         total_tiles,
@@ -627,7 +627,7 @@ def _run_multi(
         if create_executor:
             executor.close()
 
-    logger.debug("%s tile(s) iterated in %s", str(num_processed), t)
+    logger.info("%s tile(s) iterated in %s", str(num_processed), t)
 
 
 ###############################
