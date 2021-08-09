@@ -253,7 +253,8 @@ class FakeFuture:
         """Raise task exception if any."""
         return self._exception
 
-    def cancelled(self):
+    def cancelled(self):  # pragma: no cover
+        """Sequential futures cannot be cancelled."""
         return False
 
     def __repr__(self):  # pragma: no cover
