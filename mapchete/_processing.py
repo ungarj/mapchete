@@ -63,8 +63,6 @@ class Job:
         ) as self.executor:
             self.status = "running"
             yield from self.func(*self.fargs, executor=self.executor, **self.fkwargs)
-            if self.status == "cancelled":
-                return
             self.status = "finished"
 
     def cancel(self):
@@ -587,8 +585,6 @@ def _run_multi(
                     ),
                     fkwargs=fkwargs,
                 ):
-                    if future.cancelled():
-                        raise CancelledError(f"future {future} cancelled")
                     # trigger output write for driver which require parent process for writing
                     if write_in_parent_process:
                         output_data, process_info = future.result()
