@@ -37,7 +37,7 @@ def registered_processes(process_name=None):
     return imported
 
 
-def process_names_docstrings(process_name):
+def process_names_docstrings(process_name=None):
     """
     Return registered process module names and docstrings.
 

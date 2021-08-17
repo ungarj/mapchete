@@ -1,7 +1,8 @@
 import logging
 
 from mapchete._core import open, Mapchete
-from mapchete._processing import MapcheteProcess, ProcessInfo
+from mapchete._executor import Executor
+from mapchete._processing import Job, MapcheteProcess, ProcessInfo
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
 

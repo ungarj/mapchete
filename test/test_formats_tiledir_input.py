@@ -157,18 +157,6 @@ def test_no_metadata_json(mp_tmpdir, cleantopo_br_tiledir):
         )
 
 
-@pytest.mark.remote
-def test_read_remote_raster_data(mp_tmpdir, cleantopo_remote):
-    """Read raster data."""
-    with mapchete.open(cleantopo_remote.path) as mp:
-        assert all(
-            [
-                next(iter(mp.config.input.values())).open(tile).read().any()
-                for tile in mp.get_process_tiles(1)
-            ]
-        )
-
-
 def test_parse_errors(geojson_tiledir, cleantopo_br_tiledir):
     """Different configuration exceptions."""
     # without path

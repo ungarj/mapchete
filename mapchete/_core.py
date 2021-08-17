@@ -6,7 +6,7 @@ import multiprocessing
 import os
 import threading
 
-from mapchete.config import MapcheteConfig
+from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.errors import MapcheteNodataTile
 from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
@@ -83,8 +83,8 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
         )
         kwargs.update(mode="readonly")
         return Mapchete(MapcheteConfig(config, **kwargs))
-    else:
-        return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
+
+    return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
 
 
 class Mapchete(object):
@@ -155,9 +155,9 @@ class Mapchete(object):
             ):
                 yield tile
         else:
-            for zoom in reversed(self.config.zoom_levels):
+            for i in reversed(self.config.zoom_levels):
                 for tile in self.config.process_pyramid.tiles_from_geom(
-                    self.config.area_at_zoom(zoom), zoom
+                    self.config.area_at_zoom(i), i
                 ):
                     yield tile
 
@@ -188,11 +188,14 @@ class Mapchete(object):
         self,
         zoom=None,
         tile=None,
+        distributed=False,
+        dask_scheduler=None,
         multi=None,
         max_chunksize=1,
         multiprocessing_module=None,
-        multiprocessing_start_method="fork",
+        multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check=False,
+        executor=None,
     ):
         """
         Process a large batch of tiles.
@@ -217,7 +220,7 @@ class Mapchete(object):
             (default: multiprocessing)
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
-            (default: "fork")
+            (default: "spawn")
         skip_output_check : bool
             skip checking whether process tiles already have existing output before
             starting to process;
@@ -226,11 +229,14 @@ class Mapchete(object):
             self.batch_processor(
                 zoom=zoom,
                 tile=tile,
+                distributed=distributed,
+                dask_scheduler=dask_scheduler,
                 multi=multi or multiprocessing.cpu_count(),
                 max_chunksize=max_chunksize,
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
+                executor=executor,
             )
         )
 
@@ -238,11 +244,14 @@ class Mapchete(object):
         self,
         zoom=None,
         tile=None,
+        distributed=False,
+        dask_scheduler=None,
         multi=None,
         max_chunksize=1,
         multiprocessing_module=None,
-        multiprocessing_start_method="fork",
+        multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check=False,
+        executor=None,
     ):
         """
         Process a large batch of tiles and yield report messages per tile.
@@ -265,7 +274,7 @@ class Mapchete(object):
             (default: multiprocessing)
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
-            (default: "fork")
+            (default: "spawn")
         skip_output_check : bool
             skip checking whether process tiles already have existing output before
             starting to process;
@@ -276,18 +285,23 @@ class Mapchete(object):
         # run single tile
         if tile:
             yield _run_on_single_tile(
-                process=self, tile=self.config.process_pyramid.tile(*tuple(tile))
+                executor=executor,
+                process=self,
+                tile=self.config.process_pyramid.tile(*tuple(tile)),
             )
         # run area
         else:
             for process_info in _run_area(
                 process=self,
                 zoom_levels=list(_get_zoom_level(zoom, self)),
+                distributed=distributed,
+                dask_scheduler=dask_scheduler,
                 multi=multi or multiprocessing.cpu_count(),
                 max_chunksize=max_chunksize,
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
+                executor=executor,
             ):
                 yield process_info
 
@@ -315,7 +329,7 @@ class Mapchete(object):
                 self.config.process_pyramid,
                 minzoom,
                 maxzoom,
-                init_zoom=0,
+                init_zoom=init_zoom,
             )
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
@@ -344,8 +358,7 @@ class Mapchete(object):
         except MapcheteNodataTile:
             if raise_nodata:  # pragma: no cover
                 raise
-            else:
-                return self.config.output.empty(process_tile)
+            return self.config.output.empty(process_tile)
 
     def read(self, output_tile):
         """

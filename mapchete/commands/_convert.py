@@ -9,10 +9,10 @@ from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 import tilematrix
 from typing import Callable, List, Tuple, Union
+import warnings
 
 import mapchete
 from mapchete.commands._execute import execute
-from mapchete.commands._job import empty_callback, Job
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import (
     driver_from_file,
@@ -40,6 +40,10 @@ def convert(
     point_crs: Tuple[float, float] = None,
     tile: Tuple[int, int, int] = None,
     overwrite: bool = False,
+    concurrency: str = "processes",
+    dask_scheduler: str = None,
+    dask_client=None,
+    workers: int = None,
     multi: int = None,
     clip_geometry: str = None,
     bidx: List[int] = None,
@@ -57,7 +61,7 @@ def convert(
     cog: bool = False,
     msg_callback: Callable = None,
     as_iterator: bool = False,
-) -> Job:
+) -> mapchete.Job:
     """
     Convert mapchete outputs or other geodata.
 
@@ -93,8 +97,14 @@ def convert(
         Zoom, row and column of tile to be processed (cannot be used with zoom)
     overwrite : bool
         Overwrite existing output.
-    multi : int
-        Number of processes used to paralellize tile execution.
+    workers : int
+        Number of execution workers when processing concurrently.
+    concurrency : str
+        Concurrency to be used. Could either be "processes", "threads" or "dask".
+    dask_scheduler : str
+        URL to dask scheduler if required.
+    dask_client : dask.distributed.Client
+        Reusable Client instance if required. Otherwise a new client will be created.
     clip_geometry : str
         Path to Fiona-readable file by which output will be clipped.
     bidx : list of integers
@@ -130,7 +140,7 @@ def convert(
 
     Returns
     -------
-    Job instance either with already processed items or a generator with known length.
+    mapchete.Job instance either with already processed items or a generator with known length.
 
     Examples
     --------
@@ -147,7 +157,14 @@ def convert(
 
     Usage within a process bar.
     """
-    msg_callback = msg_callback or empty_callback
+
+    def _empty_callback(*args, **kwargs):
+        pass
+
+    msg_callback = msg_callback or _empty_callback
+    if multi is not None:  # pragma: no cover
+        warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
+    workers = workers or multi or cpu_count()
     creation_options = creation_options or {}
     bidx = [bidx] if isinstance(bidx, int) else bidx
     try:
@@ -260,7 +277,7 @@ def convert(
                 "Process area is empty: clip bounds don't intersect with input bounds."
             )
             # this returns a Job with an empty iterator
-            return Job(iter, [], as_iterator=as_iterator, total=0)
+            return mapchete.Job(None, (), as_iterator=as_iterator, total=0)
     # add process bounds and output type
     mapchete_config.update(
         bounds=(clip_intersection.bounds if clip_geometry else inp_bounds),
@@ -279,7 +296,10 @@ def convert(
         bounds_crs=bounds_crs,
         area=area,
         area_crs=area_crs,
-        multi=multi or cpu_count(),
+        concurrency=concurrency,
+        dask_scheduler=dask_scheduler,
+        dask_client=dask_client,
+        workers=workers,
         as_iterator=as_iterator,
         msg_callback=msg_callback,
     )

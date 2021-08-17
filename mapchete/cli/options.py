@@ -8,7 +8,11 @@ import tilematrix
 import tqdm
 
 import mapchete
-from mapchete.config import raw_conf, bounds_from_opts
+from mapchete.config import (
+    raw_conf,
+    bounds_from_opts,
+    MULTIPROCESSING_DEFAULT_START_METHOD,
+)
 from mapchete.formats import available_output_formats
 from mapchete.index import zoom_index_gen
 from mapchete.log import set_log_level, setup_logfile
@@ -19,9 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 MULTIPROCESSING_START_METHODS = get_all_start_methods()
-MULTIPROCESSING_START_METHOD_DEFAULT = (
-    "fork" if "fork" in MULTIPROCESSING_START_METHODS else "spawn"
-)
 
 
 # click callbacks #
@@ -110,6 +111,10 @@ def _cb_key_val(ctx, param, value):
         return out
 
 
+def _cb_none_concurrency(ctx, param, value):
+    return None if value == "none" else value
+
+
 # click arguments #
 ###################
 arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
@@ -137,13 +142,12 @@ arg_tiledir = click.argument("tiledir", type=click.STRING)
 #################
 opt_out_path = click.option(
     "--out-path",
-    "-op",
     type=click.Path(),
     default=os.path.join(os.getcwd(), "output"),
     help="Process output path.",
 )
 opt_idx_out_dir = click.option(
-    "--idx-out-dir", "-od", type=click.Path(), help="Index output directory."
+    "--idx-out-dir", type=click.Path(), help="Index output directory."
 )
 opt_input_file = click.option(
     "--input-file",
@@ -210,7 +214,13 @@ opt_multi = click.option(
     "--multi",
     "-m",
     type=click.INT,
-    help="Number of concurrent processes.",
+    help="Number of workers when processing concurrently.",
+)
+opt_workers = click.option(
+    "--workers",
+    "-w",
+    type=click.INT,
+    help="Number of workers when processing concurrently.",
 )
 opt_force = click.option(
     "--force", "-f", is_flag=True, help="Overwrite if files already exist."
@@ -235,18 +245,17 @@ opt_debug = click.option(
 )
 opt_max_chunksize = click.option(
     "--max-chunksize",
-    "-c",
     type=click.INT,
     default=1,
-    help="Maximum number of process tiles to be queued for each  worker. (default: 1)",
+    help="Maximum number of tasks to be queued for each  worker. (default: 1)",
 )
 opt_multiprocessing_start_method = click.option(
     "--multiprocessing-start-method",
     type=click.Choice(MULTIPROCESSING_START_METHODS),
-    default=MULTIPROCESSING_START_METHOD_DEFAULT,
+    default=MULTIPROCESSING_DEFAULT_START_METHOD,
     help=(
         "Method used by multiprocessing module to start child workers. Availability of "
-        f"methods depends on OS (default: {MULTIPROCESSING_START_METHOD_DEFAULT})"
+        f"methods depends on OS (default: {MULTIPROCESSING_DEFAULT_START_METHOD})"
     ),
 )
 opt_input_formats = click.option(
@@ -349,4 +358,14 @@ opt_fs_opts = click.option(
     multiple=True,
     callback=_cb_key_val,
     help="Configuration options for destination fsspec filesystem.",
+)
+opt_dask_scheduler = click.option(
+    "--dask-scheduler", type=click.STRING, help="Address for dask scheduler."
+)
+opt_concurrency = click.option(
+    "--concurrency",
+    type=click.Choice(["processes", "threads", "dask", "none"]),
+    default="processes",
+    callback=_cb_none_concurrency,
+    help="Decide which Executor to use for concurrent processing.",
 )

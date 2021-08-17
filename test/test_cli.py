@@ -16,7 +16,7 @@ import yaml
 
 import mapchete
 from mapchete.cli.main import main as mapchete_cli
-from mapchete.cli import utils
+from mapchete.cli import options
 from mapchete.errors import MapcheteProcessOutputError
 
 
@@ -73,7 +73,7 @@ def test_main(mp_tmpdir):
     )
 
 
-def test_create_and_execute(mp_tmpdir, cleantopo_br_tif):
+def test_create(mp_tmpdir, cleantopo_br_tif):
     """Run mapchete create and execute."""
     temp_mapchete = os.path.join(mp_tmpdir, "temp.mapchete")
     temp_process = os.path.join(mp_tmpdir, "temp.py")
@@ -118,48 +118,72 @@ def test_create_existing(mp_tmpdir):
         run_cli(args, expected_exit_code=-1)
 
 
-def test_execute_multiprocessing(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
-    """Run mapchete execute with multiple workers."""
-    temp_mapchete = os.path.join(mp_tmpdir, "temp.mapchete")
-    temp_process = os.path.join(mp_tmpdir, "temp.py")
-    out_format = "GTiff"
-    # create from template
+def test_execute_concurrent_processes(mp_tmpdir, cleantopo_br_metatiling_1):
+    # """Run mapchete execute with multiple workers."""
     run_cli(
         [
-            "create",
-            temp_mapchete,
-            temp_process,
-            out_format,
-            "--pyramid-type",
-            "geodetic",
+            "execute",
+            cleantopo_br_metatiling_1.path,
+            "--zoom",
+            "5",
+            "--workers",
+            "2",
+            "-d",
+            "--concurrency",
+            "processes",
         ]
     )
-    # edit configuration
-    with open(temp_mapchete, "r") as config_file:
-        config = yaml.safe_load(config_file)
-        config["output"].update(bands=1, dtype="uint8", path=mp_tmpdir)
-    with open(temp_mapchete, "w") as config_file:
-        config_file.write(yaml.dump(config, default_flow_style=False))
-    # run process with multiprocessing
-    with pytest.raises(MapcheteProcessOutputError):
-        run_cli(
-            [
-                "execute",
-                temp_mapchete,
-                "--zoom",
-                "5",
-                "-m",
-                "2",
-                "-d",
-            ]
-        )
-    # run example process with multiprocessing
-    run_cli(["execute", cleantopo_br.path, "--zoom", "5", "-m", "2", "-d"])
+
+
+def test_execute_concurrent_threads(mp_tmpdir, cleantopo_br_metatiling_1):
+    """Run mapchete execute with multiple workers."""
+    run_cli(
+        [
+            "execute",
+            cleantopo_br_metatiling_1.path,
+            "--zoom",
+            "5",
+            "--workers",
+            "2",
+            "-d",
+            "--concurrency",
+            "threads",
+        ],
+    )
+
+
+def test_execute_concurrent_dask(mp_tmpdir, cleantopo_br_metatiling_1):
+    """Run mapchete execute with multiple workers."""
+    run_cli(
+        [
+            "execute",
+            cleantopo_br_metatiling_1.path,
+            "--zoom",
+            "5",
+            "--workers",
+            "2",
+            "-d",
+            "--concurrency",
+            "dask",
+        ],
+    )
 
 
 def test_execute_debug(mp_tmpdir, example_mapchete):
     """Using debug output."""
-    run_cli(["execute", example_mapchete.path, "-t", "10", "500", "1040", "--debug"])
+    run_cli(
+        [
+            "execute",
+            example_mapchete.path,
+            "-t",
+            "10",
+            "500",
+            "1040",
+            "--debug",
+            "--concurrency",
+            "none",
+        ]
+    )
 
 
 def test_execute_vrt(mp_tmpdir, cleantopo_br):
@@ -172,7 +196,17 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
 
     # run again, this time with custom output directory
     run_cli(
-        ["execute", cleantopo_br.path, "-z", "5", "--vrt", "--idx-out-dir", mp_tmpdir]
+        [
+            "execute",
+            cleantopo_br.path,
+            "-z",
+            "5",
+            "--vrt",
+            "--idx-out-dir",
+            mp_tmpdir,
+            "--concurrency",
+            "none",
+        ]
     )
     with mapchete.open(cleantopo_br.dict) as mp:
         vrt_path = os.path.join(mp_tmpdir, "5.vrt")
@@ -180,15 +214,51 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
             assert src.read().any()
 
     # run with single tile
-    run_cli(["execute", cleantopo_br.path, "-t", "5", "3", "7", "--vrt"])
+    run_cli(
+        [
+            "execute",
+            cleantopo_br.path,
+            "-t",
+            "5",
+            "3",
+            "7",
+            "--vrt",
+            "--concurrency",
+            "none",
+        ]
+    )
 
     # no new entries
-    run_cli(["execute", cleantopo_br.path, "-t", "5", "0", "0", "--vrt"])
+    run_cli(
+        [
+            "execute",
+            cleantopo_br.path,
+            "-t",
+            "5",
+            "0",
+            "0",
+            "--vrt",
+            "--concurrency",
+            "none",
+        ]
+    )
 
 
 def test_execute_verbose(mp_tmpdir, example_mapchete):
     """Using verbose output."""
-    run_cli(["execute", example_mapchete.path, "-t", "10", "500", "1040", "--verbose"])
+    run_cli(
+        [
+            "execute",
+            example_mapchete.path,
+            "-t",
+            "10",
+            "500",
+            "1040",
+            "--verbose",
+            "--concurrency",
+            "none",
+        ]
+    )
 
 
 def test_execute_logfile(mp_tmpdir, example_mapchete):
@@ -204,6 +274,8 @@ def test_execute_logfile(mp_tmpdir, example_mapchete):
             "1040",
             "--logfile",
             logfile,
+            "--concurrency",
+            "none",
         ]
     )
     assert os.path.isfile(logfile)
@@ -213,7 +285,9 @@ def test_execute_logfile(mp_tmpdir, example_mapchete):
 
 def test_execute_wkt_area(mp_tmpdir, example_mapchete, wkt_geom):
     """Using area from WKT."""
-    run_cli(["execute", example_mapchete.path, "--area", wkt_geom])
+    run_cli(
+        ["execute", example_mapchete.path, "--area", wkt_geom, "--concurrency", "none"]
+    )
 
 
 def test_execute_point(mp_tmpdir, example_mapchete, wkt_geom):
@@ -226,6 +300,8 @@ def test_execute_point(mp_tmpdir, example_mapchete, wkt_geom):
             "--point",
             str(g.centroid.x),
             str(g.centroid.y),
+            "--concurrency",
+            "none",
         ]
     )
 
@@ -245,7 +321,17 @@ def test_formats(capfd):
 
 def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    run_cli(["convert", cleantopo_br_tif, mp_tmpdir, "--output-pyramid", "geodetic"])
+    run_cli(
+        [
+            "convert",
+            cleantopo_br_tif,
+            mp_tmpdir,
+            "--output-pyramid",
+            "geodetic",
+            "--concurrency",
+            "none",
+        ]
+    )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio.open(out_file, "r") as src:
@@ -257,7 +343,17 @@ def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
     """Automatic mercator tile pyramid creation of raster files."""
-    run_cli(["convert", cleantopo_br_tif, mp_tmpdir, "--output-pyramid", "mercator"])
+    run_cli(
+        [
+            "convert",
+            cleantopo_br_tif,
+            mp_tmpdir,
+            "--output-pyramid",
+            "mercator",
+            "--concurrency",
+            "none",
+        ]
+    )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio.open(out_file, "r") as src:
@@ -278,6 +374,8 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
             "mercator",
             "--output-format",
             "PNG",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
@@ -305,6 +403,8 @@ def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
             "3",
             "--bidx",
             "1",
+            "--concurrency",
+            "none",
         ]
     )
     with rasterio.open(single_gtiff, "r") as src:
@@ -327,6 +427,8 @@ def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
             "geodetic",
             "-z",
             "3",
+            "--concurrency",
+            "none",
         ]
     )
     with rasterio.open(single_gtiff, "r") as src:
@@ -350,6 +452,8 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
             "-z",
             "3",
             "--cog",
+            "--concurrency",
+            "none",
         ]
     )
     with rasterio.open(single_gtiff, "r") as src:
@@ -375,6 +479,10 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
             "--overviews",
             "--overviews-resampling-method",
             "bilinear",
+            "--multi",
+            "1",
+            "--concurrency",
+            "none",
         ]
     )
     with rasterio.open(single_gtiff, "r") as src:
@@ -397,6 +505,8 @@ def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
             "geodetic",
             "-z",
             "1",
+            "--concurrency",
+            "none",
         ]
     )
     with rasterio.open(single_gtiff, "r") as src:
@@ -417,6 +527,8 @@ def test_convert_dtype(cleantopo_br_tif, mp_tmpdir):
             "mercator",
             "--output-dtype",
             "uint8",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
@@ -441,6 +553,8 @@ def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
             "uint8",
             "--scale-ratio",
             "0.003",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
@@ -466,6 +580,8 @@ def test_convert_scale_offset(cleantopo_br_tif, mp_tmpdir):
             "uint8",
             "--scale-offset",
             "1",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
@@ -490,6 +606,8 @@ def test_convert_clip(cleantopo_br_tif, mp_tmpdir, landpoly):
             "--clip-geometry",
             landpoly,
             "-v",
+            "--concurrency",
+            "none",
         ],
         output_contains="Process area is empty",
     )
@@ -506,6 +624,8 @@ def test_convert_zoom(cleantopo_br_tif, mp_tmpdir):
             "mercator",
             "-z",
             "3",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
@@ -524,6 +644,8 @@ def test_convert_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
             "mercator",
             "-z",
             "3,4",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(2, 3, 0)]:
@@ -542,6 +664,8 @@ def test_convert_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
             "mercator",
             "-z",
             "4,3",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(2, 3, 0)]:
@@ -563,6 +687,8 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
             "--output-metatiling",
             "1",
             "-d",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
@@ -592,6 +718,8 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
             "--zoom",
             "1,4",
             "-d",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
@@ -613,6 +741,8 @@ def test_convert_geojson(landpoly, mp_tmpdir):
             "geodetic",
             "--zoom",
             "4",
+            "--concurrency",
+            "none",
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
@@ -639,6 +769,8 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
             "4",
             "--output-format",
             "Geobuf",
+            "--concurrency",
+            "none",
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
@@ -669,6 +801,8 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
             "4",
             "--output-format",
             "GeoJSON",
+            "--concurrency",
+            "none",
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, zoom9_control]):
@@ -695,6 +829,8 @@ def test_convert_geobuf_multipolygon(landpoly, mp_tmpdir):
             "Geobuf",
             "--output-geometry-type",
             "MultiPolygon",
+            "--concurrency",
+            "none",
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [7, 30]):
@@ -723,6 +859,8 @@ def test_convert_vrt(cleantopo_br_tif, mp_tmpdir):
             "--vrt",
             "--zoom",
             "1,4",
+            "--concurrency",
+            "none",
         ]
     )
     for zoom in [4, 3, 2, 1]:
@@ -766,6 +904,8 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             mp_tmpdir,
             "--output-pyramid",
             "geodetic",
+            "--concurrency",
+            "none",
         ],
         expected_exit_code=1,
         output_contains="Zoom levels required.",
@@ -784,6 +924,8 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             "5",
             "--output-format",
             "GeoJSON",
+            "--concurrency",
+            "none",
         ],
         expected_exit_code=1,
         output_contains=(
@@ -802,6 +944,8 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             "geodetic",
             "--zoom",
             "5",
+            "--concurrency",
+            "none",
         ],
         expected_exit_code=1,
         output_contains=("Could not determine output from extension"),
@@ -875,7 +1019,9 @@ def test_serve(client, mp_tmpdir):
 
 def test_index_geojson(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    run_cli(["execute", cleantopo_br.path, "-z", "3", "--debug"])
+    run_cli(
+        ["execute", cleantopo_br.path, "-z", "3", "--debug", "--concurrency", "none"]
+    )
 
     # generate index for zoom 3
     run_cli(["index", cleantopo_br.path, "-z", "3", "--geojson", "--debug"])
@@ -891,7 +1037,9 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    run_cli(["execute", cleantopo_br.path, "-z", "3", "--debug"])
+    run_cli(
+        ["execute", cleantopo_br.path, "-z", "3", "--debug", "--concurrency", "none"]
+    )
 
     # index and rename "location" to "new_fieldname"
     run_cli(
@@ -917,7 +1065,9 @@ def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    run_cli(["execute", cleantopo_br.path, "-z", "3", "--debug"])
+    run_cli(
+        ["execute", cleantopo_br.path, "-z", "3", "--debug", "--concurrency", "none"]
+    )
 
     basepath = "http://localhost"
     # index and rename "location" to "new_fieldname"
@@ -972,7 +1122,19 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     # execute process for single tile
-    run_cli(["execute", cleantopo_tl.path, "-t", "3", "0", "0", "--debug"])
+    run_cli(
+        [
+            "execute",
+            cleantopo_tl.path,
+            "-t",
+            "3",
+            "0",
+            "0",
+            "--debug",
+            "--concurrency",
+            "none",
+        ]
+    )
     # generate index
     run_cli(["index", cleantopo_tl.path, "-t", "3", "0", "0", "--geojson", "--debug"])
     with mapchete.open(cleantopo_tl.dict) as mp:
@@ -985,7 +1147,17 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
 
 def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_br, wkt_geom):
     # execute process at zoom 3
-    run_cli(["execute", cleantopo_br.path, "--debug", "--area", wkt_geom])
+    run_cli(
+        [
+            "execute",
+            cleantopo_br.path,
+            "--debug",
+            "--area",
+            wkt_geom,
+            "--concurrency",
+            "none",
+        ]
+    )
 
     # generate index for zoom 3
     run_cli(["index", cleantopo_br.path, "--geojson", "--debug", "--area", wkt_geom])
@@ -998,7 +1170,9 @@ def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_br, wkt_geom):
 
 def test_index_gpkg(mp_tmpdir, cleantopo_br):
     # execute process
-    run_cli(["execute", cleantopo_br.path, "-z", "5", "--debug"])
+    run_cli(
+        ["execute", cleantopo_br.path, "-z", "5", "--debug", "--concurrency", "none"]
+    )
 
     # generate index
     run_cli(["index", cleantopo_br.path, "-z", "5", "--gpkg", "--debug"])
@@ -1023,7 +1197,9 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
 
 def test_index_shp(mp_tmpdir, cleantopo_br):
     # execute process
-    run_cli(["execute", cleantopo_br.path, "-z", "5", "--debug"])
+    run_cli(
+        ["execute", cleantopo_br.path, "-z", "5", "--debug", "--concurrency", "none"]
+    )
 
     # generate index
     run_cli(["index", cleantopo_br.path, "-z", "5", "--shp", "--debug"])
@@ -1048,7 +1224,9 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
 
 def test_index_text(cleantopo_br):
     # execute process
-    run_cli(["execute", cleantopo_br.path, "-z", "5", "--debug"])
+    run_cli(
+        ["execute", cleantopo_br.path, "-z", "5", "--debug", "--concurrency", "none"]
+    )
 
     # generate index
     run_cli(["index", cleantopo_br.path, "-z", "5", "--txt", "--debug"])
@@ -1088,13 +1266,13 @@ def test_processes():
 
 def test_callback_errors(cleantopo_tl):
     run_cli(
-        ["execute", cleantopo_tl.path, "--zoom", "4,5,7"],
+        ["execute", cleantopo_tl.path, "--zoom", "4,5,7", "--concurrency", "none"],
         expected_exit_code=2,
         raise_exc=False,
         output_contains="zooms can be maximum two items",
     )
     run_cli(
-        ["execute", cleantopo_tl.path, "--zoom", "invalid"],
+        ["execute", cleantopo_tl.path, "--zoom", "invalid", "--concurrency", "none"],
         expected_exit_code=2,
         raise_exc=False,
         output_contains="zoom levels must be integer values",
@@ -1115,6 +1293,8 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
             "-90",
             "180",
             "-80.18582802550002",
+            "--concurrency",
+            "none",
         ]
     )
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
@@ -1132,6 +1312,8 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
             "-90",
             "180",
             "-80.18582802550002",
+            "--concurrency",
+            "none",
         ]
     )
     # copy all tiles
@@ -1142,14 +1324,36 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
             os.path.join(mp_tmpdir, "all"),
             "-z",
             "5",
+            "--concurrency",
+            "none",
         ]
     )
     # copy tiles and subset by area
     run_cli(
-        ["cp", out_path, os.path.join(mp_tmpdir, "all"), "-z", "5", "--area", wkt_geom]
+        [
+            "cp",
+            out_path,
+            os.path.join(mp_tmpdir, "all"),
+            "-z",
+            "5",
+            "--area",
+            wkt_geom,
+            "--concurrency",
+            "none",
+        ]
     )
-    # copy local tiles without using threads
-    run_cli(["cp", out_path, os.path.join(mp_tmpdir, "all"), "-z", "5", "--multi", "1"])
+    # copy local tiles wit using threads
+    run_cli(
+        [
+            "cp",
+            out_path,
+            os.path.join(mp_tmpdir, "all"),
+            "-z",
+            "5",
+            "--concurrency",
+            "threads",
+        ]
+    )
 
 
 def test_cp_http(mp_tmpdir, http_tiledir):
@@ -1166,6 +1370,8 @@ def test_cp_http(mp_tmpdir, http_tiledir):
             "1.0",
             "4.0",
             "2.0",
+            "--concurrency",
+            "none",
         ]
     )
 
@@ -1182,6 +1388,8 @@ def test_rm(mp_tmpdir, cleantopo_br):
             "-90",
             "180",
             "-80.18582802550002",
+            "--concurrency",
+            "none",
         ]
     )
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
@@ -1227,7 +1435,7 @@ def test_rm_storage_option_errors(cleantopo_br):
 
 
 def test_fs_opt_extractor():
-    kwargs = utils._cb_key_val(
+    kwargs = options._cb_key_val(
         None,
         None,
         [

@@ -442,3 +442,8 @@ def test_init_overrides_config(example_mapchete):
     with mapchete.open(dict(example_mapchete.dict, bounds=process_bounds)) as mp:
         assert mp.config.bounds == process_bounds
         assert mp.config.init_bounds == process_bounds
+
+
+def test_custom_process(example_custom_process_mapchete):
+    with mapchete.open(example_custom_process_mapchete.dict) as mp:
+        assert callable(mp.config.process_func)

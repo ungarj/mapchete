@@ -82,11 +82,25 @@ def test_execute(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     tp = TilePyramid("geodetic")
     tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
     job = execute(config, zoom=zoom)
+    for t in job:
+        assert t
     assert len(tiles) == len(job)
     with mapchete.open(config) as mp:
         for t in tiles:
             with rasterio.open(mp.config.output.get_path(t)) as src:
                 assert not src.read(masked=True).mask.all()
+
+
+def test_execute_cancel(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
+    zoom = 5
+    config = cleantopo_br.dict
+    config["pyramid"].update(metatiling=1)
+    job = execute(config, zoom=zoom, as_iterator=True)
+    for i, t in enumerate(job):
+        job.cancel()
+        break
+    assert i == 0
+    assert job.status == "cancelled"
 
 
 def test_execute_tile(mp_tmpdir, cleantopo_br):
@@ -209,6 +223,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         zoom=7,
         overviews=True,
         overviews_resampling_method="bilinear",
+        concurrency=None,
     )
     assert len(job)
     with rasterio.open(single_gtiff, "r") as src:
@@ -222,7 +237,9 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
-    job = convert(http_raster, single_gtiff, output_pyramid="geodetic", zoom=1)
+    job = convert(
+        http_raster, single_gtiff, output_pyramid="geodetic", zoom=1, concurrency=None
+    )
     assert len(job)
     with rasterio.open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"

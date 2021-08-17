@@ -3,9 +3,9 @@ from multiprocessing import cpu_count
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 from typing import Callable, List, Tuple, Union
+import warnings
 
 import mapchete
-from mapchete.commands._job import empty_callback, Job
 from mapchete.config import bounds_from_opts, raw_conf, raw_conf_process_pyramid
 
 logger = logging.getLogger(__name__)
@@ -23,12 +23,16 @@ def execute(
     tile: Tuple[int, int, int] = None,
     overwrite: bool = False,
     mode: str = "continue",
+    concurrency: str = "processes",
+    workers: int = None,
     multi: int = None,
     max_chunksize: int = None,
     multiprocessing_start_method: str = None,
+    dask_scheduler: str = None,
+    dask_client=None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
-) -> Job:
+) -> mapchete.Job:
     """
     Execute a Mapchete process.
 
@@ -57,13 +61,19 @@ def execute(
         Overwrite existing output.
     mode : str
         Set process mode. One of "readonly", "continue" or "overwrite".
-    multi : int
-        Number of processes used to paralellize tile execution.
+    workers : int
+        Number of execution workers when processing concurrently.
     max_chunksize : int
         Maximum number of process tiles to be queued for each  worker. (default: 1)
     multiprocessing_start_method : str
         Method used by multiprocessing module to start child workers. Availability of methods
         depends on OS.
+    concurrency : str
+        Concurrency to be used. Could either be "processes", "threads" or "dask".
+    dask_scheduler : str
+        URL to dask scheduler if required.
+    dask_client : dask.distributed.Client
+        Reusable Client instance if required. Otherwise a new client will be created.
     msg_callback : Callable
         Optional callback function for process messages.
     as_iterator : bool
@@ -71,7 +81,7 @@ def execute(
 
     Returns
     -------
-    Job instance either with already processed items or a generator with known length.
+    mapchete.Job instance either with already processed items or a generator with known length.
 
     Examples
     --------
@@ -89,8 +99,14 @@ def execute(
     Usage within a process bar.
     """
     mode = "overwrite" if overwrite else mode
-    msg_callback = msg_callback or empty_callback
-    multi = multi or cpu_count()
+
+    def _empty_callback(*args):
+        pass
+
+    msg_callback = msg_callback or _empty_callback
+    if multi is not None:  # pragma: no cover
+        warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
+    workers = workers or multi or cpu_count()
 
     if tile:
         tile = raw_conf_process_pyramid(raw_conf(mapchete_config)).tile(*tile)
@@ -119,16 +135,34 @@ def execute(
         if tile:
             msg_callback("processing 1 tile")
         else:
-            msg_callback(f"processing {tiles_count} tile(s) on {multi} worker(s)")
-        return Job(
+            msg_callback(f"processing {tiles_count} tile(s) on {workers} worker(s)")
+        # automatically use dask Executor if dask scheduler is defined
+        if dask_scheduler or dask_client:  # pragma: no cover
+            concurrency = "dask"
+        # use sequential Executor if only one tile or only one worker is defined
+        elif tiles_count == 1 or workers == 1:
+            logger.debug(
+                f"using sequential Executor because there is only one {'tile' if tiles_count == 1 else 'worker'}"
+            )
+            concurrency = None
+        return mapchete.Job(
             _msg_wrapper,
-            msg_callback,
-            mp,
-            tile=tile,
-            multi=multi,
-            zoom=None if tile else zoom,
-            max_chunksize=max_chunksize,
-            multiprocessing_start_method=multiprocessing_start_method,
+            fargs=(
+                msg_callback,
+                mp,
+            ),
+            fkwargs=dict(
+                tile=tile,
+                multi=workers,
+                zoom=None if tile else zoom,
+            ),
+            executor_concurrency=concurrency,
+            executor_kwargs=dict(
+                dask_scheduler=dask_scheduler,
+                dask_client=dask_client,
+                max_chunksize=max_chunksize,
+                multiprocessing_start_method=multiprocessing_start_method,
+            ),
             as_iterator=as_iterator,
             total=1 if tile else tiles_count,
         )
@@ -138,9 +172,9 @@ def execute(
         raise
 
 
-def _msg_wrapper(msg_callback, mp, **kwargs):
+def _msg_wrapper(msg_callback, mp, executor=None, **kwargs):
     try:
-        for process_info in mp.batch_processor(**kwargs):
+        for process_info in mp.batch_processor(executor=executor, **kwargs):
             yield process_info
             msg_callback(
                 f"Tile {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"

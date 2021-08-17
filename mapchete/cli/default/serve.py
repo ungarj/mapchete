@@ -9,24 +9,24 @@ import pkgutil
 from rasterio.io import MemoryFile
 
 import mapchete
-from mapchete.cli import utils
+from mapchete.cli import options
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
 
 
 @click.command(help="Serve a process on localhost.")
-@utils.arg_mapchete_files
-@utils.opt_port
-@utils.opt_internal_cache
-@utils.opt_zoom
-@utils.opt_bounds
-@utils.opt_overwrite
-@utils.opt_readonly
-@utils.opt_memory
-@utils.opt_input_file
-@utils.opt_debug
-@utils.opt_logfile
+@options.arg_mapchete_files
+@options.opt_port
+@options.opt_internal_cache
+@options.opt_zoom
+@options.opt_bounds
+@options.opt_overwrite
+@options.opt_readonly
+@options.opt_memory
+@options.opt_input_file
+@options.opt_debug
+@options.opt_logfile
 def serve(
     mapchete_files,
     port=None,
