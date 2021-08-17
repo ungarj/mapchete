@@ -83,8 +83,8 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
         )
         kwargs.update(mode="readonly")
         return Mapchete(MapcheteConfig(config, **kwargs))
-    else:
-        return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
+
+    return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
 
 
 class Mapchete(object):
@@ -155,9 +155,9 @@ class Mapchete(object):
             ):
                 yield tile
         else:
-            for zoom in reversed(self.config.zoom_levels):
+            for i in reversed(self.config.zoom_levels):
                 for tile in self.config.process_pyramid.tiles_from_geom(
-                    self.config.area_at_zoom(zoom), zoom
+                    self.config.area_at_zoom(i), i
                 ):
                     yield tile
 
@@ -236,7 +236,7 @@ class Mapchete(object):
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
-                executor=None,
+                executor=executor,
             )
         )
 
@@ -329,7 +329,7 @@ class Mapchete(object):
                 self.config.process_pyramid,
                 minzoom,
                 maxzoom,
-                init_zoom=0,
+                init_zoom=init_zoom,
             )
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
@@ -358,8 +358,7 @@ class Mapchete(object):
         except MapcheteNodataTile:
             if raise_nodata:  # pragma: no cover
                 raise
-            else:
-                return self.config.output.empty(process_tile)
+            return self.config.output.empty(process_tile)
 
     def read(self, output_tile):
         """
