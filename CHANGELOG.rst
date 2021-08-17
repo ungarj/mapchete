@@ -3,6 +3,30 @@ Changelog
 #########
 
 -----------------
+0.41 - 2021-08-17
+-----------------
+
+* core
+
+  * add ``mapchete.commands`` package
+  * add ``dask`` as optional ``Executor``
+  * expose futures in ``Executor`` class to facilitate job cancellation
+  * use ``spawn`` as default multiprocessing start method (#351)
+  * fix missing worker logs (#185)
+  * rename ``mapchete.cli.utils`` to ``mapchete.cli.options``
+  * enable providing process code from within process config
+
+* packaging
+
+  * updated API doc
+
+* CLI
+
+  * CLI: change ``--multi`` option to ``--worker``
+  * enable optional concurrency for ``mapchete cp``
+
+
+-----------------
 0.40 - 2021-06-24
 -----------------
 
