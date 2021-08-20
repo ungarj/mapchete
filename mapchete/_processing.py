@@ -415,9 +415,6 @@ class MapcheteProcess(object):
 
 def _preprocess_task_wrapper(task_tuple):
     task_key, (func, fargs, fkwargs) = task_tuple
-    print(func)
-    print(fargs)
-    print(fkwargs)
     return task_key, func(*fargs, **fkwargs)
 
 

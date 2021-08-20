@@ -58,7 +58,7 @@ def execute(
                         msg_callback=tqdm.tqdm.write if verbose else None,
                         **kwargs,
                     ),
-                    unit="tile",
+                    unit="task",
                     disable=debug or no_pbar,
                 )
             )

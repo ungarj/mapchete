@@ -117,10 +117,10 @@ class InputData(object):
         if not isinstance(fargs, (tuple, list)):
             fargs = (fargs,)
         fkwargs = fkwargs or {}
-        key = key or get_hash((func, fargs, fkwargs))
+        key = f"{func}-{get_hash((func, fargs, fkwargs))}" if key is None else key
         if key in self.preprocessing_tasks:  # pragma: no cover
             raise KeyError(f"preprocessing task with key {key} already exists")
-        logger.debug(f"add preprocessing task {key, (func, fargs, fkwargs)}")
+        logger.debug(f"add preprocessing task {key, func}")
         self.preprocessing_tasks[key] = (func, fargs, fkwargs)
 
     def get_preprocessing_task_result(self, task_key):

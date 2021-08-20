@@ -132,7 +132,7 @@ def execute(
     )
     try:
         tasks_count = mp.count_tasks()
-        msg_callback(f"processing {tasks_count} tile(s) on {workers} worker(s)")
+        msg_callback(f"processing {tasks_count} task(s) on {workers} worker(s)")
         # automatically use dask Executor if dask scheduler is defined
         if dask_scheduler or dask_client:  # pragma: no cover
             concurrency = "dask"

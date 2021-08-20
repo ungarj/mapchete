@@ -14,6 +14,7 @@ from cached_property import cached_property
 from collections import OrderedDict
 from copy import deepcopy
 import fiona
+import hashlib
 import importlib
 import inspect
 import logging
@@ -840,12 +841,9 @@ class MapcheteConfig(object):
         return self.bounds_at_zoom(zoom)
 
 
-def get_hash(x):
+def get_hash(x, length=16):
     """Return hash of x."""
-    if isinstance(x, str):
-        return hash(x)
-    elif isinstance(x, dict):
-        return hash(yaml.dump(x))
+    return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
 
 
 def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
