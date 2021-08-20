@@ -131,29 +131,26 @@ def execute(
         area_crs=area_crs,
     )
     try:
-        tiles_count = mp.count_tiles()
-        if tile:
-            msg_callback("processing 1 tile")
-        else:
-            msg_callback(f"processing {tiles_count} tile(s) on {workers} worker(s)")
+        tasks_count = mp.count_tasks()
+        msg_callback(f"processing {tasks_count} tile(s) on {workers} worker(s)")
         # automatically use dask Executor if dask scheduler is defined
         if dask_scheduler or dask_client:  # pragma: no cover
             concurrency = "dask"
         # use sequential Executor if only one tile or only one worker is defined
-        elif tiles_count == 1 or workers == 1:
+        elif tasks_count == 1 or workers == 1:
             logger.debug(
-                f"using sequential Executor because there is only one {'tile' if tiles_count == 1 else 'worker'}"
+                f"using sequential Executor because there is only one {'task' if tasks_count == 1 else 'worker'}"
             )
             concurrency = None
         return mapchete.Job(
-            _msg_wrapper,
+            _process_everything,
             fargs=(
                 msg_callback,
                 mp,
             ),
             fkwargs=dict(
                 tile=tile,
-                multi=workers,
+                workers=workers,
                 zoom=None if tile else zoom,
             ),
             executor_concurrency=concurrency,
@@ -164,7 +161,7 @@ def execute(
                 multiprocessing_start_method=multiprocessing_start_method,
             ),
             as_iterator=as_iterator,
-            total=1 if tile else tiles_count,
+            total=tasks_count,
         )
     # explicitly exit the mp object on failure
     except Exception:  # pragma: no cover
@@ -172,9 +169,16 @@ def execute(
         raise
 
 
-def _msg_wrapper(msg_callback, mp, executor=None, **kwargs):
+def _process_everything(msg_callback, mp, executor=None, workers=None, **kwargs):
     try:
-        for process_info in mp.batch_processor(executor=executor, **kwargs):
+        for preprocessing_task_info in mp.batch_preprocessor(
+            executor=executor, workers=workers
+        ):
+            yield preprocessing_task_info
+            msg_callback(preprocessing_task_info)
+        for process_info in mp.batch_processor(
+            executor=executor, multi=workers, **kwargs
+        ):
             yield process_info
             msg_callback(
                 f"Tile {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"

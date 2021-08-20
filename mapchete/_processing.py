@@ -440,7 +440,6 @@ def _preprocess(
         multiprocessing_module=multiprocessing_module,
         dask_scheduler=dask_scheduler,
     )
-    print([(k, v) for k, v in tasks.items()])
     try:
         with Timer() as t:
             logger.debug(
@@ -455,7 +454,7 @@ def _preprocess(
                 task_key, result = future.result()
                 logger.debug(f"preprocessing task {task_key} processed successfully")
                 process.config.set_preprocessing_task_result(task_key, result)
-                yield task_key
+                yield f"preprocessing task {task_key} finished"
     finally:
         if create_executor:
             executor.close()
