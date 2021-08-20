@@ -13,6 +13,7 @@ from mapchete.io import fs_from_path, tiles_exist
 from mapchete._processing import (
     _run_on_single_tile,
     _run_area,
+    _preprocess,
     ProcessInfo,
     TileProcess,
 )
@@ -184,6 +185,36 @@ class Mapchete(object):
             for tile in tiles:
                 yield (tile, False)
 
+    def batch_preprocessor(
+        self,
+        dask_scheduler=None,
+        workers=None,
+        executor=None,
+    ):
+        """Run all required preprocessing steps and yield over results."""
+        # process everything using executor and yield from results
+        yield from _preprocess(
+            self.config.preprocessing_tasks(),
+            process=self,
+            dask_scheduler=dask_scheduler,
+            workers=workers,
+            executor=executor,
+        )
+
+    def batch_preprocess(
+        self,
+        dask_scheduler=None,
+        workers=None,
+        executor=None,
+    ):
+        list(
+            self.batch_preprocessor(
+                dask_scheduler=dask_scheduler,
+                workers=workers,
+                executor=executor,
+            )
+        )
+
     def batch_process(
         self,
         zoom=None,
@@ -305,14 +336,20 @@ class Mapchete(object):
             ):
                 yield process_info
 
+    def count_tasks(self, minzoom=None, maxzoom=None, init_zoom=0):
+        """
+        Count all preprocessing tasks and tiles at given zoom levels.
+        """
+        return self.config.preprocessing_tasks_count() + self.count_tiles(
+            minzoom=minzoom, maxzoom=maxzoom, init_zoom=0
+        )
+
     def count_tiles(self, minzoom=None, maxzoom=None, init_zoom=0):
         """
         Count number of tiles intersecting with process area at given zoom levels.
 
         Parameters
         ----------
-        geometry : shapely geometry
-        pyramid : TilePyramid
         minzoom : int
         maxzoom : int
         init_zoom : int
@@ -351,6 +388,7 @@ class Mapchete(object):
             process output
         """
         process_tile = validate_tile(process_tile, self.config.process_pyramid)
+        self.batch_preprocess()
         try:
             return self.config.output.streamline_output(
                 TileProcess(tile=process_tile, config=self.config).execute()

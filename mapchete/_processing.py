@@ -408,6 +408,61 @@ class MapcheteProcess(object):
         )
 
 
+#######################
+# batch preprocessing #
+#######################
+
+
+def _preprocess_task_wrapper(task_tuple):
+    task_key, (func, fargs, fkwargs) = task_tuple
+    print(func)
+    print(fargs)
+    print(fkwargs)
+    return task_key, func(*fargs, **fkwargs)
+
+
+def _preprocess(
+    tasks,
+    process=None,
+    dask_scheduler=None,
+    workers=None,
+    multiprocessing_module=None,
+    multiprocessing_start_method=None,
+    executor=None,
+):
+    # If an Executor is passed on, don't close after processing. If no Executor is passed on,
+    # create one and properly close it afterwards.
+    create_executor = executor is None
+    executor = executor or Executor(
+        max_workers=workers,
+        concurrency="dask" if dask_scheduler else "processes",
+        start_method=multiprocessing_start_method,
+        multiprocessing_module=multiprocessing_module,
+        dask_scheduler=dask_scheduler,
+    )
+    print([(k, v) for k, v in tasks.items()])
+    try:
+        with Timer() as t:
+            logger.debug(
+                "run preprocessing on %s tasks using %s workers", len(tasks), workers
+            )
+
+            # process all remaining tiles using todo list from before
+            for future in executor.as_completed(
+                func=_preprocess_task_wrapper,
+                iterable=[(k, v) for k, v in tasks.items()],
+            ):
+                task_key, result = future.result()
+                logger.debug(f"preprocessing task {task_key} processed successfully")
+                process.config.set_preprocessing_task_result(task_key, result)
+                yield task_key
+    finally:
+        if create_executor:
+            executor.close()
+
+    logger.info("%s task(s) iterated in %s", str(len(tasks)), t)
+
+
 ###########################
 # batch execution options #
 ###########################
