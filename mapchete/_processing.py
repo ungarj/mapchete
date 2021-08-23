@@ -444,12 +444,17 @@ def _preprocess(
             )
 
             # process all remaining tiles using todo list from before
-            for future in executor.as_completed(
-                func=_preprocess_task_wrapper,
-                iterable=[(k, v) for k, v in tasks.items()],
+            for i, future in enumerate(
+                executor.as_completed(
+                    func=_preprocess_task_wrapper,
+                    iterable=[(k, v) for k, v in tasks.items()],
+                ),
+                1,
             ):
                 task_key, result = future.result()
-                logger.debug(f"preprocessing task {task_key} processed successfully")
+                logger.debug(
+                    f"preprocessing task {i}/{len(tasks)} {task_key} processed successfully"
+                )
                 process.config.set_preprocessing_task_result(task_key, result)
                 yield f"preprocessing task {task_key} finished"
     finally:
