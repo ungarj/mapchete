@@ -60,7 +60,12 @@ class _ExecutorBase:
         self.futures.extend(futures)
         logger.debug(f"added {len(futures)} tasks")
         for future in self._as_completed(futures):
+            if future.exception():
+                raise future.exception()
             yield future
+
+    def map(self, func, iterable, fargs=None, fkwargs=None):  # pragma: no cover
+        raise NotImplementedError
 
     def cancel(self):
         logger.debug(f"cancel {len(self.futures)} futures...")
@@ -131,6 +136,14 @@ class DaskExecutor(_ExecutorBase):
             future.cancel()
         logger.debug(f"{len(self.futures)} futures cancelled")
 
+    def map(self, func, iterable, fargs=None, fkwargs=None):
+        fargs = fargs or []
+        fkwargs = fkwargs or {}
+        return [
+            f.result()
+            for f in self._executor.map(partial(func, *fargs, **fkwargs), iterable)
+        ]
+
     def _as_completed(self, futures):
         from dask.distributed import as_completed
 
@@ -198,6 +211,11 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
         for future in concurrent.futures.as_completed(futures):
             yield future
 
+    def map(self, func, iterable, fargs=None, fkwargs=None):
+        fargs = fargs or []
+        fkwargs = fkwargs or {}
+        return list(self._executor.map(partial(func, *fargs, **fkwargs), iterable))
+
 
 class SequentialExecutor(_ExecutorBase):
     """Execute tasks sequentially in single process."""
@@ -216,6 +234,11 @@ class SequentialExecutor(_ExecutorBase):
             if self._cancel:
                 return
             yield FakeFuture(func, fargs=[i, *fargs], fkwargs=fkwargs)
+
+    def map(self, func, iterable, fargs=None, fkwargs=None):
+        fargs = fargs or []
+        fkwargs = fkwargs or {}
+        return list(map(partial(func, *fargs, **fkwargs), iterable))
 
     def cancel(self):
         self._cancel = True
