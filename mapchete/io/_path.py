@@ -245,7 +245,6 @@ def _s3_tiledirectories(
 
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
-    logger.debug(f"create new FileSystem for path {path}")
     if path.startswith("s3://"):
         return fsspec.filesystem(
             "s3",
