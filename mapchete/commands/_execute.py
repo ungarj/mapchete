@@ -131,7 +131,10 @@ def execute(
         area_crs=area_crs,
     )
     try:
-        tasks_count = mp.count_tasks()
+        if tile:
+            tasks_count = 1 + mp.config.preprocessing_tasks_count()
+        else:
+            tasks_count = mp.count_tasks()
         msg_callback(f"processing {tasks_count} task(s) on {workers} worker(s)")
         # automatically use dask Executor if dask scheduler is defined
         if dask_scheduler or dask_client:  # pragma: no cover

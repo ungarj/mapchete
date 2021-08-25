@@ -329,7 +329,7 @@ class MapcheteConfig(object):
     def input_at_zoom(self, key=None, zoom=None):
         if zoom is None:  # pragma: no cover
             raise ValueError("zoom not provided")
-        return self.input[hash(self._params_at_zoom[zoom]["input"][key])]
+        return self.input[get_hash(self._params_at_zoom[zoom]["input"][key])]
 
     def preprocessing_tasks_per_input(self):
         """Get all preprocessing tasks defined by the input drivers."""
