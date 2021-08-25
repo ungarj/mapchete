@@ -37,8 +37,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install fiona shapely --no-binary :all:
         if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
-        pip install -r requirements.txt -r test/requirements.txt
         pip install -e .[complete]
+        pip install -r test/requirements.txt
 
     - name: Lint with flake8
       run: |
