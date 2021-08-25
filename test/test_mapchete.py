@@ -11,11 +11,9 @@ import numpy.ma as ma
 import pkg_resources
 
 try:
-    from cPickle import dumps
+    from cPickle import dumps as pickle_dumps
 except ImportError:
-    from pickle import dumps
-from functools import partial
-from multiprocessing import Pool
+    from pickle import dumps as pickle_dumps
 from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
@@ -387,27 +385,14 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                     shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
 
-def test_multiprocessing(mp_tmpdir, cleantopo_tl):
+def test_pickleability(mp_tmpdir, cleantopo_tl):
     """Test parallel tile processing."""
     with mapchete.open(cleantopo_tl.path) as mp:
-        assert dumps(mp)
-        assert dumps(mp.config)
-        assert dumps(mp.config.output)
+        assert pickle_dumps(mp)
+        assert pickle_dumps(mp.config)
+        assert pickle_dumps(mp.config.output)
         for tile in mp.get_process_tiles():
-            assert dumps(tile)
-        f = partial(_worker, mp)
-        try:
-            pool = Pool()
-            for zoom in reversed(mp.config.zoom_levels):
-                for tile, raw_output in pool.imap_unordered(
-                    f, mp.get_process_tiles(zoom), chunksize=8
-                ):
-                    mp.write(tile, raw_output)
-        except KeyboardInterrupt:
-            pool.terminate()
-        finally:
-            pool.close()
-            pool.join()
+            assert pickle_dumps(tile)
 
 
 def _worker(mp, tile):
