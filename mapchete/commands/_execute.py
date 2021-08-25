@@ -176,7 +176,7 @@ def _process_everything(msg_callback, mp, executor=None, workers=None, **kwargs)
     try:
         for preprocessing_task_info in mp.batch_preprocessor(
             executor=executor, workers=workers
-        ):
+        ):  # pragma: no cover
             yield preprocessing_task_info
             msg_callback(preprocessing_task_info)
         for process_info in mp.batch_processor(

@@ -60,7 +60,7 @@ class _ExecutorBase:
         self.futures.extend(futures)
         logger.debug(f"added {len(futures)} tasks")
         for future in self._as_completed(futures):
-            if future.exception():
+            if future.exception():  # pragma: no cover
                 raise future.exception()
             yield future
 
