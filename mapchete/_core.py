@@ -5,6 +5,7 @@ import logging
 import multiprocessing
 import os
 import threading
+import warnings
 
 from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.errors import MapcheteNodataTile
@@ -191,7 +192,22 @@ class Mapchete(object):
         workers=None,
         executor=None,
     ):
-        """Run all required preprocessing steps and yield over results."""
+        """
+        Run all required preprocessing steps and yield over results.
+
+        The task count can be determined by self.config.preprocessing_tasks_count().
+
+        Parameters
+        ----------
+
+        dask_schedulter : str
+            URL to a dask scheduler if distributed execution is desired
+        workers : int
+            number of workers to be used for local processing
+        executor : mapchete.Executor
+            optional executor class to be used for processing
+
+        """
         # process everything using executor and yield from results
         yield from _preprocess(
             self.config.preprocessing_tasks(),
@@ -207,6 +223,19 @@ class Mapchete(object):
         workers=None,
         executor=None,
     ):
+        """
+        Run all required preprocessing steps.
+
+        Parameters
+        ----------
+
+        dask_schedulter : str
+            URL to a dask scheduler if distributed execution is desired
+        workers : int
+            number of workers to be used for local processing
+        executor : mapchete.Executor
+            optional executor class to be used for processing
+        """
         list(
             self.batch_preprocessor(
                 dask_scheduler=dask_scheduler,
@@ -219,10 +248,9 @@ class Mapchete(object):
         self,
         zoom=None,
         tile=None,
-        distributed=False,
         dask_scheduler=None,
         multi=None,
-        max_chunksize=1,
+        workers=None,
         multiprocessing_module=None,
         multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check=False,
@@ -241,11 +269,8 @@ class Mapchete(object):
         tile : tuple
             zoom, row and column of tile to be processed (cannot be used with
             zoom)
-        multi : int
+        workers : int
             number of workers (default: number of CPU cores)
-        max_chunksize : int
-            maximum number of process tiles to be queued for each worker;
-            (default: 1)
         multiprocessing_module : module
             either Python's standard 'multiprocessing' or Celery's 'billiard' module
             (default: multiprocessing)
@@ -255,16 +280,17 @@ class Mapchete(object):
         skip_output_check : bool
             skip checking whether process tiles already have existing output before
             starting to process;
+        executor : mapchete.Executor
+            optional executor class to be used for processing
         """
         list(
             self.batch_processor(
                 zoom=zoom,
                 tile=tile,
-                distributed=distributed,
                 dask_scheduler=dask_scheduler,
-                multi=multi or multiprocessing.cpu_count(),
-                max_chunksize=max_chunksize,
-                multiprocessing_module=multiprocessing_module or multiprocessing,
+                workers=workers,
+                multi=multi,
+                multiprocessing_module=multiprocessing_module,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
                 executor=executor,
@@ -275,10 +301,9 @@ class Mapchete(object):
         self,
         zoom=None,
         tile=None,
-        distributed=False,
         dask_scheduler=None,
         multi=None,
-        max_chunksize=1,
+        workers=None,
         multiprocessing_module=None,
         multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check=False,
@@ -297,9 +322,6 @@ class Mapchete(object):
             zoom)
         multi : int
             number of workers (default: number of CPU cores)
-        max_chunksize : int
-            maximum number of process tiles to be queued for each worker;
-            (default: 1)
         multiprocessing_module : module
             either Python's standard 'multiprocessing' or Celery's 'billiard' module
             (default: multiprocessing)
@@ -309,7 +331,17 @@ class Mapchete(object):
         skip_output_check : bool
             skip checking whether process tiles already have existing output before
             starting to process;
+        executor : mapchete.Executor
+            optional executor class to be used for processing
         """
+        if multi is not None:  # pragma: no cover
+            warnings.warn(
+                DeprecationWarning(
+                    "the 'multi' keyword is deprecated and should be called 'workers'"
+                )
+            )
+            workers = workers or multi
+
         if zoom and tile:
             raise ValueError("use either zoom or tile")
 
@@ -325,10 +357,8 @@ class Mapchete(object):
             for process_info in _run_area(
                 process=self,
                 zoom_levels=list(_get_zoom_level(zoom, self)),
-                distributed=distributed,
                 dask_scheduler=dask_scheduler,
-                multi=multi or multiprocessing.cpu_count(),
-                max_chunksize=max_chunksize,
+                workers=workers or multiprocessing.cpu_count(),
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
@@ -339,6 +369,19 @@ class Mapchete(object):
     def count_tasks(self, minzoom=None, maxzoom=None, init_zoom=0):
         """
         Count all preprocessing tasks and tiles at given zoom levels.
+
+        Parameters
+        ----------
+        minzoom : int
+            limits minimum process zoom
+        maxzoom : int
+            limits maximum process zoom
+        init_zoom : int
+            initial zoom level used for tile count algorithm
+
+        Returns
+        -------
+        number of tasks
         """
         return self.config.preprocessing_tasks_count() + self.count_tiles(
             minzoom=minzoom, maxzoom=maxzoom, init_zoom=0
@@ -351,8 +394,11 @@ class Mapchete(object):
         Parameters
         ----------
         minzoom : int
+            limits minimum process zoom
         maxzoom : int
+            limits maximum process zoom
         init_zoom : int
+            initial zoom level used for tile count algorithm
 
         Returns
         -------

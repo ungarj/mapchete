@@ -201,6 +201,7 @@ class MapcheteConfig(object):
         if mode not in ["memory", "continue", "readonly", "overwrite"]:
             raise MapcheteConfigError("unknown mode %s" % mode)
         self.mode = mode
+        self.preprocessing_tasks_finished = False
 
         # (1) assert mandatory params are available
         try:

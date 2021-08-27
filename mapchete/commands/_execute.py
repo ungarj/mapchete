@@ -26,7 +26,6 @@ def execute(
     concurrency: str = "processes",
     workers: int = None,
     multi: int = None,
-    max_chunksize: int = None,
     multiprocessing_start_method: str = None,
     dask_scheduler: str = None,
     dask_client=None,
@@ -63,8 +62,6 @@ def execute(
         Set process mode. One of "readonly", "continue" or "overwrite".
     workers : int
         Number of execution workers when processing concurrently.
-    max_chunksize : int
-        Maximum number of process tiles to be queued for each  worker. (default: 1)
     multiprocessing_start_method : str
         Method used by multiprocessing module to start child workers. Availability of methods
         depends on OS.
@@ -160,7 +157,6 @@ def execute(
             executor_kwargs=dict(
                 dask_scheduler=dask_scheduler,
                 dask_client=dask_client,
-                max_chunksize=max_chunksize,
                 multiprocessing_start_method=multiprocessing_start_method,
             ),
             as_iterator=as_iterator,
@@ -180,7 +176,7 @@ def _process_everything(msg_callback, mp, executor=None, workers=None, **kwargs)
             yield preprocessing_task_info
             msg_callback(preprocessing_task_info)
         for process_info in mp.batch_processor(
-            executor=executor, multi=workers, **kwargs
+            executor=executor, workers=workers, **kwargs
         ):
             yield process_info
             msg_callback(
