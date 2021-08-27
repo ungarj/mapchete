@@ -14,6 +14,7 @@ from cached_property import cached_property
 from collections import OrderedDict
 from copy import deepcopy
 import fiona
+import hashlib
 import importlib
 import inspect
 import logging
@@ -200,6 +201,7 @@ class MapcheteConfig(object):
         if mode not in ["memory", "continue", "readonly", "overwrite"]:
             raise MapcheteConfigError("unknown mode %s" % mode)
         self.mode = mode
+        self.preprocessing_tasks_finished = False
 
         # (1) assert mandatory params are available
         try:
@@ -324,6 +326,40 @@ class MapcheteConfig(object):
         # process area to prepare
         logger.debug("prepare output")
         self.output.prepare(process_area=self.area_at_zoom())
+
+    def input_at_zoom(self, key=None, zoom=None):
+        if zoom is None:  # pragma: no cover
+            raise ValueError("zoom not provided")
+        return self.input[get_hash(self._params_at_zoom[zoom]["input"][key])]
+
+    def preprocessing_tasks_per_input(self):
+        """Get all preprocessing tasks defined by the input drivers."""
+        return {
+            k: inp.preprocessing_tasks
+            for k, inp in self.input.items()
+            if inp is not None
+        }
+
+    def preprocessing_tasks(self):
+        return {
+            task_key: task
+            for preprocessing_tasks in self.preprocessing_tasks_per_input().values()
+            for task_key, task in preprocessing_tasks.items()
+        }
+
+    def preprocessing_tasks_count(self):
+        """Return number of unique preprocessing tasks."""
+        return len(self.preprocessing_tasks())
+
+    def set_preprocessing_task_result(self, task_key, result):
+        """Append preprocessing task result to input."""
+        found = False
+        for inp in self.input.values():
+            if task_key in inp.preprocessing_tasks:
+                found = True
+                inp.preprocessing_tasks_results[task_key] = result
+        if not found:
+            raise KeyError(f"task key {task_key} not found in any input")
 
     @cached_property
     def zoom_levels(self):
@@ -806,12 +842,9 @@ class MapcheteConfig(object):
         return self.bounds_at_zoom(zoom)
 
 
-def get_hash(x):
+def get_hash(x, length=16):
     """Return hash of x."""
-    if isinstance(x, str):
-        return hash(x)
-    elif isinstance(x, dict):
-        return hash(yaml.dump(x))
+    return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
 
 
 def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):

@@ -408,6 +408,68 @@ class MapcheteProcess(object):
         )
 
 
+#######################
+# batch preprocessing #
+#######################
+
+
+def _preprocess_task_wrapper(task_tuple):
+    task_key, (func, fargs, fkwargs) = task_tuple
+    return task_key, func(*fargs, **fkwargs)
+
+
+def _preprocess(
+    tasks,
+    process=None,
+    dask_scheduler=None,
+    workers=None,
+    multiprocessing_module=None,
+    multiprocessing_start_method=None,
+    executor=None,
+):
+    # If preprocessing tasks already finished, don't run them again.
+    if process.config.preprocessing_tasks_finished:  # pragma: no cover
+        return
+
+    # If an Executor is passed on, don't close after processing. If no Executor is passed on,
+    # create one and properly close it afterwards.
+    create_executor = executor is None
+    executor = executor or Executor(
+        max_workers=workers,
+        concurrency="dask" if dask_scheduler else "processes",
+        start_method=multiprocessing_start_method,
+        multiprocessing_module=multiprocessing_module,
+        dask_scheduler=dask_scheduler,
+    )
+    try:
+        with Timer() as t:
+            logger.debug(
+                "run preprocessing on %s tasks using %s workers", len(tasks), workers
+            )
+
+            # process all remaining tiles using todo list from before
+            for i, future in enumerate(
+                executor.as_completed(
+                    func=_preprocess_task_wrapper,
+                    iterable=[(k, v) for k, v in tasks.items()],
+                ),
+                1,
+            ):
+                task_key, result = future.result()
+                logger.debug(
+                    f"preprocessing task {i}/{len(tasks)} {task_key} processed successfully"
+                )
+                process.config.set_preprocessing_task_result(task_key, result)
+                yield f"preprocessing task {task_key} finished"
+    finally:
+        if create_executor:
+            executor.close()
+
+    process.config.preprocessing_tasks_finished = True
+
+    logger.info("%s task(s) iterated in %s", str(len(tasks)), t)
+
+
 ###########################
 # batch execution options #
 ###########################
@@ -432,10 +494,8 @@ def _run_area(
     executor=None,
     process=None,
     zoom_levels=None,
-    distributed=False,
     dask_scheduler=None,
-    multi=None,
-    max_chunksize=None,
+    workers=None,
     multiprocessing_module=None,
     multiprocessing_start_method=None,
     skip_output_check=False,
@@ -450,12 +510,10 @@ def _run_area(
             func=_execute,
             zoom_levels=zoom_levels,
             process=process,
-            distributed=distributed,
             dask_scheduler=dask_scheduler,
-            multi=multi,
+            workers=workers,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
-            max_chunksize=max_chunksize,
             write_in_parent_process=True,
             skip_output_check=skip_output_check,
         ):
@@ -470,11 +528,9 @@ def _run_area(
             zoom_levels=zoom_levels,
             process=process,
             dask_scheduler=dask_scheduler,
-            distributed=distributed,
-            multi=multi,
+            workers=workers,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
-            max_chunksize=max_chunksize,
             write_in_parent_process=False,
             skip_output_check=skip_output_check,
         ):
@@ -501,18 +557,16 @@ def _run_multi(
     func=None,
     zoom_levels=None,
     process=None,
-    distributed=False,
     dask_scheduler=None,
-    multi=None,
+    workers=None,
     multiprocessing_start_method=None,
     multiprocessing_module=None,
-    max_chunksize=None,
     write_in_parent_process=False,
     fkwargs=None,
     skip_output_check=False,
 ):
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
-    workers = min([multi, total_tiles])
+    workers = min([workers, total_tiles])
     num_processed = 0
 
     # here we store the parents of processed tiles so we can update overviews

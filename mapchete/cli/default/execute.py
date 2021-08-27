@@ -26,7 +26,6 @@ from mapchete.cli import options
 @options.opt_verbose
 @options.opt_no_pbar
 @options.opt_debug
-@options.opt_max_chunksize
 @options.opt_vrt
 @options.opt_idx_out_dir
 def execute(
@@ -58,7 +57,7 @@ def execute(
                         msg_callback=tqdm.tqdm.write if verbose else None,
                         **kwargs,
                     ),
-                    unit="tile",
+                    unit="task",
                     disable=debug or no_pbar,
                 )
             )

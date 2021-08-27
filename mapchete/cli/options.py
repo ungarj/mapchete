@@ -243,12 +243,6 @@ opt_debug = click.option(
     callback=_set_debug_log_level,
     help="Deactivate progress bar and print debug log output.",
 )
-opt_max_chunksize = click.option(
-    "--max-chunksize",
-    type=click.INT,
-    default=1,
-    help="Maximum number of tasks to be queued for each  worker. (default: 1)",
-)
 opt_multiprocessing_start_method = click.option(
     "--multiprocessing-start-method",
     type=click.Choice(MULTIPROCESSING_START_METHODS),

@@ -10,7 +10,7 @@ def _dummy_process(i, sleep=0):
     return i + 1
 
 
-def test_sequential_executor():
+def test_sequential_executor_as_completed():
     items = 10
     count = 0
     with Executor(concurrency=None) as executor:
@@ -30,7 +30,14 @@ def test_sequential_executor():
             executor.cancel()
 
 
-def test_concurrent_futures_processes_executor():
+def test_sequential_executor_map():
+    items = list(range(10))
+    with Executor(concurrency=None) as executor:
+        result = executor.map(_dummy_process, items)
+        assert [i + 1 for i in items] == result
+
+
+def test_concurrent_futures_processes_executor_as_completed():
     items = 10
     with Executor(concurrency="processes") as executor:
         # process all
@@ -40,7 +47,7 @@ def test_concurrent_futures_processes_executor():
             assert future.result()
 
 
-def test_concurrent_futures_processes_executor_cancel():
+def test_concurrent_futures_processes_executor_cancel_as_completed():
     items = 100
     with Executor(concurrency="processes", max_workers=2) as executor:
         # abort
@@ -54,7 +61,14 @@ def test_concurrent_futures_processes_executor_cancel():
         assert any([future.cancelled() for future in executor.futures])
 
 
-def test_concurrent_futures_threads_executor():
+def test_concurrent_futures_processes_executor_map():
+    items = list(range(10))
+    with Executor(concurrency="processes") as executor:
+        result = executor.map(_dummy_process, items)
+        assert [i + 1 for i in items] == result
+
+
+def test_concurrent_futures_threads_executor_as_completed():
     items = 100
     with Executor(concurrency="threads", max_workers=2) as executor:
         # abort
@@ -68,7 +82,14 @@ def test_concurrent_futures_threads_executor():
         assert any([future.cancelled() for future in executor.futures])
 
 
-def test_dask_executor():
+def test_concurrent_futures_threads_executor_map():
+    items = list(range(10))
+    with Executor(concurrency="threads") as executor:
+        result = executor.map(_dummy_process, items)
+        assert [i + 1 for i in items] == result
+
+
+def test_dask_executor_as_completed():
     items = 100
     with Executor(concurrency="dask", max_workers=2) as executor:
         # abort
@@ -80,6 +101,13 @@ def test_dask_executor():
             break
 
         assert any([future.cancelled() for future in executor.futures])
+
+
+def test_concurrent_futures_dask_executor_map():
+    items = list(range(10))
+    with Executor(concurrency="dask") as executor:
+        result = executor.map(_dummy_process, items)
+        assert [i + 1 for i in items] == result
 
 
 def test_fake_future():

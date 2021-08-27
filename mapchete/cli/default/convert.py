@@ -127,7 +127,7 @@ def convert(
         list(
             tqdm.tqdm(
                 job,
-                unit="tile",
+                unit="task",
                 disable=debug or no_pbar,
             )
         )

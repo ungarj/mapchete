@@ -14,6 +14,7 @@ from shapely.geometry import shape
 import types
 import warnings
 
+from mapchete.config import get_hash
 from mapchete.errors import MapcheteProcessOutputError, MapcheteNodataTile
 from mapchete.formats import write_output_metadata
 from mapchete.io import makedirs, path_exists
@@ -55,6 +56,10 @@ class InputData(object):
         self.pyramid = input_params.get("pyramid")
         self.pixelbuffer = input_params.get("pixelbuffer")
         self.crs = self.pyramid.crs if self.pyramid else None
+        # collect preprocessing tasks to be run by the Executor
+        self.preprocessing_tasks = {}
+        # storage location of all preprocessing tasks
+        self.preprocessing_tasks_results = {}
 
     def open(self, tile, **kwargs):
         """
@@ -100,6 +105,30 @@ class InputData(object):
     def cleanup(self):
         """Optional cleanup function called when Mapchete exits."""
         pass
+
+    def add_preprocessing_task(self, func, fargs=None, fkwargs=None, key=None):
+        """
+        Add longer running preprocessing function to be called right before processing.
+
+        Applied correctly this will speed up process initialization and if multiple tasks
+        are required they run in parallel as they are being passed on the Executor.
+        """
+        fargs = fargs or ()
+        if not isinstance(fargs, (tuple, list)):
+            fargs = (fargs,)
+        fkwargs = fkwargs or {}
+        key = f"{func}-{get_hash((func, fargs, fkwargs))}" if key is None else key
+        if key in self.preprocessing_tasks:  # pragma: no cover
+            raise KeyError(f"preprocessing task with key {key} already exists")
+        logger.debug(f"add preprocessing task {key, func}")
+        self.preprocessing_tasks[key] = (func, fargs, fkwargs)
+
+    def get_preprocessing_task_result(self, task_key):
+        if task_key not in self.preprocessing_tasks:
+            raise KeyError(f"task {task_key} is not a task for current input")
+        if task_key not in self.preprocessing_tasks_results:
+            raise ValueError(f"task {task_key} has not yet been executed")
+        return self.preprocessing_tasks_results[task_key]
 
 
 class InputTile(object):
