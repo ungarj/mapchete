@@ -1,5 +1,5 @@
 """Mapchtete handling tiles."""
-from cached_property import cached_property
+from functools import cached_property
 from itertools import product
 from shapely.geometry import box
 from tilematrix import Tile, TilePyramid

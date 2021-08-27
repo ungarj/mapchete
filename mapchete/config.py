@@ -10,7 +10,7 @@ An invalid process configuration or an invalid process file cause an Exception
 when initializing the configuration.
 """
 
-from cached_property import cached_property
+from functools import cached_property
 from collections import OrderedDict
 from copy import deepcopy
 import fiona
