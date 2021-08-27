@@ -22,6 +22,7 @@ with open("README.rst") as f:
 # dependencies for extra features
 install_requires = [
     "cachetools",
+    "cached_property",
     "click>=7.1.1,<8",
     "click-plugins",
     "click-spinner",

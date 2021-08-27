@@ -5,7 +5,7 @@ Currently limited by extensions .tif, .vrt., .png and .jp2 but could be
 extended easily.
 """
 
-from functools import cached_property
+from cached_property import cached_property
 from copy import deepcopy
 import logging
 import os

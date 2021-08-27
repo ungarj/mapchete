@@ -1,4 +1,4 @@
-from functools import cached_property
+from cached_property import cached_property
 import concurrent.futures
 from functools import partial
 from itertools import chain
