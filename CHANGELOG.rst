@@ -2,6 +2,23 @@
 Changelog
 #########
 
+
+-----------------
+0.42 - 2021-08-27
+-----------------
+
+* core
+
+  * add option for input drivers to let processing-heavy tasks be handled by ``mapchete.Executor`` by implementing ``InputData.add_preprocessing_task()`` and ``InputData.get_preprocessing_task_result()`` methods
+  * check futures submitted to ``mapchete.Executor`` for exceptions before yielding
+  * remove deprecated ``multi`` (now called ``workers``), ``distributed`` and ``max_chunksize`` arguments
+
+* CLI
+
+  * remove deprecated ``--max-chunksize`` option
+  * replace "tiles" with "tasks" in progress
+
+
 -----------------
 0.41 - 2021-08-17
 -----------------
