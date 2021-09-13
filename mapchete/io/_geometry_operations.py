@@ -1,4 +1,5 @@
 from fiona.transform import transform_geom
+import pyproj
 from rasterio.crs import CRS
 from shapely.errors import TopologicalError
 from shapely.geometry import (
@@ -89,13 +90,13 @@ def reproject_geometry(
     # geometry needs to be clipped to its CRS bounds
     elif (
         dst_crs.is_epsg_code
-        and dst_crs.get("init") in CRS_BOUNDS  # just in case for an CRS with EPSG code
-        and dst_crs.get("init")  # if CRS has defined bounds
+        and dst_crs.get("init")
         != "epsg:4326"  # and is not WGS84 (does not need clipping)
+        and pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds
     ):
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
-        crs_bbox = box(*CRS_BOUNDS[dst_crs.get("init")])
+        crs_bbox = box(*pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds)
         # reproject geometry to WGS84
         geometry_4326 = _reproject_geom(geometry, src_crs, wgs84_crs)
         # raise error if geometry has to be clipped
