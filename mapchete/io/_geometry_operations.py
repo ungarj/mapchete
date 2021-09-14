@@ -92,11 +92,18 @@ def reproject_geometry(
         dst_crs.is_epsg_code
         and dst_crs.get("init")
         != "epsg:4326"  # and is not WGS84 (does not need clipping)
-        and pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds
+        and (
+            dst_crs.get("init") in CRS_BOUNDS
+            or pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds
+        )
     ):
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
-        crs_bbox = box(*pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds)
+        crs_bbox = box(
+            *CRS_BOUNDS.get(
+                dst_crs.get("init"), pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds
+            )
+        )
         # reproject geometry to WGS84
         geometry_4326 = _reproject_geom(geometry, src_crs, wgs84_crs)
         # raise error if geometry has to be clipped
