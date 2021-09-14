@@ -36,6 +36,8 @@ def reproject_geometry(
     src_crs=None,
     dst_crs=None,
     error_on_clip=False,
+    segmentize_on_clip=False,
+    segmentize_fraction=100,
     validity_check=True,
     antimeridian_cutting=False,
 ):
@@ -109,8 +111,19 @@ def reproject_geometry(
         # raise error if geometry has to be clipped
         if error_on_clip and not geometry_4326.within(crs_bbox):
             raise RuntimeError("geometry outside target CRS bounds")
+
+        clipped = crs_bbox.intersection(geometry_4326)
+
+        # segmentize clipped geometry using one 100th of with or height depending on
+        # which is shorter
+        if segmentize_on_clip:
+            height = clipped.bounds[3] - clipped.bounds[1]
+            width = clipped.bounds[2] - clipped.bounds[0]
+            segmentize_value = min([height, width]) / segmentize_fraction
+            clipped = segmentize_geometry(clipped, segmentize_value)
+
         # clip geometry dst_crs boundaries and return
-        return _reproject_geom(crs_bbox.intersection(geometry_4326), wgs84_crs, dst_crs)
+        return _reproject_geom(clipped, wgs84_crs, dst_crs)
 
     # return without clipping if destination CRS does not have defined bounds
     else:
