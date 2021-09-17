@@ -32,7 +32,6 @@ install_requires = [
     "importlib-resources",
     "numpy>=1.16",
     "oyaml",
-    "pyproj",
     "retry",
     "rasterio>=1.0.28",
     "shapely",

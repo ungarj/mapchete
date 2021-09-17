@@ -17,7 +17,6 @@ lxml>=4.5.0
 matplotlib>=3.2.1
 numpy>=1.16
 oyaml>=0.9
-pyproj
 retry>=0.9.2
 rasterio>=1.0.28
 s3fs==0.5.2
