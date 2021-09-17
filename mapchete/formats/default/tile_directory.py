@@ -14,7 +14,7 @@ from mapchete.formats import (
     read_output_metadata,
 )
 from mapchete.io import path_exists, absolute_path, tile_to_zoom_level
-from mapchete.io.vector import reproject_geometry
+from mapchete.io.vector import reproject_geometry, segmentize_geometry
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -187,6 +187,7 @@ class InputData(base.InputData):
             box(*self._bounds),
             src_crs=self.td_pyramid.crs,
             dst_crs=self.pyramid.crs if out_crs is None else out_crs,
+            segmentize_on_clip=True,
         )
 
 

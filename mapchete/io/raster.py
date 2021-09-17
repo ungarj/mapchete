@@ -298,12 +298,14 @@ def _rasterio_read(
             ),
             resampling=Resampling[resampling],
         ) as vrt:
-            return vrt.read(
-                window=vrt.window(*dst_bounds),
-                out_shape=dst_shape,
-                indexes=indexes,
-                masked=True,
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                return vrt.read(
+                    window=vrt.window(*dst_bounds),
+                    out_shape=dst_shape,
+                    indexes=indexes,
+                    masked=True,
+                )
 
     if isinstance(input_file, str):
         logger.debug("got file path %s", input_file)

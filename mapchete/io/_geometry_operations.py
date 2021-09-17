@@ -1,4 +1,5 @@
 from fiona.transform import transform_geom
+import pyproj
 from rasterio.crs import CRS
 from shapely.errors import TopologicalError
 from shapely.geometry import (
@@ -35,6 +36,8 @@ def reproject_geometry(
     src_crs=None,
     dst_crs=None,
     error_on_clip=False,
+    segmentize_on_clip=False,
+    segmentize_fraction=100,
     validity_check=True,
     antimeridian_cutting=False,
 ):
@@ -89,20 +92,38 @@ def reproject_geometry(
     # geometry needs to be clipped to its CRS bounds
     elif (
         dst_crs.is_epsg_code
-        and dst_crs.get("init") in CRS_BOUNDS  # just in case for an CRS with EPSG code
-        and dst_crs.get("init")  # if CRS has defined bounds
+        and dst_crs.get("init")
         != "epsg:4326"  # and is not WGS84 (does not need clipping)
+        and (
+            dst_crs.get("init") in CRS_BOUNDS
+            or pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds
+        )
     ):
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
-        crs_bbox = box(*CRS_BOUNDS[dst_crs.get("init")])
+        crs_bbox = box(
+            *CRS_BOUNDS.get(
+                dst_crs.get("init"), pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds
+            )
+        )
         # reproject geometry to WGS84
         geometry_4326 = _reproject_geom(geometry, src_crs, wgs84_crs)
         # raise error if geometry has to be clipped
         if error_on_clip and not geometry_4326.within(crs_bbox):
             raise RuntimeError("geometry outside target CRS bounds")
+
+        clipped = crs_bbox.intersection(geometry_4326)
+
+        # segmentize clipped geometry using one 100th of with or height depending on
+        # which is shorter
+        if segmentize_on_clip:
+            height = clipped.bounds[3] - clipped.bounds[1]
+            width = clipped.bounds[2] - clipped.bounds[0]
+            segmentize_value = min([height, width]) / segmentize_fraction
+            clipped = segmentize_geometry(clipped, segmentize_value)
+
         # clip geometry dst_crs boundaries and return
-        return _reproject_geom(crs_bbox.intersection(geometry_4326), wgs84_crs, dst_crs)
+        return _reproject_geom(clipped, wgs84_crs, dst_crs)
 
     # return without clipping if destination CRS does not have defined bounds
     else:
