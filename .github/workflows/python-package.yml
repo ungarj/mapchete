@@ -15,7 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [ 3.7, 3.8 ]
-        rasterio-version: [ 1.1.4, "latest" ]
         experimental: [ false ]
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
@@ -30,13 +29,10 @@ jobs:
 
     - name: Install dependencies
       env:
-        RASTERIO_VERSION: ${{ matrix.rasterio-version }}
         CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
       run: |
         sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable && sudo apt-get -y update && sudo apt-get install -y gdal-bin python-tk libgdal-dev libproj-dev
         python -m pip install --upgrade pip
-        pip install fiona pyproj shapely --no-binary :all:
-        if [ $RASTERIO_VERSION == "latest" ]; then pip install rasterio --no-binary :all:; else pip install rasterio==$RASTERIO_VERSION --no-binary :all:; fi;
         pip install -e .[complete]
         pip install -r test/requirements.txt
 
