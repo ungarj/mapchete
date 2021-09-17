@@ -187,7 +187,7 @@ class InputData(base.InputData):
             box(*self._bounds),
             src_crs=self.td_pyramid.crs,
             dst_crs=self.pyramid.crs if out_crs is None else out_crs,
-            # segmentize_on_clip=True,
+            segmentize_on_clip=True,
         )
 
 
