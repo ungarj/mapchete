@@ -4,6 +4,23 @@ Changelog
 
 
 -----------------
+0.43 - 2021-09-17
+-----------------
+
+* core
+
+  * `mapchete.io.vector.reproject_geometry()`:
+
+    * use `pyproj` to determine CRS bounds to clip geometries when reprojecting
+    * enable geometry segmentation before geometry is clipped (`segmentize_on_clip=False` and `segmentize_fraction=100` args)
+  * suppress `rasterio` warnings when reading rasters (too many `rasterio.errors.NodataShadowWarning`s)
+
+* packaging
+
+  * add `pyproj` to dependencies
+
+
+-----------------
 0.42 - 2021-08-27
 -----------------
 
