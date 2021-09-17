@@ -1,4 +1,5 @@
 from fiona.transform import transform_geom
+import pyproj
 from rasterio.crs import CRS
 from shapely.errors import TopologicalError
 from shapely.geometry import (
@@ -28,19 +29,6 @@ CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/3035/
     "epsg:3035": (-10.6700, 34.5000, 31.5500, 71.0500),
 }
-
-
-def _get_utm_bounds():
-    # UTM stripe bounds per hemisphere (6 for North, 7 for South)
-    bounds = {6: (12.0, 0.0, 18.0, 84.0), 7: (12.0, -80.0, 18.0, 0.0)}
-    return {
-        f"epsg:32{hemisphere}{stripe + 1}": bounds[hemisphere]
-        for stripe in range(60)
-        for hemisphere in [6, 7]
-    }
-
-
-CRS_BOUNDS.update(_get_utm_bounds())
 
 
 def reproject_geometry(
@@ -106,11 +94,18 @@ def reproject_geometry(
         dst_crs.is_epsg_code
         and dst_crs.get("init")
         != "epsg:4326"  # and is not WGS84 (does not need clipping)
-        and dst_crs.get("init") in CRS_BOUNDS
+        and (
+            dst_crs.get("init") in CRS_BOUNDS
+            or pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds
+        )
     ):
         wgs84_crs = CRS().from_epsg(4326)
         # get dst_crs boundaries
-        crs_bbox = box(*CRS_BOUNDS.get(dst_crs.get("init")))
+        crs_bbox = box(
+            *CRS_BOUNDS.get(
+                dst_crs.get("init"), pyproj.CRS(dst_crs.to_epsg()).area_of_use.bounds
+            )
+        )
         # reproject geometry to WGS84
         geometry_4326 = _reproject_geom(geometry, src_crs, wgs84_crs)
         # raise error if geometry has to be clipped
