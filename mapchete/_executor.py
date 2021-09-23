@@ -208,9 +208,17 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
                     mp_context=multiprocessing.get_context(method=start_method)
                 )
                 if start_method != "spawn":  # pragma: no cover
-                    warnings.warn(UserWarning("using a start method other than 'spawn' can cause mapchete to hang"))
+                    warnings.warn(
+                        UserWarning(
+                            "using a start method other than 'spawn' can cause mapchete to hang"
+                        )
+                    )
             else:  # pragma: no cover
-                warnings.warn(UserWarning("multiprocessing start method cannot be set on python<3.7"))
+                warnings.warn(
+                    UserWarning(
+                        "multiprocessing start method cannot be set on python<3.7"
+                    )
+                )
         elif concurrency == "threads":
             self._executor_cls = concurrent.futures.ThreadPoolExecutor
         else:  # pragma: no cover
