@@ -5,6 +5,8 @@ from itertools import chain
 import logging
 import multiprocessing
 import os
+import sys
+import warnings
 
 from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.log import set_log_level
@@ -186,18 +188,36 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
         self.futures = []
         self._executor_kwargs = dict(
             max_workers=self.max_workers,
-            initializer=set_log_level,
-            initargs=(logger.getEffectiveLevel(),),
         )
+        if sys.version_info >= (3, 7):
+            self._executor_kwargs.update(
+                initializer=set_log_level,
+                initargs=(logger.getEffectiveLevel(),),
+            )
+        else:  # pragma: no cover
+            warnings.warn(UserWarning("worker logs are not available on python<3.7"))
         if concurrency == "processes":
             self._executor_cls = concurrent.futures.ProcessPoolExecutor
-            start_method = (
-                kwargs.get("multiprocessing_start_method")
-                or MULTIPROCESSING_DEFAULT_START_METHOD
-            )
-            self._executor_kwargs.update(
-                mp_context=multiprocessing.get_context(method=start_method)
-            )
+            if sys.version_info >= (3, 7):
+                start_method = (
+                    kwargs.get("multiprocessing_start_method")
+                    or MULTIPROCESSING_DEFAULT_START_METHOD
+                )
+                self._executor_kwargs.update(
+                    mp_context=multiprocessing.get_context(method=start_method)
+                )
+                if start_method != "spawn":  # pragma: no cover
+                    warnings.warn(
+                        UserWarning(
+                            "using a start method other than 'spawn' can cause mapchete to hang"
+                        )
+                    )
+            else:  # pragma: no cover
+                warnings.warn(
+                    UserWarning(
+                        "multiprocessing start method cannot be set on python<3.7"
+                    )
+                )
         elif concurrency == "threads":
             self._executor_cls = concurrent.futures.ThreadPoolExecutor
         else:  # pragma: no cover
