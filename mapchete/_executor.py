@@ -5,7 +5,6 @@ from itertools import chain
 import logging
 import multiprocessing
 import os
-from packaging import version
 import sys
 import warnings
 
@@ -190,7 +189,7 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
         self._executor_kwargs = dict(
             max_workers=self.max_workers,
         )
-        if version.parse(sys.version) >= version.parse("3.7"):
+        if sys.version_info >= (3, 7):
             self._executor_kwargs.update(
                 initializer=set_log_level,
                 initargs=(logger.getEffectiveLevel(),),
@@ -199,7 +198,7 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
             warnings.warn(UserWarning("worker logs are not available on python<3.7"))
         if concurrency == "processes":
             self._executor_cls = concurrent.futures.ProcessPoolExecutor
-            if version.parse(sys.version) >= version.parse("3.7"):
+            if sys.version_info >= (3, 7):
                 start_method = (
                     kwargs.get("multiprocessing_start_method")
                     or MULTIPROCESSING_DEFAULT_START_METHOD
