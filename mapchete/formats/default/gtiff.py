@@ -453,7 +453,7 @@ class GTiffSingleFileOutputWriter(
             k: v for k, v in self.output_params.items() if k not in _OUTPUT_PARAMETERS
         }
         self._profile = dict(
-            GTIFF_DEFAULT_PROFILE,
+            DefaultGTiffProfile(driver="COG" if self.cog else "GTiff"),
             transform=Affine(
                 self.pyramid.pixel_x_size(self.zoom),
                 0,
@@ -466,17 +466,9 @@ class GTiffSingleFileOutputWriter(
             width=width,
             count=self.output_params["bands"],
             crs=self.pyramid.crs,
-            **dict(
-                {
-                    k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
-                    for k in GTIFF_DEFAULT_PROFILE.keys()
-                },
-                **creation_options,
-            ),
-            bigtiff=self.output_params.get("bigtiff", "NO"),
+            **creation_options,
         )
         logger.debug("single GTiff profile: %s", self._profile)
-
         logger.debug(
             get_maximum_overview_level(
                 width, height, minsize=self._profile["blockxsize"]
@@ -522,7 +514,7 @@ class GTiffSingleFileOutputWriter(
         logger.debug("open output file: %s", self.path)
         self._ctx = ExitStack()
         # (1) use memfile if output is remote or COG
-        if self.cog or path_is_remote(self.path):
+        if path_is_remote(self.path):
             if self.in_memory:
                 logger.debug("create MemoryFile")
                 self._memfile = self._ctx.enter_context(MemoryFile())
@@ -670,53 +662,22 @@ class GTiffSingleFileOutputWriter(
                             self.overviews_resampling
                         ].name.upper()
                     )
-                # write
-                if self.cog:
-                    if path_is_remote(self.path):
-                        # remote COG: copy to tempfile and upload to destination
-                        logger.debug("upload to %s", self.path)
-                        # TODO this writes a memoryfile to disk and uploads the file,
-                        # this is inefficient but until we find a solution to copy
-                        # from one memoryfile to another the rasterio way (rasterio needs
-                        # to rearrange the data so the overviews are at the beginning of
-                        # the GTiff in order to be a valid COG).
-                        with NamedTemporaryFile() as tmp_dst:
-                            copy(
-                                self.dst,
-                                tmp_dst.name,
-                                copy_src_overviews=True,
-                                **self._profile,
-                            )
-                            self._bucket_resource.upload_file(
-                                Filename=tmp_dst.name,
-                                Key="/".join(self.path.split("/")[3:]),
-                            )
+                if path_is_remote(self.path):
+                    # remote GTiff: upload memfile or tempfile to destination
+                    logger.debug("upload to %s", self.path)
+                    if self.in_memory:
+                        self._bucket_resource.put_object(
+                            Body=self._memfile,
+                            Key="/".join(self.path.split("/")[3:]),
+                        )
                     else:
-                        # local COG: copy to destination
-                        logger.debug("write to %s", self.path)
-                        copy(
-                            self.dst,
-                            self.path,
-                            copy_src_overviews=True,
-                            **self._profile,
+                        self._bucket_resource.upload_file(
+                            Filename=self._tempfile.name,
+                            Key="/".join(self.path.split("/")[3:]),
                         )
                 else:
-                    if path_is_remote(self.path):
-                        # remote GTiff: upload memfile or tempfile to destination
-                        logger.debug("upload to %s", self.path)
-                        if self.in_memory:
-                            self._bucket_resource.put_object(
-                                Body=self._memfile,
-                                Key="/".join(self.path.split("/")[3:]),
-                            )
-                        else:
-                            self._bucket_resource.upload_file(
-                                Filename=self._tempfile.name,
-                                Key="/".join(self.path.split("/")[3:]),
-                            )
-                    else:
-                        # local GTiff: already written, do nothing
-                        pass
+                    # local GTiff: already written, do nothing
+                    pass
 
         finally:
             self._ctx.close()
