@@ -251,6 +251,7 @@ def convert(
             f"Output format type ({output_type}) is incompatible with input format ({input_info['input_type']})."
         )
     if output_metatiling:
+        mapchete_config["pyramid"].update(metatiling=output_metatiling)
         mapchete_config["output"].update(metatiling=output_metatiling)
     if input_info["output_params"].get("schema") and output_geometry_type:
         mapchete_config["output"]["schema"].update(geometry=output_geometry_type)
