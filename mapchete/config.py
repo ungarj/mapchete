@@ -82,6 +82,7 @@ _RESERVED_PARAMETERS = [
     "process_maxzoom",  # maximum zoom where process is valid (deprecated)
     "process_zoom",  # single zoom where process is valid (deprecated)
     "process_bounds",  # process boundaries (deprecated)
+    "stac",  # STAC item metadata
 ]
 
 # parameters for output configuration

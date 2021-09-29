@@ -1,5 +1,6 @@
 import click
 import fsspec
+import logging
 import json
 import os
 import oyaml as yaml
@@ -8,6 +9,10 @@ from mapchete.cli import options
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import read_output_metadata
 from mapchete.stac import create_stac_item
+from mapchete.validate import validate_zooms
+
+
+logger = logging.getLogger(__name__)
 
 
 @click.group()
@@ -25,8 +30,11 @@ def stac():
 @click.option("--self-href", type=click.Path())
 @click.option("--thumbnail-href", type=click.Path())
 @click.option("--indent", type=click.INT, default=4)
+@options.opt_bounds
+@options.opt_bounds_crs
 @options.opt_force
 @options.opt_out_path
+@options.opt_debug
 def create_item(
     input_,
     item_id=None,
@@ -34,36 +42,54 @@ def create_item(
     item_basepath=None,
     alternative_basepath=None,
     zoom=None,
+    bounds=None,
+    bounds_crs=None,
     self_href=None,
     thumbnail_href=None,
     out_path=None,
     indent=None,
     force=None,
+    debug=None,
 ):
+    (
+        tile_pyramid,
+        default_basepath,
+        default_id,
+        default_bounds,
+        default_bounds_crs,
+        default_zoom,
+        default_item_metadata,
+    ) = output_info(input_)
+
+    if default_zoom:
+        zoom = zoom or validate_zooms(default_zoom)
+
     if zoom is None:
         raise ValueError("zoom must be set")
     elif len(zoom) == 1:
         min_zoom = zoom
         max_zoom = zoom
     else:
-        min_zoom, max_zoom = zoom
-
-    tile_pyramid, default_basepath, default_id = output_info(input_)
+        min_zoom, max_zoom = min(zoom), max(zoom)
 
     if item_metadata:
         with fsspec.open(item_metadata) as src:
             metadata = yaml.safe_load(src.read())
     else:
-        metadata = {}
+        metadata = default_item_metadata or {}
 
     item_id = item_id or metadata.get("id", default_id)
+    item_basepath = item_basepath or default_basepath
+    logger.debug(f"use item ID {item_id}")
     item = create_stac_item(
         item_id=item_id,
         item_metadata=metadata,
         tile_pyramid=tile_pyramid,
         min_zoom=min_zoom,
         max_zoom=max_zoom,
-        item_basepath=item_basepath or default_basepath,
+        bounds=bounds or default_bounds,
+        bounds_crs=bounds_crs or default_bounds_crs,
+        item_basepath=item_basepath,
         alternative_basepath=alternative_basepath,
         self_href=self_href,
         thumbnail_href=thumbnail_href,
@@ -72,7 +98,9 @@ def create_item(
         thumbnail_type=None,
         unit_to_meter=1,
     )
-    out_json = out_path or os.path.join(default_basepath, f"{item_id}.json")
+    out_path = out_path or os.path.join(item_basepath, f"{item_id}.json")
+    logger.debug(f"out path: {out_path}")
+    out_json = os.path.join(item_basepath, f"{item_id}.json")
     out = item.to_dict()
     click.echo(json.dumps(out, indent=indent))
     if force or click.confirm(f"Write output to {out_json}?", abort=True):
@@ -83,11 +111,15 @@ def create_item(
 def output_info(inp):
     if inp.endswith(".mapchete"):
         conf = raw_conf(inp)
-        default_basepath = os.path.dirname(conf["output"]["path"].strip("/"))
+        default_basepath = os.path.dirname(conf["output"]["path"].strip("/") + "/")
         return (
             raw_conf_output_pyramid(conf),
             default_basepath,
             os.path.basename(default_basepath),
+            conf.get("bounds"),
+            conf.get("bounds_crs"),
+            conf.get("zoom_levels"),
+            conf.get("stac"),
         )
     else:
         default_basepath = inp.strip("/")
@@ -95,4 +127,8 @@ def output_info(inp):
             read_output_metadata(os.path.join(inp, "metadata.json"))["pyramid"],
             default_basepath,
             os.path.basename(default_basepath),
+            None,
+            None,
+            None,
+            None,
         )

@@ -1,7 +1,6 @@
-from datetime import datetime
+from collections import OrderedDict
+import datetime
 import os
-import pystac
-from pystac.version import get_stac_version
 from shapely.geometry import box, mapping
 
 from mapchete.io.vector import reproject_geometry
@@ -36,6 +35,8 @@ def create_stac_item(
     item_metadata=None,
     min_zoom=0,
     max_zoom=None,
+    bounds=None,
+    bounds_crs=None,
     self_href=None,
     thumbnail_href=None,
     alternative_basepath=None,
@@ -47,6 +48,14 @@ def create_stac_item(
     """
     Create STAC item metadata.
     """
+    try:
+        import pystac
+        from pystac.version import get_stac_version
+    except ImportError:
+        raise ImportError(
+            "dependencies for extra mapchete[stac] is required for this feature"
+        )
+
     if item_id is None:
         raise ValueError("item_id must be set")
     if max_zoom is None:
@@ -54,11 +63,11 @@ def create_stac_item(
     if tile_pyramid is None:
         raise ValueError("tile_pyramid must be set")
 
-    item_metadata = item_metadata or {}
+    item_metadata = _cleanup_datetime(item_metadata or {})
     timestamp = (
-        item_metadata.get("start_datetime")
-        or item_metadata.get("end_datetime")
-        or str(datetime.utcnow())
+        item_metadata.get("properties", {}).get("start_datetime")
+        or item_metadata.get("properties", {}).get("end_datetime")
+        or str(datetime.datetime.utcnow())
     )
     tp_grid = tile_pyramid.grid.type
     bands_schema = "{TileMatrix}/{TileRow}/{TileCol}.tif"
@@ -73,6 +82,21 @@ def create_stac_item(
             raise ValueError("either alternative_basepath or item_basepath must be set")
         bands_schema = os.path.join(item_basepath, bands_schema)
         thumbnail_href = os.path.join(item_basepath, thumbnail_href)
+
+    # use bounds provided or fall back to tile pyramid bounds
+    bounds = bounds or tile_pyramid.bounds
+    bounds_crs = bounds_crs or tile_pyramid.crs
+
+    # bounds in tilepyramid CRS
+    left, bottom, right, top = reproject_geometry(
+        box(*bounds), src_crs=bounds_crs, dst_crs=tile_pyramid.crs
+    ).bounds
+
+    # bounds in lat/lon
+    geometry_4326 = reproject_geometry(
+        box(*bounds), src_crs=bounds_crs, dst_crs="EPSG:4326"
+    )
+    bounds_4326 = [*geometry_4326.bounds]
 
     # tiles:tile_matrix_set object:
     # http://schemas.opengis.net/tms/1.0/json/tms-schema.json
@@ -126,10 +150,18 @@ def create_stac_item(
         "url": f"#{tile_matrix_set_identifier}",
         "limits": {
             str(zoom): {
-                "min_tile_col": 0,
-                "max_tile_col": tile_pyramid.matrix_width(zoom) - 1,
-                "min_tile_row": 0,
-                "max_tile_row": tile_pyramid.matrix_height(zoom) - 1,
+                "min_tile_col": tile_pyramid.tile_from_xy(
+                    left, top, zoom, on_edge_use="rb"
+                ).col,
+                "max_tile_col": tile_pyramid.tile_from_xy(
+                    right, bottom, zoom, on_edge_use="lt"
+                ).col,
+                "min_tile_row": tile_pyramid.tile_from_xy(
+                    left, top, zoom, on_edge_use="rb"
+                ).row,
+                "max_tile_row": tile_pyramid.tile_from_xy(
+                    right, bottom, zoom, on_edge_use="lt"
+                ).row,
             }
             for zoom in range(min_zoom, max_zoom + 1)
         },
@@ -139,18 +171,13 @@ def create_stac_item(
     if "eo:bands" in item_metadata:
         stac_extensions.append("eo")
 
-    geometry = reproject_geometry(
-        box(*tile_pyramid.bounds), src_crs=tile_pyramid.crs, dst_crs="EPSG:4326"
-    )
-    bbox = [*geometry.bounds]
-
     out = {
         "stac_version": get_stac_version(),
         "stac_extensions": stac_extensions,
         "id": item_id,
         "type": "Feature",
-        "bbox": bbox,
-        "geometry": mapping(geometry),
+        "bbox": bounds_4326,
+        "geometry": mapping(geometry_4326),
         "properties": {
             **item_metadata.get("properties", {}),
             "datetime": timestamp,
@@ -169,7 +196,7 @@ def create_stac_item(
     }
     if "eo:bands" in item_metadata:
         out["asset_templates"]["bands"]["eo:bands"] = item_metadata["eo:bands"]
-        out["assets"]["thumbnail"]["eo:bands"] = item_metadata["eo:bands"]
+        # out["assets"]["thumbnail"]["eo:bands"] = item_metadata["eo:bands"]
     out["links"] = item_metadata.get("links", [])
     if self_href:
         out["links"].extend([{"rel": "self", "href": self_href}])
@@ -179,3 +206,15 @@ def create_stac_item(
 
 def _scale(grid, pixel_x_size, unit_to_meter=1):
     return UNIT_TO_METER.get(grid, unit_to_meter) * pixel_x_size / OUT_PIXEL_SIZE
+
+
+def _cleanup_datetime(d):
+    """Convert datetime objects in dictionary to strings."""
+    return OrderedDict(
+        (k, _cleanup_datetime(v))
+        if isinstance(v, dict)
+        else (k, str(v))
+        if isinstance(v, datetime.date)
+        else (k, v)
+        for k, v in d.items()
+    )
