@@ -3,14 +3,14 @@ import pytest
 from shapely.geometry import box, shape
 
 from mapchete.io.vector import reproject_geometry
-from mapchete.stac import create_stac_item
+from mapchete.stac import tile_directory_stac_item
 from mapchete.tile import BufferedTilePyramid
 
 
 def test_wkss_geodetic():
     tp = BufferedTilePyramid("geodetic")
-    item = create_stac_item(
-        item_id="foo", item_basepath="foo/bar", tile_pyramid=tp, max_zoom=5
+    item = tile_directory_stac_item(
+        item_id="foo", item_path="foo/bar.json", tile_pyramid=tp, max_zoom=5
     )
     assert item.id == "foo"
     assert shape(item.geometry).difference(box(*tp.bounds)).is_empty
@@ -25,8 +25,8 @@ def test_wkss_geodetic():
 
 def test_wkss_mercator():
     tp = BufferedTilePyramid("mercator")
-    item = create_stac_item(
-        item_id="foo", item_basepath="foo/bar", tile_pyramid=tp, max_zoom=5
+    item = tile_directory_stac_item(
+        item_id="foo", item_path="foo/bar.json", tile_pyramid=tp, max_zoom=5
     )
     assert item.id == "foo"
     item_geometry = reproject_geometry(
@@ -42,11 +42,10 @@ def test_wkss_mercator():
 
 
 def test_custom_datetime():
-    tp = BufferedTilePyramid("geodetic")
-    item = create_stac_item(
+    item = tile_directory_stac_item(
         item_id="foo",
-        item_basepath="foo/bar",
-        tile_pyramid=tp,
+        item_path="foo/bar.json",
+        tile_pyramid=BufferedTilePyramid("geodetic"),
         max_zoom=5,
         item_metadata=dict(properties=dict(start_datetime="2021-01-01 00:00:00")),
     )
@@ -63,12 +62,99 @@ def test_custom_tilematrix():
         ),
         metatiling=4,
     )
-    item = create_stac_item(
+    item = tile_directory_stac_item(
         item_id="foo",
-        item_basepath="foo/bar",
+        item_path="foo/bar.json",
         tile_pyramid=tp,
         max_zoom=5,
         item_metadata=dict(properties=dict(start_datetime="2021-01-01 00:00:00")),
     )
     assert str(item.datetime) == "2021-01-01 00:00:00"
     assert "custom" in item.properties["tiles:tile_matrix_sets"]
+
+
+def test_tiled_asset_path():
+    # default: create absolute path from item basepath
+    item = tile_directory_stac_item(
+        item_id="foo",
+        item_path="foo/bar.json",
+        tile_pyramid=BufferedTilePyramid("geodetic"),
+        max_zoom=0,
+    )
+    basepath = item.to_dict()["asset_templates"]["bands"]["href"]
+    assert basepath.startswith("foo/")
+
+    # use alternative asset basepath
+    item = tile_directory_stac_item(
+        item_id="foo",
+        item_path="foo/bar.json",
+        asset_basepath="s3://bar/",
+        tile_pyramid=BufferedTilePyramid("geodetic"),
+        max_zoom=0,
+    )
+    basepath = item.to_dict()["asset_templates"]["bands"]["href"]
+    assert basepath.startswith("s3://bar/")
+
+    # create relative path
+    item = tile_directory_stac_item(
+        item_id="foo",
+        relative_paths=True,
+        tile_pyramid=BufferedTilePyramid("geodetic"),
+        max_zoom=0,
+    )
+    basepath = item.to_dict()["asset_templates"]["bands"]["href"]
+    assert basepath.startswith("{TileMatrix}/{TileRow}")
+
+
+def test_tiled_asset_eo_bands_metadata():
+    item = tile_directory_stac_item(
+        item_id="foo",
+        item_path="foo/bar.json",
+        tile_pyramid=BufferedTilePyramid("geodetic"),
+        max_zoom=0,
+        item_metadata={"eo:bands": {"foo": "bar"}},
+    )
+    assert "eo" in item.to_dict()["stac_extensions"]
+    assert "eo:bands" in item.to_dict()["asset_templates"]["bands"]
+
+
+def test_create_stac_item_errors():
+    tp = BufferedTilePyramid("geodetic")
+    # no item_id
+    with pytest.raises(ValueError):
+        tile_directory_stac_item(
+            item_path="foo/bar.json",
+            tile_pyramid=tp,
+            max_zoom=5,
+        )
+
+    # no max_zoom
+    with pytest.raises(ValueError):
+        tile_directory_stac_item(
+            item_id="foo",
+            item_path="foo/bar.json",
+            tile_pyramid=tp,
+        )
+
+    # no tile_pyramid
+    with pytest.raises(ValueError):
+        tile_directory_stac_item(
+            item_id="foo",
+            item_path="foo/bar.json",
+            max_zoom=5,
+        )
+
+    # no item_path or asset_basepath
+    with pytest.raises(ValueError):
+        tile_directory_stac_item(
+            item_id="foo",
+            tile_pyramid=tp,
+            max_zoom=5,
+        )
+
+
+# def test_single_file():
+#     tile_directory_stac_item(
+#         item_id="foo",
+
+#     )

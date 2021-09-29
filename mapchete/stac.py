@@ -28,30 +28,63 @@ KNOWN_MATRIX_PROPERTIES = {
 }
 
 
-def create_stac_item(
+def tile_directory_stac_item(
     item_id=None,
-    item_basepath=None,
     tile_pyramid=None,
-    item_metadata=None,
-    min_zoom=0,
     max_zoom=None,
+    item_path=None,
+    asset_basepath=None,
+    relative_paths=False,
+    min_zoom=0,
+    item_metadata=None,
     bounds=None,
     bounds_crs=None,
-    self_href=None,
-    thumbnail_href=None,
-    alternative_basepath=None,
-    relative_paths=None,
-    bands_type=None,
-    thumbnail_type=None,
-    unit_to_meter=1,
+    # thumbnail_href=None,
+    bands_type="image/tiff; application=geotiff",
+    # thumbnail_type=None,
+    crs_unit_to_meter=1,
 ):
     """
-    Create STAC item metadata.
+    Create STAC item from a Tile Directory using the tiled-assets.
+
+    Currently only works for one asset.
+
+    Parameters
+    ----------
+    item_id : str
+        Unique item ID. (required)
+    tile_pyramid : mapchete.tile.BufferedTilePyramid
+        Tile pyramid of tiled asset. (required)
+    max_zoom : int
+        Maximum zoom of tile directory. (required)
+    item_path : str
+        Path of stac item.
+    asset_basepath : str
+        Base path of asset.
+    relative_paths : bool
+        Interpret asset path schema as being relative to item. If not set, one of item_path
+        or asset_basepath has to be set. (default: False)
+    min_zoom : int
+        Minimum zoom of tile directory. (default: 0)
+    item_metadata : dict
+        Optional additional item metadata to be appended.
+    bounds : list or tuple
+        Tile directory bounds. (default: tile_pyramid.bounds)
+    bounds_crs : CRS
+        CRS of bounds. (default: tile_pyramid.crs)
+    bands_type : str
+        Media typ of tile directory tiles. (default: "image/tiff; application=geotiff")
+    crs_unit_to_meter : int or float
+        Factor to convert CRS units to meter if tile pyramid grid is not "geodetic" or "mercator". (default: 1)
+
+    Returns
+    -------
+    pystac.Item
     """
     try:
         import pystac
         from pystac.version import get_stac_version
-    except ImportError:
+    except ImportError:  # pragma: no cover
         raise ImportError(
             "dependencies for extra mapchete[stac] is required for this feature"
         )
@@ -71,17 +104,16 @@ def create_stac_item(
     )
     tp_grid = tile_pyramid.grid.type
     bands_schema = "{TileMatrix}/{TileRow}/{TileCol}.tif"
-    bands_type = bands_type or "image/tiff; application=geotiff"
-    thumbnail_href = thumbnail_href or "0/0/0.tif"
-    thumbnail_type = thumbnail_type or "image/tiff; application=geotiff"
-    if alternative_basepath:
-        bands_schema = os.path.join(alternative_basepath, bands_schema)
-        thumbnail_href = os.path.join(alternative_basepath, thumbnail_href)
+    # thumbnail_href = thumbnail_href or "0/0/0.tif"
+    # thumbnail_type = thumbnail_type or "image/tiff; application=geotiff"
+    if asset_basepath:
+        bands_schema = os.path.join(asset_basepath, bands_schema)
+        # thumbnail_href = os.path.join(asset_basepath, thumbnail_href)
     elif not relative_paths:
-        if item_basepath is None:
-            raise ValueError("either alternative_basepath or item_basepath must be set")
-        bands_schema = os.path.join(item_basepath, bands_schema)
-        thumbnail_href = os.path.join(item_basepath, thumbnail_href)
+        if item_path is None:
+            raise ValueError("either alternative_basepath or item_path must be set")
+        bands_schema = os.path.join(os.path.dirname(item_path), bands_schema)
+        # thumbnail_href = os.path.join(os.path.dirname(item_path), thumbnail_href)
 
     # use bounds provided or fall back to tile pyramid bounds
     bounds = bounds or tile_pyramid.bounds
@@ -127,7 +159,7 @@ def create_stac_item(
                 "type": "TileMatrixType",
                 "identifier": str(zoom),
                 "scaleDenominator": _scale(
-                    tp_grid, tile_pyramid.pixel_x_size(zoom), unit_to_meter
+                    tp_grid, tile_pyramid.pixel_x_size(zoom), crs_unit_to_meter
                 ),
                 "topLeftCorner": [tile_pyramid.bounds.left, tile_pyramid.bounds.top],
                 "tileWidth": tile_pyramid.tile_width(zoom),
@@ -198,8 +230,8 @@ def create_stac_item(
         out["asset_templates"]["bands"]["eo:bands"] = item_metadata["eo:bands"]
         # out["assets"]["thumbnail"]["eo:bands"] = item_metadata["eo:bands"]
     out["links"] = item_metadata.get("links", [])
-    if self_href:
-        out["links"].extend([{"rel": "self", "href": self_href}])
+    if item_path:
+        out["links"].extend([{"rel": "self", "href": item_path}])
 
     return pystac.read_dict(out)
 

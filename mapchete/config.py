@@ -82,7 +82,6 @@ _RESERVED_PARAMETERS = [
     "process_maxzoom",  # maximum zoom where process is valid (deprecated)
     "process_zoom",  # single zoom where process is valid (deprecated)
     "process_bounds",  # process boundaries (deprecated)
-    "stac",  # STAC item metadata
 ]
 
 # parameters for output configuration
@@ -94,6 +93,7 @@ _OUTPUT_PARAMETERS = [
     "metatiling",
     "delimiters",
     "mode",
+    "stac",
 ]
 
 MULTIPROCESSING_DEFAULT_START_METHOD = "spawn"
