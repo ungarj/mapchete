@@ -10,7 +10,7 @@ from mapchete.tile import BufferedTilePyramid
 def test_wkss_geodetic():
     tp = BufferedTilePyramid("geodetic")
     item = create_stac_item(
-        item_id="foo", asset_basepath="foo/bar", tile_pyramid=tp, max_zoom=5
+        item_id="foo", item_basepath="foo/bar", tile_pyramid=tp, max_zoom=5
     )
     assert item.id == "foo"
     assert shape(item.geometry).difference(box(*tp.bounds)).is_empty
@@ -26,7 +26,7 @@ def test_wkss_geodetic():
 def test_wkss_mercator():
     tp = BufferedTilePyramid("mercator")
     item = create_stac_item(
-        item_id="foo", asset_basepath="foo/bar", tile_pyramid=tp, max_zoom=5
+        item_id="foo", item_basepath="foo/bar", tile_pyramid=tp, max_zoom=5
     )
     assert item.id == "foo"
     item_geometry = reproject_geometry(
@@ -45,10 +45,10 @@ def test_custom_datetime():
     tp = BufferedTilePyramid("geodetic")
     item = create_stac_item(
         item_id="foo",
-        asset_basepath="foo/bar",
+        item_basepath="foo/bar",
         tile_pyramid=tp,
         max_zoom=5,
-        stac_metadata=dict(start_datetime="2021-01-01 00:00:00"),
+        item_metadata=dict(properties=dict(start_datetime="2021-01-01 00:00:00")),
     )
     assert str(item.datetime) == "2021-01-01 00:00:00"
 
@@ -65,10 +65,10 @@ def test_custom_tilematrix():
     )
     item = create_stac_item(
         item_id="foo",
-        asset_basepath="foo/bar",
+        item_basepath="foo/bar",
         tile_pyramid=tp,
         max_zoom=5,
-        stac_metadata=dict(start_datetime="2021-01-01 00:00:00"),
+        item_metadata=dict(properties=dict(start_datetime="2021-01-01 00:00:00")),
     )
     assert str(item.datetime) == "2021-01-01 00:00:00"
     assert "custom" in item.properties["tiles:tile_matrix_sets"]
