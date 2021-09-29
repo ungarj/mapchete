@@ -15,7 +15,7 @@ def write_json(path, params, fs=None, **kwargs):
     logger.debug(f"write {params} to {path}")
     fs = fs or fs_from_path(path, **kwargs)
     # using python 3.7 or higher we can use the fs.mkdir() call
-    fs.mkdir(os.path.dirname(path))
+    fs.mkdirs(os.path.dirname(path), exist_ok=True)
     with fs.open(path, "w") as dst:
         json.dump(params, dst, sort_keys=True, indent=4)
 
