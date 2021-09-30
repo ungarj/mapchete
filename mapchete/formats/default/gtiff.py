@@ -30,34 +30,28 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
-from affine import Affine
 from contextlib import ExitStack
 import logging
 import math
-import numpy as np
-import numpy.ma as ma
 import os
-import rasterio
+import warnings
+
+from affine import Affine
+import numpy as np
+from numpy import ma
 from rasterio.enums import Resampling
-from rasterio.io import MemoryFile
 from rasterio.profiles import Profile
 from rasterio.rio.overview import get_maximum_overview_level
-from rasterio.shutil import copy
 from rasterio.windows import from_bounds
 from shapely.geometry import box
-from tempfile import NamedTemporaryFile
 from tilematrix import Bounds
-import warnings
 
 from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import (
-    fs_from_path,
-    get_boto3_bucket,
     makedirs,
     path_exists,
-    path_is_remote,
 )
 from mapchete.io.raster import (
     write_raster_window,
@@ -65,7 +59,7 @@ from mapchete.io.raster import (
     memory_file,
     read_raster_no_crs,
     extract_from_array,
-    read_raster_window,
+    rasterio_write,
 )
 from mapchete.tile import BufferedTile
 from mapchete.validate import deprecated_kwargs
@@ -258,10 +252,6 @@ class GTiffOutputReaderFunctions:
             output_params,
             nodata=output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"]),
         )
-        self._bucket = (
-            self.path.split("/")[2] if self.path.startswith("s3://") else None
-        )
-        self._fs = self.output_params.get("fs") or fs_from_path(self.path)
 
 
 class GTiffTileDirectoryOutputReader(
@@ -388,9 +378,6 @@ class GTiffTileDirectoryOutputWriter(
         if data.mask.all():
             logger.debug("data empty, nothing to write")
         else:
-            # in case of S3 output, create an boto3 resource
-            bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
-
             # Convert from process_tile to output_tiles and write
             for tile in self.pyramid.intersecting(process_tile):
                 out_path = self.get_path(tile)
@@ -403,7 +390,7 @@ class GTiffTileDirectoryOutputWriter(
                     out_tile=out_tile,
                     out_path=out_path,
                     tags=tags,
-                    bucket_resource=bucket_resource,
+                    fs=self.fs,
                 )
 
 
@@ -424,8 +411,6 @@ class GTiffSingleFileOutputWriter(
         self.zoom = output_params["delimiters"]["zoom"][0]
         self.cog = output_params.get("cog", False)
         self.in_memory = output_params.get("in_memory", True)
-        _bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
-        self._bucket_resource = get_boto3_bucket(_bucket) if _bucket else None
 
     def prepare(self, process_area=None, **kwargs):
         bounds = (
@@ -453,7 +438,7 @@ class GTiffSingleFileOutputWriter(
             k: v for k, v in self.output_params.items() if k not in _OUTPUT_PARAMETERS
         }
         self._profile = dict(
-            GTIFF_DEFAULT_PROFILE,
+            DefaultGTiffProfile(driver="COG" if self.cog else "GTiff"),
             transform=Affine(
                 self.pyramid.pixel_x_size(self.zoom),
                 0,
@@ -466,17 +451,9 @@ class GTiffSingleFileOutputWriter(
             width=width,
             count=self.output_params["bands"],
             crs=self.pyramid.crs,
-            **dict(
-                {
-                    k: self.output_params.get(k, GTIFF_DEFAULT_PROFILE[k])
-                    for k in GTIFF_DEFAULT_PROFILE.keys()
-                },
-                **creation_options,
-            ),
-            bigtiff=self.output_params.get("bigtiff", "NO"),
+            **creation_options,
         )
         logger.debug("single GTiff profile: %s", self._profile)
-
         logger.debug(
             get_maximum_overview_level(
                 width, height, minsize=self._profile["blockxsize"]
@@ -521,23 +498,9 @@ class GTiffSingleFileOutputWriter(
         makedirs(os.path.dirname(self.path))
         logger.debug("open output file: %s", self.path)
         self._ctx = ExitStack()
-        # (1) use memfile if output is remote or COG
-        if self.cog or path_is_remote(self.path):
-            if self.in_memory:
-                logger.debug("create MemoryFile")
-                self._memfile = self._ctx.enter_context(MemoryFile())
-                self.dst = self._ctx.enter_context(self._memfile.open(**self._profile))
-            else:
-                # in case output raster is too big, use tempfile on disk
-                self._tempfile = self._ctx.enter_context(NamedTemporaryFile())
-                logger.debug(f"create tempfile in {self._tempfile.name}")
-                self.dst = self._ctx.enter_context(
-                    rasterio.open(self._tempfile.name, "w+", **self._profile)
-                )
-        else:
-            self.dst = self._ctx.enter_context(
-                rasterio.open(self.path, "w+", **self._profile)
-            )
+        self.dst = self._ctx.enter_context(
+            rasterio_write(self.path, "w+", **self._profile)
+        )
 
     def read(self, output_tile, **kwargs):
         """
@@ -670,54 +633,6 @@ class GTiffSingleFileOutputWriter(
                             self.overviews_resampling
                         ].name.upper()
                     )
-                # write
-                if self.cog:
-                    if path_is_remote(self.path):
-                        # remote COG: copy to tempfile and upload to destination
-                        logger.debug("upload to %s", self.path)
-                        # TODO this writes a memoryfile to disk and uploads the file,
-                        # this is inefficient but until we find a solution to copy
-                        # from one memoryfile to another the rasterio way (rasterio needs
-                        # to rearrange the data so the overviews are at the beginning of
-                        # the GTiff in order to be a valid COG).
-                        with NamedTemporaryFile() as tmp_dst:
-                            copy(
-                                self.dst,
-                                tmp_dst.name,
-                                copy_src_overviews=True,
-                                **self._profile,
-                            )
-                            self._bucket_resource.upload_file(
-                                Filename=tmp_dst.name,
-                                Key="/".join(self.path.split("/")[3:]),
-                            )
-                    else:
-                        # local COG: copy to destination
-                        logger.debug("write to %s", self.path)
-                        copy(
-                            self.dst,
-                            self.path,
-                            copy_src_overviews=True,
-                            **self._profile,
-                        )
-                else:
-                    if path_is_remote(self.path):
-                        # remote GTiff: upload memfile or tempfile to destination
-                        logger.debug("upload to %s", self.path)
-                        if self.in_memory:
-                            self._bucket_resource.put_object(
-                                Body=self._memfile,
-                                Key="/".join(self.path.split("/")[3:]),
-                            )
-                        else:
-                            self._bucket_resource.upload_file(
-                                Filename=self._tempfile.name,
-                                Key="/".join(self.path.split("/")[3:]),
-                            )
-                    else:
-                        # local GTiff: already written, do nothing
-                        pass
-
         finally:
             self._ctx.close()
 

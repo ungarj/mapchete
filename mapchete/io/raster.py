@@ -16,12 +16,13 @@ from rasterio.transform import from_bounds as affine_from_bounds
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
+from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
 from types import GeneratorType
 import warnings
 
 from mapchete.errors import MapcheteIOError
-from mapchete.io import path_is_remote, get_gdal_options, path_exists
+from mapchete.io import path_is_remote, get_gdal_options, path_exists, fs_from_path
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.tile import BufferedTile
 from mapchete.validate import validate_write_window_params
@@ -428,7 +429,8 @@ def write_raster_window(
     out_tile=None,
     out_path=None,
     tags=None,
-    bucket_resource=None,
+    fs=None,
+    **kwargs,
 ):
     """
     Write a window from a numpy array to an output file.
@@ -445,7 +447,6 @@ def write_raster_window(
     out_path : string
         output path to write to
     tags : optional tags to be added to GeoTIFF file
-    bucket_resource : boto3 bucket resource to write to in case of S3 output
     """
     if not isinstance(out_path, str):
         raise TypeError("out_path must be a string")
@@ -475,23 +476,10 @@ def write_raster_window(
     if window_data.all() is not ma.masked:
 
         try:
-            if out_path.startswith("s3://"):
-                with RasterWindowMemoryFile(
-                    in_tile=out_tile,
-                    in_data=window_data,
-                    out_profile=out_profile,
-                    out_tile=out_tile,
-                    tags=tags,
-                ) as memfile:
-                    logger.debug((out_tile.id, "upload tile", out_path))
-                    bucket_resource.put_object(
-                        Key="/".join(out_path.split("/")[3:]), Body=memfile
-                    )
-            else:
-                with rasterio.open(out_path, "w", **out_profile) as dst:
-                    logger.debug((out_tile.id, "write tile", out_path))
-                    dst.write(window_data.astype(out_profile["dtype"], copy=False))
-                    _write_tags(dst, tags)
+            with rasterio_write(out_path, "w", fs=fs, **out_profile) as dst:
+                logger.debug((out_tile.id, "write tile", out_path))
+                dst.write(window_data.astype(out_profile["dtype"], copy=False))
+                _write_tags(dst, tags)
         except Exception as e:
             logger.exception("error while writing file %s: %s", out_path, e)
             raise
@@ -508,6 +496,75 @@ def _write_tags(dst, tags):
             # for filewide tags
             else:
                 dst.update_tags(**{k: v})
+
+
+def rasterio_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
+    """
+    Wrap rasterio.open() but handle bucket upload if path is remote.
+
+    Parameters
+    ----------
+    path : str
+        Path to write to.
+    mode : str
+        One of the rasterio.open() modes.
+    fs : fsspec.FileSystem
+        Target filesystem.
+    in_memory : bool
+        On remote output store an in-memory file instead of writing to a tempfile.
+    args : list
+        Arguments to be passed on to rasterio.open()
+    kwargs : dict
+        Keyword arguments to be passed on to rasterio.open()
+
+    Returns
+    -------
+    RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
+    """
+    if path.startswith("s3://"):
+        return RasterioRemoteWriter(path, fs=fs, in_memory=in_memory, *args, **kwargs)
+    else:
+        return rasterio.open(path, mode=mode, *args, **kwargs)
+
+
+class RasterioRemoteWriter:
+    def __init__(self, path, *args, fs=None, in_memory=True, **kwargs):
+        logger.debug("open RasterioRemoteWriter for path %s", path)
+        self.path = path
+        self.fs = fs or fs_from_path(path)
+        self.in_memory = in_memory
+        if self.in_memory:
+            self._dst = MemoryFile()
+        else:
+            self._dst = NamedTemporaryFile(suffix=".tif")
+        self._open_args = args
+        self._open_kwargs = kwargs
+        self._sink = None
+
+    def __enter__(self):
+        if self.in_memory:
+            self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
+        else:
+            self._sink = rasterio.open(
+                self._dst.name, "w+", *self._open_args, **self._open_kwargs
+            )
+        return self._sink
+
+    def __exit__(self, *args):
+        try:
+            self._sink.close()
+            if self.in_memory:
+                logger.debug("write rasterio MemoryFile to %s", self.path)
+                with self.fs.open(self.path, "wb") as dst:
+                    dst.write(self._dst.getbuffer())
+            else:
+                self.fs.put_file(self._dst.name, self.path)
+        finally:
+            if self.in_memory:
+                logger.debug("close rasterio MemoryFile")
+            else:
+                logger.debug("close and remove tempfile")
+            self._dst.close()
 
 
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
