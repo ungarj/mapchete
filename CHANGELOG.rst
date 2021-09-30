@@ -4,6 +4,20 @@ Changelog
 
 
 -----------------
+0.44 - 2021-09-30
+-----------------
+
+* core
+
+  * add warnings when using Python<3.7 with usage of start methods other than ``spawn``
+  * ``mapchete.Executor`` keep track of running and finished futures and remove finished futures to release memory (on local machine as well as on dask cluster)
+
+* CLI
+
+  * add ``mapchete stac create-item`` command to create a STAC tiled-assets file
+
+
+-----------------
 0.43 - 2021-09-17
 -----------------
 
