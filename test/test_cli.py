@@ -49,6 +49,7 @@ def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
             result.exception
         )
     if raise_exc and result.exception:
+        print(result.output)
         raise result.exception
     assert result.exit_code == expected_exit_code
 
@@ -1460,3 +1461,22 @@ def test_fs_opt_extractor():
     assert kwargs["bool4"] is False
     assert kwargs["none"] is None
     assert kwargs["none2"] is None
+
+
+def test_stac_mapchete_file(cleantopo_br):
+    run_cli(["stac", "create-item", cleantopo_br.path, "-z", "5", "--force"])
+
+
+def test_stac_tiledir(http_tiledir, mp_tmpdir):
+    run_cli(
+        [
+            "stac",
+            "create-item",
+            http_tiledir,
+            "-z",
+            "5",
+            "--force",
+            "--item-path",
+            f"{mp_tmpdir}/stac_example.json",
+        ]
+    )
