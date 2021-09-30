@@ -45,9 +45,17 @@ req_geobuf = ["geobuf"]
 req_http = ["fsspec[http]", "aiohttp", "requests"]
 req_s3 = ["boto3", "fsspec[s3]", "s3fs>=0.5.1"]
 req_serve = ["flask", "werkzeug>=0.15"]
+req_stac = ["pystac"]
 req_vrt = ["lxml"]
 req_complete = (
-    req_contours + req_dask + req_geobuf + req_http + req_s3 + req_serve + req_vrt
+    req_contours
+    + req_dask
+    + req_geobuf
+    + req_http
+    + req_s3
+    + req_serve
+    + req_stac
+    + req_vrt
 )
 
 setup(
@@ -72,6 +80,7 @@ setup(
             "processes=mapchete.cli.default.processes:processes",
             "rm=mapchete.cli.default.rm:rm",
             "serve=mapchete.cli.default.serve:serve",
+            "stac=mapchete.cli.default.stac:stac",
         ],
         "mapchete.formats.drivers": [
             "flatgeobuf=mapchete.formats.default.flatgeobuf",
@@ -102,6 +111,7 @@ setup(
         "geobuf": req_geobuf,
         "s3": req_s3,
         "serve": req_serve,
+        "stac": req_stac,
         "vrt": req_vrt,
     },
     tests_require=[

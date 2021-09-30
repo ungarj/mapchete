@@ -9,7 +9,7 @@ click-plugins>=1.1.1
 click-spinner>=0.1.10
 fiona>=1.8.13.post1
 Flask>=1.1.2
-fsspec[s3]==0.8.4
+fsspec[s3]>=0.8.4
 geobuf>=1.1.1
 importlib-metadata>=1.6.0
 importlib-resources>=1.5.0
@@ -20,7 +20,8 @@ oyaml>=0.9
 pyproj
 retry>=0.9.2
 rasterio>=1.0.28,<1.2.7
-s3fs==0.5.2
+rasterio>=1.0.28
+s3fs>=0.5.2
 Shapely>=1.7.1
 tilematrix>=0.20
 tqdm>=4.46.0

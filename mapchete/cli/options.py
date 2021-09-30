@@ -144,7 +144,7 @@ opt_out_path = click.option(
     "--out-path",
     type=click.Path(),
     default=os.path.join(os.getcwd(), "output"),
-    help="Process output path.",
+    help="Output path.",
 )
 opt_idx_out_dir = click.option(
     "--idx-out-dir", type=click.Path(), help="Index output directory."
