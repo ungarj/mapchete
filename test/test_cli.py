@@ -1476,7 +1476,7 @@ def test_stac_tiledir(http_tiledir, mp_tmpdir):
             "-z",
             "5",
             "--force",
-            "--out-path",
+            "--item-path",
             f"{mp_tmpdir}/stac_example.json",
         ]
     )

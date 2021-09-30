@@ -39,9 +39,7 @@ def tile_directory_stac_item(
     item_metadata=None,
     bounds=None,
     bounds_crs=None,
-    # thumbnail_href=None,
     bands_type="image/tiff; application=geotiff",
-    # thumbnail_type=None,
     crs_unit_to_meter=1,
 ):
     """

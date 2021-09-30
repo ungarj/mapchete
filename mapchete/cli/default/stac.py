@@ -22,15 +22,25 @@ def stac():
 
 @stac.command(help="Create STAC item metadata.")
 @options.arg_input
-@click.option("--item-id", "-i", type=click.STRING)
-@click.option("--item-metadata", "-m", type=click.Path())
+@click.option("--item-id", "-i", type=click.STRING, help="Unique item ID.")
+@click.option(
+    "--item-metadata",
+    "-m",
+    type=click.Path(),
+    help="Optional additional item metadata to be appended. Must be a YAML file.",
+)
 @options.opt_zoom
-@click.option("--asset-basepath", type=click.Path())
-@click.option("--indent", type=click.INT, default=4)
+@click.option("--item-path", "-p", type=click.Path(), help="Path of output STAC item.")
+@click.option("--asset-basepath", type=click.Path(), help="Alternative asset basepath.")
+@click.option(
+    "--indent",
+    type=click.INT,
+    default=4,
+    help="Indentation for output JSON. (default: 4)",
+)
 @options.opt_bounds
 @options.opt_bounds_crs
 @options.opt_force
-@click.option("--out-path", type=click.Path())
 @options.opt_debug
 def create_item(
     input_,
@@ -40,7 +50,7 @@ def create_item(
     zoom=None,
     bounds=None,
     bounds_crs=None,
-    out_path=None,
+    item_path=None,
     indent=None,
     force=None,
     **kwargs,
@@ -70,7 +80,7 @@ def create_item(
 
     item_id = item_id or metadata.get("id", default_id)
     logger.debug("use item ID %s", item_id)
-    item_path = out_path or os.path.join(default_basepath, f"{item_id}.json")
+    item_path = item_path or os.path.join(default_basepath, f"{item_id}.json")
     item = tile_directory_stac_item(
         item_id=item_id,
         item_metadata=metadata,
