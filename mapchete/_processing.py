@@ -475,19 +475,38 @@ def _preprocess(
 ###########################
 
 
-def _run_on_single_tile(executor=None, process=None, tile=None):
+def _run_on_single_tile(
+    executor=None,
+    process=None,
+    tile=None,
+    dask_scheduler=None,
+):
     logger.debug("run process on single tile")
-    return _execute_and_write(
-        tile_process=TileProcess(
-            tile=tile,
-            config=process.config,
-            skip=(
-                process.config.mode == "continue"
-                and process.config.output_reader.tiles_exist(tile)
-            ),
-        ),
-        output_writer=process.config.output,
+    create_executor = executor is None
+    executor = executor or Executor(
+        concurrency="dask" if dask_scheduler else None,
+        dask_scheduler=dask_scheduler,
     )
+    try:
+        return next(
+            executor.as_completed(
+                func=_execute_and_write,
+                iterable=[
+                    TileProcess(
+                        tile=tile,
+                        config=process.config,
+                        skip=(
+                            process.config.mode == "continue"
+                            and process.config.output_reader.tiles_exist(tile)
+                        ),
+                    ),
+                ],
+                fkwargs=dict(output_writer=process.config.output),
+            )
+        ).result()
+    finally:
+        if create_executor:
+            executor.close()
 
 
 def _run_area(
