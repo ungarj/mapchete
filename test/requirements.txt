@@ -1,6 +1,7 @@
 coverage>=5.1
 coveralls>=2.2.0
 flake8>=3.8.4
+pystac
 pytest>=5.4.1
 pytest-cov>=2.8.1
 pytest-flask>=1.0.0

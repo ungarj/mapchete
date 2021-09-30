@@ -93,6 +93,7 @@ _OUTPUT_PARAMETERS = [
     "metatiling",
     "delimiters",
     "mode",
+    "stac",
 ]
 
 MULTIPROCESSING_DEFAULT_START_METHOD = "spawn"
