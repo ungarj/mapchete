@@ -349,6 +349,7 @@ class Mapchete(object):
         if tile:
             yield _run_on_single_tile(
                 executor=executor,
+                dask_scheduler=dask_scheduler,
                 process=self,
                 tile=self.config.process_pyramid.tile(*tuple(tile)),
             )
