@@ -536,7 +536,7 @@ class RasterioRemoteWriter:
         if self.in_memory:
             self._dst = MemoryFile()
         else:
-            self._dst = NamedTemporaryFile()
+            self._dst = NamedTemporaryFile(suffix=".tif")
         self._open_args = args
         self._open_kwargs = kwargs
         self._sink = None
@@ -546,7 +546,7 @@ class RasterioRemoteWriter:
             self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
         else:
             self._sink = rasterio.open(
-                self._dst.name, *self._open_args, **self._open_kwargs
+                self._dst.name, "w+", *self._open_args, **self._open_kwargs
             )
         return self._sink
 

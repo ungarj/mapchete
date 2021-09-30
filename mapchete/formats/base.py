@@ -195,8 +195,8 @@ class OutputDataBaseFunctions:
         )
         self.crs = self.pyramid.crs
         self._bucket = None
-        self._fs = output_params.get("fs") or None
-        self._fs_kwargs = output_params.get("fs_kwargs") or {}
+        self.fs = self._fs = output_params.get("fs") or None
+        self.fs_kwargs = self._fs_kwargs = output_params.get("fs_kwargs") or {}
 
     def is_valid_with_config(self, config):
         """

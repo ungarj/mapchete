@@ -30,33 +30,28 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
-from affine import Affine
 from contextlib import ExitStack
 import logging
 import math
-import numpy as np
-import numpy.ma as ma
 import os
-import rasterio
+import warnings
+
+from affine import Affine
+import numpy as np
+from numpy import ma
 from rasterio.enums import Resampling
-from rasterio.io import MemoryFile
 from rasterio.profiles import Profile
 from rasterio.rio.overview import get_maximum_overview_level
 from rasterio.windows import from_bounds
 from shapely.geometry import box
-from tempfile import NamedTemporaryFile
 from tilematrix import Bounds
-import warnings
 
 from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import (
-    fs_from_path,
-    get_boto3_bucket,
     makedirs,
     path_exists,
-    path_is_remote,
 )
 from mapchete.io.raster import (
     write_raster_window,
@@ -64,7 +59,6 @@ from mapchete.io.raster import (
     memory_file,
     read_raster_no_crs,
     extract_from_array,
-    read_raster_window,
     rasterio_write,
 )
 from mapchete.tile import BufferedTile
@@ -258,10 +252,6 @@ class GTiffOutputReaderFunctions:
             output_params,
             nodata=output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"]),
         )
-        self._bucket = (
-            self.path.split("/")[2] if self.path.startswith("s3://") else None
-        )
-        self._fs = self.output_params.get("fs") or fs_from_path(self.path)
 
 
 class GTiffTileDirectoryOutputReader(
@@ -388,9 +378,6 @@ class GTiffTileDirectoryOutputWriter(
         if data.mask.all():
             logger.debug("data empty, nothing to write")
         else:
-            # in case of S3 output, create an boto3 resource
-            bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
-
             # Convert from process_tile to output_tiles and write
             for tile in self.pyramid.intersecting(process_tile):
                 out_path = self.get_path(tile)
@@ -403,7 +390,7 @@ class GTiffTileDirectoryOutputWriter(
                     out_tile=out_tile,
                     out_path=out_path,
                     tags=tags,
-                    bucket_resource=bucket_resource,
+                    fs=self.fs,
                 )
 
 
@@ -424,8 +411,6 @@ class GTiffSingleFileOutputWriter(
         self.zoom = output_params["delimiters"]["zoom"][0]
         self.cog = output_params.get("cog", False)
         self.in_memory = output_params.get("in_memory", True)
-        _bucket = self.path.split("/")[2] if self.path.startswith("s3://") else None
-        self._bucket_resource = get_boto3_bucket(_bucket) if _bucket else None
 
     def prepare(self, process_area=None, **kwargs):
         bounds = (
@@ -514,7 +499,7 @@ class GTiffSingleFileOutputWriter(
         logger.debug("open output file: %s", self.path)
         self._ctx = ExitStack()
         self.dst = self._ctx.enter_context(
-            rasterio_write(self.path, "w+", in_memory=self.in_memory, **self._profile)
+            rasterio_write(self.path, "w+", **self._profile)
         )
 
     def read(self, output_tile, **kwargs):

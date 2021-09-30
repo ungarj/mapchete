@@ -345,7 +345,11 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
     assert len(job)
 
     job = convert(
-        cleantopo_br.path, mp_tmpdir, output_pyramid="geodetic", output_metatiling=1
+        cleantopo_br.path,
+        mp_tmpdir,
+        output_pyramid="geodetic",
+        output_metatiling=1,
+        zoom=[1, 4],
     )
     assert len(job)
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
