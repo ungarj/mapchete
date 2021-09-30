@@ -30,7 +30,7 @@ def stac():
 @options.opt_bounds
 @options.opt_bounds_crs
 @options.opt_force
-@options.opt_out_path
+@click.option("--out-path", type=click.Path())
 @options.opt_debug
 def create_item(
     input_,
@@ -58,11 +58,11 @@ def create_item(
     if default_zoom:
         zoom = zoom or validate_zooms(default_zoom)
 
-    if zoom is None:
+    if zoom is None:  # pragma: no cover
         raise ValueError("zoom must be set")
     min_zoom, max_zoom = min(zoom), max(zoom)
 
-    if item_metadata:
+    if item_metadata:  # pragma: no cover
         with fsspec.open(item_metadata) as src:
             metadata = yaml.safe_load(src.read())
     else:
@@ -85,12 +85,12 @@ def create_item(
         bands_type=None,
         crs_unit_to_meter=1,
     )
-    logger.debug("out path: %s", out_path)
-    out = item.to_dict()
-    click.echo(json.dumps(out, indent=indent))
+    logger.debug("item_path: %s", item_path)
+    item_json = json.dumps(item.to_dict(), indent=indent)
+    click.echo(item_json)
     if force or click.confirm(f"Write output to {item_path}?", abort=True):
         with fsspec.open(item_path, "w") as dst:
-            dst.write(json.dumps(out, indent=indent))
+            dst.write(item_json)
 
 
 def output_info(inp):
