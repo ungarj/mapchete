@@ -42,7 +42,6 @@ from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
 from rasterio.profiles import Profile
 from rasterio.rio.overview import get_maximum_overview_level
-from rasterio.shutil import copy
 from rasterio.windows import from_bounds
 from shapely.geometry import box
 from tempfile import NamedTemporaryFile
@@ -66,6 +65,7 @@ from mapchete.io.raster import (
     read_raster_no_crs,
     extract_from_array,
     read_raster_window,
+    rasterio_write,
 )
 from mapchete.tile import BufferedTile
 from mapchete.validate import deprecated_kwargs
@@ -513,23 +513,9 @@ class GTiffSingleFileOutputWriter(
         makedirs(os.path.dirname(self.path))
         logger.debug("open output file: %s", self.path)
         self._ctx = ExitStack()
-        # (1) use memfile if output is remote or COG
-        if path_is_remote(self.path):
-            if self.in_memory:
-                logger.debug("create MemoryFile")
-                self._memfile = self._ctx.enter_context(MemoryFile())
-                self.dst = self._ctx.enter_context(self._memfile.open(**self._profile))
-            else:
-                # in case output raster is too big, use tempfile on disk
-                self._tempfile = self._ctx.enter_context(NamedTemporaryFile())
-                logger.debug(f"create tempfile in {self._tempfile.name}")
-                self.dst = self._ctx.enter_context(
-                    rasterio.open(self._tempfile.name, "w+", **self._profile)
-                )
-        else:
-            self.dst = self._ctx.enter_context(
-                rasterio.open(self.path, "w+", **self._profile)
-            )
+        self.dst = self._ctx.enter_context(
+            rasterio_write(self.path, "w+", in_memory=self.in_memory, **self._profile)
+        )
 
     def read(self, output_tile, **kwargs):
         """
@@ -662,23 +648,6 @@ class GTiffSingleFileOutputWriter(
                             self.overviews_resampling
                         ].name.upper()
                     )
-                if path_is_remote(self.path):
-                    # remote GTiff: upload memfile or tempfile to destination
-                    logger.debug("upload to %s", self.path)
-                    if self.in_memory:
-                        self._bucket_resource.put_object(
-                            Body=self._memfile,
-                            Key="/".join(self.path.split("/")[3:]),
-                        )
-                    else:
-                        self._bucket_resource.upload_file(
-                            Filename=self._tempfile.name,
-                            Key="/".join(self.path.split("/")[3:]),
-                        )
-                else:
-                    # local GTiff: already written, do nothing
-                    pass
-
         finally:
             self._ctx.close()
 
