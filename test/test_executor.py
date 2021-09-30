@@ -58,7 +58,7 @@ def test_concurrent_futures_processes_executor_cancel_as_completed():
             executor.cancel()
             break
 
-        assert any([future.cancelled() for future in executor.futures])
+        assert any([future.cancelled() for future in executor.running_futures])
 
 
 def test_concurrent_futures_processes_executor_map():
@@ -79,7 +79,7 @@ def test_concurrent_futures_threads_executor_as_completed():
             executor.cancel()
             break
 
-        assert any([future.cancelled() for future in executor.futures])
+        assert any([future.cancelled() for future in executor.running_futures])
 
 
 def test_concurrent_futures_threads_executor_map():
@@ -100,7 +100,7 @@ def test_dask_executor_as_completed():
             executor.cancel()
             break
 
-        assert any([future.cancelled() for future in executor.futures])
+        assert any([future.cancelled() for future in executor.running_futures])
 
 
 def test_concurrent_futures_dask_executor_map():
