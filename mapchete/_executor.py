@@ -65,14 +65,10 @@ class _ExecutorBase:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
             logger.debug("submitting tasks to executor")
-            import time
-
             for i, item in enumerate(iterable, 1):
                 if self.cancelled:  # pragma: no cover
                     logger.debug("cannot submit new tasks as Executor is cancelling.")
                     return
-                logger.debug("submit new task...")
-                time.sleep(0.1)
                 future = self._executor.submit(func, *chain([item], fargs), **fkwargs)
                 self.running_futures.add(future)
                 # try to yield finished futures after submitting a chunk
