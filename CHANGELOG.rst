@@ -2,6 +2,23 @@
 Changelog
 #########
 
+----------------------
+2021.10.0 - 2021-10-01
+----------------------
+
+* packaging
+  
+  * change version numbering scheme to ``YYYY.MM.x``
+
+* core
+
+  * make sure ``Executor.running_futures`` is cleared after each ``as_completed()`` and ``cancel()`` call
+  * fix ``fargs`` and ``fkwargs`` ommission in ``Executor.map()``
+
+* testing
+
+  * skip COG tests if driver is not available in GDAL
+
 
 -----------------
 0.44 - 2021-09-30
