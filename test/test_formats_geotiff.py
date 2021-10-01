@@ -18,6 +18,14 @@ from mapchete.formats.default import gtiff
 from mapchete.tile import BufferedTilePyramid
 
 
+def _gdal_cog_available():
+    with rasterio.Env() as env:
+        return "COG" in env.drivers()
+
+
+GDAL_COG_AVAILABLE = _gdal_cog_available()
+
+
 def test_output_data(mp_tmpdir):
     """Check GeoTIFF as output data."""
     output_params = dict(
@@ -395,6 +403,9 @@ def test_output_single_gtiff_s3_tempfile(output_single_gtiff, mp_s3_tmpdir):
     assert path_exists(mp.config.output.path)
 
 
+@pytest.mark.skipif(
+    not GDAL_COG_AVAILABLE, reason="GDAL>=3.1 with COG driver is required"
+)
 def test_output_single_gtiff_cog(output_single_gtiff_cog):
     tile_id = (5, 3, 7)
     with mapchete.open(output_single_gtiff_cog.dict) as mp:
@@ -423,6 +434,9 @@ def test_output_single_gtiff_cog(output_single_gtiff_cog):
     assert cog_validate(mp.config.output.path, strict=True)
 
 
+@pytest.mark.skipif(
+    not GDAL_COG_AVAILABLE, reason="GDAL>=3.1 with COG driver is required"
+)
 def test_output_single_gtiff_cog_tempfile(output_single_gtiff_cog):
     tile_id = (5, 3, 7)
     with mapchete.open(
@@ -457,6 +471,9 @@ def test_output_single_gtiff_cog_tempfile(output_single_gtiff_cog):
 
 
 @pytest.mark.remote
+@pytest.mark.skipif(
+    not GDAL_COG_AVAILABLE, reason="GDAL>=3.1 with COG driver is required"
+)
 def test_output_single_gtiff_cog_s3(output_single_gtiff_cog, mp_s3_tmpdir):
     tile_id = (5, 3, 7)
     with mapchete.open(
