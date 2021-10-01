@@ -99,7 +99,7 @@ class _ExecutorBase:
             self.running_futures.difference_update(done)
 
     def map(self, func, iterable, fargs=None, fkwargs=None):
-        return self._map(func, iterable, fargs=None, fkwargs=None)
+        return self._map(func, iterable, fargs=fargs, fkwargs=fkwargs)
 
     def cancel(self):
         self.cancelled = True
@@ -109,6 +109,7 @@ class _ExecutorBase:
         logger.debug(f"{len(self.running_futures)} futures cancelled")
         self.wait()
         # reset so futures won't linger here for next call
+
         self.running_futures = set()
 
     def wait(self):
