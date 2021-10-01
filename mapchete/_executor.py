@@ -84,6 +84,9 @@ class _ExecutorBase:
                 yield _raise_future_exception(future)
         except CancelledError:  # pragma: no cover
             return
+        finally:
+            # reset so futures won't linger here for next call
+            self.running_futures = set()
 
     def _finished_futures(self):
         done = set()
@@ -105,6 +108,8 @@ class _ExecutorBase:
             future.cancel()
         logger.debug(f"{len(self.running_futures)} futures cancelled")
         self.wait()
+        # reset so futures won't linger here for next call
+        self.running_futures = set()
 
     def wait(self):
         logger.debug("wait for running futures to finish...")
