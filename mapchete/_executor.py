@@ -11,6 +11,7 @@ import warnings
 
 from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.log import set_log_level
+from mapchete._timer import Timer
 
 
 logger = logging.getLogger(__name__)
@@ -65,23 +66,28 @@ class _ExecutorBase:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
             logger.debug("submitting tasks to executor")
-            import time
 
-            for i, item in enumerate(iterable, 1):
-                if self.cancelled:  # pragma: no cover
-                    logger.debug("cannot submit new tasks as Executor is cancelling.")
-                    return
-                logger.debug("submit new task...")
-                time.sleep(0.1)
-                future = self._executor.submit(func, *chain([item], fargs), **fkwargs)
-                self.running_futures.add(future)
-                # try to yield finished futures after submitting a chunk
-                if i % chunks == 0:
-                    yield from self._finished_futures()
+            with Timer() as t:
+                for i, item in enumerate(iterable, 1):
+                    if self.cancelled:  # pragma: no cover
+                        logger.debug(
+                            "cannot submit new tasks as Executor is cancelling."
+                        )
+                        return
+                    self.running_futures.add(
+                        self._executor.submit(func, *chain([item], fargs), **fkwargs)
+                    )
+                    # try to yield finished futures after submitting a chunk
+                    if chunks is not None and i % chunks == 0:
+                        for future in self._finished_futures():
+                            yield _raise_future_exception(future)
+                            self.running_futures.remove(future)
+            logger.debug(f"{len(self.running_futures)} tasks submitted in {t}")
 
             # yield remaining futures as they finish
             for future in self._as_completed(self.running_futures):
                 yield _raise_future_exception(future)
+                self.running_futures.remove(future)
         except CancelledError:  # pragma: no cover
             return
         finally:
@@ -89,14 +95,9 @@ class _ExecutorBase:
             self.running_futures = set()
 
     def _finished_futures(self):
-        done = set()
-        for future in self.running_futures:
-            if future.done():
-                yield _raise_future_exception(future)
-                done.add(future)
-        if done:
-            # remove from running futures
-            self.running_futures.difference_update(done)
+        logger.debug(f"{len(self.running_futures)} running futures")
+        for future in [f for f in self.running_futures if f.done()]:
+            yield future
 
     def map(self, func, iterable, fargs=None, fkwargs=None):
         return self._map(func, iterable, fargs=fargs, fkwargs=fkwargs)
@@ -109,7 +110,6 @@ class _ExecutorBase:
         logger.debug(f"{len(self.running_futures)} futures cancelled")
         self.wait()
         # reset so futures won't linger here for next call
-
         self.running_futures = set()
 
     def wait(self):
