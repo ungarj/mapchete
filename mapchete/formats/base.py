@@ -432,7 +432,9 @@ class TileDirectoryOutputReader(OutputDataReader):
         """Initialize."""
         super().__init__(output_params, readonly=readonly)
         if not readonly:
-            write_output_metadata(output_params)
+            write_output_metadata(
+                {k: v for k, v in output_params.items() if k not in ["stac"]}
+            )
 
     def tiles_exist(self, process_tile=None, output_tile=None):
         """
