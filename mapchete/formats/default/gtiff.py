@@ -49,10 +49,7 @@ from tilematrix import Bounds
 from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import (
-    makedirs,
-    path_exists,
-)
+from mapchete.io import makedirs, path_exists, path_is_remote
 from mapchete.io.raster import (
     write_raster_window,
     prepare_array,
@@ -491,7 +488,7 @@ class GTiffSingleFileOutputWriter(
                 raise MapcheteConfigError(
                     "single GTiff file already exists, use overwrite mode to replace"
                 )
-            else:
+            elif not path_is_remote(self.path):
                 logger.debug("remove existing file: %s", self.path)
                 os.remove(self.path)
         # create output directory if necessary
