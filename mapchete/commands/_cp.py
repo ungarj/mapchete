@@ -4,7 +4,7 @@ import logging
 from multiprocessing import cpu_count
 import os
 from rasterio.crs import CRS
-from shapely.geometry import box, shape
+from shapely.geometry import box, Point, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from tilematrix import TilePyramid
@@ -28,6 +28,8 @@ def cp(
     area_crs: Union[CRS, str] = None,
     bounds: Tuple[float] = None,
     bounds_crs: Union[CRS, str] = None,
+    point: Tuple[float, float] = None,
+    point_crs: Tuple[float, float] = None,
     overwrite: bool = False,
     workers: int = None,
     multi: int = None,
@@ -59,6 +61,10 @@ def cp(
         Override bounds or area provided in process configuration.
     bounds_crs : CRS or str
         CRS of area (default: process CRS).
+    point : iterable
+        X and y coordinates of point whose corresponding output tile bounds will be used.
+    point_crs : str or CRS
+        CRS of point (defaults to process pyramid CRS).
     overwrite : bool
         Overwrite existing output.
     workers : int
@@ -155,6 +161,8 @@ def cp(
                     workers,
                     src_fs,
                     dst_fs,
+                    point,
+                    point_crs,
                     overwrite,
                 ),
                 executor_concurrency=concurrency,
@@ -164,7 +172,7 @@ def cp(
                     dask_client=dask_client,
                 ),
                 as_iterator=as_iterator,
-                total=src_mp.count_tiles(),
+                total=1 if point else src_mp.count_tiles(),
             )
 
 
@@ -176,19 +184,28 @@ def _copy_tiles(
     workers,
     src_fs,
     dst_fs,
+    point,
+    point_crs,
     overwrite,
     executor=None,
 ):
     for z in src_mp.config.init_zoom_levels:
         msg_callback(f"copy tiles for zoom {z}...")
+
         # materialize all tiles
-        aoi_geom = src_mp.config.area_at_zoom(z)
-        tiles = [
-            t
-            for t in tp.tiles_from_geom(aoi_geom, z)
-            # this is required to omit tiles touching the config area
-            if aoi_geom.intersection(t.bbox).area
-        ]
+        if point:
+            point_geom = reproject_geometry(
+                Point(point), src_crs=point_crs or tp.crs, dst_crs=tp.crs
+            )
+            tiles = [tp.tile_from_xy(point_geom.x, point_geom.y, z)]
+        else:
+            aoi_geom = src_mp.config.area_at_zoom(z)
+            tiles = [
+                t
+                for t in tp.tiles_from_geom(aoi_geom, z)
+                # this is required to omit tiles touching the config area
+                if aoi_geom.intersection(t.bbox).area
+            ]
 
         # check which source tiles exist
         logger.debug("looking for existing source tiles...")

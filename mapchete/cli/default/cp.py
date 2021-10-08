@@ -13,6 +13,8 @@ from mapchete.cli import options
 @options.opt_area_crs
 @options.opt_bounds
 @options.opt_bounds_crs
+@options.opt_point
+@options.opt_point_crs
 @options.opt_overwrite
 @options.opt_verbose
 @options.opt_no_pbar
