@@ -103,7 +103,11 @@ class TileProcess:
         self.config_baselevels = None if skip else config.baselevels
         self.process = None if skip else config.process
         self.config_dir = None if skip else config.config_dir
-        if skip or self.tile.zoom not in self.config_zoom_levels:
+        if (
+            skip
+            or self.tile.zoom not in self.config_zoom_levels
+            or self.tile.zoom in self.config_baselevels
+        ):
             self.input, self.process_func_params, self.output_params = {}, {}, {}
         else:
             self.input = config.get_inputs_for_tile(tile)
