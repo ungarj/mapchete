@@ -786,12 +786,6 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
                 assert shape(f["geometry"]).area
 
     # convert from geobuf
-    # NOTE: if shapely was built using GEOS 3.8.0 or smaller, there is one more feature
-    if version_is_greater_equal(shapely.geos.geos_version, (3, 9, 0)):
-        zoom9_control = 31
-    else:
-        zoom9_control = 32
-
     geojson_outdir = os.path.join(mp_tmpdir, "geojson")
     run_cli(
         [
@@ -806,12 +800,16 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
             "none",
         ]
     )
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, zoom9_control]):
+    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, [31, 32]]):
         out_file = os.path.join(
             *[geojson_outdir, str(zoom), str(row), str(col) + ".geojson"]
         )
         with fiona.open(out_file, "r") as src:
-            assert len(src) == control
+            if isinstance(control, list):
+                assert len(src) in control
+            else:
+                assert len(src) == control
+
             for f in src:
                 assert shape(f["geometry"]).is_valid
 
@@ -1300,6 +1298,21 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     )
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
 
+    # copy tiles and subset by point
+    run_cli(
+        [
+            "cp",
+            out_path,
+            os.path.join(mp_tmpdir, "all"),
+            "-z",
+            "5",
+            "-p",
+            "170",
+            "-85",
+            "--concurrency",
+            "none",
+        ]
+    )
     # copy tiles and subset by bounds
     run_cli(
         [
