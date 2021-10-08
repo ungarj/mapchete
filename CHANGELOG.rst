@@ -3,6 +3,21 @@ Changelog
 #########
 
 ----------------------
+2021.10.1 - 2021-10-08
+----------------------
+
+* core
+
+  * ``mapchete.Executor``: make sure futures are removed after yield; track time spent to submit tasks
+  * ``mapchete.Executor``: remove task submission delay introduced for debugging
+  * ``mapchete.commands.convert``: set process metatiling so output tiles cannot be larger than process metatiles
+  * ``mapchete.commmands.convert``: fix overwrite flag on remote single GeoTIFFs
+  * ``mapchete.commands.cp``: add ``point`` and ``point-crs`` options
+  * don't write all STAC information into metadata.json
+  * don't initialize ``InputTile`` objects when processing baselevel tile
+
+
+----------------------
 2021.10.0 - 2021-10-01
 ----------------------
 

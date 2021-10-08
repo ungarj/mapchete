@@ -16,6 +16,7 @@ Submodules
    mapchete.cli.default.processes
    mapchete.cli.default.rm
    mapchete.cli.default.serve
+   mapchete.cli.default.stac
 
 Module contents
 ---------------
