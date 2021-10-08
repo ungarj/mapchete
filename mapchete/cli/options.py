@@ -329,7 +329,7 @@ opt_http_username = click.option(
     "--username", "-u", type=click.STRING, help="Username for HTTP Auth."
 )
 opt_http_password = click.option(
-    "--password", "-p", type=click.STRING, help="Password for HTTP Auth."
+    "--password", type=click.STRING, help="Password for HTTP Auth."
 )
 opt_force = click.option("-f", "--force", is_flag=True, help="Don't ask, just do.")
 opt_src_fs_opts = click.option(
