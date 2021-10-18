@@ -195,12 +195,69 @@ class DaskExecutor(_ExecutorBase):
 
         wait(self.running_futures)
 
-    def _as_completed(self, futures):
+    def as_completed(
+        self,
+        func,
+        iterable,
+        fargs=None,
+        fkwargs=None,
+        max_submitted_futures=500,
+        **kwargs,
+    ):
+        """Submit tasks to executor in chunks and start yielding finished futures after each chunk."""
         from dask.distributed import as_completed
 
-        if futures:
-            for future in as_completed(futures):
-                yield future
+        try:
+            fargs = fargs or ()
+            fkwargs = fkwargs or {}
+            ac = None
+            while not self.cancelled:
+                with Timer() as t:
+                    for i, item in enumerate(iterable, 1):
+
+                        future = self._executor.submit(
+                            func, *chain([item], fargs), **fkwargs
+                        )
+
+                        # create as_completed object on first iteration
+                        if ac is None:
+                            ac = as_completed([future], loop=self._executor_client)
+                        else:
+                            ac.add(future)
+                        self.running_futures.add(future)
+                        logger.debug(
+                            f"{ac.count()} remaining futures after submitting task {i}"
+                        )
+
+                        # if enough tasks are submitted, wait for the first to finish before submitting
+                        # further tasks
+                        if ac.has_ready() or (
+                            max_submitted_futures
+                            and len(self.running_futures) >= max_submitted_futures
+                        ):
+                            # yield batch of finished futures
+                            batch = ac.next_batch()
+                            for future in batch:
+                                logger.debug(f"{ac.count()} remaining futures")
+                                yield _raise_future_exception(future)
+                                self.running_futures.remove(future)
+
+                logger.debug(f"{i} tasks submitted in {t}")
+                # yield remaining futures as they finish
+                if ac is not None:
+                    for future in ac:
+                        logger.debug(f"{ac.count()} remaining futures")
+                        yield _raise_future_exception(future)
+                        self.running_futures.remove(future)
+
+                # important to break out from while
+                break
+
+        except CancelledError:  # pragma: no cover
+            return
+        finally:
+            # reset so futures won't linger here for next call
+            self.running_futures = set()
 
     @cached_property
     def _executor(self):
