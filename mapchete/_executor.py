@@ -238,6 +238,8 @@ class DaskExecutor(_ExecutorBase):
         """
         from dask.distributed import as_completed
 
+        logger.debug("max_submitted_tasks: %s", max_submitted_tasks)
+
         cancelled_exc = None
 
         try:

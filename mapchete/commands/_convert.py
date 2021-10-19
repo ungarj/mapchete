@@ -42,6 +42,7 @@ def convert(
     overwrite: bool = False,
     concurrency: str = "processes",
     dask_scheduler: str = None,
+    dask_max_submitted_tasks: int = 500,
     dask_client=None,
     workers: int = None,
     multi: int = None,
@@ -103,6 +104,8 @@ def convert(
         Concurrency to be used. Could either be "processes", "threads" or "dask".
     dask_scheduler : str
         URL to dask scheduler if required.
+    dask_max_submitted_tasks : int
+        Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
     dask_client : dask.distributed.Client
         Reusable Client instance if required. Otherwise a new client will be created.
     clip_geometry : str
@@ -299,6 +302,7 @@ def convert(
         area_crs=area_crs,
         concurrency=concurrency,
         dask_scheduler=dask_scheduler,
+        dask_max_submitted_tasks=dask_max_submitted_tasks,
         dask_client=dask_client,
         workers=workers,
         as_iterator=as_iterator,

@@ -189,6 +189,7 @@ class Mapchete(object):
     def batch_preprocessor(
         self,
         dask_scheduler=None,
+        dask_max_submitted_tasks=500,
         workers=None,
         executor=None,
     ):
@@ -202,6 +203,8 @@ class Mapchete(object):
 
         dask_schedulter : str
             URL to a dask scheduler if distributed execution is desired
+        dask_max_submitted_tasks : int
+            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
         workers : int
             number of workers to be used for local processing
         executor : mapchete.Executor
@@ -213,6 +216,7 @@ class Mapchete(object):
             self.config.preprocessing_tasks(),
             process=self,
             dask_scheduler=dask_scheduler,
+            dask_max_submitted_tasks=dask_max_submitted_tasks,
             workers=workers,
             executor=executor,
         )
@@ -220,6 +224,7 @@ class Mapchete(object):
     def batch_preprocess(
         self,
         dask_scheduler=None,
+        dask_max_submitted_tasks=500,
         workers=None,
         executor=None,
     ):
@@ -231,6 +236,8 @@ class Mapchete(object):
 
         dask_schedulter : str
             URL to a dask scheduler if distributed execution is desired
+        dask_max_submitted_tasks : int
+            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
         workers : int
             number of workers to be used for local processing
         executor : mapchete.Executor
@@ -239,6 +246,7 @@ class Mapchete(object):
         list(
             self.batch_preprocessor(
                 dask_scheduler=dask_scheduler,
+                dask_max_submitted_tasks=dask_max_submitted_tasks,
                 workers=workers,
                 executor=executor,
             )
@@ -249,6 +257,7 @@ class Mapchete(object):
         zoom=None,
         tile=None,
         dask_scheduler=None,
+        dask_max_submitted_tasks=500,
         multi=None,
         workers=None,
         multiprocessing_module=None,
@@ -271,6 +280,10 @@ class Mapchete(object):
             zoom)
         workers : int
             number of workers (default: number of CPU cores)
+        dask_schedulter : str
+            URL to a dask scheduler if distributed execution is desired
+        dask_max_submitted_tasks : int
+            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
         multiprocessing_module : module
             either Python's standard 'multiprocessing' or Celery's 'billiard' module
             (default: multiprocessing)
@@ -288,6 +301,7 @@ class Mapchete(object):
                 zoom=zoom,
                 tile=tile,
                 dask_scheduler=dask_scheduler,
+                dask_max_submitted_tasks=dask_max_submitted_tasks,
                 workers=workers,
                 multi=multi,
                 multiprocessing_module=multiprocessing_module,
@@ -302,6 +316,7 @@ class Mapchete(object):
         zoom=None,
         tile=None,
         dask_scheduler=None,
+        dask_max_submitted_tasks=500,
         multi=None,
         workers=None,
         multiprocessing_module=None,
@@ -320,6 +335,10 @@ class Mapchete(object):
         tile : tuple
             zoom, row and column of tile to be processed (cannot be used with
             zoom)
+        dask_schedulter : str
+            URL to a dask scheduler if distributed execution is desired
+        dask_max_submitted_tasks : int
+            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
         multi : int
             number of workers (default: number of CPU cores)
         multiprocessing_module : module
@@ -359,6 +378,7 @@ class Mapchete(object):
                 process=self,
                 zoom_levels=list(_get_zoom_level(zoom, self)),
                 dask_scheduler=dask_scheduler,
+                dask_max_submitted_tasks=dask_max_submitted_tasks,
                 workers=workers or multiprocessing.cpu_count(),
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
