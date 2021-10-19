@@ -201,16 +201,49 @@ class DaskExecutor(_ExecutorBase):
         iterable,
         fargs=None,
         fkwargs=None,
-        max_submitted_futures=500,
+        max_submitted_tasks=500,
+        raise_cancelled=False,
         **kwargs,
     ):
-        """Submit tasks to executor in chunks and start yielding finished futures after each chunk."""
+        """
+        Submit tasks to executor and start yielding finished futures.
+
+        Sometimes dask catches an exception (e.g. KilledWorker) and sends a cancel signal to all
+        remaining futures. In these cases it can happen that we get a cancelled future before the
+        future which contains the KilledWorker (or whatever the source exception was).
+        Here we try to iterate through the remaining futures until we can raise the original
+        exception as it may contain more relevant information
+
+        Parameters
+        ----------
+        func : function
+            Function to paralellize.
+        iterable : iterable
+            Iterable with items to parallelize. Each item should be the first argument of
+            function.
+        fargs : tuple
+            Further function arguments.
+        fkwargs : dict
+            Further function keyword arguments.
+        max_submitted_tasks : int
+            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
+        raise_cancelled : bool
+            If a future contains a CancelledError without the Exectuor having initiated the
+            cancellation, the CancelledError will be raised in the end.
+
+        Yields
+        ------
+        finished futures
+
+        """
         from dask.distributed import as_completed
+
+        cancelled_exc = None
 
         try:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
-            ac = None
+            ac_iterator = None
             while not self.cancelled:
                 i = 0
                 with Timer() as t:
@@ -221,44 +254,59 @@ class DaskExecutor(_ExecutorBase):
                         )
 
                         # create as_completed object on first iteration
-                        if ac is None:
-                            ac = as_completed([future], loop=self._executor_client)
+                        if ac_iterator is None:
+                            ac_iterator = as_completed(
+                                [future], loop=self._executor_client
+                            )
                         else:
-                            ac.add(future)
+                            ac_iterator.add(future)
                         self.running_futures.add(future)
                         logger.debug(
-                            f"{ac.count()} remaining futures after submitting task {i}"
+                            "%s remaining futures after submitting task %s",
+                            ac_iterator.count(),
+                            i,
                         )
 
-                        # if enough tasks are submitted, wait for the first to finish before submitting
-                        # further tasks
-                        if ac.has_ready() or (
-                            max_submitted_futures
-                            and len(self.running_futures) >= max_submitted_futures
+                        # if enough tasks are submitted, wait for the first to finish before
+                        # submitting further tasks
+                        if ac_iterator.has_ready() or (
+                            max_submitted_tasks
+                            and len(self.running_futures) >= max_submitted_tasks
                         ):
                             # yield batch of finished futures
-                            batch = ac.next_batch()
+                            batch = ac_iterator.next_batch()
                             for future in batch:
-                                logger.debug(f"{ac.count()} remaining futures")
-                                yield _raise_future_exception(future)
+                                logger.debug(
+                                    "%s remaining futures", ac_iterator.count()
+                                )
+
+                                try:
+                                    yield _raise_future_exception(future)
+                                except CancelledError as exc:
+                                    cancelled_exc = exc
                                 self.running_futures.remove(future)
 
-                logger.debug(f"{i} tasks submitted in {t}")
+                logger.debug("%s tasks submitted in %s", i, t)
                 # yield remaining futures as they finish
-                if ac is not None:
-                    for future in ac:
-                        logger.debug(f"{ac.count()} remaining futures")
-                        yield _raise_future_exception(future)
+                if ac_iterator is not None:
+                    for future in ac_iterator:
+                        logger.debug("%s remaining futures", ac_iterator.count())
+
+                        try:
+                            yield _raise_future_exception(future)
+                        except CancelledError as exc:
+                            cancelled_exc = exc
                         self.running_futures.remove(future)
 
                 # important to break out from while
                 break
 
-        except CancelledError:  # pragma: no cover
-            return
         finally:
             # reset so futures won't linger here for next call
             self.running_futures = set()
+
+        if cancelled_exc is not None and raise_cancelled:  # pragma: no cover
+            raise cancelled_exc
 
     @cached_property
     def _executor(self):
