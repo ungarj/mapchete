@@ -2,6 +2,15 @@
 Changelog
 #########
 
+
+----------------------
+2021.10.2 - 2021-10-19
+----------------------
+
+* core
+  * ``mapchete.Executor``: add ``max_submitted_futures`` option to ``DaskExecutor.as_completed()`` to cap the number of tasks sent to the scheduler; also immediately yield finished tasks once they are available
+
+
 ----------------------
 2021.10.1 - 2021-10-08
 ----------------------
