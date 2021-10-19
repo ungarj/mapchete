@@ -260,9 +260,7 @@ class DaskExecutor(_ExecutorBase):
 
                         # create as_completed object on first iteration
                         if ac_iterator is None:
-                            ac_iterator = as_completed(
-                                [future], loop=self._executor_client
-                            )
+                            ac_iterator = as_completed([future])
                         else:
                             ac_iterator.add(future)
                         self.running_futures.add(future)

@@ -2,6 +2,13 @@
 Changelog
 #########
 
+----------------------
+2021.10.3 - 2021-10-19
+----------------------
+
+* core
+  * ``mapchete.Executor``: fix call in ``DaskExecutor.as_completed()`` by not providing current client as loop
+
 
 ----------------------
 2021.10.2 - 2021-10-19
