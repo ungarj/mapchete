@@ -212,6 +212,7 @@ class DaskExecutor(_ExecutorBase):
             fkwargs = fkwargs or {}
             ac = None
             while not self.cancelled:
+                i = 0
                 with Timer() as t:
                     for i, item in enumerate(iterable, 1):
 
