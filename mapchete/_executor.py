@@ -60,7 +60,9 @@ class _ExecutorBase:
     _executor_args = ()
     _executor_kwargs = {}
 
-    def as_completed(self, func, iterable, fargs=None, fkwargs=None, chunks=100):
+    def as_completed(
+        self, func, iterable, fargs=None, fkwargs=None, chunks=100, **kwargs
+    ):
         """Submit tasks to executor in chunks and start yielding finished futures after each chunk."""
         try:
             fargs = fargs or ()
@@ -405,7 +407,7 @@ class SequentialExecutor(_ExecutorBase):
         logger.debug("init SequentialExecutor")
         self.running_futures = set()
 
-    def as_completed(self, func, iterable, fargs=None, fkwargs=None):
+    def as_completed(self, func, iterable, fargs=None, fkwargs=None, **kwargs):
         """Yield finished tasks."""
         fargs = fargs or []
         fkwargs = fkwargs or {}
