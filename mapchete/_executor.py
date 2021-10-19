@@ -249,6 +249,7 @@ class DaskExecutor(_ExecutorBase):
                 with Timer() as t:
                     for i, item in enumerate(iterable, 1):
 
+                        # submit task
                         future = self._executor.submit(
                             func, *chain([item], fargs), **fkwargs
                         )
@@ -282,7 +283,7 @@ class DaskExecutor(_ExecutorBase):
 
                                 try:
                                     yield _raise_future_exception(future)
-                                except CancelledError as exc:
+                                except CancelledError as exc:  # pragma: no cover
                                     cancelled_exc = exc
                                 self.running_futures.remove(future)
 
@@ -294,7 +295,7 @@ class DaskExecutor(_ExecutorBase):
 
                         try:
                             yield _raise_future_exception(future)
-                        except CancelledError as exc:
+                        except CancelledError as exc:  # pragma: no cover
                             cancelled_exc = exc
                         self.running_futures.remove(future)
 

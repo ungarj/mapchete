@@ -1,3 +1,4 @@
+from concurrent.futures._base import CancelledError
 import pytest
 import time
 
@@ -100,6 +101,30 @@ def test_dask_executor_as_completed():
             assert future.result()
             executor.cancel()
             break
+
+        assert not executor.running_futures
+
+
+def test_dask_executor_as_completed_max_tasks():
+    items = 100
+    with Executor(concurrency="dask") as executor:
+        # abort
+        for future in executor.as_completed(
+            _dummy_process, range(items), max_submitted_tasks=1
+        ):
+            assert future.result()
+
+        assert not executor.running_futures
+
+
+def test_dask_executor_as_completed_unlimited_max_tasks():
+    items = 100
+    with Executor(concurrency="dask") as executor:
+        # abort
+        for future in executor.as_completed(
+            _dummy_process, range(items), max_submitted_tasks=None
+        ):
+            assert future.result()
 
         assert not executor.running_futures
 
