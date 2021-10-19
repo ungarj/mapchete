@@ -426,6 +426,7 @@ def _preprocess(
     tasks,
     process=None,
     dask_scheduler=None,
+    dask_max_submitted_tasks=500,
     workers=None,
     multiprocessing_module=None,
     multiprocessing_start_method=None,
@@ -456,6 +457,7 @@ def _preprocess(
                 executor.as_completed(
                     func=_preprocess_task_wrapper,
                     iterable=[(k, v) for k, v in tasks.items()],
+                    max_submitted_tasks=dask_max_submitted_tasks,
                 ),
                 1,
             ):
@@ -518,6 +520,7 @@ def _run_area(
     process=None,
     zoom_levels=None,
     dask_scheduler=None,
+    dask_max_submitted_tasks=500,
     workers=None,
     multiprocessing_module=None,
     multiprocessing_start_method=None,
@@ -534,6 +537,7 @@ def _run_area(
             zoom_levels=zoom_levels,
             process=process,
             dask_scheduler=dask_scheduler,
+            dask_max_submitted_tasks=dask_max_submitted_tasks,
             workers=workers,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
@@ -551,6 +555,7 @@ def _run_area(
             zoom_levels=zoom_levels,
             process=process,
             dask_scheduler=dask_scheduler,
+            dask_max_submitted_tasks=dask_max_submitted_tasks,
             workers=workers,
             multiprocessing_start_method=multiprocessing_start_method,
             multiprocessing_module=multiprocessing_module,
@@ -581,6 +586,7 @@ def _run_multi(
     zoom_levels=None,
     process=None,
     dask_scheduler=None,
+    dask_max_submitted_tasks=500,
     workers=None,
     multiprocessing_start_method=None,
     multiprocessing_module=None,
@@ -661,6 +667,7 @@ def _run_multi(
                         for tile in todo
                     ),
                     fkwargs=fkwargs,
+                    max_submitted_tasks=dask_max_submitted_tasks,
                 ):
                     # trigger output write for driver which require parent process for writing
                     if write_in_parent_process:
