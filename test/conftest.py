@@ -276,6 +276,11 @@ def old_style_process_py():
     return os.path.join(TESTDATA_DIR, "old_style_process.py")
 
 
+@pytest.fixture
+def custom_grid_json():
+    return os.path.join(TESTDATA_DIR, "custom_grid.json")
+
+
 # example mapchete configurations
 @pytest.fixture
 def custom_grid():
