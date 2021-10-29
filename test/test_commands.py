@@ -153,11 +153,11 @@ def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
             assert data.mask.any()
 
 
-def test_convert_custom_grid(cleantopo_br_tif, mp_tmpdir, custom_grid_json):
+def test_convert_custom_grid(s2_band, mp_tmpdir, custom_grid_json):
     """Automatic mercator tile pyramid creation of raster files."""
-    job = convert(cleantopo_br_tif, mp_tmpdir, output_pyramid=custom_grid_json)
+    job = convert(s2_band, mp_tmpdir, output_pyramid=custom_grid_json)
     assert len(job)
-    for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
+    for zoom, row, col in [(0, 0, 0)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio.open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
