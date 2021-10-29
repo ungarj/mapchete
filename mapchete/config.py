@@ -478,61 +478,17 @@ class MapcheteConfig(object):
             ]
         )
 
-        initalized_inputs = OrderedDict()
-
         if self._init_inputs:
-            for k, v in raw_inputs.items():
-                # for files and tile directories
-                if isinstance(v, str):
-                    logger.debug("load input reader for simple input %s", v)
-                    try:
-                        reader = load_input_reader(
-                            dict(
-                                path=absolute_path(path=v, base_dir=self.config_dir),
-                                pyramid=self.process_pyramid,
-                                pixelbuffer=self.process_pyramid.pixelbuffer,
-                                delimiters=self._delimiters,
-                            ),
-                            readonly=self.mode == "readonly",
-                        )
-                    except Exception as e:
-                        logger.exception(e)
-                        raise MapcheteDriverError(
-                            "error when loading input %s: %s" % (v, e)
-                        )
-                    logger.debug("input reader for simple input %s is %s", v, reader)
-
-                # for abstract inputs
-                elif isinstance(v, dict):
-                    logger.debug("load input reader for abstract input %s", v)
-                    try:
-                        reader = load_input_reader(
-                            dict(
-                                abstract=deepcopy(v),
-                                pyramid=self.process_pyramid,
-                                pixelbuffer=self.process_pyramid.pixelbuffer,
-                                delimiters=self._delimiters,
-                                conf_dir=self.config_dir,
-                            ),
-                            readonly=self.mode == "readonly",
-                        )
-                    except Exception as e:
-                        logger.exception(e)
-                        raise MapcheteDriverError(
-                            "error when loading input %s: %s" % (v, e)
-                        )
-                    logger.debug("input reader for abstract input %s is %s", v, reader)
-                else:
-                    raise MapcheteConfigError("invalid input type %s", type(v))
-                # trigger bbox creation
-                reader.bbox(out_crs=self.process_pyramid.crs)
-                initalized_inputs[k] = reader
+            return initialize_inputs(
+                raw_inputs,
+                config_dir=self.config_dir,
+                pyramid=self.process_pyramid,
+                delimiters=self._delimiters,
+                readonly=self.mode == "readonly",
+            )
 
         else:
-            for k in raw_inputs.keys():
-                initalized_inputs[k] = None
-
-        return initalized_inputs
+            return OrderedDict([(k, None) for k in raw_inputs.keys()])
 
     @cached_property
     def baselevels(self):
@@ -1050,6 +1006,60 @@ def get_process_func(process=None, config_dir=None, run_compile=False):
             raise ImportError("No execute() function found in %s" % process)
     except ImportError as e:
         raise MapcheteProcessImportError(e)
+
+
+def initialize_inputs(
+    raw_inputs,
+    config_dir=None,
+    pyramid=None,
+    delimiters=None,
+    readonly=False,
+):
+    initalized_inputs = OrderedDict()
+    for k, v in raw_inputs.items():
+        # for files and tile directories
+        if isinstance(v, str):
+            logger.debug("load input reader for simple input %s", v)
+            try:
+                reader = load_input_reader(
+                    dict(
+                        path=absolute_path(path=v, base_dir=config_dir),
+                        pyramid=pyramid,
+                        pixelbuffer=pyramid.pixelbuffer,
+                        delimiters=delimiters,
+                    ),
+                    readonly=readonly,
+                )
+            except Exception as e:
+                logger.exception(e)
+                raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
+            logger.debug("input reader for simple input %s is %s", v, reader)
+
+        # for abstract inputs
+        elif isinstance(v, dict):
+            logger.debug("load input reader for abstract input %s", v)
+            try:
+                reader = load_input_reader(
+                    dict(
+                        abstract=deepcopy(v),
+                        pyramid=pyramid,
+                        pixelbuffer=pyramid.pixelbuffer,
+                        delimiters=delimiters,
+                        conf_dir=config_dir,
+                    ),
+                    readonly=readonly,
+                )
+            except Exception as e:
+                logger.exception(e)
+                raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
+            logger.debug("input reader for abstract input %s is %s", v, reader)
+        else:
+            raise MapcheteConfigError("invalid input type %s", type(v))
+        # trigger bbox creation
+        reader.bbox(out_crs=pyramid.crs)
+        initalized_inputs[k] = reader
+
+    return initalized_inputs
 
 
 def _load_process_module(process=None, config_dir=None, run_compile=False):
