@@ -1,0 +1,8 @@
+{
+    "grid": {
+        "shape": [12200, 1000],
+        "bounds": [66021, 0, 834021, 9369600],
+        "is_global": false,
+        "proj": "+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs"
+    }
+}

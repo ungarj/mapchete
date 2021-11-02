@@ -63,7 +63,7 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
 
     for zoom in range(0, 40):
         if tile_pyramid.pixel_x_size(zoom) <= avg_resolution:
-            return zoom - 1
+            return max([0, zoom - 1])
 
 
 def get_segmentize_value(input_file=None, tile_pyramid=None):

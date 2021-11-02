@@ -1,8 +1,18 @@
 """Mapchtete handling tiles."""
+from affine import Affine
 from cached_property import cached_property
 from itertools import product
+import logging
+import numpy as np
+from rasterio.enums import Resampling
+from rasterio.features import rasterize
+from rasterio.warp import reproject
 from shapely.geometry import box
 from tilematrix import Tile, TilePyramid
+from tilematrix._conf import ROUND
+
+
+logger = logging.getLogger(__name__)
 
 
 class BufferedTilePyramid(TilePyramid):
@@ -130,6 +140,28 @@ class BufferedTilePyramid(TilePyramid):
             self.tile(*intersecting_tile.id)
             for intersecting_tile in self.tile_pyramid.intersecting(tile)
         ]
+
+    def matrix_affine(self, zoom):
+        """
+        Return Affine object for zoom level assuming tiles are cells.
+
+        Parameters
+        ----------
+        zoom : integer
+            zoom level
+        """
+        if self.pixelbuffer:  # pragma: no cover
+            raise ValueError(
+                "Matrix Affine can only be created for pyramid without pixelbuffer."
+            )
+        return Affine(
+            round(self.x_size / self.matrix_width(zoom), ROUND),
+            0,
+            self.bounds.left,
+            0,
+            -round(self.y_size / self.matrix_height(zoom), ROUND),
+            self.bounds.top,
+        )
 
     def to_dict(self):
         """
@@ -324,7 +356,9 @@ class BufferedTile(Tile):
         return hash(repr(self))
 
 
-def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
+def count_tiles(
+    geometry, pyramid, minzoom, maxzoom, init_zoom=0, rasterize_threshold=1000
+):
     """
     Count number of tiles intersecting with geometry.
 
@@ -348,6 +382,15 @@ def count_tiles(geometry, pyramid, minzoom, maxzoom, init_zoom=0):
     )
     # make sure no rounding errors occur
     geometry = geometry.buffer(-0.000000001)
+
+    height = pyramid.matrix_height(init_zoom)
+    width = pyramid.matrix_width(init_zoom)
+
+    # rasterize to array and count cells if too many tiles are expected
+    if width > rasterize_threshold or height > rasterize_threshold:
+        logger.debug("rasterize tiles to count geometry overlap")
+        return _count_cells(pyramid, geometry, minzoom, maxzoom)
+
     return _count_tiles(
         [
             unbuffered_pyramid.tile(*tile_id)
@@ -406,3 +449,38 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
                 )
 
     return count
+
+
+def _count_cells(pyramid, geometry, minzoom, maxzoom):
+    # rasterize geometry on maxzoom
+    transform = pyramid.matrix_affine(maxzoom)
+    raster = rasterize(
+        [(geometry, 1)],
+        out_shape=(pyramid.matrix_height(maxzoom), pyramid.matrix_width(maxzoom)),
+        fill=0,
+        transform=transform,
+        dtype=np.uint16,
+        all_touched=True,
+    )
+
+    # count cells
+    count = raster.sum()
+
+    # resample raster up until minzoom using "max" resampling and count cells
+    for zoom in reversed(range(minzoom, maxzoom)):
+        raster, transform = reproject(
+            raster,
+            np.zeros(
+                (pyramid.matrix_height(zoom), pyramid.matrix_width(zoom)),
+                dtype=np.uint16,
+            ),
+            src_transform=transform,
+            src_crs=pyramid.crs,
+            dst_transform=pyramid.matrix_affine(zoom),
+            dst_crs=pyramid.crs,
+            resampling=Resampling.max,
+        )
+        count += raster.sum()
+
+    # return cell sum
+    return int(count)

@@ -52,6 +52,7 @@ class Job:
         self.executor_kwargs = executor_kwargs or {}
         self._total = total
         self._as_iterator = as_iterator
+
         if not as_iterator:
             self._results = list(self._run())
 
