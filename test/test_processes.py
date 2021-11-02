@@ -11,7 +11,7 @@ from mapchete.testing import get_process_mp
 
 def test_example_process(cleantopo_tl):
     # non-empty tile
-    output = example_process.execute(cleantopo_tl.process_mp(tile=(5, 0, 0)))
+    output = example_process.execute(cleantopo_tl.process_mp())
     assert isinstance(output, ma.masked_array)
 
     # empty tile

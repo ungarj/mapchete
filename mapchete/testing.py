@@ -88,7 +88,7 @@ class ProcessFixture:
 
 
 def get_process_mp(tile=None, zoom=0, input=None, params=None, metatiling=1, **kwargs):
-    if isinstance(tile, BufferedTile):
+    if isinstance(tile, BufferedTile):  # pragma: no cover
         pyramid = BufferedTile.tile_pyramid
     elif isinstance(tile, tuple):
         pyramid = BufferedTilePyramid("geodetic", metatiling=metatiling)
