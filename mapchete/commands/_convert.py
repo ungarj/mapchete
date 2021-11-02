@@ -1,5 +1,6 @@
 import fiona
 import logging
+import json
 from multiprocessing import cpu_count
 import os
 from pprint import pformat
@@ -19,7 +20,7 @@ from mapchete.formats import (
     available_output_formats,
     available_input_formats,
 )
-from mapchete.io import read_json, get_best_zoom_level
+from mapchete.io import read_json, get_best_zoom_level, fs_from_path
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 from mapchete.validate import validate_zooms
@@ -113,7 +114,8 @@ def convert(
     bidx : list of integers
         Band indexes to read from source.
     output_pyramid : str
-        Output pyramid to write to.
+        Output pyramid to write to. Can either be one of the standard pyramid grids or a JSON
+        file holding the grid definition.
     output_metatiling : int
         Output metatiling.
     output_format : str
@@ -175,6 +177,13 @@ def convert(
         output_info = _get_output_info(output)
     except Exception as e:
         raise ValueError(e)
+
+    if (
+        isinstance(output_pyramid, str)
+        and output_pyramid not in tilematrix._conf.PYRAMID_PARAMS.keys()
+    ):
+        with fs_from_path(output_pyramid).open(output_pyramid) as src:
+            output_pyramid = json.loads(src.read())
 
     # collect mapchete configuration
     mapchete_config = dict(

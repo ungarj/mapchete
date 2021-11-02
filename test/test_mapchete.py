@@ -1,6 +1,7 @@
 """Test Mapchete main module and processing."""
 
 from itertools import chain
+import json
 import pytest
 import os
 import shutil
@@ -453,6 +454,22 @@ def test_count_tiles_mercator():
             count_by_geom = count_tiles(box(*tp.bounds), tp, zoom, zoom)
             count_by_tp = tp.matrix_width(zoom) * tp.matrix_height(zoom)
             assert count_by_geom == count_by_tp
+
+
+def test_count_tiles_large_init_zoom(geometrycollection):
+    tp = BufferedTilePyramid(
+        grid=dict(
+            shape=[100, 200],
+            bounds=[-180, -90, 180, 90],
+            srs=dict(epsg=4326),
+            is_global=True,
+        )
+    )
+    minzoom = 0
+    maxzoom = 7
+    assert count_tiles(
+        geometrycollection, tp, minzoom, maxzoom, rasterize_threshold=0
+    ) == count_tiles(geometrycollection, tp, minzoom, maxzoom, rasterize_threshold=1000)
 
 
 def test_batch_process(mp_tmpdir, cleantopo_tl):
