@@ -75,27 +75,23 @@ def test_rm(mp_tmpdir, cleantopo_br):
     assert len(tiles) == 0
 
 
-def test_execute(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
+def test_execute(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
     zoom = 5
-    config = cleantopo_br.dict
-    config["pyramid"].update(metatiling=1)
     tp = TilePyramid("geodetic")
     tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
-    job = execute(config, zoom=zoom)
+    job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom)
     for t in job:
         assert t
     assert len(tiles) == len(job)
-    with mapchete.open(config) as mp:
-        for t in tiles:
-            with rasterio.open(mp.config.output.get_path(t)) as src:
-                assert not src.read(masked=True).mask.all()
+    mp = cleantopo_br_metatiling_1.mp()
+    for t in tiles:
+        with rasterio.open(mp.config.output.get_path(t)) as src:
+            assert not src.read(masked=True).mask.all()
 
 
-def test_execute_cancel(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
+def test_execute_cancel(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
     zoom = 5
-    config = cleantopo_br.dict
-    config["pyramid"].update(metatiling=1)
-    job = execute(config, zoom=zoom, as_iterator=True)
+    job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom, as_iterator=True)
     for i, t in enumerate(job):
         job.cancel()
         break
@@ -103,20 +99,18 @@ def test_execute_cancel(mp_tmpdir, cleantopo_br, cleantopo_br_tif):
     assert job.status == "cancelled"
 
 
-def test_execute_tile(mp_tmpdir, cleantopo_br):
+def test_execute_tile(mp_tmpdir, cleantopo_br_metatiling_1):
     tile = (5, 30, 63)
 
-    config = cleantopo_br.dict
-    config["pyramid"].update(metatiling=1)
-    job = execute(config, tile=tile)
+    job = execute(cleantopo_br_metatiling_1.dict, tile=tile)
 
     assert len(job) == 1
 
-    with mapchete.open(config) as mp:
-        with rasterio.open(
-            mp.config.output.get_path(mp.config.output_pyramid.tile(*tile))
-        ) as src:
-            assert not src.read(masked=True).mask.all()
+    mp = cleantopo_br_metatiling_1.mp()
+    with rasterio.open(
+        mp.config.output.get_path(mp.config.output_pyramid.tile(*tile))
+    ) as src:
+        assert not src.read(masked=True).mask.all()
 
 
 def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):

@@ -560,16 +560,9 @@ class MapcheteConfig(object):
     def get_inputs_for_tile(self, tile):
         """Get and open all inputs for given tile."""
 
-        def _open_inputs(i):
-            for k, v in i.items():
-                if v is None:
-                    continue
-                elif isinstance(v, dict):
-                    yield (k, list(_open_inputs(v)))
-                else:
-                    yield (k, v.open(tile))
-
-        return OrderedDict(list(_open_inputs(self.params_at_zoom(tile.zoom)["input"])))
+        return OrderedDict(
+            list(open_inputs(self.params_at_zoom(tile.zoom)["input"], tile))
+        )
 
     def params_at_zoom(self, zoom):
         """
@@ -1103,6 +1096,16 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
             logger.debug(f"removing {tmpfile.name}")
             tmpfile.close()
     return module
+
+
+def open_inputs(inputs, tile):
+    for k, v in inputs.items():
+        if v is None:
+            continue
+        elif isinstance(v, dict):
+            yield (k, list(open_inputs(v, tile)))
+        else:
+            yield (k, v.open(tile))
 
 
 def _config_to_dict(input_config):

@@ -10,14 +10,14 @@ import uuid
 import yaml
 
 from mapchete.cli.default.serve import create_app
+from mapchete.io import fs_from_path
+from mapchete.testing import ProcessFixture, dict_from_mapchete
+
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
 TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
 S3_TEMP_DIR = "s3://mapchete-test/tmp/" + uuid.uuid4().hex
-
-
-ExampleConfig = namedtuple("ExampleConfig", ("path", "dict"))
 
 
 # flask test app for mapchete serve
@@ -53,14 +53,13 @@ def mp_tmpdir():
 @pytest.fixture
 def mp_s3_tmpdir():
     """Setup and teardown temporary directory."""
+    fs = fs_from_path(S3_TEMP_DIR)
 
     def _cleanup():
-        for obj in (
-            boto3.resource("s3")
-            .Bucket(S3_TEMP_DIR.split("/")[2])
-            .objects.filter(Prefix="/".join(S3_TEMP_DIR.split("/")[-2:]))
-        ):
-            obj.delete()
+        try:
+            fs.rm(S3_TEMP_DIR, recursive=True)
+        except FileNotFoundError:
+            pass
 
     _cleanup()
     yield S3_TEMP_DIR
@@ -280,257 +279,305 @@ def old_style_process_py():
 @pytest.fixture
 def custom_grid():
     """Fixture for custom_grid.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "custom_grid.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "custom_grid.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def deprecated_params():
     """Fixture for deprecated_params.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "deprecated_params.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
-
-
-@pytest.fixture
-def abstract_input():
-    """Fixture for abstract_input.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "abstract_input.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "deprecated_params.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def files_zooms():
     """Fixture for files_zooms.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "files_zooms.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "files_zooms.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def file_groups():
     """Fixture for file_groups.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "file_groups.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "file_groups.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def baselevels():
     """Fixture for baselevels.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "baselevels.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "baselevels.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def baselevels_output_buffer():
     """Fixture for baselevels_output_buffer.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "baselevels_output_buffer.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "baselevels_output_buffer.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def baselevels_custom_nodata():
     """Fixture for baselevels_custom_nodata.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "baselevels_custom_nodata.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "baselevels_custom_nodata.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def mapchete_input():
     """Fixture for mapchete_input.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "mapchete_input.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "mapchete_input.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def dem_to_hillshade():
     """Fixture for dem_to_hillshade.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "dem_to_hillshade.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "dem_to_hillshade.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def files_bounds():
     """Fixture for files_bounds.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "files_bounds.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "files_bounds.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def example_mapchete():
     """Fixture for example.mapchete."""
-    path = os.path.join(SCRIPT_DIR, "example.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(SCRIPT_DIR, "example.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def example_custom_process_mapchete():
     """Fixture for example.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "example_custom_process.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "example_custom_process.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def zoom_mapchete():
     """Fixture for zoom.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "zoom.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "zoom.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def minmax_zoom():
     """Fixture for minmax_zoom.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "minmax_zoom.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "minmax_zoom.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def cleantopo_tl():
     """Fixture for cleantopo_tl.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "cleantopo_tl.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "cleantopo_tl.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def cleantopo_br():
     """Fixture for cleantopo_br.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "cleantopo_br.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "cleantopo_br.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def cleantopo_br_metatiling_1():
     """Fixture for cleantopo_br.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "cleantopo_br_metatiling_1.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "cleantopo_br_metatiling_1.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def cleantopo_remote():
     """Fixture for cleantopo_remote.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "cleantopo_remote.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "cleantopo_remote.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def cleantopo_br_tiledir():
     """Fixture for cleantopo_br_tiledir.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "cleantopo_br_tiledir.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "cleantopo_br_tiledir.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def cleantopo_br_tiledir_mercator():
     """Fixture for cleantopo_br_tiledir_mercator.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "cleantopo_br_tiledir_mercator.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "cleantopo_br_tiledir_mercator.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def cleantopo_br_mercator():
     """Fixture for cleantopo_br_mercator.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "cleantopo_br_mercator.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "cleantopo_br_mercator.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def geojson():
     """Fixture for geojson.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "geojson.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "geojson.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def geojson_s3():
     """Fixture for geojson.mapchete with updated output path."""
-    path = os.path.join(TESTDATA_DIR, "geojson.mapchete")
-    config = _dict_from_mapchete(path)
-    config["output"].update(path=S3_TEMP_DIR)
-    return ExampleConfig(path=None, dict=config)
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "geojson.mapchete"),
+        output_tempdir=S3_TEMP_DIR,
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def geobuf():
     """Fixture for geobuf.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "geobuf.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "geobuf.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def geobuf_s3():
     """Fixture for geobuf.mapchete with updated output path."""
-    path = os.path.join(TESTDATA_DIR, "geobuf.mapchete")
-    config = _dict_from_mapchete(path)
-    config["output"].update(path=S3_TEMP_DIR)
-    return ExampleConfig(path=None, dict=config)
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "geobuf.mapchete"),
+        output_tempdir=S3_TEMP_DIR,
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def flatgeobuf():
     """Fixture for flatgeobuf.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "flatgeobuf.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "flatgeobuf.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def flatgeobuf_s3():
     """Fixture for flatgeobuf.mapchete with updated output path."""
-    path = os.path.join(TESTDATA_DIR, "flatgeobuf.mapchete")
-    config = _dict_from_mapchete(path)
-    config["output"].update(path=S3_TEMP_DIR)
-    return ExampleConfig(path=None, dict=config)
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "flatgeobuf.mapchete"),
+        output_tempdir=S3_TEMP_DIR,
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def geojson_tiledir():
     """Fixture for geojson_tiledir.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "geojson_tiledir.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "geojson_tiledir.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def process_module():
     """Fixture for process_module.mapchete"""
-    path = os.path.join(TESTDATA_DIR, "process_module.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "process_module.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def gtiff_s3():
     """Fixture for gtiff_s3.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "gtiff_s3.mapchete")
-    config = _dict_from_mapchete(path)
-    config["output"].update(path=S3_TEMP_DIR)
-    return ExampleConfig(path=None, dict=config)
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "gtiff_s3.mapchete"),
+        output_tempdir=S3_TEMP_DIR,
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def output_single_gtiff():
     """Fixture for output_single_gtiff.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "output_single_gtiff.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "output_single_gtiff.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def output_single_gtiff_cog():
     """Fixture for output_single_gtiff_cog.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "output_single_gtiff_cog.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "output_single_gtiff_cog.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def aoi_br():
     """Fixture for aoi_br.mapchete."""
-    path = os.path.join(TESTDATA_DIR, "aoi_br.mapchete")
-    return ExampleConfig(path=path, dict=_dict_from_mapchete(path))
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "aoi_br.mapchete"),
+    ) as example:
+        yield example
 
 
 @pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)
-
-
-# helper functions
-def _dict_from_mapchete(path):
-    config = yaml.safe_load(open(path).read())
-    config.update(config_dir=os.path.dirname(path))
-    return config
