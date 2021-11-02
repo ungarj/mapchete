@@ -40,7 +40,7 @@ def _validate_bidx(ctx, param, bidx):
 @click.option("--bidx", callback=_validate_bidx, help="Band indexes to copy.")
 @click.option(
     "--output-pyramid",
-    type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
+    type=click.STRING,
     help="Output pyramid to write to.",
 )
 @click.option(
