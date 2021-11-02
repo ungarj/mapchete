@@ -60,7 +60,9 @@ def test_convert_raster(cleantopo_tl_tif, landpoly):
     assert (
         convert.execute(
             get_process_mp(
-                input=dict(inp=cleantopo_tl_tif, clip=landpoly), tile=(5, 3, 7)
+                input=dict(inp=cleantopo_tl_tif, clip=landpoly),
+                tile=(5, 0, 0),
+                metatiling=1,
             )
         )
         == "empty"
