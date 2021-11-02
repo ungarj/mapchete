@@ -66,24 +66,24 @@ class ProcessFixture:
         """
         Return MapcheteProcess object used to test processes.
         """
-        if not self._mp:
-            self._mp = mapchete.open(self.dict)
         if tile:
-            tile = self._mp.config.process_pyramid.tile(*tile)
+            tile = self.mp().config.process_pyramid.tile(*tile)
         else:
             # just use first process tile from lowest zoom level
-            zoom = tile_zoom or max(self._mp.config.zoom_levels)
-            tile = next(self._mp.get_process_tiles(zoom))
+            zoom = tile_zoom or max(self.mp().config.zoom_levels)
+            tile = next(self.mp().get_process_tiles(zoom))
         return mapchete.MapcheteProcess(
             tile=tile,
-            params=self._mp.config.params_at_zoom(tile.zoom),
-            input=self._mp.config.get_inputs_for_tile(tile),
+            params=self.mp().config.params_at_zoom(tile.zoom),
+            input=self.mp().config.get_inputs_for_tile(tile),
         )
 
     def mp(self):
         """
-        Return Mapchete object.
+        Return Mapchete object from mapchete.open().
         """
+        if not self._mp:
+            self._mp = mapchete.open(self.dict)
         return self._mp
 
 
