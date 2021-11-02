@@ -59,6 +59,7 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
         bounds = mp.config.bounds_at_zoom()
         mp.batch_process(zoom=4)
     for metatiling in [1, 2, 4, 8]:
+        cleantopo_br_tiledir.clear_output()
         _run_tiledir_process_raster(cleantopo_br_tiledir.dict, metatiling, bounds)
 
 

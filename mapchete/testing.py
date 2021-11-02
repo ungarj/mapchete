@@ -43,7 +43,6 @@ class ProcessFixture:
             # set output directory
             self.dict["output"]["path"] = self._output_tempdir
 
-        self._mp = mapchete.open(self.dict)
         return self
 
     def __exit__(self, *args):
@@ -54,17 +53,21 @@ class ProcessFixture:
 
     def clear_output(self):
         # delete written output if any
-        out_dir = self.dict["output"]["path"]
         if self._output_tempdir:
-            try:
-                fs_from_path(out_dir).rm(out_dir, recursive=True)
-            except FileNotFoundError:
-                pass
+            out_dir = self._output_tempdir
+        else:
+            out_dir = os.path.join(self.dict["config_dir"], self.dict["output"]["path"])
+        try:
+            fs_from_path(out_dir).rm(out_dir, recursive=True)
+        except FileNotFoundError:
+            pass
 
     def process_mp(self, tile=None, tile_zoom=None):
         """
         Return MapcheteProcess object used to test processes.
         """
+        if not self._mp:
+            self._mp = mapchete.open(self.dict)
         if tile:
             tile = self._mp.config.process_pyramid.tile(*tile)
         else:
