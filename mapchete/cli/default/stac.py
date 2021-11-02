@@ -32,6 +32,7 @@ def stac():
 @options.opt_zoom
 @click.option("--item-path", "-p", type=click.Path(), help="Path of output STAC item.")
 @click.option("--asset-basepath", type=click.Path(), help="Alternative asset basepath.")
+@click.option("--relative-paths", is_flag=True, help="Use relative paths.")
 @click.option(
     "--indent",
     type=click.INT,
@@ -51,6 +52,7 @@ def create_item(
     bounds=None,
     bounds_crs=None,
     item_path=None,
+    relative_paths=False,
     indent=None,
     force=None,
     **kwargs,
@@ -91,7 +93,7 @@ def create_item(
         bounds_crs=bounds_crs or default_bounds_crs,
         item_path=item_path,
         asset_basepath=asset_basepath,
-        relative_paths=None,
+        relative_paths=relative_paths,
         bands_type=None,
         crs_unit_to_meter=1,
     )
