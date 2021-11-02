@@ -150,7 +150,7 @@ class BufferedTilePyramid(TilePyramid):
         zoom : integer
             zoom level
         """
-        if self.pixelbuffer:
+        if self.pixelbuffer:  # pragma: no cover
             raise ValueError(
                 "Matrix Affine can only be created for pyramid without pixelbuffer."
             )
