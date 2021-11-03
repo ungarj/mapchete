@@ -26,14 +26,14 @@ from mapchete.tile import BufferedTilePyramid, count_tiles
 
 def test_empty_execute(mp_tmpdir, cleantopo_br):
     """Execute process outside of defined zoom levels."""
-    with mapchete.open(cleantopo_br.path) as mp:
+    with mapchete.open(cleantopo_br.dict) as mp:
         assert mp.execute((6, 0, 0)).mask.all()
 
 
 def test_read_existing_output(mp_tmpdir, cleantopo_tl):
     """Read existing process output."""
     # raster data
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         tile = mp.config.process_pyramid.tile(5, 0, 0)
         # process and save
         mp.get_raw_output(tile)
@@ -65,7 +65,7 @@ def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
 
 def test_read_existing_output_vector(mp_tmpdir, geojson):
     """Read existing process output with process buffer."""
-    with mapchete.open(geojson.path) as mp:
+    with mapchete.open(geojson.dict) as mp:
         tile = next(mp.get_process_tiles(4))
         # process and save
         mp.write(tile, mp.get_raw_output(tile))
@@ -84,7 +84,7 @@ def test_read_existing_output_vector(mp_tmpdir, geojson):
 
 def test_open_data_error(cleantopo_tl):
     """Try to open data not specified as input."""
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         tile = mp.config.process_pyramid.tile(5, 0, 0)
         # read written data from within MapcheteProcess object
         user_process = mapchete.MapcheteProcess(
@@ -97,13 +97,13 @@ def test_open_data_error(cleantopo_tl):
 
 def test_get_raw_output_outside(mp_tmpdir, cleantopo_br):
     """Get raw process output outside of zoom levels."""
-    with mapchete.open(cleantopo_br.path) as mp:
+    with mapchete.open(cleantopo_br.dict) as mp:
         assert mp.get_raw_output((6, 0, 0)).mask.all()
 
 
 def test_get_raw_output_memory(mp_tmpdir, cleantopo_tl):
     """Get raw process output using memory flag."""
-    with mapchete.open(cleantopo_tl.path, mode="memory") as mp:
+    with mapchete.open(cleantopo_tl.dict, mode="memory") as mp:
         assert mp.config.mode == "memory"
         assert not mp.get_raw_output((5, 0, 0)).mask.all()
 
@@ -111,8 +111,8 @@ def test_get_raw_output_memory(mp_tmpdir, cleantopo_tl):
 def test_get_raw_output_readonly(mp_tmpdir, cleantopo_tl):
     """Get raw process output using readonly flag."""
     tile = (5, 0, 0)
-    readonly_mp = mapchete.open(cleantopo_tl.path, mode="readonly")
-    write_mp = mapchete.open(cleantopo_tl.path, mode="continue")
+    readonly_mp = mapchete.open(cleantopo_tl.dict, mode="readonly")
+    write_mp = mapchete.open(cleantopo_tl.dict, mode="continue")
 
     # read non-existing data (returns empty)
     assert readonly_mp.get_raw_output(tile).mask.all()
@@ -130,7 +130,7 @@ def test_get_raw_output_readonly(mp_tmpdir, cleantopo_tl):
 
 def test_get_raw_output_continue_raster(mp_tmpdir, cleantopo_tl):
     """Get raw process output using continue flag."""
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         assert mp.config.mode == "continue"
         tile = (5, 0, 0)
         # process and save
@@ -141,7 +141,7 @@ def test_get_raw_output_continue_raster(mp_tmpdir, cleantopo_tl):
 
 def test_get_raw_output_continue_vector(mp_tmpdir, geojson):
     """Get raw process output using continue flag."""
-    with mapchete.open(geojson.path) as mp:
+    with mapchete.open(geojson.dict) as mp:
         assert mp.config.mode == "continue"
         tile = next(mp.get_process_tiles(4))
         # process and save
@@ -161,7 +161,7 @@ def test_get_raw_output_continue_vector(mp_tmpdir, geojson):
 
 def test_baselevels(mp_tmpdir, baselevels):
     """Baselevel interpolation."""
-    with mapchete.open(baselevels.path, mode="continue") as mp:
+    with mapchete.open(baselevels.dict, mode="continue") as mp:
         # process data before getting baselevels
         mp.batch_process()
 
@@ -189,7 +189,7 @@ def test_baselevels(mp_tmpdir, baselevels):
 def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
     """Baselevel interpolation."""
     fill_value = -32768.0
-    with mapchete.open(baselevels_custom_nodata.path, mode="continue") as mp:
+    with mapchete.open(baselevels_custom_nodata.dict, mode="continue") as mp:
         # process data before getting baselevels
         mp.batch_process()
 
@@ -353,7 +353,7 @@ def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):
 
 def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
     """Test correct processing (read and write) outputs."""
-    for cleantopo_process in [cleantopo_br.path, cleantopo_tl.path]:
+    for cleantopo_process in [cleantopo_br.dict, cleantopo_tl.dict]:
         with mapchete.open(cleantopo_process) as mp:
             for zoom in range(6):
                 tiles = []
@@ -388,7 +388,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
 
 def test_pickleability(mp_tmpdir, cleantopo_tl):
     """Test parallel tile processing."""
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         assert pickle_dumps(mp)
         assert pickle_dumps(mp.config)
         assert pickle_dumps(mp.config.output)
@@ -403,7 +403,7 @@ def _worker(mp, tile):
 
 def test_write_empty(mp_tmpdir, cleantopo_tl):
     """Test write function when passing an empty process_tile."""
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         # process and save
         mp.write(mp.config.process_pyramid.tile(5, 0, 0), None)
 
@@ -474,7 +474,7 @@ def test_count_tiles_large_init_zoom(geometrycollection):
 
 def test_batch_process(mp_tmpdir, cleantopo_tl):
     """Test batch_process function."""
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         # invalid parameters errors
         with pytest.raises(ValueError):
             mp.batch_process(zoom=1, tile=(1, 0, 0))
@@ -489,12 +489,12 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
 def test_skip_tiles(mp_tmpdir, cleantopo_tl):
     """Test batch_process function."""
     zoom = 2
-    with mapchete.open(cleantopo_tl.path, mode="continue") as mp:
+    with mapchete.open(cleantopo_tl.dict, mode="continue") as mp:
         mp.batch_process(zoom=zoom)
         for tile, skip in mp.skip_tiles(tiles=mp.get_process_tiles(zoom=zoom)):
             assert skip
 
-    with mapchete.open(cleantopo_tl.path, mode="overwrite") as mp:
+    with mapchete.open(cleantopo_tl.dict, mode="overwrite") as mp:
         for tile, skip in mp.skip_tiles(tiles=mp.get_process_tiles(zoom=zoom)):
             assert not skip
 
@@ -502,10 +502,10 @@ def test_skip_tiles(mp_tmpdir, cleantopo_tl):
 def test_custom_grid(mp_tmpdir, custom_grid):
     """Cutom grid processing."""
     # process and save
-    with mapchete.open(custom_grid.path) as mp:
+    with mapchete.open(custom_grid.dict) as mp:
         mp.batch_process()
     # read written output
-    with mapchete.open(custom_grid.path) as mp:
+    with mapchete.open(custom_grid.dict) as mp:
         for tile in mp.get_process_tiles(5):
             data = mp.config.output.read(tile)
             assert data.any()

@@ -9,7 +9,7 @@ from mapchete.tile import BufferedTile
 
 def test_input_data_read(mp_tmpdir, geojson, landpoly_3857):
     """Check GeoJSON as input data."""
-    with mapchete.open(geojson.path) as mp:
+    with mapchete.open(geojson.dict) as mp:
         for tile in mp.get_process_tiles():
             assert isinstance(tile, BufferedTile)
             input_tile = formats.default.geojson.InputTile(tile, mp)
@@ -76,7 +76,7 @@ def test_output_data(mp_tmpdir, geojson):
     assert output.file_extension == ".geojson"
     assert isinstance(output_params, dict)
 
-    with mapchete.open(geojson.path) as mp:
+    with mapchete.open(geojson.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty
         mp.write(tile, None)
@@ -90,24 +90,24 @@ def test_output_data(mp_tmpdir, geojson):
 
 
 @pytest.mark.remote
-def test_s3_output_data(mp_s3_tmpdir, geojson_s3):
+def test_s3_output_data(geojson_s3):
     """Check GeoJSON as output data."""
     output_params = dict(
         grid="geodetic",
         format="GeoJSON",
-        path=mp_s3_tmpdir,
+        path=geojson_s3.dict["output"]["path"],
         schema=dict(properties=dict(id="int"), geometry="Polygon"),
         pixelbuffer=0,
         metatiling=1,
     )
     output = formats.default.geojson.OutputDataWriter(output_params)
-    assert output.path == mp_s3_tmpdir
+    assert output.path == geojson_s3.dict["output"]["path"]
     assert output.file_extension == ".geojson"
     assert isinstance(output_params, dict)
 
 
 @pytest.mark.remote
-def test_s3_output_data_rw(mp_s3_tmpdir, geojson_s3):
+def test_s3_output_data_rw(geojson_s3):
     with mapchete.open(geojson_s3.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty

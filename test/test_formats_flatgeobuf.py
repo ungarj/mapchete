@@ -9,7 +9,7 @@ from mapchete.tile import BufferedTile
 
 def test_input_data_read(mp_tmpdir, flatgeobuf, landpoly_3857):
     """Check FlatGeobuf as input data."""
-    with mapchete.open(flatgeobuf.path) as mp:
+    with mapchete.open(flatgeobuf.dict) as mp:
         for tile in mp.get_process_tiles():
             assert isinstance(tile, BufferedTile)
             input_tile = formats.default.geojson.InputTile(tile, mp)
@@ -55,7 +55,7 @@ def test_output_data(mp_tmpdir, flatgeobuf):
     assert output.file_extension == ".fgb"
     assert isinstance(output_params, dict)
 
-    with mapchete.open(flatgeobuf.path) as mp:
+    with mapchete.open(flatgeobuf.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty
         mp.write(tile, None)
@@ -69,24 +69,24 @@ def test_output_data(mp_tmpdir, flatgeobuf):
 
 
 @pytest.mark.remote
-def test_s3_output_data(mp_s3_tmpdir, flatgeobuf_s3):
+def test_s3_output_data(flatgeobuf_s3):
     """Check FlatGeobuf as output data."""
     output_params = dict(
         grid="geodetic",
         format="FlatGeobuf",
-        path=mp_s3_tmpdir,
+        path=flatgeobuf_s3.dict["output"]["path"],
         schema=dict(properties=dict(id="int"), geometry="Polygon"),
         pixelbuffer=0,
         metatiling=1,
     )
     output = formats.default.flatgeobuf.OutputDataWriter(output_params)
-    assert output.path == mp_s3_tmpdir
+    assert output.path == flatgeobuf_s3.dict["output"]["path"]
     assert output.file_extension == ".fgb"
     assert isinstance(output_params, dict)
 
 
 @pytest.mark.remote
-def test_s3_output_data_rw(mp_s3_tmpdir, flatgeobuf_s3):
+def test_s3_output_data_rw(flatgeobuf_s3):
     with mapchete.open(flatgeobuf_s3.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty

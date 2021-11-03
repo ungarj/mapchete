@@ -22,17 +22,17 @@ def test_config_modes(example_mapchete):
     """Assert process mode is handled correctly."""
     # invalid mode
     with pytest.raises(errors.MapcheteConfigError):
-        MapcheteConfig(example_mapchete.path, mode="invalid")
+        MapcheteConfig(example_mapchete.dict, mode="invalid")
 
 
 def test_execute(example_mapchete):
     """Mapchete execute() errors."""
     # in readonly mode
-    with mapchete.open(example_mapchete.path, mode="readonly") as mp:
+    with mapchete.open(example_mapchete.dict, mode="readonly") as mp:
         with pytest.raises(ValueError):
             mp.execute(next(mp.get_process_tiles()))
     # wrong tile type
-    with mapchete.open(example_mapchete.path) as mp:
+    with mapchete.open(example_mapchete.dict) as mp:
         with pytest.raises(TypeError):
             mp.execute("invalid")
 
@@ -40,18 +40,18 @@ def test_execute(example_mapchete):
 def test_read(example_mapchete):
     """Mapchete read() errors."""
     # in memory mode
-    with mapchete.open(example_mapchete.path, mode="memory") as mp:
+    with mapchete.open(example_mapchete.dict, mode="memory") as mp:
         with pytest.raises(ValueError):
             mp.read(next(mp.get_process_tiles()))
     # wrong tile type
-    with mapchete.open(example_mapchete.path) as mp:
+    with mapchete.open(example_mapchete.dict) as mp:
         with pytest.raises(TypeError):
             mp.read("invalid")
 
 
 def test_write(cleantopo_tl):
     """Test write function when passing an invalid process_tile."""
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         # process and save
         with pytest.raises(TypeError):
             mp.write("invalid tile", None)
@@ -59,7 +59,7 @@ def test_write(cleantopo_tl):
 
 def test_get_raw_output(example_mapchete):
     """Mapchete get_raw_output() errors."""
-    with mapchete.open(example_mapchete.path) as mp:
+    with mapchete.open(example_mapchete.dict) as mp:
         # wrong tile type
         with pytest.raises(TypeError):
             mp.get_raw_output("invalid")
@@ -71,7 +71,7 @@ def test_get_raw_output(example_mapchete):
 
 def test_process_tile_write(example_mapchete):
     """Raise DeprecationWarning on MapcheteProcess.write()."""
-    config = MapcheteConfig(example_mapchete.path)
+    config = MapcheteConfig(example_mapchete.dict)
     tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
     user_process = mapchete.MapcheteProcess(
         tile=tile,
@@ -84,7 +84,7 @@ def test_process_tile_write(example_mapchete):
 
 def test_process_tile_open(example_mapchete):
     """Raise ValueError on MapcheteProcess.open()."""
-    config = MapcheteConfig(example_mapchete.path)
+    config = MapcheteConfig(example_mapchete.dict)
     tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
     user_process = mapchete.MapcheteProcess(
         tile=tile,
@@ -97,7 +97,7 @@ def test_process_tile_open(example_mapchete):
 
 def test_process_tile_read(example_mapchete):
     """Raise ValueError on MapcheteProcess.open()."""
-    config = MapcheteConfig(example_mapchete.path)
+    config = MapcheteConfig(example_mapchete.dict)
     tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
     user_process = mapchete.MapcheteProcess(
         tile=tile,

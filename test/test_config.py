@@ -73,7 +73,7 @@ def test_config_errors(example_mapchete):
 
 def test_config_zoom7(example_mapchete, dummy2_tif):
     """Example configuration at zoom 5."""
-    config = MapcheteConfig(example_mapchete.path)
+    config = MapcheteConfig(example_mapchete.dict)
     zoom7 = config.params_at_zoom(7)
     input_files = zoom7["input"]
     assert input_files["file1"] is None
@@ -86,7 +86,7 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
 
 def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
     """Example configuration at zoom 11."""
-    config = MapcheteConfig(example_mapchete.path)
+    config = MapcheteConfig(example_mapchete.dict)
     zoom11 = config.params_at_zoom(11)
     input_files = zoom11["input"]
     assert input_files["file1"].path == dummy1_tif
@@ -99,41 +99,41 @@ def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
 
 def test_read_zoom_level(zoom_mapchete):
     """Read zoom level from config file."""
-    config = MapcheteConfig(zoom_mapchete.path)
+    config = MapcheteConfig(zoom_mapchete.dict)
     assert 5 in config.zoom_levels
 
 
 def test_minmax_zooms(minmax_zoom):
     """Read min/max zoom levels from config file."""
-    config = MapcheteConfig(minmax_zoom.path)
+    config = MapcheteConfig(minmax_zoom.dict)
     for zoom in [7, 8, 9, 10]:
         assert zoom in config.zoom_levels
 
 
 def test_override_zoom_levels(minmax_zoom):
     """Override zoom levels when constructing configuration."""
-    config = MapcheteConfig(minmax_zoom.path, zoom=[7, 8])
+    config = MapcheteConfig(minmax_zoom.dict, zoom=[7, 8])
     for zoom in [7, 8]:
         assert zoom in config.zoom_levels
 
 
 def test_read_bounds(zoom_mapchete):
     """Read bounds from config file."""
-    config = MapcheteConfig(zoom_mapchete.path)
+    config = MapcheteConfig(zoom_mapchete.dict)
     test_polygon = Polygon([[3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
     assert config.area_at_zoom(5).equals(test_polygon)
 
 
 def test_override_bounds(zoom_mapchete):
     """Override bounds when construcing configuration."""
-    config = MapcheteConfig(zoom_mapchete.path, bounds=[3, 2, 3.5, 1.5])
+    config = MapcheteConfig(zoom_mapchete.dict, bounds=[3, 2, 3.5, 1.5])
     test_polygon = Polygon([[3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
     assert config.area_at_zoom(5).equals(test_polygon)
 
 
 def test_bounds_from_input_files(files_bounds):
     """Read bounds from input files."""
-    config = MapcheteConfig(files_bounds.path)
+    config = MapcheteConfig(files_bounds.dict)
     test_polygon = Polygon(
         [[3, 2], [4, 2], [4, 1], [3, 1], [2, 1], [2, 4], [3, 4], [3, 2]]
     )
@@ -166,7 +166,7 @@ def test_effective_bounds(files_bounds, baselevels):
 
 def test_read_mapchete_input(mapchete_input):
     """Read Mapchete files as input files."""
-    config = MapcheteConfig(mapchete_input.path)
+    config = MapcheteConfig(mapchete_input.dict)
     area = config.area_at_zoom(5)
     # testpolygon = box(0.5, 1.5, 3.5, 3.5)
     testpolygon = wkt.loads(
@@ -177,7 +177,7 @@ def test_read_mapchete_input(mapchete_input):
 
 def test_read_baselevels(baselevels):
     """Read baselevels."""
-    config = MapcheteConfig(baselevels.path)
+    config = MapcheteConfig(baselevels.dict)
     assert isinstance(config.baselevels, dict)
     assert set(config.baselevels["zooms"]) == set([5, 6])
     assert config.baselevels["lower"] == "bilinear"
@@ -205,7 +205,7 @@ def test_empty_input(file_groups):
 
 def test_read_input_groups(file_groups):
     """Read input data groups."""
-    config = MapcheteConfig(file_groups.path)
+    config = MapcheteConfig(file_groups.dict)
     input_files = config.params_at_zoom(0)["input"]
     assert "file1" in input_files["group1"]
     assert "file2" in input_files["group1"]
@@ -222,7 +222,7 @@ def test_read_input_groups(file_groups):
 
 def test_read_input_order(file_groups):
     """Assert input objects are represented in the same order as configured."""
-    with mapchete.open(file_groups.path) as mp:
+    with mapchete.open(file_groups.dict) as mp:
         inputs = yaml.safe_load(open(file_groups.path).read())["input"]
         tile = mp.config.process_pyramid.tile(0, 0, 0)
         # read written data from within MapcheteProcess object
@@ -236,7 +236,7 @@ def test_read_input_order(file_groups):
 
 def test_input_zooms(files_zooms):
     """Read correct input file per zoom."""
-    config = MapcheteConfig(files_zooms.path)
+    config = MapcheteConfig(files_zooms.dict)
     # zoom 7
     input_files = config.params_at_zoom(7)["input"]
     assert os.path.basename(input_files["greater_smaller"].path) == "dummy1.tif"
@@ -253,12 +253,6 @@ def test_input_zooms(files_zooms):
     input_files = config.params_at_zoom(10)["input"]
     assert os.path.basename(input_files["greater_smaller"].path) == "dummy2.tif"
     assert os.path.basename(input_files["equals"].path) == "cleantopo_tl.tif"
-
-
-def test_abstract_input(abstract_input):
-    """Read abstract input definitions."""
-    with pytest.raises(MapcheteDriverError):
-        MapcheteConfig(abstract_input.path)
 
 
 def test_init_zoom(cleantopo_br):

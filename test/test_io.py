@@ -64,7 +64,7 @@ def test_read_raster_window(dummy1_tif, minmax_zoom):
     """Read array with read_raster_window."""
     zoom = 8
     # without reproject
-    config = MapcheteConfig(minmax_zoom.path)
+    config = MapcheteConfig(minmax_zoom.dict)
     rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
@@ -775,7 +775,7 @@ def test_prepare_array_errors():
 def test_read_vector_window(geojson, landpoly_3857):
     """Read vector data from read_vector_window."""
     zoom = 4
-    config = MapcheteConfig(geojson.path)
+    config = MapcheteConfig(geojson.dict)
     vectorfile = config.params_at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
@@ -1139,7 +1139,7 @@ def test_tiles_exist_local(example_mapchete):
         assert set(output_tiles) == existing.union(not_existing)
 
 
-def test_tiles_exist_s3(gtiff_s3, mp_s3_tmpdir):
+def test_tiles_exist_s3(gtiff_s3):
     bounds = (0, 0, 10, 10)
     # bounds = (3, 1, 4, 2)
     zoom = 5

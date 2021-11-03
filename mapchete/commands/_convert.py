@@ -30,7 +30,7 @@ OUTPUT_FORMATS = available_output_formats()
 
 
 def convert(
-    tiledir: str,
+    tiledir: Union[str, dict],
     output: str,
     zoom: Union[int, List[int]] = None,
     area: Union[BaseGeometry, str, dict] = None,

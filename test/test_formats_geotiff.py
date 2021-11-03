@@ -129,7 +129,7 @@ def test_for_web(client, mp_tmpdir):
 
 def test_input_data(mp_tmpdir, cleantopo_br):
     """Check GeoTIFF proces output as input data."""
-    with mapchete.open(cleantopo_br.path) as mp:
+    with mapchete.open(cleantopo_br.dict) as mp:
         tp = BufferedTilePyramid("geodetic")
         # TODO tile with existing but empty data
         tile = tp.tile(5, 5, 5)
@@ -183,7 +183,7 @@ def test_write_geotiff_tags(mp_tmpdir, cleantopo_br, write_rasterfile_tags_py):
 
 
 @pytest.mark.remote
-def test_s3_write_output_data(gtiff_s3, s3_example_tile, mp_s3_tmpdir):
+def test_s3_write_output_data(gtiff_s3, s3_example_tile):
     """Write and read output."""
     with mapchete.open(gtiff_s3.dict) as mp:
         process_tile = mp.config.process_pyramid.tile(*s3_example_tile)
@@ -205,7 +205,7 @@ def test_s3_write_output_data(gtiff_s3, s3_example_tile, mp_s3_tmpdir):
 
 def test_output_single_gtiff(output_single_gtiff):
     tile_id = (5, 3, 7)
-    with mapchete.open(output_single_gtiff.path) as mp:
+    with mapchete.open(output_single_gtiff.dict) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
         # basic functions
         assert mp.config.output.profile()
@@ -231,10 +231,10 @@ def test_output_single_gtiff(output_single_gtiff):
 
     # error on existing file
     with pytest.raises(MapcheteConfigError):
-        mapchete.open(output_single_gtiff.path)
+        mapchete.open(output_single_gtiff.dict)
 
     # overwrite existing file
-    with mapchete.open(output_single_gtiff.path, mode="overwrite") as mp:
+    with mapchete.open(output_single_gtiff.dict, mode="overwrite") as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
         assert not mp.config.output.tiles_exist(process_tile)
         # write
@@ -256,7 +256,7 @@ def test_output_single_gtiff_errors(output_single_gtiff):
         mapchete.open(dict(output_single_gtiff.dict, zoom_levels=[5, 6]))
 
     # provide either process_tile or output_tile
-    with mapchete.open(output_single_gtiff.path) as mp:
+    with mapchete.open(output_single_gtiff.dict) as mp:
         tile = mp.config.process_pyramid.tile(5, 3, 7)
         with pytest.raises(ValueError):
             mp.config.output.tiles_exist(process_tile=tile, output_tile=tile)
@@ -331,17 +331,9 @@ def test_output_single_gtiff_overviews(output_single_gtiff):
 
 
 @pytest.mark.remote
-def test_output_single_gtiff_s3(output_single_gtiff, mp_s3_tmpdir):
+def test_output_single_gtiff_s3(output_single_gtiff_s3):
     tile_id = (5, 3, 7)
-    with mapchete.open(
-        dict(
-            output_single_gtiff.dict,
-            output=dict(
-                output_single_gtiff.dict["output"],
-                path=os.path.join(mp_s3_tmpdir, "temp.tif"),
-            ),
-        )
-    ) as mp:
+    with mapchete.open(output_single_gtiff_s3.dict) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
         # basic functions
         assert mp.config.output.profile()
@@ -367,14 +359,13 @@ def test_output_single_gtiff_s3(output_single_gtiff, mp_s3_tmpdir):
 
 
 @pytest.mark.remote
-def test_output_single_gtiff_s3_tempfile(output_single_gtiff, mp_s3_tmpdir):
+def test_output_single_gtiff_s3_tempfile(output_single_gtiff_s3):
     tile_id = (5, 3, 7)
     with mapchete.open(
         dict(
-            output_single_gtiff.dict,
+            output_single_gtiff_s3.dict,
             output=dict(
-                output_single_gtiff.dict["output"],
-                path=os.path.join(mp_s3_tmpdir, "temp.tif"),
+                output_single_gtiff_s3.dict["output"],
                 in_memory=False,
             ),
         )
@@ -474,17 +465,9 @@ def test_output_single_gtiff_cog_tempfile(output_single_gtiff_cog):
 @pytest.mark.skipif(
     not GDAL_COG_AVAILABLE, reason="GDAL>=3.1 with COG driver is required"
 )
-def test_output_single_gtiff_cog_s3(output_single_gtiff_cog, mp_s3_tmpdir):
+def test_output_single_gtiff_cog_s3(output_single_gtiff_cog_s3):
     tile_id = (5, 3, 7)
-    with mapchete.open(
-        dict(
-            output_single_gtiff_cog.dict,
-            output=dict(
-                output_single_gtiff_cog.dict["output"],
-                path=os.path.join(mp_s3_tmpdir, "cog.tif"),
-            ),
-        )
-    ) as mp:
+    with mapchete.open(output_single_gtiff_cog_s3.dict) as mp:
         process_tile = mp.config.process_pyramid.tile(*tile_id)
         # basic functions
         assert mp.config.output.profile()
