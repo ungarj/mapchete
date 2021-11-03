@@ -2,6 +2,20 @@
 Changelog
 #########
 
+
+----------------------
+2021.11.0 - 2021-11-03
+----------------------
+
+* CLI
+  * ``convert``: enable ``--output-pyramid`` to read custom grid from JSON file
+  * ``stac create-item``: add ``--relative-paths`` flag for asset URL
+
+* package
+  * add ``mapchete.testing`` including convenience tools
+  * use temporary directories for outputs where possible when testing processes
+
+
 ----------------------
 2021.10.3 - 2021-10-19
 ----------------------

@@ -25,6 +25,7 @@ Submodules
    mapchete.index
    mapchete.log
    mapchete.stac
+   mapchete.testing
    mapchete.tile
    mapchete.validate
 
