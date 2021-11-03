@@ -1139,7 +1139,7 @@ def test_tiles_exist_local(example_mapchete):
         assert set(output_tiles) == existing.union(not_existing)
 
 
-def test_tiles_exist_s3(gtiff_s3, mp_s3_tmpdir):
+def test_tiles_exist_s3(gtiff_s3):
     bounds = (0, 0, 10, 10)
     # bounds = (3, 1, 4, 2)
     zoom = 5

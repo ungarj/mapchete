@@ -27,11 +27,13 @@ def dict_from_mapchete(path):
 
 
 class ProcessFixture:
-    def __init__(self, path=None, output_tempdir=None):
+    def __init__(self, path=None, output_tempdir=None, output_suffix=""):
         self.path = path
         self.dict = None
         if output_tempdir:
-            self._output_tempdir = os.path.join(output_tempdir, uuid.uuid4().hex)
+            self._output_tempdir = (
+                os.path.join(output_tempdir, uuid.uuid4().hex) + output_suffix
+            )
         else:
             self._output_tempdir = None
         self._out_fs = None

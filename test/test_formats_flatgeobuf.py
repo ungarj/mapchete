@@ -69,24 +69,24 @@ def test_output_data(mp_tmpdir, flatgeobuf):
 
 
 @pytest.mark.remote
-def test_s3_output_data(mp_s3_tmpdir, flatgeobuf_s3):
+def test_s3_output_data(flatgeobuf_s3):
     """Check FlatGeobuf as output data."""
     output_params = dict(
         grid="geodetic",
         format="FlatGeobuf",
-        path=mp_s3_tmpdir,
+        path=flatgeobuf_s3.dict["output"]["path"],
         schema=dict(properties=dict(id="int"), geometry="Polygon"),
         pixelbuffer=0,
         metatiling=1,
     )
     output = formats.default.flatgeobuf.OutputDataWriter(output_params)
-    assert output.path == mp_s3_tmpdir
+    assert output.path == flatgeobuf_s3.dict["output"]["path"]
     assert output.file_extension == ".fgb"
     assert isinstance(output_params, dict)
 
 
 @pytest.mark.remote
-def test_s3_output_data_rw(mp_s3_tmpdir, flatgeobuf_s3):
+def test_s3_output_data_rw(flatgeobuf_s3):
     with mapchete.open(flatgeobuf_s3.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty

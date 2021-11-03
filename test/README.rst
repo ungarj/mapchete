@@ -4,7 +4,7 @@ Run tests
 
 .. code-block:: shell
 
-    py.test test_*.py
+    pytest -v --cov mapchete
 
 
 Under certain environments, curl-based tests can fail. In this case, try:

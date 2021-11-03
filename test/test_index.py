@@ -10,7 +10,7 @@ from mapchete.io import get_boto3_bucket
 
 
 @pytest.mark.remote
-def test_remote_indexes(mp_s3_tmpdir, gtiff_s3):
+def test_remote_indexes(gtiff_s3):
 
     zoom = 7
     gtiff_s3.dict.update(zoom_levels=zoom)
