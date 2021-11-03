@@ -64,7 +64,7 @@ def test_read_raster_window(dummy1_tif, minmax_zoom):
     """Read array with read_raster_window."""
     zoom = 8
     # without reproject
-    config = MapcheteConfig(minmax_zoom.path)
+    config = MapcheteConfig(minmax_zoom.dict)
     rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
@@ -775,7 +775,7 @@ def test_prepare_array_errors():
 def test_read_vector_window(geojson, landpoly_3857):
     """Read vector data from read_vector_window."""
     zoom = 4
-    config = MapcheteConfig(geojson.path)
+    config = MapcheteConfig(geojson.dict)
     vectorfile = config.params_at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)

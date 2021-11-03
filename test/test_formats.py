@@ -69,7 +69,7 @@ def test_driver_from_file_errors(execute_kwargs_py):
 
 def test_mapchete_input(mapchete_input):
     """Mapchete process as input for other process."""
-    with mapchete.open(mapchete_input.path) as mp:
+    with mapchete.open(mapchete_input.dict) as mp:
         config = mp.config.params_at_zoom(5)
         input_data = config["input"]["file2"]
         assert input_data.bbox()
@@ -140,7 +140,7 @@ def test_http_rasters(files_bounds, http_raster):
 
 def test_read_from_raster_file(cleantopo_br):
     """Read different bands from source raster."""
-    with mapchete.open(cleantopo_br.path) as mp:
+    with mapchete.open(cleantopo_br.dict) as mp:
         tile = mp.config.process_pyramid.tile(5, 0, 0)
         user_process = mapchete.MapcheteProcess(
             tile=tile,

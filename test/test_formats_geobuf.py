@@ -10,7 +10,7 @@ from mapchete.tile import BufferedTile
 
 def test_input_data_read(mp_tmpdir, geobuf, landpoly_3857):
     """Check Geobuf as input data."""
-    with mapchete.open(geobuf.path) as mp:
+    with mapchete.open(geobuf.dict) as mp:
         for tile in mp.get_process_tiles():
             assert isinstance(tile, BufferedTile)
             input_tile = formats.default.geojson.InputTile(tile, mp)
@@ -80,7 +80,7 @@ def test_output_data(mp_tmpdir, geobuf):
     assert output.file_extension == ".pbf"
     assert isinstance(output_params, dict)
 
-    with mapchete.open(geobuf.path) as mp:
+    with mapchete.open(geobuf.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty
         mp.write(tile, None)

@@ -9,7 +9,7 @@ from mapchete.tile import BufferedTile
 
 def test_input_data_read(mp_tmpdir, geojson, landpoly_3857):
     """Check GeoJSON as input data."""
-    with mapchete.open(geojson.path) as mp:
+    with mapchete.open(geojson.dict) as mp:
         for tile in mp.get_process_tiles():
             assert isinstance(tile, BufferedTile)
             input_tile = formats.default.geojson.InputTile(tile, mp)
@@ -76,7 +76,7 @@ def test_output_data(mp_tmpdir, geojson):
     assert output.file_extension == ".geojson"
     assert isinstance(output_params, dict)
 
-    with mapchete.open(geojson.path) as mp:
+    with mapchete.open(geojson.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty
         mp.write(tile, None)

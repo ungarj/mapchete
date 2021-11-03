@@ -19,7 +19,7 @@ TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     # generate TileDirectory
     with mapchete.open(
-        cleantopo_br.path, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
+        cleantopo_br.dict, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
     ) as mp:
         mp.batch_process(zoom=5)
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
@@ -61,7 +61,7 @@ def test_cp_http(mp_tmpdir, http_tiledir):
 def test_rm(mp_tmpdir, cleantopo_br):
     # generate TileDirectory
     with mapchete.open(
-        cleantopo_br.path, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
+        cleantopo_br.dict, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
     ) as mp:
         mp.batch_process(zoom=5)
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
@@ -117,7 +117,7 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
     """Using bounds from WKT."""
     with rasterio.open(dummy2_tif) as src:
         g = box(*src.bounds)
-    job = execute(example_mapchete.path, point=[g.centroid.x, g.centroid.y], zoom=10)
+    job = execute(example_mapchete.dict, point=[g.centroid.x, g.centroid.y], zoom=10)
     assert len(job) == 1
 
 
@@ -370,7 +370,7 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
 
 def test_convert_tiledir(cleantopo_br, mp_tmpdir):
     # prepare data
-    with mapchete.open(cleantopo_br.path) as mp:
+    with mapchete.open(cleantopo_br.dict) as mp:
         mp.batch_process(zoom=[1, 4])
     job = convert(
         os.path.join(
@@ -437,7 +437,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
         convert(s2_band, mp_tmpdir)
 
     # prepare data for tiledir input
-    with mapchete.open(cleantopo_br.path) as mp:
+    with mapchete.open(cleantopo_br.dict) as mp:
         mp.batch_process(zoom=[1, 4])
     tiledir_path = os.path.join(
         cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
@@ -468,11 +468,11 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
 
 def test_index_geojson(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    job = execute(cleantopo_br.path, zoom=3)
+    job = execute(cleantopo_br.dict, zoom=3)
     assert len(job)
 
     # generate index for zoom 3
-    job = index(cleantopo_br.path, zoom=3, geojson=True)
+    job = index(cleantopo_br.dict, zoom=3, geojson=True)
     assert len(job)
 
     with mapchete.open(cleantopo_br.dict) as mp:
@@ -487,12 +487,12 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    job = execute(cleantopo_br.path, zoom=3)
+    job = execute(cleantopo_br.dict, zoom=3)
     assert len(job)
 
     # index and rename "location" to "new_fieldname"
     job = index(
-        cleantopo_br.path,
+        cleantopo_br.dict,
         zoom=3,
         geojson=True,
         fieldname="new_fieldname",
@@ -509,12 +509,12 @@ def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    job = execute(cleantopo_br.path, zoom=3)
+    job = execute(cleantopo_br.dict, zoom=3)
     assert len(job)
 
     basepath = "http://localhost"
     # index and rename "location" to "new_fieldname"
-    job = index(cleantopo_br.path, zoom=3, geojson=True, basepath=basepath)
+    job = index(cleantopo_br.dict, zoom=3, geojson=True, basepath=basepath)
     assert len(job)
 
     with mapchete.open(cleantopo_br.dict) as mp:
@@ -528,13 +528,13 @@ def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    job = execute(cleantopo_br.path, zoom=3)
+    job = execute(cleantopo_br.dict, zoom=3)
     assert len(job)
 
     basepath = "http://localhost"
     # index and rename "location" to "new_fieldname"
     job = index(
-        cleantopo_br.path, zoom=3, geojson=True, basepath=basepath, for_gdal=True
+        cleantopo_br.dict, zoom=3, geojson=True, basepath=basepath, for_gdal=True
     )
     assert len(job)
 
@@ -549,11 +549,11 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     # execute process at zoom 3
-    job = execute(cleantopo_tl.path, zoom=3)
+    job = execute(cleantopo_tl.dict, zoom=3)
     assert len(job)
 
     # generate index
-    job = index(cleantopo_tl.path, tile=(3, 0, 0), geojson=True)
+    job = index(cleantopo_tl.dict, tile=(3, 0, 0), geojson=True)
     assert len(job)
 
     with mapchete.open(cleantopo_tl.dict) as mp:
@@ -566,11 +566,11 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
 
 def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_tl, wkt_geom_tl):
     # execute process at zoom 3
-    job = execute(cleantopo_tl.path, area=wkt_geom_tl)
+    job = execute(cleantopo_tl.dict, area=wkt_geom_tl)
     assert len(job)
 
     # generate index for zoom 3
-    job = index(cleantopo_tl.path, geojson=True, area=wkt_geom_tl)
+    job = index(cleantopo_tl.dict, geojson=True, area=wkt_geom_tl)
     assert len(job)
 
     with mapchete.open(cleantopo_tl.dict) as mp:
@@ -581,11 +581,11 @@ def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_tl, wkt_geom_tl):
 
 def test_index_gpkg(mp_tmpdir, cleantopo_br):
     # execute process
-    job = execute(cleantopo_br.path, zoom=5)
+    job = execute(cleantopo_br.dict, zoom=5)
     assert len(job)
 
     # generate index
-    job = index(cleantopo_br.path, zoom=5, gpkg=True)
+    job = index(cleantopo_br.dict, zoom=5, gpkg=True)
     assert len(job)
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -596,7 +596,7 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
-    job = index(cleantopo_br.path, zoom=5, gpkg=True)
+    job = index(cleantopo_br.dict, zoom=5, gpkg=True)
     assert len(job)
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -609,11 +609,11 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
 
 def test_index_shp(mp_tmpdir, cleantopo_br):
     # execute process
-    job = execute(cleantopo_br.path, zoom=5)
+    job = execute(cleantopo_br.dict, zoom=5)
     assert len(job)
 
     # generate index
-    job = index(cleantopo_br.path, zoom=5, shp=True)
+    job = index(cleantopo_br.dict, zoom=5, shp=True)
     assert len(job)
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -624,7 +624,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
-    job = index(cleantopo_br.path, zoom=5, shp=True)
+    job = index(cleantopo_br.dict, zoom=5, shp=True)
     assert len(job)
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -637,11 +637,11 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
 
 def test_index_text(cleantopo_br):
     # execute process
-    job = execute(cleantopo_br.path, zoom=5)
+    job = execute(cleantopo_br.dict, zoom=5)
     assert len(job)
 
     # generate index
-    job = index(cleantopo_br.path, zoom=5, txt=True)
+    job = index(cleantopo_br.dict, zoom=5, txt=True)
     assert len(job)
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -653,7 +653,7 @@ def test_index_text(cleantopo_br):
             assert l.endswith("7.tif\n")
 
     # write again and assert there is no new entry because there is already one
-    job = index(cleantopo_br.path, zoom=5, txt=True)
+    job = index(cleantopo_br.dict, zoom=5, txt=True)
     assert len(job)
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -667,4 +667,4 @@ def test_index_text(cleantopo_br):
 
 def test_index_errors(mp_tmpdir, cleantopo_br):
     with pytest.raises(ValueError):
-        index(cleantopo_br.path, zoom=5)
+        index(cleantopo_br.dict, zoom=5)

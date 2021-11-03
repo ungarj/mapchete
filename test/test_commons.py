@@ -11,7 +11,7 @@ from mapchete import MapcheteProcess
 
 def test_clip(geojson):
     """Clip an array with a vector."""
-    with mapchete.open(geojson.path) as mp:
+    with mapchete.open(geojson.dict) as mp:
         tile = next(mp.get_process_tiles(zoom=4))
         user_process = MapcheteProcess(
             tile=tile,
@@ -59,7 +59,7 @@ def test_clip(geojson):
 
 def test_contours(cleantopo_tl):
     """Extract contours from array."""
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         tile = next(mp.get_process_tiles(zoom=4))
         user_process = MapcheteProcess(
             tile=tile,
@@ -84,7 +84,7 @@ def test_contours(cleantopo_tl):
 
 def test_hillshade(cleantopo_tl):
     """Render hillshade from array."""
-    with mapchete.open(cleantopo_tl.path) as mp:
+    with mapchete.open(cleantopo_tl.dict) as mp:
         tile = next(mp.get_process_tiles(zoom=4))
         user_process = MapcheteProcess(
             tile=tile,

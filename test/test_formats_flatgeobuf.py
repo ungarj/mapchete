@@ -9,7 +9,7 @@ from mapchete.tile import BufferedTile
 
 def test_input_data_read(mp_tmpdir, flatgeobuf, landpoly_3857):
     """Check FlatGeobuf as input data."""
-    with mapchete.open(flatgeobuf.path) as mp:
+    with mapchete.open(flatgeobuf.dict) as mp:
         for tile in mp.get_process_tiles():
             assert isinstance(tile, BufferedTile)
             input_tile = formats.default.geojson.InputTile(tile, mp)
@@ -55,7 +55,7 @@ def test_output_data(mp_tmpdir, flatgeobuf):
     assert output.file_extension == ".fgb"
     assert isinstance(output_params, dict)
 
-    with mapchete.open(flatgeobuf.path) as mp:
+    with mapchete.open(flatgeobuf.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
         # write empty
         mp.write(tile, None)
