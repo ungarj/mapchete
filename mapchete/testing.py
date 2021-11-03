@@ -72,8 +72,7 @@ class ProcessFixture:
             tile = self.mp().config.process_pyramid.tile(*tile)
         else:
             # just use first process tile from lowest zoom level
-            zoom = tile_zoom or max(self.mp().config.zoom_levels)
-            tile = next(self.mp().get_process_tiles(zoom))
+            tile = self.first_process_tile(zoom=tile_zoom)
         return mapchete.MapcheteProcess(
             tile=tile,
             params=self.mp().config.params_at_zoom(tile.zoom),
@@ -88,11 +87,13 @@ class ProcessFixture:
             self._mp = mapchete.open(self.dict)
         return self._mp
 
+    def first_process_tile(self, zoom=None):
+        zoom = zoom or max(self.mp().config.zoom_levels)
+        return next(self.mp().get_process_tiles(zoom))
+
 
 def get_process_mp(tile=None, zoom=0, input=None, params=None, metatiling=1, **kwargs):
-    if isinstance(tile, BufferedTile):  # pragma: no cover
-        pyramid = BufferedTile.tile_pyramid
-    elif isinstance(tile, tuple):
+    if tile:
         pyramid = BufferedTilePyramid("geodetic", metatiling=metatiling)
         tile = pyramid.tile(*tile)
     else:
