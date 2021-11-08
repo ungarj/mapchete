@@ -109,6 +109,7 @@ setup(
         "contours": req_contours,
         "dask": req_dask,
         "geobuf": req_geobuf,
+        "http": req_http,
         "s3": req_s3,
         "serve": req_serve,
         "stac": req_stac,
