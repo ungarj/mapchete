@@ -61,7 +61,14 @@ class _ExecutorBase:
     _executor_kwargs = {}
 
     def as_completed(
-        self, func, iterable, fargs=None, fkwargs=None, chunks=100, **kwargs
+        self,
+        func,
+        iterable,
+        fargs=None,
+        fkwargs=None,
+        chunks=100,
+        item_skip_bool=False,
+        **kwargs,
     ):
         """Submit tasks to executor in chunks and start yielding finished futures after each chunk."""
         try:
@@ -69,22 +76,30 @@ class _ExecutorBase:
             fkwargs = fkwargs or {}
             logger.debug("submitting tasks to executor")
 
-            with Timer() as t:
-                for i, item in enumerate(iterable, 1):
-                    if self.cancelled:  # pragma: no cover
-                        logger.debug(
-                            "cannot submit new tasks as Executor is cancelling."
+            while not self.cancelled:
+                with Timer() as t:
+                    for i, item in enumerate(iterable, 1):
+
+                        # skip task submission if option is activated
+                        if item_skip_bool:
+                            item, skip, skip_info = item
+                            if skip:
+                                yield SkippedFuture(item, skip_info=skip_info)
+                                continue
+
+                        # submit task to workers
+                        self.running_futures.add(
+                            self._executor.submit(
+                                func, *chain([item], fargs), **fkwargs
+                            )
                         )
-                        return
-                    self.running_futures.add(
-                        self._executor.submit(func, *chain([item], fargs), **fkwargs)
-                    )
-                    # try to yield finished futures after submitting a chunk
-                    if chunks is not None and i % chunks == 0:
-                        for future in self._finished_futures():
-                            yield _raise_future_exception(future)
-                            self.running_futures.remove(future)
-            logger.debug(f"{len(self.running_futures)} tasks submitted in {t}")
+
+                        # try to yield finished futures after submitting a chunk
+                        if chunks is not None and i % chunks == 0:
+                            for future in self._finished_futures():
+                                yield _raise_future_exception(future)
+                                self.running_futures.remove(future)
+                logger.debug(f"{len(self.running_futures)} tasks submitted in {t}")
 
             # yield remaining futures as they finish
             for future in self._as_completed(self.running_futures):
@@ -249,14 +264,17 @@ class DaskExecutor(_ExecutorBase):
             fargs = fargs or ()
             fkwargs = fkwargs or {}
             ac_iterator = None
+
             while not self.cancelled:
                 with Timer() as t:
                     for i, item in enumerate(iterable, 1):
+
+                        # skip task submission if option is activated
                         if item_skip_bool:
                             item, skip, skip_info = item
                             if skip:
                                 yield SkippedFuture(item, skip_info=skip_info)
-                            continue
+                                continue
 
                         # submit task
                         future = self._executor.submit(
@@ -410,14 +428,25 @@ class SequentialExecutor(_ExecutorBase):
         logger.debug("init SequentialExecutor")
         self.running_futures = set()
 
-    def as_completed(self, func, iterable, fargs=None, fkwargs=None, **kwargs):
+    def as_completed(
+        self, func, iterable, fargs=None, fkwargs=None, item_skip_bool=False, **kwargs
+    ):
         """Yield finished tasks."""
         fargs = fargs or []
         fkwargs = fkwargs or {}
-        for i in iterable:
-            if self.cancelled:
-                return
-            yield FakeFuture(func, fargs=[i, *fargs], fkwargs=fkwargs)
+
+        while not self.cancelled:
+            for item in iterable:
+
+                # skip task submission if option is activated
+                if item_skip_bool:
+                    item, skip, skip_info = item
+                    if skip:
+                        yield SkippedFuture(item, skip_info=skip_info)
+                        continue
+
+                # run task and yield future
+                yield FakeFuture(func, fargs=[item, *fargs], fkwargs=fkwargs)
 
     def _map(self, func, iterable, fargs=None, fkwargs=None):
         fargs = fargs or []

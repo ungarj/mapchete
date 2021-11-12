@@ -41,7 +41,7 @@ def test_sequential_executor_as_completed_skip():
             [(i, True, skip_info) for i in range(items)],
             item_skip_bool=True,
         ):
-            assert isinstance(future, FakeFuture)
+            assert isinstance(future, SkippedFuture)
             assert future.skip_info == skip_info
             count += 1
             assert future.result()
@@ -79,7 +79,7 @@ def test_concurrent_futures_processes_executor_as_completed_skip():
         ):
             count += 1
             assert future.result()
-            assert isinstance(future, FakeFuture)
+            assert isinstance(future, SkippedFuture)
             assert future.skip_info == skip_info
         assert items == count
 
@@ -132,7 +132,7 @@ def test_concurrent_futures_threads_executor_as_completed_skip():
         ):
             count += 1
             assert future.result()
-            assert isinstance(future, FakeFuture)
+            assert isinstance(future, SkippedFuture)
             assert future.skip_info == skip_info
         assert items == count
 
@@ -170,7 +170,7 @@ def test_dask_executor_as_completed_skip():
             fkwargs=dict(sleep=2),
         ):
             assert future.result()
-            assert isinstance(future, FakeFuture)
+            assert isinstance(future, SkippedFuture)
             assert future.skip_info == skip_info
         assert items == count
 
