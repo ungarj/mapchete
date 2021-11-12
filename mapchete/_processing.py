@@ -11,7 +11,7 @@ from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import get_process_func
-from mapchete._executor import Executor
+from mapchete._executor import Executor, SkippedFuture
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
 from mapchete._timer import Timer
@@ -566,20 +566,48 @@ def _run_area(
             yield process_info
 
 
-def _filter_skipable(process=None, tiles_batches=None, todo=None, target_set=None):
-    target_set = target_set or set()
-    for tile, skip in process.skip_tiles(tiles_batches=tiles_batches):
-        logger.debug(f"skip tile {tile}: {skip}")
-        if skip and tile not in target_set:
-            yield ProcessInfo(
-                tile=tile,
-                processed=False,
-                process_msg="output already exists",
-                written=False,
-                write_msg="nothing written",
-            )
-        else:
-            todo.add(tile)
+def _filter_skipable(
+    process=None, tiles_batches=None, target_set=None, skip_output_check=False
+):
+    if skip_output_check:
+        for batch in tiles_batches:
+            for tile in batch:
+                yield (tile, False, None)
+                # yield ProcessInfo(
+                #     tile=tile,
+                #     processed=False,
+                #     process_msg="TBD",
+                #     written=False,
+                #     write_msg="nothing written",
+                # )
+    else:
+        target_set = target_set or set()
+        for tile, skip in process.skip_tiles(tiles_batches=tiles_batches):
+            if skip:
+                if tile not in target_set:
+                    yield (tile, True, "output already exists")
+                else:
+                    yield (tile, True, "output does not need to be updated")
+            else:
+                yield (tile, False, None)
+            # if skip and tile not in target_set:
+            #     logger.debug("yield tile")
+            #     yield ProcessInfo(
+            #         tile=tile,
+            #         processed=False,
+            #         process_msg="output already exists",
+            #         written=False,
+            #         write_msg="nothing written",
+            #     )
+            # else:
+            #     logger.debug("add tile to todo")
+            #     yield ProcessInfo(
+            #         tile=tile,
+            #         processed=False,
+            #         process_msg="TBD",
+            #         written=False,
+            #         write_msg="nothing written",
+            #     )
 
 
 def _run_multi(
@@ -641,76 +669,75 @@ def _run_multi(
 
             for i, zoom in enumerate(zoom_levels):
 
-                if skip_output_check:  # pragma: no cover
-                    # don't check outputs and simply proceed
-                    todo = process.get_process_tiles(zoom)
-                else:
-                    # check which process output already exists and which process tiles need
-                    # to be added to todo list
-                    todo = set()
-                    logger.debug("check skippable tiles")
-                    for process_info in _filter_skipable(
-                        process=process,
-                        tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
-                        todo=todo,
-                        target_set=(
-                            overview_parents
-                            if process.config.baselevels and i
-                            else None
-                        ),
-                    ):
-                        num_processed += 1
-                        logger.debug(
-                            "tile %s/%s finished: %s, %s, %s",
-                            num_processed,
-                            total_tiles,
-                            process_info.tile,
-                            process_info.process_msg,
-                            process_info.write_msg,
-                        )
-                        yield process_info
-
-                # process all remaining tiles using todo list from before
+                # get generator list of tiles, whether they are to be skipped and skip_info
+                # from _filter_skipable and pass on to executor
                 for future in executor.as_completed(
                     func=func,
                     iterable=(
-                        TileProcess(
-                            tile=tile,
-                            config=process.config,
-                            skip=(
-                                process.mode == "continue"
-                                and process.config.output_reader.tiles_exist(tile)
-                            )
-                            if skip_output_check
-                            else False,
+                        (
+                            TileProcess(
+                                tile=tile,
+                                config=process.config,
+                                skip=(
+                                    process.mode == "continue"
+                                    and process.config.output_reader.tiles_exist(tile)
+                                )
+                                if skip_output_check
+                                else False,
+                            ),
+                            skip,
+                            process_msg,
                         )
-                        for tile in todo
+                        for tile, skip, process_msg in _filter_skipable(
+                            process=process,
+                            tiles_batches=process.get_process_tiles(
+                                zoom, batch_by="row"
+                            ),
+                            target_set=(
+                                overview_parents
+                                if process.config.baselevels and i
+                                else None
+                            ),
+                            skip_output_check=skip_output_check,
+                        )
                     ),
                     fkwargs=fkwargs,
                     max_submitted_tasks=dask_max_submitted_tasks,
+                    item_skip_bool=True,
                 ):
-                    # trigger output write for driver which require parent process for writing
-                    if write_in_parent_process:
-                        output_data, process_info = future.result()
-                        process_info = _write(
-                            process_info=process_info,
-                            output_data=output_data,
-                            output_writer=process.config.output,
+                    # tiles which were not processed
+                    if isinstance(future, SkippedFuture):
+                        process_info = ProcessInfo(
+                            tile=future.result(),
+                            processed=False,
+                            process_msg=future.skip_info,
+                            written=False,
+                            write_msg="nothing written",
                         )
-
-                    # output already has been written, so just use task process info
+                    # tiles which were processed
                     else:
-                        process_info = future.result()
+                        # trigger output write for driver which require parent process for writing
+                        if write_in_parent_process:
+                            output_data, process_info = future.result()
+                            process_info = _write(
+                                process_info=process_info,
+                                output_data=output_data,
+                                output_writer=process.config.output,
+                            )
 
-                        # in case of building overviews from baselevels, remember which parent
-                        # tile needs to be updated later on
-                        if (
-                            not skip_output_check
-                            and process.config.baselevels
-                            and process_info.processed
-                            and process_info.tile.zoom > 0
-                        ):
-                            overview_parents.add(process_info.tile.get_parent())
+                        # output already has been written, so just use task process info
+                        else:
+                            process_info = future.result()
+
+                            # in case of building overviews from baselevels, remember which parent
+                            # tile needs to be updated later on
+                            if (
+                                not skip_output_check
+                                and process.config.baselevels
+                                and process_info.processed
+                                and process_info.tile.zoom > 0
+                            ):
+                                overview_parents.add(process_info.tile.get_parent())
 
                     num_processed += 1
                     logger.debug(

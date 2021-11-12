@@ -205,6 +205,7 @@ class DaskExecutor(_ExecutorBase):
         fkwargs=None,
         max_submitted_tasks=500,
         raise_cancelled=False,
+        item_skip_bool=False,
         **kwargs,
     ):
         """
@@ -249,9 +250,13 @@ class DaskExecutor(_ExecutorBase):
             fkwargs = fkwargs or {}
             ac_iterator = None
             while not self.cancelled:
-                i = 0
                 with Timer() as t:
                     for i, item in enumerate(iterable, 1):
+                        if item_skip_bool:
+                            item, skip, skip_info = item
+                            if skip:
+                                yield SkippedFuture(item, skip_info=skip_info)
+                            continue
 
                         # submit task
                         future = self._executor.submit(
@@ -465,3 +470,23 @@ class FakeFuture:
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
         return f"FakeFuture(result={self._result}, exception={self._exception})"
+
+
+class SkippedFuture:
+    """Wrapper class to mimick future interface for empty tasks."""
+
+    def __init__(self, result=None, skip_info=None, fargs=None, fkwargs=None):
+        self._result = result
+        self.skip_info = skip_info
+
+    def result(self):
+        """Only return initial result value."""
+        return self._result
+
+    def exception(self):
+        """Nothing to raise here."""
+        return
+
+    def cancelled(self):  # pragma: no cover
+        """Nothing to cancel here."""
+        return False
