@@ -70,7 +70,7 @@ class BufferedTilePyramid(TilePyramid):
         tile = self.tile_pyramid.tile(zoom, row, col)
         return BufferedTile(tile, pixelbuffer=self.pixelbuffer)
 
-    def tiles_from_bounds(self, bounds, zoom):
+    def tiles_from_bounds(self, bounds=None, zoom=None, batch_by=None):
         """
         Return all tiles intersecting with bounds.
 
@@ -89,10 +89,9 @@ class BufferedTilePyramid(TilePyramid):
         intersecting tiles : generator
             generates ``BufferedTiles``
         """
-        for tile in self.tiles_from_bbox(box(*bounds), zoom):
-            yield self.tile(*tile.id)
+        yield from self.tiles_from_bbox(box(*bounds), zoom=zoom, batch_by=batch_by)
 
-    def tiles_from_bbox(self, geometry, zoom):
+    def tiles_from_bbox(self, geometry, zoom=None, batch_by=None):
         """
         All metatiles intersecting with given bounding box.
 
@@ -107,10 +106,16 @@ class BufferedTilePyramid(TilePyramid):
         intersecting tiles : generator
             generates ``BufferedTiles``
         """
-        for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom):
-            yield self.tile(*tile.id)
+        if batch_by:  # pragma: no cover
+            for batch in self.tile_pyramid.tiles_from_bbox(
+                geometry, zoom=zoom, batch_by=batch_by
+            ):
+                yield (self.tile(*tile.id) for tile in batch)
+        else:
+            for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom=zoom):
+                yield self.tile(*tile.id)
 
-    def tiles_from_geom(self, geometry, zoom):
+    def tiles_from_geom(self, geometry, zoom=None, batch_by=None):
         """
         Return all tiles intersecting with input geometry.
 
@@ -124,8 +129,16 @@ class BufferedTilePyramid(TilePyramid):
         ------
         intersecting tiles : ``BufferedTile``
         """
-        for tile in self.tile_pyramid.tiles_from_geom(geometry, zoom):
-            yield self.tile(*tile.id)
+        if batch_by:
+            for batch in self.tile_pyramid.tiles_from_geom(
+                geometry, zoom=zoom, batch_by=batch_by
+            ):
+                yield (self.tile(*tile.id) for tile in batch)
+        else:
+            for tile in self.tile_pyramid.tiles_from_geom(
+                geometry, zoom=zoom, batch_by=batch_by
+            ):
+                yield self.tile(*tile.id)
 
     def intersecting(self, tile):
         """
@@ -357,7 +370,7 @@ class BufferedTile(Tile):
 
 
 def count_tiles(
-    geometry, pyramid, minzoom, maxzoom, init_zoom=0, rasterize_threshold=1000
+    geometry, pyramid, minzoom, maxzoom, init_zoom=0, rasterize_threshold=0
 ):
     """
     Count number of tiles intersecting with geometry.
@@ -387,10 +400,13 @@ def count_tiles(
     width = pyramid.matrix_width(init_zoom)
 
     # rasterize to array and count cells if too many tiles are expected
-    if width > rasterize_threshold or height > rasterize_threshold:
+    if pyramid.pixelbuffer == 0 and (
+        width > rasterize_threshold or height > rasterize_threshold
+    ):
         logger.debug("rasterize tiles to count geometry overlap")
         return _count_cells(pyramid, geometry, minzoom, maxzoom)
 
+    logger.debug("count tiles using tile logic")
     return _count_tiles(
         [
             unbuffered_pyramid.tile(*tile_id)
@@ -453,6 +469,9 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 
 def _count_cells(pyramid, geometry, minzoom, maxzoom):
     # rasterize geometry on maxzoom
+    if geometry.is_empty:
+        return 0
+
     transform = pyramid.matrix_affine(maxzoom)
     raster = rasterize(
         [(geometry, 1)],

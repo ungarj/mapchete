@@ -566,9 +566,10 @@ def _run_area(
             yield process_info
 
 
-def _filter_skipable(process=None, tiles=None, todo=None, target_set=None):
+def _filter_skipable(process=None, tiles_batches=None, todo=None, target_set=None):
     target_set = target_set or set()
-    for tile, skip in process.skip_tiles(tiles=tiles):
+    for tile, skip in process.skip_tiles(tiles_batches=tiles_batches):
+        logger.debug(f"skip tile {tile}: {skip}")
         if skip and tile not in target_set:
             yield ProcessInfo(
                 tile=tile,
@@ -595,6 +596,24 @@ def _run_multi(
     fkwargs=None,
     skip_output_check=False,
 ):
+    """
+
+    # generator yielding all process tiles
+    process_tiles
+
+    # generator yielding tuple of (tile, True/False)
+    # determines whether tile can be skipped depending on process mode and whether tile exists
+    skip_tiles(process_tiles)
+
+    # generator yielding tuple of (tile, True/False)
+    # determines whether tile can be skipped depending on whether it is an overview tile and no changes in child tiles were needed
+    skip_not_required_overviews(tiles, overview_parents)
+
+    # generator yielding finished process info
+    # yields skipped tiles process info and sends other tiles to executor, yielding process info on finished task
+
+    """
+
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     workers = min([workers, total_tiles])
     num_processed = 0
@@ -632,7 +651,7 @@ def _run_multi(
                     logger.debug("check skippable tiles")
                     for process_info in _filter_skipable(
                         process=process,
-                        tiles=process.get_process_tiles(zoom),
+                        tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
                         todo=todo,
                         target_set=(
                             overview_parents

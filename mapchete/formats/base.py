@@ -17,7 +17,7 @@ import warnings
 from mapchete.config import get_hash
 from mapchete.errors import MapcheteProcessOutputError, MapcheteNodataTile
 from mapchete.formats import write_output_metadata
-from mapchete.io import makedirs, path_exists
+from mapchete.io import makedirs, path_exists, fs_from_path
 from mapchete.io.raster import (
     create_mosaic,
     extract_from_array,
@@ -195,7 +195,9 @@ class OutputDataBaseFunctions:
         )
         self.crs = self.pyramid.crs
         self._bucket = None
-        self.fs = self._fs = output_params.get("fs") or None
+        self.fs = self._fs = output_params.get(
+            "fs", fs_from_path(output_params.get("path", ""))
+        )
         self.fs_kwargs = self._fs_kwargs = output_params.get("fs_kwargs") or {}
 
     def is_valid_with_config(self, config):

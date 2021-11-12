@@ -133,7 +133,7 @@ class Mapchete(object):
             self.process_lock = threading.Lock()
         self._count_tiles_cache = {}
 
-    def get_process_tiles(self, zoom=None):
+    def get_process_tiles(self, zoom=None, batch_by=None):
         """
         Yield process tiles.
 
@@ -146,24 +146,27 @@ class Mapchete(object):
         zoom : integer
             zoom level process tiles should be returned from; if none is given,
             return all process tiles
+        batch_by : str
+            if not None, tiles can be yielded in batches either by "row" or "column".
 
         yields
         ------
         BufferedTile objects
         """
+        logger.debug("get process tiles...")
         if zoom or zoom == 0:
             for tile in self.config.process_pyramid.tiles_from_geom(
-                self.config.area_at_zoom(zoom), zoom
+                self.config.area_at_zoom(zoom), zoom=zoom, batch_by=batch_by
             ):
                 yield tile
         else:
             for i in reversed(self.config.zoom_levels):
                 for tile in self.config.process_pyramid.tiles_from_geom(
-                    self.config.area_at_zoom(i), i
+                    self.config.area_at_zoom(i), zoom=i, batch_by=batch_by
                 ):
                     yield tile
 
-    def skip_tiles(self, tiles=None):
+    def skip_tiles(self, tiles=None, tiles_batches=None):
         """
         Quickly determine whether tiles can be skipped for processing.
 
@@ -178,13 +181,23 @@ class Mapchete(object):
         ------
         tuples : (tile, skip)
         """
+        logger.debug("determine which tiles to skip...")
         # only check for existing output in "continue" mode
         if self.config.mode == "continue":
-            yield from tiles_exist(config=self.config, process_tiles=tiles)
+            yield from tiles_exist(
+                config=self.config,
+                process_tiles=tiles,
+                process_tiles_batches=tiles_batches,
+            )
         # otherwise don't skip tiles
         else:
-            for tile in tiles:
-                yield (tile, False)
+            if tiles_batches:
+                for batch in tiles_batches:
+                    for tile in batch:
+                        yield (tile, False)
+            else:
+                for tile in tiles:
+                    yield (tile, False)
 
     def batch_preprocessor(
         self,
@@ -428,13 +441,16 @@ class Mapchete(object):
         minzoom = min(self.config.init_zoom_levels) if minzoom is None else minzoom
         maxzoom = max(self.config.init_zoom_levels) if maxzoom is None else maxzoom
         if (minzoom, maxzoom) not in self._count_tiles_cache:
-            self._count_tiles_cache[(minzoom, maxzoom)] = count_tiles(
-                self.config.area_at_zoom(),
-                self.config.process_pyramid,
-                minzoom,
-                maxzoom,
-                init_zoom=init_zoom,
-            )
+            logger.debug("counting tiles...")
+            with Timer() as t:
+                self._count_tiles_cache[(minzoom, maxzoom)] = count_tiles(
+                    self.config.area_at_zoom(),
+                    self.config.process_pyramid,
+                    minzoom,
+                    maxzoom,
+                    init_zoom=init_zoom,
+                )
+            logger.debug("tiles counted in %s", t)
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
     def execute(self, process_tile, raise_nodata=False):
