@@ -44,7 +44,6 @@ def test_sequential_executor_as_completed_skip():
             assert isinstance(future, SkippedFuture)
             assert future.skip_info == skip_info
             count += 1
-            assert future.result()
         assert items == count
 
 
@@ -66,6 +65,18 @@ def test_concurrent_futures_processes_executor_as_completed():
         assert not executor.running_futures
 
 
+def test_concurrent_futures_processes_executor_as_completed_max_tasks():
+    items = 100
+    with Executor(concurrency="processes") as executor:
+        # abort
+        for future in executor.as_completed(
+            _dummy_process, range(items), max_submitted_tasks=1
+        ):
+            assert future.result()
+
+        assert not executor.running_futures
+
+
 def test_concurrent_futures_processes_executor_as_completed_skip():
     items = 10
     skip_info = "foo"
@@ -78,7 +89,6 @@ def test_concurrent_futures_processes_executor_as_completed_skip():
             item_skip_bool=True,
         ):
             count += 1
-            assert future.result()
             assert isinstance(future, SkippedFuture)
             assert future.skip_info == skip_info
         assert items == count
@@ -131,7 +141,6 @@ def test_concurrent_futures_threads_executor_as_completed_skip():
             fkwargs=dict(sleep=2),
         ):
             count += 1
-            assert future.result()
             assert isinstance(future, SkippedFuture)
             assert future.skip_info == skip_info
         assert items == count
@@ -169,7 +178,7 @@ def test_dask_executor_as_completed_skip():
             item_skip_bool=True,
             fkwargs=dict(sleep=2),
         ):
-            assert future.result()
+            count += 1
             assert isinstance(future, SkippedFuture)
             assert future.skip_info == skip_info
         assert items == count

@@ -1,9 +1,11 @@
+"""Internal processing classes and functions."""
+
 from collections import namedtuple
-from concurrent.futures._base import CancelledError
+import os
+
 from itertools import chain
 import logging
 import multiprocessing
-import os
 from traceback import format_exc
 from typing import Generator
 
@@ -573,41 +575,13 @@ def _filter_skipable(
         for batch in tiles_batches:
             for tile in batch:
                 yield (tile, False, None)
-                # yield ProcessInfo(
-                #     tile=tile,
-                #     processed=False,
-                #     process_msg="TBD",
-                #     written=False,
-                #     write_msg="nothing written",
-                # )
     else:
         target_set = target_set or set()
         for tile, skip in process.skip_tiles(tiles_batches=tiles_batches):
-            if skip:
-                if tile not in target_set:
-                    yield (tile, True, "output already exists")
-                else:
-                    yield (tile, True, "output does not need to be updated")
+            if skip and tile not in target_set:
+                yield (tile, True, "output already exists")
             else:
                 yield (tile, False, None)
-            # if skip and tile not in target_set:
-            #     logger.debug("yield tile")
-            #     yield ProcessInfo(
-            #         tile=tile,
-            #         processed=False,
-            #         process_msg="output already exists",
-            #         written=False,
-            #         write_msg="nothing written",
-            #     )
-            # else:
-            #     logger.debug("add tile to todo")
-            #     yield ProcessInfo(
-            #         tile=tile,
-            #         processed=False,
-            #         process_msg="TBD",
-            #         written=False,
-            #         write_msg="nothing written",
-            #     )
 
 
 def _run_multi(
@@ -624,24 +598,6 @@ def _run_multi(
     fkwargs=None,
     skip_output_check=False,
 ):
-    """
-
-    # generator yielding all process tiles
-    process_tiles
-
-    # generator yielding tuple of (tile, True/False)
-    # determines whether tile can be skipped depending on process mode and whether tile exists
-    skip_tiles(process_tiles)
-
-    # generator yielding tuple of (tile, True/False)
-    # determines whether tile can be skipped depending on whether it is an overview tile and no changes in child tiles were needed
-    skip_not_required_overviews(tiles, overview_parents)
-
-    # generator yielding finished process info
-    # yields skipped tiles process info and sends other tiles to executor, yielding process info on finished task
-
-    """
-
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     workers = min([workers, total_tiles])
     num_processed = 0
@@ -708,7 +664,7 @@ def _run_multi(
                     # tiles which were not processed
                     if isinstance(future, SkippedFuture):
                         process_info = ProcessInfo(
-                            tile=future.result(),
+                            tile=future.result().tile,
                             processed=False,
                             process_msg=future.skip_info,
                             written=False,
@@ -748,6 +704,10 @@ def _run_multi(
                         process_info.process_msg,
                         process_info.write_msg,
                     )
+                    try:
+                        overview_parents.remove(process_info.tile)
+                    except KeyError:
+                        pass
                     yield process_info
 
     finally:

@@ -1,8 +1,9 @@
 """Mapchtete handling tiles."""
-from affine import Affine
-from cached_property import cached_property
 from itertools import product
 import logging
+
+from affine import Affine
+from cached_property import cached_property
 import numpy as np
 from rasterio.enums import Resampling
 from rasterio.features import rasterize
@@ -472,13 +473,18 @@ def _count_cells(pyramid, geometry, minzoom, maxzoom):
     if geometry.is_empty:
         return 0
 
+    logger.debug(
+        "rasterize polygon on %s x %s cells",
+        pyramid.matrix_height(maxzoom),
+        pyramid.matrix_width(maxzoom),
+    )
     transform = pyramid.matrix_affine(maxzoom)
     raster = rasterize(
         [(geometry, 1)],
         out_shape=(pyramid.matrix_height(maxzoom), pyramid.matrix_width(maxzoom)),
         fill=0,
         transform=transform,
-        dtype=np.uint16,
+        dtype=np.uint8,
         all_touched=True,
     )
 
@@ -491,7 +497,7 @@ def _count_cells(pyramid, geometry, minzoom, maxzoom):
             raster,
             np.zeros(
                 (pyramid.matrix_height(zoom), pyramid.matrix_width(zoom)),
-                dtype=np.uint16,
+                dtype=np.uint8,
             ),
             src_transform=transform,
             src_crs=pyramid.crs,
