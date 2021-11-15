@@ -175,6 +175,7 @@ class _ExecutorBase:
         """Exit context manager."""
         logger.debug("closing executor %s...", self._executor)
         try:
+            self._executor.cancel()
             self._executor.close()
         except Exception:
             self._executor.__exit__(*args)
@@ -529,7 +530,7 @@ class SkippedFuture:
         """Only return initial result value."""
         return self._result
 
-    def exception(self):
+    def exception(self):  # pragma: no cover
         """Nothing to raise here."""
         return
 

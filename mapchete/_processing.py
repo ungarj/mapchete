@@ -571,7 +571,7 @@ def _run_area(
 def _filter_skipable(
     process=None, tiles_batches=None, target_set=None, skip_output_check=False
 ):
-    if skip_output_check:
+    if skip_output_check:  # pragma: no cover
         for batch in tiles_batches:
             for tile in batch:
                 yield (tile, False, None)
