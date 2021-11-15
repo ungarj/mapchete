@@ -154,7 +154,6 @@ def zoom_index_gen(
 
             # all output tiles for given process area
             logger.debug("determine affected output tiles")
-            logger.debug(f"HANSE {zoom} {tile}")
             if tile:
                 output_tiles = set(
                     mp.config.output_pyramid.intersecting(
@@ -172,7 +171,6 @@ def zoom_index_gen(
                         if t.bbox.intersection(mp.config.area_at_zoom(zoom)).area
                     ]
                 )
-            logger.debug(f"HERBERT {zoom} {output_tiles}")
             # check which tiles exist in any index
             logger.debug("check which tiles exist in index(es)")
             existing_in_any_index = set(

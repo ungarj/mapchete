@@ -1,8 +1,10 @@
-import concurrent.futures
-import fsspec
-from itertools import chain
+"""Functions handling paths and file systems."""
+
+from collections import defaultdict
 import logging
 import os
+
+import fsspec
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +102,14 @@ def makedirs(path):
             pass
 
 
-def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
+def tiles_exist(
+    config=None,
+    output_tiles=None,
+    output_tiles_batches=None,
+    process_tiles=None,
+    process_tiles_batches=None,
+    **kwargs
+):
     """
     Yield tiles and whether their output already exists or not.
 
@@ -118,33 +127,28 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
     ------
     tuple : (tile, exists)
     """
-    if process_tiles is not None and output_tiles is not None:  # pragma: no cover
-        raise ValueError("just one of 'process_tiles' and 'output_tiles' allowed")
-    elif process_tiles is None and output_tiles is None:  # pragma: no cover
-        raise ValueError("one of 'process_tiles' and 'output_tiles' has to be provided")
+    if (
+        sum(
+            [
+                0 if t is None else 1
+                for t in [
+                    output_tiles,
+                    output_tiles_batches,
+                    process_tiles,
+                    process_tiles_batches,
+                ]
+            ]
+        )
+        != 1
+    ):  # pragma: no cover
+        raise ValueError(
+            "exactly one of 'output_tiles', 'output_tiles_batches', 'process_tiles' or 'process_tiles_batches' is allowed"
+        )
 
     basepath = config.output_reader.path
 
-    try:
-        tiles_iter = iter(process_tiles) if output_tiles is None else iter(output_tiles)
-        first_tile = next(tiles_iter)
-        all_tiles_iter = chain([first_tile], tiles_iter)
-    except StopIteration:
-        return
-
-    # only on TileDirectories on S3
-    if not basepath.endswith(
-        config.output_reader.file_extension
-    ) and basepath.startswith("s3://"):
-        yield from _s3_tiledirectories(
-            basepath=basepath,
-            first_tile=first_tile,
-            all_tiles_iter=all_tiles_iter,
-            process_tiles=process_tiles,
-            output_tiles=output_tiles,
-            config=config,
-        )
-    else:
+    # for single file outputs:
+    if basepath.endswith(config.output_reader.file_extension):
 
         def _exists(tile):
             return (
@@ -154,93 +158,104 @@ def tiles_exist(config=None, output_tiles=None, process_tiles=None, multi=None):
                 ),
             )
 
-        if multi == 1:
-            for tile in all_tiles_iter:
-                yield _exists(tile=tile)
-        else:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=multi) as executor:
-                for future in concurrent.futures.as_completed(
-                    (executor.submit(_exists, tile) for tile in all_tiles_iter)
-                ):
-                    yield future.result()
+        def _tiles():
+            if process_tiles or output_tiles:  # pragma: no cover
+                yield from process_tiles or output_tiles
+            else:
+                for batch in process_tiles_batches or output_tiles_batches:
+                    yield from batch
 
+        for tile in _tiles():
+            yield _exists(tile=tile)
 
-def _s3_tiledirectories(
-    basepath=None,
-    first_tile=None,
-    all_tiles_iter=None,
-    process_tiles=None,
-    output_tiles=None,
-    config=None,
-):
-    import boto3
+    # for tile directory outputs:
+    elif process_tiles:
+        logger.debug("sort process tiles by row, this could take a while")
+        process_tiles_batches = _batch_tiles_by_row(process_tiles)
+    elif output_tiles:
+        logger.debug("sort output tiles by row, this could take a while")
+        output_tiles_batches = _batch_tiles_by_row(output_tiles)
 
-    basekey = "/".join(basepath.split("/")[3:])
-    bucket = basepath.split("/")[2]
-    s3 = boto3.client("s3", **config.output_reader._fs_kwargs)
-    paginator = s3.get_paginator("list_objects_v2")
-
-    # determine zoom
-    zoom = first_tile.zoom
-
-    # get all output tiles
-    all_tiles = set(all_tiles_iter)
-    if process_tiles:
-        output_tiles = (
-            t
-            for process_tile in all_tiles
-            for t in config.output_pyramid.intersecting(process_tile)
-        )
+    if process_tiles_batches:
+        yield from _process_tiles_batches_exist(process_tiles_batches, config)
+    elif output_tiles_batches:
+        yield from _output_tiles_batches_exist(output_tiles_batches, config)
     else:
-        output_tiles = all_tiles
+        return
 
-    # create a mapping between paths and tiles
-    paths = dict()
-    # remember rows
-    output_rows = set()
-    for output_tile in output_tiles:
-        if output_tile.zoom != zoom:  # pragma: no cover
-            raise ValueError("tiles of different zoom levels cannot be mixed")
-        path = config.output_reader.get_path(output_tile)
 
-        if process_tiles:
-            paths[path] = config.process_pyramid.intersecting(output_tile)[0]
-        else:
-            paths[path] = output_tile
+def _batch_tiles_by_row(tiles):
+    ordered = defaultdict(set)
+    for tile in tiles:
+        ordered[tile.row].add(tile)
+    return ((t for t in ordered[row]) for row in sorted(list(ordered.keys())))
 
-        output_rows.add(output_tile.row)
 
-    # remember already yielded tiles
-    yielded = set()
-    for row in output_rows:
-        # use prefix until row, page through api results
-        logger.debug("check existing tiles in row %s" % row)
-        prefix = os.path.join(*[basekey, str(zoom), str(row)])
-        logger.debug("read keys %s*" % os.path.join("s3://" + bucket, prefix))
+def _crop_path(path, elements=-3):
+    return "/".join(path.split("/")[elements:])
 
-        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-            logger.debug("read next page")
+
+def _output_tiles_batches_exist(output_tiles_batches, config):
+    for batch in output_tiles_batches:
+        tiles = list(batch)
+        if tiles:
+            zoom = tiles[0].zoom
+            # determine output paths
+            output_paths = {
+                _crop_path(config.output_reader.get_path(output_tile)): output_tile
+                for output_tile in tiles
+            }
+            # iterate through output tile rows and determine existing output tiles
+            existing_tiles = set()
+            row = tiles[0].row
+            logger.debug("check existing tiles in row %s", row)
+            rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
+            logger.debug("rowpath: %s", rowpath)
             try:
-                contents = page["Contents"]
-            except KeyError:
-                break
+                for path in config.output_reader.fs.ls(rowpath):
+                    path = _crop_path(path)
+                    if path in output_paths:
+                        existing_tiles.add(output_paths[path])
+            # this happens when the row directory does not even exist
+            except FileNotFoundError:
+                pass
+            for tile in tiles:
+                exists = tile in existing_tiles
+                yield tile, exists
 
-            for obj in contents:
-                # get matching tile
+
+def _process_tiles_batches_exist(process_tiles_batches, config):
+    for batch in process_tiles_batches:
+        tiles = list(batch)
+        if tiles:
+            zoom = tiles[0].zoom
+            # determine output tile rows
+            output_rows = sorted(
+                list(set(t.row for t in config.output_pyramid.intersecting(tiles[0])))
+            )
+            # determine output paths
+            output_paths = {
+                _crop_path(config.output_reader.get_path(output_tile)): process_tile
+                for process_tile in tiles
+                for output_tile in config.output_pyramid.intersecting(process_tile)
+            }
+            # iterate through output tile rows and determine existing process tiles
+            existing_tiles = set()
+            for row in output_rows:
+                logger.debug("check existing tiles in row %s", row)
+                rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
+                logger.debug("rowpath: %s", rowpath)
                 try:
-                    tile = paths[os.path.join("s3://" + bucket, obj["Key"])]
-                except KeyError:  # pragma: no cover
-                    # in case of an existing tile which was not passed on to this
-                    # function
-                    continue
-                # store and yield process tile if it was not already yielded
-                if tile not in yielded:
-                    yielded.add(tile)
-                    yield (tile, True)
-
-    # finally, yield all tiles which were not yet yielded as False
-    for tile in all_tiles.difference(yielded):
-        yield (tile, False)
+                    for path in config.output_reader.fs.ls(rowpath):
+                        path = _crop_path(path)
+                        if path in output_paths:
+                            existing_tiles.add(output_paths[path])
+                # this happens when the row directory does not even exist
+                except FileNotFoundError:
+                    pass
+            for tile in tiles:
+                exists = tile in existing_tiles
+                yield tile, exists
 
 
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):

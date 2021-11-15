@@ -1,13 +1,15 @@
-from cached_property import cached_property
+"""Abstraction classes for multiprocessing and distributed processing."""
+
 import concurrent.futures
 from concurrent.futures._base import CancelledError
 from functools import partial
-from itertools import chain
 import logging
 import multiprocessing
 import os
 import sys
 import warnings
+
+from cached_property import cached_property
 
 from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.log import set_log_level
@@ -24,29 +26,32 @@ class Executor:
     Will move into the mapchete core package.
     """
 
-    def __new__(self, *args, concurrency=None, **kwargs):
+    def __new__(cls, *args, concurrency=None, **kwargs):
         if concurrency == "dask":
             try:
                 return DaskExecutor(*args, **kwargs)
-            except ImportError as e:  # pragma: no cover
+            except ImportError as exc:  # pragma: no cover
                 raise ImportError(
-                    f"this feature requires the mapchete[dask] extra: {e}"
-                )
+                    "this feature requires the mapchete[dask] extra"
+                ) from exc
+
         elif concurrency is None or kwargs.get("max_workers") == 1:
             return SequentialExecutor(*args, **kwargs)
+
         elif concurrency in ["processes", "threads"]:
             return ConcurrentFuturesExecutor(*args, concurrency=concurrency, **kwargs)
+
         else:  # pragma: no cover
             raise ValueError(
                 f"concurrency must be one of None, 'processes', 'threads' or 'dask', not {concurrency}"
             )
 
 
-def _raise_future_exception(f):
-    if f.exception():  # pragma: no cover
-        logger.debug(f"exception caught in future {f}")
-        raise f.exception()
-    return f
+def _raise_future_exception(future):
+    if future.exception():  # pragma: no cover
+        logger.debug("exception caught in future %s", future)
+        raise future.exception()
+    return future
 
 
 class _ExecutorBase:
@@ -61,7 +66,14 @@ class _ExecutorBase:
     _executor_kwargs = {}
 
     def as_completed(
-        self, func, iterable, fargs=None, fkwargs=None, chunks=100, **kwargs
+        self,
+        func,
+        iterable,
+        fargs=None,
+        fkwargs=None,
+        max_submitted_tasks=500,
+        item_skip_bool=False,
+        **kwargs,
     ):
         """Submit tasks to executor in chunks and start yielding finished futures after each chunk."""
         try:
@@ -69,22 +81,40 @@ class _ExecutorBase:
             fkwargs = fkwargs or {}
             logger.debug("submitting tasks to executor")
 
-            with Timer() as t:
+            with Timer() as timer:
                 for i, item in enumerate(iterable, 1):
                     if self.cancelled:  # pragma: no cover
-                        logger.debug(
-                            "cannot submit new tasks as Executor is cancelling."
-                        )
+                        logger.debug("executor cancelled")
                         return
+
+                    # skip task submission if option is activated
+                    if item_skip_bool:
+                        item, skip, skip_info = item
+                        if skip:
+                            yield SkippedFuture(item, skip_info=skip_info)
+                            continue
+
+                    # submit task to workers
                     self.running_futures.add(
-                        self._executor.submit(func, *chain([item], fargs), **fkwargs)
+                        self._executor.submit(func, *[item, *fargs], **fkwargs)
                     )
-                    # try to yield finished futures after submitting a chunk
-                    if chunks is not None and i % chunks == 0:
-                        for future in self._finished_futures():
+
+                    # yield finished tasks if any
+                    ready = list(self._finished_futures())
+                    if ready:
+                        for future in ready:
                             yield _raise_future_exception(future)
                             self.running_futures.remove(future)
-            logger.debug(f"{len(self.running_futures)} tasks submitted in {t}")
+
+                    # if maximum number of tasks are submitted, wait until the next task is finished
+                    if max_submitted_tasks and (
+                        len(self.running_futures) >= max_submitted_tasks
+                    ):
+                        future = next(self._as_completed(self.running_futures))
+                        yield _raise_future_exception(future)
+                        self.running_futures.remove(future)
+
+            logger.debug("%s tasks submitted in %s", len(self.running_futures), timer)
 
             # yield remaining futures as they finish
             for future in self._as_completed(self.running_futures):
@@ -97,7 +127,7 @@ class _ExecutorBase:
             self.running_futures = set()
 
     def _finished_futures(self):
-        logger.debug(f"{len(self.running_futures)} running futures")
+        logger.debug("%s running futures", len(self.running_futures))
         for future in [f for f in self.running_futures if f.done()]:
             yield future
 
@@ -106,10 +136,10 @@ class _ExecutorBase:
 
     def cancel(self):
         self.cancelled = True
-        logger.debug(f"cancel {len(self.running_futures)} futures...")
+        logger.debug("cancel %s futures...", len(self.running_futures))
         for future in self.running_futures:
             future.cancel()
-        logger.debug(f"{len(self.running_futures)} futures cancelled")
+        logger.debug("%s futures cancelled", len(self.running_futures))
         self.wait()
         # reset so futures won't linger here for next call
         self.running_futures = set()
@@ -143,12 +173,13 @@ class _ExecutorBase:
 
     def __exit__(self, *args):
         """Exit context manager."""
-        logger.debug(f"closing executor {self._executor}...")
+        logger.debug("closing executor %s...", self._executor)
         try:
+            self._executor.cancel()
             self._executor.close()
         except Exception:
             self._executor.__exit__(*args)
-        logger.debug(f"closed executor {self._executor}")
+        logger.debug("closed executor %s", self._executor)
 
     def __repr__(self):  # pragma: no cover
         return f"<Executor ({self._executor_cls})>"
@@ -171,7 +202,7 @@ class DaskExecutor(_ExecutorBase):
         self.running_futures = set()
         self._executor_client = dask_client
         if self._executor_client:  # pragma: no cover
-            logger.debug(f"using existing dask client: {dask_client}")
+            logger.debug("using existing dask client: %s", dask_client)
         else:
             local_cluster_kwargs = dict(
                 n_workers=max_workers or os.cpu_count(), threads_per_worker=1
@@ -181,7 +212,7 @@ class DaskExecutor(_ExecutorBase):
                 address=dask_scheduler or LocalCluster(**local_cluster_kwargs),
             )
             logger.debug(
-                f"starting dask.distributed.Client with kwargs {self._executor_kwargs}"
+                "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
 
     def _map(self, func, iterable, fargs=None, fkwargs=None):
@@ -205,6 +236,7 @@ class DaskExecutor(_ExecutorBase):
         fkwargs=None,
         max_submitted_tasks=500,
         raise_cancelled=False,
+        item_skip_bool=False,
         **kwargs,
     ):
         """
@@ -248,51 +280,61 @@ class DaskExecutor(_ExecutorBase):
             fargs = fargs or ()
             fkwargs = fkwargs or {}
             ac_iterator = None
-            while not self.cancelled:
+
+            with Timer() as t:
                 i = 0
-                with Timer() as t:
-                    for i, item in enumerate(iterable, 1):
+                for i, item in enumerate(iterable, 1):
+                    if self.cancelled:  # pragma: no cover
+                        logger.debug("executor cancelled")
+                        return
 
-                        # submit task
-                        future = self._executor.submit(
-                            func, *chain([item], fargs), **fkwargs
-                        )
+                    # skip task submission if option is activated
+                    if item_skip_bool:
+                        item, skip, skip_info = item
+                        if skip:
+                            yield SkippedFuture(item, skip_info=skip_info)
+                            continue
 
-                        # create as_completed object on first iteration
-                        if ac_iterator is None:
-                            ac_iterator = as_completed([future])
-                        else:
-                            ac_iterator.add(future)
-                        self.running_futures.add(future)
-                        logger.debug(
-                            "%s remaining futures after submitting task %s",
-                            ac_iterator.count(),
-                            i,
-                        )
+                    # submit task
+                    future = self._executor.submit(func, *[item, *fargs], **fkwargs)
 
-                        # if enough tasks are submitted, wait for the first to finish before
-                        # submitting further tasks
-                        if ac_iterator.has_ready() or (
-                            max_submitted_tasks
-                            and len(self.running_futures) >= max_submitted_tasks
-                        ):
-                            # yield batch of finished futures
-                            batch = ac_iterator.next_batch()
-                            for future in batch:
-                                logger.debug(
-                                    "%s remaining futures", ac_iterator.count()
-                                )
+                    # create as_completed object on first iteration
+                    if ac_iterator is None:
+                        ac_iterator = as_completed([future])
+                    else:
+                        ac_iterator.add(future)
+                    self.running_futures.add(future)
+                    logger.debug(
+                        "%s remaining futures after submitting task %s",
+                        ac_iterator.count(),
+                        i,
+                    )
 
-                                try:
-                                    yield _raise_future_exception(future)
-                                except CancelledError as exc:  # pragma: no cover
-                                    cancelled_exc = exc
-                                self.running_futures.remove(future)
+                    # if enough tasks are submitted, wait for the first to finish before
+                    # submitting further tasks
+                    if ac_iterator.has_ready() or (
+                        max_submitted_tasks
+                        and len(self.running_futures) >= max_submitted_tasks
+                    ):
+                        # yield batch of finished futures
+                        batch = ac_iterator.next_batch()
+                        for future in batch:
+                            logger.debug("%s remaining futures", ac_iterator.count())
+
+                            try:
+                                yield _raise_future_exception(future)
+                            except CancelledError as exc:  # pragma: no cover
+                                cancelled_exc = exc
+                            self.running_futures.remove(future)
 
                 logger.debug("%s tasks submitted in %s", i, t)
                 # yield remaining futures as they finish
                 if ac_iterator is not None:
                     for future in ac_iterator:
+                        if self.cancelled:  # pragma: no cover
+                            logger.debug("executor cancelled")
+                            return
+
                         logger.debug("%s remaining futures", ac_iterator.count())
 
                         try:
@@ -300,9 +342,6 @@ class DaskExecutor(_ExecutorBase):
                         except CancelledError as exc:  # pragma: no cover
                             cancelled_exc = exc
                         self.running_futures.remove(future)
-
-                # important to break out from while
-                break
 
         finally:
             # reset so futures won't linger here for next call
@@ -322,12 +361,12 @@ class DaskExecutor(_ExecutorBase):
         if self._executor_client:  # pragma: no cover
             logger.debug("client not closing as it was passed on as kwarg")
         else:
-            logger.debug(f"closing executor {self._executor}...")
+            logger.debug("closing executor %s...", self._executor)
             try:
                 self._executor.close()
             except Exception:  # pragma: no cover
                 self._executor.__exit__(*args)
-            logger.debug(f"closed executor {self._executor}")
+            logger.debug("closed executor %s", self._executor)
 
 
 class ConcurrentFuturesExecutor(_ExecutorBase):
@@ -380,7 +419,9 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
         else:  # pragma: no cover
             raise ValueError("concurrency must either be 'processes' or 'threads'")
         logger.debug(
-            f"init ConcurrentFuturesExecutor using {concurrency} with {self.max_workers} workers"
+            "init ConcurrentFuturesExecutor using %s with %s workers",
+            concurrency,
+            self.max_workers,
         )
 
     def _wait(self):
@@ -405,14 +446,26 @@ class SequentialExecutor(_ExecutorBase):
         logger.debug("init SequentialExecutor")
         self.running_futures = set()
 
-    def as_completed(self, func, iterable, fargs=None, fkwargs=None, **kwargs):
+    def as_completed(
+        self, func, iterable, fargs=None, fkwargs=None, item_skip_bool=False, **kwargs
+    ):
         """Yield finished tasks."""
         fargs = fargs or []
         fkwargs = fkwargs or {}
-        for i in iterable:
+
+        for item in iterable:
             if self.cancelled:
+                logger.debug("executor cancelled")
                 return
-            yield FakeFuture(func, fargs=[i, *fargs], fkwargs=fkwargs)
+            # skip task submission if option is activated
+            if item_skip_bool:
+                item, skip, skip_info = item
+                if skip:
+                    yield SkippedFuture(item, skip_info=skip_info)
+                    continue
+
+            # run task and yield future
+            yield FakeFuture(func, fargs=[item, *fargs], fkwargs=fkwargs)
 
     def _map(self, func, iterable, fargs=None, fkwargs=None):
         fargs = fargs or []
@@ -451,8 +504,7 @@ class FakeFuture:
         if self._exception:
             logger.exception(self._exception)
             raise self._exception
-        else:
-            return self._result
+        return self._result
 
     def exception(self):
         """Raise task exception if any."""
@@ -465,3 +517,23 @@ class FakeFuture:
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
         return f"FakeFuture(result={self._result}, exception={self._exception})"
+
+
+class SkippedFuture:
+    """Wrapper class to mimick future interface for empty tasks."""
+
+    def __init__(self, result=None, skip_info=None, **kwargs):
+        self._result = result
+        self.skip_info = skip_info
+
+    def result(self):
+        """Only return initial result value."""
+        return self._result
+
+    def exception(self):  # pragma: no cover
+        """Nothing to raise here."""
+        return
+
+    def cancelled(self):  # pragma: no cover
+        """Nothing to cancel here."""
+        return False
