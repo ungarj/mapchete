@@ -298,7 +298,6 @@ class DaskExecutor(_ExecutorBase):
                             yield SkippedFuture(item, skip_info=skip_info)
                             continue
 
-                    logger.debug("add item to chunk")
                     chunk.append(item)
 
                     # submit chunk of tasks, if
