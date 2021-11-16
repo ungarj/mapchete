@@ -401,11 +401,9 @@ def count_tiles(
     width = pyramid.matrix_width(init_zoom)
 
     # rasterize to array and count cells if too many tiles are expected
-    if pyramid.pixelbuffer == 0 and (
-        width > rasterize_threshold or height > rasterize_threshold
-    ):
+    if width > rasterize_threshold or height > rasterize_threshold:
         logger.debug("rasterize tiles to count geometry overlap")
-        return _count_cells(pyramid, geometry, minzoom, maxzoom)
+        return _count_cells(unbuffered_pyramid, geometry, minzoom, maxzoom)
 
     logger.debug("count tiles using tile logic")
     return _count_tiles(
