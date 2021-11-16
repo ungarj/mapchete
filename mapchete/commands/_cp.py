@@ -1,19 +1,16 @@
-import fiona
-import json
+"""Copy tiles between Tile Directories."""
+
 import logging
 from multiprocessing import cpu_count
 import os
-from rasterio.crs import CRS
-from shapely.geometry import box, Point, shape
-from shapely.geometry.base import BaseGeometry
-from shapely.ops import unary_union
-from tilematrix import TilePyramid
 from typing import Callable, List, Tuple, Union
 import warnings
 
+from rasterio.crs import CRS
+from shapely.geometry import Point
+from shapely.geometry.base import BaseGeometry
+
 import mapchete
-from mapchete.config import _guess_geometry
-from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
 from mapchete.io.vector import reproject_geometry
 
@@ -104,7 +101,7 @@ def cp(
     Usage within a process bar.
     """
 
-    def _empty_callback(*args):
+    def _empty_callback(*_):
         pass
 
     msg_callback = msg_callback or _empty_callback
@@ -172,7 +169,7 @@ def cp(
                     dask_client=dask_client,
                 ),
                 as_iterator=as_iterator,
-                total=1 if point else src_mp.count_tiles(),
+                tiles_tasks=1 if point else src_mp.count_tiles(),
             )
 
 
@@ -189,44 +186,38 @@ def _copy_tiles(
     overwrite,
     executor=None,
 ):
-    for z in src_mp.config.init_zoom_levels:
-        msg_callback(f"copy tiles for zoom {z}...")
+    for zoom in src_mp.config.init_zoom_levels:
+        msg_callback(f"copy tiles for zoom {zoom}...")
 
         # materialize all tiles
         if point:
             point_geom = reproject_geometry(
                 Point(point), src_crs=point_crs or tp.crs, dst_crs=tp.crs
             )
-            tiles = [tp.tile_from_xy(point_geom.x, point_geom.y, z)]
+            tiles = [tp.tile_from_xy(point_geom.x, point_geom.y, zoom)]
         else:
-            aoi_geom = src_mp.config.area_at_zoom(z)
+            aoi_geom = src_mp.config.area_at_zoom(zoom)
             tiles = [
                 t
-                for t in tp.tiles_from_geom(aoi_geom, z)
+                for t in tp.tiles_from_geom(aoi_geom, zoom)
                 # this is required to omit tiles touching the config area
                 if aoi_geom.intersection(t.bbox).area
             ]
 
         # check which source tiles exist
         logger.debug("looking for existing source tiles...")
-        src_tiles_exist = {
-            tile: exists
-            for tile, exists in tiles_exist(
-                config=src_mp.config, output_tiles=tiles, multi=workers
-            )
-        }
+        src_tiles_exist = dict(
+            tiles_exist(config=src_mp.config, output_tiles=tiles, multi=workers)
+        )
 
+        # check which destination tiles exist
         logger.debug("looking for existing destination tiles...")
-        # chech which destination tiles exist
-        dst_tiles_exist = {
-            tile: exists
-            for tile, exists in tiles_exist(
-                config=dst_mp.config, output_tiles=tiles, multi=workers
-            )
-        }
+        dst_tiles_exist = dict(
+            tiles_exist(config=dst_mp.config, output_tiles=tiles, multi=workers)
+        )
 
         # copy
-        copied = 0
+        total_copied = 0
         for future in executor.as_completed(
             _copy_tile,
             tiles,
@@ -240,11 +231,11 @@ def _copy_tiles(
                 overwrite,
             ),
         ):
-            c, msg = future.result()
-            copied += c
+            copied, msg = future.result()
+            total_copied += copied
             yield msg
 
-        msg_callback(f"{copied} tiles copied")
+        msg_callback(f"{total_copied} tiles copied")
 
 
 def _copy_tile(
@@ -258,17 +249,17 @@ def _copy_tile(
             msg = f"{tile}: destination tile exists"
             logger.debug(msg)
             return 0, msg
+
         # copy from source to target
-        else:
-            dst_path = dst_mp.config.output_reader.get_path(tile)
-            _copy(src_fs, src_path, dst_fs, dst_path)
-            msg = f"{tile}: copy {src_path} to {dst_path}"
-            logger.debug(msg)
-            return 1, msg
-    else:
-        msg = f"{tile}: source tile ({src_path}) does not exist"
+        dst_path = dst_mp.config.output_reader.get_path(tile)
+        _copy(src_fs, src_path, dst_fs, dst_path)
+        msg = f"{tile}: copy {src_path} to {dst_path}"
         logger.debug(msg)
-        return 0, msg
+        return 1, msg
+
+    msg = f"{tile}: source tile ({src_path}) does not exist"
+    logger.debug(msg)
+    return 0, msg
 
 
 def _copy(src_fs, src_path, dst_fs, dst_path):

@@ -1,9 +1,12 @@
+"""Execute a process."""
+
 import logging
 from multiprocessing import cpu_count
-from rasterio.crs import CRS
-from shapely.geometry.base import BaseGeometry
 from typing import Callable, List, Tuple, Union
 import warnings
+
+from rasterio.crs import CRS
+from shapely.geometry.base import BaseGeometry
 
 import mapchete
 from mapchete.config import bounds_from_opts, raw_conf, raw_conf_process_pyramid
@@ -100,7 +103,7 @@ def execute(
     """
     mode = "overwrite" if overwrite else mode
 
-    def _empty_callback(*args):
+    def _empty_callback(_):
         pass
 
     msg_callback = msg_callback or _empty_callback
@@ -131,18 +134,20 @@ def execute(
         area_crs=area_crs,
     )
     try:
-        if tile:
-            tasks_count = 1 + mp.config.preprocessing_tasks_count()
-        else:
-            tasks_count = mp.count_tasks()
-        msg_callback(f"processing {tasks_count} task(s) on {workers} worker(s)")
+        preprocessing_tasks = mp.config.preprocessing_tasks_count()
+        tiles_tasks = 1 if tile else mp.count_tiles()
+        total_tasks = preprocessing_tasks + tiles_tasks
+        msg_callback(
+            f"processing {preprocessing_tasks} preprocessing tasks and {tiles_tasks} on {workers} worker(s)"
+        )
         # automatically use dask Executor if dask scheduler is defined
         if dask_scheduler or dask_client:  # pragma: no cover
             concurrency = "dask"
         # use sequential Executor if only one tile or only one worker is defined
-        elif tasks_count == 1 or workers == 1:
+        elif total_tasks == 1 or workers == 1:
             logger.debug(
-                f"using sequential Executor because there is only one {'task' if tasks_count == 1 else 'worker'}"
+                "using sequential Executor because there is only one %s",
+                "task" if total_tasks == 1 else "worker",
             )
             concurrency = None
         return mapchete.Job(
@@ -164,7 +169,8 @@ def execute(
                 multiprocessing_start_method=multiprocessing_start_method,
             ),
             as_iterator=as_iterator,
-            total=tasks_count,
+            preprocessing_tasks=preprocessing_tasks,
+            tiles_tasks=tiles_tasks,
         )
     # explicitly exit the mp object on failure
     except Exception:  # pragma: no cover
