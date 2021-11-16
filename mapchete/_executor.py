@@ -175,7 +175,6 @@ class _ExecutorBase:
         """Exit context manager."""
         logger.debug("closing executor %s...", self._executor)
         try:
-            self._executor.cancel()
             self._executor.close()
         except Exception:
             self._executor.__exit__(*args)
