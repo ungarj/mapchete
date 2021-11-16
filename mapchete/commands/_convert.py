@@ -256,8 +256,8 @@ def convert(
                     ),
                 )
             )
-        except Exception:
-            raise ValueError("Zoom levels required.")
+        except Exception as exc:
+            raise ValueError("Zoom levels required.") from exc
     elif input_info["input_type"] != output_type:
         raise ValueError(
             f"Output format type ({output_type}) is incompatible with input format ({input_info['input_type']})."
@@ -290,7 +290,7 @@ def convert(
                 "Process area is empty: clip bounds don't intersect with input bounds."
             )
             # this returns a Job with an empty iterator
-            return mapchete.Job(None, (), as_iterator=as_iterator, total=0)
+            return mapchete.Job(None, (), as_iterator=as_iterator)
     # add process bounds and output type
     mapchete_config.update(
         bounds=(clip_intersection.bounds if clip_geometry else inp_bounds),
