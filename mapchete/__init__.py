@@ -8,7 +8,7 @@ from mapchete._timer import Timer
 
 
 __all__ = ["open", "count_tiles", "Mapchete", "MapcheteProcess", "ProcessInfo", "Timer"]
-__version__ = "2021.11.0"
+__version__ = "2021.11.1"
 
 
 logger = logging.getLogger(__name__)
