@@ -4,6 +4,19 @@ Changelog
 
 
 ----------------------
+2021.11.1 - 2021-11-16
+----------------------
+
+* core
+  * use generators to start processing as soon as possible and to reduce memory consumption when processing large areas
+  * add ``preprocessing_tasks`` ``tiles_tasks`` attributes to ``Job``
+  * reduce code smells
+
+* package
+  * fix ``http`` extra in ``setup.py``
+
+
+----------------------
 2021.11.0 - 2021-11-03
 ----------------------
 
