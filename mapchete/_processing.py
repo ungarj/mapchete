@@ -1,7 +1,6 @@
 """Internal processing classes and functions."""
 
 from collections import namedtuple
-import os
 
 from itertools import chain
 import logging
@@ -41,7 +40,8 @@ class Job:
         fargs: tuple = None,
         fkwargs: dict = None,
         as_iterator: bool = False,
-        total: int = None,
+        tiles_tasks: int = None,
+        preprocessing_tasks: int = None,
         executor_concurrency: str = "processes",
         executor_kwargs: dict = None,
     ):
@@ -52,7 +52,9 @@ class Job:
         self.executor = None
         self.executor_concurrency = executor_concurrency
         self.executor_kwargs = executor_kwargs or {}
-        self._total = total
+        self.tiles_tasks = tiles_tasks or 0
+        self.preprocessing_tasks = preprocessing_tasks or 0
+        self._total = self.preprocessing_tasks + self.tiles_tasks
         self._as_iterator = as_iterator
 
         if not as_iterator:
@@ -69,6 +71,7 @@ class Job:
             self.status = "finished"
 
     def cancel(self):
+        """Cancel all running and pending Job tasks."""
         if self._as_iterator:
             # requires client and futures
             if self.executor is None:  # pragma: no cover
@@ -160,7 +163,7 @@ class TileProcess:
             process=self.process, config_dir=self.config_dir
         )
         try:
-            with Timer() as t:
+            with Timer() as duration:
                 # Actually run process.
                 process_data = process_func(
                     MapcheteProcess(
@@ -175,7 +178,9 @@ class TileProcess:
             raise
         except Exception as e:
             # Log process time
-            logger.exception((self.tile.id, "exception in user process", e, str(t)))
+            logger.exception(
+                (self.tile.id, "exception in user process", e, str(duration))
+            )
             new = MapcheteProcessException(format_exc())
             new.old = e
             raise new
@@ -196,7 +201,7 @@ class TileProcess:
             else self.output_reader.pyramid.intersecting(tile)
         )
 
-        with Timer() as t:
+        with Timer() as duration:
             # resample from parent tile
             if baselevel == "higher":
                 parent_tile = self.tile.get_parent()
@@ -211,22 +216,18 @@ class TileProcess:
             elif baselevel == "lower":
                 if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
                     lower_tiles = set(
-                        [
-                            y
-                            for y in chain(
-                                *[
-                                    self.output_reader.pyramid.tiles_from_bounds(
-                                        x.bounds, x.zoom + 1
-                                    )
-                                    for x in output_tiles
-                                ]
-                            )
-                        ]
+                        y
+                        for y in chain(
+                            *[
+                                self.output_reader.pyramid.tiles_from_bounds(
+                                    x.bounds, x.zoom + 1
+                                )
+                                for x in output_tiles
+                            ]
+                        )
                     )
                 else:
-                    lower_tiles = [
-                        y for y in chain(*[x.get_children() for x in output_tiles])
-                    ]
+                    lower_tiles = list(chain(*[x.get_children() for x in output_tiles]))
                 mosaic = raster.create_mosaic(
                     [
                         (lower_tile, self.output_reader.read(lower_tile))
@@ -241,7 +242,7 @@ class TileProcess:
                     resampling=self.config_baselevels["lower"],
                     nodata=self.output_reader.output_params["nodata"],
                 )
-        logger.debug((self.tile.id, "generated from baselevel", str(t)))
+        logger.debug((self.tile.id, "generated from baselevel", str(duration)))
         return process_data
 
 
@@ -450,7 +451,7 @@ def _preprocess(
         dask_scheduler=dask_scheduler,
     )
     try:
-        with Timer() as t:
+        with Timer() as duration:
             logger.debug(
                 "run preprocessing on %s tasks using %s workers", len(tasks), workers
             )
@@ -459,14 +460,17 @@ def _preprocess(
             for i, future in enumerate(
                 executor.as_completed(
                     func=_preprocess_task_wrapper,
-                    iterable=[(k, v) for k, v in tasks.items()],
+                    iterable=list(tasks.items()),
                     max_submitted_tasks=dask_max_submitted_tasks,
                 ),
                 1,
             ):
                 task_key, result = future.result()
                 logger.debug(
-                    f"preprocessing task {i}/{len(tasks)} {task_key} processed successfully"
+                    "preprocessing task %s/%s %s processed successfully",
+                    i,
+                    len(tasks),
+                    task_key,
                 )
                 process.config.set_preprocessing_task_result(task_key, result)
                 yield f"preprocessing task {task_key} finished"
@@ -476,7 +480,7 @@ def _preprocess(
 
     process.config.preprocessing_tasks_finished = True
 
-    logger.info("%s task(s) iterated in %s", str(len(tasks)), t)
+    logger.info("%s task(s) iterated in %s", str(len(tasks)), duration)
 
 
 ###########################
@@ -618,7 +622,7 @@ def _run_multi(
     )
 
     try:
-        with Timer() as t:
+        with Timer() as duration:
             logger.debug(
                 "run process on %s tiles using %s workers", total_tiles, workers
             )
@@ -714,7 +718,7 @@ def _run_multi(
         if create_executor:
             executor.close()
 
-    logger.info("%s tile(s) iterated in %s", str(num_processed), t)
+    logger.info("%s tile(s) iterated in %s", str(num_processed), duration)
 
 
 ###############################
@@ -722,7 +726,7 @@ def _run_multi(
 ###############################
 
 
-def _execute(tile_process=None, **kwargs):
+def _execute(tile_process=None, **_):
     logger.debug(
         (tile_process.tile.id, "running on %s" % multiprocessing.current_process().name)
     )
@@ -739,24 +743,23 @@ def _execute(tile_process=None, **kwargs):
         )
 
     # execute on process tile
-    else:
-        with Timer() as t:
-            try:
-                output = tile_process.execute()
-            except MapcheteNodataTile:  # pragma: no cover
-                output = "empty"
-        processor_message = "processed in %s" % t
-        logger.debug((tile_process.tile.id, processor_message))
-        return output, ProcessInfo(
-            tile=tile_process.tile,
-            processed=True,
-            process_msg=processor_message,
-            written=None,
-            write_msg=None,
-        )
+    with Timer() as duration:
+        try:
+            output = tile_process.execute()
+        except MapcheteNodataTile:  # pragma: no cover
+            output = "empty"
+    processor_message = "processed in %s" % duration
+    logger.debug((tile_process.tile.id, processor_message))
+    return output, ProcessInfo(
+        tile=tile_process.tile,
+        processed=True,
+        process_msg=processor_message,
+        written=None,
+        write_msg=None,
+    )
 
 
-def _write(process_info=None, output_data=None, output_writer=None, **kwargs):
+def _write(process_info=None, output_data=None, output_writer=None, **_):
     if process_info.processed:
         try:
             output_data = output_writer.streamline_output(output_data)
@@ -772,23 +775,23 @@ def _write(process_info=None, output_data=None, output_writer=None, **kwargs):
                 written=False,
                 write_msg=message,
             )
-        else:
-            with Timer() as t:
-                output_writer.write(process_tile=process_info.tile, data=output_data)
-            message = "output written in %s" % t
-            logger.debug((process_info.tile.id, message))
-            return ProcessInfo(
-                tile=process_info.tile,
-                processed=process_info.processed,
-                process_msg=process_info.process_msg,
-                written=True,
-                write_msg=message,
-            )
-    else:
-        return process_info
+
+        with Timer() as duration:
+            output_writer.write(process_tile=process_info.tile, data=output_data)
+        message = "output written in %s" % duration
+        logger.debug((process_info.tile.id, message))
+        return ProcessInfo(
+            tile=process_info.tile,
+            processed=process_info.processed,
+            process_msg=process_info.process_msg,
+            written=True,
+            write_msg=message,
+        )
+
+    return process_info
 
 
-def _execute_and_write(tile_process=None, output_writer=None, **kwargs):
+def _execute_and_write(tile_process=None, output_writer=None, **_):
     output_data, process_info = _execute(tile_process=tile_process)
     return _write(
         process_info=process_info, output_data=output_data, output_writer=output_writer

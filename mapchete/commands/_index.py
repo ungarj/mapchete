@@ -1,10 +1,10 @@
+"""Create indexes of Tile Directories."""
+
 import logging
-import os
+from typing import Callable, List, Tuple, Union
+
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
-import sys
-import tqdm
-from typing import Callable, List, Tuple, Union
 
 import mapchete
 from mapchete.index import zoom_index_gen
@@ -34,7 +34,7 @@ def index(
     fs_opts: dict = None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
-    **kwargs,
+    **_,
 ) -> mapchete.Job:
     """
     Create one or more indexes from a TileDirectory.
@@ -111,7 +111,7 @@ def index(
             """must be provided."""
         )
 
-    def _empty_callback(*args):
+    def _empty_callback(*_):
         pass
 
     msg_callback = msg_callback or _empty_callback
@@ -149,5 +149,5 @@ def index(
                 for_gdal=for_gdal,
             ),
             as_iterator=as_iterator,
-            total=1 if tile else mp.count_tiles(),
+            tiles_tasks=1 if tile else mp.count_tiles(),
         )

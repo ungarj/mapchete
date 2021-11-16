@@ -391,7 +391,7 @@ def count_tiles(
     if not 0 <= init_zoom <= minzoom <= maxzoom:  # pragma: no cover
         raise ValueError("invalid zoom levels given")
     # tile buffers are not being taken into account
-    unbuffered_pyramid = TilePyramid(
+    unbuffered_pyramid = BufferedTilePyramid(
         pyramid.grid, tile_size=pyramid.tile_size, metatiling=pyramid.metatiling
     )
     # make sure no rounding errors occur
@@ -401,11 +401,9 @@ def count_tiles(
     width = pyramid.matrix_width(init_zoom)
 
     # rasterize to array and count cells if too many tiles are expected
-    if pyramid.pixelbuffer == 0 and (
-        width > rasterize_threshold or height > rasterize_threshold
-    ):
+    if width > rasterize_threshold or height > rasterize_threshold:
         logger.debug("rasterize tiles to count geometry overlap")
-        return _count_cells(pyramid, geometry, minzoom, maxzoom)
+        return _count_cells(unbuffered_pyramid, geometry, minzoom, maxzoom)
 
     logger.debug("count tiles using tile logic")
     return _count_tiles(
@@ -427,7 +425,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
     count = 0
     for tile in tiles:
         # determine data covered by tile
-        tile_intersection = tile.bbox().intersection(geometry)
+        tile_intersection = tile.bbox.intersection(geometry)
 
         # skip if there is no data
         if tile_intersection.is_empty:
@@ -442,10 +440,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
             # if tile is half full, analyze each descendant
             # also do this if the tile children are not four in which case we cannot use
             # the count formula below
-            if (
-                tile_intersection.area < tile.bbox().area
-                or len(tile.get_children()) != 4
-            ):
+            if tile_intersection.area < tile.bbox.area or len(tile.get_children()) != 4:
                 count += _count_tiles(
                     tile.get_children(), tile_intersection, minzoom, maxzoom
                 )

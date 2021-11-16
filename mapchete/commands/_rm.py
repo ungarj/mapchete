@@ -1,7 +1,10 @@
+"""Remove tiles from Tile Directory."""
+
 import logging
+from typing import Callable, List, Tuple, Union
+
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
-from typing import Callable, List, Tuple, Union
 
 import mapchete
 from mapchete.io import fs_from_path, tiles_exist
@@ -16,7 +19,6 @@ def rm(
     area_crs: Union[CRS, str] = None,
     bounds: Tuple[float] = None,
     bounds_crs: Union[CRS, str] = None,
-    overwrite: bool = False,
     multi: int = None,
     fs_opts: dict = None,
     msg_callback: Callable = None,
@@ -70,7 +72,7 @@ def rm(
 
     """
 
-    def _empty_callback(*args):
+    def _empty_callback(*_):
         pass
 
     msg_callback = msg_callback or _empty_callback
@@ -94,22 +96,22 @@ def rm(
         tp = mp.config.output_pyramid
 
         tiles = {}
-        for z in mp.config.init_zoom_levels:
-            tiles[z] = []
+        for zoom in mp.config.init_zoom_levels:
+            tiles[zoom] = []
             # check which source tiles exist
-            logger.debug(f"looking for existing source tiles in zoom {z}...")
+            logger.debug("looking for existing source tiles in zoom %s...", zoom)
             for tile, exists in tiles_exist(
                 config=mp.config,
                 output_tiles=[
                     t
-                    for t in tp.tiles_from_geom(mp.config.area_at_zoom(z), z)
+                    for t in tp.tiles_from_geom(mp.config.area_at_zoom(zoom), zoom)
                     # this is required to omit tiles touching the config area
-                    if mp.config.area_at_zoom(z).intersection(t.bbox).area
+                    if mp.config.area_at_zoom(zoom).intersection(t.bbox).area
                 ],
                 multi=multi,
             ):
                 if exists:
-                    tiles[z].append(tile)
+                    tiles[zoom].append(tile)
 
         paths = [
             mp.config.output_reader.get_path(tile)
@@ -124,11 +126,11 @@ def rm(
                 msg_callback,
             ),
             as_iterator=as_iterator,
-            total=len(paths),
+            tiles_tasks=len(paths),
         )
 
 
-def _rm(paths, fs, msg_callback, recursive=False, **kwargs):
+def _rm(paths, fs, msg_callback, recursive=False, **_):
     """
     Remove one or multiple paths from file system.
 
@@ -139,7 +141,7 @@ def _rm(paths, fs, msg_callback, recursive=False, **kwargs):
     paths : str or list
     fs : fsspec.FileSystem
     """
-    logger.debug(f"got {len(paths)} path(s) on {fs}")
+    logger.debug("got %s path(s) on %s", len(paths), fs)
 
     # s3fs enables multiple paths as input, so let's use this:
     if "s3" in fs.protocol:  # pragma: no cover
