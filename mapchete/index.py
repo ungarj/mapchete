@@ -152,91 +152,39 @@ def zoom_index_gen(
 
             logger.debug("use the following index writers: %s", index_writers)
 
-            # all output tiles for given process area
-            logger.debug("determine affected output tiles")
             if tile:
-                output_tiles = set(
-                    mp.config.output_pyramid.intersecting(
-                        mp.config.process_pyramid.tile(*tile)
-                    )
+                output_tiles_batches = mp.config.output_pyramid.tiles_from_bounds(
+                    mp.config.process_pyramid.tile(*tile).bounds, zoom, batch_by="row"
                 )
             else:
-                output_tiles = set(
-                    [
-                        t
-                        for t in mp.config.output_pyramid.tiles_from_geom(
-                            mp.config.area_at_zoom(zoom), zoom
-                        )
-                        # this is required to omit tiles touching the config area
-                        if t.bbox.intersection(mp.config.area_at_zoom(zoom)).area
-                    ]
+                output_tiles_batches = mp.config.output_pyramid.tiles_from_geom(
+                    mp.config.area_at_zoom(zoom), zoom, batch_by="row"
                 )
-            # check which tiles exist in any index
-            logger.debug("check which tiles exist in index(es)")
-            existing_in_any_index = set(
-                t
-                for t in output_tiles
-                if any(
-                    [
-                        i.entry_exists(
-                            tile=t,
-                            path=_tile_path(
-                                orig_path=mp.config.output.get_path(t),
-                                basepath=basepath,
-                                for_gdal=for_gdal,
-                            ),
-                        )
-                        for i in index_writers
-                    ]
-                )
-            )
 
-            logger.debug(
-                "{}/{} tiles found in index(es)".format(
-                    len(existing_in_any_index), len(output_tiles)
-                )
-            )
-            # tiles which do not exist in any index
-            for t, output_exists in tiles_exist(
-                mp.config, output_tiles=output_tiles.difference(existing_in_any_index)
+            for output_tile, exists in tiles_exist(
+                mp.config, output_tiles_batches=output_tiles_batches
             ):
-                tile_path = _tile_path(
-                    orig_path=mp.config.output.get_path(t),
-                    basepath=basepath,
-                    for_gdal=for_gdal,
-                )
-                indexes = [
-                    i
-                    for i in index_writers
-                    if not i.entry_exists(tile=t, path=tile_path)
-                ]
-                if indexes and output_exists:
-                    logger.debug("%s exists", tile_path)
-                    logger.debug("write to %s indexes" % len(indexes))
-                    for index in indexes:
-                        index.write(t, tile_path)
-                # yield tile for progress information
-                yield t
 
-            # tiles which exist in at least one index
-            for t in existing_in_any_index:
                 tile_path = _tile_path(
-                    orig_path=mp.config.output.get_path(t),
+                    orig_path=mp.config.output.get_path(output_tile),
                     basepath=basepath,
                     for_gdal=for_gdal,
                 )
+                # get indexes where tile entry does not exist
                 indexes = [
-                    i
-                    for i in index_writers
-                    if not i.entry_exists(tile=t, path=tile_path)
+                    index_writer
+                    for index_writer in index_writers
+                    if not index_writer.entry_exists(tile=output_tile, path=tile_path)
                 ]
-                if indexes:
+
+                if indexes and exists:
                     logger.debug("%s exists", tile_path)
-                    logger.debug("write to %s indexes" % len(indexes))
+                    logger.debug("write to %s indexes", len(indexes))
                     for index in indexes:
-                        index.write(t, tile_path)
+                        index.write(output_tile, tile_path)
+
                 # yield tile for progress information
-                yield t
+                yield output_tile
 
 
 def _index_file_path(out_dir, zoom, ext):

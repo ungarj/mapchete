@@ -180,8 +180,6 @@ def tiles_exist(
         yield from _process_tiles_batches_exist(process_tiles_batches, config)
     elif output_tiles_batches:
         yield from _output_tiles_batches_exist(output_tiles_batches, config)
-    else:
-        return
 
 
 def _batch_tiles_by_row(tiles):
