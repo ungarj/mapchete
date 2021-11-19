@@ -31,7 +31,8 @@ def execute(
     multi: int = None,
     multiprocessing_start_method: str = None,
     dask_scheduler: str = None,
-    dask_max_submitted_tasks=500,
+    dask_max_submitted_tasks=1000,
+    dask_chunksize=100,
     dask_client=None,
     msg_callback: Callable = None,
     as_iterator: bool = False,
@@ -75,6 +76,8 @@ def execute(
         URL to dask scheduler if required.
     dask_max_submitted_tasks : int
         Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
+    dask_chunksize : int
+        Number of tasks submitted to the scheduler at once. (default: 100)
     dask_client : dask.distributed.Client
         Reusable Client instance if required. Otherwise a new client will be created.
     msg_callback : Callable
@@ -161,6 +164,7 @@ def execute(
                 workers=workers,
                 zoom=None if tile else zoom,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
+                dask_chunksize=dask_chunksize,
             ),
             executor_concurrency=concurrency,
             executor_kwargs=dict(
@@ -184,6 +188,7 @@ def _process_everything(
     executor=None,
     workers=None,
     dask_max_submitted_tasks=500,
+    dask_chunksize=100,
     **kwargs,
 ):
     try:
@@ -191,6 +196,7 @@ def _process_everything(
             executor=executor,
             workers=workers,
             dask_max_submitted_tasks=dask_max_submitted_tasks,
+            dask_chunksize=dask_chunksize,
         ):  # pragma: no cover
             yield preprocessing_task_info
             msg_callback(preprocessing_task_info)
@@ -198,6 +204,7 @@ def _process_everything(
             executor=executor,
             workers=workers,
             dask_max_submitted_tasks=dask_max_submitted_tasks,
+            dask_chunksize=dask_chunksize,
             **kwargs,
         ):
             yield process_info
