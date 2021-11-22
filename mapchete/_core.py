@@ -203,6 +203,7 @@ class Mapchete(object):
         self,
         dask_scheduler=None,
         dask_max_submitted_tasks=500,
+        dask_chunksize=100,
         workers=None,
         executor=None,
     ):
@@ -218,6 +219,8 @@ class Mapchete(object):
             URL to a dask scheduler if distributed execution is desired
         dask_max_submitted_tasks : int
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
+        dask_chunksize : int
+            Number of tasks submitted to the scheduler at once. (default: 100)
         workers : int
             number of workers to be used for local processing
         executor : mapchete.Executor
@@ -230,6 +233,7 @@ class Mapchete(object):
             process=self,
             dask_scheduler=dask_scheduler,
             dask_max_submitted_tasks=dask_max_submitted_tasks,
+            dask_chunksize=dask_chunksize,
             workers=workers,
             executor=executor,
         )
@@ -238,6 +242,7 @@ class Mapchete(object):
         self,
         dask_scheduler=None,
         dask_max_submitted_tasks=500,
+        dask_chunksize=100,
         workers=None,
         executor=None,
     ):
@@ -251,6 +256,8 @@ class Mapchete(object):
             URL to a dask scheduler if distributed execution is desired
         dask_max_submitted_tasks : int
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
+        dask_chunksize : int
+            Number of tasks submitted to the scheduler at once. (default: 100)
         workers : int
             number of workers to be used for local processing
         executor : mapchete.Executor
@@ -260,6 +267,7 @@ class Mapchete(object):
             self.batch_preprocessor(
                 dask_scheduler=dask_scheduler,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
+                dask_chunksize=dask_chunksize,
                 workers=workers,
                 executor=executor,
             )
@@ -271,6 +279,7 @@ class Mapchete(object):
         tile=None,
         dask_scheduler=None,
         dask_max_submitted_tasks=500,
+        dask_chunksize=100,
         multi=None,
         workers=None,
         multiprocessing_module=None,
@@ -297,6 +306,8 @@ class Mapchete(object):
             URL to a dask scheduler if distributed execution is desired
         dask_max_submitted_tasks : int
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
+        dask_chunksize : int
+            Number of tasks submitted to the scheduler at once. (default: 100)
         multiprocessing_module : module
             either Python's standard 'multiprocessing' or Celery's 'billiard' module
             (default: multiprocessing)
@@ -315,6 +326,7 @@ class Mapchete(object):
                 tile=tile,
                 dask_scheduler=dask_scheduler,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
+                dask_chunksize=dask_chunksize,
                 workers=workers,
                 multi=multi,
                 multiprocessing_module=multiprocessing_module,
@@ -330,6 +342,7 @@ class Mapchete(object):
         tile=None,
         dask_scheduler=None,
         dask_max_submitted_tasks=500,
+        dask_chunksize=100,
         multi=None,
         workers=None,
         multiprocessing_module=None,
@@ -352,6 +365,8 @@ class Mapchete(object):
             URL to a dask scheduler if distributed execution is desired
         dask_max_submitted_tasks : int
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
+        dask_chunksize : int
+            Number of tasks submitted to the scheduler at once. (default: 100)
         multi : int
             number of workers (default: number of CPU cores)
         multiprocessing_module : module
@@ -392,6 +407,7 @@ class Mapchete(object):
                 zoom_levels=list(_get_zoom_level(zoom, self)),
                 dask_scheduler=dask_scheduler,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
+                dask_chunksize=dask_chunksize,
                 workers=workers or multiprocessing.cpu_count(),
                 multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,

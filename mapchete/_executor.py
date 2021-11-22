@@ -68,7 +68,7 @@ class _ExecutorBase:
         item_skip_bool=False,
         **kwargs,
     ):
-        """Submit tasks to executor in chunks and start yielding finished futures after each chunk."""
+        """Submit tasks to executor and start yielding finished futures."""
         try:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
@@ -234,7 +234,7 @@ class DaskExecutor(_ExecutorBase):
         max_submitted_tasks=500,
         raise_cancelled=False,
         item_skip_bool=False,
-        chunks=100,
+        chunksize=100,
         **kwargs,
     ):
         """
@@ -259,7 +259,7 @@ class DaskExecutor(_ExecutorBase):
             Further function keyword arguments.
         max_submitted_tasks : int
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
-        chunks : int
+        chunksize : int
             Submit tasks in chunks to scheduler.
         raise_cancelled : bool
             If a future contains a CancelledError without the Exectuor having initiated the
@@ -273,7 +273,7 @@ class DaskExecutor(_ExecutorBase):
         from dask.distributed import as_completed
 
         max_submitted_tasks = max_submitted_tasks or 1
-        chunks = chunks or 1
+        chunksize = chunksize or 1
 
         cancelled_exc = None
 
@@ -282,85 +282,86 @@ class DaskExecutor(_ExecutorBase):
             fkwargs = fkwargs or {}
             ac_iterator = as_completed(loop=self._executor.loop)
 
-            with Timer() as duration:
-                count = 0
-                submitted = 0
-                chunk = []
-                for count, item in enumerate(iterable, 1):
-                    if self.cancelled:  # pragma: no cover
-                        logger.debug("executor cancelled")
-                        return
+            chunk = []
+            for item in iterable:
 
-                    # skip task submission if option is activated
-                    if item_skip_bool:
-                        item, skip, skip_info = item
-                        if skip:
-                            yield SkippedFuture(item, skip_info=skip_info)
-                            continue
+                # abort if execution is cancelled
+                if self.cancelled:  # pragma: no cover
+                    logger.debug("executor cancelled")
+                    return
 
-                    chunk.append(item)
+                # skip task submission if option is activated
+                if item_skip_bool:
+                    item, skip, skip_info = item
+                    if skip:
+                        yield SkippedFuture(item, skip_info=skip_info)
+                        continue
 
-                    # submit chunk of tasks, if
-                    # (1) chunksize is reached, or
-                    # (2) current chunk would not exceed maximum allowed number of running tasks
-                    if len(chunk) % chunks == 0 or max_submitted_tasks - len(
-                        self.running_futures
-                    ) - 1 <= len(chunk):
-                        logger.debug("%s running futures", len(self.running_futures))
-                        logger.debug("submitting %s items to cluster", len(chunk))
-                        self._submit_chunk(
-                            ac_iterator=ac_iterator,
-                            chunk=chunk,
-                            func=func,
-                            fargs=fargs,
-                            fkwargs=fkwargs,
-                        )
-                        submitted += len(chunk)
-                        chunk = []
+                # add processing item to chunk
+                chunk.append(item)
 
-                    # yield finished tasks, if
-                    # (1) there are finished tasks available, or
-                    # (2) maximum allowed number of running tasks is reached
-                    if ac_iterator.has_ready() or (
-                        len(self.running_futures) >= max_submitted_tasks
-                    ):
-                        # yield batch of finished futures
-                        batch = ac_iterator.next_batch()
-                        for future in batch:
-                            logger.debug("%s remaining futures", ac_iterator.count())
-                            try:
-                                yield self._raise_future_exception(future)
-                            except CancelledError as exc:  # pragma: no cover
-                                cancelled_exc = exc
+                # submit chunk of tasks, if
+                # (1) chunksize is reached, or
+                # (2) remaining free task spots are less than tasks in chunk
+                remaining_spots = max_submitted_tasks - len(self.running_futures)
+                if len(chunk) % chunksize == 0 or remaining_spots == len(chunk):
+                    logger.debug(
+                        "submitted futures (tracked): %s", len(self.running_futures)
+                    )
+                    logger.debug("remaining spots for futures: %s", remaining_spots)
+                    logger.debug("current chunk size: %s", len(chunk))
+                    self._submit_chunk(
+                        ac_iterator=ac_iterator,
+                        chunk=chunk,
+                        func=func,
+                        fargs=fargs,
+                        fkwargs=fkwargs,
+                    )
+                    chunk = []
 
-                # submit last chunk of items
-                self._submit_chunk(
-                    ac_iterator=ac_iterator,
-                    chunk=chunk,
-                    func=func,
-                    fargs=fargs,
-                    fkwargs=fkwargs,
+                # yield finished tasks, if
+                # (1) there are finished tasks available, or
+                # (2) maximum allowed number of running tasks is reached
+                max_submitted_tasks_reached = (
+                    len(self.running_futures) >= max_submitted_tasks
                 )
-                submitted += len(chunk)
-                chunk = []
-                logger.debug(
-                    "%s remaining futures after submitting task %s",
-                    ac_iterator.count(),
-                    count,
-                )
-
-                logger.debug("%s tasks submitted in %s", count, duration)
-                # yield remaining futures as they finish
-                if ac_iterator is not None:
-                    for future in ac_iterator:
-                        if self.cancelled:  # pragma: no cover
-                            logger.debug("executor cancelled")
-                            return
-                        logger.debug("%s remaining futures", ac_iterator.count())
+                if ac_iterator.has_ready() or max_submitted_tasks_reached:
+                    # yield batch of finished futures
+                    # if maximum submitted tasks limit is reached, block call and wait for finished futures
+                    logger.debug(
+                        "wait for finished tasks: %s", max_submitted_tasks_reached
+                    )
+                    batch = ac_iterator.next_batch(block=max_submitted_tasks_reached)
+                    logger.debug("%s tasks ready for yielding", len(batch))
+                    for future in batch:
                         try:
                             yield self._raise_future_exception(future)
                         except CancelledError as exc:  # pragma: no cover
                             cancelled_exc = exc
+                    logger.debug(
+                        "%s futures still on cluster", len(self.running_futures)
+                    )
+
+            # submit last chunk of items
+            self._submit_chunk(
+                ac_iterator=ac_iterator,
+                chunk=chunk,
+                func=func,
+                fargs=fargs,
+                fkwargs=fkwargs,
+            )
+            chunk = []
+            # yield remaining futures as they finish
+            if ac_iterator is not None:
+                logger.debug("yield %s remaining futures", len(self.running_futures))
+                for future in ac_iterator:
+                    if self.cancelled:  # pragma: no cover
+                        logger.debug("executor cancelled")
+                        return
+                    try:
+                        yield self._raise_future_exception(future)
+                    except CancelledError as exc:  # pragma: no cover
+                        cancelled_exc = exc
 
         finally:
             # reset so futures won't linger here for next call
