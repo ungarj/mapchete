@@ -4,6 +4,16 @@ Changelog
 
 
 ----------------------
+2021.11.3 - 2021-11-23
+----------------------
+
+* core
+  * expose ``chunksize`` parameter of dask executor to ``execute`` and ``convert`` commands.
+  * clean up ``DaskExecutor.as_completed()`` code & log messages
+  * ``index``: use ``tiles_exist()`` row generators to speed up index creation
+
+
+----------------------
 2021.11.2 - 2021-11-16
 ----------------------
 
