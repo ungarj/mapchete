@@ -12,3 +12,4 @@ htmlcov/
 .pytest*
 .env
 dask-worker-space/
+.vscode/
