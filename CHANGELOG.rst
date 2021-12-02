@@ -2,6 +2,13 @@
 Changelog
 #########
 
+----------------------
+2021.12.0 - 2021-12-02
+----------------------
+
+* core
+  * make sure I/O retry settings read from environment are properly casted to int/float
+
 
 ----------------------
 2021.11.3 - 2021-11-23
