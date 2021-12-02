@@ -93,11 +93,7 @@ class ProcessFixture:
 
 
 def get_process_mp(tile=None, zoom=0, input=None, params=None, metatiling=1, **kwargs):
-    if tile:
-        pyramid = BufferedTilePyramid("geodetic", metatiling=metatiling)
-        tile = pyramid.tile(*tile)
-    else:
-        pyramid = BufferedTilePyramid("geodetic", metatiling=metatiling)
+    pyramid = BufferedTilePyramid("geodetic", metatiling=metatiling)
     initialized_inputs = initialize_inputs(
         input,
         config_dir=None,
@@ -105,7 +101,9 @@ def get_process_mp(tile=None, zoom=0, input=None, params=None, metatiling=1, **k
         delimiters=None,
         readonly=False,
     )
-    if tile is None:
+    if tile:
+        tile = pyramid.tile(*tile)
+    else:
         if zoom is None:  # pragma: no cover
             raise ValueError("either tile or tile_zoom have to be provided")
         tile = next(
