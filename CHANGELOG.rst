@@ -3,6 +3,14 @@ Changelog
 #########
 
 ----------------------
+2021.12.1 - 2021-12-14
+----------------------
+
+* core
+  * explicitly call ``Future.release()`` before yielding result from ``DaskExecutor``
+
+
+----------------------
 2021.12.0 - 2021-12-02
 ----------------------
 
