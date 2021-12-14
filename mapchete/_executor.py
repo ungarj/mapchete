@@ -96,13 +96,13 @@ class _ExecutorBase:
                     ready = list(self._finished_futures())
                     if ready:
                         for future in ready:
-                            yield self._raise_future_exception(future)
+                            yield self._finished_future(future)
 
                     # if maximum number of tasks are submitted, wait until the next task is finished
                     if max_submitted_tasks and (
                         len(self.running_futures) >= max_submitted_tasks
                     ):
-                        yield self._raise_future_exception(
+                        yield self._finished_future(
                             next(self._as_completed(self.running_futures))
                         )
 
@@ -110,7 +110,7 @@ class _ExecutorBase:
 
             # yield remaining futures as they finish
             for future in self._as_completed(self.running_futures):
-                yield self._raise_future_exception(future)
+                yield self._finished_future(future)
 
         except CancelledError:  # pragma: no cover
             return
@@ -155,7 +155,7 @@ class _ExecutorBase:
     def _wait(self, *args, **kwargs):  # pragma: no cover
         raise NotImplementedError()
 
-    def _raise_future_exception(self, future):
+    def _finished_future(self, future, result=None):
         """
         Release future from cluster explicitly and wrap result around FinishedFuture object.
         """
@@ -164,7 +164,7 @@ class _ExecutorBase:
             logger.debug("exception caught in future %s", future)
             raise future.exception()
         # create minimal Future-like object with no references to the cluster
-        finished_future = FinishedFuture(future)
+        finished_future = FinishedFuture(future, result=result)
         # explicitly release future
         try:
             future.release()
@@ -292,7 +292,7 @@ class DaskExecutor(_ExecutorBase):
         try:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
-            ac_iterator = as_completed(loop=self._executor.loop)
+            ac_iterator = as_completed(loop=self._executor.loop, with_results=True)
 
             chunk = []
             for item in iterable:
@@ -345,9 +345,9 @@ class DaskExecutor(_ExecutorBase):
                     )
                     batch = ac_iterator.next_batch(block=max_submitted_tasks_reached)
                     logger.debug("%s tasks ready for yielding", len(batch))
-                    for future in batch:
+                    for future, result in batch:
                         try:
-                            yield self._raise_future_exception(future)
+                            yield self._finished_future(future, result)
                         except CancelledError as exc:  # pragma: no cover
                             cancelled_exc = exc
                     logger.debug(
@@ -366,14 +366,15 @@ class DaskExecutor(_ExecutorBase):
             # yield remaining futures as they finish
             if ac_iterator is not None:
                 logger.debug("yield %s remaining futures", len(self.running_futures))
-                for future in ac_iterator:
-                    if self.cancelled:  # pragma: no cover
-                        logger.debug("executor cancelled")
-                        return
-                    try:
-                        yield self._raise_future_exception(future)
-                    except CancelledError as exc:  # pragma: no cover
-                        cancelled_exc = exc
+                for batch in ac_iterator.batches():
+                    for future, result in batch:
+                        if self.cancelled:  # pragma: no cover
+                            logger.debug("executor cancelled")
+                            return
+                        try:
+                            yield self._finished_future(future, result)
+                        except CancelledError as exc:  # pragma: no cover
+                            cancelled_exc = exc
 
         finally:
             # reset so futures won't linger here for next call
@@ -582,10 +583,10 @@ class SkippedFuture:
 class FinishedFuture:
     """Wrapper class to mimick future interface."""
 
-    def __init__(self, future):
+    def __init__(self, future, result=None):
         """Set attributes."""
         try:
-            self._result, self._exception = future.result(), None
+            self._result, self._exception = result or future.result(), None
         except Exception as e:  # pragma: no cover
             self._result, self._exception = None, e
 
