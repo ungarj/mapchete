@@ -591,12 +591,12 @@ class FinishedFuture:
 
     def result(self):
         """Return task result."""
-        if self._exception:
+        if self._exception:  # pragma: no cover
             logger.exception(self._exception)
             raise self._exception
         return self._result
 
-    def exception(self):
+    def exception(self):  # pragma: no cover
         """Raise task exception if any."""
         return self._exception
 
