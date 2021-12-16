@@ -601,6 +601,9 @@ class MapcheteConfig(object):
         """
         Return process area for zoom level.
 
+        The current process area is an intersection of the defined process area from the configuration,
+        the spatial subsets provided by extra arguments (e.g. bounds) and the union of all inputs.
+
         Parameters
         ----------
         zoom : int or None
@@ -638,14 +641,15 @@ class MapcheteConfig(object):
                         if v is not None
                     ]
                 )
-                self._cache_area_at_zoom[zoom] = (
+                inputs_and_init = (
                     input_union.intersection(self.init_area)
                     if self.init_area
                     else input_union
                 )
             # if no input items are available, just use init_bounds
             else:
-                self._cache_area_at_zoom[zoom] = self.init_area
+                inputs_and_init = self.init_area
+            self._cache_area_at_zoom[zoom] = inputs_and_init.intersection(self.area)
         return self._cache_area_at_zoom[zoom]
 
     def bounds_at_zoom(self, zoom=None):
