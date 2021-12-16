@@ -25,7 +25,7 @@ import py_compile
 from shapely import wkt
 from shapely.geometry import box, Point, shape
 from shapely.geometry.base import BaseGeometry
-from shapely.ops import cascaded_union
+from shapely.ops import unary_union
 import sys
 from tempfile import NamedTemporaryFile
 from tilematrix._funcs import Bounds
@@ -618,7 +618,7 @@ class MapcheteConfig(object):
         if zoom is None:
             if not self._cache_full_process_area:
                 logger.debug("calculate process area ...")
-                self._cache_full_process_area = cascaded_union(
+                self._cache_full_process_area = unary_union(
                     [self._area_at_zoom(z) for z in self.init_zoom_levels]
                 ).buffer(0)
             return self._cache_full_process_area
@@ -634,7 +634,7 @@ class MapcheteConfig(object):
             # use union of all input items and, if available, intersect with
             # init_bounds
             if "input" in self._params_at_zoom[zoom]:
-                input_union = cascaded_union(
+                input_union = unary_union(
                     [
                         self.input[get_hash(v)].bbox(self.process_pyramid.crs)
                         for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
@@ -1343,7 +1343,7 @@ def _guess_geometry(i, base_dir=None):
             geom = wkt.loads(i)
         else:
             with fiona.open(absolute_path(path=i, base_dir=base_dir)) as src:
-                geom = cascaded_union([shape(f["geometry"]) for f in src])
+                geom = unary_union([shape(f["geometry"]) for f in src])
                 crs = src.crs
     # GeoJSON mapping
     elif isinstance(i, dict):
