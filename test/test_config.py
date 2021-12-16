@@ -164,6 +164,14 @@ def test_effective_bounds(files_bounds, baselevels):
         )
 
 
+def test_area_and_bounds(cleantopo_br_tiledir, sample_geojson):
+    outside_bounds = (-1.7578125, 54.931640625, -1.73583984375, 54.95361328125)
+    with mapchete.open(
+        dict(cleantopo_br_tiledir.dict, area=sample_geojson), bounds=outside_bounds
+    ) as mp:
+        assert len(list(mp.get_process_tiles())) == 0
+
+
 def test_read_mapchete_input(mapchete_input):
     """Read Mapchete files as input files."""
     config = MapcheteConfig(mapchete_input.dict)

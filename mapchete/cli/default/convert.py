@@ -34,7 +34,7 @@ def _validate_bidx(ctx, param, bidx):
 @click.option(
     "--clip-geometry",
     "-c",
-    type=click.Path(exists=True),
+    type=click.Path(),
     help="Clip output by geometry.",
 )
 @click.option("--bidx", callback=_validate_bidx, help="Band indexes to copy.")

@@ -172,6 +172,12 @@ def aoi_br_geojson():
 
 
 @pytest.fixture
+def sample_geojson():
+    """Fixture for sample.geojson"""
+    return os.path.join(TESTDATA_DIR, "sample.geojson")
+
+
+@pytest.fixture
 def geometrycollection():
     """Fixture for geometrycollection.geojson"""
     return wkt.loads(
