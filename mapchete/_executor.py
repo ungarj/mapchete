@@ -119,7 +119,6 @@ class _ExecutorBase:
             self.running_futures = set()
 
     def _finished_futures(self):
-        logger.debug("%s running futures", len(self.running_futures))
         for future in [f for f in self.running_futures if f.done()]:
             yield future
 
