@@ -210,7 +210,7 @@ def _output_tiles_batches_exist(output_tiles_batches, config):
             rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
             logger.debug("rowpath: %s", rowpath)
             try:
-                for path in config.output_reader.fs.ls(rowpath):
+                for path in config.output_reader.fs.ls(rowpath, detail=False):
                     path = _crop_path(path)
                     if path in output_paths:
                         existing_tiles.add(output_paths[path])
@@ -244,7 +244,7 @@ def _process_tiles_batches_exist(process_tiles_batches, config):
                 rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
                 logger.debug("rowpath: %s", rowpath)
                 try:
-                    for path in config.output_reader.fs.ls(rowpath):
+                    for path in config.output_reader.fs.ls(rowpath, detail=False):
                         path = _crop_path(path)
                         if path in output_paths:
                             existing_tiles.add(output_paths[path])
