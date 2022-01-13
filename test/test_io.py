@@ -1039,7 +1039,8 @@ def test_tile_to_zoom_level():
 
     # geodetic from mercator
     # at Northern boundary
-    assert tile_to_zoom_level(tp_geod.tile(zoom, 0, col), tp_merc) == 2
+    # NOTE: using a newer proj version (8.2.0) will yield different results
+    assert tile_to_zoom_level(tp_geod.tile(zoom, 0, col), tp_merc) in [0, 2]
     with pytest.raises(TopologicalError):
         tile_to_zoom_level(tp_geod.tile(zoom, 0, col), tp_merc, matching_method="min")
     # at Equator
@@ -1058,12 +1059,10 @@ def test_tile_to_zoom_level():
         == 10
     )
     # at Southern boundary
-    assert (
-        tile_to_zoom_level(
-            tp_geod.tile(zoom, tp_geod.matrix_height(zoom) - 1, col), tp_merc
-        )
-        == 2
-    )
+    # NOTE: using a newer proj version (8.2.0) will yield different results
+    assert tile_to_zoom_level(
+        tp_geod.tile(zoom, tp_geod.matrix_height(zoom) - 1, col), tp_merc
+    ) in [0, 2]
     with pytest.raises(TopologicalError):
         tile_to_zoom_level(
             tp_geod.tile(zoom, tp_geod.matrix_height(zoom) - 1, col),
