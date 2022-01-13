@@ -130,7 +130,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
         if matching_method == "gdal":
             # use rasterio/GDAL method to calculate default warp target properties
             # enabling CHECK_WITH_INVERT_PROJ fixes #269, otherwise this function would
-            # return a non-optimal zooom level for reprojection
+            # return a non-optimal zoom level for reprojection
             with rasterio.Env(CHECK_WITH_INVERT_PROJ=True):
                 transform, width, height = calculate_default_transform(
                     tile.tp.crs, dst_pyramid.crs, tile.width, tile.height, *tile.bounds
