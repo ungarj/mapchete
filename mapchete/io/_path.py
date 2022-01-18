@@ -6,6 +6,8 @@ import os
 
 import fsspec
 
+from mapchete._executor import Executor
+
 logger = logging.getLogger(__name__)
 
 
@@ -194,18 +196,68 @@ def _crop_path(path, elements=-3):
 
 
 def _output_tiles_batches_exist(output_tiles_batches, config):
-    for batch in output_tiles_batches:
-        tiles = list(batch)
-        if tiles:
-            zoom = tiles[0].zoom
-            # determine output paths
-            output_paths = {
-                _crop_path(config.output_reader.get_path(output_tile)): output_tile
-                for output_tile in tiles
-            }
-            # iterate through output tile rows and determine existing output tiles
-            existing_tiles = set()
-            row = tiles[0].row
+    with Executor(concurrency="threads") as executor:
+        for batch in executor.as_completed(
+            _output_tiles_batch_exists,
+            (list(b) for b in output_tiles_batches),
+            fargs=(config,),
+        ):
+            yield from batch.result()
+
+
+def _output_tiles_batch_exists(tiles, config):
+    if tiles:
+        zoom = tiles[0].zoom
+        # determine output paths
+        output_paths = {
+            _crop_path(config.output_reader.get_path(output_tile)): output_tile
+            for output_tile in tiles
+        }
+        # iterate through output tile rows and determine existing output tiles
+        existing_tiles = set()
+        row = tiles[0].row
+        logger.debug("check existing tiles in row %s", row)
+        rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
+        logger.debug("rowpath: %s", rowpath)
+        try:
+            for path in config.output_reader.fs.ls(rowpath, detail=False):
+                path = _crop_path(path)
+                if path in output_paths:
+                    existing_tiles.add(output_paths[path])
+        # this happens when the row directory does not even exist
+        except FileNotFoundError:
+            pass
+        for tile in tiles:
+            exists = tile in existing_tiles
+            yield tile, exists
+
+
+def _process_tiles_batches_exist(process_tiles_batches, config):
+    with Executor(concurrency="threads") as executor:
+        for batch in executor.as_completed(
+            _process_tiles_batch_exists,
+            (list(b) for b in process_tiles_batches),
+            fargs=(config,),
+        ):
+            yield from batch.result()
+
+
+def _process_tiles_batch_exists(tiles, config):
+    if tiles:
+        zoom = tiles[0].zoom
+        # determine output tile rows
+        output_rows = sorted(
+            list(set(t.row for t in config.output_pyramid.intersecting(tiles[0])))
+        )
+        # determine output paths
+        output_paths = {
+            _crop_path(config.output_reader.get_path(output_tile)): process_tile
+            for process_tile in tiles
+            for output_tile in config.output_pyramid.intersecting(process_tile)
+        }
+        # iterate through output tile rows and determine existing process tiles
+        existing_tiles = set()
+        for row in output_rows:
             logger.debug("check existing tiles in row %s", row)
             rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
             logger.debug("rowpath: %s", rowpath)
@@ -217,43 +269,9 @@ def _output_tiles_batches_exist(output_tiles_batches, config):
             # this happens when the row directory does not even exist
             except FileNotFoundError:
                 pass
-            for tile in tiles:
-                exists = tile in existing_tiles
-                yield tile, exists
-
-
-def _process_tiles_batches_exist(process_tiles_batches, config):
-    for batch in process_tiles_batches:
-        tiles = list(batch)
-        if tiles:
-            zoom = tiles[0].zoom
-            # determine output tile rows
-            output_rows = sorted(
-                list(set(t.row for t in config.output_pyramid.intersecting(tiles[0])))
-            )
-            # determine output paths
-            output_paths = {
-                _crop_path(config.output_reader.get_path(output_tile)): process_tile
-                for process_tile in tiles
-                for output_tile in config.output_pyramid.intersecting(process_tile)
-            }
-            # iterate through output tile rows and determine existing process tiles
-            existing_tiles = set()
-            for row in output_rows:
-                logger.debug("check existing tiles in row %s", row)
-                rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
-                logger.debug("rowpath: %s", rowpath)
-                try:
-                    for path in config.output_reader.fs.ls(rowpath, detail=False):
-                        path = _crop_path(path)
-                        if path in output_paths:
-                            existing_tiles.add(output_paths[path])
-                # this happens when the row directory does not even exist
-                except FileNotFoundError:
-                    pass
-            for tile in tiles:
-                exists = tile in existing_tiles
-                yield tile, exists
+        for tile in tiles:
+            exists = tile in existing_tiles
+            yield tile, exists
 
 
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):

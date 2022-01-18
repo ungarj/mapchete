@@ -11,10 +11,10 @@ import warnings
 
 from cached_property import cached_property
 
-from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.log import set_log_level
 from mapchete._timer import Timer
 
+MULTIPROCESSING_DEFAULT_START_METHOD = "spawn"
 
 logger = logging.getLogger(__name__)
 
