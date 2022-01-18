@@ -11,6 +11,7 @@ from fiona.errors import DriverError
 import os
 from rasterio.crs import CRS
 from rasterio.enums import Compression
+from shapely import wkt
 from shapely.errors import TopologicalError
 from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString
 from shapely.ops import unary_union
@@ -838,6 +839,8 @@ def test_reproject_geometry(landpoly):
             )
             assert out_geom.is_valid
 
+
+def test_reproject_geometry_latlon2mercator():
     # WGS84 bounds to Spherical Mercator
     big_box = box(-180, -90, 180, 90)
     reproject_geometry(big_box, CRS().from_epsg(4326), CRS().from_epsg(3857))
@@ -854,6 +857,8 @@ def test_reproject_geometry(landpoly):
         CRS().from_epsg(3857),
     ).is_valid
 
+
+def test_reproject_geometry_empty_geom():
     # empty geometry
     assert reproject_geometry(
         Polygon(), CRS().from_epsg(4326), CRS().from_epsg(3857)
@@ -862,6 +867,8 @@ def test_reproject_geometry(landpoly):
         Polygon(), CRS().from_epsg(4326), CRS().from_epsg(4326)
     ).is_empty
 
+
+def test_reproject_geometry_latlon2mercator_epsg():
     # CRS parameter
     big_box = box(-180, -90, 180, 90)
     assert reproject_geometry(big_box, 4326, 3857) == reproject_geometry(
@@ -869,6 +876,36 @@ def test_reproject_geometry(landpoly):
     )
     with pytest.raises(TypeError):
         reproject_geometry(big_box, 1.0, 1.0)
+
+
+def test_reproject_geometry_clip_crs_bounds():
+    bbox = wkt.loads(
+        "Polygon ((6.05416952699480682 49.79497943046440867, 6.04100166381764581 50.01055350300158864, 5.70657677854139056 50.00153486687963778, 5.72122668311700089 49.78602894452072292, 6.05416952699480682 49.79497943046440867))"
+    )
+    # dst_crs = "EPSG:32633"
+    dst_crs = "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs"
+
+    # reproject to UTM
+    bbox_utm = reproject_geometry(bbox, 4326, dst_crs, clip_to_crs_bounds=True)
+    assert bbox_utm.is_valid
+    assert bbox_utm.area
+
+    # revert to WGS84 and test geometry clipping
+    bbox_wgs84 = reproject_geometry(bbox_utm, dst_crs, 4326)
+    assert bbox_wgs84.area < bbox.area
+
+    # reproject to UTM
+    bbox_utm = reproject_geometry(bbox, 4326, dst_crs, clip_to_crs_bounds=False)
+    assert bbox_utm.is_valid
+    assert bbox_utm.area
+    # make sure geometry was not clipped
+    bbox_wgs84 = reproject_geometry(bbox_utm, dst_crs, 4326)
+    assert bbox_wgs84.intersects(bbox)
+    assert (
+        bbox_wgs84.intersection(bbox).area
+        == pytest.approx(bbox_wgs84.area)
+        == pytest.approx(bbox.area)
+    )
 
 
 def test_repair_geometry():
