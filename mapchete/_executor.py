@@ -210,7 +210,7 @@ class DaskExecutor(_ExecutorBase):
         self.running_futures = set()
         self._executor_client = dask_client
         if self._executor_client:  # pragma: no cover
-            logger.debug("using existing dask client: %s", dask_client)
+            logger.info("using existing dask client: %s", dask_client)
         else:
             local_cluster_kwargs = dict(
                 n_workers=max_workers or os.cpu_count(), threads_per_worker=1
@@ -219,7 +219,7 @@ class DaskExecutor(_ExecutorBase):
             self._executor_kwargs = dict(
                 address=dask_scheduler or LocalCluster(**local_cluster_kwargs),
             )
-            logger.debug(
+            logger.info(
                 "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
 

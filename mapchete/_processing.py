@@ -453,7 +453,7 @@ def _preprocess(
     )
     try:
         with Timer() as duration:
-            logger.debug(
+            logger.info(
                 "run preprocessing on %s tasks using %s workers", len(tasks), workers
             )
 
@@ -496,7 +496,7 @@ def _run_on_single_tile(
     tile=None,
     dask_scheduler=None,
 ):
-    logger.debug("run process on single tile")
+    logger.info("run process on single tile")
     create_executor = executor is None
     executor = executor or Executor(
         concurrency="dask" if dask_scheduler else None,
@@ -536,7 +536,7 @@ def _run_area(
     multiprocessing_start_method=None,
     skip_output_check=False,
 ):
-    logger.debug("run process on area")
+    logger.info("run process on area")
     zoom_levels.sort(reverse=True)
 
     # for output drivers requiring writing data in parent process
@@ -629,7 +629,7 @@ def _run_multi(
 
     try:
         with Timer() as duration:
-            logger.debug(
+            logger.info(
                 "run process on %s tiles using %s workers", total_tiles, workers
             )
 

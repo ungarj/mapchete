@@ -289,7 +289,7 @@ class MapcheteConfig(object):
             area_crs=area_crs,
             bounds_crs=bounds_crs,
         )
-        logger.debug(f"process area: {self.area}")
+        logger.info(f"process area: {self.area}")
         self.bounds = Bounds(*self.area.bounds)
         logger.debug(f"process bounds: {self.bounds}")
         self.init_area = self._get_process_area(
@@ -300,7 +300,7 @@ class MapcheteConfig(object):
             area_crs=area_crs,
             bounds_crs=bounds_crs,
         )
-        logger.debug(f"init area: {self.init_area}")
+        logger.info(f"init area: {self.init_area}")
         self.init_bounds = Bounds(*self.init_area.bounds)
         logger.debug(f"init bounds: {self.init_bounds}")
 
@@ -313,13 +313,13 @@ class MapcheteConfig(object):
         )
 
         # (8) initialize output
-        logger.debug("initializing output")
+        logger.info("initializing output")
         self.output
 
         # (9) initialize input items
         # depending on the inputs this action takes the longest and is done
         # in the end to let all other actions fail earlier if necessary
-        logger.debug("initializing input")
+        logger.info("initializing input")
         self.input
 
         # (10) some output drivers such as the GeoTIFF single file driver also needs the
