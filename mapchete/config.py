@@ -44,6 +44,7 @@ from mapchete.errors import (
     MapcheteDriverError,
     GeometryTypeError,
 )
+from mapchete._executor import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.formats import (
     load_output_reader,
     load_output_writer,
@@ -95,8 +96,6 @@ _OUTPUT_PARAMETERS = [
     "mode",
     "stac",
 ]
-
-MULTIPROCESSING_DEFAULT_START_METHOD = "spawn"
 
 
 class MapcheteConfig(object):
