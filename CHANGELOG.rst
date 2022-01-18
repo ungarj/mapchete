@@ -2,6 +2,18 @@
 Changelog
 #########
 
+---------------------
+2022.1.0 - 2022-01-18
+---------------------
+
+* core
+  * fix #404: log useful information on info
+  * replace ``cascacded_union()`` with ``unary_union()`` to handle Shapely warning
+  * fix ``fsspec.ls`` call
+  * make geometry clip to CRS bounds in ``reproject_geometry()`` optional
+  * add thread concurrency for rows in ``tiles_exist``
+
+
 ----------------------
 2021.12.3 - 2021-12-16
 ----------------------
