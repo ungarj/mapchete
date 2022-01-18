@@ -889,13 +889,27 @@ def test_reproject_geometry_clip_crs_bounds():
     bbox_utm = reproject_geometry(bbox, 4326, dst_crs, clip_to_crs_bounds=True)
     assert bbox_utm.is_valid
     assert bbox_utm.area
-
     # revert to WGS84 and test geometry clipping
     bbox_wgs84 = reproject_geometry(bbox_utm, dst_crs, 4326)
     assert bbox_wgs84.area < bbox.area
 
-    # reproject to UTM
+    # reproject to UTM but don't clip
     bbox_utm = reproject_geometry(bbox, 4326, dst_crs, clip_to_crs_bounds=False)
+    assert bbox_utm.is_valid
+    assert bbox_utm.area
+    # make sure geometry was not clipped
+    bbox_wgs84 = reproject_geometry(bbox_utm, dst_crs, 4326)
+    assert bbox_wgs84.intersects(bbox)
+    assert (
+        bbox_wgs84.intersection(bbox).area
+        == pytest.approx(bbox_wgs84.area)
+        == pytest.approx(bbox.area)
+    )
+
+    # reproject to UTM don't clip but segmentize
+    bbox_utm = reproject_geometry(
+        bbox, 4326, dst_crs, clip_to_crs_bounds=False, segmentize=True
+    )
     assert bbox_utm.is_valid
     assert bbox_utm.area
     # make sure geometry was not clipped
