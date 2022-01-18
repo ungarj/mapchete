@@ -35,8 +35,10 @@ def reproject_geometry(
     geometry,
     src_crs=None,
     dst_crs=None,
+    clip_to_crs_bounds=True,
     error_on_clip=False,
     segmentize_on_clip=False,
+    segmentize=False,
     segmentize_fraction=100,
     validity_check=True,
     antimeridian_cutting=False,
@@ -85,13 +87,19 @@ def reproject_geometry(
             )
             return _repair(out_geom) if validity_check else out_geom
 
+    def _segmentize_value(geometry, segmentize_fraction):
+        height = geometry.bounds[3] - geometry.bounds[1]
+        width = geometry.bounds[2] - geometry.bounds[0]
+        return min([height, width]) / segmentize_fraction
+
     # return repaired geometry if no reprojection needed
     if src_crs == dst_crs or geometry.is_empty:
         return _repair(geometry)
 
     # geometry needs to be clipped to its CRS bounds
     elif (
-        dst_crs.is_epsg_code
+        clip_to_crs_bounds
+        and dst_crs.is_epsg_code
         and dst_crs.get("init")
         != "epsg:4326"  # and is not WGS84 (does not need clipping)
         and (
@@ -116,18 +124,26 @@ def reproject_geometry(
 
         # segmentize clipped geometry using one 100th of with or height depending on
         # which is shorter
-        if segmentize_on_clip:
-            height = clipped.bounds[3] - clipped.bounds[1]
-            width = clipped.bounds[2] - clipped.bounds[0]
-            segmentize_value = min([height, width]) / segmentize_fraction
-            clipped = segmentize_geometry(clipped, segmentize_value)
+        if segmentize_on_clip or segmentize:
+            clipped = segmentize_geometry(
+                clipped, _segmentize_value(clipped, segmentize_fraction)
+            )
 
         # clip geometry dst_crs boundaries and return
         return _reproject_geom(clipped, wgs84_crs, dst_crs)
 
     # return without clipping if destination CRS does not have defined bounds
     else:
-        return _reproject_geom(geometry, src_crs, dst_crs)
+        if segmentize:
+            return _reproject_geom(
+                segmentize_geometry(
+                    geometry, _segmentize_value(geometry, segmentize_fraction)
+                ),
+                src_crs,
+                dst_crs,
+            )
+        else:
+            return _reproject_geom(geometry, src_crs, dst_crs)
 
 
 def _repair(geom):
