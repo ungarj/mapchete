@@ -198,13 +198,14 @@ def _crop_path(path, elements=-3):
 def _output_tiles_batches_exist(output_tiles_batches, config):
     with Executor(concurrency="threads") as executor:
         for batch in executor.as_completed(
-            _output_tiles_batch_exists, output_tiles_batches, fargs=(config,)
+            _output_tiles_batch_exists,
+            (list(b) for b in output_tiles_batches),
+            fargs=(config,),
         ):
             yield from batch.result()
 
 
-def _output_tiles_batch_exists(batch, config):
-    tiles = list(batch)
+def _output_tiles_batch_exists(tiles, config):
     if tiles:
         zoom = tiles[0].zoom
         # determine output paths
@@ -234,13 +235,14 @@ def _output_tiles_batch_exists(batch, config):
 def _process_tiles_batches_exist(process_tiles_batches, config):
     with Executor(concurrency="threads") as executor:
         for batch in executor.as_completed(
-            _process_tiles_batch_exists, process_tiles_batches, fargs=(config,)
+            _process_tiles_batch_exists,
+            (list(b) for b in process_tiles_batches),
+            fargs=(config,),
         ):
             yield from batch.result()
 
 
-def _process_tiles_batch_exists(batch, config):
-    tiles = list(batch)
+def _process_tiles_batch_exists(tiles, config):
     if tiles:
         zoom = tiles[0].zoom
         # determine output tile rows
