@@ -227,9 +227,9 @@ def _output_tiles_batch_exists(tiles, config):
         # this happens when the row directory does not even exist
         except FileNotFoundError:
             pass
-        for tile in tiles:
-            exists = tile in existing_tiles
-            yield tile, exists
+        return [(tile, tile in existing_tiles) for tile in tiles]
+    else:  # pragma: no cover
+        return []
 
 
 def _process_tiles_batches_exist(process_tiles_batches, config):
@@ -269,9 +269,9 @@ def _process_tiles_batch_exists(tiles, config):
             # this happens when the row directory does not even exist
             except FileNotFoundError:
                 pass
-        for tile in tiles:
-            exists = tile in existing_tiles
-            yield tile, exists
+        return [(tile, tile in existing_tiles) for tile in tiles]
+    else:  # pragma: no cover
+        return []
 
 
 def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):

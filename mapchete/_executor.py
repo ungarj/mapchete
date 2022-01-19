@@ -52,11 +52,16 @@ class _ExecutorBase:
 
     cancelled = False
     running_futures = None
+    finished_futures = None
     _as_completed = None
     _executor = None
     _executor_cls = None
     _executor_args = ()
     _executor_kwargs = {}
+
+    def __init__(self, *args, **kwargs):
+        self.running_futures = set()
+        self.finished_futures = set()
 
     def as_completed(
         self,
@@ -73,7 +78,7 @@ class _ExecutorBase:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
             logger.debug("submitting tasks to executor")
-
+            i = 0
             with Timer() as timer:
                 for i, item in enumerate(iterable, 1):
                     if self.cancelled:  # pragma: no cover
@@ -88,13 +93,14 @@ class _ExecutorBase:
                             continue
 
                     # submit task to workers
-                    self.running_futures.add(
-                        self._executor.submit(func, *[item, *fargs], **fkwargs)
-                    )
+                    self._submit(func, *[item, *fargs], **fkwargs)
 
                     # yield finished tasks if any
-                    ready = list(self._finished_futures())
+                    ready = self._ready()
                     if ready:
+                        logger.debug(
+                            "%s finished futures ready for yielding", len(ready)
+                        )
                         for future in ready:
                             yield self._finished_future(future)
 
@@ -102,11 +108,17 @@ class _ExecutorBase:
                     if max_submitted_tasks and (
                         len(self.running_futures) >= max_submitted_tasks
                     ):
+                        logger.debug("wait for next finished task")
                         yield self._finished_future(
                             next(self._as_completed(self.running_futures))
                         )
 
-            logger.debug("%s tasks submitted in %s", len(self.running_futures), timer)
+            logger.debug(
+                "%s tasks submitted in %s (%s still running)",
+                i,
+                timer,
+                len(self.running_futures),
+            )
 
             # yield remaining futures as they finish
             for future in self._as_completed(self.running_futures):
@@ -118,9 +130,18 @@ class _ExecutorBase:
             # reset so futures won't linger here for next call
             self.running_futures = set()
 
-    def _finished_futures(self):
-        for future in [f for f in self.running_futures if f.done()]:
-            yield future
+    def _submit(self, func, *fargs, **fkwargs):
+        future = self._executor.submit(func, *fargs, **fkwargs)
+        logger.debug("submitted future %s", future)
+        self.running_futures.add(future)
+        future.add_done_callback(self._add_to_finished)
+
+    def _ready(self):
+        return list(self.finished_futures)
+
+    def _add_to_finished(self, future):
+        self.finished_futures.add(future)
+        logger.debug("%s finished (%s total)", future, len(self.finished_futures))
 
     def map(self, func, iterable, fargs=None, fkwargs=None):
         return self._map(func, iterable, fargs=fargs, fkwargs=fkwargs)
@@ -159,6 +180,10 @@ class _ExecutorBase:
         Release future from cluster explicitly and wrap result around FinishedFuture object.
         """
         self.running_futures.remove(future)
+        try:
+            self.finished_futures.remove(future)
+        except KeyError:
+            pass
         if future.exception():  # pragma: no cover
             logger.debug("exception caught in future %s", future)
             raise future.exception()
@@ -207,7 +232,6 @@ class DaskExecutor(_ExecutorBase):
     ):
         from dask.distributed import Client, LocalCluster
 
-        self.running_futures = set()
         self._executor_client = dask_client
         if self._executor_client:  # pragma: no cover
             logger.info("using existing dask client: %s", dask_client)
@@ -222,6 +246,7 @@ class DaskExecutor(_ExecutorBase):
             logger.info(
                 "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
+        super().__init__(*args, **kwargs)
 
     def _map(self, func, iterable, fargs=None, fkwargs=None):
         fargs = fargs or []
@@ -425,7 +450,6 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
             multiprocessing_start_method or MULTIPROCESSING_DEFAULT_START_METHOD
         )
         self.max_workers = max_workers or os.cpu_count()
-        self.running_futures = set()
         self._executor_kwargs = dict(
             max_workers=self.max_workers,
         )
@@ -463,6 +487,7 @@ class ConcurrentFuturesExecutor(_ExecutorBase):
             concurrency,
             self.max_workers,
         )
+        super().__init__(*args, **kwargs)
 
     def _wait(self):
         concurrent.futures.wait(self.running_futures)
@@ -484,7 +509,7 @@ class SequentialExecutor(_ExecutorBase):
     def __init__(self, *args, **kwargs):
         """Set attributes."""
         logger.debug("init SequentialExecutor")
-        self.running_futures = set()
+        super().__init__(*args, **kwargs)
 
     def as_completed(
         self, func, iterable, fargs=None, fkwargs=None, item_skip_bool=False, **kwargs
