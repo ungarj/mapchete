@@ -95,7 +95,6 @@ def reproject_geometry(
     # return repaired geometry if no reprojection needed
     if src_crs == dst_crs or geometry.is_empty:
         return _repair(geometry)
-
     # geometry needs to be clipped to its CRS bounds
     elif (
         clip_to_crs_bounds

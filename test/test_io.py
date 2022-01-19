@@ -878,12 +878,11 @@ def test_reproject_geometry_latlon2mercator_epsg():
         reproject_geometry(big_box, 1.0, 1.0)
 
 
-def test_reproject_geometry_clip_crs_bounds():
+def test_reproject_geometry_clip_crs_bounds_epsg():
     bbox = wkt.loads(
         "Polygon ((6.05416952699480682 49.79497943046440867, 6.04100166381764581 50.01055350300158864, 5.70657677854139056 50.00153486687963778, 5.72122668311700089 49.78602894452072292, 6.05416952699480682 49.79497943046440867))"
     )
-    # dst_crs = "EPSG:32633"
-    dst_crs = "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs"
+    dst_crs = "EPSG:32632"
 
     # reproject to UTM
     bbox_utm = reproject_geometry(bbox, 4326, dst_crs, clip_to_crs_bounds=True)
@@ -892,6 +891,50 @@ def test_reproject_geometry_clip_crs_bounds():
     # revert to WGS84 and test geometry clipping
     bbox_wgs84 = reproject_geometry(bbox_utm, dst_crs, 4326)
     assert bbox_wgs84.area < bbox.area
+
+    # reproject to UTM but don't clip
+    bbox_utm = reproject_geometry(bbox, 4326, dst_crs, clip_to_crs_bounds=False)
+    assert bbox_utm.is_valid
+    assert bbox_utm.area
+    # make sure geometry was not clipped
+    bbox_wgs84 = reproject_geometry(bbox_utm, dst_crs, 4326)
+    assert bbox_wgs84.intersects(bbox)
+    assert (
+        bbox_wgs84.intersection(bbox).area
+        == pytest.approx(bbox_wgs84.area)
+        == pytest.approx(bbox.area)
+    )
+
+    # reproject to UTM don't clip but segmentize
+    bbox_utm = reproject_geometry(
+        bbox, 4326, dst_crs, clip_to_crs_bounds=False, segmentize=True
+    )
+    assert bbox_utm.is_valid
+    assert bbox_utm.area
+    # make sure geometry was not clipped
+    bbox_wgs84 = reproject_geometry(bbox_utm, dst_crs, 4326)
+    assert bbox_wgs84.intersects(bbox)
+    assert (
+        bbox_wgs84.intersection(bbox).area
+        == pytest.approx(bbox_wgs84.area)
+        == pytest.approx(bbox.area)
+    )
+
+
+def test_reproject_geometry_clip_crs_bounds_proj():
+    bbox = wkt.loads(
+        "Polygon ((6.05416952699480682 49.79497943046440867, 6.04100166381764581 50.01055350300158864, 5.70657677854139056 50.00153486687963778, 5.72122668311700089 49.78602894452072292, 6.05416952699480682 49.79497943046440867))"
+    )
+    dst_crs = "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs"
+
+    # reproject to UTM
+    bbox_utm = reproject_geometry(bbox, 4326, dst_crs, clip_to_crs_bounds=True)
+    assert bbox_utm.is_valid
+    assert bbox_utm.area
+    # revert to WGS84 and test geometry clipping
+    bbox_wgs84 = reproject_geometry(bbox_utm, dst_crs, 4326)
+    # NOTE: on some proj versions (TBD), pyproj cannot detect the CRS bounds of a CRS passed on by a proj string
+    # assert bbox_wgs84.area < bbox.area
 
     # reproject to UTM but don't clip
     bbox_utm = reproject_geometry(bbox, 4326, dst_crs, clip_to_crs_bounds=False)
