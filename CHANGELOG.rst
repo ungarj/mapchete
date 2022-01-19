@@ -3,6 +3,17 @@ Changelog
 #########
 
 ---------------------
+2022.1.1 - 2022-01-19
+---------------------
+
+* core
+  * fix ``ConcurrentFuturesExecutor.as_completed()`` when waiting for finished futures
+
+* testing
+  * split up ``reproject_geometry`` tests for CRS bounds clipping
+
+
+---------------------
 2022.1.0 - 2022-01-18
 ---------------------
 
