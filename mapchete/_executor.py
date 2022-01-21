@@ -98,9 +98,6 @@ class _ExecutorBase:
                     # yield finished tasks if any
                     ready = self._ready()
                     if ready:
-                        logger.debug(
-                            "%s finished futures ready for yielding", len(ready)
-                        )
                         for future in ready:
                             yield self._finished_future(future)
 
@@ -108,7 +105,6 @@ class _ExecutorBase:
                     if max_submitted_tasks and (
                         len(self.running_futures) >= max_submitted_tasks
                     ):
-                        logger.debug("wait for next finished task")
                         yield self._finished_future(
                             next(self._as_completed(self.running_futures))
                         )
@@ -132,7 +128,6 @@ class _ExecutorBase:
 
     def _submit(self, func, *fargs, **fkwargs):
         future = self._executor.submit(func, *fargs, **fkwargs)
-        logger.debug("submitted future %s", future)
         self.running_futures.add(future)
         future.add_done_callback(self._add_to_finished)
 
@@ -141,7 +136,6 @@ class _ExecutorBase:
 
     def _add_to_finished(self, future):
         self.finished_futures.add(future)
-        logger.debug("%s finished (%s total)", future, len(self.finished_futures))
 
     def map(self, func, iterable, fargs=None, fkwargs=None):
         return self._map(func, iterable, fargs=fargs, fkwargs=fkwargs)
@@ -185,8 +179,11 @@ class _ExecutorBase:
         except KeyError:
             pass
         if future.exception():  # pragma: no cover
-            logger.debug("exception caught in future %s", future)
+            logger.error("exception caught in future %s", future)
             raise future.exception()
+        elif isinstance(future.result(), Exception):  # pragma: no cover
+            logger.error("exception %s found in future.result()", future.result())
+            raise future.result()
         # create minimal Future-like object with no references to the cluster
         finished_future = FinishedFuture(future, result=result)
         # explicitly release future
@@ -316,7 +313,9 @@ class DaskExecutor(_ExecutorBase):
         try:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
-            ac_iterator = as_completed(loop=self._executor.loop, with_results=True)
+            ac_iterator = as_completed(
+                loop=self._executor.loop, with_results=True, raise_errors=True
+            )
 
             chunk = []
             for item in iterable:
@@ -368,7 +367,6 @@ class DaskExecutor(_ExecutorBase):
                         "wait for finished tasks: %s", max_submitted_tasks_reached
                     )
                     batch = ac_iterator.next_batch(block=max_submitted_tasks_reached)
-                    logger.debug("%s tasks ready for yielding", len(batch))
                     for future, result in batch:
                         try:
                             yield self._finished_future(future, result)
@@ -405,6 +403,7 @@ class DaskExecutor(_ExecutorBase):
             self.running_futures = set()
 
         if cancelled_exc is not None and raise_cancelled:  # pragma: no cover
+            logger.error("raise final CancelledError")
             raise cancelled_exc
 
     def _submit_chunk(

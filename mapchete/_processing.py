@@ -695,7 +695,6 @@ def _run_multi(
                         # output already has been written, so just use task process info
                         else:
                             process_info = future.result()
-
                             # in case of building overviews from baselevels, remember which parent
                             # tile needs to be updated later on
                             if (
@@ -705,7 +704,6 @@ def _run_multi(
                                 and process_info.tile.zoom > 0
                             ):
                                 overview_parents.add(process_info.tile.get_parent())
-
                     num_processed += 1
                     logger.debug(
                         "tile %s/%s finished: %s, %s, %s",
