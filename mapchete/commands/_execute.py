@@ -128,14 +128,16 @@ def execute(
         )
 
     # be careful opening mapchete not as context manager
-    mp = mapchete.open(
-        mapchete_config,
-        mode=mode,
-        bounds=bounds,
-        zoom=zoom,
-        area=area,
-        area_crs=area_crs,
-    )
+    with mapchete.Timer() as t:
+        mp = mapchete.open(
+            mapchete_config,
+            mode=mode,
+            bounds=bounds,
+            zoom=zoom,
+            area=area,
+            area_crs=area_crs,
+        )
+    logger.debug("initialized process in %s", t)
     try:
         preprocessing_tasks = mp.config.preprocessing_tasks_count()
         tiles_tasks = 1 if tile else mp.count_tiles()
