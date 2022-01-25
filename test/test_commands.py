@@ -112,6 +112,7 @@ def test_execute_set_executor(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br
     next(iter(job))
     assert isinstance(job.executor, SequentialExecutor)
 
+    # make sure everything runs smoothly from here on
     for t in job:
         assert t
     assert len(tiles) == len(job)

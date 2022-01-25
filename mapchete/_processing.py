@@ -70,6 +70,22 @@ class Job:
             yield from self.func(*self.fargs, executor=self.executor, **self.fkwargs)
             self.status = "finished"
 
+    def set_executor_kwargs(self, executor_kwargs):
+        """
+        Overwrite default or previously set Executor creation kwargs.
+
+        This only has an effect if Job was initialized with 'as_iterator' and has not yet run.
+        """
+        self.executor_kwargs = executor_kwargs
+
+    def set_executor_concurrency(self, executor_concurrency):
+        """
+        Overwrite default or previously set Executor concurrency.
+
+        This only has an effect if Job was initialized with 'as_iterator' and has not yet run.
+        """
+        self.executor_concurrency = executor_concurrency
+
     def cancel(self):
         """Cancel all running and pending Job tasks."""
         if self._as_iterator:
