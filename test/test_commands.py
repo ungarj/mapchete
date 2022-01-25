@@ -50,6 +50,7 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     assert len(tiles)
 
 
+@pytest.mark.remote
 def test_cp_http(mp_tmpdir, http_tiledir):
     # copy tiles and subset by bounds
     tiles = cp(
@@ -80,6 +81,24 @@ def test_execute(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
     tp = TilePyramid("geodetic")
     tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
     job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom)
+    for t in job:
+        assert t
+    assert len(tiles) == len(job)
+    mp = cleantopo_br_metatiling_1.mp()
+    for t in tiles:
+        with rasterio.open(mp.config.output.get_path(t)) as src:
+            assert not src.read(masked=True).mask.all()
+
+
+def test_execute_set_executor(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
+    zoom = 5
+    tp = TilePyramid("geodetic")
+    tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
+    job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom, as_iterator=True)
+    job.set_executor_concurrency("invalid")
+    with pytest.raises(ValueError):
+        next(iter(job))
+    job.set_executor_concurrency("processes")
     for t in job:
         assert t
     assert len(tiles) == len(job)
@@ -241,6 +260,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         assert src.overviews(1)
 
 
+@pytest.mark.remote
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
