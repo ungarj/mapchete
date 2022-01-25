@@ -708,6 +708,9 @@ class Mapchete(object):
             self.current_processes = None
             self.process_lock = None
 
+    def __repr__(self):  # pragma: no cover
+        return f"Mapchete <process_name={self.process_name}>"
+
 
 def _get_zoom_level(zoom, process):
     """Determine zoom levels."""
