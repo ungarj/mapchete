@@ -10,6 +10,7 @@ import warnings
 
 import mapchete
 from mapchete.commands import convert, cp, execute, index, rm
+from mapchete._executor import SequentialExecutor, ConcurrentFuturesExecutor
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -95,10 +96,22 @@ def test_execute_set_executor(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br
     tp = TilePyramid("geodetic")
     tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
     job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom, as_iterator=True)
+
+    # invalid concurrency
     job.set_executor_concurrency("invalid")
     with pytest.raises(ValueError):
         next(iter(job))
+
+    # reset to concurrent.futures
     job.set_executor_concurrency("processes")
+    next(iter(job))
+    assert isinstance(job.executor, ConcurrentFuturesExecutor)
+
+    # with max_workers: 1 it should fall back to a sequential executor
+    job.set_executor_kwargs({"max_workers": 1})
+    next(iter(job))
+    assert isinstance(job.executor, SequentialExecutor)
+
     for t in job:
         assert t
     assert len(tiles) == len(job)
