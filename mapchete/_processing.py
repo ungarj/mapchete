@@ -12,7 +12,7 @@ from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import get_process_func
-from mapchete._executor import Executor, SkippedFuture
+from mapchete._executor import DaskExecutor, Executor, SkippedFuture
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
 from mapchete._timer import Timer
@@ -21,7 +21,11 @@ from mapchete.validate import deprecated_kwargs
 logger = logging.getLogger(__name__)
 
 
-ProcessInfo = namedtuple("ProcessInfo", "tile processed process_msg written write_msg")
+ProcessInfo = namedtuple(
+    "ProcessInfo",
+    "tile processed process_msg written write_msg data",
+    defaults=(None, None, None, None, None, None),
+)
 
 
 class Job:
@@ -115,7 +119,7 @@ class TileProcess:
     If skip is set to True, all attributes will be set to None.
     """
 
-    def __init__(self, tile=None, config=None, skip=False):
+    def __init__(self, tile=None, config=None, skip=False, dependencies=None):
         """Set attributes depending on baselevels or not."""
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
@@ -124,6 +128,7 @@ class TileProcess:
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
         self.process = None if skip else config.process
+        self.dependencies = dependencies or {}
         self.config_dir = None if skip else config.config_dir
         if (
             skip
@@ -230,24 +235,44 @@ class TileProcess:
                 )
             # resample from children tiles
             elif baselevel == "lower":
-                if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
-                    lower_tiles = set(
-                        y
-                        for y in chain(
-                            *[
-                                self.output_reader.pyramid.tiles_from_bounds(
-                                    x.bounds, x.zoom + 1
-                                )
-                                for x in output_tiles
-                            ]
+                src_tiles = {}
+                for process_tile, process_info in self.dependencies.items():
+                    for output_tile in self.output_reader.pyramid.intersecting(
+                        process_tile
+                    ):
+                        src_tiles[output_tile] = (
+                            raster.extract_from_array(
+                                in_raster=process_info.data,
+                                in_affine=process_tile.affine,
+                                out_tile=output_tile,
+                            )
+                            if process_info.data is not None
+                            else None
                         )
-                    )
+                if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
+                    for child_tile in chain(
+                        *[
+                            self.output_reader.pyramid.tiles_from_bounds(
+                                x.bounds, x.zoom + 1
+                            )
+                            for x in output_tiles
+                        ]
+                    ):
+                        if child_tile not in src_tiles:
+                            src_tiles[child_tile] = None
                 else:
-                    lower_tiles = list(chain(*[x.get_children() for x in output_tiles]))
+                    for output_tile in output_tiles:
+                        for child_tile in output_tile.get_children():
+                            if child_tile not in src_tiles:
+                                src_tiles[child_tile] = None
+
                 mosaic = raster.create_mosaic(
                     [
-                        (lower_tile, self.output_reader.read(lower_tile))
-                        for lower_tile in lower_tiles
+                        (
+                            src_tile,
+                            self.output_reader.read(src_tile) if data is None else data,
+                        )
+                        for src_tile, data in src_tiles.items()
                     ],
                     nodata=self.output_reader.output_params["nodata"],
                 )
@@ -642,38 +667,137 @@ def _run_multi(
     try:
         with Timer() as duration:
             logger.info(
-                "run process on %s tiles using %s workers", total_tiles, workers
+                "run process on %s tiles using %s workers on executor %s",
+                total_tiles,
+                workers,
+                executor,
             )
-            if process.config.baselevels:
-                f = _run_multi_overviews
+            if isinstance(executor, DaskExecutor):
+                for process_info in _run_task_graph(
+                    zoom_levels=zoom_levels,
+                    executor=executor,
+                    func=func,
+                    process=process,
+                    skip_output_check=skip_output_check,
+                    fkwargs=fkwargs,
+                    dask_chunksize=dask_chunksize,
+                    dask_max_submitted_tasks=dask_max_submitted_tasks,
+                    write_in_parent_process=write_in_parent_process,
+                ):
+                    num_processed += 1
+                    logger.debug(
+                        "tile %s/%s finished: %s, %s, %s",
+                        num_processed,
+                        total_tiles,
+                        process_info.tile,
+                        process_info.process_msg,
+                        process_info.write_msg,
+                    )
+                    yield process_info
             else:
-                f = _run_multi_no_overviews
-            for process_info in f(
-                zoom_levels=zoom_levels,
-                executor=executor,
-                func=func,
-                process=process,
-                skip_output_check=skip_output_check,
-                fkwargs=fkwargs,
-                dask_chunksize=dask_chunksize,
-                dask_max_submitted_tasks=dask_max_submitted_tasks,
-                write_in_parent_process=write_in_parent_process,
-            ):
-                num_processed += 1
-                logger.debug(
-                    "tile %s/%s finished: %s, %s, %s",
-                    num_processed,
-                    total_tiles,
-                    process_info.tile,
-                    process_info.process_msg,
-                    process_info.write_msg,
-                )
-                yield process_info
+                if process.config.baselevels:
+                    f = _run_multi_overviews
+                else:
+                    f = _run_multi_no_overviews
+                for process_info in f(
+                    zoom_levels=zoom_levels,
+                    executor=executor,
+                    func=func,
+                    process=process,
+                    skip_output_check=skip_output_check,
+                    fkwargs=fkwargs,
+                    dask_chunksize=dask_chunksize,
+                    dask_max_submitted_tasks=dask_max_submitted_tasks,
+                    write_in_parent_process=write_in_parent_process,
+                ):
+                    num_processed += 1
+                    logger.debug(
+                        "tile %s/%s finished: %s, %s, %s",
+                        num_processed,
+                        total_tiles,
+                        process_info.tile,
+                        process_info.process_msg,
+                        process_info.write_msg,
+                    )
+                    yield process_info
     finally:
         if create_executor:
             executor.close()
 
     logger.info("%s tile(s) iterated in %s", str(num_processed), duration)
+
+
+def _run_task_graph(
+    zoom_levels=None,
+    executor=None,
+    func=None,
+    process=None,
+    skip_output_check=None,
+    fkwargs=None,
+    dask_chunksize=None,
+    dask_max_submitted_tasks=None,
+    write_in_parent_process=None,
+):
+    from dask.delayed import delayed
+    from distributed import as_completed
+
+    if process.config.baselevels:
+        # first, baselevel tasks
+        tile_tasks = {}
+
+        with Timer() as t:
+            for zoom in zoom_levels:
+                for tile, skip, process_msg in _filter_skipable(
+                    process=process,
+                    tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                    target_set=None,
+                    skip_output_check=skip_output_check,
+                ):
+                    if zoom in process.config.baselevels["zooms"]:
+                        dependencies = {}
+                    else:
+                        dependencies = {
+                            child: tile_tasks.get(f"tile_process_{child.id}")
+                            for child in tile.get_children()
+                        }
+                    tile_tasks[f"tile_process_{tile.id}"] = delayed(func)(
+                        TileProcess(
+                            tile=tile,
+                            config=process.config,
+                            skip=(
+                                process.mode == "continue"
+                                and process.config.output_reader.tiles_exist(tile)
+                            )
+                            if skip_output_check
+                            else False,
+                        ),
+                        **fkwargs,
+                        dependencies=dependencies,
+                    )
+        logger.debug("%s tile tasks generated in %s", len(tile_tasks), t)
+
+        # send to scheduler
+        with Timer() as t:
+            futures = executor._executor.compute(
+                list(tile_tasks.values()), optimize_graph=True, traverse=True
+            )
+        logger.debug("sent to scheduler in %s", t)
+
+        for future in as_completed(futures):
+            futures.remove(future)
+            if write_in_parent_process:
+                output_data, process_info = future.result()
+                process_info = _write(
+                    process_info=process_info,
+                    output_data=output_data,
+                    output_writer=process.config.output,
+                )
+            # output already has been written, so just use task process info
+            else:
+                process_info = future.result()
+            yield process_info
+    else:
+        raise NotImplementedError()
 
 
 def _run_multi_overviews(
@@ -864,6 +988,11 @@ def _execute(tile_process=None, **_):
             output = tile_process.execute()
         except MapcheteNodataTile:  # pragma: no cover
             output = "empty"
+        except Exception as exc:
+            logger.exception(
+                "exception caught when processing tile %s", tile_process.tile
+            )
+            raise exc
     processor_message = "processed in %s" % duration
     logger.debug((tile_process.tile.id, processor_message))
     return output, ProcessInfo(
@@ -902,12 +1031,14 @@ def _write(process_info=None, output_data=None, output_writer=None, **_):
             process_msg=process_info.process_msg,
             written=True,
             write_msg=message,
+            data=output_data,
         )
 
     return process_info
 
 
-def _execute_and_write(tile_process=None, output_writer=None, **_):
+def _execute_and_write(tile_process=None, output_writer=None, dependencies=None, **_):
+    tile_process.dependencies = dependencies
     output_data, process_info = _execute(tile_process=tile_process)
     return _write(
         process_info=process_info, output_data=output_data, output_writer=output_writer
