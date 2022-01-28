@@ -145,6 +145,11 @@ class TileProcess:
             None if skip or not config.baselevels else config.output_reader
         )
 
+    def add_dependencies(self, dependencies):
+        if not isinstance(dependencies, dict):
+            raise TypeError("dependencies must be a dictionary")
+        self.dependencies = dependencies
+
     def execute(self):
         """
         Run the Mapchete process and return the result.
@@ -741,63 +746,62 @@ def _run_task_graph(
     from dask.delayed import delayed
     from distributed import as_completed
 
-    if process.config.baselevels:
-        # first, baselevel tasks
-        tile_tasks = {}
+    tile_tasks = {}
 
-        with Timer() as t:
-            for zoom in zoom_levels:
-                for tile, skip, process_msg in _filter_skipable(
-                    process=process,
-                    tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
-                    target_set=None,
-                    skip_output_check=skip_output_check,
+    with Timer() as t:
+        for zoom in zoom_levels:
+            for tile, skip, process_msg in _filter_skipable(
+                process=process,
+                tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                target_set=None,
+                skip_output_check=skip_output_check,
+            ):
+                if (
+                    process.config.baselevels
+                    and zoom in process.config.baselevels["zooms"]
                 ):
-                    if zoom in process.config.baselevels["zooms"]:
-                        dependencies = {}
-                    else:
-                        dependencies = {
-                            child: tile_tasks.get(f"tile_process_{child.id}")
-                            for child in tile.get_children()
-                        }
-                    tile_tasks[f"tile_process_{tile.id}"] = delayed(func)(
-                        TileProcess(
-                            tile=tile,
-                            config=process.config,
-                            skip=(
-                                process.mode == "continue"
-                                and process.config.output_reader.tiles_exist(tile)
-                            )
-                            if skip_output_check
-                            else False,
-                        ),
-                        **fkwargs,
-                        dependencies=dependencies,
-                    )
-        logger.debug("%s tile tasks generated in %s", len(tile_tasks), t)
-
-        # send to scheduler
-        with Timer() as t:
-            futures = executor._executor.compute(
-                list(tile_tasks.values()), optimize_graph=True, traverse=True
-            )
-        logger.debug("sent to scheduler in %s", t)
-
-        for future in as_completed(futures):
-            futures.remove(future)
-            if write_in_parent_process:
-                output_data, process_info = future.result()
-                process_info = _write(
-                    process_info=process_info,
-                    output_data=output_data,
-                    output_writer=process.config.output,
+                    dependencies = {}
+                else:
+                    dependencies = {
+                        child: tile_tasks.get(f"tile_process_{child.id}")
+                        for child in tile.get_children()
+                    }
+                tile_tasks[f"tile_process_{tile.id}"] = delayed(func)(
+                    TileProcess(
+                        tile=tile,
+                        config=process.config,
+                        skip=(
+                            process.mode == "continue"
+                            and process.config.output_reader.tiles_exist(tile)
+                        )
+                        if skip_output_check
+                        else False,
+                    ),
+                    **fkwargs,
+                    dependencies=dependencies,
                 )
-            # output already has been written, so just use task process info
-            else:
-                process_info = future.result()
-            yield process_info
-    else:
-        raise NotImplementedError()
+    logger.debug("%s tile tasks generated in %s", len(tile_tasks), t)
+
+    # send to scheduler
+    with Timer() as t:
+        futures = executor._executor.compute(
+            list(tile_tasks.values()), optimize_graph=True, traverse=True
+        )
+    logger.debug("sent to scheduler in %s", t)
+
+    for future in as_completed(futures):
+        futures.remove(future)
+        if write_in_parent_process:
+            output_data, process_info = future.result()
+            process_info = _write(
+                process_info=process_info,
+                output_data=output_data,
+                output_writer=process.config.output,
+            )
+        # output already has been written, so just use task process info
+        else:
+            process_info = future.result()
+        yield process_info
 
 
 def _run_multi_overviews(
@@ -1038,7 +1042,8 @@ def _write(process_info=None, output_data=None, output_writer=None, **_):
 
 
 def _execute_and_write(tile_process=None, output_writer=None, dependencies=None, **_):
-    tile_process.dependencies = dependencies
+    if dependencies:
+        tile_process.add_dependencies(dependencies)
     output_data, process_info = _execute(tile_process=tile_process)
     return _write(
         process_info=process_info, output_data=output_data, output_writer=output_writer
