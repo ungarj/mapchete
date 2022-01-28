@@ -39,3 +39,7 @@ class GeometryTypeError(TypeError):
 
 class MapcheteIOError(IOError):
     """Raised when mapchete cannot read a file."""
+
+
+class NoTaskGeometry(TypeError):
+    """Raised when Task has no assigned geo information."""

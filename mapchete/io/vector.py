@@ -7,10 +7,11 @@ from fiona.errors import DriverError, FionaError, FionaValueError
 from fiona.io import MemoryFile
 from retry import retry
 from rasterio.crs import CRS
-from shapely.geometry import box, mapping
+from shapely.geometry import box, mapping, shape
 from shapely.errors import TopologicalError
 from tilematrix import clip_geometry_to_srs_bounds
 from itertools import chain
+import warnings
 
 from mapchete.errors import GeometryTypeError, MapcheteIOError
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
@@ -23,6 +24,7 @@ from mapchete.io._geometry_operations import (
     clean_geometry_type,
     _repair,
 )
+from mapchete.validate import validate_bounds
 
 __all__ = [
     "reproject_geometry",
@@ -229,7 +231,7 @@ class VectorWindowMemoryFile:
 @retry(
     logger=logger,
     exceptions=(DriverError, FionaError, FionaValueError),
-    **MAPCHETE_IO_RETRY_SETTINGS
+    **MAPCHETE_IO_RETRY_SETTINGS,
 )
 def _get_reprojected_features(
     input_file=None, dst_bounds=None, dst_crs=None, validity_check=False
@@ -281,3 +283,130 @@ def _get_reprojected_features(
             raise e
         else:
             raise FileNotFoundError("%s not found" % input_file)
+
+
+def bounds_intersect(bounds1, bounds2):
+    bounds1 = validate_bounds(bounds1)
+    bounds2 = validate_bounds(bounds2)
+    return (
+        bounds1.left <= bounds2.left < bounds1.right
+        or bounds1.left < bounds2.right <= bounds1.right
+    ) and (
+        bounds1.bottom <= bounds2.bottom < bounds1.top
+        or bounds1.bottom < bounds2.top <= bounds1.top
+    )
+
+
+class FakeIndex:
+    """Provides a fake spatial index in case rtree is not installed."""
+
+    def __init__(self):
+        self._items = []
+
+    def insert(self, id, bounds):
+        self._items.append((id, bounds))
+
+    def intersection(self, bounds):
+        return [
+            id for id, i_bounds in self._items if bounds_intersect(i_bounds, bounds)
+        ]
+
+
+class IndexedFeatures:
+    """
+    Behaves like a mapping of GeoJSON-like objects but has a filter() method.
+
+    Parameters
+    ----------
+    features : iterable
+        Features to be indexed
+    """
+
+    def __init__(self, features=None):
+        try:
+            from rtree import index
+
+            self._index = index.Index()
+        except ImportError:
+            warnings.warn(
+                "It is recommended to install rtree in order to significantly speed up spatial indexes."
+            )
+            self._index = FakeIndex()
+
+        if features is None:
+            features = []
+        self._items = {}
+        self.bounds = (None, None, None, None)
+        for feature in features:
+            id_ = self._get_feature_id(feature)
+            self._items[id_] = feature
+            bounds = self._get_feature_bounds(feature)
+            self._update_bounds(bounds)
+            self._index.insert(id_, bounds)
+
+    def __len__(self):
+        return len(self._items)
+
+    def __str__(self):
+        return "IndexedFeatures([%s])" % (", ".join([str(f) for f in self]))
+
+    def __getitem__(self, key):
+        try:
+            return self._items[hash(key)]
+        except KeyError:
+            raise KeyError("no feature with id %s exists" % key)
+
+    def items(self):
+        return self._items.items()
+
+    def keys(self):
+        return self._items.keys()
+
+    def values(self):
+        return self._items.values()
+
+    def filter(self, bounds=None):
+        """
+        Return features intersecting with bounds.
+
+        Parameters
+        ----------
+        bounds : list or tuple
+            Bounding coordinates (left, bottom, right, top).
+
+        Returns
+        -------
+        features : list
+            List of features.
+        """
+        return [self._items[id_] for id_ in self._index.intersection(bounds)]
+
+    def _update_bounds(self, bounds):
+        left, bottom, right, top = self.bounds
+        self.bounds = (
+            bounds.left if left is None else min(left, bounds.left),
+            bounds.bottom if bottom is None else min(bottom, bounds.bottom),
+            bounds.right if right is None else max(right, bounds.right),
+            bounds.top if top is None else max(top, bounds.top),
+        )
+
+    def _get_feature_id(self, feature):
+        if hasattr(feature, "id"):
+            return hash(feature.id)
+        elif feature.get("id"):
+            return hash(feature["id"])
+        else:
+            return hash(feature)
+
+    def _get_feature_bounds(self, feature):
+        try:
+            if hasattr(feature, "bounds"):
+                return validate_bounds(feature.bounds)
+            elif feature.get("bounds"):
+                return validate_bounds(feature["bounds"])
+            elif hasattr(feature, "__geo_interface__"):
+                return validate_bounds(shape(feature).bounds)
+            elif feature.get("geometry"):
+                return validate_bounds(to_shape(feature["geometry"]).bounds)
+        except Exception:
+            raise TypeError(f"cannot determine bounds from feature: {feature}")
