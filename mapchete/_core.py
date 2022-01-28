@@ -16,8 +16,8 @@ from mapchete._processing import (
     _run_area,
     _preprocess,
     ProcessInfo,
-    TileProcess,
 )
+from mapchete._tasks import TileTask
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
 from mapchete.validate import validate_tile, validate_zooms
@@ -490,7 +490,7 @@ class Mapchete(object):
         self.batch_preprocess()
         try:
             return self.config.output.streamline_output(
-                TileProcess(tile=process_tile, config=self.config).execute()
+                TileTask(tile=process_tile, config=self.config).execute()
             )
         except MapcheteNodataTile:
             if raise_nodata:  # pragma: no cover

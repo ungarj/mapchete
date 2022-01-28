@@ -8,15 +8,12 @@ import multiprocessing
 from traceback import format_exc
 from typing import Generator
 
-from mapchete.commons import clip as commons_clip
-from mapchete.commons import contours as commons_contours
-from mapchete.commons import hillshade as commons_hillshade
 from mapchete.config import get_process_func
 from mapchete._executor import DaskExecutor, Executor, SkippedFuture
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
+from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask
 from mapchete._timer import Timer
-from mapchete.validate import deprecated_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -112,356 +109,6 @@ class Job:
         return f"<{self.status} Job with {self._total} tasks.>"
 
 
-class TileProcess:
-    """
-    Class to process on a specific process tile.
-
-    If skip is set to True, all attributes will be set to None.
-    """
-
-    def __init__(self, tile=None, config=None, skip=False, dependencies=None):
-        """Set attributes depending on baselevels or not."""
-        self.tile = (
-            config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
-        )
-        self.skip = skip
-        self.config_zoom_levels = None if skip else config.zoom_levels
-        self.config_baselevels = None if skip else config.baselevels
-        self.process = None if skip else config.process
-        self.dependencies = dependencies or {}
-        self.config_dir = None if skip else config.config_dir
-        if (
-            skip
-            or self.tile.zoom not in self.config_zoom_levels
-            or self.tile.zoom in self.config_baselevels
-        ):
-            self.input, self.process_func_params, self.output_params = {}, {}, {}
-        else:
-            self.input = config.get_inputs_for_tile(tile)
-            self.process_func_params = config.get_process_func_params(tile.zoom)
-            self.output_params = config.output_reader.output_params
-        self.mode = None if skip else config.mode
-        self.output_reader = (
-            None if skip or not config.baselevels else config.output_reader
-        )
-
-    def add_dependencies(self, dependencies):
-        if not isinstance(dependencies, dict):
-            raise TypeError("dependencies must be a dictionary")
-        self.dependencies = dependencies
-
-    def execute(self):
-        """
-        Run the Mapchete process and return the result.
-
-        If baselevels are defined it will generate the result from the other zoom levels
-        accordingly.
-
-        Parameters
-        ----------
-        process_tile : Tile or tile index tuple
-            Member of the process tile pyramid (not necessarily the output
-            pyramid, if output has a different metatiling setting)
-
-        Returns
-        -------
-        data : NumPy array or features
-            process output
-        """
-        if self.mode not in ["memory", "continue", "overwrite"]:  # pragma: no cover
-            raise ValueError("process mode must be memory, continue or overwrite")
-
-        if self.tile.zoom not in self.config_zoom_levels:
-            raise MapcheteNodataTile
-
-        return self._execute()
-
-    def _execute(self):
-        # If baselevel is active and zoom is outside of baselevel,
-        # interpolate from other zoom levels.
-        if self.config_baselevels:
-            if self.tile.zoom < min(self.config_baselevels["zooms"]):
-                return self._interpolate_from_baselevel("lower")
-            elif self.tile.zoom > max(self.config_baselevels["zooms"]):
-                return self._interpolate_from_baselevel("higher")
-        # Otherwise, execute from process file.
-        process_func = get_process_func(
-            process=self.process, config_dir=self.config_dir
-        )
-        try:
-            with Timer() as duration:
-                # Actually run process.
-                process_data = process_func(
-                    MapcheteProcess(
-                        tile=self.tile,
-                        params=self.process_func_params,
-                        input=self.input,
-                        output_params=self.output_params,
-                    ),
-                    **self.process_func_params,
-                )
-        except MapcheteNodataTile:
-            raise
-        except Exception as e:
-            # Log process time
-            logger.exception(
-                (self.tile.id, "exception in user process", e, str(duration))
-            )
-            new = MapcheteProcessException(format_exc())
-            new.old = e
-            raise new
-
-        return process_data
-
-    def _interpolate_from_baselevel(self, baselevel=None):
-        # This is a special tile derived from a pyramid which has the pixelbuffer setting
-        # from the output pyramid but metatiling from the process pyramid. This is due to
-        # performance reasons as for the usual case overview tiles do not need the
-        # process pyramid pixelbuffers.
-        tile = self.config_baselevels["tile_pyramid"].tile(*self.tile.id)
-
-        # get output_tiles that intersect with process tile
-        output_tiles = (
-            list(self.output_reader.pyramid.tiles_from_bounds(tile.bounds, tile.zoom))
-            if tile.pixelbuffer > self.output_reader.pyramid.pixelbuffer
-            else self.output_reader.pyramid.intersecting(tile)
-        )
-
-        with Timer() as duration:
-            # resample from parent tile
-            if baselevel == "higher":
-                parent_tile = self.tile.get_parent()
-                process_data = raster.resample_from_array(
-                    self.output_reader.read(parent_tile),
-                    in_affine=parent_tile.affine,
-                    out_tile=self.tile,
-                    resampling=self.config_baselevels["higher"],
-                    nodata=self.output_reader.output_params["nodata"],
-                )
-            # resample from children tiles
-            elif baselevel == "lower":
-                src_tiles = {}
-                for process_tile, process_info in self.dependencies.items():
-                    for output_tile in self.output_reader.pyramid.intersecting(
-                        process_tile
-                    ):
-                        src_tiles[output_tile] = (
-                            raster.extract_from_array(
-                                in_raster=process_info.data,
-                                in_affine=process_tile.affine,
-                                out_tile=output_tile,
-                            )
-                            if process_info.data is not None
-                            else None
-                        )
-                if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
-                    for child_tile in chain(
-                        *[
-                            self.output_reader.pyramid.tiles_from_bounds(
-                                x.bounds, x.zoom + 1
-                            )
-                            for x in output_tiles
-                        ]
-                    ):
-                        if child_tile not in src_tiles:
-                            src_tiles[child_tile] = None
-                else:
-                    for output_tile in output_tiles:
-                        for child_tile in output_tile.get_children():
-                            if child_tile not in src_tiles:
-                                src_tiles[child_tile] = None
-
-                mosaic = raster.create_mosaic(
-                    [
-                        (
-                            src_tile,
-                            self.output_reader.read(src_tile) if data is None else data,
-                        )
-                        for src_tile, data in src_tiles.items()
-                    ],
-                    nodata=self.output_reader.output_params["nodata"],
-                )
-                process_data = raster.resample_from_array(
-                    in_raster=mosaic.data,
-                    in_affine=mosaic.affine,
-                    out_tile=self.tile,
-                    resampling=self.config_baselevels["lower"],
-                    nodata=self.output_reader.output_params["nodata"],
-                )
-        logger.debug((self.tile.id, "generated from baselevel", str(duration)))
-        return process_data
-
-
-class MapcheteProcess(object):
-    """
-    Process class inherited by user process script.
-
-    Its attributes and methods can be accessed via "self" from within a
-    Mapchete process Python file.
-
-    Parameters
-    ----------
-    tile : BufferedTile
-        Tile process should be run on
-    config : MapcheteConfig
-        process configuration
-    params : dictionary
-        process parameters
-
-    Attributes
-    ----------
-    identifier : string
-        process identifier
-    title : string
-        process title
-    version : string
-        process version string
-    abstract : string
-        short text describing process purpose
-    tile : BufferedTile
-        Tile process should be run on
-    tile_pyramid : BufferedTilePyramid
-        process tile pyramid
-    output_pyramid : BufferedTilePyramid
-        output tile pyramid
-    params : dictionary
-        process parameters
-    """
-
-    def __init__(
-        self, tile=None, params=None, input=None, output_params=None, config=None
-    ):
-        """Initialize Mapchete process."""
-        self.identifier = ""
-        self.title = ""
-        self.version = ""
-        self.abstract = ""
-
-        self.tile = tile
-        self.tile_pyramid = tile.tile_pyramid
-        if config is not None:
-            input = config.get_inputs_for_tile(tile)
-            params = config.params_at_zoom(tile.zoom)
-        self.params = dict(params, input=input)
-        self.input = input
-        self.output_params = output_params
-
-    def write(self, data, **kwargs):
-        """Deprecated."""
-        raise DeprecationWarning(
-            "Please return process output data instead of using self.write()."
-        )
-
-    def read(self, **kwargs):
-        """
-        Read existing output data from a previous run.
-
-        Returns
-        -------
-        process output : NumPy array (raster) or feature iterator (vector)
-        """
-        raise DeprecationWarning(
-            "Read existing output from within a process is deprecated"
-        )
-
-    @deprecated_kwargs
-    def open(self, input_id, **kwargs):
-        """
-        Open input data.
-
-        Parameters
-        ----------
-        input_id : string
-            input identifier from configuration file or file path
-        kwargs : driver specific parameters (e.g. resampling)
-
-        Returns
-        -------
-        tiled input data : InputTile
-            reprojected input data within tile
-        """
-        if input_id not in self.input:
-            raise ValueError("%s not found in config as input" % input_id)
-        return self.input[input_id]
-
-    def hillshade(self, elevation, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0):
-        """
-        Calculate hillshading from elevation data.
-
-        Parameters
-        ----------
-        elevation : array
-            input elevation data
-        azimuth : float
-            horizontal angle of light source (315: North-West)
-        altitude : float
-            vertical angle of light source (90 would result in slope shading)
-        z : float
-            vertical exaggeration factor
-        scale : float
-            scale factor of pixel size units versus height units (insert 112000
-            when having elevation values in meters in a geodetic projection)
-
-        Returns
-        -------
-        hillshade : array
-        """
-        return commons_hillshade.hillshade(
-            elevation, self.tile, azimuth, altitude, z, scale
-        )
-
-    def contours(self, elevation, interval=100, field="elev", base=0):
-        """
-        Extract contour lines from elevation data.
-
-        Parameters
-        ----------
-        elevation : array
-            input elevation data
-        interval : integer
-            elevation value interval when drawing contour lines
-        field : string
-            output field name containing elevation value
-        base : integer
-            elevation base value the intervals are computed from
-
-        Returns
-        -------
-        contours : iterable
-            contours as GeoJSON-like pairs of properties and geometry
-        """
-        return commons_contours.extract_contours(
-            elevation, self.tile, interval=interval, field=field, base=base
-        )
-
-    def clip(self, array, geometries, inverted=False, clip_buffer=0):
-        """
-        Clip array by geometry.
-
-        Parameters
-        ----------
-        array : array
-            raster data to be clipped
-        geometries : iterable
-            geometries used to clip source array
-        inverted : bool
-            invert clipping (default: False)
-        clip_buffer : int
-            buffer (in pixels) geometries before applying clip
-
-        Returns
-        -------
-        clipped array : array
-        """
-        return commons_clip.clip_array_with_vector(
-            array,
-            self.tile.affine,
-            geometries,
-            inverted=inverted,
-            clip_buffer=clip_buffer * self.tile.pixel_x_size,
-        )
-
-
 #######################
 # batch preprocessing #
 #######################
@@ -553,7 +200,7 @@ def _run_on_single_tile(
             executor.as_completed(
                 func=_execute_and_write,
                 iterable=[
-                    TileProcess(
+                    TileTask(
                         tile=tile,
                         config=process.config,
                         skip=(
@@ -746,28 +393,15 @@ def _run_task_graph(
     from dask.delayed import delayed
     from distributed import as_completed
 
-    tile_tasks = {}
+    # create one task batch for each processing step
 
-    with Timer() as t:
+    def _gen_batches():
+        # TODO: move to core class
+        # TODO: create preprocessing batches
         for zoom in zoom_levels:
-            for tile, skip, process_msg in _filter_skipable(
-                process=process,
-                tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
-                target_set=None,
-                skip_output_check=skip_output_check,
-            ):
-                if (
-                    process.config.baselevels
-                    and zoom in process.config.baselevels["zooms"]
-                ):
-                    dependencies = {}
-                else:
-                    dependencies = {
-                        child: tile_tasks.get(f"tile_process_{child.id}")
-                        for child in tile.get_children()
-                    }
-                tile_tasks[f"tile_process_{tile.id}"] = delayed(func)(
-                    TileProcess(
+            yield TileTaskBatch(
+                (
+                    TileTask(
                         tile=tile,
                         config=process.config,
                         skip=(
@@ -776,17 +410,26 @@ def _run_task_graph(
                         )
                         if skip_output_check
                         else False,
-                    ),
-                    **fkwargs,
-                    dependencies=dependencies,
-                )
-    logger.debug("%s tile tasks generated in %s", len(tile_tasks), t)
+                    )
+                    for tile, skip, process_msg in _filter_skipable(
+                        process=process,
+                        tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                        target_set=None,
+                        skip_output_check=skip_output_check,
+                    )
+                ),
+                func=func,
+                fkwargs=fkwargs,
+            )
+
+    # materialize all tasks including dependencies
+    with Timer() as t:
+        coll = to_dask_collection(_gen_batches())
+    logger.debug("%s tasks generated in %s", len(coll), t)
 
     # send to scheduler
     with Timer() as t:
-        futures = executor._executor.compute(
-            list(tile_tasks.values()), optimize_graph=True, traverse=True
-        )
+        futures = executor._executor.compute(coll, optimize_graph=True, traverse=True)
     logger.debug("sent to scheduler in %s", t)
 
     for future in as_completed(futures):
@@ -827,7 +470,7 @@ def _run_multi_overviews(
             func=func,
             iterable=(
                 (
-                    TileProcess(
+                    TileTask(
                         tile=tile,
                         config=process.config,
                         skip=(
@@ -910,7 +553,7 @@ def _run_multi_no_overviews(
         func=func,
         iterable=(
             (
-                TileProcess(
+                TileTask(
                     tile=tile,
                     config=process.config,
                     skip=(
@@ -970,7 +613,7 @@ def _run_multi_no_overviews(
 ###############################
 
 
-def _execute(tile_process=None, **_):
+def _execute(tile_process=None, dependencies=None, **_):
     logger.debug(
         (tile_process.tile.id, "running on %s" % multiprocessing.current_process().name)
     )
@@ -989,7 +632,7 @@ def _execute(tile_process=None, **_):
     # execute on process tile
     with Timer() as duration:
         try:
-            output = tile_process.execute()
+            output = tile_process.execute(dependencies=dependencies)
         except MapcheteNodataTile:  # pragma: no cover
             output = "empty"
         except Exception as exc:
@@ -1042,9 +685,9 @@ def _write(process_info=None, output_data=None, output_writer=None, **_):
 
 
 def _execute_and_write(tile_process=None, output_writer=None, dependencies=None, **_):
-    if dependencies:
-        tile_process.add_dependencies(dependencies)
-    output_data, process_info = _execute(tile_process=tile_process)
+    output_data, process_info = _execute(
+        tile_process=tile_process, dependencies=dependencies
+    )
     return _write(
         process_info=process_info, output_data=output_data, output_writer=output_writer
     )
