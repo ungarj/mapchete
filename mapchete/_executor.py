@@ -16,7 +16,7 @@ from mapchete.log import set_log_level
 from mapchete._timer import Timer
 
 MULTIPROCESSING_DEFAULT_START_METHOD = "spawn"
-FUTURE_TIMEOUT = int(os.environ.get("MP_FUTURE_TIMEOUT", 10))
+FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
 
 logger = logging.getLogger(__name__)
 
@@ -171,35 +171,24 @@ class _ExecutorBase:
     def _wait(self, *args, **kwargs):  # pragma: no cover
         raise NotImplementedError()
 
-    def _finished_future(self, future, result=None):
+    def _finished_future(self, future, result=None, _dask=False):
         """
         Release future from cluster explicitly and wrap result around FinishedFuture object.
         """
-        try:
+        if not _dask:
             self.running_futures.remove(future)
-        except KeyError:  # pragma: no cover
-            pass
-        try:
-            self.finished_futures.remove(future)
-        except KeyError:
-            pass
-        if future.exception(timeout=FUTURE_TIMEOUT):  # pragma: no cover
+        self.finished_futures.discard(future)
+        fut_exception = future.exception(timeout=FUTURE_TIMEOUT)
+        if fut_exception:  # pragma: no cover
             logger.error("exception caught in future %s", future)
-            raise future.exception(timeout=FUTURE_TIMEOUT)
-        elif isinstance(
-            future.result(timeout=FUTURE_TIMEOUT), Exception
-        ):  # pragma: no cover
-            logger.error(
-                "exception %s found in future.result()",
-                future.result(timeout=FUTURE_TIMEOUT),
-            )
-            raise future.result(timeout=FUTURE_TIMEOUT)
+            raise fut_exception
+        if isinstance(result, CancelledError):  # pragma: no cover
+            raise result
         # create minimal Future-like object with no references to the cluster
         finished_future = FinishedFuture(future, result=result)
         # explicitly release future
         try:
             future.release()
-            # logger.debug("%s released", future)
         except AttributeError:
             pass
         return finished_future
@@ -237,10 +226,9 @@ class DaskExecutor(_ExecutorBase):
         max_workers=None,
         **kwargs,
     ):
-        from dask.distributed import Client, LocalCluster
+        from dask.distributed import as_completed, Client, LocalCluster
 
         self._executor_client = dask_client
-        self._cancelled_exc = None
         if self._executor_client:  # pragma: no cover
             logger.info("using existing dask client: %s", dask_client)
         else:
@@ -254,13 +242,16 @@ class DaskExecutor(_ExecutorBase):
             logger.info(
                 "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
+        self._ac_iterator = as_completed(
+            loop=self._executor.loop, with_results=True, raise_errors=True
+        )
         super().__init__(*args, **kwargs)
 
     def _map(self, func, iterable, fargs=None, fkwargs=None):
         fargs = fargs or []
         fkwargs = fkwargs or {}
         return [
-            f.result(timeout=FUTURE_TIMEOUT)
+            f.result()
             for f in self._executor.map(partial(func, *fargs, **fkwargs), iterable)
         ]
 
@@ -276,7 +267,6 @@ class DaskExecutor(_ExecutorBase):
         fargs=None,
         fkwargs=None,
         max_submitted_tasks=500,
-        raise_cancelled=False,
         item_skip_bool=False,
         chunksize=100,
         **kwargs,
@@ -305,16 +295,13 @@ class DaskExecutor(_ExecutorBase):
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
         chunksize : int
             Submit tasks in chunks to scheduler.
-        raise_cancelled : bool
-            If a future contains a CancelledError without the Exectuor having initiated the
-            cancellation, the CancelledError will be raised in the end.
 
         Yields
         ------
         finished futures
 
         """
-        from dask.distributed import as_completed, TimeoutError
+        from dask.distributed import TimeoutError
 
         max_submitted_tasks = max_submitted_tasks or 1
         chunksize = chunksize or 1
@@ -322,10 +309,6 @@ class DaskExecutor(_ExecutorBase):
         try:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
-            ac_iterator = as_completed(
-                loop=self._executor.loop, with_results=True, raise_errors=True
-            )
-
             chunk = []
             for item in iterable:
 
@@ -347,15 +330,15 @@ class DaskExecutor(_ExecutorBase):
                 # submit chunk of tasks, if
                 # (1) chunksize is reached, or
                 # (2) remaining free task spots are less than tasks in chunk
-                remaining_spots = max_submitted_tasks - len(self.running_futures)
+                with Timer() as t:
+                    running_futures = self._ac_iterator.count()
+                logger.debug("queried running futures in %s", t)
+                remaining_spots = max_submitted_tasks - running_futures
                 if len(chunk) % chunksize == 0 or remaining_spots == len(chunk):
-                    logger.debug(
-                        "submitted futures (tracked): %s", len(self.running_futures)
-                    )
+                    logger.debug("submitted futures (tracked): %s", running_futures)
                     logger.debug("remaining spots for futures: %s", remaining_spots)
                     logger.debug("current chunk size: %s", len(chunk))
                     self._submit_chunk(
-                        ac_iterator=ac_iterator,
                         chunk=chunk,
                         func=func,
                         fargs=fargs,
@@ -366,28 +349,27 @@ class DaskExecutor(_ExecutorBase):
                 # yield finished tasks, if
                 # (1) there are finished tasks available, or
                 # (2) maximum allowed number of running tasks is reached
-                max_submitted_tasks_reached = (
-                    len(self.running_futures) >= max_submitted_tasks
-                )
-                if ac_iterator.has_ready() or max_submitted_tasks_reached:
+                max_submitted_tasks_reached = running_futures >= max_submitted_tasks
+                if self._ac_iterator.has_ready() or max_submitted_tasks_reached:
                     # yield batch of finished futures
                     # if maximum submitted tasks limit is reached, block call and wait for finished futures
                     logger.debug(
                         "wait for finished tasks: %s", max_submitted_tasks_reached
                     )
-                    batch = ac_iterator.next_batch(block=max_submitted_tasks_reached)
+                    batch = self._ac_iterator.next_batch(
+                        block=max_submitted_tasks_reached
+                    )
                     for future, result in batch:
                         try:
                             yield from self._yield_from_batch(batch)
                         except JobCancelledError:  # pragma: no cover
                             return
                     logger.debug(
-                        "%s futures still on cluster", len(self.running_futures)
+                        "%s futures still on cluster", self._ac_iterator.count()
                     )
 
             # submit last chunk of items
             self._submit_chunk(
-                ac_iterator=ac_iterator,
                 chunk=chunk,
                 func=func,
                 fargs=fargs,
@@ -395,49 +377,47 @@ class DaskExecutor(_ExecutorBase):
             )
             chunk = []
             # yield remaining futures as they finish
-            if ac_iterator is not None:
-                logger.debug("yield %s remaining futures", len(self.running_futures))
-                for batch in ac_iterator.batches():
-                    for future, result in batch:
-                        try:
-                            yield from self._yield_from_batch(batch)
-                        except JobCancelledError:  # pragma: no cover
-                            return
+            if self._ac_iterator is not None:
+                logger.debug("yield %s remaining futures", self._ac_iterator.count())
+                for batch in self._ac_iterator.batches():
+                    try:
+                        yield from self._yield_from_batch(batch)
+                    except JobCancelledError:  # pragma: no cover
+                        return
 
         finally:
             # reset so futures won't linger here for next call
             self.running_futures = set()
+            self._ac_iterator.clear()
 
-        if self._cancelled_exc is not None and raise_cancelled:  # pragma: no cover
-            logger.error("raise final CancelledError")
-            raise self._cancelled_exc
-
-    def _submit_chunk(
-        self, ac_iterator=None, chunk=None, func=None, fargs=None, fkwargs=None
-    ):
+    def _submit_chunk(self, chunk=None, func=None, fargs=None, fkwargs=None):
         logger.debug("submit chunk of %s items to cluster", len(chunk))
         futures = self._executor.map(partial(func, *fargs, **fkwargs), chunk)
-        ac_iterator.update(futures)
-        self.running_futures.update(futures)
+        self._ac_iterator.update(futures)
 
     def _yield_from_batch(self, batch):
+        from dask.distributed import TimeoutError
+
         for future, result in batch:
             if self.cancelled:  # pragma: no cover
                 logger.debug("executor cancelled")
                 raise JobCancelledError()
             try:
-                yield self._finished_future(future, result)
-            except CancelledError as exc:  # pragma: no cover
-                logger.exception(exc)
-                self._cancelled_exc = exc
-            except TimeoutError as exc:  # pragma: no cover
-                logger.exception(exc)
+                yield self._finished_future(future, result, _dask=True)
+            except TimeoutError:  # pragma: no cover
+                logger.error(
+                    "%s: couldn't fetch future result() or exception() in %ss",
+                    future,
+                    FUTURE_TIMEOUT,
+                )
                 self._retry(future)
+            except CancelledError as e:  # pragma: no cover
+                logger.error("%s got cancelled: %s", future, e)
 
     def _retry(self, future):  # pragma: no cover
         logger.debug("retry future %s", future)
         future.retry()
-        self.running_futures.add(future)
+        self._ac_iterator.add(future)
 
     @cached_property
     def _executor(self):
