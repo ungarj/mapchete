@@ -156,7 +156,7 @@ class _ExecutorBase:
         logger.debug("wait for running futures to finish...")
         try:  # pragma: no cover
             self._wait()
-        except CancelledError:
+        except CancelledError:  # pragma: no cover
             pass
 
     def close(self):  # pragma: no cover
