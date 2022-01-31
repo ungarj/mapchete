@@ -182,6 +182,7 @@ class _ExecutorBase:
         if fut_exception:  # pragma: no cover
             logger.error("exception caught in future %s", future)
             raise fut_exception
+        result = result or future.result(timeout=FUTURE_TIMEOUT)
         if isinstance(result, CancelledError):  # pragma: no cover
             raise result
         # create minimal Future-like object with no references to the cluster
@@ -330,9 +331,7 @@ class DaskExecutor(_ExecutorBase):
                 # submit chunk of tasks, if
                 # (1) chunksize is reached, or
                 # (2) remaining free task spots are less than tasks in chunk
-                with Timer() as t:
-                    running_futures = self._ac_iterator.count()
-                logger.debug("queried running futures in %s", t)
+                running_futures = self._ac_iterator.count()
                 remaining_spots = max_submitted_tasks - running_futures
                 if len(chunk) % chunksize == 0 or remaining_spots == len(chunk):
                     logger.debug("submitted futures (tracked): %s", running_futures)
@@ -397,6 +396,9 @@ class DaskExecutor(_ExecutorBase):
 
     def _yield_from_batch(self, batch):
         from dask.distributed import TimeoutError
+        from distributed.comm.core import CommClosedError
+
+        cancelled_futures = []
 
         for future, result in batch:
             if self.cancelled:  # pragma: no cover
@@ -411,8 +413,33 @@ class DaskExecutor(_ExecutorBase):
                     FUTURE_TIMEOUT,
                 )
                 self._retry(future)
-            except CancelledError as e:  # pragma: no cover
-                logger.error("%s got cancelled: %s", future, e)
+            except CancelledError as exc:  # pragma: no cover
+                logger.error("%s got cancelled: %s", future, exc)
+                cancelled_futures.append(future)
+
+        if cancelled_futures:  # pragma: no cover
+            logger.error("caught %s cancelled_futures", len(cancelled_futures))
+            try:
+                logger.debug("try to get scheduler logs...")
+                logger.debug(
+                    "scheduler logs: %s", self._executor.get_scheduler_logs(n=1000)
+                )
+            except Exception as e:
+                logger.exception(e)
+            status = self._executor.status
+            if status in ("running", "connecting"):
+                try:
+                    logger.debug("retry %s futures...", len(cancelled_futures))
+                    for future in cancelled_futures:
+                        self._retry(future)
+                except KeyError:
+                    raise RuntimeError(
+                        f"unable to retry {len(cancelled_futures)} cancelled futures {self._executor} ({status})"
+                    )
+            else:
+                raise RuntimeError(
+                    f"client lost connection to scheduler {self._executor} ({status})"
+                )
 
     def _retry(self, future):  # pragma: no cover
         logger.debug("retry future %s", future)
