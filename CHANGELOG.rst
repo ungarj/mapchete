@@ -3,6 +3,14 @@ Changelog
 #########
 
 ---------------------
+2022.1.2 - 2022-01-31
+---------------------
+
+* core
+  * try to make dask executor more resilient by adding timeouts (accessible via the ``MP_FUTURES_TIMEOUT`` environment setting) and retries if a future call times out
+
+
+---------------------
 2022.1.1 - 2022-01-19
 ---------------------
 
