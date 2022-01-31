@@ -39,3 +39,7 @@ class GeometryTypeError(TypeError):
 
 class MapcheteIOError(IOError):
     """Raised when mapchete cannot read a file."""
+
+
+class JobCancelledError(Exception):
+    """Raised when Job gets cancelled."""
