@@ -175,7 +175,10 @@ class _ExecutorBase:
         """
         Release future from cluster explicitly and wrap result around FinishedFuture object.
         """
-        self.running_futures.remove(future)
+        try:
+            self.running_futures.remove(future)
+        except KeyError:  # pragma: no cover
+            pass
         try:
             self.finished_futures.remove(future)
         except KeyError:
