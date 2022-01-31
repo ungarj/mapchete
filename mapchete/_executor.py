@@ -376,7 +376,7 @@ class DaskExecutor(_ExecutorBase):
                     for future, result in batch:
                         try:
                             yield from self._yield_from_batch(batch)
-                        except JobCancelledError:
+                        except JobCancelledError:  # pragma: no cover
                             return
                     logger.debug(
                         "%s futures still on cluster", len(self.running_futures)
@@ -398,7 +398,7 @@ class DaskExecutor(_ExecutorBase):
                     for future, result in batch:
                         try:
                             yield from self._yield_from_batch(batch)
-                        except JobCancelledError:
+                        except JobCancelledError:  # pragma: no cover
                             return
 
         finally:
@@ -431,7 +431,7 @@ class DaskExecutor(_ExecutorBase):
                 logger.exception(exc)
                 self._retry(future)
 
-    def _retry(self, future):
+    def _retry(self, future):  # pragma: no cover
         logger.debug("retry future %s", future)
         future.retry()
         self.running_futures.add(future)
