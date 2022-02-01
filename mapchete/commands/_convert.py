@@ -6,6 +6,7 @@ import os
 from pprint import pformat
 import rasterio
 from rasterio.crs import CRS
+from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 import tilematrix
@@ -177,7 +178,9 @@ def convert(
     bidx = [bidx] if isinstance(bidx, int) else bidx
     try:
         input_info = _get_input_info(tiledir)
+        logger.debug("input params: %s", input_info)
         output_info = _get_output_info(output)
+        logger.debug("output params: %s", output_info)
     except Exception as e:
         raise ValueError(e)
 
@@ -328,38 +331,38 @@ def _clip_bbox(clip_geometry, dst_crs=None):
         return reproject_geometry(box(*src.bounds), src_crs=src.crs, dst_crs=dst_crs)
 
 
-def _get_input_info(tiledir):
+def _get_input_info(inp):
 
     # assuming single file if path has a file extension
-    if os.path.splitext(tiledir)[1]:
-        driver = driver_from_file(tiledir)
+    if os.path.splitext(inp)[1]:
+        driver = driver_from_file(inp)
 
         # single file input can be a mapchete file or a rasterio/fiona file
         if driver == "Mapchete":
             logger.debug("input is mapchete file")
-            input_info = _input_mapchete_info(tiledir)
+            input_info = _input_mapchete_info(inp)
 
         elif driver == "raster_file":
             # this should be readable by rasterio
             logger.debug("input is raster_file")
-            input_info = _input_rasterio_info(tiledir)
+            input_info = _input_rasterio_info(inp)
 
         elif driver == "vector_file":
             # this should be readable by Fiona
-            input_info = _input_fiona_info(tiledir)
+            input_info = _input_fiona_info(inp)
         else:  # pragma: no cover
             raise NotImplementedError(f"driver {driver} is not supported")
 
     # assuming tile directory
     else:
         logger.debug("input is tile directory")
-        input_info = _input_tile_directory_info(tiledir)
+        input_info = _input_tile_directory_info(inp)
 
     return input_info
 
 
-def _input_mapchete_info(tiledir):
-    conf = raw_conf(tiledir)
+def _input_mapchete_info(inp):
+    conf = raw_conf(inp)
     output_params = conf["output"]
     pyramid = raw_conf_output_pyramid(conf)
     return dict(
@@ -373,8 +376,15 @@ def _input_mapchete_info(tiledir):
     )
 
 
-def _input_rasterio_info(tiledir):
-    with rasterio.open(tiledir) as src:
+def _input_rasterio_info(inp):
+    with rasterio.open(inp) as src:
+        if src.transform.is_identity and src.gcps:
+            with WarpedVRT(src) as dst:
+                bounds = dst.bounds
+                crs = src.gcps[1]
+        else:
+            crs = src.crs
+            bounds = src.bounds
         return dict(
             output_params=dict(
                 bands=src.meta["count"],
@@ -382,16 +392,16 @@ def _input_rasterio_info(tiledir):
                 format=src.driver if src.driver in available_input_formats() else None,
             ),
             pyramid=None,
-            crs=src.crs,
+            crs=crs,
             zoom_levels=None,
             pixel_size=src.transform[0],
             input_type="raster",
-            bounds=src.bounds,
+            bounds=bounds,
         )
 
 
-def _input_fiona_info(tiledir):
-    with fiona.open(tiledir) as src:
+def _input_fiona_info(inp):
+    with fiona.open(inp) as src:
         return dict(
             output_params=dict(
                 schema=src.schema,
@@ -405,8 +415,8 @@ def _input_fiona_info(tiledir):
         )
 
 
-def _input_tile_directory_info(tiledir):
-    conf = read_json(os.path.join(tiledir, "metadata.json"))
+def _input_tile_directory_info(inp):
+    conf = read_json(os.path.join(inp, "metadata.json"))
     pyramid = BufferedTilePyramid.from_dict(conf["pyramid"])
     return dict(
         output_params=conf["driver"],

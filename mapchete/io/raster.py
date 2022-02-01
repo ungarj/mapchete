@@ -14,7 +14,7 @@ from rasterio.errors import RasterioIOError
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds as affine_from_bounds
 from rasterio.vrt import WarpedVRT
-from rasterio.warp import reproject
+from rasterio.warp import reproject, calculate_default_transform
 from rasterio.windows import from_bounds
 from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
@@ -287,26 +287,47 @@ def _rasterio_read(
         src_nodata = src.nodata if src_nodata is None else src_nodata
         dst_nodata = src.nodata if dst_nodata is None else dst_nodata
         dst_left, dst_bottom, dst_right, dst_top = dst_bounds
-        with WarpedVRT(
-            src,
-            crs=dst_crs,
-            src_nodata=src_nodata,
-            nodata=dst_nodata,
-            width=width,
-            height=height,
-            transform=affine_from_bounds(
-                dst_left, dst_bottom, dst_right, dst_top, width, height
-            ),
-            resampling=Resampling[resampling],
-        ) as vrt:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                return vrt.read(
-                    window=vrt.window(*dst_bounds),
-                    out_shape=dst_shape,
-                    indexes=indexes,
-                    masked=True,
-                )
+        if src.transform.is_identity and src.gcps:
+            # no idea why when reading a source referenced using GCPs requires using reproject()
+            # instead of WarpedVRT
+            return _prepare_masked(
+                reproject(
+                    source=rasterio.band(src, indexes),
+                    destination=np.zeros(dst_shape, dtype=src.meta.get("dtype")),
+                    src_transform=src.transform,
+                    src_crs=src.crs,
+                    src_nodata=src_nodata,
+                    dst_transform=affine_from_bounds(
+                        dst_left, dst_bottom, dst_right, dst_top, width, height
+                    ),
+                    dst_crs=dst_crs,
+                    dst_nodata=dst_nodata,
+                    resampling=Resampling[resampling],
+                )[0],
+                masked=True,
+                nodata=dst_nodata,
+            )
+        else:
+            with WarpedVRT(
+                src,
+                crs=dst_crs,
+                src_nodata=src_nodata,
+                nodata=dst_nodata,
+                width=width,
+                height=height,
+                transform=affine_from_bounds(
+                    dst_left, dst_bottom, dst_right, dst_top, width, height
+                ),
+                resampling=Resampling[resampling],
+            ) as vrt:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    return vrt.read(
+                        window=vrt.window(*dst_bounds),
+                        out_shape=dst_shape,
+                        indexes=indexes,
+                        masked=True,
+                    )
 
     if isinstance(input_file, str):
         logger.debug("got file path %s", input_file)
@@ -1010,14 +1031,9 @@ def _prepare_iterable(data, masked, nodata, dtype):
         return np.stack(out_data).astype(dtype, copy=False)
 
 
-def _prepare_masked(data, masked, nodata, dtype):
-    if data.shape == data.mask.shape:
-        if masked:
-            return ma.masked_values(data.astype(dtype, copy=False), nodata, copy=False)
-        else:
-            return ma.filled(data.astype(dtype, copy=False), nodata)
+def _prepare_masked(data, masked=True, nodata=0, dtype=None):
+    dtype = dtype or data.dtype
+    if masked:
+        return ma.masked_values(data.astype(dtype, copy=False), nodata, copy=False)
     else:
-        if masked:
-            return ma.masked_values(data.astype(dtype, copy=False), nodata, copy=False)
-        else:
-            return ma.filled(data.astype(dtype, copy=False), nodata)
+        return ma.filled(data.astype(dtype, copy=False), nodata)

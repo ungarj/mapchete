@@ -391,6 +391,18 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
             assert data.mask.any()
 
 
+def test_convert_gcps(gcps_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    out_file = os.path.join(mp_tmpdir, "gcps_out.tif")
+    job = convert(gcps_tif, out_file, output_pyramid="geodetic", zoom=8)
+    assert len(job)
+    with rasterio.open(out_file, "r") as src:
+        assert src.meta["driver"] == "GTiff"
+        assert src.meta["dtype"] == "uint16"
+        data = src.read(masked=True)
+        assert data.mask.any()
+
+
 def test_convert_geojson(landpoly, mp_tmpdir):
     job = convert(landpoly, mp_tmpdir, output_pyramid="geodetic", zoom=4)
     assert len(job)

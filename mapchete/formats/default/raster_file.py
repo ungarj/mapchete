@@ -10,6 +10,7 @@ from copy import deepcopy
 import logging
 import os
 import rasterio
+from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 import warnings
 
@@ -102,16 +103,24 @@ class InputData(base.InputData):
             Shapely geometry object
         """
         out_crs = self.pyramid.crs if out_crs is None else out_crs
-        with rasterio.open(self.path) as inp:
-            inp_crs = inp.crs
-            out_bbox = bbox = box(*inp.bounds)
+        with rasterio.open(self.path) as src:
+            if src.transform.is_identity and src.gcps:
+                with WarpedVRT(src) as dst:
+                    src_bounds = dst.bounds
+                    src_crs = src.gcps[1]
+                    src_transform = dst.transform
+            else:
+                src_crs = src.crs
+                src_bounds = src.bounds
+                src_transform = src.transform
+            out_bbox = bbox = box(*src_bounds)
         # If soucre and target CRSes differ, segmentize and reproject
-        if inp_crs != out_crs:
+        if src_crs != out_crs:
             # estimate segmentize value (raster pixel size * tile size)
             # and get reprojected bounding box
             return reproject_geometry(
-                segmentize_geometry(bbox, inp.transform[0] * self.pyramid.tile_size),
-                src_crs=inp_crs,
+                segmentize_geometry(bbox, src_transform[0] * self.pyramid.tile_size),
+                src_crs=src_crs,
                 dst_crs=out_crs,
             )
         else:
