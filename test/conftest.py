@@ -222,6 +222,12 @@ def invalid_tif():
 
 
 @pytest.fixture
+def gcps_tif():
+    """Fixture for gcps.tif"""
+    return os.path.join(TESTDATA_DIR, "gcps.tif")
+
+
+@pytest.fixture
 def invalid_geojson():
     """Fixture for invalid.geojson"""
     return os.path.join(TESTDATA_DIR, "invalid.geojson")
