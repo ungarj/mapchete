@@ -135,9 +135,9 @@ The process file should look like this:
                 # this ensures a transparent tile instead of a pink error tile is returned
                 # when using mapchete serve
                 return "empty"
-            r, g, b = my_raster_rgb_file.read(resampling="bilinear")
+            rgb = my_raster_rgb_file.read(resampling="bilinear")
 
-        return (r, g, b)
+        return rgb
 
 
 -------
