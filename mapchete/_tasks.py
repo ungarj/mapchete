@@ -257,42 +257,33 @@ class TileTask(Task):
                     for output_tile in self.output_reader.pyramid.intersecting(
                         process_tile
                     ):
-                        src_tiles[output_tile] = (
-                            raster.extract_from_array(
+                        if process_info.data is not None:
+                            src_tiles[output_tile] = raster.extract_from_array(
                                 in_raster=process_info.data,
                                 in_affine=process_tile.affine,
                                 out_tile=output_tile,
                             )
-                            if process_info.data is not None
-                            else None
-                        )
                 if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
-                    for child_tile in chain(
-                        *[
-                            self.output_reader.pyramid.tiles_from_bounds(
-                                x.bounds, x.zoom + 1
-                            )
-                            for x in output_tiles
-                        ]
-                    ):
-                        if child_tile not in src_tiles:
-                            src_tiles[child_tile] = None
+                    # if there is a pixelbuffer around the output tiles, we need to read more child tiles
+                    child_tiles = [
+                        child_tile
+                        for output_tile in output_tiles
+                        for child_tile in self.output_reader.pyramid.tiles_from_bounds(
+                            output_tile.bounds, output_tile.zoom + 1
+                        )
+                    ]
                 else:
-                    for output_tile in output_tiles:
-                        for child_tile in output_tile.get_children():
-                            if child_tile not in src_tiles:
-                                raise KeyError(f"{child_tile} not in {src_tiles}")
-                                1 / 0
-                                src_tiles[child_tile] = None
+                    child_tiles = [
+                        child_tile
+                        for output_tile in output_tiles
+                        for child_tile in output_tile.get_children()
+                    ]
+                for child_tile in child_tiles:
+                    if child_tile not in src_tiles:
+                        src_tiles[child_tile] = self.output_reader.read(child_tile)
 
                 mosaic = raster.create_mosaic(
-                    [
-                        (
-                            src_tile,
-                            self.output_reader.read(src_tile) if data is None else data,
-                        )
-                        for src_tile, data in src_tiles.items()
-                    ],
+                    [(src_tile, data) for src_tile, data in src_tiles.items()],
                     nodata=self.output_reader.output_params["nodata"],
                 )
                 process_data = raster.resample_from_array(
