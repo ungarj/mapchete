@@ -246,6 +246,7 @@ class DaskExecutor(_ExecutorBase):
         self._ac_iterator = as_completed(
             loop=self._executor.loop, with_results=True, raise_errors=True
         )
+        self._submitted = 0
         super().__init__(*args, **kwargs)
 
     def _map(self, func, iterable, fargs=None, fkwargs=None):
@@ -323,6 +324,7 @@ class DaskExecutor(_ExecutorBase):
                     item, skip, skip_info = item
                     if skip:
                         yield SkippedFuture(item, skip_info=skip_info)
+                        self._submitted -= 1
                         continue
 
                 # add processing item to chunk
@@ -331,10 +333,9 @@ class DaskExecutor(_ExecutorBase):
                 # submit chunk of tasks, if
                 # (1) chunksize is reached, or
                 # (2) remaining free task spots are less than tasks in chunk
-                running_futures = self._ac_iterator.count()
-                remaining_spots = max_submitted_tasks - running_futures
+                remaining_spots = max_submitted_tasks - self._submitted
                 if len(chunk) % chunksize == 0 or remaining_spots == len(chunk):
-                    logger.debug("submitted futures (tracked): %s", running_futures)
+                    logger.debug("submitted futures: %s", self._submitted)
                     logger.debug("remaining spots for futures: %s", remaining_spots)
                     logger.debug("current chunk size: %s", len(chunk))
                     self._submit_chunk(
@@ -348,7 +349,7 @@ class DaskExecutor(_ExecutorBase):
                 # yield finished tasks, if
                 # (1) there are finished tasks available, or
                 # (2) maximum allowed number of running tasks is reached
-                max_submitted_tasks_reached = running_futures >= max_submitted_tasks
+                max_submitted_tasks_reached = self._submitted >= max_submitted_tasks
                 if self._ac_iterator.has_ready() or max_submitted_tasks_reached:
                     # yield batch of finished futures
                     # if maximum submitted tasks limit is reached, block call and wait for finished futures
@@ -363,9 +364,7 @@ class DaskExecutor(_ExecutorBase):
                             yield from self._yield_from_batch(batch)
                         except JobCancelledError:  # pragma: no cover
                             return
-                    logger.debug(
-                        "%s futures still on cluster", self._ac_iterator.count()
-                    )
+                    logger.debug("%s futures still on cluster", self._submitted)
 
             # submit last chunk of items
             self._submit_chunk(
@@ -377,7 +376,7 @@ class DaskExecutor(_ExecutorBase):
             chunk = []
             # yield remaining futures as they finish
             if self._ac_iterator is not None:
-                logger.debug("yield %s remaining futures", self._ac_iterator.count())
+                logger.debug("yield %s remaining futures", self._submitted)
                 for batch in self._ac_iterator.batches():
                     try:
                         yield from self._yield_from_batch(batch)
@@ -388,11 +387,13 @@ class DaskExecutor(_ExecutorBase):
             # reset so futures won't linger here for next call
             self.running_futures = set()
             self._ac_iterator.clear()
+            self._submitted = 0
 
     def _submit_chunk(self, chunk=None, func=None, fargs=None, fkwargs=None):
         logger.debug("submit chunk of %s items to cluster", len(chunk))
         futures = self._executor.map(partial(func, *fargs, **fkwargs), chunk)
         self._ac_iterator.update(futures)
+        self._submitted += len(futures)
 
     def _yield_from_batch(self, batch):
         from dask.distributed import TimeoutError
@@ -401,6 +402,7 @@ class DaskExecutor(_ExecutorBase):
         cancelled_futures = []
 
         for future, result in batch:
+            self._submitted -= 1
             if self.cancelled:  # pragma: no cover
                 logger.debug("executor cancelled")
                 raise JobCancelledError()
@@ -445,6 +447,7 @@ class DaskExecutor(_ExecutorBase):
         logger.debug("retry future %s", future)
         future.retry()
         self._ac_iterator.add(future)
+        self._submitted += 1
 
     @cached_property
     def _executor(self):
