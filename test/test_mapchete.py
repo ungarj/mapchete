@@ -594,3 +594,10 @@ def test_bufferedtiles():
     assert a != tp_buffered.tile(5, 5, 5)
 
     assert a.get_neighbors() != a.get_neighbors(connectedness=4)
+
+
+def test_custom_grid_crs_bounds(custom_grid_crs_bounds):
+    """Make sure bounds outside of nominal CRS bounds (UTM grid) are read."""
+    mp = custom_grid_crs_bounds.process_mp(tile=(3, 1245, 37))
+    with mp.open("inp") as points:
+        assert points.read()
