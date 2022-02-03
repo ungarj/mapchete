@@ -33,7 +33,7 @@ jobs:
       run: |
         sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable && sudo apt-get -y update && sudo apt-get install -y gdal-bin python-tk libgdal-dev libproj-dev
         python -m pip install --upgrade pip
-        pip install -e .[complete]
+        pip install -e .[complete] --no-binary :all:
         pip install -r test/requirements.txt
 
     - name: Lint with flake8
