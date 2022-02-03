@@ -1,4 +1,5 @@
 from fiona.transform import transform_geom
+import logging
 import pyproj
 from rasterio.crs import CRS
 from shapely.errors import TopologicalError
@@ -19,6 +20,8 @@ from shapely.validation import explain_validity
 
 from mapchete.errors import GeometryTypeError
 from mapchete.validate import validate_crs
+
+logger = logging.getLogger(__name__)
 
 
 CRS_BOUNDS = {
@@ -133,16 +136,38 @@ def reproject_geometry(
 
     # return without clipping if destination CRS does not have defined bounds
     else:
-        if segmentize:
-            return _reproject_geom(
-                segmentize_geometry(
-                    geometry, _segmentize_value(geometry, segmentize_fraction)
-                ),
+        try:
+            if segmentize:
+                return _reproject_geom(
+                    segmentize_geometry(
+                        geometry, _segmentize_value(geometry, segmentize_fraction)
+                    ),
+                    src_crs,
+                    dst_crs,
+                )
+            else:
+                return _reproject_geom(geometry, src_crs, dst_crs)
+        except TopologicalError:  # pragma: no cover
+            raise
+        except Exception:
+            logger.error(
+                "error when transforming %s from %s to %s, trying to use CRS bounds clip",
+                geometry,
                 src_crs,
                 dst_crs,
             )
-        else:
-            return _reproject_geom(geometry, src_crs, dst_crs)
+            return reproject_geometry(
+                geometry,
+                src_crs=src_crs,
+                dst_crs=dst_crs,
+                clip_to_crs_bounds=True,
+                error_on_clip=error_on_clip,
+                segmentize_on_clip=segmentize_on_clip,
+                segmentize=segmentize,
+                segmentize_fraction=segmentize_fraction,
+                validity_check=validity_check,
+                antimeridian_cutting=antimeridian_cutting,
+            )
 
 
 def _repair(geom):
