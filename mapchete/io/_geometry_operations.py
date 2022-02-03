@@ -149,12 +149,13 @@ def reproject_geometry(
                 return _reproject_geom(geometry, src_crs, dst_crs)
         except TopologicalError:  # pragma: no cover
             raise
-        except Exception:
+        except ValueError as exc:
             logger.error(
-                "error when transforming %s from %s to %s, trying to use CRS bounds clip",
+                "error when transforming %s from %s to %s: %s, trying to use CRS bounds clip",
                 geometry,
                 src_crs,
                 dst_crs,
+                exc,
             )
             return reproject_geometry(
                 geometry,
