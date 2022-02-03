@@ -97,11 +97,10 @@ def makedirs(path):
     ----------
     path : path
     """
-    if not path_is_remote(path):
-        try:
-            os.makedirs(path)
-        except OSError:
-            pass
+    fs = fs_from_path(path)
+    # create parent directories on local filesystems
+    if fs.protocol == "file":
+        fs.makedirs(path, exist_ok=True)
 
 
 def tiles_exist(
@@ -110,7 +109,7 @@ def tiles_exist(
     output_tiles_batches=None,
     process_tiles=None,
     process_tiles_batches=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Yield tiles and whether their output already exists or not.
@@ -294,3 +293,23 @@ def fs_from_path(path, timeout=5, session=None, username=None, password=None, **
         return fsspec.filesystem("https", auth=auth, asynchronous=False, **kwargs)
     else:
         return fsspec.filesystem("file", asynchronous=False, **kwargs)
+
+
+def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
+    """Copy path from one place to the other."""
+    src_fs = src_fs or fs_from_path(src_path)
+    dst_fs = dst_fs or fs_from_path(dst_path)
+
+    if not overwrite and dst_fs.exists(dst_path):
+        raise IOError(f"{dst_path} already exists")
+
+    # create parent directories on local filesystems
+    makedirs(os.path.dirname(dst_path))
+
+    # copy either within a filesystem or between filesystems
+    if src_fs == dst_fs:
+        src_fs.copy(src_path, dst_path)
+    else:
+        with src_fs.open(src_path, "rb") as src:
+            with dst_fs.open(dst_path, "wb") as dst:
+                dst.write(src.read())
