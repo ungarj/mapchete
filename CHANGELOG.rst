@@ -3,6 +3,16 @@ Changelog
 #########
 
 ---------------------
+2022.2.0 - 2022-02-03
+---------------------
+
+* core
+  * fix feature clip when reading from vector input outside of CRS bounds
+  * separately count submitted tasks instead of relying on ``distributed.as_completed().count()``
+  * add GCPs referenced input raster support (#418)
+
+
+---------------------
 2022.1.2 - 2022-01-31
 ---------------------
 
