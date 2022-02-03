@@ -28,6 +28,7 @@ from mapchete.io import (
     read_json,
     tile_to_zoom_level,
     tiles_exist,
+    copy,
 )
 from mapchete.io.raster import (
     read_raster_window,
@@ -1288,6 +1289,24 @@ def test_tiles_exist_s3(gtiff_s3):
         assert set(output_tiles) == existing.union(not_existing)
 
 
+def test_copy(cleantopo_br_tif, tmpdir):
+    out = os.path.join(tmpdir, "copied.tif")
+
+    # copy and verify file is valid
+    copy(cleantopo_br_tif, out)
+    with rasterio.open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+    # try to copy again, catching the IOError
+    with pytest.raises(IOError):
+        copy(cleantopo_br_tif, out)
+
+    # copy again but overwrite
+    copy(cleantopo_br_tif, out, overwrite=True)
+    with rasterio.open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+
 def test_convert_raster_copy(cleantopo_br_tif, tmpdir):
     out = os.path.join(tmpdir, "copied.tif")
 
@@ -1299,6 +1318,11 @@ def test_convert_raster_copy(cleantopo_br_tif, tmpdir):
     # raise error if output exists
     with pytest.raises(IOError):
         convert_raster(cleantopo_br_tif, out, exists_ok=False)
+
+    # do nothing if output exists
+    convert_raster(cleantopo_br_tif, out)
+    with rasterio.open(out) as src:
+        assert not src.read(masked=True).mask.all()
 
 
 def test_convert_raster_overwrite(cleantopo_br_tif, tmpdir):
@@ -1350,6 +1374,11 @@ def test_convert_vector_copy(aoi_br_geojson, tmpdir):
     # raise error if output exists
     with pytest.raises(IOError):
         convert_vector(aoi_br_geojson, out, exists_ok=False)
+
+    # do nothing if output exists
+    convert_vector(aoi_br_geojson, out)
+    with fiona.open(out) as src:
+        assert list(iter(src))
 
 
 def test_convert_vector_overwrite(aoi_br_geojson, tmpdir):

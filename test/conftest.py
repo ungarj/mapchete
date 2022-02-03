@@ -617,6 +617,15 @@ def aoi_br():
 
 
 @pytest.fixture
+def preprocess_cache_raster_vector():
+    """Fixture for preprocess_cache_raster_vector.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "preprocess_cache_raster_vector.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)

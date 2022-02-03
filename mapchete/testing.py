@@ -64,27 +64,30 @@ class ProcessFixture:
         except FileNotFoundError:
             pass
 
-    def process_mp(self, tile=None, tile_zoom=None):
+    def process_mp(self, tile=None, tile_zoom=None, batch_preprocess=True):
         """
         Return MapcheteProcess object used to test processes.
         """
+        mp = self.mp(batch_preprocess=batch_preprocess)
         if tile:
-            tile = self.mp().config.process_pyramid.tile(*tile)
+            tile = mp.config.process_pyramid.tile(*tile)
         else:
             # just use first process tile from lowest zoom level
             tile = self.first_process_tile(zoom=tile_zoom)
         return mapchete.MapcheteProcess(
             tile=tile,
-            params=self.mp().config.params_at_zoom(tile.zoom),
-            input=self.mp().config.get_inputs_for_tile(tile),
+            params=mp.config.params_at_zoom(tile.zoom),
+            input=mp.config.get_inputs_for_tile(tile),
         )
 
-    def mp(self):
+    def mp(self, batch_preprocess=True):
         """
         Return Mapchete object from mapchete.open().
         """
         if not self._mp:
             self._mp = mapchete.open(self.dict)
+            if batch_preprocess:
+                self._mp.batch_preprocess()
         return self._mp
 
     def first_process_tile(self, zoom=None):

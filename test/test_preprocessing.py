@@ -87,3 +87,23 @@ def test_run_preprocessing_tasks(example_mapchete):
         assert inp1.get_preprocessing_task_result("test_task") == "foofoobar"
         assert inp1.get_preprocessing_task_result("test_other_task") == "barfoobar"
         assert inp2.get_preprocessing_task_result("test_task") == "foofoobar"
+
+
+def test_preprocess_cache_raster_vector(preprocess_cache_raster_vector):
+    # tile containing only features: 5 29 62
+    mp = preprocess_cache_raster_vector.process_mp((5, 29, 62))
+    with mp.open("clip") as clip:
+        assert clip.path.endswith("cache/aoi_br.fgb")
+        assert clip.read()
+    with mp.open("inp") as raster:
+        assert raster.path.endswith("cache/cleantopo_br.tif")
+        assert raster.read().mask.all()
+
+    # tile containing features and raster: 5 30 62
+    mp = preprocess_cache_raster_vector.process_mp((5, 30, 62))
+    with mp.open("clip") as clip:
+        assert clip.path.endswith("cache/aoi_br.fgb")
+        assert clip.read()
+    with mp.open("inp") as raster:
+        assert raster.path.endswith("cache/cleantopo_br.tif")
+        assert not raster.read().mask.all()

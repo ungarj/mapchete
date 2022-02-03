@@ -5,11 +5,16 @@ Currently limited by extensions .shp and .geojson but could be extended easily.
 """
 
 import fiona
+import logging
 from shapely.geometry import box
 from rasterio.crs import CRS
 
 from mapchete.formats import base
-from mapchete.io.vector import reproject_geometry, read_vector_window
+from mapchete.io.vector import reproject_geometry, read_vector_window, convert_vector
+from mapchete.io import fs_from_path, absolute_path
+
+
+logger = logging.getLogger(__name__)
 
 
 METADATA = {
@@ -49,11 +54,37 @@ class InputData(base.InputData):
         "mode": "r",
         "file_extensions": ["shp", "geojson"],
     }
+    _cached_path = None
+    _cache_keep = False
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
         super().__init__(input_params, **kwargs)
-        self.path = input_params["path"]
+        if "abstract" in input_params:
+            self.path = input_params["abstract"]["path"]
+            if "cache" in input_params["abstract"]:
+                if "path" in input_params["abstract"]["cache"]:
+                    self._cached_path = absolute_path(
+                        path=input_params["abstract"]["cache"]["path"],
+                        base_dir=input_params["conf_dir"],
+                    )
+                else:
+                    raise NotImplementedError("please provide a cache path")
+                # add preprocessing task to cache data
+                self.add_preprocessing_task(
+                    convert_vector,
+                    key=f"cache_{self.path}",
+                    fkwargs=dict(
+                        inp=self.path,
+                        out=self._cached_path,
+                        format=input_params["abstract"]["cache"].get(
+                            "format", "FlatGeobuf"
+                        ),
+                    ),
+                )
+                self._cache_keep = input_params["abstract"]["cache"].get("keep", False)
+        else:
+            self.path = input_params["path"]
 
     def open(self, tile, **kwargs):
         """
@@ -91,6 +122,12 @@ class InputData(base.InputData):
         # TODO find a way to get a good segmentize value in bbox source CRS
         return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
 
+    def cleanup(self):
+        """Cleanup when mapchete closes."""
+        if self._cached_path and not self._cache_keep:
+            logger.debug("remove cached file %s", self._cached_path)
+            fs_from_path(self._cached_path).rm(self._cached_path)
+
 
 class InputTile(base.InputTile):
     """
@@ -114,6 +151,7 @@ class InputTile(base.InputTile):
         self.tile = tile
         self.vector_file = vector_file
         self._cache = {}
+        self.path = vector_file._cached_path or vector_file.path
 
     def read(self, validity_check=True, **kwargs):
         """
@@ -147,8 +185,6 @@ class InputTile(base.InputTile):
         checked = "checked" if validity_check else "not_checked"
         if checked not in self._cache:
             self._cache[checked] = list(
-                read_vector_window(
-                    self.vector_file.path, self.tile, validity_check=validity_check
-                )
+                read_vector_window(self.path, self.tile, validity_check=validity_check)
             )
         return self._cache[checked]

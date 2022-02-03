@@ -1035,9 +1035,14 @@ def initialize_inputs(
         elif isinstance(v, dict):
             logger.debug("load input reader for abstract input %s", v)
             try:
+                abstract = deepcopy(v)
+                if "path" in abstract:
+                    abstract.update(
+                        path=absolute_path(path=abstract["path"], base_dir=config_dir)
+                    )
                 reader = load_input_reader(
                     dict(
-                        abstract=deepcopy(v),
+                        abstract=abstract,
                         pyramid=pyramid,
                         pixelbuffer=pyramid.pixelbuffer,
                         delimiters=delimiters,

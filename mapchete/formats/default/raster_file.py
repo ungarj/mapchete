@@ -16,7 +16,7 @@ import warnings
 
 from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
-from mapchete.io.raster import read_raster_window
+from mapchete.io.raster import read_raster_window, convert_raster
 from mapchete import io
 
 
@@ -61,11 +61,35 @@ class InputData(base.InputData):
         "mode": "r",
         "file_extensions": ["tif", "vrt", "png", "jp2"],
     }
+    _cached_path = None
+    _cache_keep = False
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
         super().__init__(input_params, **kwargs)
-        self.path = input_params["path"]
+        if "abstract" in input_params:
+            self.path = input_params["abstract"]["path"]
+            if "cache" in input_params["abstract"]:
+                if "path" in input_params["abstract"]["cache"]:
+                    self._cached_path = io.absolute_path(
+                        path=input_params["abstract"]["cache"]["path"],
+                        base_dir=input_params["conf_dir"],
+                    )
+                else:
+                    raise NotImplementedError("please provide a cache path")
+                # add preprocessing task to cache data
+                self.add_preprocessing_task(
+                    convert_raster,
+                    key=f"cache_{self.path}",
+                    fkwargs=dict(
+                        inp=self.path,
+                        out=self._cached_path,
+                        format=input_params["abstract"]["cache"].get("format", "COG"),
+                    ),
+                )
+                self._cache_keep = input_params["abstract"]["cache"].get("keep", False)
+        else:
+            self.path = input_params["path"]
 
     @cached_property
     def profile(self):
@@ -136,6 +160,12 @@ class InputData(base.InputData):
         """
         return os.path.isfile(self.path)  # pragma: no cover
 
+    def cleanup(self):
+        """Cleanup when mapchete closes."""
+        if self._cached_path and not self._cache_keep:
+            logger.debug("remove cached file %s", self._cached_path)
+            io.fs_from_path(self._cached_path).rm(self._cached_path)
+
 
 class InputTile(base.InputTile):
     """
@@ -160,8 +190,9 @@ class InputTile(base.InputTile):
         """Initialize."""
         self.tile = tile
         self.raster_file = raster_file
+        self.path = raster_file._cached_path or raster_file.path
         if io.path_is_remote(raster_file.path):
-            file_ext = os.path.splitext(raster_file.path)[1]
+            file_ext = os.path.splitext(self.path)[1]
             self.gdal_opts = {
                 "GDAL_DISABLE_READDIR_ON_OPEN": True,
                 "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext,
@@ -178,7 +209,7 @@ class InputTile(base.InputTile):
         data : array
         """
         return read_raster_window(
-            self.raster_file.path,
+            self.path,
             self.tile,
             indexes=self._get_band_indexes(indexes),
             resampling=resampling,
