@@ -15,7 +15,7 @@ import warnings
 
 from mapchete.errors import GeometryTypeError, MapcheteIOError
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
-from mapchete.io._path import fs_from_path, path_exists
+from mapchete.io._path import fs_from_path, path_exists, makedirs, copy
 from mapchete.io._geometry_operations import (
     reproject_geometry,
     segmentize_geometry,
@@ -410,3 +410,43 @@ class IndexedFeatures:
                 return validate_bounds(to_shape(feature["geometry"]).bounds)
         except Exception:
             raise TypeError(f"cannot determine bounds from feature: {feature}")
+
+
+def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
+    """
+    Convert vector file to a differernt format.
+
+    When kwargs are given, the operation will be conducted by Fiona, without kwargs,
+    the file is simply copied to the destination using fsspec.
+
+    Parameters
+    ----------
+    inp : str
+        Path to input file.
+    out : str
+        Path to output file.
+    overwrite : bool
+        Overwrite output file. (default: False)
+    skip_exists : bool
+        Skip conversion if outpu already exists. (default: True)
+    kwargs : mapping
+        Creation parameters passed on to output file.
+    """
+    if path_exists(out):
+        if not exists_ok:
+            raise IOError(f"{out} already exists")
+        elif not overwrite:
+            logger.debug("output %s already exists and will not be overwritten")
+            return
+        else:
+            fs_from_path(out).rm(out)
+    kwargs = kwargs or {}
+    if kwargs:
+        logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
+        with fiona.open(inp, "r") as src:
+            makedirs(os.path.dirname(out))
+            with fiona.open(out, mode="w", **{**src.meta, **kwargs}) as dst:
+                dst.writerecords(src)
+    else:
+        logger.debug("copy %s to %s", inp, out)
+        copy(inp, out, overwrite=overwrite)

@@ -48,6 +48,7 @@ from mapchete.io.vector import (
     segmentize_geometry,
     write_vector_window,
     _repair,
+    convert_vector,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -1336,3 +1337,54 @@ def test_convert_raster_other_format_overwrite(cleantopo_br_tif, tmpdir):
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG", overwrite=True)
     with rasterio.open(out) as src:
         assert not src.read(masked=True).mask.all()
+
+
+def test_convert_vector_copy(aoi_br_geojson, tmpdir):
+    out = os.path.join(tmpdir, "copied.geojson")
+
+    # copy
+    convert_vector(aoi_br_geojson, out)
+    with fiona.open(out) as src:
+        assert list(iter(src))
+
+    # raise error if output exists
+    with pytest.raises(IOError):
+        convert_vector(aoi_br_geojson, out, exists_ok=False)
+
+
+def test_convert_vector_overwrite(aoi_br_geojson, tmpdir):
+    out = os.path.join(tmpdir, "copied.geojson")
+
+    # write an invalid file
+    with open(out, "w") as dst:
+        dst.write("invalid")
+
+    # overwrite
+    convert_vector(aoi_br_geojson, out, overwrite=True)
+    with fiona.open(out) as src:
+        assert list(iter(src))
+
+
+def test_convert_vector_other_format_copy(aoi_br_geojson, tmpdir):
+    out = os.path.join(tmpdir, "copied.gpkg")
+
+    convert_vector(aoi_br_geojson, out, driver="GPKG")
+    with fiona.open(out) as src:
+        assert list(iter(src))
+
+    # raise error if output exists
+    with pytest.raises(IOError):
+        convert_vector(aoi_br_geojson, out, exists_ok=False)
+
+
+def test_convert_vector_other_format_overwrite(aoi_br_geojson, tmpdir):
+    out = os.path.join(tmpdir, "copied.gkpk")
+
+    # write an invalid file
+    with open(out, "w") as dst:
+        dst.write("invalid")
+
+    # overwrite
+    convert_vector(aoi_br_geojson, out, driver="GPKG", overwrite=True)
+    with fiona.open(out) as src:
+        assert list(iter(src))
