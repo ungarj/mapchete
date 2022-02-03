@@ -248,7 +248,7 @@ def multipart_to_singleparts(geom):
     """
     if isinstance(geom, base.BaseGeometry):
         if hasattr(geom, "geoms"):
-            for subgeom in geom:
+            for subgeom in geom.geoms:
                 yield subgeom
         else:
             yield geom
@@ -307,7 +307,7 @@ def clean_geometry_type(
                     clean_geometry_type(
                         g, target_type, allow_multipart, raise_exception=raise_exception
                     )
-                    for g in geometry
+                    for g in geometry.geoms
                 ]
             )
         elif (
