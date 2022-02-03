@@ -39,6 +39,7 @@ from mapchete.io.raster import (
     prepare_array,
     RasterWindowMemoryFile,
     read_raster_no_crs,
+    convert_raster,
 )
 from mapchete.io.vector import (
     read_vector_window,
@@ -1284,3 +1285,54 @@ def test_tiles_exist_s3(gtiff_s3):
                 not_existing.add(tile)
         assert existing == written_output_tiles
         assert set(output_tiles) == existing.union(not_existing)
+
+
+def test_convert_raster_copy(cleantopo_br_tif, tmpdir):
+    out = os.path.join(tmpdir, "copied.tif")
+
+    # copy
+    convert_raster(cleantopo_br_tif, out)
+    with rasterio.open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+    # raise error if output exists
+    with pytest.raises(IOError):
+        convert_raster(cleantopo_br_tif, out, exists_ok=False)
+
+
+def test_convert_raster_overwrite(cleantopo_br_tif, tmpdir):
+    out = os.path.join(tmpdir, "copied.tif")
+
+    # write an invalid file
+    with open(out, "w") as dst:
+        dst.write("invalid")
+
+    # overwrite
+    convert_raster(cleantopo_br_tif, out, overwrite=True)
+    with rasterio.open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+
+def test_convert_raster_other_format_copy(cleantopo_br_tif, tmpdir):
+    out = os.path.join(tmpdir, "copied.jp2")
+
+    convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG")
+    with rasterio.open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+    # raise error if output exists
+    with pytest.raises(IOError):
+        convert_raster(cleantopo_br_tif, out, exists_ok=False)
+
+
+def test_convert_raster_other_format_overwrite(cleantopo_br_tif, tmpdir):
+    out = os.path.join(tmpdir, "copied.jp2")
+
+    # write an invalid file
+    with open(out, "w") as dst:
+        dst.write("invalid")
+
+    # overwrite
+    convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG", overwrite=True)
+    with rasterio.open(out) as src:
+        assert not src.read(masked=True).mask.all()
