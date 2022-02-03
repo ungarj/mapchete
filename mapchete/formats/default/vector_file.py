@@ -7,7 +7,6 @@ Currently limited by extensions .shp and .geojson but could be extended easily.
 import fiona
 from shapely.geometry import box
 from rasterio.crs import CRS
-from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry, read_vector_window
@@ -90,9 +89,7 @@ class InputData(base.InputData):
             inp_crs = CRS(inp.crs)
             bbox = box(*inp.bounds)
         # TODO find a way to get a good segmentize value in bbox source CRS
-        return reproject_geometry(
-            bbox, src_crs=inp_crs, dst_crs=out_crs, clip_to_crs_bounds=False
-        )
+        return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
 
 
 class InputTile(base.InputTile):
@@ -118,7 +115,7 @@ class InputTile(base.InputTile):
         self.vector_file = vector_file
         self._cache = {}
 
-    def read(self, validity_check=True, clip_to_crs_bounds=False, **kwargs):
+    def read(self, validity_check=True, **kwargs):
         """
         Read reprojected & resampled input data.
 
@@ -126,23 +123,13 @@ class InputTile(base.InputTile):
         ----------
         validity_check : bool
             also run checks if reprojected geometry is valid, otherwise throw
-            RuntimeError (default: False)
-        clip_to_crs_bounds : bool
-            Clip geometry to nominal CRS bounds. This can lead to empty data when set to True.
-            When set to False, this can lead to invalid geometries. (default: True)
+            RuntimeError (default: True)
 
         Returns
         -------
         data : list
         """
-        return (
-            []
-            if self.is_empty()
-            else self._read_from_cache(
-                validity_check=validity_check,
-                clip_to_crs_bounds=clip_to_crs_bounds,
-            )
-        )
+        return [] if self.is_empty() else self._read_from_cache(validity_check)
 
     def is_empty(self):
         """
@@ -154,20 +141,14 @@ class InputTile(base.InputTile):
         """
         if not self.tile.bbox.intersects(self.vector_file.bbox()):
             return True
-        return (
-            len(self._read_from_cache(validity_check=True, clip_to_crs_bounds=False))
-            == 0
-        )
+        return len(self._read_from_cache(True)) == 0
 
-    def _read_from_cache(self, validity_check=True, clip_to_crs_bounds=False):
+    def _read_from_cache(self, validity_check):
         checked = "checked" if validity_check else "not_checked"
         if checked not in self._cache:
             self._cache[checked] = list(
                 read_vector_window(
-                    self.vector_file.path,
-                    self.tile,
-                    validity_check=validity_check,
-                    clip_to_crs_bounds=clip_to_crs_bounds,
+                    self.vector_file.path, self.tile, validity_check=validity_check
                 )
             )
         return self._cache[checked]

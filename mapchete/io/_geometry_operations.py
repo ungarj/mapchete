@@ -57,9 +57,6 @@ def reproject_geometry(
         CRS of source data
     dst_crs : ``rasterio.crs.CRS`` or EPSG code
         target CRS
-    clip_to_crs_bounds : bool
-        Clip geometry to nominal CRS bounds. This can lead to empty data when set to True.
-        When set to False, this can lead to invalid geometries. (default: True)
     error_on_clip : bool
         raises a ``RuntimeError`` if a geometry is outside of CRS bounds
         (default: False)

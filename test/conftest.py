@@ -617,15 +617,6 @@ def aoi_br():
 
 
 @pytest.fixture
-def custom_grid_crs_bounds():
-    """Fixture for custom_grid_crs_bounds.mapchete."""
-    with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "custom_grid_crs_bounds.mapchete"),
-    ) as example:
-        yield example
-
-
-@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)
