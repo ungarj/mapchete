@@ -1,12 +1,43 @@
-from mapchete._tasks import Task, TileTask, TaskBatch, TileTaskBatch, to_dask_collection
-from mapchete.tile import BufferedTilePyramid
-
+from typing import Type
+import pytest
 from shapely.geometry import shape
+
+
+from mapchete.errors import NoTaskGeometry
+from mapchete._tasks import Task, TileTask, TaskBatch, TileTaskBatch, to_dask_collection
 
 
 def test_task_geo_interface():
     task = Task(bounds=(0, 1, 2, 3))
     assert not shape(task).is_empty
+
+
+def test_task_errors():
+    # provide geometry and bounds at the same time
+    with pytest.raises(ValueError):
+        Task(geometry="foo", bounds="bar")
+
+    # task has no geo information
+    with pytest.raises(NoTaskGeometry):
+        Task().__geo_interface__
+
+    # invalid dependencies
+    with pytest.raises(TypeError):
+        Task().add_dependencies("invalid")
+
+
+def test_task_dict():
+    task_dict = Task(bounds=(0, 1, 2, 3)).to_dict()
+    assert "geometry" in task_dict
+    assert "properties" in task_dict
+    assert "id" in task_dict
+    assert "bounds" in task_dict
+
+
+def test_task_dependencies():
+    task = Task()
+    task.add_dependencies({"foo": "bar"})
+    assert "foo" in task.dependencies
 
 
 def test_tile_task_geo_interface(example_mapchete):
@@ -16,10 +47,61 @@ def test_tile_task_geo_interface(example_mapchete):
     assert not shape(task).is_empty
 
 
-def test_task_batches(dem_to_hillshade):
+def test_task_batches():
+    batch = TaskBatch(
+        (Task(func=str, fargs=(i,), bounds=(0, 1, 2, 3)) for i in range(10))
+    )
+    assert batch.items()
+    assert batch.keys()
+    assert batch.values()
+
+    other_task = Task(bounds=(0, 1, 2, 3))
+    assert len(batch.intersection(other_task)) == 10
+    assert len(batch.intersection((0, 1, 2, 3))) == 10
+
+
+def test_task_batches_errors():
+    with pytest.raises(TypeError):
+        TaskBatch()
+
+    with pytest.raises(TypeError):
+        TaskBatch(["invalid"])
+
+    batch = TaskBatch(
+        (Task(func=str, fargs=(i,), bounds=(0, 1, 2, 3)) for i in range(10))
+    )
+    with pytest.raises(TypeError):
+        batch.intersection("invalid")
+
+
+def test_tile_task_batch(dem_to_hillshade):
+    tile_task_batch = TileTaskBatch(
+        (
+            TileTask(tile=process_tile, config=dem_to_hillshade.mp().config)
+            for process_tile in dem_to_hillshade.mp().get_process_tiles(zoom=5)
+        )
+    )
+
+    other_tile = dem_to_hillshade.first_process_tile().get_parent()
+    tile_task = TileTask(tile=other_tile, config=dem_to_hillshade.mp().config)
+    assert len(tile_task_batch.intersection(tile_task)) == 4
+
+    task = Task(bounds=other_tile.bounds)
+    assert len(tile_task_batch.intersection(task)) == 4
+
+    assert len(tile_task_batch.intersection(task.bounds)) == 4
+
+    with pytest.raises(TypeError):
+        tile_task_batch.intersection("invalid")
+
+
+def test_task_batches_to_dask_graph(dem_to_hillshade):
     preprocessing_batch = TaskBatch(
         (Task(func=str, fargs=(i,), bounds=(0, 1, 2, 3)) for i in range(10))
     )
+    assert preprocessing_batch.items()
+    assert preprocessing_batch.keys()
+    assert preprocessing_batch.values()
     zoom_batches = (
         TileTaskBatch(
             (

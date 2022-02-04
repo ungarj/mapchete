@@ -53,7 +53,7 @@ class Task:
             self.bounds, self.geometry = None, None
 
     def __repr__(self):
-        return f"Task(id={self.id}, geometry={self.geometry})"
+        return f"Task(id={self.id}, bounds={self.bounds})"
 
     def to_dict(self):
         return {
@@ -85,12 +85,17 @@ def _execute_task(task, dependencies=None, **kwargs):
 
 
 class TaskBatch:
-    def __init__(self, tasks=None, func=None, fkwargs=None):
+    def __init__(self, tasks=None, id=None, func=None, fkwargs=None):
         if tasks is None:
             raise TypeError("TaskBatch requires at least one Task")
+        self.id = id
         self.tasks = IndexedFeatures((self._validate(t) for t in tasks))
+        self.bounds = self.tasks.bounds
         self.func = func or _execute_task
         self.fkwargs = fkwargs or {}
+
+    def __repr__(self):
+        return f"TaskBatch(id={self.id}, bounds={self.bounds})"
 
     def __iter__(self):
         return self.tasks
@@ -131,11 +136,12 @@ class TileTask(Task):
     If skip is set to True, all attributes will be set to None.
     """
 
-    def __init__(self, tile=None, config=None, skip=False, dependencies=None):
+    def __init__(self, tile=None, id=None, config=None, skip=False, dependencies=None):
         """Set attributes depending on baselevels or not."""
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
         )
+        self.id = id or f"tile_task_{self.tile.zoom}-{self.tile.row}-{self.tile.col}"
         self.skip = skip
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
@@ -300,14 +306,26 @@ class TileTask(Task):
 class TileTaskBatch(TaskBatch):
     """Combines TileTask instances of same pyramid and zoom level into one batch."""
 
-    def __init__(self, tile_tasks, func=None, fkwargs=None):
+    def __init__(self, tile_tasks, id=None, func=None, fkwargs=None):
+        self.id = id
+        self.bounds = None, None, None, None
         self.tasks = {tile: item for tile, item in self._validate(tile_tasks)}
+        self._update_bounds()
         self.func = func or _execute_task
         self.fkwargs = fkwargs or {}
 
+    def _update_bounds(self):
+        for tile in self.tasks.keys():
+            left, bottom, right, top = self.bounds
+            self.bounds = (
+                tile.left if left is None else min(left, tile.left),
+                tile.bottom if bottom is None else min(bottom, tile.bottom),
+                tile.right if right is None else max(right, tile.right),
+                tile.top if top is None else max(top, tile.top),
+            )
+
     def intersection(self, other):
         if isinstance(other, TileTask):
-            # return self.intersection(other.tile.bounds)
             if other.tile.zoom + 1 != self._zoom:
                 raise ValueError("intersecting tile has to be from zoom level above")
             return [
@@ -318,12 +336,14 @@ class TileTaskBatch(TaskBatch):
 
         if isinstance(other, Task):
             return self.intersection(other.bounds)
+
         elif isinstance(other, (tuple, list)):
             return [
                 self.tasks[tile]
                 for tile in self._tp.tiles_from_bounds(bounds=other, zoom=self._zoom)
                 if tile in self.tasks
             ]
+
         else:
             raise TypeError(
                 "intersections only works with other Task instances or bounds"
