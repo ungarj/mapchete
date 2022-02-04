@@ -2,9 +2,11 @@
 
 import os
 import logging
+from attr import Attribute
 import fiona
 from fiona.errors import DriverError, FionaError, FionaValueError
 from fiona.io import MemoryFile
+import json
 from retry import retry
 from rasterio.crs import CRS
 from shapely.geometry import box, mapping, shape
@@ -342,23 +344,27 @@ class IndexedFeatures:
         Features to be indexed
     """
 
-    def __init__(self, features=None):
-        try:
-            from rtree import index
+    def __init__(self, features, index="rtree"):
+        if index == "rtree":
+            try:
+                from rtree import index
 
-            self._index = index.Index()
-        except ImportError:
-            warnings.warn(
-                "It is recommended to install rtree in order to significantly speed up spatial indexes."
-            )
+                self._index = index.Index()
+            except ImportError:  # pragma: no cover
+                warnings.warn(
+                    "It is recommended to install rtree in order to significantly speed up spatial indexes."
+                )
+                self._index = FakeIndex()
+        else:
             self._index = FakeIndex()
 
-        if features is None:
-            features = []
         self._items = {}
         self.bounds = (None, None, None, None)
         for feature in features:
-            id_ = self._get_feature_id(feature)
+            if isinstance(feature, tuple):
+                id_, feature = feature
+            else:
+                id_ = self._get_feature_id(feature)
             self._items[id_] = feature
             bounds = self._get_feature_bounds(feature)
             self._update_bounds(bounds)
@@ -413,10 +419,13 @@ class IndexedFeatures:
     def _get_feature_id(self, feature):
         if hasattr(feature, "id"):
             return hash(feature.id)
-        elif feature.get("id"):
+        elif isinstance(feature, dict) and "id" in feature:
             return hash(feature["id"])
         else:
-            return hash(feature)
+            try:
+                return hash(feature)
+            except TypeError:
+                raise TypeError("features need to have an id or have to be hashable")
 
     def _get_feature_bounds(self, feature):
         try:
@@ -428,6 +437,8 @@ class IndexedFeatures:
                 return validate_bounds(shape(feature).bounds)
             elif feature.get("geometry"):
                 return validate_bounds(to_shape(feature["geometry"]).bounds)
+            else:
+                raise TypeError("no bounds")
         except Exception:
             raise TypeError(f"cannot determine bounds from feature: {feature}")
 

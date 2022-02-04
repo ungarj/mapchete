@@ -5,7 +5,7 @@ import os
 from rasterio.crs import CRS
 from shapely import wkt
 from shapely.errors import TopologicalError
-from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString
+from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString, mapping
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import GeometryTypeError, MapcheteIOError
@@ -17,6 +17,7 @@ from mapchete.io.vector import (
     write_vector_window,
     _repair,
     convert_vector,
+    IndexedFeatures,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -336,3 +337,36 @@ def test_convert_vector_other_format_overwrite(aoi_br_geojson, tmpdir):
     convert_vector(aoi_br_geojson, out, driver="GPKG", overwrite=True)
     with fiona.open(out) as src:
         assert list(iter(src))
+
+
+def test_indexed_features(landpoly):
+    with fiona.open(landpoly) as src:
+        some_id = next(iter(src))["id"]
+        features = IndexedFeatures(src)
+
+    assert features[some_id]
+    with pytest.raises(KeyError):
+        features["invalid_key"]
+
+    assert features.items()
+    assert features.keys()
+
+
+def test_indexed_features_bounds():
+    feature = {"bounds": (0, 1, 2, 3)}
+    assert IndexedFeatures([(0, feature)])
+
+    feature = {"geometry": mapping(box(0, 1, 2, 3))}
+    assert IndexedFeatures([(0, feature)])
+
+    feature = {"geometry": box(0, 1, 2, 3)}
+    assert IndexedFeatures([(0, feature)])
+
+    # no featuere id
+    with pytest.raises(TypeError):
+        IndexedFeatures([feature])
+
+    # no bounds
+    feature = {"properties": {"foo": "bar"}, "id": 0}
+    with pytest.raises(TypeError):
+        IndexedFeatures([feature])
