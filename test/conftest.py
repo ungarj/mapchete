@@ -624,6 +624,15 @@ def preprocess_cache_raster_vector():
     ) as example:
         yield example
 
+        
+@pytest.fixture
+def custom_grid_points():
+    """Fixture for custom_grid_points.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "custom_grid_points.mapchete"),
+    ) as example:
+        yield example
+
 
 @pytest.fixture
 def s3_example_tile(gtiff_s3):

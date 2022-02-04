@@ -290,3 +290,9 @@ def test_copy(cleantopo_br_tif, tmpdir):
     copy(cleantopo_br_tif, out, overwrite=True)
     with rasterio.open(out) as src:
         assert not src.read(masked=True).mask.all()
+
+
+def test_custom_grid_points(custom_grid_points):
+    mp = custom_grid_points.process_mp(tile=(3, 1245, 37))
+    with mp.open("inp") as points:
+        assert points.read()
