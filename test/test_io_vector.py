@@ -1,20 +1,11 @@
 import pytest
-import shutil
-import rasterio
-import tempfile
-import numpy as np
-import numpy.ma as ma
 import fiona
 from fiona.errors import DriverError
 import os
 from rasterio.crs import CRS
-from rasterio.enums import Compression
 from shapely import wkt
 from shapely.errors import TopologicalError
 from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString
-from shapely.ops import unary_union
-from tilematrix import Bounds
-from itertools import product
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import GeometryTypeError, MapcheteIOError
