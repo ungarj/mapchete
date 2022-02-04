@@ -1417,3 +1417,9 @@ def test_convert_vector_other_format_overwrite(aoi_br_geojson, tmpdir):
     convert_vector(aoi_br_geojson, out, driver="GPKG", overwrite=True)
     with fiona.open(out) as src:
         assert list(iter(src))
+
+
+def test_custom_grid_points(custom_grid_points):
+    mp = custom_grid_points.process_mp(tile=(3, 1245, 37))
+    with mp.open("inp") as points:
+        assert points.read()

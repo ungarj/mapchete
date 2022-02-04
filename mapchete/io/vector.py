@@ -37,7 +37,9 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-def read_vector_window(input_files, tile, validity_check=True):
+def read_vector_window(
+    input_files, tile, validity_check=True, clip_to_crs_bounds=False
+):
     """
     Read a window of an input vector dataset.
 
@@ -52,6 +54,8 @@ def read_vector_window(input_files, tile, validity_check=True):
     validity_check : bool
         checks if reprojected geometry is valid and throws ``RuntimeError`` if
         invalid (default: True)
+    clip_to_crs_bounds : bool
+        Always clip geometries to CRS bounds. (default: False)
 
     Returns
     -------
@@ -63,7 +67,12 @@ def read_vector_window(input_files, tile, validity_check=True):
             feature
             for feature in chain.from_iterable(
                 [
-                    _read_vector_window(path, tile, validity_check=validity_check)
+                    _read_vector_window(
+                        path,
+                        tile,
+                        validity_check=validity_check,
+                        clip_to_crs_bounds=clip_to_crs_bounds,
+                    )
                     for path in (
                         input_files if isinstance(input_files, list) else [input_files]
                     )
@@ -76,7 +85,9 @@ def read_vector_window(input_files, tile, validity_check=True):
         raise MapcheteIOError(e)
 
 
-def _read_vector_window(input_file, tile, validity_check=True):
+def _read_vector_window(
+    input_file, tile, validity_check=True, clip_to_crs_bounds=False
+):
     if tile.pixelbuffer and tile.is_on_edge():
         return chain.from_iterable(
             _get_reprojected_features(
@@ -84,6 +95,7 @@ def _read_vector_window(input_file, tile, validity_check=True):
                 dst_bounds=bbox.bounds,
                 dst_crs=tile.crs,
                 validity_check=validity_check,
+                clip_to_crs_bounds=clip_to_crs_bounds,
             )
             for bbox in clip_geometry_to_srs_bounds(
                 tile.bbox, tile.tile_pyramid, multipart=True
@@ -95,6 +107,7 @@ def _read_vector_window(input_file, tile, validity_check=True):
             dst_bounds=tile.bounds,
             dst_crs=tile.crs,
             validity_check=validity_check,
+            clip_to_crs_bounds=clip_to_crs_bounds,
         )
         return features
 
@@ -234,7 +247,11 @@ class VectorWindowMemoryFile:
     **MAPCHETE_IO_RETRY_SETTINGS,
 )
 def _get_reprojected_features(
-    input_file=None, dst_bounds=None, dst_crs=None, validity_check=False
+    input_file=None,
+    dst_bounds=None,
+    dst_crs=None,
+    validity_check=False,
+    clip_to_crs_bounds=False,
 ):
     logger.debug("reading %s", input_file)
     try:
@@ -262,11 +279,14 @@ def _get_reprojected_features(
                     # reproject each feature to tile CRS
                     g = reproject_geometry(
                         clean_geometry_type(
-                            clipped_geom, original_geom.geom_type, raise_exception=False
+                            clipped_geom,
+                            original_geom.geom_type,
+                            raise_exception=False,
                         ),
                         src_crs=src_crs,
                         dst_crs=dst_crs,
                         validity_check=validity_check,
+                        clip_to_crs_bounds=False,
                     )
                     if not g.is_empty:
                         yield {
