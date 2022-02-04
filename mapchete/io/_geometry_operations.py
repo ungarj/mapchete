@@ -66,6 +66,8 @@ def reproject_geometry(
     validity_check : bool
         checks if reprojected geometry is valid and throws ``TopologicalError``
         if invalid (default: True)
+    clip_to_crs_bounds : bool
+        Always clip geometries to CRS bounds. (default: True)
     antimeridian_cutting : bool
         cut geometry at Antimeridian; can result in a multipart output geometry
 
@@ -149,7 +151,7 @@ def reproject_geometry(
                 return _reproject_geom(geometry, src_crs, dst_crs)
         except TopologicalError:  # pragma: no cover
             raise
-        except ValueError as exc:  # pragma: no cover
+        except ValueError as exc:
             logger.error(
                 "error when transforming %s from %s to %s: %s, trying to use CRS bounds clip",
                 geometry,

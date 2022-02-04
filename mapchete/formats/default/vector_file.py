@@ -89,7 +89,9 @@ class InputData(base.InputData):
             inp_crs = CRS(inp.crs)
             bbox = box(*inp.bounds)
         # TODO find a way to get a good segmentize value in bbox source CRS
-        return reproject_geometry(bbox, src_crs=inp_crs, dst_crs=out_crs)
+        return reproject_geometry(
+            bbox, src_crs=inp_crs, dst_crs=out_crs, clip_to_crs_bounds=False
+        )
 
 
 class InputTile(base.InputTile):
@@ -115,7 +117,7 @@ class InputTile(base.InputTile):
         self.vector_file = vector_file
         self._cache = {}
 
-    def read(self, validity_check=True, **kwargs):
+    def read(self, validity_check=True, clip_to_crs_bounds=False, **kwargs):
         """
         Read reprojected & resampled input data.
 
@@ -124,12 +126,20 @@ class InputTile(base.InputTile):
         validity_check : bool
             also run checks if reprojected geometry is valid, otherwise throw
             RuntimeError (default: True)
+        clip_to_crs_bounds : bool
+            Always clip geometries to CRS bounds. (default: False)
 
         Returns
         -------
         data : list
         """
-        return [] if self.is_empty() else self._read_from_cache(validity_check)
+        return (
+            []
+            if self.is_empty()
+            else self._read_from_cache(
+                validity_check=validity_check, clip_to_crs_bounds=clip_to_crs_bounds
+            )
+        )
 
     def is_empty(self):
         """
@@ -143,12 +153,15 @@ class InputTile(base.InputTile):
             return True
         return len(self._read_from_cache(True)) == 0
 
-    def _read_from_cache(self, validity_check):
+    def _read_from_cache(self, validity_check=True, clip_to_crs_bounds=False):
         checked = "checked" if validity_check else "not_checked"
         if checked not in self._cache:
             self._cache[checked] = list(
                 read_vector_window(
-                    self.vector_file.path, self.tile, validity_check=validity_check
+                    self.vector_file.path,
+                    self.tile,
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
                 )
             )
         return self._cache[checked]

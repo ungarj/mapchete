@@ -1284,3 +1284,9 @@ def test_tiles_exist_s3(gtiff_s3):
                 not_existing.add(tile)
         assert existing == written_output_tiles
         assert set(output_tiles) == existing.union(not_existing)
+
+
+def test_custom_grid_points(custom_grid_points):
+    mp = custom_grid_points.process_mp(tile=(3, 1245, 37))
+    with mp.open("inp") as points:
+        assert points.read()
