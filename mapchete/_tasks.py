@@ -358,8 +358,8 @@ class TileTaskBatch(TaskBatch):
                     "TileTaskBatch items must be TileTasks, not %s", type(item)
                 )
             if self._tp is None:
-                self._tp = item.tile.tp
-            elif item.tile.tp != self._tp:
+                self._tp = item.tile.buffered_tp
+            elif item.tile.buffered_tp != self._tp:
                 raise TypeError("all TileTasks must derive from the same pyramid.")
             if self._zoom is None:
                 self._zoom = item.tile.zoom
