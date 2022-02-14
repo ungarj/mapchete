@@ -658,7 +658,6 @@ def resample_from_array(
     if nodataval is not None:  # pragma: no cover
         warnings.warn("'nodataval' is deprecated, please use 'nodata'")
         nodata = nodata or nodataval
-    # TODO rename function
     if isinstance(in_raster, ma.MaskedArray):
         pass
     elif isinstance(in_raster, np.ndarray):
@@ -896,7 +895,9 @@ def _get_tiles_properties(tiles):
             raise ValueError("all tiles must have the same CRS")
         if isinstance(data, np.ndarray):
             if data[0].dtype != tiles[0][1][0].dtype:
-                raise TypeError("all tile data must have the same dtype")
+                raise TypeError(
+                    f"all tile data must have the same dtype: {data[0].dtype} != {tiles[0][1][0].dtype}"
+                )
     return tile.tile_pyramid, tile.pixel_x_size, data[0].dtype
 
 

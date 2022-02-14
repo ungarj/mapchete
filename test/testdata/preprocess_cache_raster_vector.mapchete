@@ -10,14 +10,14 @@ input:
             path: tmp/preprocess_cache_raster_vector/cache/cleantopo_br.tif
             format: COG
             cog: true
-            keep: true
+            keep: false
     clip:
         format: vector_file
         path: aoi_br.geojson
         cache:
             path: tmp/preprocess_cache_raster_vector/cache/aoi_br.fgb
             format: FlatGeobuf
-            keep: true
+            keep: false
 output:
     dtype: uint16
     bands: 1

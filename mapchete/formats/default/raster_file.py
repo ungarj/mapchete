@@ -75,8 +75,8 @@ class InputData(base.InputData):
                         path=input_params["abstract"]["cache"]["path"],
                         base_dir=input_params["conf_dir"],
                     )
-                else:
-                    raise NotImplementedError("please provide a cache path")
+                else:  # pragma: no cover
+                    raise ValueError("please provide a cache path")
                 # add preprocessing task to cache data
                 self.add_preprocessing_task(
                     convert_raster,

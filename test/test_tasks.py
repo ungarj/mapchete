@@ -55,6 +55,9 @@ def test_task_batches():
     assert batch.keys()
     assert batch.values()
 
+    for task in batch:
+        assert isinstance(task, Task)
+
     other_task = Task(bounds=(0, 1, 2, 3))
     assert len(batch.intersection(other_task)) == 10
     assert len(batch.intersection((0, 1, 2, 3))) == 10
@@ -81,6 +84,9 @@ def test_tile_task_batch(dem_to_hillshade):
             for process_tile in dem_to_hillshade.mp().get_process_tiles(zoom=5)
         )
     )
+
+    for task in tile_task_batch:
+        assert isinstance(task, TileTask)
 
     other_tile = dem_to_hillshade.first_process_tile().get_parent()
     tile_task = TileTask(tile=other_tile, config=dem_to_hillshade.mp().config)

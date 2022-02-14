@@ -22,6 +22,7 @@ import mapchete
 from mapchete.io.raster import create_mosaic, _shift_required
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.tile import BufferedTilePyramid, count_tiles
+from mapchete._executor import DaskExecutor
 
 
 def test_empty_execute(mp_tmpdir, cleantopo_br):
@@ -164,6 +165,34 @@ def test_baselevels(mp_tmpdir, baselevels):
     with mapchete.open(baselevels.dict, mode="continue") as mp:
         # process data before getting baselevels
         mp.batch_process()
+
+        # get tile from lower zoom level
+        for tile in mp.get_process_tiles(4):
+            data = mp.get_raw_output(tile)
+            assert not data.mask.all()
+            # write for next zoom level
+            mp.write(tile, data)
+            assert not mp.get_raw_output(tile.get_parent()).mask.all()
+
+        # get tile from higher zoom level
+        tile = next(mp.get_process_tiles(6))
+        # process and save
+        mp.write(tile, mp.get_raw_output(tile))
+        # read from baselevel
+        assert any(
+            [
+                not mp.get_raw_output(upper_tile).mask.all()
+                for upper_tile in tile.get_children()
+            ]
+        )
+
+
+def test_baselevels_dask(mp_tmpdir, baselevels):
+    """Baselevel interpolation."""
+    with mapchete.open(baselevels.dict, mode="continue") as mp:
+        # process data before getting baselevels
+        with DaskExecutor() as executor:
+            mp.batch_process(executor=executor)
 
         # get tile from lower zoom level
         for tile in mp.get_process_tiles(4):

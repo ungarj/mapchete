@@ -370,6 +370,9 @@ class IndexedFeatures:
             self._update_bounds(bounds)
             self._index.insert(id_, bounds)
 
+    def __repr__(self):  # pragma: no cover
+        return f"IndexedFeatures(id={self.id}, index={self._index.__repr__()})"
+
     def __len__(self):
         return len(self._items)
 

@@ -18,6 +18,7 @@ from mapchete.io.vector import (
     _repair,
     convert_vector,
     IndexedFeatures,
+    bounds_intersect,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -370,3 +371,31 @@ def test_indexed_features_bounds():
     feature = {"properties": {"foo": "bar"}, "id": 0}
     with pytest.raises(TypeError):
         IndexedFeatures([feature])
+
+
+def test_bounds_intersect():
+    b1 = (0, 0, 2, 2)
+    b2 = (1, 1, 3, 3)
+    b3 = (0, 1, 2, 3)
+    b4 = (1, 0, 3, 2)
+    b5 = (0, -1, 2, 1)
+    b6 = (0, -2, 2, 0)
+    b7 = (0, 0, 2, 2)
+
+    assert bounds_intersect(b1, b1)
+    assert bounds_intersect(b1, b2)
+    assert bounds_intersect(b1, b3)
+    assert bounds_intersect(b1, b4)
+    assert bounds_intersect(b1, b5)
+    assert not bounds_intersect(b1, b6)
+    assert bounds_intersect(b1, b7)
+
+
+def test_indexed_features_fakeindex(landpoly):
+    with fiona.open(landpoly) as src:
+        features = list(src)
+        idx = IndexedFeatures(features)
+        fake_idx = IndexedFeatures(features, index=None)
+    bounds = (-135.0, 60, -90, 80)
+    print(box(*bounds))
+    assert len(idx.filter(bounds)) == len(fake_idx.filter(bounds))

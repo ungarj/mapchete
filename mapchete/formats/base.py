@@ -405,7 +405,12 @@ class OutputDataWriter(OutputDataReader):
         """
         if self.METADATA["data_type"] == "raster":
             if is_numpy_or_masked_array(process_data):
-                return process_data
+                return prepare_array(
+                    process_data,
+                    masked=True,
+                    nodata=self.output_params["nodata"],
+                    dtype=self.profile()["dtype"],
+                )
             elif is_numpy_or_masked_array_with_tags(process_data):
                 data, tags = process_data
                 return self.output_cleaned(data), tags

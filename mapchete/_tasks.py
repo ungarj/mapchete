@@ -52,7 +52,7 @@ class Task:
         else:
             self.bounds, self.geometry = None, None
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return f"Task(id={self.id}, bounds={self.bounds})"
 
     def to_dict(self):
@@ -66,7 +66,9 @@ class Task:
     def add_dependencies(self, dependencies):
         dependencies = dependencies or {}
         if not isinstance(dependencies, dict):
-            raise TypeError(f"dependencies must be a dictionary, not {dependencies}")
+            raise TypeError(
+                f"dependencies must be a dictionary, not {type(dependencies)}"
+            )
         self.dependencies.update(dependencies)
 
     def execute(self, dependencies=None):
@@ -94,11 +96,11 @@ class TaskBatch:
         self.func = func or _execute_task
         self.fkwargs = fkwargs or {}
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return f"TaskBatch(id={self.id}, bounds={self.bounds})"
 
     def __iter__(self):
-        return self.tasks
+        return iter(self.tasks.values())
 
     def __len__(self):
         return len(self.tasks)
@@ -147,6 +149,7 @@ class TileTask(Task):
         self.config_baselevels = None if skip else config.baselevels
         self.process = None if skip else config.process
         self.config_dir = None if skip else config.config_dir
+        self.streamline_output = config.output.streamline_output
         if (
             skip
             or self.tile.zoom not in self.config_zoom_levels
@@ -190,7 +193,7 @@ class TileTask(Task):
             raise MapcheteNodataTile
 
         dependencies = dependencies or {}
-        return self._execute(dependencies=dependencies)
+        return self.streamline_output(self._execute(dependencies=dependencies))
 
     def _execute(self, dependencies=None):
         # If baselevel is active and zoom is outside of baselevel,
@@ -288,13 +291,11 @@ class TileTask(Task):
                     if child_tile not in src_tiles:
                         src_tiles[child_tile] = self.output_reader.read(child_tile)
 
-                mosaic = raster.create_mosaic(
-                    [(src_tile, data) for src_tile, data in src_tiles.items()],
-                    nodata=self.output_reader.output_params["nodata"],
-                )
                 process_data = raster.resample_from_array(
-                    in_raster=mosaic.data,
-                    in_affine=mosaic.affine,
+                    in_raster=raster.create_mosaic(
+                        [(src_tile, data) for src_tile, data in src_tiles.items()],
+                        nodata=self.output_reader.output_params["nodata"],
+                    ),
                     out_tile=self.tile,
                     resampling=self.config_baselevels["lower"],
                     nodata=self.output_reader.output_params["nodata"],
@@ -326,7 +327,7 @@ class TileTaskBatch(TaskBatch):
 
     def intersection(self, other):
         if isinstance(other, TileTask):
-            if other.tile.zoom + 1 != self._zoom:
+            if other.tile.zoom + 1 != self._zoom:  # pragma: no cover
                 raise ValueError("intersecting tile has to be from zoom level above")
             return [
                 self.tasks[child]
@@ -353,17 +354,17 @@ class TileTaskBatch(TaskBatch):
         self._tp = None
         self._zoom = None
         for item in items:
-            if not isinstance(item, TileTask):
+            if not isinstance(item, TileTask):  # pragma: no cover
                 raise TypeError(
                     "TileTaskBatch items must be TileTasks, not %s", type(item)
                 )
             if self._tp is None:
                 self._tp = item.tile.buffered_tp
-            elif item.tile.buffered_tp != self._tp:
+            elif item.tile.buffered_tp != self._tp:  # pragma: no cover
                 raise TypeError("all TileTasks must derive from the same pyramid.")
             if self._zoom is None:
                 self._zoom = item.tile.zoom
-            elif item.tile.zoom != self._zoom:
+            elif item.tile.zoom != self._zoom:  # pragma: no cover
                 raise TypeError("all TileTasks must lie on the same zoom level")
             yield item.tile, item
 
