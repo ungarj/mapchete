@@ -6,7 +6,12 @@ from traceback import format_exc
 
 from mapchete._timer import Timer
 from mapchete.config import get_process_func
-from mapchete.errors import MapcheteNodataTile, NoTaskGeometry, MapcheteProcessException
+from mapchete.errors import (
+    MapcheteNodataTile,
+    NoTaskGeometry,
+    MapcheteProcessException,
+    MapcheteProcessOutputError,
+)
 from mapchete.io import raster
 from mapchete.io._geometry_operations import to_shape
 from mapchete.io.vector import IndexedFeatures
@@ -149,7 +154,6 @@ class TileTask(Task):
         self.config_baselevels = None if skip else config.baselevels
         self.process = None if skip else config.process
         self.config_dir = None if skip else config.config_dir
-        self.streamline_output = config.output.streamline_output
         if (
             skip
             or self.tile.zoom not in self.config_zoom_levels
@@ -193,7 +197,12 @@ class TileTask(Task):
             raise MapcheteNodataTile
 
         dependencies = dependencies or {}
-        return self.streamline_output(self._execute(dependencies=dependencies))
+        process_output = self._execute(dependencies=dependencies)
+        if isinstance(process_output, str) and process_output == "empty":
+            raise MapcheteNodataTile
+        elif process_output is None:
+            raise MapcheteProcessOutputError("process output is empty")
+        return process_output
 
     def _execute(self, dependencies=None):
         # If baselevel is active and zoom is outside of baselevel,

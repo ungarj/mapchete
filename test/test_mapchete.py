@@ -406,7 +406,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                             testfile.meta["transform"], mosaic.affine
                         ):
                             assert file_item == mosaic_item
-                        band = testfile.read(1, masked=True)
+                        band = testfile.read(masked=True)
                         assert band.shape == mosaic.data.shape
                         assert ma.allclose(band, mosaic.data)
                         assert ma.allclose(band.mask, mosaic.data.mask)
