@@ -388,7 +388,7 @@ class IndexedFeatures:
     def __len__(self):
         return len(self._items)
 
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         return "IndexedFeatures([%s])" % (", ".join([str(f) for f in self]))
 
     def __getitem__(self, key):
@@ -446,15 +446,16 @@ class IndexedFeatures:
         try:
             if hasattr(feature, "bounds"):
                 return validate_bounds(feature.bounds)
-            elif feature.get("bounds"):
-                return validate_bounds(feature["bounds"])
             elif hasattr(feature, "__geo_interface__"):
                 return validate_bounds(shape(feature).bounds)
+            elif feature.get("bounds"):
+                return validate_bounds(feature["bounds"])
             elif feature.get("geometry"):
                 return validate_bounds(to_shape(feature["geometry"]).bounds)
             else:
                 raise TypeError("no bounds")
-        except Exception:
+        except Exception as exc:
+            logger.exception(exc)
             raise TypeError(f"cannot determine bounds from feature: {feature}")
 
 

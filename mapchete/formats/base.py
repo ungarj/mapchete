@@ -420,7 +420,7 @@ class OutputDataWriter(OutputDataReader):
     def streamline_output(self, process_data):
         if isinstance(process_data, str) and process_data == "empty":
             raise MapcheteNodataTile
-        elif process_data is None:
+        elif process_data is None:  # pragma: no cover
             raise MapcheteProcessOutputError("process output is empty")
         elif self.output_is_valid(process_data):
             return self.output_cleaned(process_data)

@@ -509,7 +509,9 @@ def _run_multi_overviews(
             # tiles which were processed
             else:
                 # trigger output write for driver which require parent process for writing
-                if write_in_parent_process:
+                # the code coverage below is omitted because we don't usually calculate overviews
+                # when writing single files
+                if write_in_parent_process:  # pragma: no cover
                     output_data, process_info = future.result()
                     process_info = _write(
                         process_info=process_info,
@@ -635,11 +637,6 @@ def _execute(tile_process=None, dependencies=None, **_):
             output = tile_process.execute(dependencies=dependencies)
         except MapcheteNodataTile:  # pragma: no cover
             output = "empty"
-        except Exception as exc:
-            logger.exception(
-                "exception caught when processing tile %s", tile_process.tile
-            )
-            raise exc
     processor_message = "processed in %s" % duration
     logger.debug((tile_process.tile.id, processor_message))
     return output, ProcessInfo(

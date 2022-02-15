@@ -242,7 +242,27 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out_cog.tif")
     job = convert(
-        cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=3, cog=True
+        cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=5, cog=True
+    )
+    assert len(job)
+    with rasterio.open(single_gtiff, "r") as src:
+        assert src.meta["driver"] == "GTiff"
+        assert src.meta["dtype"] == "uint16"
+        data = src.read(masked=True)
+        assert data.mask.any()
+    assert cog_validate(single_gtiff, strict=True)
+
+
+def test_convert_single_gtiff_cog_dask(cleantopo_br_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    single_gtiff = os.path.join(mp_tmpdir, "single_out_cog.tif")
+    job = convert(
+        cleantopo_br_tif,
+        single_gtiff,
+        output_pyramid="geodetic",
+        zoom=5,
+        cog=True,
+        concurrency="dask",
     )
     assert len(job)
     with rasterio.open(single_gtiff, "r") as src:
