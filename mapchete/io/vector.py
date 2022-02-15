@@ -310,13 +310,25 @@ def _get_reprojected_features(
 def bounds_intersect(bounds1, bounds2):
     bounds1 = validate_bounds(bounds1)
     bounds2 = validate_bounds(bounds2)
-    return (
-        bounds1.left <= bounds2.left < bounds1.right
-        or bounds1.left < bounds2.right <= bounds1.right
-    ) and (
-        bounds1.bottom <= bounds2.bottom < bounds1.top
-        or bounds1.bottom < bounds2.top <= bounds1.top
+    horizontal = (
+        # partial overlap
+        bounds1.left <= bounds2.left <= bounds1.right
+        or bounds1.left <= bounds2.right <= bounds1.right
+        # bounds 1 within bounds 2
+        or bounds2.left <= bounds1.left < bounds1.right <= bounds2.right
+        # bounds 2 within bounds 1
+        or bounds1.left <= bounds2.left < bounds2.right <= bounds1.right
     )
+    vertical = (
+        # partial overlap
+        bounds1.bottom <= bounds2.bottom <= bounds1.top
+        or bounds1.bottom <= bounds2.top <= bounds1.top
+        # bounds 1 within bounds 2
+        or bounds2.bottom <= bounds1.bottom < bounds1.top <= bounds2.top
+        # bounds 2 within bounds 1
+        or bounds1.bottom <= bounds2.bottom < bounds2.top <= bounds1.top
+    )
+    return horizontal and vertical
 
 
 class FakeIndex:
