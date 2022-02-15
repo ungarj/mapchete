@@ -388,13 +388,11 @@ def test_bounds_intersect():
     assert bounds_intersect(b1, b3)
     assert bounds_intersect(b1, b4)
     assert bounds_intersect(b1, b5)
-    assert not bounds_intersect(b1, b6)
+    assert bounds_intersect(b1, b6)
     assert bounds_intersect(b1, b7)
     assert bounds_intersect(b1, b8)
 
-
-def test_bounds_intersect_example():
-    all_bounds = [
+    intersecting = [
         (-121.2451171875, 75.7177734375, -120.849609375, 76.025390625),
         (-119.3994140625, 75.498046875, -117.4658203125, 76.11328125),
         (-122.958984375, 75.8056640625, -115.400390625, 77.5634765625),
@@ -444,8 +442,27 @@ def test_bounds_intersect_example():
         (-96.7236328125, 78.134765625, -89.9560546875, 81.38671875),
         (-168.134765625, 13.6669921875, -89.9560546875, 74.1796875),
     ]
-    for b in all_bounds:
+    for b in intersecting:
         assert bounds_intersect(b, (-135.0, 60, -90, 80))
+
+
+def test_bounds_not_intersect():
+    b1 = (-3, -3, -2, -2)
+    b2 = (1, 1, 3, 3)
+    b3 = (0, 1, 2, 3)
+    b4 = (1, 0, 3, 2)
+    b5 = (0, -1, 2, 1)
+    b6 = (0, -2, 2, 0)
+    b7 = (0, 0, 2, 2)
+    b8 = (0.5, 0.5, 1.5, 1.5)
+
+    assert not bounds_intersect(b1, b2)
+    assert not bounds_intersect(b1, b3)
+    assert not bounds_intersect(b1, b4)
+    assert not bounds_intersect(b1, b5)
+    assert not bounds_intersect(b1, b6)
+    assert not bounds_intersect(b1, b8)
+    assert not bounds_intersect(b1, b7)
 
 
 def test_indexed_features_fakeindex(landpoly):
