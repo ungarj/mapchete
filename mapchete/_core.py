@@ -16,6 +16,7 @@ from mapchete._processing import (
     _run_area,
     _preprocess,
     ProcessInfo,
+    task_batches,
 )
 from mapchete._tasks import TileTask
 from mapchete.tile import count_tiles
@@ -198,6 +199,27 @@ class Mapchete(object):
             else:
                 for tile in tiles:
                     yield (tile, False)
+
+    def task_batches(self, zoom=None, skip_output_check=False):
+
+        yield from task_batches(self, zoom=zoom, skip_output_check=skip_output_check)
+
+    def compute(
+        self,
+        zoom=None,
+        tile=None,
+        dask_scheduler=None,
+        dask_max_submitted_tasks=500,
+        dask_chunksize=100,
+        multi=None,
+        workers=None,
+        multiprocessing_module=None,
+        multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
+        skip_output_check=False,
+        executor=None,
+    ):
+        """ """
+        raise NotImplementedError()
 
     def batch_preprocessor(
         self,

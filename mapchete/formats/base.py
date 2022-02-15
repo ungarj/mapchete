@@ -24,6 +24,7 @@ from mapchete.io.raster import (
     prepare_array,
     read_raster_window,
 )
+from mapchete._tasks import Task
 from mapchete.io.vector import read_vector_window
 from mapchete.tile import BufferedTilePyramid
 
@@ -106,7 +107,9 @@ class InputData(object):
         """Optional cleanup function called when Mapchete exits."""
         pass
 
-    def add_preprocessing_task(self, func, fargs=None, fkwargs=None, key=None):
+    def add_preprocessing_task(
+        self, func, fargs=None, fkwargs=None, key=None, geometry=None, bounds=None
+    ):
         """
         Add longer running preprocessing function to be called right before processing.
 
@@ -121,7 +124,14 @@ class InputData(object):
         if key in self.preprocessing_tasks:  # pragma: no cover
             raise KeyError(f"preprocessing task with key {key} already exists")
         logger.debug(f"add preprocessing task {key, func}")
-        self.preprocessing_tasks[key] = (func, fargs, fkwargs)
+        self.preprocessing_tasks[key] = Task(
+            id=key,
+            func=func,
+            fargs=fargs,
+            fkwargs=fkwargs,
+            geometry=geometry,
+            bounds=bounds,
+        )
 
     def get_preprocessing_task_result(self, task_key):
         if task_key not in self.preprocessing_tasks:

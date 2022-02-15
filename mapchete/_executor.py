@@ -181,6 +181,7 @@ class _ExecutorBase:
         fut_exception = future.exception(timeout=FUTURE_TIMEOUT)
         if fut_exception:  # pragma: no cover
             logger.error("exception caught in future %s", future)
+            logger.exception(fut_exception)
             raise fut_exception
         result = result or future.result(timeout=FUTURE_TIMEOUT)
         if isinstance(result, CancelledError):  # pragma: no cover

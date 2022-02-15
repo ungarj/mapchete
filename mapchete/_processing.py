@@ -12,8 +12,9 @@ from mapchete.config import get_process_func
 from mapchete._executor import DaskExecutor, Executor, SkippedFuture
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
 from mapchete.io import raster
-from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask
+from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch, Task
 from mapchete._timer import Timer
+from mapchete.validate import validate_zooms
 
 logger = logging.getLogger(__name__)
 
@@ -109,14 +110,59 @@ class Job:
         return f"<{self.status} Job with {self._total} tasks.>"
 
 
+def task_batches(process, zoom=None, skip_output_check=False):
+    zoom_levels = (
+        reversed(process.config.zoom_levels) if zoom is None else validate_zooms(zoom)
+    )
+    if process.config.output.write_in_parent_process:
+        func = _execute
+        fkwargs = {}
+    else:
+        func = _execute_and_write
+        fkwargs = dict(output_writer=process.config.output)
+
+    for (
+        inp,
+        preprocessing_tasks,
+    ) in process.config.preprocessing_tasks_per_input().items():
+        yield TaskBatch(
+            id=inp,
+            tasks=preprocessing_tasks.values(),
+        )
+
+    for zoom in zoom_levels:
+        yield TileTaskBatch(
+            (
+                TileTask(
+                    tile=tile,
+                    config=process.config,
+                    skip=(
+                        process.mode == "continue"
+                        and process.config.output_reader.tiles_exist(tile)
+                    )
+                    if skip_output_check
+                    else False,
+                )
+                for tile, skip, process_msg in _filter_skipable(
+                    process=process,
+                    tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                    target_set=None,
+                    skip_output_check=skip_output_check,
+                )
+            ),
+            func=func,
+            fkwargs=fkwargs,
+        )
+
+
 #######################
 # batch preprocessing #
 #######################
 
 
 def _preprocess_task_wrapper(task_tuple):
-    task_key, (func, fargs, fkwargs) = task_tuple
-    return task_key, func(*fargs, **fkwargs)
+    task_key, task = task_tuple
+    return task_key, task.execute()
 
 
 def _preprocess(
@@ -325,16 +371,14 @@ def _run_multi(
                 executor,
             )
             if isinstance(executor, DaskExecutor):
-                for process_info in _run_task_graph(
-                    zoom_levels=zoom_levels,
-                    executor=executor,
-                    func=func,
-                    process=process,
+                task_batches = process.task_batches(
+                    zoom=zoom_levels,
                     skip_output_check=skip_output_check,
-                    fkwargs=fkwargs,
-                    dask_chunksize=dask_chunksize,
-                    dask_max_submitted_tasks=dask_max_submitted_tasks,
-                    write_in_parent_process=write_in_parent_process,
+                )
+                for process_info in _run_task_graph(
+                    task_batches=task_batches,
+                    executor=executor,
+                    process=process,
                 ):
                     num_processed += 1
                     logger.debug(
@@ -380,52 +424,18 @@ def _run_multi(
 
 
 def _run_task_graph(
-    zoom_levels=None,
+    task_batches=None,
     executor=None,
-    func=None,
     process=None,
-    skip_output_check=None,
-    fkwargs=None,
-    dask_chunksize=None,
-    dask_max_submitted_tasks=None,
     write_in_parent_process=None,
 ):
     from dask.delayed import delayed
     from distributed import as_completed
 
-    # create one task batch for each processing step
-
-    def _gen_batches():
-        # TODO: move to core class
-        # TODO: create preprocessing batches
-        for zoom in zoom_levels:
-            yield TileTaskBatch(
-                (
-                    TileTask(
-                        tile=tile,
-                        config=process.config,
-                        skip=(
-                            process.mode == "continue"
-                            and process.config.output_reader.tiles_exist(tile)
-                        )
-                        if skip_output_check
-                        else False,
-                    )
-                    for tile, skip, process_msg in _filter_skipable(
-                        process=process,
-                        tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
-                        target_set=None,
-                        skip_output_check=skip_output_check,
-                    )
-                ),
-                func=func,
-                fkwargs=fkwargs,
-            )
-
     # materialize all tasks including dependencies
     with Timer() as t:
-        coll = to_dask_collection(_gen_batches())
-    logger.debug("%s tasks generated in %s", len(coll), t)
+        coll = to_dask_collection(task_batches)
+    logger.debug("%s dask collection generated in %s", len(coll), t)
 
     # send to scheduler
     with Timer() as t:
