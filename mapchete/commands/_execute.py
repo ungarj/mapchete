@@ -217,6 +217,6 @@ def _process_everything(
             )
         # explicitly exit the mp object on success
         mp.__exit__(None, None, None)
-    except Exception as exc:
+    except Exception as exc:  # pragma: no cover
         mp.__exit__(exc, repr(exc), traceback.format_exc())
         raise

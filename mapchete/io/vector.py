@@ -354,9 +354,11 @@ class IndexedFeatures:
     ----------
     features : iterable
         Features to be indexed
+    index : string
+        Spatial index to use. Can either be "rtree" (if installed) or None.
     """
 
-    def __init__(self, features, index="rtree"):
+    def __init__(self, features, index="rtree", allow_non_geo_objects=False):
         if index == "rtree":
             try:
                 from rtree import index
@@ -371,6 +373,7 @@ class IndexedFeatures:
             self._index = FakeIndex()
 
         self._items = {}
+        self._non_geo_items = set()
         self.bounds = (None, None, None, None)
         for feature in features:
             if isinstance(feature, tuple):
@@ -378,9 +381,14 @@ class IndexedFeatures:
             else:
                 id_ = self._get_feature_id(feature)
             self._items[id_] = feature
-            bounds = self._get_feature_bounds(feature)
-            self._update_bounds(bounds)
-            self._index.insert(id_, bounds)
+            bounds = self._get_feature_bounds(
+                feature, allow_non_geo_objects=allow_non_geo_objects
+            )
+            if bounds is None:
+                self._non_geo_items.add(id_)
+            else:
+                self._update_bounds(bounds)
+                self._index.insert(id_, bounds)
 
     def __repr__(self):  # pragma: no cover
         return f"IndexedFeatures(id={self.id}, index={self._index.__repr__()})"
@@ -420,7 +428,10 @@ class IndexedFeatures:
         features : list
             List of features.
         """
-        return [self._items[id_] for id_ in self._index.intersection(bounds)]
+        return [
+            self._items[id_]
+            for id_ in chain(self._index.intersection(bounds), self._non_geo_items)
+        ]
 
     def _update_bounds(self, bounds):
         left, bottom, right, top = self.bounds
@@ -442,7 +453,7 @@ class IndexedFeatures:
             except TypeError:
                 raise TypeError("features need to have an id or have to be hashable")
 
-    def _get_feature_bounds(self, feature):
+    def _get_feature_bounds(self, feature, allow_non_geo_objects=False):
         try:
             if hasattr(feature, "bounds"):
                 return validate_bounds(feature.bounds)
@@ -455,8 +466,11 @@ class IndexedFeatures:
             else:
                 raise TypeError("no bounds")
         except Exception as exc:
-            logger.exception(exc)
-            raise TypeError(f"cannot determine bounds from feature: {feature}")
+            if allow_non_geo_objects:
+                return None
+            else:
+                logger.exception(exc)
+                raise TypeError(f"cannot determine bounds from feature: {feature}")
 
 
 def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):

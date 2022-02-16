@@ -10,7 +10,7 @@ from typing import Generator
 
 from mapchete.config import get_process_func
 from mapchete._executor import DaskExecutor, Executor, SkippedFuture
-from mapchete.errors import MapcheteNodataTile, MapcheteProcessException
+from mapchete.errors import MapcheteNodataTile
 from mapchete.io import raster
 from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch, Task
 from mapchete._timer import Timer

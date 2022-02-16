@@ -3,6 +3,7 @@ from itertools import chain
 import logging
 from shapely.geometry import box, mapping
 from traceback import format_exc
+from uuid import uuid4
 
 from mapchete._timer import Timer
 from mapchete.config import get_process_func
@@ -30,6 +31,12 @@ TaskResult = namedtuple(
 
 
 class Task:
+    """Generic processing task.
+
+    Can optionally have spatial properties attached which helps building up dependencies
+    between tasks.
+    """
+
     def __init__(
         self,
         id=None,
@@ -41,7 +48,7 @@ class Task:
         crs=None,
         dependencies=None,
     ):
-        self.id = id
+        self.id = id or uuid4().hex
         self.func = func
         self.fargs = fargs or ()
         self.fkwargs = fkwargs or {}
@@ -79,26 +86,31 @@ class Task:
     def execute(self, dependencies=None):
         return self.func(*self.fargs, **self.fkwargs)
 
+    def has_geometry(self):
+        return self.geometry is not None
+
     @property
     def __geo_interface__(self):
-        if self.geometry is not None:
+        if self.has_geometry():
             return mapping(self.geometry)
         else:
             raise NoTaskGeometry(f"{self} has no geo information assigned")
 
 
-def _execute_task(task, dependencies=None, **kwargs):
-    return task.execute(dependencies=dependencies, **kwargs)
+def _execute_task_wrapper(task, **kwargs):
+    return task.execute(**kwargs)
 
 
 class TaskBatch:
     def __init__(self, tasks=None, id=None, func=None, fkwargs=None):
         if tasks is None:
             raise TypeError("TaskBatch requires at least one Task")
-        self.id = id
-        self.tasks = IndexedFeatures((self._validate(t) for t in tasks))
+        self.id = id or uuid4().hex
+        self.tasks = IndexedFeatures(
+            (self._validate(t) for t in tasks), allow_non_geo_objects=True
+        )
         self.bounds = self.tasks.bounds
-        self.func = func or _execute_task
+        self.func = func or _execute_task_wrapper
         self.fkwargs = fkwargs or {}
 
     def __repr__(self):  # pragma: no cover
@@ -218,6 +230,7 @@ class TileTask(Task):
         )
         try:
             with Timer() as duration:
+                # TODO append dependencies to input objects
                 # Actually run process.
                 process_data = process_func(
                     MapcheteProcess(
@@ -232,9 +245,8 @@ class TileTask(Task):
             raise
         except Exception as e:
             # Log process time
-            logger.exception(
-                (self.tile.id, "exception in user process", e, str(duration))
-            )
+            logger.exception(e)
+            logger.error((self.tile.id, "exception in user process", e, str(duration)))
             new = MapcheteProcessException(format_exc())
             new.old = e
             raise new
@@ -317,11 +329,11 @@ class TileTaskBatch(TaskBatch):
     """Combines TileTask instances of same pyramid and zoom level into one batch."""
 
     def __init__(self, tile_tasks, id=None, func=None, fkwargs=None):
-        self.id = id
+        self.id = id or uuid4().hex
         self.bounds = None, None, None, None
         self.tasks = {tile: item for tile, item in self._validate(tile_tasks)}
         self._update_bounds()
-        self.func = func or _execute_task
+        self.func = func or _execute_task_wrapper
         self.fkwargs = fkwargs or {}
 
     def _update_bounds(self):

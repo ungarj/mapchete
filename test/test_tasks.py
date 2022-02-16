@@ -1,3 +1,4 @@
+from itertools import chain
 from typing import Type
 import pytest
 from shapely.geometry import shape
@@ -121,3 +122,28 @@ def test_task_batches_to_dask_graph(dem_to_hillshade):
     import dask
 
     dask.compute(collection)
+
+
+def test_task_batches_mixed_geometries():
+    batch = TaskBatch(
+        chain(
+            (Task(func=str, fargs=(i,), bounds=(0, 1, 2, 3)) for i in range(10)),
+            (Task(func=str, fargs=(i,)) for i in range(10)),
+        )
+    )
+    assert len(batch.items()) == 20
+    assert len(batch.keys()) == 20
+    assert len(batch.values()) == 20
+
+    for task in batch:
+        assert isinstance(task, Task)
+
+    # other task intersecting with all tasks
+    other_task = Task(bounds=(0, 1, 2, 3))
+    assert len(batch.intersection(other_task)) == 20
+    assert len(batch.intersection((0, 1, 2, 3))) == 20
+
+    # other task not intersecting with spatial tasks
+    other_task = Task(bounds=(3, 4, 5, 6))
+    assert len(batch.intersection(other_task)) == 10
+    assert len(batch.intersection((3, 4, 5, 6))) == 10
