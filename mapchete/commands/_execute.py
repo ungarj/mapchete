@@ -2,6 +2,7 @@
 
 import logging
 from multiprocessing import cpu_count
+import traceback
 from typing import Callable, List, Tuple, Union
 import warnings
 
@@ -179,14 +180,15 @@ def execute(
             tiles_tasks=tiles_tasks,
         )
     # explicitly exit the mp object on failure
-    except Exception:  # pragma: no cover
-        mp.__exit__(None, None, None)
+    except Exception as exc:  # pragma: no cover
+        mp.__exit__(exc, repr(exc), traceback.format_exc())
         raise
 
 
 def _process_everything(
     msg_callback,
     mp,
+    exit_stack=None,
     executor=None,
     workers=None,
     dask_max_submitted_tasks=500,
@@ -213,6 +215,8 @@ def _process_everything(
             msg_callback(
                 f"Tile {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
             )
-    # explicitly exit the mp object on success
-    finally:
+        # explicitly exit the mp object on success
         mp.__exit__(None, None, None)
+    except Exception as exc:
+        mp.__exit__(exc, repr(exc), traceback.format_exc())
+        raise

@@ -249,7 +249,7 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
-        assert data.mask.any()
+        assert not data.mask.all()
     assert cog_validate(single_gtiff, strict=True)
 
 
@@ -269,7 +269,7 @@ def test_convert_single_gtiff_cog_dask(cleantopo_br_tif, mp_tmpdir):
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
-        assert data.mask.any()
+        assert not data.mask.all()
     assert cog_validate(single_gtiff, strict=True)
 
 
@@ -333,7 +333,6 @@ def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
         output_dtype="uint8",
         scale_ratio=0.003,
     )
-    print(job)
     assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])

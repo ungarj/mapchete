@@ -371,18 +371,18 @@ def _run_multi(
                 executor,
             )
             if isinstance(executor, DaskExecutor):
-                task_batches = process.task_batches(
-                    zoom=zoom_levels,
-                    skip_output_check=skip_output_check,
-                )
                 for process_info in _run_task_graph(
-                    task_batches=task_batches,
+                    task_batches=process.task_batches(
+                        zoom=zoom_levels,
+                        skip_output_check=skip_output_check,
+                    ),
                     executor=executor,
                     process=process,
+                    write_in_parent_process=write_in_parent_process,
                 ):
                     num_processed += 1
                     logger.debug(
-                        "tile %s/%s finished: %s, %s, %s",
+                        "task %s/%s finished: %s, %s, %s",
                         num_processed,
                         total_tiles,
                         process_info.tile,
@@ -445,10 +445,8 @@ def _run_task_graph(
     for future in as_completed(futures):
         futures.remove(future)
         if write_in_parent_process:
-            output_data, process_info = future.result()
             process_info = _write(
-                process_info=process_info,
-                output_data=output_data,
+                process_info=future.result(),
                 output_writer=process.config.output,
             )
         # output already has been written, so just use task process info
@@ -607,10 +605,8 @@ def _run_multi_no_overviews(
         else:
             # trigger output write for driver which require parent process for writing
             if write_in_parent_process:
-                output_data, process_info = future.result()
                 process_info = _write(
-                    process_info=process_info,
-                    output_data=output_data,
+                    process_info=future.result(),
                     output_writer=process.config.output,
                 )
 
@@ -649,19 +645,20 @@ def _execute(tile_process=None, dependencies=None, **_):
             output = "empty"
     processor_message = "processed in %s" % duration
     logger.debug((tile_process.tile.id, processor_message))
-    return output, ProcessInfo(
+    return ProcessInfo(
         tile=tile_process.tile,
         processed=True,
         process_msg=processor_message,
         written=None,
         write_msg=None,
+        data=output,
     )
 
 
-def _write(process_info=None, output_data=None, output_writer=None, **_):
+def _write(process_info=None, output_writer=None, **_):
     if process_info.processed:
         try:
-            output_data = output_writer.streamline_output(output_data)
+            output_data = output_writer.streamline_output(process_info.data)
         except MapcheteNodataTile:
             output_data = None
         if output_data is None:
