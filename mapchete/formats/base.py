@@ -140,6 +140,13 @@ class InputData(object):
             raise ValueError(f"task {task_key} has not yet been executed")
         return self.preprocessing_tasks_results[task_key]
 
+    def set_preprocessing_task_result(self, task_key, result):
+        if task_key not in self.preprocessing_tasks:
+            raise KeyError(f"task {task_key} is not a task for current input")
+        if task_key in self.preprocessing_tasks_results:
+            raise KeyError(f"task {task_key} has already been set")
+        self.preprocessing_tasks_results[task_key] = result
+
 
 class InputTile(object):
     """

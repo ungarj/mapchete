@@ -1,7 +1,7 @@
 """Internal processing classes and functions."""
 
 from collections import namedtuple
-
+from contextlib import ExitStack
 from itertools import chain
 import logging
 import multiprocessing
@@ -110,13 +110,29 @@ class Job:
         return f"<{self.status} Job with {self._total} tasks.>"
 
 
-def task_batches(process, zoom=None, skip_output_check=False):
+def task_batches(process, zoom=None, tile=None, skip_output_check=False):
     with Timer() as duration:
-        zoom_levels = (
-            reversed(process.config.zoom_levels)
-            if zoom is None
-            else validate_zooms(zoom)
-        )
+        if tile:
+            zoom_levels = [tile.zoom]
+            tiles = {tile.zoom: [tile]}
+        else:
+            zoom_levels = list(
+                reversed(process.config.zoom_levels)
+                if zoom is None
+                else validate_zooms(zoom)
+            )
+            tiles = {
+                zoom: (
+                    tile
+                    for tile, skip, process_msg in _filter_skipable(
+                        process=process,
+                        tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                        target_set=None,
+                        skip_output_check=skip_output_check,
+                    )
+                )
+                for zoom in zoom_levels
+            }
         if process.config.output.write_in_parent_process:
             func = _execute
             fkwargs = {}
@@ -135,7 +151,8 @@ def task_batches(process, zoom=None, skip_output_check=False):
 
         for zoom in zoom_levels:
             yield TileTaskBatch(
-                (
+                id=f"zoom_{zoom}",
+                tasks=(
                     TileTask(
                         tile=tile,
                         config=process.config,
@@ -146,17 +163,92 @@ def task_batches(process, zoom=None, skip_output_check=False):
                         if skip_output_check
                         else False,
                     )
-                    for tile, skip, process_msg in _filter_skipable(
-                        process=process,
-                        tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
-                        target_set=None,
-                        skip_output_check=skip_output_check,
-                    )
+                    for tile in tiles[zoom]
                 ),
                 func=func,
                 fkwargs=fkwargs,
             )
     logger.debug("task batches generated in %s", duration)
+
+
+def compute(
+    process,
+    zoom=None,
+    tile=None,
+    executor=None,
+    workers=None,
+    dask_scheduler=None,
+    multiprocessing_start_method=None,
+    multiprocessing_module=None,
+    skip_output_check=False,
+    compute_graph=False,
+    **kwargs,
+):
+    """Computes all tasks and yields progress."""
+    num_processed = 0
+    with ExitStack() as exit_stack:
+        # create fresh Executor if it was not passed on
+        if executor is None:
+            executor = exit_stack.enter_context(
+                Executor(
+                    max_workers=workers,
+                    concurrency="dask" if dask_scheduler else "processes",
+                    start_method=multiprocessing_start_method,
+                    multiprocessing_module=multiprocessing_module,
+                    dask_scheduler=dask_scheduler,
+                )
+            )
+        if compute_graph and not isinstance(executor, DaskExecutor):
+            raise ValueError("task graph computation is only available when using dask")
+
+        logger.info("run process on area")
+        duration = exit_stack.enter_context(Timer())
+        zoom_levels = list(
+            reversed(process.config.zoom_levels)
+            if zoom is None
+            else validate_zooms(zoom)
+        )
+        if compute_graph and isinstance(executor, DaskExecutor):
+            for num_processed, process_info in enumerate(
+                _compute_task_graph(
+                    executor=executor,
+                    process=process,
+                    zoom_levels=zoom_levels,
+                    tile=tile,
+                    skip_output_check=skip_output_check,
+                ),
+                1,
+            ):
+                logger.debug(
+                    "task %s finished: %s, %s, %s",
+                    num_processed,
+                    process_info.tile,
+                    process_info.process_msg,
+                    process_info.write_msg,
+                )
+                yield process_info
+        else:
+            for num_processed, process_info in enumerate(
+                _compute_tasks(
+                    executor=executor,
+                    process=process,
+                    zoom_levels=zoom_levels,
+                    tile=tile,
+                    skip_output_check=skip_output_check,
+                    **kwargs,
+                ),
+                1,
+            ):
+                logger.debug(
+                    "task %s finished: %s, %s, %s",
+                    num_processed,
+                    process_info.tile,
+                    process_info.process_msg,
+                    process_info.write_msg,
+                )
+                yield process_info
+
+    logger.info("computed %s tasks in %s", num_processed, duration)
 
 
 #######################
@@ -184,45 +276,44 @@ def _preprocess(
     if process.config.preprocessing_tasks_finished:  # pragma: no cover
         return
 
+    num_processed = 0
+
     # If an Executor is passed on, don't close after processing. If no Executor is passed on,
     # create one and properly close it afterwards.
-    create_executor = executor is None
-    executor = executor or Executor(
-        max_workers=workers,
-        concurrency="dask" if dask_scheduler else "processes",
-        start_method=multiprocessing_start_method,
-        multiprocessing_module=multiprocessing_module,
-        dask_scheduler=dask_scheduler,
-    )
-    try:
-        with Timer() as duration:
-            logger.info(
-                "run preprocessing on %s tasks using %s workers", len(tasks), workers
-            )
-
-            # process all remaining tiles using todo list from before
-            for i, future in enumerate(
-                executor.as_completed(
-                    func=_preprocess_task_wrapper,
-                    iterable=list(tasks.items()),
-                    max_submitted_tasks=dask_max_submitted_tasks,
-                    chunksize=dask_chunksize,
-                ),
-                1,
-            ):
-                task_key, result = future.result()
-                logger.debug(
-                    "preprocessing task %s/%s %s processed successfully",
-                    i,
-                    len(tasks),
-                    task_key,
+    with ExitStack() as exit_stack:
+        # create fresh Executor if it was not passed on
+        if executor is None:
+            executor = exit_stack.enter_context(
+                Executor(
+                    max_workers=workers,
+                    concurrency="dask" if dask_scheduler else "processes",
+                    start_method=multiprocessing_start_method,
+                    multiprocessing_module=multiprocessing_module,
+                    dask_scheduler=dask_scheduler,
                 )
-                process.config.set_preprocessing_task_result(task_key, result)
-                yield f"preprocessing task {task_key} finished"
-    finally:
-        if create_executor:
-            executor.close()
-
+            )
+        duration = exit_stack.enter_context(Timer())
+        logger.info(
+            "run preprocessing on %s tasks using %s workers", len(tasks), workers
+        )
+        for num_processed, future in enumerate(
+            executor.as_completed(
+                func=_preprocess_task_wrapper,
+                iterable=tasks.items(),
+                max_submitted_tasks=dask_max_submitted_tasks,
+                chunksize=dask_chunksize,
+            ),
+            1,
+        ):
+            task_key, result = future.result()
+            logger.debug(
+                "preprocessing task %s/%s %s processed successfully",
+                num_processed,
+                len(tasks),
+                task_key,
+            )
+            process.config.set_preprocessing_task_result(task_key, result)
+            yield f"preprocessing task {task_key} finished"
     process.config.preprocessing_tasks_finished = True
 
     logger.info("%s task(s) iterated in %s", str(len(tasks)), duration)
@@ -239,13 +330,16 @@ def _run_on_single_tile(
     tile=None,
     dask_scheduler=None,
 ):
-    logger.info("run process on single tile")
-    create_executor = executor is None
-    executor = executor or Executor(
-        concurrency="dask" if dask_scheduler else None,
-        dask_scheduler=dask_scheduler,
-    )
-    try:
+    with ExitStack() as exit_stack:
+        # create fresh Executor if it was not passed on
+        if executor is None:
+            executor = exit_stack.enter_context(
+                Executor(
+                    concurrency="dask" if dask_scheduler else None,
+                    dask_scheduler=dask_scheduler,
+                )
+            )
+        logger.info("run process on single tile")
         return next(
             executor.as_completed(
                 func=_execute_and_write,
@@ -262,9 +356,6 @@ def _run_on_single_tile(
                 fkwargs=dict(output_writer=process.config.output),
             )
         ).result()
-    finally:
-        if create_executor:
-            executor.close()
 
 
 def _run_area(
@@ -357,16 +448,18 @@ def _run_multi(
 
     # If an Executor is passed on, don't close after processing. If no Executor is passed on,
     # create one and properly close it afterwards.
-    create_executor = executor is None
-    executor = executor or Executor(
-        max_workers=workers,
-        concurrency="dask" if dask_scheduler else "processes",
-        start_method=multiprocessing_start_method,
-        multiprocessing_module=multiprocessing_module,
-        dask_scheduler=dask_scheduler,
-    )
-
-    try:
+    with ExitStack() as exit_stack:
+        # create fresh Executor if it was not passed on
+        if executor is None:
+            executor = exit_stack.enter_context(
+                Executor(
+                    max_workers=workers,
+                    concurrency="dask" if dask_scheduler else "processes",
+                    start_method=multiprocessing_start_method,
+                    multiprocessing_module=multiprocessing_module,
+                    dask_scheduler=dask_scheduler,
+                )
+            )
         with Timer() as duration:
             logger.info(
                 "run process on %s tiles using %s workers on executor %s",
@@ -375,16 +468,16 @@ def _run_multi(
                 executor,
             )
             if isinstance(executor, DaskExecutor):
-                for process_info in _run_task_graph(
-                    task_batches=process.task_batches(
+                for num_processed, process_info in enumerate(
+                    _compute_task_graph(
+                        executor=executor,
+                        process=process,
+                        write_in_parent_process=write_in_parent_process,
                         zoom=zoom_levels,
                         skip_output_check=skip_output_check,
                     ),
-                    executor=executor,
-                    process=process,
-                    write_in_parent_process=write_in_parent_process,
+                    1,
                 ):
-                    num_processed += 1
                     logger.debug(
                         "task %s/%s finished: %s, %s, %s",
                         num_processed,
@@ -399,18 +492,20 @@ def _run_multi(
                     f = _run_multi_overviews
                 else:
                     f = _run_multi_no_overviews
-                for process_info in f(
-                    zoom_levels=zoom_levels,
-                    executor=executor,
-                    func=func,
-                    process=process,
-                    skip_output_check=skip_output_check,
-                    fkwargs=fkwargs,
-                    dask_chunksize=dask_chunksize,
-                    dask_max_submitted_tasks=dask_max_submitted_tasks,
-                    write_in_parent_process=write_in_parent_process,
+                for num_processed, process_info in enumerate(
+                    f(
+                        zoom_levels=zoom_levels,
+                        executor=executor,
+                        func=func,
+                        process=process,
+                        skip_output_check=skip_output_check,
+                        fkwargs=fkwargs,
+                        dask_chunksize=dask_chunksize,
+                        dask_max_submitted_tasks=dask_max_submitted_tasks,
+                        write_in_parent_process=write_in_parent_process,
+                    ),
+                    1,
                 ):
-                    num_processed += 1
                     logger.debug(
                         "tile %s/%s finished: %s, %s, %s",
                         num_processed,
@@ -420,25 +515,28 @@ def _run_multi(
                         process_info.write_msg,
                     )
                     yield process_info
-    finally:
-        if create_executor:
-            executor.close()
 
-    logger.info("%s tile(s) iterated in %s", str(num_processed), duration)
+        logger.info("%s tile(s) iterated in %s", str(num_processed), duration)
 
 
-def _run_task_graph(
-    task_batches=None,
+def _compute_task_graph(
     executor=None,
     process=None,
-    write_in_parent_process=None,
+    skip_output_check=False,
+    zoom_levels=None,
+    tile=None,
+    **kwargs,
 ):
     from dask.delayed import delayed
     from distributed import as_completed
 
     # materialize all tasks including dependencies
     with Timer() as t:
-        coll = to_dask_collection(task_batches)
+        coll = to_dask_collection(
+            process.task_batches(
+                zoom=zoom_levels, tile=tile, skip_output_check=skip_output_check
+            )
+        )
     logger.debug("%s dask collection generated in %s", len(coll), t)
 
     # send to scheduler
@@ -448,7 +546,7 @@ def _run_task_graph(
 
     for future in as_completed(futures):
         futures.remove(future)
-        if write_in_parent_process:
+        if process.config.output.write_in_parent_process:
             process_info = _write(
                 process_info=future.result(),
                 output_writer=process.config.output,
@@ -457,6 +555,98 @@ def _run_task_graph(
         else:
             process_info = future.result()
         yield process_info
+
+
+def _compute_tasks(
+    executor=None,
+    process=None,
+    workers=None,
+    zoom_levels=None,
+    tile=None,
+    skip_output_check=False,
+    **kwargs,
+):
+    num_processed = 0
+    tasks = process.config.preprocessing_tasks()
+    logger.info("run preprocessing on %s tasks using %s workers", len(tasks), workers)
+    # process all remaining tiles using todo list from before
+    for i, future in enumerate(
+        executor.as_completed(
+            func=_preprocess_task_wrapper, iterable=list(tasks.items()), **kwargs
+        ),
+        1,
+    ):
+        task_key, result = future.result()
+        logger.debug(
+            "preprocessing task %s/%s %s processed successfully",
+            i,
+            len(tasks),
+            task_key,
+        )
+        process.config.set_preprocessing_task_result(task_key, result)
+        yield f"preprocessing task {task_key} finished"
+
+    # run single tile
+    if tile:
+        logger.info("run process on single tile")
+        yield next(
+            executor.as_completed(
+                func=_execute_and_write,
+                iterable=[
+                    TileTask(
+                        tile=tile,
+                        config=process.config,
+                        skip=(
+                            process.config.mode == "continue"
+                            and process.config.output_reader.tiles_exist(tile)
+                        ),
+                    ),
+                ],
+                fkwargs=dict(output_writer=process.config.output),
+            )
+        ).result()
+
+    else:
+        # for output drivers requiring writing data in parent process
+        if process.config.output.write_in_parent_process:
+            func = _execute
+            fkwargs = {}
+            write_in_parent_process = True
+
+        # for output drivers which can write data in child processes
+        else:
+            func = _execute_and_write
+            fkwargs = dict(output_writer=process.config.output)
+            write_in_parent_process = False
+
+        # for outputs which have overviews
+        if process.config.baselevels:
+            _process_batches = _run_multi_overviews
+        # for outputs with no overviews
+        else:
+            _process_batches = _run_multi_no_overviews
+
+        for num_processed, process_info in enumerate(
+            _process_batches(
+                zoom_levels=zoom_levels,
+                executor=executor,
+                func=func,
+                process=process,
+                skip_output_check=skip_output_check,
+                fkwargs=fkwargs,
+                write_in_parent_process=write_in_parent_process,
+                **kwargs,
+            ),
+            1,
+        ):
+            logger.debug(
+                "task %s finished: %s, %s, %s",
+                num_processed,
+                process_info.tile,
+                process_info.process_msg,
+                process_info.write_msg,
+            )
+            yield process_info
 
 
 def _run_multi_overviews(

@@ -12,6 +12,7 @@ from mapchete.errors import MapcheteNodataTile
 from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
 from mapchete._processing import (
+    compute,
     _run_on_single_tile,
     _run_area,
     _preprocess,
@@ -200,26 +201,17 @@ class Mapchete(object):
                 for tile in tiles:
                     yield (tile, False)
 
-    def task_batches(self, zoom=None, skip_output_check=False):
+    def task_batches(self, zoom=None, tile=None, skip_output_check=False, **kwargs):
+        """
+        Generate task batches from preprocessing tasks and tile tasks.
+        """
+        yield from task_batches(
+            self, zoom=zoom, tile=None, skip_output_check=skip_output_check, **kwargs
+        )
 
-        yield from task_batches(self, zoom=zoom, skip_output_check=skip_output_check)
-
-    def compute(
-        self,
-        zoom=None,
-        tile=None,
-        dask_scheduler=None,
-        dask_max_submitted_tasks=500,
-        dask_chunksize=100,
-        multi=None,
-        workers=None,
-        multiprocessing_module=None,
-        multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
-        skip_output_check=False,
-        executor=None,
-    ):
-        """ """
-        raise NotImplementedError()
+    def compute(self, **kwargs):
+        """Compute preprocessing tasks and tile tasks in one go."""
+        yield from compute(self, **kwargs)
 
     def batch_preprocessor(
         self,

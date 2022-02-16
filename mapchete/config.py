@@ -355,7 +355,7 @@ class MapcheteConfig(object):
         """Append preprocessing task result to input."""
         for inp in self.input.values():
             if task_key in inp.preprocessing_tasks:
-                inp.preprocessing_tasks_results[task_key] = result
+                inp.set_preprocessing_task_result(task_key, result)
                 return
         else:
             raise KeyError(f"task key {task_key} not found in any input")

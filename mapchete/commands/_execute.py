@@ -196,24 +196,17 @@ def _process_everything(
     **kwargs,
 ):
     try:
-        for preprocessing_task_info in mp.batch_preprocessor(
+        for process_info in mp.compute(
             executor=executor,
             workers=workers,
             dask_max_submitted_tasks=dask_max_submitted_tasks,
             dask_chunksize=dask_chunksize,
-        ):  # pragma: no cover
-            yield preprocessing_task_info
-            msg_callback(preprocessing_task_info)
-        for process_info in mp.batch_processor(
-            executor=executor,
-            workers=workers,
-            dask_max_submitted_tasks=dask_max_submitted_tasks,
-            dask_chunksize=dask_chunksize,
+            compute_graph=False,
             **kwargs,
         ):
             yield process_info
             msg_callback(
-                f"Tile {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
+                f"Task {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
             )
         # explicitly exit the mp object on success
         mp.__exit__(None, None, None)

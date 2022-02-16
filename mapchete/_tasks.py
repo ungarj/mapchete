@@ -45,7 +45,6 @@ class Task:
         fkwargs=None,
         geometry=None,
         bounds=None,
-        crs=None,
         dependencies=None,
     ):
         self.id = id or uuid4().hex
@@ -328,10 +327,10 @@ class TileTask(Task):
 class TileTaskBatch(TaskBatch):
     """Combines TileTask instances of same pyramid and zoom level into one batch."""
 
-    def __init__(self, tile_tasks, id=None, func=None, fkwargs=None):
+    def __init__(self, tasks=None, id=None, func=None, fkwargs=None):
         self.id = id or uuid4().hex
         self.bounds = None, None, None, None
-        self.tasks = {tile: item for tile, item in self._validate(tile_tasks)}
+        self.tasks = {tile: item for tile, item in self._validate(tasks)}
         self._update_bounds()
         self.func = func or _execute_task_wrapper
         self.fkwargs = fkwargs or {}
