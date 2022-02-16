@@ -520,10 +520,8 @@ def _run_multi_overviews(
                 # the code coverage below is omitted because we don't usually calculate overviews
                 # when writing single files
                 if write_in_parent_process:  # pragma: no cover
-                    output_data, process_info = future.result()
                     process_info = _write(
-                        process_info=process_info,
-                        output_data=output_data,
+                        process_info=future.result(),
                         output_writer=process.config.output,
                     )
 
@@ -629,12 +627,13 @@ def _execute(tile_process=None, dependencies=None, **_):
     # skip execution if overwrite is disabled and tile exists
     if tile_process.skip:
         logger.debug((tile_process.tile.id, "tile exists, skipping"))
-        return None, ProcessInfo(
+        return ProcessInfo(
             tile=tile_process.tile,
             processed=False,
             process_msg="output already exists",
             written=False,
             write_msg="nothing written",
+            data=None,
         )
 
     # execute on process tile
@@ -689,9 +688,8 @@ def _write(process_info=None, output_writer=None, **_):
 
 
 def _execute_and_write(tile_process=None, output_writer=None, dependencies=None, **_):
-    output_data, process_info = _execute(
-        tile_process=tile_process, dependencies=dependencies
-    )
+
     return _write(
-        process_info=process_info, output_data=output_data, output_writer=output_writer
+        process_info=_execute(tile_process=tile_process, dependencies=dependencies),
+        output_writer=output_writer,
     )
