@@ -111,48 +111,52 @@ class Job:
 
 
 def task_batches(process, zoom=None, skip_output_check=False):
-    zoom_levels = (
-        reversed(process.config.zoom_levels) if zoom is None else validate_zooms(zoom)
-    )
-    if process.config.output.write_in_parent_process:
-        func = _execute
-        fkwargs = {}
-    else:
-        func = _execute_and_write
-        fkwargs = dict(output_writer=process.config.output)
-
-    for (
-        inp,
-        preprocessing_tasks,
-    ) in process.config.preprocessing_tasks_per_input().items():
-        yield TaskBatch(
-            id=inp,
-            tasks=preprocessing_tasks.values(),
+    with Timer() as duration:
+        zoom_levels = (
+            reversed(process.config.zoom_levels)
+            if zoom is None
+            else validate_zooms(zoom)
         )
+        if process.config.output.write_in_parent_process:
+            func = _execute
+            fkwargs = {}
+        else:
+            func = _execute_and_write
+            fkwargs = dict(output_writer=process.config.output)
 
-    for zoom in zoom_levels:
-        yield TileTaskBatch(
-            (
-                TileTask(
-                    tile=tile,
-                    config=process.config,
-                    skip=(
-                        process.mode == "continue"
-                        and process.config.output_reader.tiles_exist(tile)
+        for (
+            inp,
+            preprocessing_tasks,
+        ) in process.config.preprocessing_tasks_per_input().items():
+            yield TaskBatch(
+                id=inp,
+                tasks=preprocessing_tasks.values(),
+            )
+
+        for zoom in zoom_levels:
+            yield TileTaskBatch(
+                (
+                    TileTask(
+                        tile=tile,
+                        config=process.config,
+                        skip=(
+                            process.mode == "continue"
+                            and process.config.output_reader.tiles_exist(tile)
+                        )
+                        if skip_output_check
+                        else False,
                     )
-                    if skip_output_check
-                    else False,
-                )
-                for tile, skip, process_msg in _filter_skipable(
-                    process=process,
-                    tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
-                    target_set=None,
-                    skip_output_check=skip_output_check,
-                )
-            ),
-            func=func,
-            fkwargs=fkwargs,
-        )
+                    for tile, skip, process_msg in _filter_skipable(
+                        process=process,
+                        tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                        target_set=None,
+                        skip_output_check=skip_output_check,
+                    )
+                ),
+                func=func,
+                fkwargs=fkwargs,
+            )
+    logger.debug("task batches generated in %s", duration)
 
 
 #######################

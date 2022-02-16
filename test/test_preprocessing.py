@@ -1,4 +1,5 @@
 import mapchete
+from mapchete._tasks import Task
 import pytest
 
 
@@ -107,3 +108,12 @@ def test_preprocess_cache_raster_vector(preprocess_cache_raster_vector):
     with mp.open("inp") as raster:
         assert raster.path.endswith("cache/cleantopo_br.tif")
         assert not raster.read().mask.all()
+
+
+def test_preprocess_cache_raster_vector_tasks(preprocess_cache_raster_vector):
+    with preprocess_cache_raster_vector.mp() as mp:
+        for i in ["clip", "inp"]:
+            input_data = mp.config.input_at_zoom(key=i, zoom=5)
+            for task in input_data.preprocessing_tasks.values():
+                assert isinstance(task, Task)
+                assert task.has_geometry()

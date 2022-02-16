@@ -86,6 +86,7 @@ class InputData(base.InputData):
                         out=self._cached_path,
                         format=input_params["abstract"]["cache"].get("format", "COG"),
                     ),
+                    geometry=self.bbox(),
                 )
                 self._cache_keep = input_params["abstract"]["cache"].get("keep", False)
         else:
@@ -164,7 +165,10 @@ class InputData(base.InputData):
         """Cleanup when mapchete closes."""
         if self._cached_path and not self._cache_keep:
             logger.debug("remove cached file %s", self._cached_path)
-            io.fs_from_path(self._cached_path).rm(self._cached_path)
+            try:
+                io.fs_from_path(self._cached_path).rm(self._cached_path)
+            except FileNotFoundError:
+                pass
 
 
 class InputTile(base.InputTile):

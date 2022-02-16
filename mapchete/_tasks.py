@@ -416,5 +416,5 @@ def to_dask_collection(batches):
                     task, dependencies=dependencies, **batch.fkwargs
                 )
             previous_batch = batch
-    logger.debug("%s tile tasks generated in %s", len(tasks), t)
+    logger.debug("%s tasks generated in %s", len(tasks), t)
     return list(tasks.values())

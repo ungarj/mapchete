@@ -353,12 +353,11 @@ class MapcheteConfig(object):
 
     def set_preprocessing_task_result(self, task_key, result):
         """Append preprocessing task result to input."""
-        found = False
         for inp in self.input.values():
             if task_key in inp.preprocessing_tasks:
-                found = True
                 inp.preprocessing_tasks_results[task_key] = result
-        if not found:
+                return
+        else:
             raise KeyError(f"task key {task_key} not found in any input")
 
     @cached_property
