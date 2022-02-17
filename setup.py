@@ -35,7 +35,7 @@ install_requires = [
     "pyproj",
     "retry",
     "rasterio>=1.0.28,<1.2.7",
-    "shapely",
+    "shapely<1.8.1",
     "tilematrix>=2021.11.0",
     "tqdm",
 ]
