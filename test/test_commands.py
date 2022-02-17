@@ -154,6 +154,11 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
     assert len(job) == 1
 
 
+def test_execute_preprocessing_tasks_dask(preprocess_cache_raster_vector):
+    job = execute(preprocess_cache_raster_vector.dict, concurrency="dask")
+    assert len(job)
+
+
 def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     job = convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="geodetic")

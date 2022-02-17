@@ -9,7 +9,7 @@ from traceback import format_exc
 from typing import Generator
 
 from mapchete.config import get_process_func
-from mapchete._executor import DaskExecutor, Executor, SkippedFuture
+from mapchete._executor import DaskExecutor, Executor, SkippedFuture, FinishedFuture
 from mapchete.errors import MapcheteNodataTile
 from mapchete.io import raster
 from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch, Task
@@ -209,7 +209,7 @@ def compute(
             else validate_zooms(zoom)
         )
         if isinstance(executor, DaskExecutor):
-            for num_processed, process_info in enumerate(
+            for num_processed, future in enumerate(
                 _compute_task_graph(
                     executor=executor,
                     process=process,
@@ -219,16 +219,10 @@ def compute(
                 ),
                 1,
             ):
-                logger.debug(
-                    "task %s finished: %s, %s, %s",
-                    num_processed,
-                    process_info.tile,
-                    process_info.process_msg,
-                    process_info.write_msg,
-                )
-                yield process_info
+                logger.debug("task %s finished: %s", num_processed, future)
+                yield future
         else:
-            for num_processed, process_info in enumerate(
+            for num_processed, future in enumerate(
                 _compute_tasks(
                     executor=executor,
                     process=process,
@@ -239,14 +233,8 @@ def compute(
                 ),
                 1,
             ):
-                logger.debug(
-                    "task %s finished: %s, %s, %s",
-                    num_processed,
-                    process_info.tile,
-                    process_info.process_msg,
-                    process_info.write_msg,
-                )
-                yield process_info
+                logger.debug("task %s finished: %s", num_processed, future)
+                yield future
 
     logger.info("computed %s tasks in %s", num_processed, duration)
 
@@ -375,7 +363,7 @@ def _run_area(
 
     # for output drivers requiring writing data in parent process
     if process.config.output.write_in_parent_process:
-        for process_info in _run_multi(
+        for future in _run_multi(
             executor=executor,
             func=_execute,
             zoom_levels=zoom_levels,
@@ -389,11 +377,11 @@ def _run_area(
             write_in_parent_process=True,
             skip_output_check=skip_output_check,
         ):
-            yield process_info
+            yield future
 
     # for output drivers which can write data in child processes
     else:
-        for process_info in _run_multi(
+        for future in _run_multi(
             executor=executor,
             func=_execute_and_write,
             fkwargs=dict(output_writer=process.config.output),
@@ -408,7 +396,7 @@ def _run_area(
             write_in_parent_process=False,
             skip_output_check=skip_output_check,
         ):
-            yield process_info
+            yield future
 
 
 def _filter_skipable(
@@ -468,7 +456,7 @@ def _run_multi(
                 executor,
             )
             if isinstance(executor, DaskExecutor):
-                for num_processed, process_info in enumerate(
+                for num_processed, future in enumerate(
                     _compute_task_graph(
                         executor=executor,
                         process=process,
@@ -478,21 +466,14 @@ def _run_multi(
                     ),
                     1,
                 ):
-                    logger.debug(
-                        "task %s/%s finished: %s, %s, %s",
-                        num_processed,
-                        total_tiles,
-                        process_info.tile,
-                        process_info.process_msg,
-                        process_info.write_msg,
-                    )
-                    yield process_info
+                    logger.debug("task %s finished: %s", num_processed, future)
+                    yield future
             else:
                 if process.config.baselevels:
                     f = _run_multi_overviews
                 else:
                     f = _run_multi_no_overviews
-                for num_processed, process_info in enumerate(
+                for num_processed, future in enumerate(
                     f(
                         zoom_levels=zoom_levels,
                         executor=executor,
@@ -506,15 +487,8 @@ def _run_multi(
                     ),
                     1,
                 ):
-                    logger.debug(
-                        "tile %s/%s finished: %s, %s, %s",
-                        num_processed,
-                        total_tiles,
-                        process_info.tile,
-                        process_info.process_msg,
-                        process_info.write_msg,
-                    )
-                    yield process_info
+                    logger.debug("task %s finished: %s", num_processed, future)
+                    yield future
 
         logger.info("%s tile(s) iterated in %s", str(num_processed), duration)
 
@@ -547,14 +521,11 @@ def _compute_task_graph(
     for future in as_completed(futures):
         futures.remove(future)
         if process.config.output.write_in_parent_process:
-            process_info = _write(
+            _write(
                 process_info=future.result(),
                 output_writer=process.config.output,
             )
-        # output already has been written, so just use task process info
-        else:
-            process_info = future.result()
-        yield process_info
+        yield future
 
 
 def _compute_tasks(
@@ -584,7 +555,7 @@ def _compute_tasks(
             task_key,
         )
         process.config.set_preprocessing_task_result(task_key, result)
-        yield f"preprocessing task {task_key} finished"
+        yield future
 
     # run single tile
     if tile:
@@ -604,7 +575,7 @@ def _compute_tasks(
                 ],
                 fkwargs=dict(output_writer=process.config.output),
             )
-        ).result()
+        )
 
     else:
         # for output drivers requiring writing data in parent process
@@ -626,7 +597,7 @@ def _compute_tasks(
         else:
             _process_batches = _run_multi_no_overviews
 
-        for num_processed, process_info in enumerate(
+        for num_processed, future in enumerate(
             _process_batches(
                 zoom_levels=zoom_levels,
                 executor=executor,
@@ -640,13 +611,10 @@ def _compute_tasks(
             1,
         ):
             logger.debug(
-                "task %s finished: %s, %s, %s",
+                "task %s finished",
                 num_processed,
-                process_info.tile,
-                process_info.process_msg,
-                process_info.write_msg,
             )
-            yield process_info
+            yield future
 
 
 def _run_multi_overviews(
@@ -735,7 +703,7 @@ def _run_multi_overviews(
                 overview_parents.remove(process_info.tile)
             except KeyError:
                 pass
-            yield process_info
+            yield FinishedFuture(result=process_info)
 
 
 def _run_multi_no_overviews(
@@ -805,7 +773,7 @@ def _run_multi_no_overviews(
             # output already has been written, so just use task process info
             else:
                 process_info = future.result()
-        yield process_info
+        yield FinishedFuture(result=process_info)
 
 
 ###############################

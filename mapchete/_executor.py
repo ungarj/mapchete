@@ -646,7 +646,7 @@ class SkippedFuture:
 class FinishedFuture:
     """Wrapper class to mimick future interface."""
 
-    def __init__(self, future, result=None):
+    def __init__(self, future=None, result=None):
         """Set attributes."""
         try:
             self._result, self._exception = (

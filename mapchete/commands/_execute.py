@@ -196,7 +196,7 @@ def _process_everything(
     **kwargs,
 ):
     try:
-        for process_info in mp.compute(
+        for future in mp.compute(
             executor=executor,
             workers=workers,
             dask_max_submitted_tasks=dask_max_submitted_tasks,
@@ -204,10 +204,12 @@ def _process_everything(
             compute_graph=False,
             **kwargs,
         ):
-            yield process_info
-            msg_callback(
-                f"Task {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
-            )
+            process_info = future.result()
+            if process_info:
+                msg_callback(
+                    f"Task {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
+                )
+            yield future
         # explicitly exit the mp object on success
         mp.__exit__(None, None, None)
     except Exception as exc:  # pragma: no cover
