@@ -116,3 +116,15 @@ def test_preprocess_cache_raster_vector_tasks(preprocess_cache_raster_vector):
             for task in input_data.preprocessing_tasks.values():
                 assert isinstance(task, Task)
                 assert task.has_geometry()
+
+
+def test_preprocessing_tasks_dependencies(preprocess_cache_memory):
+    with preprocess_cache_memory.mp() as mp:
+        for i in ["clip", "inp"]:
+            input_data = mp.config.input_at_zoom(key=i, zoom=5)
+            for task in input_data.preprocessing_tasks.values():
+                assert isinstance(task, Task)
+                assert task.has_geometry()
+        list(mp.compute())
+    # TODO: make sure output is correctly processed
+    1 / 0

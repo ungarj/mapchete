@@ -263,7 +263,6 @@ def _preprocess(
     # If preprocessing tasks already finished, don't run them again.
     if process.config.preprocessing_tasks_finished:  # pragma: no cover
         return
-
     num_processed = 0
 
     # If an Executor is passed on, don't close after processing. If no Executor is passed on,
@@ -538,24 +537,27 @@ def _compute_tasks(
     **kwargs,
 ):
     num_processed = 0
-    tasks = process.config.preprocessing_tasks()
-    logger.info("run preprocessing on %s tasks using %s workers", len(tasks), workers)
-    # process all remaining tiles using todo list from before
-    for i, future in enumerate(
-        executor.as_completed(
-            func=_preprocess_task_wrapper, iterable=list(tasks.items()), **kwargs
-        ),
-        1,
-    ):
-        task_key, result = future.result()
-        logger.debug(
-            "preprocessing task %s/%s %s processed successfully",
-            i,
-            len(tasks),
-            task_key,
+    if not process.config.preprocessing_tasks_finished:
+        tasks = process.config.preprocessing_tasks()
+        logger.info(
+            "run preprocessing on %s tasks using %s workers", len(tasks), workers
         )
-        process.config.set_preprocessing_task_result(task_key, result)
-        yield future
+        # process all remaining tiles using todo list from before
+        for i, future in enumerate(
+            executor.as_completed(
+                func=_preprocess_task_wrapper, iterable=list(tasks.items()), **kwargs
+            ),
+            1,
+        ):
+            task_key, result = future.result()
+            logger.debug(
+                "preprocessing task %s/%s %s processed successfully",
+                i,
+                len(tasks),
+                task_key,
+            )
+            process.config.set_preprocessing_task_result(task_key, result)
+            yield future
 
     # run single tile
     if tile:

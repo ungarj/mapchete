@@ -352,6 +352,11 @@ def test_indexed_features(landpoly):
     assert features.items()
     assert features.keys()
 
+    for f in features:
+        assert isinstance(f, dict)
+        assert "properties" in f
+        assert "geometry" in f
+
 
 def test_indexed_features_bounds():
     feature = {"bounds": (0, 1, 2, 3)}
@@ -479,3 +484,11 @@ def test_indexed_features_fakeindex(landpoly):
         fake_idx = IndexedFeatures(features, index=None)
     bounds = (-135.0, 60, -90, 80)
     assert len(idx.filter(bounds)) == len(fake_idx.filter(bounds))
+
+
+def test_indexed_features_polygon(aoi_br_geojson):
+    with fiona.open(aoi_br_geojson) as src:
+        index = IndexedFeatures(src)
+    tp = BufferedTilePyramid("geodetic")
+    for tile in tp.tiles_from_bounds(bounds=index.bounds, zoom=5):
+        assert len(index.filter(tile.bounds)) == 1

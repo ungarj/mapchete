@@ -624,7 +624,16 @@ def preprocess_cache_raster_vector():
     ) as example:
         yield example
 
-        
+
+@pytest.fixture
+def preprocess_cache_memory():
+    """Fixture for preprocess_cache_memory.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "preprocess_cache_memory.mapchete"),
+    ) as example:
+        yield example
+
+
 @pytest.fixture
 def custom_grid_points():
     """Fixture for custom_grid_points.mapchete."""

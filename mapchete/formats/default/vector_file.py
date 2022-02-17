@@ -4,13 +4,20 @@ Vector file input which can be read by fiona.
 Currently limited by extensions .shp and .geojson but could be extended easily.
 """
 
+from cached_property import cached_property
 import fiona
 import logging
 from shapely.geometry import box
 from rasterio.crs import CRS
 
 from mapchete.formats import base
-from mapchete.io.vector import reproject_geometry, read_vector_window, convert_vector
+from mapchete.io.vector import (
+    reproject_geometry,
+    read_vector_window,
+    convert_vector,
+    read_vector,
+    IndexedFeatures,
+)
 from mapchete.io import fs_from_path, absolute_path
 
 
@@ -56,6 +63,7 @@ class InputData(base.InputData):
     }
     _cached_path = None
     _cache_keep = False
+    _memory_cache_active = False
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
@@ -63,29 +71,52 @@ class InputData(base.InputData):
         if "abstract" in input_params:
             self.path = input_params["abstract"]["path"]
             if "cache" in input_params["abstract"]:
-                if "path" in input_params["abstract"]["cache"]:
-                    self._cached_path = absolute_path(
-                        path=input_params["abstract"]["cache"]["path"],
-                        base_dir=input_params["conf_dir"],
+                if isinstance(input_params["abstract"]["cache"], dict):
+                    if "path" in input_params["abstract"]["cache"]:
+                        self._cached_path = absolute_path(
+                            path=input_params["abstract"]["cache"]["path"],
+                            base_dir=input_params["conf_dir"],
+                        )
+                    else:  # pragma: no cover
+                        raise ValueError("please provide a cache path")
+                    # add preprocessing task to cache data
+                    self.add_preprocessing_task(
+                        convert_vector,
+                        key=f"cache_{self.path}",
+                        fkwargs=dict(
+                            inp=self.path,
+                            out=self._cached_path,
+                            format=input_params["abstract"]["cache"].get(
+                                "format", "FlatGeobuf"
+                            ),
+                        ),
+                        geometry=self.bbox(),
+                    )
+                    self._cache_keep = input_params["abstract"]["cache"].get(
+                        "keep", False
+                    )
+                elif (
+                    isinstance(input_params["abstract"]["cache"], str)
+                    and input_params["abstract"]["cache"] == "memory"
+                ):
+                    self._memory_cache_active = True
+                    self.add_preprocessing_task(
+                        read_vector,
+                        key=f"cache_{self.path}",
+                        fkwargs=dict(inp=self.path, index=None),
+                        geometry=self.bbox(),
                     )
                 else:  # pragma: no cover
-                    raise ValueError("please provide a cache path")
-                # add preprocessing task to cache data
-                self.add_preprocessing_task(
-                    convert_vector,
-                    key=f"cache_{self.path}",
-                    fkwargs=dict(
-                        inp=self.path,
-                        out=self._cached_path,
-                        format=input_params["abstract"]["cache"].get(
-                            "format", "FlatGeobuf"
-                        ),
-                    ),
-                    geometry=self.bbox(),
-                )
-                self._cache_keep = input_params["abstract"]["cache"].get("keep", False)
+                    raise ValueError(
+                        f"invalid cache configuration given: {input_params['abstract']['cache']}"
+                    )
         else:
             self.path = input_params["path"]
+
+    @cached_property
+    def in_memory_features(self):
+        """This property can be accessed once the preprocessing task is finished."""
+        return IndexedFeatures(self.get_preprocessing_task_result(f"cache_{self.path}"))
 
     def open(self, tile, **kwargs):
         """
@@ -100,7 +131,26 @@ class InputData(base.InputData):
         input tile : ``InputTile``
             tile view of input data
         """
-        return InputTile(tile, self, **kwargs)
+        if self._memory_cache_active:
+            tile_features = IndexedFeatures(
+                self.in_memory_features.filter(
+                    reproject_geometry(
+                        tile.bbox, src_crs=tile.crs, dst_crs=self.in_memory_features.crs
+                    ).bounds
+                ),
+                crs=self.in_memory_features.crs,
+                index=None,
+            )
+
+        else:
+            tile_features = None
+
+        return InputTile(
+            tile,
+            self,
+            in_memory_features=tile_features,
+            **kwargs,
+        )
 
     def bbox(self, out_crs=None):
         """
@@ -148,16 +198,25 @@ class InputTile(base.InputTile):
     Attributes
     ----------
     tile : tile : ``Tile``
-    vector_file : string
+    input_data : string
         path to input vector file
     """
 
-    def __init__(self, tile, vector_file, **kwargs):
+    _memory_cache_active = False
+    _in_memory_features = None
+
+    def __init__(self, tile, input_data, in_memory_features=None, **kwargs):
         """Initialize."""
         self.tile = tile
-        self.vector_file = vector_file
         self._cache = {}
-        self.path = vector_file._cached_path or vector_file.path
+        self.bbox = input_data.bbox(out_crs=self.tile.crs)
+        if input_data._memory_cache_active:
+            self._memory_cache_active = True
+            if in_memory_features is None:  # pragma: no cover
+                raise RuntimeError("preprocessing tasks have not yet been run")
+            self._in_memory_features = in_memory_features
+        else:
+            self.path = input_data._cached_path or input_data.path
 
     def read(self, validity_check=True, clip_to_crs_bounds=False, **kwargs):
         """
@@ -191,7 +250,7 @@ class InputTile(base.InputTile):
         -------
         is empty : bool
         """
-        if not self.tile.bbox.intersects(self.vector_file.bbox()):
+        if not self.tile.bbox.intersects(self.bbox):
             return True
         return len(self._read_from_cache(True)) == 0
 
@@ -200,7 +259,9 @@ class InputTile(base.InputTile):
         if checked not in self._cache:
             self._cache[checked] = list(
                 read_vector_window(
-                    self.vector_file.path,
+                    self._in_memory_features
+                    if self._memory_cache_active
+                    else self.path,
                     self.tile,
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,

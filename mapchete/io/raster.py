@@ -1083,3 +1083,14 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     else:
         logger.debug("copy %s to %s", inp, out)
         copy(inp, out, overwrite=overwrite)
+
+
+def read_raster(inp, **kwargs):
+    logger.debug("reading {inp} into memory")
+    with rasterio.open(inp, "r") as src:
+        return ReferencedRaster(
+            data=src.read(masked=True),
+            affine=src.transform,
+            bounds=src.bounds,
+            crs=src.crs,
+        )

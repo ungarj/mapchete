@@ -347,6 +347,13 @@ class MapcheteConfig(object):
             for task_key, task in inp_preprocessing_tasks.items()
         }
 
+    def preprocessing_tasks_results_per_input(self):
+        return {
+            k: inp.preprocessing_tasks_results
+            for k, inp in self.input.items()
+            if inp is not None
+        }
+
     def preprocessing_tasks_count(self):
         """Return number of unique preprocessing tasks."""
         return len(self.preprocessing_tasks())
