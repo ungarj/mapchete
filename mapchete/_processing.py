@@ -208,7 +208,7 @@ def compute(
             if zoom is None
             else validate_zooms(zoom)
         )
-        if compute_graph and isinstance(executor, DaskExecutor):
+        if isinstance(executor, DaskExecutor):
             for num_processed, process_info in enumerate(
                 _compute_task_graph(
                     executor=executor,

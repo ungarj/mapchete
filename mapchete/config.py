@@ -342,9 +342,9 @@ class MapcheteConfig(object):
 
     def preprocessing_tasks(self):
         return {
-            task_key: task
-            for preprocessing_tasks in self.preprocessing_tasks_per_input().values()
-            for task_key, task in preprocessing_tasks.items()
+            f"{inp_key}:{task_key}": task
+            for inp_key, inp_preprocessing_tasks in self.preprocessing_tasks_per_input().items()
+            for task_key, task in inp_preprocessing_tasks.items()
         }
 
     def preprocessing_tasks_count(self):
@@ -353,10 +353,13 @@ class MapcheteConfig(object):
 
     def set_preprocessing_task_result(self, task_key, result):
         """Append preprocessing task result to input."""
-        for inp in self.input.values():
-            if task_key in inp.preprocessing_tasks:
-                inp.set_preprocessing_task_result(task_key, result)
-                return
+        inp_key, task_key = task_key.split(":")[0], ":".join(task_key.split(":")[1:])
+        try:
+            inp = self.input[inp_key]
+        except KeyError:
+            raise KeyError(f"input {inp_key} not found")
+        if task_key in inp.preprocessing_tasks:
+            inp.set_preprocessing_task_result(task_key, result)
         else:
             raise KeyError(f"task key {task_key} not found in any input")
 

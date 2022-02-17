@@ -81,8 +81,7 @@ def test_run_preprocessing_tasks(example_mapchete):
             == 3
         )
 
-        # number of unique tasks should be 2
-        assert mp.config.preprocessing_tasks_count() == 2
+        assert mp.config.preprocessing_tasks_count() == 3
 
         mp.batch_preprocess()
         assert inp1.get_preprocessing_task_result("test_task") == "foofoobar"
