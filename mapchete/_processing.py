@@ -140,15 +140,20 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
             func = _execute_and_write
             fkwargs = dict(output_writer=process.config.output)
 
-        for (
-            inp,
-            preprocessing_tasks,
-        ) in process.config.preprocessing_tasks_per_input().items():
-            yield TaskBatch(
-                id=inp,
-                tasks=preprocessing_tasks.values(),
-            )
+        # preprocessing tasks
+        yield TaskBatch(
+            id="preprocessing_tasks",
+            tasks=(
+                task
+                for (
+                    inp,
+                    preprocessing_tasks,
+                ) in process.config.preprocessing_tasks_per_input().items()
+                for task in preprocessing_tasks.values()
+            ),
+        )
 
+        # tile tasks
         for zoom in zoom_levels:
             yield TileTaskBatch(
                 id=f"zoom_{zoom}",
@@ -176,15 +181,19 @@ def compute(
     zoom=None,
     tile=None,
     executor=None,
+    concurrency="processes",
     workers=None,
     dask_scheduler=None,
     multiprocessing_start_method=None,
     multiprocessing_module=None,
     skip_output_check=False,
     compute_graph=False,
+    raise_errors=True,
+    with_results=False,
     **kwargs,
 ):
     """Computes all tasks and yields progress."""
+    concurrency = "dask" if dask_scheduler else concurrency
     num_processed = 0
     with ExitStack() as exit_stack:
         # create fresh Executor if it was not passed on
@@ -192,7 +201,7 @@ def compute(
             executor = exit_stack.enter_context(
                 Executor(
                     max_workers=workers,
-                    concurrency="dask" if dask_scheduler else "processes",
+                    concurrency=concurrency,
                     start_method=multiprocessing_start_method,
                     multiprocessing_module=multiprocessing_module,
                     dask_scheduler=dask_scheduler,
@@ -216,9 +225,14 @@ def compute(
                     zoom_levels=zoom_levels,
                     tile=tile,
                     skip_output_check=skip_output_check,
+                    with_results=with_results,
+                    raise_errors=raise_errors,
                 ),
                 1,
             ):
+                if raise_errors and future.exception():
+                    logger.exception(future.exception())
+                    raise future.exception()
                 logger.debug("task %s finished: %s", num_processed, future)
                 yield future
         else:
@@ -233,6 +247,9 @@ def compute(
                 ),
                 1,
             ):
+                if raise_errors and future.exception():
+                    logger.exception(future.exception())
+                    raise future.exception()
                 logger.debug("task %s finished: %s", num_processed, future)
                 yield future
 
@@ -299,7 +316,9 @@ def _preprocess(
                 len(tasks),
                 task_key,
             )
-            process.config.set_preprocessing_task_result(task_key, result)
+            process.config.set_preprocessing_task_result(
+                task_key=task_key, result=result
+            )
             yield f"preprocessing task {task_key} finished"
     process.config.preprocessing_tasks_finished = True
 
@@ -342,7 +361,7 @@ def _run_on_single_tile(
                 ],
                 fkwargs=dict(output_writer=process.config.output),
             )
-        ).result()
+        )
 
 
 def _run_area(
@@ -498,8 +517,12 @@ def _compute_task_graph(
     skip_output_check=False,
     zoom_levels=None,
     tile=None,
+    with_results=False,
+    raise_errors=False,
     **kwargs,
 ):
+    # TODO optimize memory management, e.g. delete preprocessing tasks from input
+    # once the dask graph is ready.
     from dask.delayed import delayed
     from distributed import as_completed
 
@@ -517,7 +540,9 @@ def _compute_task_graph(
         futures = executor._executor.compute(coll, optimize_graph=True, traverse=True)
     logger.debug("sent to scheduler in %s", t)
 
-    for future in as_completed(futures):
+    for future in as_completed(
+        futures, with_results=with_results, raise_errors=raise_errors
+    ):
         futures.remove(future)
         if process.config.output.write_in_parent_process:
             _write(

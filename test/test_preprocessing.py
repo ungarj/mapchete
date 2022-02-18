@@ -1,6 +1,8 @@
 import mapchete
+from mapchete.io import fs_from_path
 from mapchete._tasks import Task
 import pytest
+import rasterio
 
 
 def _trivial_func(arg, kwarg=None):
@@ -126,5 +128,34 @@ def test_preprocessing_tasks_dependencies(preprocess_cache_memory):
                 assert isinstance(task, Task)
                 assert task.has_geometry()
         list(mp.compute())
-    # TODO: make sure output is correctly processed
-    1 / 0
+
+        out_path = mp.config.output_reader.path
+        total_tifs = len(
+            [
+                file
+                for directory in fs_from_path(out_path).walk(out_path)
+                for file in directory[2]
+                if file.endswith(".tif")
+            ]
+        )
+        assert total_tifs == 9
+
+
+def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory):
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        for i in ["clip", "inp"]:
+            input_data = mp.config.input_at_zoom(key=i, zoom=5)
+            for task in input_data.preprocessing_tasks.values():
+                assert isinstance(task, Task)
+                assert task.has_geometry()
+
+        list(mp.compute(concurrency="dask"))
+
+        out_path = mp.config.output_reader.path
+        total_tifs = [
+            f"{directory[0]}/{file}"
+            for directory in fs_from_path(out_path).walk(out_path)
+            for file in directory[2]
+            if file.endswith(".tif")
+        ]
+        assert len(total_tifs) == 9

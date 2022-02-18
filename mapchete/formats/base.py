@@ -52,8 +52,9 @@ class InputData(object):
 
     METADATA = {"driver_name": None, "data_type": None, "mode": "r"}
 
-    def __init__(self, input_params, **kwargs):
+    def __init__(self, input_params, input_key=None, **kwargs):
         """Initialize relevant input information."""
+        self.input_key = input_key
         self.pyramid = input_params.get("pyramid")
         self.pixelbuffer = input_params.get("pixelbuffer")
         self.crs = self.pyramid.crs if self.pyramid else None
@@ -121,6 +122,8 @@ class InputData(object):
             fargs = (fargs,)
         fkwargs = fkwargs or {}
         key = f"{func}-{get_hash((func, fargs, fkwargs))}" if key is None else key
+        if self.input_key:
+            key = f"{self.input_key}:{key}"
         if key in self.preprocessing_tasks:  # pragma: no cover
             raise KeyError(f"preprocessing task with key {key} already exists")
         logger.debug(f"add preprocessing task {key, func}")
@@ -134,6 +137,11 @@ class InputData(object):
         )
 
     def get_preprocessing_task_result(self, task_key):
+        """
+        Get result of preprocessing task.
+        """
+        if self.input_key and not task_key.startswith(f"{self.input_key}:"):
+            task_key = f"{self.input_key}:{task_key}"
         if task_key not in self.preprocessing_tasks:
             raise KeyError(f"task {task_key} is not a task for current input")
         if task_key not in self.preprocessing_tasks_results:
@@ -141,11 +149,26 @@ class InputData(object):
         return self.preprocessing_tasks_results[task_key]
 
     def set_preprocessing_task_result(self, task_key, result):
+        """
+        Set result of preprocessing task.
+        """
+        if self.input_key and not task_key.startswith(f"{self.input_key}:"):
+            task_key = f"{self.input_key}:{task_key}"
         if task_key not in self.preprocessing_tasks:
             raise KeyError(f"task {task_key} is not a task for current input")
         if task_key in self.preprocessing_tasks_results:
             raise KeyError(f"task {task_key} has already been set")
         self.preprocessing_tasks_results[task_key] = result
+
+    def preprocessing_task_finished(self, task_key):
+        """
+        Return whether preprocessing task already ran.
+        """
+        if self.input_key and not task_key.startswith(f"{self.input_key}:"):
+            task_key = f"{self.input_key}:{task_key}"
+        if task_key not in self.preprocessing_tasks:
+            raise KeyError(f"task {task_key} is not a task for current input")
+        return task_key in self.preprocessing_tasks_results
 
 
 class InputTile(object):
@@ -158,6 +181,9 @@ class InputTile(object):
     kwargs : keyword arguments
         driver specific parameters
     """
+
+    preprocessing_tasks_results = {}
+    input_key = None
 
     def __init__(self, tile, **kwargs):
         """Initialize."""
@@ -182,6 +208,12 @@ class InputTile(object):
         is empty : bool
         """
         raise NotImplementedError
+
+    def set_preprocessing_task_result(self, task_key=None, result=None):
+        """
+        Adds a preprocessing task result.
+        """
+        self.preprocessing_tasks_results[task_key] = result
 
     def __enter__(self):
         """Required for 'with' statement."""

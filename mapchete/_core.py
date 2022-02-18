@@ -413,10 +413,10 @@ class Mapchete(object):
                 dask_scheduler=dask_scheduler,
                 process=self,
                 tile=self.config.process_pyramid.tile(*tuple(tile)),
-            )
+            ).result()
         # run area
         else:
-            for process_info in _run_area(
+            for future in _run_area(
                 process=self,
                 zoom_levels=list(_get_zoom_level(zoom, self)),
                 dask_scheduler=dask_scheduler,
@@ -428,7 +428,7 @@ class Mapchete(object):
                 skip_output_check=skip_output_check,
                 executor=executor,
             ):
-                yield process_info
+                yield future.result()
 
     def count_tasks(self, minzoom=None, maxzoom=None, init_zoom=0):
         """

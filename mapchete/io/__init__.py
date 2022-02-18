@@ -25,6 +25,7 @@ from mapchete.io._path import (
 
 
 __all__ = [
+    "copy",
     "fs_from_path",
     "GDAL_HTTP_OPTS",
     "get_best_zoom_level",

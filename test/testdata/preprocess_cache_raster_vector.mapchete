@@ -9,7 +9,6 @@ input:
         cache:
             path: tmp/preprocess_cache_raster_vector/cache/cleantopo_br.tif
             format: COG
-            cog: true
             keep: false
     clip:
         format: vector_file

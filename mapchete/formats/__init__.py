@@ -98,7 +98,7 @@ def load_output_writer(output_params, readonly=False):
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 
-def load_input_reader(input_params, readonly=False):
+def load_input_reader(input_params, readonly=False, input_key=None):
     """
     Return input class of driver.
 
@@ -126,7 +126,9 @@ def load_input_reader(input_params, readonly=False):
         if hasattr(driver_, "METADATA") and (
             driver_.METADATA["driver_name"] == driver_name
         ):
-            return driver_.InputData(input_params, readonly=readonly)
+            return driver_.InputData(
+                input_params, readonly=readonly, input_key=input_key
+            )
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 

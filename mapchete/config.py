@@ -341,13 +341,15 @@ class MapcheteConfig(object):
         }
 
     def preprocessing_tasks(self):
+        """Get mapping of all preprocessing tasks."""
         return {
-            f"{inp_key}:{task_key}": task
+            f"{self.input[inp_key].input_key}:{task_key}": task
             for inp_key, inp_preprocessing_tasks in self.preprocessing_tasks_per_input().items()
             for task_key, task in inp_preprocessing_tasks.items()
         }
 
     def preprocessing_tasks_results_per_input(self):
+        """Get mapping of all preprocessing tasks results."""
         return {
             k: inp.preprocessing_tasks_results
             for k, inp in self.input.items()
@@ -355,16 +357,35 @@ class MapcheteConfig(object):
         }
 
     def preprocessing_tasks_count(self):
-        """Return number of unique preprocessing tasks."""
+        """Return number of preprocessing tasks."""
         return len(self.preprocessing_tasks())
 
-    def set_preprocessing_task_result(self, task_key, result):
-        """Append preprocessing task result to input."""
+    def preprocessing_task_finished(self, task_key):
+        """Return True if task of given key has already been run."""
         inp_key, task_key = task_key.split(":")[0], ":".join(task_key.split(":")[1:])
         try:
             inp = self.input[inp_key]
         except KeyError:
             raise KeyError(f"input {inp_key} not found")
+        if task_key in inp.preprocessing_tasks:
+            return inp.preprocessing_task_finished(task_key)
+        else:
+            raise KeyError(f"task key {task_key} not found in any input")
+
+    def set_preprocessing_task_result(self, task_key, result):
+        """Append preprocessing task result to input."""
+        inp_key, task_key = task_key.split(":")[0], ":".join(task_key.split(":")[1:])
+        if inp_key is None:
+            raise KeyError(f"input key cannot be None: {inp_key}")
+        if task_key is None:
+            raise ValueError(f"malformed task key: {task_key}")
+        for inp in self.input.values():
+            if inp_key == inp.input_key:
+                break
+        else:
+            raise KeyError(
+                f"task {task_key} cannot be assigned to input with key {inp_key}"
+            )
         if task_key in inp.preprocessing_tasks:
             inp.set_preprocessing_task_result(task_key, result)
         else:
@@ -485,7 +506,6 @@ class MapcheteConfig(object):
                 if v is not None
             ]
         )
-
         if self._init_inputs:
             return initialize_inputs(
                 raw_inputs,
@@ -1034,6 +1054,7 @@ def initialize_inputs(
                         delimiters=delimiters,
                     ),
                     readonly=readonly,
+                    input_key=k,
                 )
             except Exception as e:
                 logger.exception(e)
@@ -1058,6 +1079,7 @@ def initialize_inputs(
                         conf_dir=config_dir,
                     ),
                     readonly=readonly,
+                    input_key=k,
                 )
             except Exception as e:
                 logger.exception(e)

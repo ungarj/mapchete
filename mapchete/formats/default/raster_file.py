@@ -74,50 +74,48 @@ class InputData(base.InputData):
     def __init__(self, input_params, **kwargs):
         """Initialize."""
         super().__init__(input_params, **kwargs)
-        if "abstract" in input_params:
-            self.path = input_params["abstract"]["path"]
-            if "cache" in input_params["abstract"]:
-                if isinstance(input_params["abstract"]["cache"], dict):
-                    if "path" in input_params["abstract"]["cache"]:
-                        self._cached_path = io.absolute_path(
-                            path=input_params["abstract"]["cache"]["path"],
-                            base_dir=input_params["conf_dir"],
-                        )
-                    else:  # pragma: no cover
-                        raise ValueError("please provide a cache path")
-                    # add preprocessing task to cache data
-                    self.add_preprocessing_task(
-                        convert_raster,
-                        key=f"cache_{self.path}",
-                        fkwargs=dict(
-                            inp=self.path,
-                            out=self._cached_path,
-                            format=input_params["abstract"]["cache"].get(
-                                "format", "COG"
-                            ),
-                        ),
-                        geometry=self.bbox(),
-                    )
-                    self._cache_keep = input_params["abstract"]["cache"].get(
-                        "keep", False
-                    )
-                elif (
-                    isinstance(input_params["abstract"]["cache"], str)
-                    and input_params["abstract"]["cache"] == "memory"
-                ):
-                    self._memory_cache_active = True
-                    self.add_preprocessing_task(
-                        read_raster,
-                        key=f"cache_{self.path}",
-                        fkwargs=dict(inp=self.path),
-                        geometry=self.bbox(),
+        self.path = (
+            input_params["abstract"]["path"]
+            if "abstract" in input_params
+            else input_params["path"]
+        )
+        self._cache_task = f"cache_{self.path}"
+        if "abstract" in input_params and "cache" in input_params["abstract"]:
+            if isinstance(input_params["abstract"]["cache"], dict):
+                if "path" in input_params["abstract"]["cache"]:
+                    self._cached_path = io.absolute_path(
+                        path=input_params["abstract"]["cache"]["path"],
+                        base_dir=input_params["conf_dir"],
                     )
                 else:  # pragma: no cover
-                    raise ValueError(
-                        f"invalid cache configuration given: {input_params['abstract']['cache']}"
-                    )
-        else:
-            self.path = input_params["path"]
+                    raise ValueError("please provide a cache path")
+                # add preprocessing task to cache data
+                self.add_preprocessing_task(
+                    convert_raster,
+                    key=self._cache_task,
+                    fkwargs=dict(
+                        inp=self.path,
+                        out=self._cached_path,
+                        format=input_params["abstract"]["cache"].get("format", "COG"),
+                    ),
+                    geometry=self.bbox(),
+                )
+                self._cache_keep = input_params["abstract"]["cache"].get("keep", False)
+            elif (
+                isinstance(input_params["abstract"]["cache"], str)
+                and input_params["abstract"]["cache"] == "memory"
+            ):
+                self._memory_cache_active = True
+                self.add_preprocessing_task(
+                    read_raster,
+                    key=self._cache_task,
+                    fkwargs=dict(inp=self.path),
+                    geometry=self.bbox(),
+                )
+            else:  # pragma: no cover
+                raise ValueError(
+                    f"invalid cache configuration given: {input_params['abstract']['cache']}"
+                )
 
     @cached_property
     def profile(self):
@@ -138,12 +136,17 @@ class InputData(base.InputData):
         input tile : ``InputTile``
             tile view of input data
         """
+        if self._memory_cache_active and self.preprocessing_task_finished(
+            self._cache_task
+        ):
+            in_memory_raster = self.get_preprocessing_task_result(self._cache_task)
+        else:
+            in_memory_raster = None
         return InputTile(
             tile,
             self,
-            in_memory_raster=self.get_preprocessing_task_result(f"cache_{self.path}")
-            if self._memory_cache_active
-            else None,
+            in_memory_raster=in_memory_raster,
+            cache_task_key=self._cache_task,
             **kwargs,
         )
 
@@ -227,15 +230,17 @@ class InputTile(base.InputTile):
     _memory_cache_active = False
     _in_memory_raster = None
 
-    def __init__(self, tile, input_data, in_memory_raster=None, **kwargs):
+    def __init__(
+        self, tile, input_data, in_memory_raster=None, cache_task_key=None, **kwargs
+    ):
         """Initialize."""
         self.tile = tile
         self.bbox = input_data.bbox(out_crs=self.tile.crs)
         self.profile = input_data.profile
+        self.cache_task_key = cache_task_key
+        self.input_key = input_data.input_key
         if input_data._memory_cache_active:
             self._memory_cache_active = True
-            if in_memory_raster is None:  # pragma: no cover
-                raise RuntimeError("preprocessing tasks have not yet been run")
             self._in_memory_raster = in_memory_raster
         else:
             self.path = input_data._cached_path or input_data.path
@@ -248,6 +253,12 @@ class InputTile(base.InputTile):
             else:
                 self.gdal_opts = {}
 
+    def __repr__(self):
+        source = (
+            repr(self._in_memory_raster) if self._memory_cache_active else self.path
+        )
+        return f"raster_file.InputTile(tile={self.tile.id}, source={source})"
+
     def read(self, indexes=None, resampling="nearest", **kwargs):
         """
         Read reprojected & resampled input data.
@@ -256,15 +267,13 @@ class InputTile(base.InputTile):
         -------
         data : array
         """
-        if self._in_memory_raster is None:
-            return read_raster_window(
-                self.path,
-                self.tile,
-                indexes=self._get_band_indexes(indexes),
-                resampling=resampling,
-                gdal_opts=self.gdal_opts,
+        if self._memory_cache_active:
+            self._in_memory_raster = (
+                self._in_memory_raster
+                or self.preprocessing_tasks_results.get(self.cache_task_key)
             )
-        else:
+            if self._in_memory_raster is None:  # pragma: no cover
+                raise RuntimeError("preprocessing tasks have not yet been run")
             return resample_from_array(
                 in_raster=ma.stack(
                     [
@@ -276,6 +285,14 @@ class InputTile(base.InputTile):
                 in_crs=self._in_memory_raster.crs,
                 out_tile=self.tile,
                 resampling=resampling,
+            )
+        else:
+            return read_raster_window(
+                self.path,
+                self.tile,
+                indexes=self._get_band_indexes(indexes),
+                resampling=resampling,
+                gdal_opts=self.gdal_opts,
             )
 
     def is_empty(self, indexes=None):

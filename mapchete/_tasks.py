@@ -229,7 +229,20 @@ class TileTask(Task):
         )
         try:
             with Timer() as duration:
-                # TODO append dependencies to input objects
+                # append dependent preprocessing task results to input objects
+                if dependencies:
+                    for task_key, task_result in dependencies.items():
+                        if not task_key.startswith("tile_task"):
+                            inp_key, task_key = task_key.split(":")[0], ":".join(
+                                task_key.split(":")[1:]
+                            )
+                            if task_key in [None, ""]:
+                                raise KeyError(f"malformed task key: {inp_key}")
+                            for inp in self.input.values():
+                                if inp.input_key == inp_key:
+                                    inp.set_preprocessing_task_result(
+                                        task_key=task_key, result=task_result
+                                    )
                 # Actually run process.
                 process_data = process_func(
                     MapcheteProcess(
