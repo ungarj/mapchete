@@ -11,7 +11,6 @@ from typing import Generator
 from mapchete.config import get_process_func
 from mapchete._executor import DaskExecutor, Executor, SkippedFuture, FinishedFuture
 from mapchete.errors import MapcheteNodataTile
-from mapchete.io import raster
 from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch, Task
 from mapchete._timer import Timer
 from mapchete.validate import validate_zooms
@@ -541,13 +540,16 @@ def _compute_task_graph(
         futures, with_results=with_results, raise_errors=raise_errors
     ):
         futures.remove(future)
-        # TODO cases where there is preprocessing and single file output
         if process.config.output.write_in_parent_process:
-            _write(
-                process_info=future.result(),
-                output_writer=process.config.output,
+            yield FinishedFuture(
+                result=_write(
+                    process_info=future.result(),
+                    output_writer=process.config.output,
+                    append_output=True,
+                )
             )
-        yield future
+        else:
+            yield future
 
 
 def _compute_tasks(
@@ -860,7 +862,6 @@ def _write(process_info=None, output_writer=None, append_data=False, **_):
                 written=False,
                 write_msg=message,
             )
-
         with Timer() as duration:
             output_writer.write(process_tile=process_info.tile, data=output_data)
         message = "output written in %s" % duration

@@ -695,3 +695,72 @@ def test_compute_processes(preprocess_cache_memory):
                 assert result.data is None
     assert tile_tasks == 20
     assert preprocessing_tasks == 2
+
+
+def test_compute_dask_graph_single_file(preprocess_cache_memory_single_file):
+    with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(concurrency="dask", dask_compute_graph=True):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                assert result.data is not None
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 12
+    assert preprocessing_tasks == 2
+    with rasterio.open(mp.config.output.path) as src:
+        assert not src.read(masked=True).mask.all()
+
+
+def test_compute_dask_single_file(preprocess_cache_memory_single_file):
+    with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(concurrency="dask", dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 12
+    assert preprocessing_tasks == 2
+    with rasterio.open(mp.config.output.path) as src:
+        assert not src.read(masked=True).mask.all()
+
+
+def test_compute_threads_single_file(preprocess_cache_memory_single_file):
+    with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(concurrency="threads", dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 12
+    assert preprocessing_tasks == 2
+
+
+def test_compute_processes_single_file(preprocess_cache_memory_single_file):
+    with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(concurrency="processes", dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 12
+    assert preprocessing_tasks == 2

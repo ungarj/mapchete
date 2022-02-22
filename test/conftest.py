@@ -635,6 +635,15 @@ def preprocess_cache_memory():
 
 
 @pytest.fixture
+def preprocess_cache_memory_single_file():
+    """Fixture for preprocess_cache_memory_single_file.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "preprocess_cache_memory_single_file.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def custom_grid_points():
     """Fixture for custom_grid_points.mapchete."""
     with ProcessFixture(
