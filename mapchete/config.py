@@ -341,25 +341,42 @@ class MapcheteConfig(object):
         }
 
     def preprocessing_tasks(self):
+        """Get mapping of all preprocessing tasks."""
         return {
             task_key: task
-            for preprocessing_tasks in self.preprocessing_tasks_per_input().values()
-            for task_key, task in preprocessing_tasks.items()
+            for _, inp_preprocessing_tasks in self.preprocessing_tasks_per_input().items()
+            for task_key, task in inp_preprocessing_tasks.items()
         }
 
     def preprocessing_tasks_count(self):
-        """Return number of unique preprocessing tasks."""
+        """Return number of preprocessing tasks."""
         return len(self.preprocessing_tasks())
+
+    def preprocessing_task_finished(self, task_key):
+        """Return True if task of given key has already been run."""
+        inp_key, task_key = task_key.split(":")[0], ":".join(task_key.split(":")[1:])
+        try:
+            inp = self.input[inp_key]
+        except KeyError:  # pragma: no cover
+            raise KeyError(f"input {inp_key} not found")
+        return inp.preprocessing_task_finished(task_key)
 
     def set_preprocessing_task_result(self, task_key, result):
         """Append preprocessing task result to input."""
-        found = False
+        if ":" in task_key:
+            inp_key = task_key.split(":")[0]
+        else:
+            raise KeyError(
+                f"preprocessing task cannot be assigned to an input: {task_key}"
+            )
         for inp in self.input.values():
-            if task_key in inp.preprocessing_tasks:
-                found = True
-                inp.preprocessing_tasks_results[task_key] = result
-        if not found:
-            raise KeyError(f"task key {task_key} not found in any input")
+            if inp_key == inp.input_key:
+                break
+        else:  # pragma: no cover
+            raise KeyError(
+                f"task {task_key} cannot be assigned to input with key {inp_key}"
+            )
+        inp.set_preprocessing_task_result(task_key, result)
 
     @cached_property
     def zoom_levels(self):
@@ -476,7 +493,6 @@ class MapcheteConfig(object):
                 if v is not None
             ]
         )
-
         if self._init_inputs:
             return initialize_inputs(
                 raw_inputs,
@@ -1025,6 +1041,7 @@ def initialize_inputs(
                         delimiters=delimiters,
                     ),
                     readonly=readonly,
+                    input_key=k,
                 )
             except Exception as e:
                 logger.exception(e)
@@ -1035,15 +1052,21 @@ def initialize_inputs(
         elif isinstance(v, dict):
             logger.debug("load input reader for abstract input %s", v)
             try:
+                abstract = deepcopy(v)
+                if "path" in abstract:
+                    abstract.update(
+                        path=absolute_path(path=abstract["path"], base_dir=config_dir)
+                    )
                 reader = load_input_reader(
                     dict(
-                        abstract=deepcopy(v),
+                        abstract=abstract,
                         pyramid=pyramid,
                         pixelbuffer=pyramid.pixelbuffer,
                         delimiters=delimiters,
                         conf_dir=config_dir,
                     ),
                     readonly=readonly,
+                    input_key=k,
                 )
             except Exception as e:
                 logger.exception(e)
@@ -1055,6 +1078,10 @@ def initialize_inputs(
         reader.bbox(out_crs=pyramid.crs)
         initalized_inputs[k] = reader
 
+    logger.debug(
+        "initialized inputs: %s",
+        initalized_inputs.keys(),
+    )
     return initalized_inputs
 
 

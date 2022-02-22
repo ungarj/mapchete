@@ -614,7 +614,7 @@ class GTiffSingleFileOutputWriter(
         """Build overviews and write file."""
         try:
             # only in case no Exception was raised
-            if not exc_type:
+            if exc_type is None:
                 # build overviews
                 if self.overviews and self.dst is not None:
                     logger.debug(

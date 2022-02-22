@@ -240,6 +240,9 @@ class BufferedTile(Tile):
         Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
         self._tile = tile
         self.pixelbuffer = pixelbuffer
+        self.buffered_tp = BufferedTilePyramid(
+            tile.tp.to_dict(), pixelbuffer=pixelbuffer
+        )
 
     @cached_property
     def left(self):
@@ -352,7 +355,7 @@ class BufferedTile(Tile):
         return (
             isinstance(other, self.__class__)
             and self.pixelbuffer == other.pixelbuffer
-            and self.tp == other.tp
+            and self.buffered_tp == other.buffered_tp
             and self.id == other.id
         )
 

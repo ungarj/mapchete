@@ -43,3 +43,7 @@ class MapcheteIOError(IOError):
 
 class JobCancelledError(Exception):
     """Raised when Job gets cancelled."""
+
+
+class NoTaskGeometry(TypeError):
+    """Raised when Task has no assigned geo information."""

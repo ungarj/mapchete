@@ -12,12 +12,14 @@ from mapchete.errors import MapcheteNodataTile
 from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist
 from mapchete._processing import (
+    compute,
     _run_on_single_tile,
     _run_area,
     _preprocess,
     ProcessInfo,
-    TileProcess,
+    task_batches,
 )
+from mapchete._tasks import TileTask
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
 from mapchete.validate import validate_tile, validate_zooms
@@ -198,6 +200,18 @@ class Mapchete(object):
             else:
                 for tile in tiles:
                     yield (tile, False)
+
+    def task_batches(self, zoom=None, tile=None, skip_output_check=False, **kwargs):
+        """
+        Generate task batches from preprocessing tasks and tile tasks.
+        """
+        yield from task_batches(
+            self, zoom=zoom, tile=tile, skip_output_check=skip_output_check, **kwargs
+        )
+
+    def compute(self, **kwargs):
+        """Compute preprocessing tasks and tile tasks in one go."""
+        yield from compute(self, **kwargs)
 
     def batch_preprocessor(
         self,
@@ -399,10 +413,10 @@ class Mapchete(object):
                 dask_scheduler=dask_scheduler,
                 process=self,
                 tile=self.config.process_pyramid.tile(*tuple(tile)),
-            )
+            ).result()
         # run area
         else:
-            for process_info in _run_area(
+            for future in _run_area(
                 process=self,
                 zoom_levels=list(_get_zoom_level(zoom, self)),
                 dask_scheduler=dask_scheduler,
@@ -414,7 +428,7 @@ class Mapchete(object):
                 skip_output_check=skip_output_check,
                 executor=executor,
             ):
-                yield process_info
+                yield future.result()
 
     def count_tasks(self, minzoom=None, maxzoom=None, init_zoom=0):
         """
@@ -490,7 +504,7 @@ class Mapchete(object):
         self.batch_preprocess()
         try:
             return self.config.output.streamline_output(
-                TileProcess(tile=process_tile, config=self.config).execute()
+                TileTask(tile=process_tile, config=self.config).execute()
             )
         except MapcheteNodataTile:
             if raise_nodata:  # pragma: no cover
@@ -707,6 +721,9 @@ class Mapchete(object):
             self.process_tile_cache = None
             self.current_processes = None
             self.process_lock = None
+
+    def __repr__(self):  # pragma: no cover
+        return f"Mapchete <process_name={self.process_name}>"
 
 
 def _get_zoom_level(zoom, process):

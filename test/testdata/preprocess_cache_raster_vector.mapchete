@@ -1,0 +1,24 @@
+process: mapchete.processes.convert
+zoom_levels: 5
+pyramid:
+    grid: geodetic
+input:
+    inp: 
+        format: raster_file
+        path: cleantopo_br.tif
+        cache:
+            path: tmp/preprocess_cache_raster_vector/cache/cleantopo_br.tif
+            format: COG
+            keep: false
+    clip:
+        format: vector_file
+        path: aoi_br.geojson
+        cache:
+            path: tmp/preprocess_cache_raster_vector/cache/aoi_br.fgb
+            format: FlatGeobuf
+            keep: false
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/preprocess_cache_raster_vector

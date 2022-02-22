@@ -2,6 +2,7 @@
 
 import logging
 from multiprocessing import cpu_count
+import traceback
 from typing import Callable, List, Tuple, Union
 import warnings
 
@@ -10,6 +11,7 @@ from shapely.geometry.base import BaseGeometry
 
 import mapchete
 from mapchete.config import bounds_from_opts, raw_conf, raw_conf_process_pyramid
+from mapchete._processing import PreprocessingProcessInfo, TileProcessInfo
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ def execute(
     dask_max_submitted_tasks=1000,
     dask_chunksize=100,
     dask_client=None,
+    dask_compute_graph=True,
     msg_callback: Callable = None,
     as_iterator: bool = False,
 ) -> mapchete.Job:
@@ -80,6 +83,8 @@ def execute(
         Number of tasks submitted to the scheduler at once. (default: 100)
     dask_client : dask.distributed.Client
         Reusable Client instance if required. Otherwise a new client will be created.
+    dask_compute_graph : bool
+        Build and compute dask graph instead of submitting tasks as preprocessing & zoom tiles batches. (default: True)
     msg_callback : Callable
         Optional callback function for process messages.
     as_iterator : bool
@@ -167,6 +172,7 @@ def execute(
                 zoom=None if tile else zoom,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
+                dask_compute_graph=dask_compute_graph,
             ),
             executor_concurrency=concurrency,
             executor_kwargs=dict(
@@ -179,8 +185,8 @@ def execute(
             tiles_tasks=tiles_tasks,
         )
     # explicitly exit the mp object on failure
-    except Exception:  # pragma: no cover
-        mp.__exit__(None, None, None)
+    except Exception as exc:  # pragma: no cover
+        mp.__exit__(exc, repr(exc), traceback.format_exc())
         raise
 
 
@@ -194,25 +200,25 @@ def _process_everything(
     **kwargs,
 ):
     try:
-        for preprocessing_task_info in mp.batch_preprocessor(
-            executor=executor,
-            workers=workers,
-            dask_max_submitted_tasks=dask_max_submitted_tasks,
-            dask_chunksize=dask_chunksize,
-        ):  # pragma: no cover
-            yield preprocessing_task_info
-            msg_callback(preprocessing_task_info)
-        for process_info in mp.batch_processor(
+        for future in mp.compute(
             executor=executor,
             workers=workers,
             dask_max_submitted_tasks=dask_max_submitted_tasks,
             dask_chunksize=dask_chunksize,
             **kwargs,
         ):
-            yield process_info
-            msg_callback(
-                f"Tile {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
-            )
-    # explicitly exit the mp object on success
-    finally:
+            process_info = future.result()
+            if isinstance(process_info, PreprocessingProcessInfo):
+                msg_callback(f"Task {process_info.task_key} finished")
+            elif isinstance(process_info, TileProcessInfo):
+                msg_callback(
+                    f"Task {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
+                )
+            else:  # pragma: no cover
+                raise TypeError(f"unknown process info type: {type(process_info)}")
+            yield future
+        # explicitly exit the mp object on success
         mp.__exit__(None, None, None)
+    except Exception as exc:  # pragma: no cover
+        mp.__exit__(exc, repr(exc), traceback.format_exc())
+        raise

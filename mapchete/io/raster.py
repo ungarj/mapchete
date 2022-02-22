@@ -22,7 +22,14 @@ from types import GeneratorType
 import warnings
 
 from mapchete.errors import MapcheteIOError
-from mapchete.io import path_is_remote, get_gdal_options, path_exists, fs_from_path
+from mapchete.io import (
+    path_is_remote,
+    get_gdal_options,
+    path_exists,
+    fs_from_path,
+    copy,
+    makedirs,
+)
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.tile import BufferedTile
 from mapchete.validate import validate_write_window_params
@@ -651,7 +658,6 @@ def resample_from_array(
     if nodataval is not None:  # pragma: no cover
         warnings.warn("'nodataval' is deprecated, please use 'nodata'")
         nodata = nodata or nodataval
-    # TODO rename function
     if isinstance(in_raster, ma.MaskedArray):
         pass
     elif isinstance(in_raster, np.ndarray):
@@ -889,7 +895,9 @@ def _get_tiles_properties(tiles):
             raise ValueError("all tiles must have the same CRS")
         if isinstance(data, np.ndarray):
             if data[0].dtype != tiles[0][1][0].dtype:
-                raise TypeError("all tile data must have the same dtype")
+                raise TypeError(
+                    f"all tile data must have the same dtype: {data[0].dtype} != {tiles[0][1][0].dtype}"
+                )
     return tile.tile_pyramid, tile.pixel_x_size, data[0].dtype
 
 
@@ -1037,3 +1045,52 @@ def _prepare_masked(data, masked=True, nodata=0, dtype=None):
         return ma.masked_values(data.astype(dtype, copy=False), nodata, copy=False)
     else:
         return ma.filled(data.astype(dtype, copy=False), nodata)
+
+
+def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
+    """
+    Convert raster file to a differernt format.
+
+    When kwargs are given, the operation will be conducted by rasterio, without kwargs,
+    the file is simply copied to the destination using fsspec.
+
+    Parameters
+    ----------
+    inp : str
+        Path to input file.
+    out : str
+        Path to output file.
+    overwrite : bool
+        Overwrite output file. (default: False)
+    skip_exists : bool
+        Skip conversion if outpu already exists. (default: True)
+    kwargs : mapping
+        Creation parameters passed on to output file.
+    """
+    if path_exists(out):
+        if not exists_ok:
+            raise IOError(f"{out} already exists")
+        elif not overwrite:
+            logger.debug("output %s already exists and will not be overwritten")
+            return
+    kwargs = kwargs or {}
+    if kwargs:
+        logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
+        with rasterio.open(inp, "r") as src:
+            makedirs(os.path.dirname(out))
+            with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
+                dst.write(src.read())
+    else:
+        logger.debug("copy %s to %s", inp, out)
+        copy(inp, out, overwrite=overwrite)
+
+
+def read_raster(inp, **kwargs):
+    logger.debug("reading {inp} into memory")
+    with rasterio.open(inp, "r") as src:
+        return ReferencedRaster(
+            data=src.read(masked=True),
+            affine=src.transform,
+            bounds=src.bounds,
+            crs=src.crs,
+        )

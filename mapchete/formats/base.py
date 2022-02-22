@@ -24,6 +24,7 @@ from mapchete.io.raster import (
     prepare_array,
     read_raster_window,
 )
+from mapchete._tasks import Task
 from mapchete.io.vector import read_vector_window
 from mapchete.tile import BufferedTilePyramid
 
@@ -51,8 +52,9 @@ class InputData(object):
 
     METADATA = {"driver_name": None, "data_type": None, "mode": "r"}
 
-    def __init__(self, input_params, **kwargs):
+    def __init__(self, input_params, input_key=None, **kwargs):
         """Initialize relevant input information."""
+        self.input_key = input_key
         self.pyramid = input_params.get("pyramid")
         self.pixelbuffer = input_params.get("pixelbuffer")
         self.crs = self.pyramid.crs if self.pyramid else None
@@ -106,7 +108,9 @@ class InputData(object):
         """Optional cleanup function called when Mapchete exits."""
         pass
 
-    def add_preprocessing_task(self, func, fargs=None, fkwargs=None, key=None):
+    def add_preprocessing_task(
+        self, func, fargs=None, fkwargs=None, key=None, geometry=None, bounds=None
+    ):
         """
         Add longer running preprocessing function to be called right before processing.
 
@@ -118,17 +122,55 @@ class InputData(object):
             fargs = (fargs,)
         fkwargs = fkwargs or {}
         key = f"{func}-{get_hash((func, fargs, fkwargs))}" if key is None else key
+        if self.input_key:
+            key = f"{self.input_key}:{key}"
         if key in self.preprocessing_tasks:  # pragma: no cover
             raise KeyError(f"preprocessing task with key {key} already exists")
         logger.debug(f"add preprocessing task {key, func}")
-        self.preprocessing_tasks[key] = (func, fargs, fkwargs)
+        self.preprocessing_tasks[key] = Task(
+            id=key,
+            func=func,
+            fargs=fargs,
+            fkwargs=fkwargs,
+            geometry=geometry,
+            bounds=bounds,
+        )
 
     def get_preprocessing_task_result(self, task_key):
+        """
+        Get result of preprocessing task.
+        """
+        if self.input_key and not task_key.startswith(f"{self.input_key}:"):
+            task_key = f"{self.input_key}:{task_key}"
         if task_key not in self.preprocessing_tasks:
             raise KeyError(f"task {task_key} is not a task for current input")
         if task_key not in self.preprocessing_tasks_results:
             raise ValueError(f"task {task_key} has not yet been executed")
         return self.preprocessing_tasks_results[task_key]
+
+    def set_preprocessing_task_result(self, task_key, result):
+        """
+        Set result of preprocessing task.
+        """
+        if self.input_key and not task_key.startswith(
+            f"{self.input_key}:"
+        ):  # pragma: no cover
+            task_key = f"{self.input_key}:{task_key}"
+        if task_key not in self.preprocessing_tasks:  # pragma: no cover
+            raise KeyError(f"task {task_key} is not a task for current input")
+        if task_key in self.preprocessing_tasks_results:  # pragma: no cover
+            raise KeyError(f"task {task_key} has already been set")
+        self.preprocessing_tasks_results[task_key] = result
+
+    def preprocessing_task_finished(self, task_key):
+        """
+        Return whether preprocessing task already ran.
+        """
+        if self.input_key and not task_key.startswith(f"{self.input_key}:"):
+            task_key = f"{self.input_key}:{task_key}"
+        if task_key not in self.preprocessing_tasks:  # pragma: no cover
+            raise KeyError(f"task {task_key} is not a task for current input")
+        return task_key in self.preprocessing_tasks_results
 
 
 class InputTile(object):
@@ -141,6 +183,9 @@ class InputTile(object):
     kwargs : keyword arguments
         driver specific parameters
     """
+
+    preprocessing_tasks_results = {}
+    input_key = None
 
     def __init__(self, tile, **kwargs):
         """Initialize."""
@@ -165,6 +210,12 @@ class InputTile(object):
         is empty : bool
         """
         raise NotImplementedError
+
+    def set_preprocessing_task_result(self, task_key=None, result=None):
+        """
+        Adds a preprocessing task result.
+        """
+        self.preprocessing_tasks_results[task_key] = result
 
     def __enter__(self):
         """Required for 'with' statement."""
@@ -405,7 +456,12 @@ class OutputDataWriter(OutputDataReader):
         """
         if self.METADATA["data_type"] == "raster":
             if is_numpy_or_masked_array(process_data):
-                return process_data
+                return prepare_array(
+                    process_data,
+                    masked=True,
+                    nodata=self.output_params["nodata"],
+                    dtype=self.profile()["dtype"],
+                )
             elif is_numpy_or_masked_array_with_tags(process_data):
                 data, tags = process_data
                 return self.output_cleaned(data), tags
@@ -415,7 +471,7 @@ class OutputDataWriter(OutputDataReader):
     def streamline_output(self, process_data):
         if isinstance(process_data, str) and process_data == "empty":
             raise MapcheteNodataTile
-        elif process_data is None:
+        elif process_data is None:  # pragma: no cover
             raise MapcheteProcessOutputError("process output is empty")
         elif self.output_is_valid(process_data):
             return self.output_cleaned(process_data)

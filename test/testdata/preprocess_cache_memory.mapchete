@@ -1,0 +1,22 @@
+process: mapchete.processes.convert
+zoom_levels: 
+    min: 0
+    max: 5
+baselevels:
+    min: 5
+pyramid:
+    grid: geodetic
+input:
+    inp: 
+        format: raster_file
+        path: cleantopo_br.tif
+        cache: memory
+    clip:
+        format: vector_file
+        path: aoi_br.geojson
+        cache: memory
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/preprocess_cache_raster_vector

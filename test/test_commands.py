@@ -10,6 +10,7 @@ import warnings
 
 import mapchete
 from mapchete.commands import convert, cp, execute, index, rm
+from mapchete._executor import SequentialExecutor, ConcurrentFuturesExecutor
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -50,6 +51,7 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     assert len(tiles)
 
 
+@pytest.mark.remote
 def test_cp_http(mp_tmpdir, http_tiledir):
     # copy tiles and subset by bounds
     tiles = cp(
@@ -89,6 +91,37 @@ def test_execute(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
             assert not src.read(masked=True).mask.all()
 
 
+def test_execute_set_executor(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
+    zoom = 5
+    tp = TilePyramid("geodetic")
+    tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
+    job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom, as_iterator=True)
+
+    # invalid concurrency
+    job.set_executor_concurrency("invalid")
+    with pytest.raises(ValueError):
+        next(iter(job))
+
+    # reset to concurrent.futures
+    job.set_executor_concurrency("processes")
+    next(iter(job))
+    assert isinstance(job.executor, ConcurrentFuturesExecutor)
+
+    # with max_workers: 1 it should fall back to a sequential executor
+    job.set_executor_kwargs({"max_workers": 1})
+    next(iter(job))
+    assert isinstance(job.executor, SequentialExecutor)
+
+    # make sure everything runs smoothly from here on
+    for t in job:
+        assert t
+    assert len(tiles) == len(job)
+    mp = cleantopo_br_metatiling_1.mp()
+    for t in tiles:
+        with rasterio.open(mp.config.output.get_path(t)) as src:
+            assert not src.read(masked=True).mask.all()
+
+
 def test_execute_cancel(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
     zoom = 5
     job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom, as_iterator=True)
@@ -119,6 +152,11 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
         g = box(*src.bounds)
     job = execute(example_mapchete.dict, point=[g.centroid.x, g.centroid.y], zoom=10)
     assert len(job) == 1
+
+
+def test_execute_preprocessing_tasks_dask(preprocess_cache_raster_vector):
+    job = execute(preprocess_cache_raster_vector.dict, concurrency="dask")
+    assert len(job)
 
 
 def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
@@ -209,14 +247,34 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out_cog.tif")
     job = convert(
-        cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=3, cog=True
+        cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=5, cog=True
     )
     assert len(job)
     with rasterio.open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
-        assert data.mask.any()
+        assert not data.mask.all()
+    assert cog_validate(single_gtiff, strict=True)
+
+
+def test_convert_single_gtiff_cog_dask(cleantopo_br_tif, mp_tmpdir):
+    """Automatic geodetic tile pyramid creation of raster files."""
+    single_gtiff = os.path.join(mp_tmpdir, "single_out_cog.tif")
+    job = convert(
+        cleantopo_br_tif,
+        single_gtiff,
+        output_pyramid="geodetic",
+        zoom=5,
+        cog=True,
+        concurrency="dask",
+    )
+    assert len(job)
+    with rasterio.open(single_gtiff, "r") as src:
+        assert src.meta["driver"] == "GTiff"
+        assert src.meta["dtype"] == "uint16"
+        data = src.read(masked=True)
+        assert not data.mask.all()
     assert cog_validate(single_gtiff, strict=True)
 
 
@@ -241,6 +299,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         assert src.overviews(1)
 
 
+@pytest.mark.remote
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
@@ -279,7 +338,6 @@ def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
         output_dtype="uint8",
         scale_ratio=0.003,
     )
-    print(job)
     assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])

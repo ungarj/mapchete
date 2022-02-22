@@ -11,7 +11,7 @@ from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
-from mapchete.io import fs_from_path, tiles_exist
+from mapchete.io import fs_from_path, tiles_exist, copy
 from mapchete.io.vector import reproject_geometry
 
 logger = logging.getLogger(__name__)
@@ -136,7 +136,7 @@ def cp(
             msg = f"copy {src_metadata} to {dst_metadata}"
             logger.debug(msg)
             msg_callback(msg)
-            _copy(src_fs, src_metadata, dst_fs, dst_metadata)
+            copy(src_metadata, dst_metadata, src_fs=src_fs, dst_fs=dst_fs)
 
         with mapchete.open(
             dst_tiledir,
@@ -252,7 +252,7 @@ def _copy_tile(
 
         # copy from source to target
         dst_path = dst_mp.config.output_reader.get_path(tile)
-        _copy(src_fs, src_path, dst_fs, dst_path)
+        copy(src_path, dst_path, src_fs=src_fs, dst_fs=dst_fs)
         msg = f"{tile}: copy {src_path} to {dst_path}"
         logger.debug(msg)
         return 1, msg
@@ -260,17 +260,3 @@ def _copy_tile(
     msg = f"{tile}: source tile ({src_path}) does not exist"
     logger.debug(msg)
     return 0, msg
-
-
-def _copy(src_fs, src_path, dst_fs, dst_path):
-    # create parent directories on local filesystems
-    if dst_fs.protocol == "file":
-        dst_fs.makedirs(os.path.dirname(dst_path), exist_ok=True)
-
-    # copy either within a filesystem or between filesystems
-    if src_fs == dst_fs:
-        src_fs.copy(src_path, dst_path)
-    else:
-        with src_fs.open(src_path, "rb") as src:
-            with dst_fs.open(dst_path, "wb") as dst:
-                dst.write(src.read())

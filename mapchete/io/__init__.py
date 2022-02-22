@@ -13,6 +13,7 @@ from mapchete.io._misc import (
     get_gdal_options,
 )
 from mapchete.io._path import (
+    copy,
     fs_from_path,
     path_is_remote,
     path_exists,
@@ -24,6 +25,7 @@ from mapchete.io._path import (
 
 
 __all__ = [
+    "copy",
     "fs_from_path",
     "GDAL_HTTP_OPTS",
     "get_best_zoom_level",

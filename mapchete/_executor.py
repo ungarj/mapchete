@@ -181,6 +181,7 @@ class _ExecutorBase:
         fut_exception = future.exception(timeout=FUTURE_TIMEOUT)
         if fut_exception:  # pragma: no cover
             logger.error("exception caught in future %s", future)
+            logger.exception(fut_exception)
             raise fut_exception
         result = result or future.result(timeout=FUTURE_TIMEOUT)
         if isinstance(result, CancelledError):  # pragma: no cover
@@ -204,12 +205,12 @@ class _ExecutorBase:
 
     def __exit__(self, *args):
         """Exit context manager."""
-        logger.debug("closing executor %s...", self._executor)
+        logger.info("closing executor %s...", self._executor)
         try:
             self._executor.close()
         except Exception:
             self._executor.__exit__(*args)
-        logger.debug("closed executor %s", self._executor)
+        logger.info("closed executor %s", self._executor)
 
     def __repr__(self):  # pragma: no cover
         return f"<Executor ({self._executor_cls})>"
@@ -230,6 +231,7 @@ class DaskExecutor(_ExecutorBase):
         from dask.distributed import as_completed, Client, LocalCluster
 
         self._executor_client = dask_client
+        self._local_cluster = None
         if self._executor_client:  # pragma: no cover
             logger.info("using existing dask client: %s", dask_client)
         else:
@@ -237,9 +239,9 @@ class DaskExecutor(_ExecutorBase):
                 n_workers=max_workers or os.cpu_count(), threads_per_worker=1
             )
             self._executor_cls = Client
-            self._executor_kwargs = dict(
-                address=dask_scheduler or LocalCluster(**local_cluster_kwargs),
-            )
+            if dask_scheduler is None:
+                self._local_cluster = LocalCluster(**local_cluster_kwargs)
+            self._executor_kwargs = dict(address=dask_scheduler or self._local_cluster)
             logger.info(
                 "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
@@ -458,14 +460,17 @@ class DaskExecutor(_ExecutorBase):
     def __exit__(self, *args):
         """Exit context manager."""
         if self._executor_client:  # pragma: no cover
-            logger.debug("client not closing as it was passed on as kwarg")
+            logger.info("client not closing as it was passed on as kwarg")
         else:
-            logger.debug("closing executor %s...", self._executor)
+            logger.info("closing executor %s...", self._executor)
             try:
                 self._executor.close()
             except Exception:  # pragma: no cover
                 self._executor.__exit__(*args)
-            logger.debug("closed executor %s", self._executor)
+            logger.info("closed executor %s", self._executor)
+        if self._local_cluster:
+            logger.info("closing %s", self._local_cluster)
+            self._local_cluster.close()
 
 
 class ConcurrentFuturesExecutor(_ExecutorBase):
@@ -615,7 +620,7 @@ class FakeFuture:
 
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
-        return f"FakeFuture(result={self._result}, exception={self._exception})"
+        return f"<FakeFuture: type: {type(self._result)}, exception: {type(self._exception)})"
 
 
 class SkippedFuture:
@@ -637,11 +642,15 @@ class SkippedFuture:
         """Nothing to cancel here."""
         return False
 
+    def __repr__(self):  # pragma: no cover
+        """Return string representation."""
+        return f"<SkippedFuture: type: {type(self._result)}, exception: {type(self._exception)})"
+
 
 class FinishedFuture:
     """Wrapper class to mimick future interface."""
 
-    def __init__(self, future, result=None):
+    def __init__(self, future=None, result=None):
         """Set attributes."""
         try:
             self._result, self._exception = (
@@ -668,4 +677,4 @@ class FinishedFuture:
 
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
-        return f"FinishedFuture(result={self._result}, exception={self._exception})"
+        return f"<FinishedFuture: type: {type(self._result)}, exception: {type(self._exception)})"

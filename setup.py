@@ -35,7 +35,7 @@ install_requires = [
     "pyproj",
     "retry",
     "rasterio>=1.0.28,<1.2.7",
-    "shapely",
+    "shapely<1.8.1",
     "tilematrix>=2021.11.0",
     "tqdm",
 ]
@@ -45,6 +45,7 @@ req_geobuf = ["geobuf"]
 req_http = ["fsspec[http]", "aiohttp", "requests"]
 req_s3 = ["boto3", "fsspec[s3]", "s3fs>=0.5.1"]
 req_serve = ["flask", "werkzeug>=0.15"]
+req_spatial_index = ["rtree"]
 req_stac = ["pystac"]
 req_vrt = ["lxml"]
 req_complete = (
@@ -54,6 +55,7 @@ req_complete = (
     + req_http
     + req_s3
     + req_serve
+    + req_spatial_index
     + req_stac
     + req_vrt
 )
@@ -112,6 +114,7 @@ setup(
         "http": req_http,
         "s3": req_s3,
         "serve": req_serve,
+        "spatial_index": req_spatial_index,
         "stac": req_stac,
         "vrt": req_vrt,
     },
