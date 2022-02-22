@@ -86,8 +86,13 @@ def test_run_preprocessing_tasks(example_mapchete):
         assert mp.config.preprocessing_tasks_count() == 3
 
         mp.batch_preprocess()
+        assert mp.config.preprocessing_task_finished(f"{inp1.input_key}:test_task")
         assert inp1.get_preprocessing_task_result("test_task") == "foofoobar"
+        assert mp.config.preprocessing_task_finished(
+            f"{inp1.input_key}:test_other_task"
+        )
         assert inp1.get_preprocessing_task_result("test_other_task") == "barfoobar"
+        assert mp.config.preprocessing_task_finished(f"{inp2.input_key}:test_task")
         assert inp2.get_preprocessing_task_result("test_task") == "foofoobar"
 
 
@@ -159,3 +164,57 @@ def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory):
             if file.endswith(".tif")
         ]
         assert len(total_tifs) == 9
+
+
+def test_preprocessing_tasks_dependencies_single_tile(preprocess_cache_memory):
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        for i in ["clip", "inp"]:
+            input_data = mp.config.input_at_zoom(key=i, zoom=5)
+            for task in input_data.preprocessing_tasks.values():
+                assert isinstance(task, Task)
+                assert task.has_geometry()
+
+        tile = (5, 31, 63)
+        list(mp.compute(tile=tile))
+
+        out_path = mp.config.output_reader.get_path(
+            mp.config.process_pyramid.tile(*tile)
+        )
+        with rasterio.open(out_path) as src:
+            assert not src.read(masked=True).mask.all()
+
+        out_path = mp.config.output_reader.path
+        total_tifs = [
+            f"{directory[0]}/{file}"
+            for directory in fs_from_path(out_path).walk(out_path)
+            for file in directory[2]
+            if file.endswith(".tif")
+        ]
+        assert len(total_tifs) == 1
+
+
+def test_preprocessing_tasks_dependencies_single_tile_dask(preprocess_cache_memory):
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        for i in ["clip", "inp"]:
+            input_data = mp.config.input_at_zoom(key=i, zoom=5)
+            for task in input_data.preprocessing_tasks.values():
+                assert isinstance(task, Task)
+                assert task.has_geometry()
+
+        tile = (5, 31, 63)
+        list(mp.compute(concurrency="dask", tile=tile))
+
+        out_path = mp.config.output_reader.get_path(
+            mp.config.process_pyramid.tile(*tile)
+        )
+        with rasterio.open(out_path) as src:
+            assert not src.read(masked=True).mask.all()
+
+        out_path = mp.config.output_reader.path
+        total_tifs = [
+            f"{directory[0]}/{file}"
+            for directory in fs_from_path(out_path).walk(out_path)
+            for file in directory[2]
+            if file.endswith(".tif")
+        ]
+        assert len(total_tifs) == 1

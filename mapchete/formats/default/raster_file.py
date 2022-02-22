@@ -253,7 +253,7 @@ class InputTile(base.InputTile):
             else:
                 self.gdal_opts = {}
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         source = (
             repr(self._in_memory_raster) if self._memory_cache_active else self.path
         )

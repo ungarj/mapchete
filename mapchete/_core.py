@@ -206,7 +206,7 @@ class Mapchete(object):
         Generate task batches from preprocessing tasks and tile tasks.
         """
         yield from task_batches(
-            self, zoom=zoom, tile=None, skip_output_check=skip_output_check, **kwargs
+            self, zoom=zoom, tile=tile, skip_output_check=skip_output_check, **kwargs
         )
 
     def compute(self, **kwargs):

@@ -144,7 +144,7 @@ class TaskBatch:
         if isinstance(item, Task):
             return item
         else:
-            raise TypeError("TaskBatch items must be Takss, not %s", type(item))
+            raise TypeError("TaskBatch items must be Taskss, not %s", type(item))
 
 
 class TileTask(Task):
@@ -236,12 +236,12 @@ class TileTask(Task):
                             inp_key, task_key = task_key.split(":")[0], ":".join(
                                 task_key.split(":")[1:]
                             )
-                            if task_key in [None, ""]:
+                            if task_key in [None, ""]:  # pragma: no cover
                                 raise KeyError(f"malformed task key: {inp_key}")
                             for inp in self.input.values():
                                 if inp.input_key == inp_key:
                                     inp.set_preprocessing_task_result(
-                                        task_key=task_key, result=task_result
+                                        task_key=task_key, result=task_result.data
                                     )
                 # Actually run process.
                 process_data = process_func(

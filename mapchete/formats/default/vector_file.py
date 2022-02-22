@@ -223,7 +223,7 @@ class InputTile(base.InputTile):
         else:
             self.path = input_data._cached_path or input_data.path
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         source = (
             repr(self._in_memory_features) if self._memory_cache_active else self.path
         )
@@ -250,7 +250,7 @@ class InputTile(base.InputTile):
                 self._in_memory_features
                 or self.preprocessing_tasks_results.get(self.cache_task_key)
             )
-            if self._in_memory_features is None:
+            if self._in_memory_features is None:  # pragma: no cover
                 raise RuntimeError("preprocessing tasks have not yet been run")
         return (
             []

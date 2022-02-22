@@ -620,7 +620,7 @@ class FakeFuture:
 
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
-        return f"FakeFuture(result={self._result}, exception={self._exception})"
+        return f"<FakeFuture: type: {type(self._result)}, exception: {type(self._exception)})"
 
 
 class SkippedFuture:
@@ -641,6 +641,10 @@ class SkippedFuture:
     def cancelled(self):  # pragma: no cover
         """Nothing to cancel here."""
         return False
+
+    def __repr__(self):  # pragma: no cover
+        """Return string representation."""
+        return f"<SkippedFuture: type: {type(self._result)}, exception: {type(self._exception)})"
 
 
 class FinishedFuture:
@@ -673,4 +677,4 @@ class FinishedFuture:
 
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
-        return f"FinishedFuture(result={self._result}, exception={self._exception})"
+        return f"<FinishedFuture: type: {type(self._result)}, exception: {type(self._exception)})"

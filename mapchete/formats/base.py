@@ -152,11 +152,13 @@ class InputData(object):
         """
         Set result of preprocessing task.
         """
-        if self.input_key and not task_key.startswith(f"{self.input_key}:"):
+        if self.input_key and not task_key.startswith(
+            f"{self.input_key}:"
+        ):  # pragma: no cover
             task_key = f"{self.input_key}:{task_key}"
-        if task_key not in self.preprocessing_tasks:
+        if task_key not in self.preprocessing_tasks:  # pragma: no cover
             raise KeyError(f"task {task_key} is not a task for current input")
-        if task_key in self.preprocessing_tasks_results:
+        if task_key in self.preprocessing_tasks_results:  # pragma: no cover
             raise KeyError(f"task {task_key} has already been set")
         self.preprocessing_tasks_results[task_key] = result
 
@@ -166,7 +168,7 @@ class InputData(object):
         """
         if self.input_key and not task_key.startswith(f"{self.input_key}:"):
             task_key = f"{self.input_key}:{task_key}"
-        if task_key not in self.preprocessing_tasks:
+        if task_key not in self.preprocessing_tasks:  # pragma: no cover
             raise KeyError(f"task {task_key} is not a task for current input")
         return task_key in self.preprocessing_tasks_results
 

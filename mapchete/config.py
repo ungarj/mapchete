@@ -343,17 +343,9 @@ class MapcheteConfig(object):
     def preprocessing_tasks(self):
         """Get mapping of all preprocessing tasks."""
         return {
-            f"{self.input[inp_key].input_key}:{task_key}": task
-            for inp_key, inp_preprocessing_tasks in self.preprocessing_tasks_per_input().items()
+            task_key: task
+            for _, inp_preprocessing_tasks in self.preprocessing_tasks_per_input().items()
             for task_key, task in inp_preprocessing_tasks.items()
-        }
-
-    def preprocessing_tasks_results_per_input(self):
-        """Get mapping of all preprocessing tasks results."""
-        return {
-            k: inp.preprocessing_tasks_results
-            for k, inp in self.input.items()
-            if inp is not None
         }
 
     def preprocessing_tasks_count(self):
@@ -365,31 +357,26 @@ class MapcheteConfig(object):
         inp_key, task_key = task_key.split(":")[0], ":".join(task_key.split(":")[1:])
         try:
             inp = self.input[inp_key]
-        except KeyError:
+        except KeyError:  # pragma: no cover
             raise KeyError(f"input {inp_key} not found")
-        if task_key in inp.preprocessing_tasks:
-            return inp.preprocessing_task_finished(task_key)
-        else:
-            raise KeyError(f"task key {task_key} not found in any input")
+        return inp.preprocessing_task_finished(task_key)
 
     def set_preprocessing_task_result(self, task_key, result):
         """Append preprocessing task result to input."""
-        inp_key, task_key = task_key.split(":")[0], ":".join(task_key.split(":")[1:])
-        if inp_key is None:
-            raise KeyError(f"input key cannot be None: {inp_key}")
-        if task_key is None:
-            raise ValueError(f"malformed task key: {task_key}")
+        if ":" in task_key:
+            inp_key = task_key.split(":")[0]
+        else:
+            raise KeyError(
+                f"preprocessing task cannot be assigned to an input: {task_key}"
+            )
         for inp in self.input.values():
             if inp_key == inp.input_key:
                 break
-        else:
+        else:  # pragma: no cover
             raise KeyError(
                 f"task {task_key} cannot be assigned to input with key {inp_key}"
             )
-        if task_key in inp.preprocessing_tasks:
-            inp.set_preprocessing_task_result(task_key, result)
-        else:
-            raise KeyError(f"task key {task_key} not found in any input")
+        inp.set_preprocessing_task_result(task_key, result)
 
     @cached_property
     def zoom_levels(self):
@@ -1091,6 +1078,10 @@ def initialize_inputs(
         reader.bbox(out_crs=pyramid.crs)
         initalized_inputs[k] = reader
 
+    logger.debug(
+        "initialized inputs: %s",
+        initalized_inputs.keys(),
+    )
     return initalized_inputs
 
 

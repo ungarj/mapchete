@@ -23,6 +23,10 @@ from mapchete.io.raster import create_mosaic, _shift_required
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.tile import BufferedTilePyramid, count_tiles
 from mapchete._executor import DaskExecutor
+from mapchete._processing import (
+    PreprocessingProcessInfo,
+    TileProcessInfo,
+)
 
 
 def test_empty_execute(mp_tmpdir, cleantopo_br):
@@ -623,3 +627,71 @@ def test_bufferedtiles():
     assert a != tp_buffered.tile(5, 5, 5)
 
     assert a.get_neighbors() != a.get_neighbors(connectedness=4)
+
+
+def test_compute_dask_graph(preprocess_cache_memory):
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(concurrency="dask", dask_compute_graph=True):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                assert result.data is not None
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                if result.written:
+                    assert result.data is not None
+                else:
+                    assert result.data is None
+    assert tile_tasks == 20
+    assert preprocessing_tasks == 2
+
+
+def test_compute_dask(preprocess_cache_memory):
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(concurrency="dask", dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 20
+    assert preprocessing_tasks == 2
+
+
+def test_compute_threads(preprocess_cache_memory):
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(concurrency="threads", dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 20
+    assert preprocessing_tasks == 2
+
+
+def test_compute_processes(preprocess_cache_memory):
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(concurrency="processes", dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 20
+    assert preprocessing_tasks == 2

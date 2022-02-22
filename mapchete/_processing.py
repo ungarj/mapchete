@@ -25,6 +25,18 @@ ProcessInfo = namedtuple(
     defaults=(None, None, None, None, None, None),
 )
 
+TileProcessInfo = namedtuple(
+    "TileProcessInfo",
+    "tile processed process_msg written write_msg data",
+    defaults=(None, None, None, None, None, None),
+)
+
+PreprocessingProcessInfo = namedtuple(
+    "PreprocessingProcessInfo",
+    "task_key processed process_msg written write_msg data",
+    defaults=(None, None, None, None, None, None),
+)
+
 
 class Job:
     """
@@ -112,6 +124,15 @@ class Job:
 
 def task_batches(process, zoom=None, tile=None, skip_output_check=False):
     with Timer() as duration:
+        # preprocessing tasks
+        yield TaskBatch(
+            id="preprocessing_tasks",
+            tasks=process.config.preprocessing_tasks().values(),
+            func=_preprocess_task_wrapper,
+        )
+    logger.debug("preprocessing tasks batch generated in %s", duration)
+
+    with Timer() as duration:
         if tile:
             zoom_levels = [tile.zoom]
             tiles = {tile.zoom: [tile]}
@@ -135,23 +156,10 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
             }
         if process.config.output.write_in_parent_process:
             func = _execute
-            fkwargs = {}
+            fkwargs = dict(append_data=True)
         else:
             func = _execute_and_write
-            fkwargs = dict(output_writer=process.config.output)
-
-        # preprocessing tasks
-        yield TaskBatch(
-            id="preprocessing_tasks",
-            tasks=(
-                task
-                for (
-                    inp,
-                    preprocessing_tasks,
-                ) in process.config.preprocessing_tasks_per_input().items()
-                for task in preprocessing_tasks.values()
-            ),
-        )
+            fkwargs = dict(append_data=True, output_writer=process.config.output)
 
         # tile tasks
         for zoom in zoom_levels:
@@ -173,7 +181,7 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
                 func=func,
                 fkwargs=fkwargs,
             )
-    logger.debug("task batches generated in %s", duration)
+    logger.debug("tile task batches generated in %s", duration)
 
 
 def compute(
@@ -187,7 +195,7 @@ def compute(
     multiprocessing_start_method=None,
     multiprocessing_module=None,
     skip_output_check=False,
-    compute_graph=False,
+    dask_compute_graph=True,
     raise_errors=True,
     with_results=False,
     **kwargs,
@@ -207,17 +215,19 @@ def compute(
                     dask_scheduler=dask_scheduler,
                 )
             )
-        if compute_graph and not isinstance(executor, DaskExecutor):
-            raise ValueError("task graph computation is only available when using dask")
 
         logger.info("run process on area")
         duration = exit_stack.enter_context(Timer())
-        zoom_levels = list(
-            reversed(process.config.zoom_levels)
-            if zoom is None
-            else validate_zooms(zoom)
-        )
-        if isinstance(executor, DaskExecutor):
+        if tile:
+            tile = process.config.process_pyramid.tile(*tile)
+            zoom_levels = [tile.zoom]
+        else:
+            zoom_levels = list(
+                reversed(process.config.zoom_levels)
+                if zoom is None
+                else validate_zooms(zoom)
+            )
+        if dask_compute_graph and isinstance(executor, DaskExecutor):
             for num_processed, future in enumerate(
                 _compute_task_graph(
                     executor=executor,
@@ -230,7 +240,7 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors and future.exception():
+                if raise_errors and future.exception():  # pragma: no cover
                     logger.exception(future.exception())
                     raise future.exception()
                 logger.debug("task %s finished: %s", num_processed, future)
@@ -247,7 +257,7 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors and future.exception():
+                if raise_errors and future.exception():  # pragma: no cover
                     logger.exception(future.exception())
                     raise future.exception()
                 logger.debug("task %s finished: %s", num_processed, future)
@@ -261,9 +271,11 @@ def compute(
 #######################
 
 
-def _preprocess_task_wrapper(task_tuple):
-    task_key, task = task_tuple
-    return task_key, task.execute()
+def _preprocess_task_wrapper(task, append_data=True, **kwargs):
+    data = task.execute(**kwargs)
+    return PreprocessingProcessInfo(
+        task_key=task.id, data=data if append_data else None
+    )
 
 
 def _preprocess(
@@ -303,23 +315,22 @@ def _preprocess(
         for num_processed, future in enumerate(
             executor.as_completed(
                 func=_preprocess_task_wrapper,
-                iterable=tasks.items(),
+                iterable=tasks.values(),
+                fkwargs=dict(append_data=True),
                 max_submitted_tasks=dask_max_submitted_tasks,
                 chunksize=dask_chunksize,
             ),
             1,
         ):
-            task_key, result = future.result()
+            result = future.result()
             logger.debug(
                 "preprocessing task %s/%s %s processed successfully",
                 num_processed,
                 len(tasks),
-                task_key,
+                result.task_key,
             )
-            process.config.set_preprocessing_task_result(
-                task_key=task_key, result=result
-            )
-            yield f"preprocessing task {task_key} finished"
+            process.config.set_preprocessing_task_result(result.task_key, result.data)
+            yield future
     process.config.preprocessing_tasks_finished = True
 
     logger.info("%s task(s) iterated in %s", str(len(tasks)), duration)
@@ -473,40 +484,26 @@ def _run_multi(
                 workers,
                 executor,
             )
-            if isinstance(executor, DaskExecutor):
-                for num_processed, future in enumerate(
-                    _compute_task_graph(
-                        executor=executor,
-                        process=process,
-                        write_in_parent_process=write_in_parent_process,
-                        zoom=zoom_levels,
-                        skip_output_check=skip_output_check,
-                    ),
-                    1,
-                ):
-                    logger.debug("task %s finished: %s", num_processed, future)
-                    yield future
+            if process.config.baselevels:
+                f = _run_multi_overviews
             else:
-                if process.config.baselevels:
-                    f = _run_multi_overviews
-                else:
-                    f = _run_multi_no_overviews
-                for num_processed, future in enumerate(
-                    f(
-                        zoom_levels=zoom_levels,
-                        executor=executor,
-                        func=func,
-                        process=process,
-                        skip_output_check=skip_output_check,
-                        fkwargs=fkwargs,
-                        dask_chunksize=dask_chunksize,
-                        dask_max_submitted_tasks=dask_max_submitted_tasks,
-                        write_in_parent_process=write_in_parent_process,
-                    ),
-                    1,
-                ):
-                    logger.debug("task %s finished: %s", num_processed, future)
-                    yield future
+                f = _run_multi_no_overviews
+            for num_processed, future in enumerate(
+                f(
+                    zoom_levels=zoom_levels,
+                    executor=executor,
+                    func=func,
+                    process=process,
+                    skip_output_check=skip_output_check,
+                    fkwargs=fkwargs,
+                    dask_chunksize=dask_chunksize,
+                    dask_max_submitted_tasks=dask_max_submitted_tasks,
+                    write_in_parent_process=write_in_parent_process,
+                ),
+                1,
+            ):
+                logger.debug("task %s finished: %s", num_processed, future)
+                yield future
 
         logger.info("%s tile(s) iterated in %s", str(num_processed), duration)
 
@@ -544,6 +541,7 @@ def _compute_task_graph(
         futures, with_results=with_results, raise_errors=raise_errors
     ):
         futures.remove(future)
+        # TODO cases where there is preprocessing and single file output
         if process.config.output.write_in_parent_process:
             _write(
                 process_info=future.result(),
@@ -570,18 +568,21 @@ def _compute_tasks(
         # process all remaining tiles using todo list from before
         for i, future in enumerate(
             executor.as_completed(
-                func=_preprocess_task_wrapper, iterable=list(tasks.items()), **kwargs
+                func=_preprocess_task_wrapper,
+                iterable=tasks.values(),
+                fkwargs=dict(append_data=True),
+                **kwargs,
             ),
             1,
         ):
-            task_key, result = future.result()
+            result = future.result()
             logger.debug(
                 "preprocessing task %s/%s %s processed successfully",
                 i,
                 len(tasks),
-                task_key,
+                result.task_key,
             )
-            process.config.set_preprocessing_task_result(task_key, result)
+            process.config.set_preprocessing_task_result(result.task_key, result.data)
             yield future
 
     # run single tile
@@ -608,13 +609,13 @@ def _compute_tasks(
         # for output drivers requiring writing data in parent process
         if process.config.output.write_in_parent_process:
             func = _execute
-            fkwargs = {}
+            fkwargs = dict(append_data=False)
             write_in_parent_process = True
 
         # for output drivers which can write data in child processes
         else:
             func = _execute_and_write
-            fkwargs = dict(output_writer=process.config.output)
+            fkwargs = dict(append_data=False, output_writer=process.config.output)
             write_in_parent_process = False
 
         # for outputs which have overviews
@@ -696,7 +697,7 @@ def _run_multi_overviews(
         ):
             # tiles which were not processed
             if isinstance(future, SkippedFuture):
-                process_info = ProcessInfo(
+                process_info = TileProcessInfo(
                     tile=future.result().tile,
                     processed=False,
                     process_msg=future.skip_info,
@@ -781,7 +782,7 @@ def _run_multi_no_overviews(
     ):
         # tiles which were not processed
         if isinstance(future, SkippedFuture):
-            process_info = ProcessInfo(
+            process_info = TileProcessInfo(
                 tile=future.result().tile,
                 processed=False,
                 process_msg=future.skip_info,
@@ -816,7 +817,7 @@ def _execute(tile_process=None, dependencies=None, **_):
     # skip execution if overwrite is disabled and tile exists
     if tile_process.skip:
         logger.debug((tile_process.tile.id, "tile exists, skipping"))
-        return ProcessInfo(
+        return TileProcessInfo(
             tile=tile_process.tile,
             processed=False,
             process_msg="output already exists",
@@ -833,7 +834,7 @@ def _execute(tile_process=None, dependencies=None, **_):
             output = "empty"
     processor_message = "processed in %s" % duration
     logger.debug((tile_process.tile.id, processor_message))
-    return ProcessInfo(
+    return TileProcessInfo(
         tile=tile_process.tile,
         processed=True,
         process_msg=processor_message,
@@ -843,7 +844,7 @@ def _execute(tile_process=None, dependencies=None, **_):
     )
 
 
-def _write(process_info=None, output_writer=None, **_):
+def _write(process_info=None, output_writer=None, append_data=False, **_):
     if process_info.processed:
         try:
             output_data = output_writer.streamline_output(process_info.data)
@@ -852,7 +853,7 @@ def _write(process_info=None, output_writer=None, **_):
         if output_data is None:
             message = "output empty, nothing written"
             logger.debug((process_info.tile.id, message))
-            return ProcessInfo(
+            return TileProcessInfo(
                 tile=process_info.tile,
                 processed=process_info.processed,
                 process_msg=process_info.process_msg,
@@ -864,21 +865,23 @@ def _write(process_info=None, output_writer=None, **_):
             output_writer.write(process_tile=process_info.tile, data=output_data)
         message = "output written in %s" % duration
         logger.debug((process_info.tile.id, message))
-        return ProcessInfo(
+        return TileProcessInfo(
             tile=process_info.tile,
             processed=process_info.processed,
             process_msg=process_info.process_msg,
             written=True,
             write_msg=message,
-            data=output_data,
+            data=output_data if append_data else None,
         )
 
     return process_info
 
 
-def _execute_and_write(tile_process=None, output_writer=None, dependencies=None, **_):
-
+def _execute_and_write(
+    tile_process=None, output_writer=None, dependencies=None, append_data=False, **_
+):
     return _write(
         process_info=_execute(tile_process=tile_process, dependencies=dependencies),
         output_writer=output_writer,
+        append_data=append_data,
     )
