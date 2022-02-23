@@ -3,6 +3,19 @@ Changelog
 #########
 
 ---------------------
+2022.2.1 - 2022-02-23
+---------------------
+
+* core
+  * implement dask task graphs when using dask as executor
+  * enable setting executor after ``Job`` was initialized
+  * fix minor bugs in ``DaskExecutor.as_completed()``:
+    * running futures count
+    * pass on Exception after cancel signal when client is closed while waiting for remaining futures
+  * add caching options for vector file and raster file inputs
+
+
+---------------------
 2022.2.0 - 2022-02-03
 ---------------------
 
