@@ -152,12 +152,16 @@ class _ExecutorBase:
         # reset so futures won't linger here for next call
         self.running_futures = set()
 
-    def wait(self):
+    def wait(self, raise_exc=False):
         logger.debug("wait for running futures to finish...")
         try:  # pragma: no cover
             self._wait()
         except CancelledError:  # pragma: no cover
             pass
+        except Exception as exc:  # pragma: no cover
+            logger.error("exception caught when waiting for futures: %s", str(exc))
+            if raise_exc:
+                raise exc
 
     def close(self):  # pragma: no cover
         self.__exit__(None, None, None)
@@ -326,7 +330,6 @@ class DaskExecutor(_ExecutorBase):
                     item, skip, skip_info = item
                     if skip:
                         yield SkippedFuture(item, skip_info=skip_info)
-                        self._submitted -= 1
                         continue
 
                 # add processing item to chunk
