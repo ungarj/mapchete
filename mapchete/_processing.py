@@ -150,7 +150,8 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
     with Timer() as duration:
         if tile:
             zoom_levels = [tile.zoom]
-            tiles = {tile.zoom: [tile]}
+            skip_output_check = True
+            tiles = {tile.zoom: [(tile, False)]}
         else:
             zoom_levels = list(
                 reversed(process.config.zoom_levels)
@@ -185,7 +186,7 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
                         tile=tile,
                         config=process.config,
                         skip=(
-                            process.mode == "continue"
+                            process.config.mode == "continue"
                             and process.config.output_reader.tiles_exist(tile)
                         )
                         if skip_output_check
