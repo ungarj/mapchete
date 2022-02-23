@@ -406,28 +406,26 @@ def to_dask_collection(batches):
     from dask.delayed import delayed
 
     tasks = {}
-    with Timer() as t:
-        previous_batch = None
-        for batch in batches:
-            logger.debug("converting batch %s", batch)
+    previous_batch = None
+    for batch in batches:
+        logger.debug("converting batch %s", batch)
+        if previous_batch:
+            logger.debug("previous batch had %s tasks", len(previous_batch))
+        for task in batch.values():
             if previous_batch:
-                logger.debug("previous batch had %s tasks", len(previous_batch))
-            for task in batch.values():
-                if previous_batch:
-                    dependencies = {
-                        child.id: tasks[child]
-                        for child in previous_batch.intersection(task)
-                    }
-                    logger.debug(
-                        "found %s dependencies from last batch for task %s",
-                        len(dependencies),
-                        task,
-                    )
-                else:
-                    dependencies = {}
-                tasks[task] = delayed(batch.func)(
-                    task, dependencies=dependencies, **batch.fkwargs
+                dependencies = {
+                    child.id: tasks[child]
+                    for child in previous_batch.intersection(task)
+                }
+                logger.debug(
+                    "found %s dependencies from last batch for task %s",
+                    len(dependencies),
+                    task,
                 )
-            previous_batch = batch
-    logger.debug("%s tasks generated in %s", len(tasks), t)
+            else:
+                dependencies = {}
+            tasks[task] = delayed(batch.func)(
+                task, dependencies=dependencies, **batch.fkwargs
+            )
+        previous_batch = batch
     return list(tasks.values())

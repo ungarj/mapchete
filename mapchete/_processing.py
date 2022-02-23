@@ -88,12 +88,15 @@ class Job:
     def _run(self):
         if self._total == 0:
             return
+        logger.debug("opening executor for job %s", repr(self))
         with Executor(
             concurrency=self.executor_concurrency, **self.executor_kwargs
         ) as self.executor:
             self.status = "running"
+            logger.debug("change of job status: %s", self)
             yield from self.func(*self.fargs, executor=self.executor, **self.fkwargs)
             self.status = "finished"
+            logger.debug("change of job status: %s", self)
 
     def set_executor_kwargs(self, executor_kwargs):
         """
@@ -156,8 +159,8 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
             )
             tiles = {
                 zoom: (
-                    (tile, skip, process_msg)
-                    for tile, skip, process_msg in _filter_skipable(
+                    (tile, skip)
+                    for tile, skip, _ in _filter_skipable(
                         process=process,
                         tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
                         target_set=None,
@@ -542,13 +545,14 @@ def _compute_task_graph(
                 zoom=zoom_levels, tile=tile, skip_output_check=skip_output_check
             )
         )
-    logger.debug("%s dask collection generated in %s", len(coll), t)
+    logger.debug("dask collection with %s tasks generated in %s", len(coll), t)
 
     # send to scheduler
     with Timer() as t:
         futures = executor._executor.compute(coll, optimize_graph=True, traverse=True)
-    logger.debug("sent to scheduler in %s", t)
+    logger.debug("%s tasks sent to scheduler in %s", len(futures), t)
 
+    logger.debug("wait for tasks to finish...")
     for future in as_completed(
         futures, with_results=with_results, raise_errors=raise_errors
     ):
@@ -574,29 +578,19 @@ def _compute_tasks(
     skip_output_check=False,
     **kwargs,
 ):
-    num_processed = 0
     if not process.config.preprocessing_tasks_finished:
         tasks = process.config.preprocessing_tasks()
         logger.info(
             "run preprocessing on %s tasks using %s workers", len(tasks), workers
         )
         # process all remaining tiles using todo list from before
-        for i, future in enumerate(
-            executor.as_completed(
-                func=_preprocess_task_wrapper,
-                iterable=tasks.values(),
-                fkwargs=dict(append_data=True),
-                **kwargs,
-            ),
-            1,
+        for future in executor.as_completed(
+            func=_preprocess_task_wrapper,
+            iterable=tasks.values(),
+            fkwargs=dict(append_data=True),
+            **kwargs,
         ):
             result = future.result()
-            logger.debug(
-                "preprocessing task %s/%s %s processed successfully",
-                i,
-                len(tasks),
-                result.task_key,
-            )
             process.config.set_preprocessing_task_result(result.task_key, result.data)
             yield future
 
@@ -640,23 +634,16 @@ def _compute_tasks(
         else:
             _process_batches = _run_multi_no_overviews
 
-        for num_processed, future in enumerate(
-            _process_batches(
-                zoom_levels=zoom_levels,
-                executor=executor,
-                func=func,
-                process=process,
-                skip_output_check=skip_output_check,
-                fkwargs=fkwargs,
-                write_in_parent_process=write_in_parent_process,
-                **kwargs,
-            ),
-            1,
+        for future in _process_batches(
+            zoom_levels=zoom_levels,
+            executor=executor,
+            func=func,
+            process=process,
+            skip_output_check=skip_output_check,
+            fkwargs=fkwargs,
+            write_in_parent_process=write_in_parent_process,
+            **kwargs,
         ):
-            logger.debug(
-                "task %s finished",
-                num_processed,
-            )
             yield future
 
 
@@ -677,6 +664,7 @@ def _run_multi_overviews(
 
     for i, zoom in enumerate(zoom_levels):
 
+        logger.debug("sending tasks to executor %s...", executor)
         # get generator list of tiles, whether they are to be skipped and skip_info
         # from _filter_skipable and pass on to executor
         for future in executor.as_completed(
@@ -760,6 +748,7 @@ def _run_multi_no_overviews(
     dask_max_submitted_tasks=None,
     write_in_parent_process=None,
 ):
+    logger.debug("sending tasks to executor %s...", executor)
     # get generator list of tiles, whether they are to be skipped and skip_info
     # from _filter_skipable and pass on to executor
     for future in executor.as_completed(
