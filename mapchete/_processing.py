@@ -79,7 +79,7 @@ class Job:
             self._results = list(self._run())
 
     @property
-    def __geo_interface__(self):
+    def __geo_interface__(self):  # pragma: no cover
         if self._process_area is not None:
             return mapping(self._process_area)
         else:
