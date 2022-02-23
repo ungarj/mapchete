@@ -5,6 +5,8 @@ from contextlib import ExitStack
 from itertools import chain
 import logging
 import multiprocessing
+from shapely.geometry import mapping
+from tilematrix._funcs import Bounds
 from traceback import format_exc
 from typing import Generator
 
@@ -57,6 +59,7 @@ class Job:
         preprocessing_tasks: int = None,
         executor_concurrency: str = "processes",
         executor_kwargs: dict = None,
+        process_area=None,
     ):
         self.func = func
         self.fargs = fargs or ()
@@ -69,9 +72,18 @@ class Job:
         self.preprocessing_tasks = preprocessing_tasks or 0
         self._total = self.preprocessing_tasks + self.tiles_tasks
         self._as_iterator = as_iterator
+        self._process_area = process_area
+        self.bounds = Bounds(*process_area.bounds) if process_area is not None else None
 
         if not as_iterator:
             self._results = list(self._run())
+
+    @property
+    def __geo_interface__(self):
+        if self._process_area is not None:
+            return mapping(self._process_area)
+        else:
+            raise AttributeError(f"{self} has no geo information assigned")
 
     def _run(self):
         if self._total == 0:
@@ -122,6 +134,7 @@ class Job:
 
 
 def task_batches(process, zoom=None, tile=None, skip_output_check=False):
+    """Create task batches for each processing stage."""
     with Timer() as duration:
         # preprocessing tasks
         yield TaskBatch(
@@ -143,7 +156,7 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
             )
             tiles = {
                 zoom: (
-                    tile
+                    (tile, skip, process_msg)
                     for tile, skip, process_msg in _filter_skipable(
                         process=process,
                         tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
@@ -173,9 +186,9 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
                             and process.config.output_reader.tiles_exist(tile)
                         )
                         if skip_output_check
-                        else False,
+                        else skip,
                     )
-                    for tile in tiles[zoom]
+                    for tile, skip in tiles[zoom]
                 ),
                 func=func,
                 fkwargs=fkwargs,

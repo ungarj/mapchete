@@ -48,15 +48,16 @@ def execute(
     for mapchete_file in mapchete_files:
         tqdm.tqdm.write(f"preparing to process {mapchete_file}")
         with mapchete.Timer() as t:
+            job = commands.execute(
+                mapchete_file,
+                *args,
+                as_iterator=True,
+                msg_callback=tqdm.tqdm.write if verbose else None,
+                **kwargs,
+            )
             list(
                 tqdm.tqdm(
-                    commands.execute(
-                        mapchete_file,
-                        *args,
-                        as_iterator=True,
-                        msg_callback=tqdm.tqdm.write if verbose else None,
-                        **kwargs,
-                    ),
+                    job,
                     unit="task",
                     disable=debug or no_pbar,
                 )

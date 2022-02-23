@@ -148,7 +148,7 @@ def execute(
         tiles_tasks = 1 if tile else mp.count_tiles()
         total_tasks = preprocessing_tasks + tiles_tasks
         msg_callback(
-            f"processing {preprocessing_tasks} preprocessing tasks and {tiles_tasks} on {workers} worker(s)"
+            f"processing {preprocessing_tasks} preprocessing tasks and {tiles_tasks} tile tasks on {workers} worker(s)"
         )
         # automatically use dask Executor if dask scheduler is defined
         if dask_scheduler or dask_client:  # pragma: no cover
@@ -183,6 +183,7 @@ def execute(
             as_iterator=as_iterator,
             preprocessing_tasks=preprocessing_tasks,
             tiles_tasks=tiles_tasks,
+            process_area=mp.config.init_area,
         )
     # explicitly exit the mp object on failure
     except Exception as exc:  # pragma: no cover

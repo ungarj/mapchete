@@ -409,6 +409,7 @@ def to_dask_collection(batches):
     with Timer() as t:
         previous_batch = None
         for batch in batches:
+            logger.debug("converting batch %s", batch)
             if previous_batch:
                 logger.debug("previous batch had %s tasks", len(previous_batch))
             for task in batch.values():
