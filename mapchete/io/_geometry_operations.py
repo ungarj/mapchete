@@ -45,6 +45,7 @@ def reproject_geometry(
     segmentize_fraction=100,
     validity_check=True,
     antimeridian_cutting=False,
+    retry_with_clip=True,
 ):
     """
     Reproject a geometry to target CRS.
@@ -75,6 +76,7 @@ def reproject_geometry(
     -------
     geometry : ``shapely.geometry``
     """
+    logger.debug("reproject geometry from %s to %s", src_crs, dst_crs)
     src_crs = validate_crs(src_crs)
     dst_crs = validate_crs(dst_crs)
 
@@ -152,25 +154,29 @@ def reproject_geometry(
         except TopologicalError:  # pragma: no cover
             raise
         except ValueError as exc:  # pragma: no cover
-            logger.error(
-                "error when transforming %s from %s to %s: %s, trying to use CRS bounds clip",
-                geometry,
-                src_crs,
-                dst_crs,
-                exc,
-            )
-            return reproject_geometry(
-                geometry,
-                src_crs=src_crs,
-                dst_crs=dst_crs,
-                clip_to_crs_bounds=True,
-                error_on_clip=error_on_clip,
-                segmentize_on_clip=segmentize_on_clip,
-                segmentize=segmentize,
-                segmentize_fraction=segmentize_fraction,
-                validity_check=validity_check,
-                antimeridian_cutting=antimeridian_cutting,
-            )
+            if retry_with_clip:
+                logger.error(
+                    "error when transforming %s from %s to %s: %s, trying to use CRS bounds clip",
+                    geometry,
+                    src_crs,
+                    dst_crs,
+                    exc,
+                )
+                return reproject_geometry(
+                    geometry,
+                    src_crs=src_crs,
+                    dst_crs=dst_crs,
+                    clip_to_crs_bounds=True,
+                    error_on_clip=error_on_clip,
+                    segmentize_on_clip=segmentize_on_clip,
+                    segmentize=segmentize,
+                    segmentize_fraction=segmentize_fraction,
+                    validity_check=validity_check,
+                    antimeridian_cutting=antimeridian_cutting,
+                    retry_with_clip=False,
+                )
+            else:
+                raise
 
 
 def _repair(geom):
