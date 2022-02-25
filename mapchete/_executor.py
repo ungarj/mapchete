@@ -364,11 +364,10 @@ class DaskExecutor(_ExecutorBase):
                     batch = self._ac_iterator.next_batch(
                         block=max_submitted_tasks_reached
                     )
-                    for future, result in batch:
-                        try:
-                            yield from self._yield_from_batch(batch)
-                        except JobCancelledError:  # pragma: no cover
-                            return
+                    try:
+                        yield from self._yield_from_batch(batch)
+                    except JobCancelledError:  # pragma: no cover
+                        return
                     logger.debug("%s futures still on cluster", self._submitted)
 
             # submit last chunk of items

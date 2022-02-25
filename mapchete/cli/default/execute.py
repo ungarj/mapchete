@@ -21,6 +21,7 @@ from mapchete.cli import options
 @options.opt_workers
 @options.opt_multi
 @options.opt_dask_scheduler
+@options.opt_dask_no_task_graph
 @options.opt_input_file
 @options.opt_logfile
 @options.opt_verbose
@@ -38,6 +39,7 @@ def execute(
     verbose=False,
     logfile=None,
     input_file=None,
+    dask_no_task_graph=False,
     **kwargs,
 ):
     if input_file is not None:  # pragma: no cover
@@ -53,6 +55,7 @@ def execute(
                 *args,
                 as_iterator=True,
                 msg_callback=tqdm.tqdm.write if verbose else None,
+                dask_compute_graph=not dask_no_task_graph,
                 **kwargs,
             )
             list(

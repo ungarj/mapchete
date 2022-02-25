@@ -555,7 +555,10 @@ def _compute_task_graph(
 
     logger.debug("wait for tasks to finish...")
     for future in as_completed(
-        futures, with_results=with_results, raise_errors=raise_errors
+        futures,
+        with_results=with_results,
+        raise_errors=raise_errors,
+        loop=executor._executor.loop,
     ):
         futures.remove(future)
         if process.config.output.write_in_parent_process:
