@@ -98,6 +98,7 @@ def _validate_bidx(ctx, param, bidx):
 @options.opt_workers
 @options.opt_multi
 @options.opt_concurrency
+@options.opt_dask_no_task_graph
 @options.opt_logfile
 @options.opt_vrt
 @options.opt_idx_out_dir
@@ -110,6 +111,7 @@ def convert(
     debug=False,
     no_pbar=False,
     verbose=False,
+    dask_no_task_graph=False,
     logfile=None,
     **kwargs,
 ):
@@ -119,6 +121,7 @@ def convert(
             output,
             *args,
             as_iterator=True,
+            dask_compute_graph=not dask_no_task_graph,
             msg_callback=tqdm.tqdm.write if verbose else None,
             **kwargs,
         )

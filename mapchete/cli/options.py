@@ -363,3 +363,8 @@ opt_concurrency = click.option(
     callback=_cb_none_concurrency,
     help="Decide which Executor to use for concurrent processing.",
 )
+opt_dask_no_task_graph = click.option(
+    "--dask-no-task-graph",
+    is_flag=True,
+    help="Don't compute task graph when using dask.",
+)
