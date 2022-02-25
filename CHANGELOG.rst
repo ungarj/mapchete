@@ -2,6 +2,17 @@
 Changelog
 #########
 
+
+---------------------
+2022.2.2 - 2022-02-25
+---------------------
+
+* core
+  * avoid infinite recursion when retrying reprojection with clipped geometry
+  * attach missing dask client loop to `distributed.as_completed` call
+  * fixed infinite future yield when using `DaskExecutor.as_completed()`
+  * expose `--dask-no-task-graph` flag to `execute` and `convert` commands
+
 ---------------------
 2022.2.1 - 2022-02-23
 ---------------------
