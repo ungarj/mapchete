@@ -49,9 +49,11 @@ class ProcessFixture:
 
     def __exit__(self, *args):
         # properly close mapchete
-        if self._mp:
-            self._mp.__exit__(*args)
-        self.clear_output()
+        try:
+            if self._mp:
+                self._mp.__exit__(*args)
+        finally:
+            self.clear_output()
 
     def clear_output(self):
         # delete written output if any

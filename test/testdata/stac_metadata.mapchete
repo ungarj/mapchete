@@ -1,0 +1,25 @@
+process: ../example_process.py
+zoom_levels:
+  min: 0
+  max: 5
+pyramid:
+  grid: geodetic
+input:
+  file1: dummy2.tif
+output:
+  dtype: float32
+  bands: 1
+  format: GTiff
+  path: tmp/stac_metadata
+  stac:
+    id: some_stac_item_id
+    properties:
+      start_datetime: 2020-11-01
+      end_datetime: 2020-11-30
+      datetime: 2020-11-01
+    eo:bands:
+      - name: B04
+        common_name: red
+        description: Band 4 - Red
+        center_wavelength: 0.665
+        full_width_half_max: 0.038

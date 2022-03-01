@@ -115,8 +115,6 @@ class MapcheteConfig(object):
         initialized with
     bounds : tuple
         left, bottom, right, top boundaries the process is initalized with
-    single_input_file : string
-        single input file if supported by process
     mode : string
         * ``memory``: Generate process output on demand without reading
           pre-existing data or writing new data.
@@ -180,9 +178,7 @@ class MapcheteConfig(object):
         area_crs=None,
         bounds=None,
         bounds_crs=None,
-        single_input_file=None,
         mode="continue",
-        debug=False,
         **kwargs,
     ):
         """Initialize configuration."""

@@ -1,4 +1,3 @@
-import fsspec
 import json
 import logging
 import os
@@ -24,10 +23,12 @@ def read_json(path, fs=None, **kwargs):
     """Read local or remote."""
     fs = fs or fs_from_path(path, **kwargs)
     try:
-        with fs.open(path) as src:
+        with fs.open(path, "r") as src:
+            print(src.read())
             return json.loads(src.read())
     except Exception as e:
         if path_exists(path, fs=fs):  # pragma: no cover
+            logger.exception(e)
             raise e
         else:
             raise FileNotFoundError(f"{path} not found")
