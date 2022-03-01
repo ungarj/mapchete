@@ -653,6 +653,15 @@ def custom_grid_points():
 
 
 @pytest.fixture
+def stac_metadata():
+    """Fixture for stac_metadata.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "stac_metadata.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)
