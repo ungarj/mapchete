@@ -554,23 +554,24 @@ def _compute_task_graph(
     logger.debug("%s tasks sent to scheduler in %s", len(futures), t)
 
     logger.debug("wait for tasks to finish...")
-    for future in as_completed(
+    for batch in as_completed(
         futures,
         with_results=with_results,
         raise_errors=raise_errors,
         loop=executor._executor.loop,
-    ):
-        futures.remove(future)
-        if process.config.output.write_in_parent_process:
-            yield FinishedFuture(
-                result=_write(
-                    process_info=future.result(),
-                    output_writer=process.config.output,
-                    append_output=True,
+    ).batches():
+        for future in batch:
+            futures.remove(future)
+            if process.config.output.write_in_parent_process:
+                yield FinishedFuture(
+                    result=_write(
+                        process_info=future.result(),
+                        output_writer=process.config.output,
+                        append_output=True,
+                    )
                 )
-            )
-        else:
-            yield future
+            else:
+                yield future
 
 
 def _compute_tasks(
