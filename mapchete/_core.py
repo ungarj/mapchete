@@ -666,6 +666,12 @@ class Mapchete(object):
             logger.warning("install extra mapchete[stac] to write STAC item files")
             return
 
+        if not self.config.output.use_stac or self.config.mode in [
+            "readonly",
+            "memory",
+        ]:
+            return
+
         # determine item ID
         item_id = self.config.output.stac_item_id
 

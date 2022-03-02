@@ -126,6 +126,7 @@ def cp(
         bounds_crs=bounds_crs,
         fs=src_fs,
         fs_kwargs=src_fs_opts,
+        mode="readonly",
     ) as src_mp:
         tp = src_mp.config.output_pyramid
 
@@ -147,6 +148,7 @@ def cp(
             bounds_crs=bounds_crs,
             fs=dst_fs,
             fs_kwargs=dst_fs_opts,
+            mode="readonly",
         ) as dst_mp:
             return mapchete.Job(
                 _copy_tiles,
