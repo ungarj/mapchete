@@ -18,7 +18,7 @@ from shapely.geometry import (
 )
 from shapely.validation import explain_validity
 
-from mapchete.errors import GeometryTypeError
+from mapchete.errors import GeometryTypeError, ReprojectionFailed
 from mapchete.validate import validate_crs
 
 logger = logging.getLogger(__name__)
@@ -162,19 +162,24 @@ def reproject_geometry(
                     dst_crs,
                     exc,
                 )
-                return reproject_geometry(
-                    geometry,
-                    src_crs=src_crs,
-                    dst_crs=dst_crs,
-                    clip_to_crs_bounds=True,
-                    error_on_clip=error_on_clip,
-                    segmentize_on_clip=segmentize_on_clip,
-                    segmentize=segmentize,
-                    segmentize_fraction=segmentize_fraction,
-                    validity_check=validity_check,
-                    antimeridian_cutting=antimeridian_cutting,
-                    retry_with_clip=False,
-                )
+                try:
+                    return reproject_geometry(
+                        geometry,
+                        src_crs=src_crs,
+                        dst_crs=dst_crs,
+                        clip_to_crs_bounds=True,
+                        error_on_clip=error_on_clip,
+                        segmentize_on_clip=segmentize_on_clip,
+                        segmentize=segmentize,
+                        segmentize_fraction=segmentize_fraction,
+                        validity_check=validity_check,
+                        antimeridian_cutting=antimeridian_cutting,
+                        retry_with_clip=False,
+                    )
+                except Exception as exc:
+                    raise ReprojectionFailed(
+                        f"geometry cannot be reprojected: {str(exc)}"
+                    )
             else:
                 raise
 

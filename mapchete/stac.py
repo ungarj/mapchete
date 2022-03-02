@@ -1,10 +1,14 @@
 from collections import OrderedDict
 import datetime
+import logging
 import os
 from shapely.geometry import box, mapping
 
+from mapchete.errors import ReprojectionFailed
 from mapchete.io.vector import reproject_geometry
 
+
+logger = logging.getLogger(__name__)
 
 OUT_PIXEL_SIZE = 0.28e-3
 UNIT_TO_METER = {"mercator": 1, "geodetic": 111319.4907932732}
@@ -128,10 +132,15 @@ def tile_directory_stac_item(
     right = tile_pyramid.right if right > tile_pyramid.right else right
     top = tile_pyramid.top if top > tile_pyramid.top else top
 
-    # bounds in lat/lon
-    geometry_4326 = reproject_geometry(
-        box(*bounds), src_crs=bounds_crs, dst_crs="EPSG:4326"
-    )
+    try:
+        # bounds in lat/lon
+        geometry_4326 = reproject_geometry(
+            box(*bounds), src_crs=bounds_crs, dst_crs="EPSG:4326"
+        )
+    except ReprojectionFailed as exc:
+        raise ReprojectionFailed(
+            f"cannot reproject geometry to EPSG:4326 required by STAC: {str(exc)}"
+        )
     bounds_4326 = [*geometry_4326.bounds]
 
     # tiles:tile_matrix_set object:

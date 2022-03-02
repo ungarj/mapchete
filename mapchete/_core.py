@@ -10,7 +10,7 @@ from tilematrix._funcs import Bounds
 import warnings
 
 from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
-from mapchete.errors import MapcheteNodataTile
+from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.formats import read_output_metadata
 from mapchete.io import fs_from_path, tiles_exist, read_json, makedirs
 from mapchete._processing import (
@@ -713,24 +713,29 @@ class Mapchete(object):
         # item metadata
         item_metadata = self.config.output.stac_item_metadata
 
-        item = tile_directory_stac_item(
-            item_id=item_id,
-            tile_pyramid=self.config.output_pyramid,
-            max_zoom=max(zoom_levels),
-            item_path=None,
-            asset_basepath=os.path.dirname(self.config.output.stac_path),
-            relative_paths=True,
-            min_zoom=min(zoom_levels),
-            item_metadata=item_metadata,
-            bounds=bounds,
-            bounds_crs=None,
-            bands_type=self.config.output.stac_asset_type,
-            crs_unit_to_meter=1,
-        )
-        logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
-        makedirs(os.path.dirname(self.config.output.stac_path))
-        with self.config.output.fs.open(self.config.output.stac_path, "w") as dst:
-            dst.write(json.dumps(item.to_dict(), indent=indent))
+        try:
+            item = tile_directory_stac_item(
+                item_id=item_id,
+                tile_pyramid=self.config.output_pyramid,
+                max_zoom=max(zoom_levels),
+                item_path=None,
+                asset_basepath=os.path.dirname(self.config.output.stac_path),
+                relative_paths=True,
+                min_zoom=min(zoom_levels),
+                item_metadata=item_metadata,
+                bounds=bounds,
+                bounds_crs=None,
+                bands_type=self.config.output.stac_asset_type,
+                crs_unit_to_meter=1,
+            )
+            logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
+            makedirs(os.path.dirname(self.config.output.stac_path))
+            with self.config.output.fs.open(self.config.output.stac_path, "w") as dst:
+                dst.write(json.dumps(item.to_dict(), indent=indent))
+        except ReprojectionFailed:
+            logger.warning(
+                "cannot create STAC item because footprint cannot be reprojected into EPSG:4326"
+            )
 
     def _process_and_overwrite_output(self, tile, process_tile):
         if self.with_cache:
