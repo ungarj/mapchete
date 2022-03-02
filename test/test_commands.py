@@ -547,7 +547,7 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
 
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 3
+        assert len(files) == 4
         assert "3.geojson" in files
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         for f in src:
@@ -628,7 +628,7 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
 
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 3
+        assert len(files) == 4
         assert "3.geojson" in files
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         assert len(list(src)) == 1
@@ -645,7 +645,7 @@ def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_tl, wkt_geom_tl):
 
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 13
+        assert len(files) == 14
         assert "3.geojson" in files
 
 

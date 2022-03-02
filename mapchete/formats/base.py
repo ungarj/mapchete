@@ -428,6 +428,7 @@ class OutputDataWriter(OutputDataReader):
     """
 
     METADATA = {"driver_name": None, "data_type": None, "mode": "w"}
+    use_stac = False
 
     def write(self, process_tile, data):
         """

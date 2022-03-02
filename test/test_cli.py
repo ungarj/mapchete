@@ -1049,7 +1049,7 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
     run_cli(["index", cleantopo_br.path, "-z", "3", "--geojson", "--debug"])
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 3
+        assert len(files) == 4
         assert "3.geojson" in files
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         for f in src:
@@ -1161,7 +1161,7 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     run_cli(["index", cleantopo_tl.path, "-t", "3", "0", "0", "--geojson", "--debug"])
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 3
+        assert len(files) == 4
         assert "3.geojson" in files
     with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
         assert len(list(src)) == 1

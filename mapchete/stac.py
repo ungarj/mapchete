@@ -118,9 +118,15 @@ def tile_directory_stac_item(
     bounds_crs = bounds_crs or tile_pyramid.crs
 
     # bounds in tilepyramid CRS
-    left, bottom, right, top = reproject_geometry(
+    tp_bbox = reproject_geometry(
         box(*bounds), src_crs=bounds_crs, dst_crs=tile_pyramid.crs
-    ).bounds
+    )
+    # make sure bounds are not outside tile pyramid bounds
+    left, bottom, right, top = tp_bbox.bounds
+    left = tile_pyramid.left if left < tile_pyramid.left else left
+    bottom = tile_pyramid.bottom if bottom < tile_pyramid.bottom else bottom
+    right = tile_pyramid.right if right > tile_pyramid.right else right
+    top = tile_pyramid.top if top > tile_pyramid.top else top
 
     # bounds in lat/lon
     geometry_4326 = reproject_geometry(

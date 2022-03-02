@@ -351,6 +351,8 @@ class GTiffTileDirectoryOutputReader(
 class GTiffTileDirectoryOutputWriter(
     GTiffTileDirectoryOutputReader, base.TileDirectoryOutputWriter
 ):
+    use_stac = True
+
     def write(self, process_tile, data):
         """
         Write data from process tiles into GeoTIFF file(s).
