@@ -47,3 +47,7 @@ class JobCancelledError(Exception):
 
 class NoTaskGeometry(TypeError):
     """Raised when Task has no assigned geo information."""
+
+
+class ReprojectionFailed(RuntimeError):
+    """Raised when geometry cannot be reprojected."""

@@ -492,3 +492,13 @@ def test_indexed_features_polygon(aoi_br_geojson):
     tp = BufferedTilePyramid("geodetic")
     for tile in tp.tiles_from_bounds(bounds=index.bounds, zoom=5):
         assert len(index.filter(tile.bounds)) == 1
+
+
+def test_reproject_from_crs_wkt():
+    geom = wkt.loads(
+        "POLYGON ((6453888 -6453888, 6453888 6453888, -6453888 6453888, -6453888 -6453888, 6453888 -6453888))"
+    )
+    src_crs = 'PROJCS["unknown",GEOGCS["unknown",DATUM["Unknown based on WGS84 ellipsoid",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]]],PROJECTION["Orthographic"],PARAMETER["latitude_of_origin",-90],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
+    dst_crs = "EPSG:4326"
+    with pytest.raises(ValueError):
+        reproject_geometry(geom, src_crs, dst_crs).is_valid
