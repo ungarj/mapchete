@@ -49,7 +49,6 @@ def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
             result.exception
         )
     if raise_exc and result.exception:
-        print(result.output)
         raise result.exception
     assert result.exit_code == expected_exit_code
 
