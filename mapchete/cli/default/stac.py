@@ -72,7 +72,6 @@ def create_item(
 
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom must be set")
-    min_zoom, max_zoom = min(zoom), max(zoom)
 
     if item_metadata:  # pragma: no cover
         with fsspec.open(item_metadata) as src:
@@ -87,8 +86,7 @@ def create_item(
         item_id=item_id,
         item_metadata=metadata,
         tile_pyramid=tile_pyramid,
-        min_zoom=min_zoom,
-        max_zoom=max_zoom,
+        zoom_levels=zoom,
         bounds=bounds or default_bounds,
         bounds_crs=bounds_crs or default_bounds_crs,
         item_path=item_path,

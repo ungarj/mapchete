@@ -6,7 +6,6 @@ import logging
 import multiprocessing
 import os
 import threading
-from tilematrix._funcs import Bounds
 import warnings
 
 from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
@@ -21,7 +20,7 @@ from mapchete._processing import (
     ProcessInfo,
     task_batches,
 )
-from mapchete.stac import tile_directory_stac_item
+from mapchete.stac import update_tile_directory_stac_item
 from mapchete._tasks import TileTask
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
@@ -672,61 +671,23 @@ class Mapchete(object):
         ]:
             return
 
-        # determine item ID
-        item_id = self.config.output.stac_item_id
-
         # read existing STAC file
         try:
             with self.config.output.fs.open(self.config.output.stac_path, "r") as src:
                 item = pystac.read_dict(json.loads(src.read()))
-
-            # zoom levels
-            zoom_levels = set(self.config.init_zoom_levels)
-            for matrix_set in item.properties.get("tiles:tile_matrix_sets", {}).get(
-                "tileMatrix", []
-            ):
-                try:
-                    zoom_levels.add(int(matrix_set.get("identifier")))
-                except ValueError:  # pragma: no cover
-                    logger.warning(
-                        "cannot convert matrix_set %s into zoom level",
-                        matrix_set.get("identifier"),
-                    )
-                    continue
-            zoom_levels = sorted(list(zoom_levels))
-
-            # bounds
-            existing_bounds = Bounds(*item.bbox)
-            bounds = Bounds(
-                left=min(self.config.effective_bounds.left, existing_bounds.left),
-                bottom=min(self.config.effective_bounds.bottom, existing_bounds.bottom),
-                right=max(self.config.effective_bounds.right, existing_bounds.right),
-                top=max(self.config.effective_bounds.top, existing_bounds.top),
-            )
         except FileNotFoundError:
-            # zoom levels
-            zoom_levels = self.config.init_zoom_levels
-
-            # bounds
-            bounds = self.config.effective_bounds
-
-        # item metadata
-        item_metadata = self.config.output.stac_item_metadata
+            item = None
 
         try:
-            item = tile_directory_stac_item(
-                item_id=item_id,
+            item = update_tile_directory_stac_item(
+                item=item,
+                item_path=self.config.output.stac_path,
+                item_id=self.config.output.stac_item_id,
+                zoom_levels=self.config.init_zoom_levels,
+                bounds=self.config.effective_bounds,
+                item_metadata=self.config.output.stac_item_metadata,
                 tile_pyramid=self.config.output_pyramid,
-                max_zoom=max(zoom_levels),
-                item_path=None,
-                asset_basepath=os.path.dirname(self.config.output.stac_path),
-                relative_paths=True,
-                min_zoom=min(zoom_levels),
-                item_metadata=item_metadata,
-                bounds=bounds,
-                bounds_crs=None,
                 bands_type=self.config.output.stac_asset_type,
-                crs_unit_to_meter=1,
             )
             logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
             makedirs(os.path.dirname(self.config.output.stac_path))
