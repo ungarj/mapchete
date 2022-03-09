@@ -4,6 +4,15 @@ Changelog
 
 
 ---------------------
+2022.3.0 - 2022-03-09
+---------------------
+
+* core
+  * use batches when yielding completed futures from dask
+  * fix ``KeyError`` when removing futures from threads executor
+
+
+---------------------
 2022.2.2 - 2022-02-25
 ---------------------
 
