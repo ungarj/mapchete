@@ -1,9 +1,14 @@
-import pystac
+import json
 import pytest
 from shapely.geometry import box, shape
 
 from mapchete.io.vector import reproject_geometry
-from mapchete.stac import tile_directory_stac_item, update_tile_directory_stac_item
+from mapchete.stac import (
+    tile_directory_stac_item,
+    update_tile_directory_stac_item,
+    tile_pyramid_from_item,
+    zoom_levels_from_item,
+)
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -153,12 +158,6 @@ def test_create_stac_item_errors():
         )
 
 
-# def test_single_file():
-#     tile_directory_stac_item(
-#         item_id="foo",
-#     )
-
-
 def test_update_stac():
     item = tile_directory_stac_item(
         item_id="foo",
@@ -179,3 +178,69 @@ def test_update_stac():
         )
         == 8
     )
+
+
+def test_update_stac_errors():
+    item = tile_directory_stac_item(
+        item_id="foo",
+        item_path="foo/bar.json",
+        tile_pyramid=BufferedTilePyramid("geodetic"),
+        zoom_levels=range(6),
+    )
+    with pytest.raises(TypeError):
+        update_tile_directory_stac_item(
+            item=item, tile_pyramid=BufferedTilePyramid("geodetic", metatiling=4)
+        )
+
+
+def test_tile_pyramid_from_item():
+    for metatiling in [1, 2, 4, 8, 16, 64]:
+        tp = BufferedTilePyramid("geodetic", metatiling=metatiling)
+        item = tile_directory_stac_item(
+            item_id="foo",
+            item_path="foo/bar.json",
+            tile_pyramid=tp,
+            zoom_levels=range(6),
+        )
+        assert tp == tile_pyramid_from_item(item)
+
+
+def test_tile_pyramid_from_item_no_tilesets_error():
+    item = tile_directory_stac_item(
+        item_id="foo",
+        item_path="foo/bar.json",
+        tile_pyramid=BufferedTilePyramid("geodetic"),
+        zoom_levels=range(6),
+    )
+    # remove properties including tiled assets information
+    item.properties = {}
+
+    with pytest.raises(AttributeError):
+        tile_pyramid_from_item(item)
+
+
+def test_tile_pyramid_from_item_no_known_wkss_error(custom_grid_json):
+    with open(custom_grid_json) as src:
+        grid_def = json.loads(src.read())
+    item = tile_directory_stac_item(
+        item_id="foo",
+        item_path="foo/bar.json",
+        tile_pyramid=BufferedTilePyramid(**grid_def),
+        zoom_levels=range(3),
+    )
+
+    with pytest.raises(ValueError):
+        tile_pyramid_from_item(item)
+
+
+def test_zoom_levels_from_item_errors():
+    item = tile_directory_stac_item(
+        item_id="foo",
+        item_path="foo/bar.json",
+        tile_pyramid=BufferedTilePyramid("geodetic"),
+        zoom_levels=range(6),
+    )
+    # remove properties including tiled assets information
+    item.properties = {}
+    with pytest.raises(AttributeError):
+        zoom_levels_from_item(item)

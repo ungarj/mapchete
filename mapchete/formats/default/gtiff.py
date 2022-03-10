@@ -417,7 +417,7 @@ class GTiffSingleFileOutputWriter(
         self.in_memory = output_params.get("in_memory", True)
 
     @property
-    def stac_asset_type(self):
+    def stac_asset_type(self):  # pragma: no cover
         """GeoTIFF media type."""
         return "image/tiff; application=geotiff"
 

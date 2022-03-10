@@ -275,7 +275,7 @@ class OutputDataBaseFunctions:
         return self.output_params.get("stac", {})
 
     @property
-    def stac_asset_type(self):
+    def stac_asset_type(self):  # pragma: no cover
         """Asset MIME type."""
         raise ValueError("no MIME type set for this output")
 

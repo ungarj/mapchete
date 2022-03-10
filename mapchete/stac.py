@@ -395,10 +395,8 @@ def tile_pyramid_from_item(item):
             else:
                 matching_metatiling_opts.append(metatiling)
         logger.debug("possible metatiling settings: %s", matching_metatiling_opts)
-        if len(matching_metatiling_opts) == 0:
-            raise ValueError(
-                "tile matrix sets do not seem to follow any known metatiling setting"
-            )
+        if len(matching_metatiling_opts) == 0:  # pragma: no cover
+            raise ValueError("cannot determine metatiling setting")
         elif len(matching_metatiling_opts) == 1:
             metatiling = matching_metatiling_opts[0]
         else:
