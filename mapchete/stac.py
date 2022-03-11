@@ -322,6 +322,7 @@ def update_tile_directory_stac_item(
     """
     # from existing item
     if item is not None:
+        zoom_levels = zoom_levels or []
         zoom_levels = sorted(list(set(zoom_levels + zoom_levels_from_item(item))))
         existing_tile_pyramid = tile_pyramid_from_item(item)
         if tile_pyramid and tile_pyramid != existing_tile_pyramid:
