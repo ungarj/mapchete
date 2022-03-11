@@ -160,6 +160,7 @@ def execute(
                 "task" if total_tasks == 1 else "worker",
             )
             concurrency = None
+        stac_item_path = mp.config.output.stac_path
         return mapchete.Job(
             _process_everything,
             fargs=(
@@ -184,6 +185,7 @@ def execute(
             preprocessing_tasks=preprocessing_tasks,
             tiles_tasks=tiles_tasks,
             process_area=mp.config.init_area,
+            stac_item_path=stac_item_path,
         )
     # explicitly exit the mp object on failure
     except Exception as exc:  # pragma: no cover
