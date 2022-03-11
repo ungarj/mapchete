@@ -4,6 +4,14 @@ Changelog
 
 
 ---------------------
+2022.3.1 - 2022-03-11
+---------------------
+
+* core
+  * automatically write/update STAC JSON file for TileDirectory output
+
+
+---------------------
 2022.3.0 - 2022-03-09
 ---------------------
 
