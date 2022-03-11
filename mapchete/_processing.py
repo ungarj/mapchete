@@ -60,6 +60,7 @@ class Job:
         executor_concurrency: str = "processes",
         executor_kwargs: dict = None,
         process_area=None,
+        stac_item_path: str = None,
     ):
         self.func = func
         self.fargs = fargs or ()
@@ -74,6 +75,7 @@ class Job:
         self._as_iterator = as_iterator
         self._process_area = process_area
         self.bounds = Bounds(*process_area.bounds) if process_area is not None else None
+        self.stac_item_path = stac_item_path
 
         if not as_iterator:
             self._results = list(self._run())

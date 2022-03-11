@@ -351,6 +351,8 @@ class GTiffTileDirectoryOutputReader(
 class GTiffTileDirectoryOutputWriter(
     GTiffTileDirectoryOutputReader, base.TileDirectoryOutputWriter
 ):
+    use_stac = True
+
     def write(self, process_tile, data):
         """
         Write data from process tiles into GeoTIFF file(s).
@@ -390,6 +392,11 @@ class GTiffTileDirectoryOutputWriter(
                     fs=self.fs,
                 )
 
+    @property
+    def stac_asset_type(self):
+        """GeoTIFF media type."""
+        return "image/tiff; application=geotiff"
+
 
 class GTiffSingleFileOutputWriter(
     GTiffOutputReaderFunctions, base.SingleFileOutputWriter
@@ -408,6 +415,11 @@ class GTiffSingleFileOutputWriter(
         self.zoom = output_params["delimiters"]["zoom"][0]
         self.cog = output_params.get("cog", False)
         self.in_memory = output_params.get("in_memory", True)
+
+    @property
+    def stac_asset_type(self):  # pragma: no cover
+        """GeoTIFF media type."""
+        return "image/tiff; application=geotiff"
 
     def prepare(self, process_area=None, **kwargs):
         bounds = (

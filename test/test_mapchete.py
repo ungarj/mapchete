@@ -11,6 +11,8 @@ import numpy as np
 import numpy.ma as ma
 import pkg_resources
 
+import fsspec
+
 try:
     from cPickle import dumps as pickle_dumps
 except ImportError:
@@ -19,6 +21,7 @@ from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
 import mapchete
+from mapchete.io import fs_from_path
 from mapchete.io.raster import create_mosaic, _shift_required
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.tile import BufferedTilePyramid, count_tiles
@@ -764,3 +767,17 @@ def test_compute_processes_single_file(preprocess_cache_memory_single_file):
                 assert result.data is None
     assert tile_tasks == 12
     assert preprocessing_tasks == 2
+
+
+def test_write_stac(stac_metadata):
+    mp = stac_metadata.mp()
+    out_path = stac_metadata.mp().config.output.stac_path
+    with pytest.raises(FileNotFoundError):
+        fs_from_path(out_path).open(out_path, "r")
+
+    mp.write_stac()
+
+    with fs_from_path(out_path).open(out_path, "r") as src:
+        item = json.loads(src.read())
+
+    assert item

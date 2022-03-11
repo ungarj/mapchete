@@ -251,6 +251,34 @@ class OutputDataBaseFunctions:
         )
         self.fs_kwargs = self._fs_kwargs = output_params.get("fs_kwargs") or {}
 
+    @property
+    def stac_path(self):
+        """Return path to STAC JSON file."""
+        default_basepath = os.path.dirname(self.path.rstrip("/") + "/")
+        return os.path.join(default_basepath, f"{self.stac_item_id}.json")
+
+    @property
+    def stac_item_id(self):
+        """
+        Return STAC item ID according to configuration.
+
+        Defaults to path basename.
+        """
+        default_basepath = os.path.dirname(self.path.rstrip("/") + "/")
+        return self.output_params.get("stac", {}).get("id") or os.path.basename(
+            default_basepath
+        )
+
+    @property
+    def stac_item_metadata(self):
+        """Custom STAC metadata."""
+        return self.output_params.get("stac", {})
+
+    @property
+    def stac_asset_type(self):  # pragma: no cover
+        """Asset MIME type."""
+        raise ValueError("no MIME type set for this output")
+
     def is_valid_with_config(self, config):
         """
         Check if output format is valid with other process parameters.
@@ -400,6 +428,7 @@ class OutputDataWriter(OutputDataReader):
     """
 
     METADATA = {"driver_name": None, "data_type": None, "mode": "w"}
+    use_stac = False
 
     def write(self, process_tile, data):
         """

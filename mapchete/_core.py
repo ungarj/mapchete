@@ -1,6 +1,7 @@
 """Main module managing processes."""
 
 from cachetools import LRUCache
+import json
 import logging
 import multiprocessing
 import os
@@ -8,9 +9,9 @@ import threading
 import warnings
 
 from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
-from mapchete.errors import MapcheteNodataTile
+from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.formats import read_output_metadata
-from mapchete.io import fs_from_path, tiles_exist
+from mapchete.io import fs_from_path, tiles_exist, read_json, makedirs
 from mapchete._processing import (
     compute,
     _run_on_single_tile,
@@ -19,6 +20,7 @@ from mapchete._processing import (
     ProcessInfo,
     task_batches,
 )
+from mapchete.stac import update_tile_directory_stac_item
 from mapchete._tasks import TileTask
 from mapchete.tile import count_tiles
 from mapchete._timer import Timer
@@ -650,6 +652,52 @@ class Mapchete(object):
         elif self.config.mode == "overwrite" and not _baselevel_readonly:
             return self._process_and_overwrite_output(tile, process_tile)
 
+    def write_stac(self, indent=4):
+        """
+        Create or update existing STAC JSON file.
+
+        On TileDirectory outputs, the tiled-assets are updated regarding
+        zoom levels and bounds.
+        """
+        try:
+            import pystac
+        except ImportError:  # pragma: no cover
+            logger.warning("install extra mapchete[stac] to write STAC item files")
+            return
+
+        if not self.config.output.use_stac or self.config.mode in [
+            "readonly",
+            "memory",
+        ]:
+            return
+
+        # read existing STAC file
+        try:
+            with self.config.output.fs.open(self.config.output.stac_path, "r") as src:
+                item = pystac.read_dict(json.loads(src.read()))
+        except FileNotFoundError:
+            item = None
+
+        try:
+            item = update_tile_directory_stac_item(
+                item=item,
+                item_path=self.config.output.stac_path,
+                item_id=self.config.output.stac_item_id,
+                zoom_levels=self.config.init_zoom_levels,
+                bounds=self.config.effective_bounds,
+                item_metadata=self.config.output.stac_item_metadata,
+                tile_pyramid=self.config.output_pyramid,
+                bands_type=self.config.output.stac_asset_type,
+            )
+            logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
+            makedirs(os.path.dirname(self.config.output.stac_path))
+            with self.config.output.fs.open(self.config.output.stac_path, "w") as dst:
+                dst.write(json.dumps(item.to_dict(), indent=indent))
+        except ReprojectionFailed:
+            logger.warning(
+                "cannot create STAC item because footprint cannot be reprojected into EPSG:4326"
+            )
+
     def _process_and_overwrite_output(self, tile, process_tile):
         if self.with_cache:
             output = self._execute_using_cache(process_tile)
@@ -704,8 +752,11 @@ class Mapchete(object):
         """Enable context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(self, exc_type=None, exc_value=None, exc_traceback=None):
         """Cleanup on close."""
+        # write/update STAC metadata
+        if exc_type is None:
+            self.write_stac()
         # run input drivers cleanup
         for ip in self.config.input.values():
             if ip is not None:
