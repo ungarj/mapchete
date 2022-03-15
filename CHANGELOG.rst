@@ -8,7 +8,8 @@ Changelog
 ---------------------
 
 * core
-  * automatically write/update STAC JSON file for TileDirectory output
+
+* automatically write/update STAC JSON file for TileDirectory output
 
 
 ---------------------
@@ -16,6 +17,7 @@ Changelog
 ---------------------
 
 * core
+
   * use batches when yielding completed futures from dask
   * fix ``KeyError`` when removing futures from threads executor
 
@@ -25,6 +27,7 @@ Changelog
 ---------------------
 
 * core
+
   * avoid infinite recursion when retrying reprojection with clipped geometry
   * attach missing dask client loop to `distributed.as_completed` call
   * fixed infinite future yield when using `DaskExecutor.as_completed()`
@@ -35,12 +38,15 @@ Changelog
 ---------------------
 
 * core
+
   * implement dask task graphs when using dask as executor
   * enable setting executor after ``Job`` was initialized
   * fix minor bugs in ``DaskExecutor.as_completed()``:
+
     * running futures count
     * pass on Exception after cancel signal when client is closed while waiting for remaining futures
-  * add caching options for vector file and raster file inputs
+
+* add caching options for vector file and raster file inputs
 
 
 ---------------------
@@ -48,6 +54,7 @@ Changelog
 ---------------------
 
 * core
+
   * fix feature clip when reading from vector input outside of CRS bounds
   * separately count submitted tasks instead of relying on ``distributed.as_completed().count()``
   * add GCPs referenced input raster support (#418)
@@ -58,6 +65,7 @@ Changelog
 ---------------------
 
 * core
+
   * try to make dask executor more resilient by adding timeouts (accessible via the ``MP_FUTURES_TIMEOUT`` environment setting) and retries if a future call times out
 
 
@@ -66,9 +74,11 @@ Changelog
 ---------------------
 
 * core
+
   * fix ``ConcurrentFuturesExecutor.as_completed()`` when waiting for finished futures
 
 * testing
+
   * split up ``reproject_geometry`` tests for CRS bounds clipping
 
 
@@ -77,6 +87,7 @@ Changelog
 ---------------------
 
 * core
+
   * fix #404: log useful information on info
   * replace ``cascacded_union()`` with ``unary_union()`` to handle Shapely warning
   * fix ``fsspec.ls`` call
@@ -89,6 +100,7 @@ Changelog
 ----------------------
 
 * core
+
   * fix #395: area intersects with bounds
 
 
@@ -97,6 +109,7 @@ Changelog
 ----------------------
 
 * core
+
   * let ``ditributed.as_completed()`` gather future results
 
 
@@ -105,6 +118,7 @@ Changelog
 ----------------------
 
 * core
+
   * explicitly call ``Future.release()`` before yielding result from ``DaskExecutor``
 
 
@@ -113,6 +127,7 @@ Changelog
 ----------------------
 
 * core
+
   * make sure I/O retry settings read from environment are properly casted to int/float
 
 
@@ -121,6 +136,7 @@ Changelog
 ----------------------
 
 * core
+
   * expose ``chunksize`` parameter of dask executor to ``execute`` and ``convert`` commands.
   * clean up ``DaskExecutor.as_completed()`` code & log messages
   * ``index``: use ``tiles_exist()`` row generators to speed up index creation
@@ -131,6 +147,7 @@ Changelog
 ----------------------
 
 * core
+
   * dask: submit tasks in chunks to scheduler
 
 
@@ -139,6 +156,7 @@ Changelog
 ----------------------
 
 * core
+
   * use generators to start processing as soon as possible and to reduce memory consumption when processing large areas
   * add ``preprocessing_tasks`` ``tiles_tasks`` attributes to ``Job``
   * reduce code smells
@@ -152,10 +170,12 @@ Changelog
 ----------------------
 
 * CLI
+
   * ``convert``: enable ``--output-pyramid`` to read custom grid from JSON file
   * ``stac create-item``: add ``--relative-paths`` flag for asset URL
 
 * package
+
   * add ``mapchete.testing`` including convenience tools
   * use temporary directories for outputs where possible when testing processes
 
@@ -165,6 +185,7 @@ Changelog
 ----------------------
 
 * core
+
   * ``mapchete.Executor``: fix call in ``DaskExecutor.as_completed()`` by not providing current client as loop
 
 
@@ -173,6 +194,7 @@ Changelog
 ----------------------
 
 * core
+
   * ``mapchete.Executor``: add ``max_submitted_futures`` option to ``DaskExecutor.as_completed()`` to cap the number of tasks sent to the scheduler; also immediately yield finished tasks once they are available
 
 
