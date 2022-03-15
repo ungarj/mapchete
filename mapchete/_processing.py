@@ -156,10 +156,9 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
             tiles = {tile.zoom: [(tile, False)]}
         else:
             zoom_levels = list(
-                reversed(process.config.zoom_levels)
-                if zoom is None
-                else validate_zooms(zoom)
+                process.config.zoom_levels if zoom is None else validate_zooms(zoom)
             )
+            zoom_levels.sort(reverse=True)
             tiles = {
                 zoom: (
                     (tile, skip)
@@ -241,10 +240,9 @@ def compute(
             zoom_levels = [tile.zoom]
         else:
             zoom_levels = list(
-                reversed(process.config.zoom_levels)
-                if zoom is None
-                else validate_zooms(zoom)
+                process.config.zoom_levels if zoom is None else validate_zooms(zoom)
             )
+        zoom_levels.sort(reverse=True)
         if dask_compute_graph and isinstance(executor, DaskExecutor):
             for num_processed, future in enumerate(
                 _compute_task_graph(
@@ -477,6 +475,7 @@ def _run_multi(
     fkwargs=None,
     skip_output_check=False,
 ):
+    zoom_levels.sort(reverse=True)
     total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
     workers = min([workers, total_tiles])
     num_processed = 0
