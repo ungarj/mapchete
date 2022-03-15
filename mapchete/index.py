@@ -154,10 +154,7 @@ def zoom_index_gen(
 
             if tile:
                 output_tiles_batches = mp.config.output_pyramid.tiles_from_bounds(
-                    mp.config.process_pyramid.tile(*tile).bounds,
-                    zoom,
-                    batch_by="row",
-                    exact=True,
+                    mp.config.process_pyramid.tile(*tile).bounds, zoom, batch_by="row"
                 )
             else:
                 output_tiles_batches = mp.config.output_pyramid.tiles_from_geom(
