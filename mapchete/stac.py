@@ -161,10 +161,10 @@ def tile_directory_stac_item(
         }
     else:
         tile_matrix_set_identifier = "custom"  # ???
-        if tile_pyramid.crs.to_authority() is None:
+        if tile_pyramid.crs.to_authority() is None:  # pragma: no cover
             # try with pyproj
             crs = CRS.from_string(tile_pyramid.crs.to_string())
-            if crs.to_authority() is None:  # pragma: no cover
+            if crs.to_authority() is None:
                 raise ValueError("cannot convert SRS to urn string")
             else:
                 authority, code = crs.to_authority()
