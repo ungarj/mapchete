@@ -3,6 +3,7 @@ import datetime
 import logging
 from nis import match
 import os
+from pyproj import CRS
 from typing import Type
 from shapely.geometry import box, mapping
 
@@ -160,7 +161,15 @@ def tile_directory_stac_item(
         }
     else:
         tile_matrix_set_identifier = "custom"  # ???
-        authority, code = tile_pyramid.crs.to_authority()
+        if tile_pyramid.crs.to_authority() is None:  # pragma: no cover
+            # try with pyproj
+            crs = CRS.from_string(tile_pyramid.crs.to_string())
+            if crs.to_authority() is None:
+                raise ValueError("cannot convert SRS to urn string")
+            else:
+                authority, code = crs.to_authority()
+        else:
+            authority, code = tile_pyramid.crs.to_authority()
         crs = f"urn:ogc:def:crs:{authority}::{code}"
         # from http://schemas.opengis.net/tms/1.0/json/tms-schema.json
         # "required": ["type", "identifier", "supportedCRS", "tileMatrix"],
