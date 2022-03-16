@@ -103,7 +103,7 @@ def test_vrt(mp_tmpdir, cleantopo_br):
     # generate a VRT using GDAL and compare
     out_dir = os.path.join(mp_tmpdir, "cleantopo_br")
     temp_vrt = os.path.join(out_dir, str(zoom) + "_gdal.vrt")
-    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif" % (
+    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
         temp_vrt,
         out_dir,
         zoom,
@@ -182,7 +182,7 @@ def test_vrt_mercator(mp_tmpdir, cleantopo_br_mercator):
     # generate a VRT using GDAL and compare
     out_dir = os.path.join(mp_tmpdir, "cleantopo_br_mercator")
     temp_vrt = os.path.join(out_dir, str(zoom) + "_gdal.vrt")
-    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif" % (
+    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
         temp_vrt,
         out_dir,
         zoom,

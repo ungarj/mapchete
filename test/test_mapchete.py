@@ -402,7 +402,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                 mosaic = create_mosaic(tiles)
                 try:
                     temp_vrt = os.path.join(mp_tmpdir, str(zoom) + ".vrt")
-                    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif" % (
+                    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
                         temp_vrt,
                         mp.config.output.path,
                         zoom,
