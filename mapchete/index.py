@@ -158,7 +158,7 @@ def zoom_index_gen(
                 )
             else:
                 output_tiles_batches = mp.config.output_pyramid.tiles_from_geom(
-                    mp.config.area_at_zoom(zoom), zoom, batch_by="row"
+                    mp.config.area_at_zoom(zoom), zoom, batch_by="row", exact=True
                 )
 
             for output_tile, exists in tiles_exist(

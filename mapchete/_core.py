@@ -160,13 +160,16 @@ class Mapchete(object):
         logger.debug("get process tiles...")
         if zoom or zoom == 0:
             for tile in self.config.process_pyramid.tiles_from_geom(
-                self.config.area_at_zoom(zoom), zoom=zoom, batch_by=batch_by
+                self.config.area_at_zoom(zoom),
+                zoom=zoom,
+                batch_by=batch_by,
+                exact=True,
             ):
                 yield tile
         else:
             for i in reversed(self.config.zoom_levels):
                 for tile in self.config.process_pyramid.tiles_from_geom(
-                    self.config.area_at_zoom(i), zoom=i, batch_by=batch_by
+                    self.config.area_at_zoom(i), zoom=i, batch_by=batch_by, exact=True
                 ):
                     yield tile
 

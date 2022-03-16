@@ -36,7 +36,7 @@ install_requires = [
     "retry",
     "rasterio>=1.0.28,<1.2.11",
     "shapely<1.8.1",
-    "tilematrix>=2021.11.0",
+    "tilematrix>=2022.3.0",
     "tqdm",
 ]
 req_contours = ["matplotlib"]

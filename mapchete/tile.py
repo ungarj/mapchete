@@ -116,7 +116,7 @@ class BufferedTilePyramid(TilePyramid):
             for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom=zoom):
                 yield self.tile(*tile.id)
 
-    def tiles_from_geom(self, geometry, zoom=None, batch_by=None):
+    def tiles_from_geom(self, geometry, zoom=None, batch_by=None, exact=False):
         """
         Return all tiles intersecting with input geometry.
 
@@ -132,12 +132,12 @@ class BufferedTilePyramid(TilePyramid):
         """
         if batch_by:
             for batch in self.tile_pyramid.tiles_from_geom(
-                geometry, zoom=zoom, batch_by=batch_by
+                geometry, zoom=zoom, batch_by=batch_by, exact=exact
             ):
                 yield (self.tile(*tile.id) for tile in batch)
         else:
             for tile in self.tile_pyramid.tiles_from_geom(
-                geometry, zoom=zoom, batch_by=batch_by
+                geometry, zoom=zoom, batch_by=batch_by, exact=exact
             ):
                 yield self.tile(*tile.id)
 
