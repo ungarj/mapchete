@@ -4,12 +4,27 @@ Changelog
 
 
 ---------------------
+2022.3.2 - 2022-03-16
+---------------------
+
+* core
+
+  * fix zoom levels getting processed in the wrong order
+  * fix process tiles generation which yielded a different number than estimated from `tiles_count()`
+  * add fallback if `rasterio.crs.CRS` cannot convert CRS to SRS authority (issue in newer PROJ versions)
+
+* packaging/CI
+
+  * add Python 3.9 to test matrix
+
+
+---------------------
 2022.3.1 - 2022-03-11
 ---------------------
 
 * core
 
-* automatically write/update STAC JSON file for TileDirectory output
+  * automatically write/update STAC JSON file for TileDirectory output
 
 
 ---------------------
