@@ -4,6 +4,7 @@ Vector file input which can be read by fiona.
 Currently limited by extensions .shp and .geojson but could be extended easily.
 """
 
+from black import out
 from cached_property import cached_property
 import fiona
 import logging
@@ -64,6 +65,7 @@ class InputData(base.InputData):
     _cached_path = None
     _cache_keep = False
     _memory_cache_active = False
+    _bbox_cache = {}
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
@@ -170,13 +172,15 @@ class InputData(base.InputData):
             Shapely geometry object
         """
         out_crs = self.pyramid.crs if out_crs is None else out_crs
-        with fiona.open(self.path) as inp:
-            inp_crs = CRS(inp.crs)
-            bbox = box(*inp.bounds)
-        # TODO find a way to get a good segmentize value in bbox source CRS
-        return reproject_geometry(
-            bbox, src_crs=inp_crs, dst_crs=out_crs, clip_to_crs_bounds=False
-        )
+        if out_crs not in self._bbox_cache:
+            with fiona.open(self.path) as inp:
+                inp_crs = CRS(inp.crs)
+                bbox = box(*inp.bounds)
+            # TODO find a way to get a good segmentize value in bbox source CRS
+            self._bbox_cache[out_crs] = reproject_geometry(
+                bbox, src_crs=inp_crs, dst_crs=out_crs, clip_to_crs_bounds=False
+            )
+        return self._bbox_cache[out_crs]
 
     def cleanup(self):
         """Cleanup when mapchete closes."""
