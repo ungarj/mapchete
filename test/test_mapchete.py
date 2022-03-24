@@ -281,7 +281,7 @@ def test_update_baselevels(mp_tmpdir, baselevels):
 
     # process using bounds of just one baselevel tile
     with mapchete.open(conf, mode="continue", bounds=tile_bounds) as mp:
-        mp.batch_process()
+        list(mp.compute())
         with rasterio.open(
             mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
         ) as src:
@@ -290,7 +290,7 @@ def test_update_baselevels(mp_tmpdir, baselevels):
 
     # process full area which leaves out overview tile for baselevel tile above
     with mapchete.open(conf, mode="continue") as mp:
-        mp.batch_process()
+        list(mp.compute())
 
     # delete baselevel tile
     written_tile = (
@@ -310,7 +310,57 @@ def test_update_baselevels(mp_tmpdir, baselevels):
     # the tile in zoom 4
     with mapchete.open(conf, mode="continue") as mp:
         # process data before getting baselevels
-        mp.batch_process()
+        list(mp.compute())
+        with rasterio.open(
+            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
+        ) as src:
+            overview_after = src.read()
+            assert overview_after.any()
+
+    assert not np.array_equal(overview_before, overview_after)
+
+
+def test_update_baselevels_dask(mp_tmpdir, baselevels):
+    """Baselevel interpolation."""
+    conf = dict(baselevels.dict)
+    conf.update(zoom_levels=[7, 8], baselevels=dict(min=8, max=8))
+    baselevel_tile = (8, 125, 260)
+    overview_tile = (7, 62, 130)
+    with mapchete.open(conf, mode="continue") as mp:
+        tile_bounds = mp.config.output_pyramid.tile(*baselevel_tile).bounds
+
+    # process using bounds of just one baselevel tile
+    with mapchete.open(conf, mode="continue", bounds=tile_bounds) as mp:
+        list(mp.compute(concurrency="dask"))
+        with rasterio.open(
+            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
+        ) as src:
+            overview_before = src.read()
+            assert overview_before.any()
+
+    # process full area which leaves out overview tile for baselevel tile above
+    with mapchete.open(conf, mode="continue") as mp:
+        list(mp.compute(concurrency="dask"))
+
+    # delete baselevel tile
+    written_tile = (
+        os.path.join(
+            *[
+                baselevels.dict["config_dir"],
+                baselevels.dict["output"]["path"],
+                *map(str, baselevel_tile),
+            ]
+        )
+        + ".tif"
+    )
+    os.remove(written_tile)
+    assert not os.path.exists(written_tile)
+
+    # run again in continue mode. this processes the missing tile on zoom 5 but overwrites
+    # the tile in zoom 4
+    with mapchete.open(conf, mode="continue") as mp:
+        # process data before getting baselevels
+        list(mp.compute(concurrency="dask"))
         with rasterio.open(
             mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
         ) as src:
