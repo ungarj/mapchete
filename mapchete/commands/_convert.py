@@ -380,10 +380,17 @@ def _input_mapchete_info(inp):
 
 def _input_rasterio_info(inp):
     with rasterio.open(inp) as src:
-        if src.transform.is_identity and src.gcps:
-            with WarpedVRT(src) as dst:
-                bounds = dst.bounds
-                crs = src.gcps[1]
+        if src.transform.is_identity:
+            if src.gcps[1] is not None:
+                with WarpedVRT(src) as dst:
+                    bounds = dst.bounds
+                    crs = src.gcps[1]
+            elif src.rpcs:  # pragma: no cover
+                with WarpedVRT(src) as dst:
+                    bounds = dst.bounds
+                    crs = CRS.from_string("EPSG:4326")
+            else:  # pragma: no cover
+                raise TypeError("cannot determine georeference")
         else:
             crs = src.crs
             bounds = src.bounds
