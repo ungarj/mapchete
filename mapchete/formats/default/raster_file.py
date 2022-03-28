@@ -11,6 +11,7 @@ import logging
 import numpy.ma as ma
 import os
 import rasterio
+from rasterio.crs import CRS
 from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 import warnings
@@ -166,15 +167,24 @@ class InputData(base.InputData):
         """
         out_crs = self.pyramid.crs if out_crs is None else out_crs
         with rasterio.open(self.path) as src:
-            if src.transform.is_identity and src.gcps:
-                with WarpedVRT(src) as dst:
-                    src_bounds = dst.bounds
-                    src_crs = src.gcps[1]
-                    src_transform = dst.transform
+            if src.transform.is_identity:
+                if src.gcps[1] is not None:
+                    with WarpedVRT(src) as dst:
+                        src_bounds = dst.bounds
+                        src_crs = src.gcps[1]
+                        src_transform = dst.transform
+                elif src.rpcs:  # pragma: no cover
+                    with WarpedVRT(src) as dst:
+                        src_bounds = dst.bounds
+                        src_crs = CRS.from_string("EPSG:4326")
+                        src_transform = dst.transform
+                else:  # pragma: no cover
+                    raise TypeError("cannot determine georeference")
             else:
                 src_crs = src.crs
                 src_bounds = src.bounds
                 src_transform = src.transform
+
             out_bbox = bbox = box(*src_bounds)
         # If soucre and target CRSes differ, segmentize and reproject
         if src_crs != out_crs:
