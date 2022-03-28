@@ -4,7 +4,6 @@ Vector file input which can be read by fiona.
 Currently limited by extensions .shp and .geojson but could be extended easily.
 """
 
-from black import out
 from cached_property import cached_property
 import fiona
 import logging
