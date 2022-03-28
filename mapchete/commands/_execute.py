@@ -37,6 +37,7 @@ def execute(
     dask_chunksize=100,
     dask_client=None,
     dask_compute_graph=True,
+    dask_propagate_results=True,
     msg_callback: Callable = None,
     as_iterator: bool = False,
 ) -> mapchete.Job:
@@ -84,7 +85,12 @@ def execute(
     dask_client : dask.distributed.Client
         Reusable Client instance if required. Otherwise a new client will be created.
     dask_compute_graph : bool
-        Build and compute dask graph instead of submitting tasks as preprocessing & zoom tiles batches. (default: True)
+        Build and compute dask graph instead of submitting tasks as preprocessing & zoom tiles
+        batches. (default: True)
+    dask_propagate_results : bool
+        Propagate results between tasks. This helps to minimize read calls when building overviews
+        but can lead to a much higher memory consumption on the cluster. Only with effect if
+        dask_compute_graph is activated. (default: True)
     msg_callback : Callable
         Optional callback function for process messages.
     as_iterator : bool
@@ -174,6 +180,7 @@ def execute(
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
                 dask_compute_graph=dask_compute_graph,
+                dask_propagate_results=dask_propagate_results,
             ),
             executor_concurrency=concurrency,
             executor_kwargs=dict(

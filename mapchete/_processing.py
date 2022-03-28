@@ -138,7 +138,9 @@ class Job:
         return f"<{self.status} Job with {self._total} tasks.>"
 
 
-def task_batches(process, zoom=None, tile=None, skip_output_check=False):
+def task_batches(
+    process, zoom=None, tile=None, skip_output_check=False, propagate_results=True
+):
     """Create task batches for each processing stage."""
     with Timer() as duration:
         # preprocessing tasks
@@ -173,10 +175,12 @@ def task_batches(process, zoom=None, tile=None, skip_output_check=False):
             }
         if process.config.output.write_in_parent_process:
             func = _execute
-            fkwargs = dict(append_data=True)
+            fkwargs = dict(append_data=propagate_results)
         else:
             func = _execute_and_write
-            fkwargs = dict(append_data=True, output_writer=process.config.output)
+            fkwargs = dict(
+                append_data=propagate_results, output_writer=process.config.output
+            )
 
         # tile tasks
         for zoom in zoom_levels:
@@ -215,6 +219,7 @@ def compute(
     dask_compute_graph=True,
     raise_errors=True,
     with_results=False,
+    dask_propagate_results=True,
     **kwargs,
 ):
     """Computes all tasks and yields progress."""
@@ -252,6 +257,7 @@ def compute(
                     tile=tile,
                     skip_output_check=skip_output_check,
                     with_results=with_results,
+                    propagate_results=dask_propagate_results,
                     raise_errors=raise_errors,
                 ),
                 1,
@@ -532,6 +538,7 @@ def _compute_task_graph(
     zoom_levels=None,
     tile=None,
     with_results=False,
+    propagate_results=False,
     raise_errors=False,
     **kwargs,
 ):
@@ -544,7 +551,10 @@ def _compute_task_graph(
     with Timer() as t:
         coll = to_dask_collection(
             process.task_batches(
-                zoom=zoom_levels, tile=tile, skip_output_check=skip_output_check
+                zoom=zoom_levels,
+                tile=tile,
+                skip_output_check=skip_output_check,
+                propagate_results=propagate_results,
             )
         )
     logger.debug("dask collection with %s tasks generated in %s", len(coll), t)
@@ -819,7 +829,7 @@ def _run_multi_no_overviews(
 ###############################
 
 
-def _execute(tile_process=None, dependencies=None, **_):
+def _execute(tile_process=None, dependencies=None, append_data=True, **_):
     logger.debug(
         (tile_process.tile.id, "running on %s" % multiprocessing.current_process().name)
     )
@@ -850,7 +860,7 @@ def _execute(tile_process=None, dependencies=None, **_):
         process_msg=processor_message,
         written=None,
         write_msg=None,
-        data=output,
+        data=output if append_data else None,
     )
 
 
