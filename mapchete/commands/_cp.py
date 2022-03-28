@@ -137,7 +137,13 @@ def cp(
             msg = f"copy {src_metadata} to {dst_metadata}"
             logger.debug(msg)
             msg_callback(msg)
-            copy(src_metadata, dst_metadata, src_fs=src_fs, dst_fs=dst_fs)
+            copy(
+                src_metadata,
+                dst_metadata,
+                src_fs=src_fs,
+                dst_fs=dst_fs,
+                overwrite=overwrite,
+            )
 
         with mapchete.open(
             dst_tiledir,
@@ -254,7 +260,7 @@ def _copy_tile(
 
         # copy from source to target
         dst_path = dst_mp.config.output_reader.get_path(tile)
-        copy(src_path, dst_path, src_fs=src_fs, dst_fs=dst_fs)
+        copy(src_path, dst_path, src_fs=src_fs, dst_fs=dst_fs, overwrite=overwrite)
         msg = f"{tile}: copy {src_path} to {dst_path}"
         logger.debug(msg)
         return 1, msg
