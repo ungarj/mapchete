@@ -64,6 +64,7 @@ class InputData(base.InputData):
     _cached_path = None
     _cache_keep = False
     _memory_cache_active = False
+    _bbox_cache = None
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
@@ -170,12 +171,13 @@ class InputData(base.InputData):
             Shapely geometry object
         """
         out_crs = self.pyramid.crs if out_crs is None else out_crs
-        with fiona.open(self.path) as inp:
-            inp_crs = CRS(inp.crs)
-            bbox = box(*inp.bounds)
+        if self._bbox_cache is None:
+            with fiona.open(self.path) as inp:
+                self._bbox_cache = CRS(inp.crs), tuple(inp.bounds)
+        inp_crs, bounds = self._bbox_cache
         # TODO find a way to get a good segmentize value in bbox source CRS
         return reproject_geometry(
-            bbox, src_crs=inp_crs, dst_crs=out_crs, clip_to_crs_bounds=False
+            box(*bounds), src_crs=inp_crs, dst_crs=out_crs, clip_to_crs_bounds=False
         )
 
     def cleanup(self):
