@@ -4,6 +4,22 @@ Changelog
 
 
 ---------------------
+2022.3.3 - 2022-03-30
+---------------------
+
+* core
+
+  * `commands.cp`: fix `overwrite` mode on local filesystems
+  * cache input vector file bounding box to improve performance on large GeoJSON files
+  * add preliminary RPC referenced raster data support (also requires rasterio fix: https://github.com/rasterio/rasterio/pull/2419)
+  * add `dask_propagate_results` flag to `compute()` to activate/deactivate task result propagation on dask clusters
+
+* packaging/CI
+
+  * avoid using GEOS 3.10 which causes shapely bugs
+
+
+---------------------
 2022.3.2 - 2022-03-16
 ---------------------
 
