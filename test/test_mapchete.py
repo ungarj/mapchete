@@ -700,6 +700,30 @@ def test_compute_processes(preprocess_cache_memory):
     assert preprocessing_tasks == 2
 
 
+def test_compute_dask_without_results(baselevels):
+    # make sure task results are appended to tasks
+    with baselevels.mp() as mp:
+        tile_tasks = 0
+        for future in mp.compute(
+            concurrency="dask", dask_compute_graph=True, dask_propagate_results=True
+        ):
+            result = future.result()
+            assert result.data is not None
+            tile_tasks += 1
+    assert tile_tasks == 6
+
+    # make sure task results are None
+    with baselevels.mp() as mp:
+        tile_tasks = 0
+        for future in mp.compute(
+            concurrency="dask", dask_compute_graph=True, dask_propagate_results=False
+        ):
+            result = future.result()
+            assert result.data is None
+            tile_tasks += 1
+    assert tile_tasks == 6
+
+
 def test_compute_dask_graph_single_file(preprocess_cache_memory_single_file):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
