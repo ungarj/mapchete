@@ -554,7 +554,9 @@ def _compute_task_graph(
                 zoom=zoom_levels,
                 tile=tile,
                 skip_output_check=skip_output_check,
-                propagate_results=propagate_results,
+                propagate_results=True
+                if process.config.output.write_in_parent_process
+                else propagate_results,
             )
         )
     logger.debug("dask collection with %s tasks generated in %s", len(coll), t)
@@ -634,7 +636,7 @@ def _compute_tasks(
         # for output drivers requiring writing data in parent process
         if process.config.output.write_in_parent_process:
             func = _execute
-            fkwargs = dict(append_data=False)
+            fkwargs = dict(append_data=True)
             write_in_parent_process = True
 
         # for output drivers which can write data in child processes
