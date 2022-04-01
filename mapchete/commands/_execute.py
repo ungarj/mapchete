@@ -177,6 +177,7 @@ def execute(
                 tile=tile,
                 workers=workers,
                 zoom=None if tile else zoom,
+                concurrency=concurrency,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
                 dask_compute_graph=dask_compute_graph,
@@ -205,27 +206,39 @@ def _process_everything(
     mp,
     executor=None,
     workers=None,
+    concurrency=None,
     dask_max_submitted_tasks=500,
     dask_chunksize=100,
+    dask_compute_graph=True,
     **kwargs,
 ):
     try:
-        for future in mp.compute(
-            executor=executor,
-            workers=workers,
-            dask_max_submitted_tasks=dask_max_submitted_tasks,
-            dask_chunksize=dask_chunksize,
-            **kwargs,
+        for i, future in enumerate(
+            mp.compute(
+                executor=executor,
+                workers=workers,
+                dask_max_submitted_tasks=dask_max_submitted_tasks,
+                dask_chunksize=dask_chunksize,
+                dask_compute_graph=dask_compute_graph,
+                **kwargs,
+            ),
+            1,
         ):
-            process_info = future.result()
-            if isinstance(process_info, PreprocessingProcessInfo):
-                msg_callback(f"Task {process_info.task_key} finished")
-            elif isinstance(process_info, TileProcessInfo):
-                msg_callback(
-                    f"Task {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
-                )
-            else:  # pragma: no cover
-                raise TypeError(f"unknown process info type: {type(process_info)}")
+            if concurrency == "dask":
+                # don't call future.result()
+                msg_callback(f"Task {i} finished")
+            else:
+                process_info = future.result()
+                if isinstance(
+                    process_info, PreprocessingProcessInfo
+                ):  # pragma: no cover
+                    msg_callback(f"Task {process_info.task_key} finished")
+                elif isinstance(process_info, TileProcessInfo):
+                    msg_callback(
+                        f"Task {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
+                    )
+                else:  # pragma: no cover
+                    raise TypeError(f"unknown process info type: {type(process_info)}")
             yield future
         # explicitly exit the mp object on success
         mp.__exit__(None, None, None)
