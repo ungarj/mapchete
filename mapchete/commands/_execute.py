@@ -177,6 +177,7 @@ def execute(
                 tile=tile,
                 workers=workers,
                 zoom=None if tile else zoom,
+                concurrency=concurrency,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
                 dask_compute_graph=dask_compute_graph,
@@ -205,6 +206,7 @@ def _process_everything(
     mp,
     executor=None,
     workers=None,
+    concurrency=None,
     dask_max_submitted_tasks=500,
     dask_chunksize=100,
     dask_compute_graph=True,
@@ -222,7 +224,7 @@ def _process_everything(
             ),
             1,
         ):
-            if dask_compute_graph:
+            if concurrency == "dask" and dask_compute_graph:
                 # don't call future.result()
                 msg_callback(f"Task {i} finished")
             else:
