@@ -224,12 +224,14 @@ def _process_everything(
             ),
             1,
         ):
-            if concurrency == "dask" and dask_compute_graph:
+            if concurrency == "dask":
                 # don't call future.result()
                 msg_callback(f"Task {i} finished")
             else:
                 process_info = future.result()
-                if isinstance(process_info, PreprocessingProcessInfo):
+                if isinstance(
+                    process_info, PreprocessingProcessInfo
+                ):  # pragma: no cover
                     msg_callback(f"Task {process_info.task_key} finished")
                 elif isinstance(process_info, TileProcessInfo):
                     msg_callback(
