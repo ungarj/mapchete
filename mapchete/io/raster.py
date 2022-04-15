@@ -351,12 +351,24 @@ def _rasterio_read(
                     dst_nodata,
                 )
         except RasterioIOError as e:
-            try:
-                if path_exists(input_file):
+            # rasterio errors which indicate file does not exist
+            for i in ("does not exist in the file system", "No such file or directory"):
+                if i in str(e):
+                    raise FileNotFoundError("%s not found" % input_file)
+            else:
+                try:
+                    # NOTE: this can cause addional S3 requests
+                    exists = path_exists(input_file)
+                except Exception:
+                    # in order not to mask the original rasterio exception, raise it
                     raise e
-            except Exception:
-                raise e
-            raise FileNotFoundError("%s not found" % input_file)
+                if exists:
+                    # raise rasterio exception
+                    raise e
+                else:
+                    # file does not exist
+                    raise FileNotFoundError("%s not found" % input_file)
+
     else:  # pragma: no cover
         logger.debug("assuming file object %s", input_file)
         warnings.warn(

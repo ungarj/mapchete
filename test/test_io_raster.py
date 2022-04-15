@@ -169,8 +169,38 @@ def test_read_raster_window_retry(invalid_tif):
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(MapcheteIOError):
         read_raster_window(invalid_tif, tile)
+
+
+def test_read_raster_window_filenotfound():
+    tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(FileNotFoundError):
         read_raster_window("not_existing.tif", tile)
+
+
+def test_read_raster_window_s3_filenotfound(mp_s3_tmpdir):
+    tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
+    with pytest.raises(FileNotFoundError):
+        read_raster_window(f"{mp_s3_tmpdir}/not_existing.tif", tile)
+
+
+def test_read_raster_window_s3_filenotfound_gdalreaddir(mp_s3_tmpdir):
+    tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
+    with pytest.raises(FileNotFoundError):
+        read_raster_window(
+            f"{mp_s3_tmpdir}/not_existing.tif",
+            tile,
+            gdal_opts=dict(GDAL_DISABLE_READDIR_ON_OPEN=False),
+        )
+
+
+def test_read_raster_window_s3_invalid_file():
+    tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
+    with pytest.raises(MapcheteIOError):
+        read_raster_window(
+            "s3://mapchete-test/landpoly.geojson",
+            tile,
+            gdal_opts=dict(GDAL_DISABLE_READDIR_ON_OPEN=False),
+        )
 
 
 def test_read_raster_no_crs_errors():

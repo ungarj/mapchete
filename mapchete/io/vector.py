@@ -256,11 +256,26 @@ def _get_reprojected_features(
                 src = exit_stack.enter_context(fiona.open(inp, "r"))
                 src_crs = CRS(src.crs)
             except Exception as e:
-                if path_exists(inp):
-                    logger.error("error while reading file %s: %s", inp, e)
-                    raise e
+                # fiona errors which indicate file does not exist
+                for i in (
+                    "does not exist in the file system",
+                    "No such file or directory",
+                ):
+                    if i in str(e):
+                        raise FileNotFoundError("%s not found" % inp)
                 else:
-                    raise FileNotFoundError("%s not found" % inp)
+                    try:
+                        # NOTE: this can cause addional S3 requests
+                        exists = path_exists(inp)
+                    except Exception:
+                        # in order not to mask the original fiona exception, raise it
+                        raise e
+                    if exists:
+                        # raise fiona exception
+                        raise e
+                    else:
+                        # file does not exist
+                        raise FileNotFoundError("%s not found" % inp)
         else:
             src = inp
             src_crs = inp.crs
