@@ -262,9 +262,14 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors and future.exception():  # pragma: no cover
-                    logger.exception(future.exception())
-                    raise future.exception()
+                if raise_errors:  # pragma: no cover
+                    if future.exception():
+                        logger.exception(future.exception())
+                        raise future.exception()
+                    elif future.cancelled():
+                        logger.debug("future %s was cancelled!", future)
+                        # this should raise the CancelledError
+                        future.result()
                 logger.debug("task %s finished: %s", num_processed, future)
                 yield future
         else:
@@ -279,9 +284,14 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors and future.exception():  # pragma: no cover
-                    logger.exception(future.exception())
-                    raise future.exception()
+                if raise_errors:  # pragma: no cover
+                    if future.exception():
+                        logger.exception(future.exception())
+                        raise future.exception()
+                    elif future.cancelled():
+                        logger.debug("future %s was cancelled!", future)
+                        # this should raise the CancelledError
+                        future.result()
                 logger.debug("task %s finished: %s", num_processed, future)
                 yield future
 
