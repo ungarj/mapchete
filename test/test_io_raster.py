@@ -193,6 +193,9 @@ def test_read_raster_window_s3_filenotfound_gdalreaddir(mp_s3_tmpdir):
         )
 
 
+@pytest.mark.skip(
+    reason="this test should pass with a newer GDAL release: https://github.com/OSGeo/gdal/issues/1900"
+)
 def test_read_raster_window_s3_invalid_file():
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(MapcheteIOError):

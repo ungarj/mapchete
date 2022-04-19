@@ -262,7 +262,9 @@ def _get_reprojected_features(
                     "No such file or directory",
                 ):
                     if i in str(e):
-                        raise FileNotFoundError("%s not found" % inp)
+                        raise FileNotFoundError(
+                            "%s not found and cannot be opened with Fiona" % inp
+                        )
                 else:
                     try:
                         # NOTE: this can cause addional S3 requests
@@ -275,7 +277,9 @@ def _get_reprojected_features(
                         raise e
                     else:
                         # file does not exist
-                        raise FileNotFoundError("%s not found" % inp)
+                        raise FileNotFoundError(
+                            "%s not found and cannot be opened with Fiona" % inp
+                        )
         else:
             src = inp
             src_crs = inp.crs

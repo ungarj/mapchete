@@ -354,7 +354,9 @@ def _rasterio_read(
             # rasterio errors which indicate file does not exist
             for i in ("does not exist in the file system", "No such file or directory"):
                 if i in str(e):
-                    raise FileNotFoundError("%s not found" % input_file)
+                    raise FileNotFoundError(
+                        "%s not found and cannot be opened with rasterio" % input_file
+                    )
             else:
                 try:
                     # NOTE: this can cause addional S3 requests
@@ -367,7 +369,9 @@ def _rasterio_read(
                     raise e
                 else:
                     # file does not exist
-                    raise FileNotFoundError("%s not found" % input_file)
+                    raise FileNotFoundError(
+                        "%s not found and cannot be opened with rasterio" % input_file
+                    )
 
     else:  # pragma: no cover
         logger.debug("assuming file object %s", input_file)
