@@ -665,6 +665,7 @@ def _read_as_tiledir(
                 [path for _, path in tiles_paths],
                 out_tile,
                 validity_check=validity_check,
+                skip_missing_files=True,
             )
         else:
             return []
@@ -673,11 +674,13 @@ def _read_as_tiledir(
             return read_raster_window(
                 [path for _, path in tiles_paths],
                 out_tile,
-                indexes=indexes,
+                indexes=indexes or list(range(1, profile["count"] + 1)),
                 resampling=resampling,
                 src_nodata=profile["nodata"],
                 dst_nodata=dst_nodata,
                 gdal_opts=gdal_opts,
+                skip_missing_files=True,
+                dst_dtype=profile["dtype"],
             )
         else:
             bands = len(indexes) if indexes else profile["count"]

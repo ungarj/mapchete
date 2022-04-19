@@ -205,7 +205,6 @@ def _get_tiles_paths(basepath=None, ext=None, pyramid=None, bounds=None, zoom=No
             )
             for t in pyramid.tiles_from_bounds(bounds, zoom)
         ]
-        if path_exists(_path)
     ]
 
 
@@ -406,9 +405,7 @@ class InputTile(base.InputTile):
                     bounds=td_bounds,
                     zoom=zoom,
                 )
-                logger.debug(
-                    "%s existing tiles found at zoom %s", len(tiles_paths), zoom
-                )
+                logger.debug("%s potential tiles at zoom %s", len(tiles_paths), zoom)
                 zoom -= 1
         else:
             tiles_paths = _get_tiles_paths(
@@ -418,6 +415,6 @@ class InputTile(base.InputTile):
                 bounds=td_bounds,
                 zoom=zoom,
             )
-            logger.debug("%s existing tiles found at zoom %s", len(tiles_paths), zoom)
+            logger.debug("%s potential tiles at zoom %s", len(tiles_paths), zoom)
 
         return tiles_paths

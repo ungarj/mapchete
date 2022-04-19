@@ -39,7 +39,9 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-def read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False):
+def read_vector_window(
+    inp, tile, validity_check=True, clip_to_crs_bounds=False, skip_missing_files=False
+):
     """
     Read a window of an input vector dataset.
 
@@ -62,21 +64,26 @@ def read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False)
     features : list
       a list of reprojected GeoJSON-like features
     """
+
+    def _gen_features(
+        inp, tile, validity_check, clip_to_crs_bounds, skip_missing_files
+    ):
+        for path in inp if isinstance(inp, list) else [inp]:
+            try:
+                yield from _read_vector_window(
+                    path,
+                    tile,
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
+                )
+            except FileNotFoundError:
+                if skip_missing_files:
+                    logger.debug("skip missing file %s", path)
+                else:
+                    raise
+
     try:
-        return [
-            feature
-            for feature in chain.from_iterable(
-                [
-                    _read_vector_window(
-                        path,
-                        tile,
-                        validity_check=validity_check,
-                        clip_to_crs_bounds=clip_to_crs_bounds,
-                    )
-                    for path in (inp if isinstance(inp, list) else [inp])
-                ]
-            )
-        ]
+        return list(_gen_features())
     except FileNotFoundError:  # pragma: no cover
         raise
     except Exception as e:  # pragma: no cover
@@ -260,6 +267,7 @@ def _get_reprojected_features(
                 for i in (
                     "does not exist in the file system",
                     "No such file or directory",
+                    "The specified key does not exist",
                 ):
                     if i in str(e):
                         raise FileNotFoundError(
