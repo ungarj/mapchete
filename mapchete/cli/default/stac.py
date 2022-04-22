@@ -68,7 +68,8 @@ def create_item(
     ) = output_info(input_)
 
     if default_zoom:
-        zoom = zoom or validate_zooms(default_zoom)
+        zoom = zoom or default_zoom
+    zoom = validate_zooms(zoom)
 
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom must be set")
