@@ -123,16 +123,18 @@ def _read_raster_window(
     dst_dtype=None,
     skip_missing_files=False,
 ):
-    if isinstance(input_files, list):
-        # in case multiple input files are given, merge output into one array
-        # using the default rasterio behavior, create a 2D array if only one band
-        # is read and a 3D array if multiple bands are read
+    def _empty_array():
+        if indexes is None:  # pragma: no cover
+            raise ValueError(
+                "output shape cannot be determined because no given input files "
+                "exist and no band indexes are given"
+            )
         dst_shape = (
             (len(indexes), tile.height, tile.width)
             if len(indexes) > 1
             else (tile.height, tile.width)
         )
-        dst_array = ma.masked_array(
+        return ma.masked_array(
             data=np.full(
                 dst_shape,
                 src_nodata if dst_nodata is None else dst_nodata,
@@ -140,6 +142,12 @@ def _read_raster_window(
             ),
             mask=True,
         )
+
+    if isinstance(input_files, list):
+        # in case multiple input files are given, merge output into one array
+        # using the default rasterio behavior, create a 2D array if only one band
+        # is read and a 3D array if multiple bands are read
+        dst_array = None
         # read files and add one by one to the output array
         for f in input_files:
             try:
@@ -151,52 +159,64 @@ def _read_raster_window(
                     src_nodata=src_nodata,
                     dst_nodata=dst_nodata,
                 )
-                dst_array[~f_array.mask] = f_array.data[~f_array.mask]
-                dst_array.mask[~f_array.mask] = False
-                logger.debug("added to output array")
+                if dst_array is None:
+                    dst_array = f_array
+                else:
+                    dst_array[~f_array.mask] = f_array.data[~f_array.mask]
+                    dst_array.mask[~f_array.mask] = False
+                    logger.debug("added to output array")
             except FileNotFoundError:
                 if skip_missing_files:
                     logger.debug("skip missing file %s", f)
                 else:
                     raise
+        if dst_array is None:
+            dst_array = _empty_array()
         return dst_array
     else:
-        input_file = input_files
-        dst_shape = tile.shape
+        try:
+            input_file = input_files
+            dst_shape = tile.shape
 
-        if not isinstance(indexes, int):
-            if indexes is None:
-                dst_shape = (None,) + dst_shape
-            elif len(indexes) == 1:
-                indexes = indexes[0]
+            if not isinstance(indexes, int):
+                if indexes is None:
+                    dst_shape = (None,) + dst_shape
+                elif len(indexes) == 1:
+                    indexes = indexes[0]
+                else:
+                    dst_shape = (len(indexes),) + dst_shape
+            # Check if potentially tile boundaries exceed tile matrix boundaries on
+            # the antimeridian, the northern or the southern boundary.
+            if tile.tp.is_global and tile.pixelbuffer and tile.is_on_edge():
+                return _get_warped_edge_array(
+                    tile=tile,
+                    input_file=input_file,
+                    indexes=indexes,
+                    dst_shape=dst_shape,
+                    resampling=resampling,
+                    src_nodata=src_nodata,
+                    dst_nodata=dst_nodata,
+                )
+
+            # If tile boundaries don't exceed pyramid boundaries, simply read window
+            # once.
             else:
-                dst_shape = (len(indexes),) + dst_shape
-        # Check if potentially tile boundaries exceed tile matrix boundaries on
-        # the antimeridian, the northern or the southern boundary.
-        if tile.tp.is_global and tile.pixelbuffer and tile.is_on_edge():
-            return _get_warped_edge_array(
-                tile=tile,
-                input_file=input_file,
-                indexes=indexes,
-                dst_shape=dst_shape,
-                resampling=resampling,
-                src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-            )
-
-        # If tile boundaries don't exceed pyramid boundaries, simply read window
-        # once.
-        else:
-            return _get_warped_array(
-                input_file=input_file,
-                indexes=indexes,
-                dst_bounds=tile.bounds,
-                dst_shape=dst_shape,
-                dst_crs=tile.crs,
-                resampling=resampling,
-                src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-            )
+                return _get_warped_array(
+                    input_file=input_file,
+                    indexes=indexes,
+                    dst_bounds=tile.bounds,
+                    dst_shape=dst_shape,
+                    dst_crs=tile.crs,
+                    resampling=resampling,
+                    src_nodata=src_nodata,
+                    dst_nodata=dst_nodata,
+                )
+        except FileNotFoundError:  # pragma: no cover
+            if skip_missing_files:
+                logger.debug("skip missing file %s", f)
+                return _empty_array()
+            else:
+                raise
 
 
 def _get_warped_edge_array(
