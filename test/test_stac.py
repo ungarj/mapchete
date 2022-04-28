@@ -1,13 +1,19 @@
 import json
+from packaging import version
 import pytest
+import rasterio
+from rasterio.errors import RasterioIOError
 from shapely.geometry import box, shape
 
+from mapchete.commands import execute
+from mapchete.io import fs_from_path
 from mapchete.io.vector import reproject_geometry
 from mapchete.stac import (
     tile_directory_stac_item,
     update_tile_directory_stac_item,
     tile_pyramid_from_item,
     zoom_levels_from_item,
+    create_prototype_files,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -244,3 +250,40 @@ def test_zoom_levels_from_item_errors():
     item.properties = {}
     with pytest.raises(AttributeError):
         zoom_levels_from_item(item)
+
+
+@pytest.mark.skipif(
+    version.parse(rasterio.__gdal_version__) < version.parse("3.3.0"),
+    reason="required STACTA driver is only available in GDAL>=3.3.0",
+)
+def test_create_prototype_file(example_mapchete):
+    # create sparse tiledirectory with no tiles at row/col 0/0
+    execute(example_mapchete.dict, zoom=[10, 11])
+
+    # read STACTA with rasterio and expect an exception
+    stac_path = example_mapchete.mp().config.output.stac_path
+    assert fs_from_path(stac_path).exists(stac_path)
+
+    with pytest.raises(RasterioIOError):
+        rasterio.open(stac_path)
+
+    # create prototype file and assert reading is possible
+    create_prototype_files(example_mapchete.mp())
+    rasterio.open(stac_path)
+
+
+@pytest.mark.skipif(
+    version.parse(rasterio.__gdal_version__) < version.parse("3.3.0"),
+    reason="required STACTA driver is only available in GDAL>=3.3.0",
+)
+def test_create_prototype_file_exists(cleantopo_tl):
+    # create sparse tiledirectory with no tiles at row/col 0/0
+    execute(cleantopo_tl.dict)
+
+    # read STACTA with rasterio and expect an exception
+    stac_path = cleantopo_tl.mp().config.output.stac_path
+    assert fs_from_path(stac_path).exists(stac_path)
+
+    # create prototype file and assert reading is possible
+    create_prototype_files(cleantopo_tl.mp())
+    rasterio.open(stac_path)
