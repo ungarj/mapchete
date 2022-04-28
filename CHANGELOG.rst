@@ -4,6 +4,18 @@ Changelog
 
 
 ---------------------
+2022.4.1 - 2022-04-28
+---------------------
+
+* core
+
+  * explicitly check whether futures were cancelled
+  * `mapchete stac create-item`: also expand custom zoom levels
+  * don't throw exception if STAC file cannot be written or updated
+  * add `mapchete stac create-protoype-files` command to write STACTA prototype datasets required by GDAL
+
+
+---------------------
 2022.4.0 - 2022-04-01
 ---------------------
 
