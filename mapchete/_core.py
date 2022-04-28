@@ -700,6 +700,8 @@ class Mapchete(object):
             logger.warning(
                 "cannot create STAC item because footprint cannot be reprojected into EPSG:4326"
             )
+        except Exception as exc:  # pragma: no cover
+            logger.warning("cannot create or update STAC item: %s", str(exc))
 
     def _process_and_overwrite_output(self, tile, process_tile):
         if self.with_cache:
