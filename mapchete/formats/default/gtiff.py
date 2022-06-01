@@ -476,7 +476,7 @@ class GTiffSingleFileOutputWriter(
             self.overviews_levels = self.output_params.get(
                 "overviews_levels",
                 [
-                    2 ** i
+                    2**i
                     for i in range(
                         1,
                         get_maximum_overview_level(

@@ -39,7 +39,9 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-def read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False):
+def read_vector_window(
+    inp, tile, validity_check=True, clip_to_crs_bounds=False, skip_missing_files=False
+):
     """
     Read a window of an input vector dataset.
 
@@ -62,21 +64,24 @@ def read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False)
     features : list
       a list of reprojected GeoJSON-like features
     """
+
+    def _gen_features():
+        for path in inp if isinstance(inp, list) else [inp]:
+            try:
+                yield from _read_vector_window(
+                    path,
+                    tile,
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
+                )
+            except FileNotFoundError:
+                if skip_missing_files:
+                    logger.debug("skip missing file %s", path)
+                else:
+                    raise
+
     try:
-        return [
-            feature
-            for feature in chain.from_iterable(
-                [
-                    _read_vector_window(
-                        path,
-                        tile,
-                        validity_check=validity_check,
-                        clip_to_crs_bounds=clip_to_crs_bounds,
-                    )
-                    for path in (inp if isinstance(inp, list) else [inp])
-                ]
-            )
-        ]
+        return list(_gen_features())
     except FileNotFoundError:  # pragma: no cover
         raise
     except Exception as e:  # pragma: no cover
@@ -256,11 +261,31 @@ def _get_reprojected_features(
                 src = exit_stack.enter_context(fiona.open(inp, "r"))
                 src_crs = CRS(src.crs)
             except Exception as e:
-                if path_exists(inp):
-                    logger.error("error while reading file %s: %s", inp, e)
-                    raise e
+                # fiona errors which indicate file does not exist
+                for i in (
+                    "does not exist in the file system",
+                    "No such file or directory",
+                    "The specified key does not exist",
+                ):
+                    if i in str(e):
+                        raise FileNotFoundError(
+                            "%s not found and cannot be opened with Fiona" % inp
+                        )
                 else:
-                    raise FileNotFoundError("%s not found" % inp)
+                    try:
+                        # NOTE: this can cause addional S3 requests
+                        exists = path_exists(inp)
+                    except Exception:  # pragma: no cover
+                        # in order not to mask the original fiona exception, raise it
+                        raise e
+                    if exists:
+                        # raise fiona exception
+                        raise e
+                    else:
+                        # file does not exist
+                        raise FileNotFoundError(
+                            "%s not found and cannot be opened with Fiona" % inp
+                        )
         else:
             src = inp
             src_crs = inp.crs

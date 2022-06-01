@@ -43,6 +43,7 @@ def path_exists(path, fs=None, **kwargs):
     """
     fs = fs or fs_from_path(path, **kwargs)
     fs.invalidate_cache(path=path)
+    logger.debug("check if path exists: %s", path)
     return fs.exists(path)
 
 
