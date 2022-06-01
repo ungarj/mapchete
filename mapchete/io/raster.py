@@ -518,6 +518,7 @@ def write_raster_window(
     out_path=None,
     tags=None,
     fs=None,
+    write_empty=False,
     **kwargs,
 ):
     """
@@ -561,7 +562,7 @@ def write_raster_window(
         out_profile["transform"] = out_profile.pop("affine")
 
     # write if there is any band with non-masked data
-    if window_data.all() is not ma.masked:
+    if write_empty or (window_data.all() is not ma.masked):
 
         try:
             with rasterio_write(out_path, "w", fs=fs, **out_profile) as dst:

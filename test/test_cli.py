@@ -4,10 +4,10 @@ from click.testing import CliRunner
 import fiona
 import geobuf
 import os
+from packaging import version
 import pytest
 from shapely import wkt
 from shapely.geometry import shape
-import shapely.geos
 import rasterio
 from rasterio.io import MemoryFile
 from rio_cogeo.cogeo import cog_validate
@@ -17,7 +17,6 @@ import yaml
 import mapchete
 from mapchete.cli.main import main as mapchete_cli
 from mapchete.cli import options
-from mapchete.errors import MapcheteProcessOutputError
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -1499,6 +1498,7 @@ def test_fs_opt_extractor():
 
 
 def test_stac_mapchete_file(cleantopo_br):
+    run_cli(["execute", cleantopo_br.path])
     run_cli(["stac", "create-item", cleantopo_br.path, "-z", "5", "--force"])
 
 
@@ -1515,3 +1515,13 @@ def test_stac_tiledir(http_tiledir, mp_tmpdir):
             f"{mp_tmpdir}/stac_example.json",
         ]
     )
+
+
+@pytest.mark.skipif(
+    version.parse(rasterio.__gdal_version__) < version.parse("3.3.0"),
+    reason="required STACTA driver is only available in GDAL>=3.3.0",
+)
+def test_stac_prototype_files(cleantopo_br):
+    run_cli(["execute", cleantopo_br.path])
+    run_cli(["stac", "create-prototype-files", cleantopo_br.path])
+    rasterio.open(cleantopo_br.mp().config.output.stac_path)

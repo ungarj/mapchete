@@ -1,16 +1,17 @@
 from collections import OrderedDict
 import datetime
 import logging
-from nis import match
+import numpy as np
+import numpy.ma as ma
 import os
 from pyproj import CRS
-from typing import Type
 from shapely.geometry import box, mapping
 
 from tilematrix._funcs import Bounds
 
 from mapchete.errors import ReprojectionFailed
-from mapchete.io import fs_from_path
+from mapchete.io import makedirs
+from mapchete.io.raster import write_raster_window
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
@@ -439,3 +440,34 @@ def zoom_levels_from_item(item):
         return zoom_levels
     else:
         raise AttributeError("STAC item does have tile matrix sets defined")
+
+
+def create_prototype_files(mp):
+    # for each zoom level get tile output for 0/0
+    for zoom in mp.config.init_zoom_levels:
+        prototype_tile = mp.config.output_pyramid.tile(zoom, 0, 0)
+        tile_path = mp.config.output.get_path(prototype_tile)
+        # if tile exists, skip
+        if mp.config.output.tiles_exist(output_tile=prototype_tile):
+            logger.debug("prototype tile %s already exists", tile_path)
+            pass
+        # if not, write empty tile
+        else:
+            logger.debug("creating prototype tile %s", tile_path)
+            out_profile = mp.config.output.profile(prototype_tile)
+            makedirs(os.path.dirname(tile_path))
+            write_raster_window(
+                in_tile=prototype_tile,
+                in_data=ma.masked_array(
+                    data=np.full(
+                        (out_profile["count"],) + prototype_tile.shape,
+                        out_profile["nodata"],
+                        dtype=out_profile["dtype"],
+                    ),
+                    mask=True,
+                ),
+                out_profile=out_profile,
+                out_tile=prototype_tile,
+                out_path=tile_path,
+                write_empty=True,
+            )
