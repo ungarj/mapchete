@@ -168,7 +168,7 @@ def _read_raster_window(
             except FileNotFoundError:
                 if skip_missing_files:
                     logger.debug("skip missing file %s", f)
-                else:
+                else:  # pragma: no cover
                     raise
         if dst_array is None:
             dst_array = _empty_array()
@@ -379,7 +379,7 @@ def _rasterio_read(
             with Timer() as t:
                 with rasterio.open(input_file, "r") as src:
                     logger.debug("read from %s...", input_file)
-                    return _read(
+                    out = _read(
                         src,
                         indexes,
                         dst_bounds,
@@ -390,6 +390,7 @@ def _rasterio_read(
                         dst_nodata,
                     )
             logger.debug("read %s in %s", input_file, t)
+            return out
         except RasterioIOError as e:
             # rasterio errors which indicate file does not exist
             for i in (
@@ -405,7 +406,7 @@ def _rasterio_read(
                 try:
                     # NOTE: this can cause addional S3 requests
                     exists = path_exists(input_file)
-                except Exception:
+                except Exception:  # pragma: no cover
                     # in order not to mask the original rasterio exception, raise it
                     raise e
                 if exists:

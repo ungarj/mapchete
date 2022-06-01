@@ -667,7 +667,7 @@ def _read_as_tiledir(
                 validity_check=validity_check,
                 skip_missing_files=True,
             )
-        else:
+        else:  # pragma: no cover
             return []
     elif data_type == "raster":
         if tiles_paths:

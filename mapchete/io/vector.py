@@ -275,7 +275,7 @@ def _get_reprojected_features(
                     try:
                         # NOTE: this can cause addional S3 requests
                         exists = path_exists(inp)
-                    except Exception:
+                    except Exception:  # pragma: no cover
                         # in order not to mask the original fiona exception, raise it
                         raise e
                     if exists:
