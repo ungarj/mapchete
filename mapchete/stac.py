@@ -383,7 +383,7 @@ def tile_pyramid_from_item(item):
         matrix_set = matrix_sets[wkss]
 
         # find out metatiling
-        metatiling_opts = [2 ** x for x in range(10)]
+        metatiling_opts = [2**x for x in range(10)]
         matching_metatiling_opts = []
         for metatiling in metatiling_opts:
             tp = BufferedTilePyramid(grid, metatiling=metatiling)

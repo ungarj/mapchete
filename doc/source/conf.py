@@ -45,9 +45,9 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"Mapchete"
-copyright = u"2015, 2016, 2017, 2018, EOX IT Services"
-author = u"Joachim Ungar"
+project = "Mapchete"
+copyright = "2015, 2016, 2017, 2018, EOX IT Services"
+author = "Joachim Ungar"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -127,7 +127,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "Mapchete.tex", u"Mapchete Documentation", u"Joachim Ungar", "manual"),
+    (master_doc, "Mapchete.tex", "Mapchete Documentation", "Joachim Ungar", "manual"),
 ]
 
 
@@ -135,7 +135,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "mapchete", u"Mapchete Documentation", [author], 1)]
+man_pages = [(master_doc, "mapchete", "Mapchete Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -147,7 +147,7 @@ texinfo_documents = [
     (
         master_doc,
         "Mapchete",
-        u"Mapchete Documentation",
+        "Mapchete Documentation",
         author,
         "Mapchete",
         "Mapchete processes raster and vector geodata.",

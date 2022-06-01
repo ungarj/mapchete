@@ -65,9 +65,7 @@ def read_vector_window(
       a list of reprojected GeoJSON-like features
     """
 
-    def _gen_features(
-        inp, tile, validity_check, clip_to_crs_bounds, skip_missing_files
-    ):
+    def _gen_features():
         for path in inp if isinstance(inp, list) else [inp]:
             try:
                 yield from _read_vector_window(

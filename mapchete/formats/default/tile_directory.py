@@ -191,7 +191,9 @@ class InputData(base.InputData):
         )
 
 
-def _get_tiles_paths(basepath=None, ext=None, pyramid=None, bounds=None, zoom=None):
+def _get_tiles_paths(
+    basepath=None, ext=None, pyramid=None, bounds=None, zoom=None, exists_check=False
+):
     return [
         (_tile, _path)
         for _tile, _path in [
@@ -205,6 +207,7 @@ def _get_tiles_paths(basepath=None, ext=None, pyramid=None, bounds=None, zoom=No
             )
             for t in pyramid.tiles_from_bounds(bounds, zoom)
         ]
+        if not exists_check or (exists_check and path_exists(_path))
     ]
 
 
@@ -404,6 +407,7 @@ class InputTile(base.InputTile):
                     pyramid=self._td_pyramid,
                     bounds=td_bounds,
                     zoom=zoom,
+                    exists_check=True,
                 )
                 logger.debug("%s potential tiles at zoom %s", len(tiles_paths), zoom)
                 zoom -= 1
