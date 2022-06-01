@@ -41,7 +41,7 @@ install_requires = [
 ]
 req_contours = ["matplotlib"]
 req_dask = ["dask", "distributed"]
-req_geobuf = ["geobuf"]
+req_geobuf = ["geobuf", "protobuf<=3.20.1"]
 req_http = ["fsspec[http]", "aiohttp", "requests"]
 req_s3 = ["boto3", "fsspec[s3]", "s3fs>=0.5.1"]
 req_serve = ["flask", "werkzeug>=0.15"]
