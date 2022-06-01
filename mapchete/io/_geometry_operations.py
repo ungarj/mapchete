@@ -76,7 +76,6 @@ def reproject_geometry(
     -------
     geometry : ``shapely.geometry``
     """
-    logger.debug("reproject geometry from %s to %s", src_crs, dst_crs)
     src_crs = validate_crs(src_crs)
     dst_crs = validate_crs(dst_crs)
 

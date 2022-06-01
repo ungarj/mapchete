@@ -453,7 +453,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
                 # sum up tiles for each remaining zoom level
                 count += sum(
                     [
-                        4 ** z
+                        4**z
                         for z in range(
                             # only count zoom levels which are greater than minzoom or
                             # count all zoom levels from tile zoom level to maxzoom

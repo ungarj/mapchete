@@ -32,6 +32,7 @@ from mapchete.io import (
 )
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.tile import BufferedTile
+from mapchete._timer import Timer
 from mapchete.validate import validate_write_window_params
 
 
@@ -47,7 +48,9 @@ def read_raster_window(
     resampling="nearest",
     src_nodata=None,
     dst_nodata=None,
+    dst_dtype=None,
     gdal_opts=None,
+    skip_missing_files=False,
 ):
     """
     Return NumPy arrays from an input raster.
@@ -91,7 +94,9 @@ def read_raster_window(
                 else False,
             )
         ) as env:
-            logger.debug("reading %s with GDAL options %s", input_files, env.options)
+            logger.debug(
+                "reading %s file(s) with GDAL options %s", len(input_files), env.options
+            )
             return _read_raster_window(
                 input_files,
                 tile,
@@ -99,6 +104,8 @@ def read_raster_window(
                 resampling=resampling,
                 src_nodata=src_nodata,
                 dst_nodata=dst_nodata,
+                dst_dtype=dst_dtype,
+                skip_missing_files=skip_missing_files,
             )
     except FileNotFoundError:  # pragma: no cover
         raise
@@ -113,74 +120,103 @@ def _read_raster_window(
     resampling="nearest",
     src_nodata=None,
     dst_nodata=None,
+    dst_dtype=None,
+    skip_missing_files=False,
 ):
+    def _empty_array():
+        if indexes is None:  # pragma: no cover
+            raise ValueError(
+                "output shape cannot be determined because no given input files "
+                "exist and no band indexes are given"
+            )
+        dst_shape = (
+            (len(indexes), tile.height, tile.width)
+            if len(indexes) > 1
+            else (tile.height, tile.width)
+        )
+        return ma.masked_array(
+            data=np.full(
+                dst_shape,
+                src_nodata if dst_nodata is None else dst_nodata,
+                dtype=dst_dtype,
+            ),
+            mask=True,
+        )
+
     if isinstance(input_files, list):
         # in case multiple input files are given, merge output into one array
-        # read first file
-        dst_array = _read_raster_window(
-            input_files[0],
-            tile=tile,
-            indexes=indexes,
-            resampling=resampling,
-            src_nodata=src_nodata,
-            dst_nodata=dst_nodata,
-        )
-        # read subsequent files and merge
-        for f in input_files[1:]:
-            f_array = _read_raster_window(
-                f,
-                tile=tile,
-                indexes=indexes,
-                resampling=resampling,
-                src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-            )
-            dst_array = ma.MaskedArray(
-                data=np.where(f_array.mask, dst_array, f_array).astype(
-                    dst_array.dtype, copy=False
-                ),
-                mask=np.where(f_array.mask, dst_array.mask, f_array.mask).astype(
-                    bool, copy=False
-                ),
-            )
+        # using the default rasterio behavior, create a 2D array if only one band
+        # is read and a 3D array if multiple bands are read
+        dst_array = None
+        # read files and add one by one to the output array
+        for f in input_files:
+            try:
+                f_array = _read_raster_window(
+                    f,
+                    tile=tile,
+                    indexes=indexes,
+                    resampling=resampling,
+                    src_nodata=src_nodata,
+                    dst_nodata=dst_nodata,
+                )
+                if dst_array is None:
+                    dst_array = f_array
+                else:
+                    dst_array[~f_array.mask] = f_array.data[~f_array.mask]
+                    dst_array.mask[~f_array.mask] = False
+                    logger.debug("added to output array")
+            except FileNotFoundError:
+                if skip_missing_files:
+                    logger.debug("skip missing file %s", f)
+                else:  # pragma: no cover
+                    raise
+        if dst_array is None:
+            dst_array = _empty_array()
         return dst_array
     else:
-        input_file = input_files
-        dst_shape = tile.shape
+        try:
+            input_file = input_files
+            dst_shape = tile.shape
 
-        if not isinstance(indexes, int):
-            if indexes is None:
-                dst_shape = (None,) + dst_shape
-            elif len(indexes) == 1:
-                indexes = indexes[0]
+            if not isinstance(indexes, int):
+                if indexes is None:
+                    dst_shape = (None,) + dst_shape
+                elif len(indexes) == 1:
+                    indexes = indexes[0]
+                else:
+                    dst_shape = (len(indexes),) + dst_shape
+            # Check if potentially tile boundaries exceed tile matrix boundaries on
+            # the antimeridian, the northern or the southern boundary.
+            if tile.tp.is_global and tile.pixelbuffer and tile.is_on_edge():
+                return _get_warped_edge_array(
+                    tile=tile,
+                    input_file=input_file,
+                    indexes=indexes,
+                    dst_shape=dst_shape,
+                    resampling=resampling,
+                    src_nodata=src_nodata,
+                    dst_nodata=dst_nodata,
+                )
+
+            # If tile boundaries don't exceed pyramid boundaries, simply read window
+            # once.
             else:
-                dst_shape = (len(indexes),) + dst_shape
-        # Check if potentially tile boundaries exceed tile matrix boundaries on
-        # the antimeridian, the northern or the southern boundary.
-        if tile.tp.is_global and tile.pixelbuffer and tile.is_on_edge():
-            return _get_warped_edge_array(
-                tile=tile,
-                input_file=input_file,
-                indexes=indexes,
-                dst_shape=dst_shape,
-                resampling=resampling,
-                src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-            )
-
-        # If tile boundaries don't exceed pyramid boundaries, simply read window
-        # once.
-        else:
-            return _get_warped_array(
-                input_file=input_file,
-                indexes=indexes,
-                dst_bounds=tile.bounds,
-                dst_shape=dst_shape,
-                dst_crs=tile.crs,
-                resampling=resampling,
-                src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-            )
+                return _get_warped_array(
+                    input_file=input_file,
+                    indexes=indexes,
+                    dst_bounds=tile.bounds,
+                    dst_shape=dst_shape,
+                    dst_crs=tile.crs,
+                    resampling=resampling,
+                    src_nodata=src_nodata,
+                    dst_nodata=dst_nodata,
+                )
+        except FileNotFoundError:  # pragma: no cover
+            if skip_missing_files:
+                logger.debug("skip missing file %s", f)
+                return _empty_array()
+            else:
+                raise
 
 
 def _get_warped_edge_array(
@@ -268,6 +304,8 @@ def _get_warped_array(
             src_nodata=src_nodata,
             dst_nodata=dst_nodata,
         )
+    except FileNotFoundError:
+        raise
     except Exception as e:
         logger.exception("error while reading file %s: %s", input_file, e)
         raise
@@ -337,26 +375,49 @@ def _rasterio_read(
                     )
 
     if isinstance(input_file, str):
-        logger.debug("got file path %s", input_file)
         try:
-            with rasterio.open(input_file, "r") as src:
-                return _read(
-                    src,
-                    indexes,
-                    dst_bounds,
-                    dst_shape,
-                    dst_crs,
-                    resampling,
-                    src_nodata,
-                    dst_nodata,
-                )
+            with Timer() as t:
+                with rasterio.open(input_file, "r") as src:
+                    logger.debug("read from %s...", input_file)
+                    out = _read(
+                        src,
+                        indexes,
+                        dst_bounds,
+                        dst_shape,
+                        dst_crs,
+                        resampling,
+                        src_nodata,
+                        dst_nodata,
+                    )
+            logger.debug("read %s in %s", input_file, t)
+            return out
         except RasterioIOError as e:
-            try:
-                if path_exists(input_file):
+            # rasterio errors which indicate file does not exist
+            for i in (
+                "does not exist in the file system",
+                "No such file or directory",
+                "The specified key does not exist",
+            ):
+                if i in str(e):
+                    raise FileNotFoundError(
+                        "%s not found and cannot be opened with rasterio" % input_file
+                    )
+            else:
+                try:
+                    # NOTE: this can cause addional S3 requests
+                    exists = path_exists(input_file)
+                except Exception:  # pragma: no cover
+                    # in order not to mask the original rasterio exception, raise it
                     raise e
-            except Exception:
-                raise e
-            raise FileNotFoundError("%s not found" % input_file)
+                if exists:
+                    # raise rasterio exception
+                    raise e
+                else:
+                    # file does not exist
+                    raise FileNotFoundError(
+                        "%s not found and cannot be opened with rasterio" % input_file
+                    )
+
     else:  # pragma: no cover
         logger.debug("assuming file object %s", input_file)
         warnings.warn(
