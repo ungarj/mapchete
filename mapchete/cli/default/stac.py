@@ -5,10 +5,11 @@ import json
 import os
 import oyaml as yaml
 
+import mapchete
 from mapchete.cli import options
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import read_output_metadata
-from mapchete.stac import tile_directory_stac_item
+from mapchete.stac import tile_directory_stac_item, create_prototype_files
 from mapchete.validate import validate_zooms
 
 
@@ -68,7 +69,8 @@ def create_item(
     ) = output_info(input_)
 
     if default_zoom:
-        zoom = zoom or validate_zooms(default_zoom)
+        zoom = zoom or default_zoom
+    zoom = validate_zooms(zoom)
 
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom must be set")
@@ -127,3 +129,16 @@ def output_info(inp):
         None,
         None,
     )
+
+
+@stac.command(name="create-prototype-files", help="Create STAC item prototype files.")
+@options.arg_input
+@options.opt_force
+@options.opt_debug
+def prototype_files(
+    input_,
+    force=None,
+    **kwargs,
+):
+    with mapchete.open(input_, mode="readonly") as mp:
+        create_prototype_files(mp)
