@@ -212,12 +212,12 @@ class _ExecutorBase:
 
     def __exit__(self, *args):
         """Exit context manager."""
-        logger.info("closing executor %s...", self._executor)
+        logger.debug("closing executor %s...", self._executor)
         try:
             self._executor.close()
         except Exception:
             self._executor.__exit__(*args)
-        logger.info("closed executor %s", self._executor)
+        logger.debug("closed executor %s", self._executor)
 
     def __repr__(self):  # pragma: no cover
         return f"<Executor ({self._executor_cls})>"
@@ -240,7 +240,7 @@ class DaskExecutor(_ExecutorBase):
         self._executor_client = dask_client
         self._local_cluster = None
         if self._executor_client:  # pragma: no cover
-            logger.info("using existing dask client: %s", dask_client)
+            logger.debug("using existing dask client: %s", dask_client)
         else:
             local_cluster_kwargs = dict(
                 n_workers=max_workers or os.cpu_count(), threads_per_worker=1
@@ -249,7 +249,7 @@ class DaskExecutor(_ExecutorBase):
             if dask_scheduler is None:
                 self._local_cluster = LocalCluster(**local_cluster_kwargs)
             self._executor_kwargs = dict(address=dask_scheduler or self._local_cluster)
-            logger.info(
+            logger.debug(
                 "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
         self._ac_iterator = as_completed(
@@ -465,16 +465,16 @@ class DaskExecutor(_ExecutorBase):
     def __exit__(self, *args):
         """Exit context manager."""
         if self._executor_client:  # pragma: no cover
-            logger.info("client not closing as it was passed on as kwarg")
+            logger.debug("client not closing as it was passed on as kwarg")
         else:
-            logger.info("closing executor %s...", self._executor)
+            logger.debug("closing executor %s...", self._executor)
             try:
                 self._executor.close()
             except Exception:  # pragma: no cover
                 self._executor.__exit__(*args)
-            logger.info("closed executor %s", self._executor)
+            logger.debug("closed executor %s", self._executor)
         if self._local_cluster:
-            logger.info("closing %s", self._local_cluster)
+            logger.debug("closing %s", self._local_cluster)
             self._local_cluster.close()
 
 
