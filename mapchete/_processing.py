@@ -308,11 +308,15 @@ def compute(
                 1,
             ):
                 if raise_errors:  # pragma: no cover
-                    if future.status in ["error", "cancelled"]:
+                    if (
+                        hasattr(future, "status")
+                        and future.status in ["error", "cancelled"]
+                    ) or future.exception(timeout=FUTURE_TIMEOUT):
                         exception = (
-                            future.exception(timeout=FUTURE_TIMEOUT)
-                            if future.status == "error"
-                            else future.result(timeout=FUTURE_TIMEOUT)
+                            future.result(timeout=FUTURE_TIMEOUT)
+                            if hasattr(future, "status")
+                            and future.status == "cancelled"
+                            else future.exception(timeout=FUTURE_TIMEOUT)
                         )
                         raise MapcheteTaskFailed(
                             f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
