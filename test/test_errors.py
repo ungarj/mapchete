@@ -276,7 +276,7 @@ def test_process_exception(mp_tmpdir, cleantopo_br, process_error_py):
     config = cleantopo_br.dict
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
-        with pytest.raises(errors.MapcheteProcessException):
+        with pytest.raises(AssertionError):
             mp.execute((5, 0, 0))
 
 

@@ -12,9 +12,16 @@ from traceback import format_exc
 from typing import Generator
 
 from mapchete.config import get_process_func
-from mapchete._executor import DaskExecutor, Executor, SkippedFuture, FinishedFuture
+from mapchete._executor import (
+    DaskExecutor,
+    Executor,
+    SkippedFuture,
+    FinishedFuture,
+    future_is_failed_or_cancelled,
+    future_exception,
+)
 from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
-from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch, Task
+from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch
 from mapchete._timer import Timer
 from mapchete.validate import validate_zooms
 
@@ -283,16 +290,13 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors:  # pragma: no cover
-                    if future.status in ["error", "cancelled"]:
-                        exception = (
-                            future.exception(timeout=FUTURE_TIMEOUT)
-                            if future.status == "error"
-                            else future.result(timeout=FUTURE_TIMEOUT)
-                        )
-                        raise MapcheteTaskFailed(
-                            f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
-                        ).with_traceback(exception.__traceback__)
+                if raise_errors and future_is_failed_or_cancelled(
+                    future
+                ):  # pragma: no cover
+                    exception = future_exception(future)
+                    raise MapcheteTaskFailed(
+                        f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
+                    ).with_traceback(exception.__traceback__)
                 logger.debug("task %s finished: %s", num_processed, future)
                 yield future
         else:
@@ -307,20 +311,13 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors:  # pragma: no cover
-                    if (
-                        hasattr(future, "status")
-                        and future.status in ["error", "cancelled"]
-                    ) or future.exception(timeout=FUTURE_TIMEOUT):
-                        exception = (
-                            future.result(timeout=FUTURE_TIMEOUT)
-                            if hasattr(future, "status")
-                            and future.status == "cancelled"
-                            else future.exception(timeout=FUTURE_TIMEOUT)
-                        )
-                        raise MapcheteTaskFailed(
-                            f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
-                        ).with_traceback(exception.__traceback__)
+                if raise_errors and future_is_failed_or_cancelled(
+                    future
+                ):  # pragma: no cover
+                    exception = future_exception(future)
+                    raise MapcheteTaskFailed(
+                        f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
+                    ).with_traceback(exception.__traceback__)
                 logger.debug("task %s finished: %s", num_processed, future)
                 yield future
 

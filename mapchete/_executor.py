@@ -182,18 +182,19 @@ class _ExecutorBase:
         if not _dask:
             self.running_futures.discard(future)
         self.finished_futures.discard(future)
-        if (
-            hasattr(future, "status") and future.status == "error"
-        ) or future.exception():  # pragma: no cover
+
+        # raise exception if future errored or was cancelled
+        if future_is_failed_or_cancelled(future):  # pragma: no cover
             logger.error("exception caught in future %s", future)
-            fut_exception = future.exception(timeout=FUTURE_TIMEOUT)
+            fut_exception = future_exception(future)
             logger.exception(fut_exception)
             raise fut_exception
-        result = result or future.result(timeout=FUTURE_TIMEOUT)
-        if isinstance(result, CancelledError):  # pragma: no cover
-            raise result
+
         # create minimal Future-like object with no references to the cluster
-        finished_future = FinishedFuture(future, result=result)
+        finished_future = FinishedFuture(
+            future, result=result or future.result(timeout=FUTURE_TIMEOUT)
+        )
+
         # explicitly release future
         try:
             future.release()
@@ -607,14 +608,14 @@ class FakeFuture:
         except Exception as e:  # pragma: no cover
             self._result, self._exception = None, e
 
-    def result(self):
+    def result(self, **kwargs):
         """Return task result."""
         if self._exception:
             logger.exception(self._exception)
             raise self._exception
         return self._result
 
-    def exception(self):
+    def exception(self, **kwargs):
         """Raise task exception if any."""
         return self._exception
 
@@ -634,11 +635,11 @@ class SkippedFuture:
         self._result = result
         self.skip_info = skip_info
 
-    def result(self):
+    def result(self, **kwargs):
         """Only return initial result value."""
         return self._result
 
-    def exception(self):  # pragma: no cover
+    def exception(self, **kwargs):  # pragma: no cover
         """Nothing to raise here."""
         return
 
@@ -664,14 +665,14 @@ class FinishedFuture:
         except Exception as e:  # pragma: no cover
             self._result, self._exception = None, e
 
-    def result(self):
+    def result(self, **kwargs):
         """Return task result."""
         if self._exception:  # pragma: no cover
             logger.exception(self._exception)
             raise self._exception
         return self._result
 
-    def exception(self):  # pragma: no cover
+    def exception(self, **kwargs):  # pragma: no cover
         """Raise task exception if any."""
         return self._exception
 
@@ -682,3 +683,42 @@ class FinishedFuture:
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
         return f"<FinishedFuture: type: {type(self._result)}, exception: {type(self._exception)})"
+
+
+def future_is_failed_or_cancelled(future):
+    """
+    Return whether future is failed or cancelled.
+
+    This is a workaround between the slightly different APIs of dask and concurrent.futures.
+    It also tries to avoid potentially expensive calls to the dask scheduler.
+    """
+    # dask futures
+    if hasattr(future, "status"):
+        return future.status in ["error", "cancelled"]
+    # concurrent.futures futures
+    else:
+        return future.exception(timeout=FUTURE_TIMEOUT) is not None
+
+
+def future_exception(future):
+    """
+    Return future exception if future errored or cancelled.
+
+    This is a workaround between the slightly different APIs of dask and concurrent.futures.
+    It also tries to avoid potentially expensive calls to the dask scheduler.
+    """
+    # dask futures
+    if hasattr(future, "status"):
+        if future.status == "cancelled":
+            exception = future.result(timeout=FUTURE_TIMEOUT)
+        elif future.status == "error":
+            exception = future.exception(timeout=FUTURE_TIMEOUT)
+        else:
+            exception = None
+    else:
+        # concurrent.futures futures
+        exception = future.exception(timeout=FUTURE_TIMEOUT)
+
+    if exception is None:  # pragma: no cover
+        raise TypeError("future %s does not have an exception to raise", future)
+    return exception

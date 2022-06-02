@@ -65,6 +65,7 @@ def execute(
     ------
     np.ndarray
     """
+    raise NotImplementedError("halt, stop")
     # read clip geometry
     if "clip" in mp.params["input"]:
         clip_geom = mp.open("clip").read()
