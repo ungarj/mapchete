@@ -161,18 +161,35 @@ def task_batches(
                 process.config.zoom_levels if zoom is None else validate_zooms(zoom)
             )
             zoom_levels.sort(reverse=True)
-            tiles = {
-                zoom: (
-                    (tile, skip)
-                    for tile, skip, _ in _filter_skipable(
-                        process=process,
-                        tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
-                        target_set=None,
-                        skip_output_check=skip_output_check,
-                    )
-                )
-                for zoom in zoom_levels
-            }
+            tiles = {}
+
+            # here we store the parents of tiles about to be processed so we can update overviews
+            # also in "continue" mode in case there were updates at the baselevel
+            overview_parents = set()
+            for i, zoom in enumerate(zoom_levels):
+                tiles[zoom] = []
+
+                for tile, skip, _ in _filter_skipable(
+                    process=process,
+                    tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                    target_set=(
+                        overview_parents if process.config.baselevels and i else None
+                    ),
+                    skip_output_check=skip_output_check,
+                ):
+                    tiles[zoom].append((tile, skip))
+                    # in case of building overviews from baselevels, remember which parent
+                    # tile needs to be updated later on
+                    if (
+                        not skip_output_check
+                        and process.config.baselevels
+                        and tile.zoom > 0
+                    ):
+                        # add parent tile
+                        overview_parents.add(tile.get_parent())
+                        # we don't need the current tile anymore
+                    overview_parents.discard(tile)
+
         if process.config.output.write_in_parent_process:
             func = _execute
             fkwargs = dict(append_data=propagate_results)
@@ -584,7 +601,6 @@ def _compute_task_graph(
         loop=executor._executor.loop,
     ).batches():
         for future in batch:
-            futures.remove(future)
             if process.config.output.write_in_parent_process:
                 yield FinishedFuture(
                     result=_write(
@@ -595,6 +611,7 @@ def _compute_task_graph(
                 )
             else:
                 yield future
+            futures.remove(future)
 
 
 def _compute_tasks(
@@ -758,10 +775,7 @@ def _run_multi_overviews(
                         and process_info.tile.zoom > 0
                     ):
                         overview_parents.add(process_info.tile.get_parent())
-            try:
-                overview_parents.remove(process_info.tile)
-            except KeyError:
-                pass
+            overview_parents.discard(process_info.tile)
             yield FinishedFuture(result=process_info)
 
 
