@@ -180,14 +180,13 @@ class _ExecutorBase:
         Release future from cluster explicitly and wrap result around FinishedFuture object.
         """
         if not _dask:
-            try:
-                self.running_futures.remove(future)
-            except KeyError:  # pragma: no cover
-                pass
+            self.running_futures.discard(future)
         self.finished_futures.discard(future)
-        fut_exception = future.exception(timeout=FUTURE_TIMEOUT)
-        if fut_exception:  # pragma: no cover
+        if (
+            hasattr(future, "status") and future.status == "error"
+        ) or future.exception():  # pragma: no cover
             logger.error("exception caught in future %s", future)
+            fut_exception = future.exception(timeout=FUTURE_TIMEOUT)
             logger.exception(fut_exception)
             raise fut_exception
         result = result or future.result(timeout=FUTURE_TIMEOUT)

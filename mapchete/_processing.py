@@ -5,6 +5,7 @@ from contextlib import ExitStack
 from itertools import chain
 import logging
 import multiprocessing
+import os
 from shapely.geometry import mapping
 from tilematrix._funcs import Bounds
 from traceback import format_exc
@@ -12,10 +13,13 @@ from typing import Generator
 
 from mapchete.config import get_process_func
 from mapchete._executor import DaskExecutor, Executor, SkippedFuture, FinishedFuture
-from mapchete.errors import MapcheteNodataTile
+from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
 from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch, Task
 from mapchete._timer import Timer
 from mapchete.validate import validate_zooms
+
+FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
+
 
 logger = logging.getLogger(__name__)
 
@@ -280,13 +284,15 @@ def compute(
                 1,
             ):
                 if raise_errors:  # pragma: no cover
-                    if future.exception():
-                        logger.exception(future.exception())
-                        raise future.exception()
-                    elif future.cancelled():
-                        logger.debug("future %s was cancelled!", future)
-                        # this should raise the CancelledError
-                        future.result()
+                    if future.status in ["error", "cancelled"]:
+                        exception = (
+                            future.exception(timeout=FUTURE_TIMEOUT)
+                            if future.status == "error"
+                            else future.result(timeout=FUTURE_TIMEOUT)
+                        )
+                        raise MapcheteTaskFailed(
+                            f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
+                        ).with_traceback(exception.__traceback__)
                 logger.debug("task %s finished: %s", num_processed, future)
                 yield future
         else:
@@ -302,13 +308,15 @@ def compute(
                 1,
             ):
                 if raise_errors:  # pragma: no cover
-                    if future.exception():
-                        logger.exception(future.exception())
-                        raise future.exception()
-                    elif future.cancelled():
-                        logger.debug("future %s was cancelled!", future)
-                        # this should raise the CancelledError
-                        future.result()
+                    if future.status in ["error", "cancelled"]:
+                        exception = (
+                            future.exception(timeout=FUTURE_TIMEOUT)
+                            if future.status == "error"
+                            else future.result(timeout=FUTURE_TIMEOUT)
+                        )
+                        raise MapcheteTaskFailed(
+                            f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
+                        ).with_traceback(exception.__traceback__)
                 logger.debug("task %s finished: %s", num_processed, future)
                 yield future
 
@@ -571,7 +579,6 @@ def _compute_task_graph(
 ):
     # TODO optimize memory management, e.g. delete preprocessing tasks from input
     # once the dask graph is ready.
-    from dask.delayed import delayed
     from distributed import as_completed
 
     # materialize all tasks including dependencies
@@ -587,7 +594,6 @@ def _compute_task_graph(
             )
         )
     logger.debug("dask collection with %s tasks generated in %s", len(coll), t)
-
     # send to scheduler
     with Timer() as t:
         futures = executor._executor.compute(coll, optimize_graph=True, traverse=True)

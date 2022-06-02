@@ -13,6 +13,10 @@ class MapcheteProcessException(Exception):
     """Raised when a mapchete process execution fails."""
 
 
+class MapcheteTaskFailed(Exception):
+    """Raised when a task fails."""
+
+
 class MapcheteProcessOutputError(ValueError):
     """Raised when a mapchete process output is invalid."""
 
