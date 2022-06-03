@@ -232,6 +232,7 @@ class TileTask(Task):
                 # append dependent preprocessing task results to input objects
                 if dependencies:
                     for task_key, task_result in dependencies.items():
+                        logger.debug("HERBERT: %s", task_key)
                         if not task_key.startswith("tile_task"):
                             inp_key, task_key = task_key.split(":")[0], ":".join(
                                 task_key.split(":")[1:]
@@ -259,9 +260,7 @@ class TileTask(Task):
             # Log process time
             logger.exception(e)
             logger.error((self.tile.id, "exception in user process", e, str(duration)))
-            new = MapcheteProcessException(format_exc())
-            new.old = e
-            raise new
+            raise
 
         return process_data
 
@@ -424,8 +423,16 @@ def to_dask_collection(batches):
                 )
             else:
                 dependencies = {}
-            tasks[task] = delayed(batch.func)(
-                task, dependencies=dependencies, **batch.fkwargs
+            tasks[task] = delayed(
+                batch.func,
+                pure=True,
+                name=f"{task.id}",
+                traverse=len(dependencies) > 0,
+            )(
+                task,
+                dependencies=dependencies,
+                **batch.fkwargs,
+                dask_key_name=f"{task.id}_finished",
             )
         previous_batch = batch
     return list(tasks.values())

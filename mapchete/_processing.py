@@ -5,17 +5,27 @@ from contextlib import ExitStack
 from itertools import chain
 import logging
 import multiprocessing
+import os
 from shapely.geometry import mapping
 from tilematrix._funcs import Bounds
 from traceback import format_exc
 from typing import Generator
 
 from mapchete.config import get_process_func
-from mapchete._executor import DaskExecutor, Executor, SkippedFuture, FinishedFuture
-from mapchete.errors import MapcheteNodataTile
-from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch, Task
+from mapchete._executor import (
+    DaskExecutor,
+    Executor,
+    SkippedFuture,
+    FinishedFuture,
+    future_raise_exception,
+)
+from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
+from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch
 from mapchete._timer import Timer
 from mapchete.validate import validate_zooms
+
+FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
+
 
 logger = logging.getLogger(__name__)
 
@@ -279,16 +289,8 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors:  # pragma: no cover
-                    if future.exception():
-                        logger.exception(future.exception())
-                        raise future.exception()
-                    elif future.cancelled():
-                        logger.debug("future %s was cancelled!", future)
-                        # this should raise the CancelledError
-                        future.result()
                 logger.debug("task %s finished: %s", num_processed, future)
-                yield future
+                yield future_raise_exception(future, raise_errors=raise_errors)
         else:
             for num_processed, future in enumerate(
                 _compute_tasks(
@@ -301,16 +303,8 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors:  # pragma: no cover
-                    if future.exception():
-                        logger.exception(future.exception())
-                        raise future.exception()
-                    elif future.cancelled():
-                        logger.debug("future %s was cancelled!", future)
-                        # this should raise the CancelledError
-                        future.result()
                 logger.debug("task %s finished: %s", num_processed, future)
-                yield future
+                yield future_raise_exception(future)
 
     logger.info("computed %s tasks in %s", num_processed, duration)
 
@@ -571,7 +565,6 @@ def _compute_task_graph(
 ):
     # TODO optimize memory management, e.g. delete preprocessing tasks from input
     # once the dask graph is ready.
-    from dask.delayed import delayed
     from distributed import as_completed
 
     # materialize all tasks including dependencies
@@ -587,7 +580,6 @@ def _compute_task_graph(
             )
         )
     logger.debug("dask collection with %s tasks generated in %s", len(coll), t)
-
     # send to scheduler
     with Timer() as t:
         futures = executor._executor.compute(coll, optimize_graph=True, traverse=True)
@@ -635,6 +627,7 @@ def _compute_tasks(
             fkwargs=dict(append_data=True),
             **kwargs,
         ):
+            future = future_raise_exception(future)
             result = future.result()
             process.config.set_preprocessing_task_result(result.task_key, result.data)
             yield future
@@ -642,22 +635,21 @@ def _compute_tasks(
     # run single tile
     if tile:
         logger.info("run process on single tile")
-        yield next(
-            executor.as_completed(
-                func=_execute_and_write,
-                iterable=[
-                    TileTask(
-                        tile=tile,
-                        config=process.config,
-                        skip=(
-                            process.config.mode == "continue"
-                            and process.config.output_reader.tiles_exist(tile)
-                        ),
+        for future in executor.as_completed(
+            func=_execute_and_write,
+            iterable=[
+                TileTask(
+                    tile=tile,
+                    config=process.config,
+                    skip=(
+                        process.config.mode == "continue"
+                        and process.config.output_reader.tiles_exist(tile)
                     ),
-                ],
-                fkwargs=dict(output_writer=process.config.output),
-            )
-        )
+                ),
+            ],
+            fkwargs=dict(output_writer=process.config.output),
+        ):
+            yield future_raise_exception(future)
 
     else:
         # for output drivers requiring writing data in parent process
@@ -689,7 +681,7 @@ def _compute_tasks(
             write_in_parent_process=write_in_parent_process,
             **kwargs,
         ):
-            yield future
+            yield future_raise_exception(future)
 
 
 def _run_multi_overviews(
