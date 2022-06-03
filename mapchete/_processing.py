@@ -17,8 +17,7 @@ from mapchete._executor import (
     Executor,
     SkippedFuture,
     FinishedFuture,
-    future_is_failed_or_cancelled,
-    future_exception,
+    future_raise_exception,
 )
 from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
 from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch
@@ -290,15 +289,8 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors and future_is_failed_or_cancelled(
-                    future
-                ):  # pragma: no cover
-                    exception = future_exception(future)
-                    raise MapcheteTaskFailed(
-                        f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
-                    ).with_traceback(exception.__traceback__)
                 logger.debug("task %s finished: %s", num_processed, future)
-                yield future
+                yield future_raise_exception(future, raise_errors=raise_errors)
         else:
             for num_processed, future in enumerate(
                 _compute_tasks(
@@ -311,15 +303,8 @@ def compute(
                 ),
                 1,
             ):
-                if raise_errors and future_is_failed_or_cancelled(
-                    future
-                ):  # pragma: no cover
-                    exception = future_exception(future)
-                    raise MapcheteTaskFailed(
-                        f"{future.key.rstrip('_finished')} raised a {repr(exception)}"
-                    ).with_traceback(exception.__traceback__)
                 logger.debug("task %s finished: %s", num_processed, future)
-                yield future
+                yield future_raise_exception(future)
 
     logger.info("computed %s tasks in %s", num_processed, duration)
 
@@ -642,6 +627,7 @@ def _compute_tasks(
             fkwargs=dict(append_data=True),
             **kwargs,
         ):
+            future = future_raise_exception(future)
             result = future.result()
             process.config.set_preprocessing_task_result(result.task_key, result.data)
             yield future
@@ -649,22 +635,21 @@ def _compute_tasks(
     # run single tile
     if tile:
         logger.info("run process on single tile")
-        yield next(
-            executor.as_completed(
-                func=_execute_and_write,
-                iterable=[
-                    TileTask(
-                        tile=tile,
-                        config=process.config,
-                        skip=(
-                            process.config.mode == "continue"
-                            and process.config.output_reader.tiles_exist(tile)
-                        ),
+        for future in executor.as_completed(
+            func=_execute_and_write,
+            iterable=[
+                TileTask(
+                    tile=tile,
+                    config=process.config,
+                    skip=(
+                        process.config.mode == "continue"
+                        and process.config.output_reader.tiles_exist(tile)
                     ),
-                ],
-                fkwargs=dict(output_writer=process.config.output),
-            )
-        )
+                ),
+            ],
+            fkwargs=dict(output_writer=process.config.output),
+        ):
+            yield future_raise_exception(future)
 
     else:
         # for output drivers requiring writing data in parent process
@@ -696,7 +681,7 @@ def _compute_tasks(
             write_in_parent_process=write_in_parent_process,
             **kwargs,
         ):
-            yield future
+            yield future_raise_exception(future)
 
 
 def _run_multi_overviews(

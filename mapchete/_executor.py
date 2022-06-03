@@ -11,7 +11,7 @@ import warnings
 
 from cached_property import cached_property
 
-from mapchete.errors import JobCancelledError
+from mapchete.errors import JobCancelledError, MapcheteTaskFailed
 from mapchete.log import set_log_level
 from mapchete._timer import Timer
 
@@ -184,16 +184,10 @@ class _ExecutorBase:
         self.finished_futures.discard(future)
 
         # raise exception if future errored or was cancelled
-        if future_is_failed_or_cancelled(future):  # pragma: no cover
-            logger.error("exception caught in future %s", future)
-            fut_exception = future_exception(future)
-            logger.exception(fut_exception)
-            raise fut_exception
+        future = future_raise_exception(future)
 
         # create minimal Future-like object with no references to the cluster
-        finished_future = FinishedFuture(
-            future, result=result or future.result(timeout=FUTURE_TIMEOUT)
-        )
+        finished_future = FinishedFuture(future, result=result)
 
         # explicitly release future
         try:
@@ -253,7 +247,7 @@ class DaskExecutor(_ExecutorBase):
                 "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
         self._ac_iterator = as_completed(
-            loop=self._executor.loop, with_results=True, raise_errors=True
+            loop=self._executor.loop, with_results=True, raise_errors=False
         )
         self._submitted = 0
         super().__init__(*args, **kwargs)
@@ -709,11 +703,11 @@ def future_exception(future):
     """
     # dask futures
     if hasattr(future, "status"):
-        if future.status == "cancelled":
+        if future.status == "cancelled":  # pragma: no cover
             exception = future.result(timeout=FUTURE_TIMEOUT)
         elif future.status == "error":
             exception = future.exception(timeout=FUTURE_TIMEOUT)
-        else:
+        else:  # pragma: no cover
             exception = None
     else:
         # concurrent.futures futures
@@ -722,3 +716,18 @@ def future_exception(future):
     if exception is None:  # pragma: no cover
         raise TypeError("future %s does not have an exception to raise", future)
     return exception
+
+
+def future_raise_exception(future, raise_errors=True):
+    """
+    Checks whether future contains an exception and raises it.
+    """
+    if raise_errors and future_is_failed_or_cancelled(future):
+        exception = future_exception(future)
+        future_name = (
+            future.key.rstrip("_finished") if hasattr(future, "key") else str(future)
+        )
+        raise MapcheteTaskFailed(
+            f"{future_name} raised a {repr(exception)}"
+        ).with_traceback(exception.__traceback__)
+    return future

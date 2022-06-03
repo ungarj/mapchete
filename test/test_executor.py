@@ -1,7 +1,9 @@
 import pytest
 import time
 
+import mapchete
 from mapchete import Executor, SkippedFuture
+from mapchete.errors import MapcheteTaskFailed
 from mapchete._executor import FakeFuture
 
 
@@ -230,3 +232,61 @@ def test_fake_future():
     with pytest.raises(RuntimeError):
         future.result()
     assert future.exception()
+
+
+def test_process_exception_tile(mp_tmpdir, cleantopo_br, process_error_py):
+    """Assert process exception is raised."""
+    config = cleantopo_br.dict
+    config.update(process=process_error_py)
+    with mapchete.open(config) as mp:
+        with pytest.raises(MapcheteTaskFailed):
+            list(mp.compute(tile=(5, 0, 0), concurrency="processes"))
+
+
+def test_process_exception_tile_dask(mp_tmpdir, cleantopo_br, process_error_py):
+    """Assert process exception is raised."""
+    config = cleantopo_br.dict
+    config.update(process=process_error_py)
+    with mapchete.open(config) as mp:
+        with pytest.raises(MapcheteTaskFailed):
+            list(
+                mp.compute(tile=(5, 0, 0), concurrency="dask", dask_compute_graph=True)
+            )
+
+
+def test_process_exception_tile_dask_nograph(mp_tmpdir, cleantopo_br, process_error_py):
+    """Assert process exception is raised."""
+    config = cleantopo_br.dict
+    config.update(process=process_error_py)
+    with mapchete.open(config) as mp:
+        with pytest.raises(MapcheteTaskFailed):
+            list(
+                mp.compute(tile=(5, 0, 0), concurrency="dask", dask_compute_graph=False)
+            )
+
+
+def test_process_exception_zoom(mp_tmpdir, cleantopo_br, process_error_py):
+    """Assert process exception is raised."""
+    config = cleantopo_br.dict
+    config.update(process=process_error_py)
+    with mapchete.open(config) as mp:
+        with pytest.raises(MapcheteTaskFailed):
+            list(mp.compute(zoom=5, concurrency="processes"))
+
+
+def test_process_exception_zoom_dask(mp_tmpdir, cleantopo_br, process_error_py):
+    """Assert process exception is raised."""
+    config = cleantopo_br.dict
+    config.update(process=process_error_py)
+    with mapchete.open(config) as mp:
+        with pytest.raises(MapcheteTaskFailed):
+            list(mp.compute(zoom=5, concurrency="dask", dask_compute_graph=True))
+
+
+def test_process_exception_zoom_dask_nograph(mp_tmpdir, cleantopo_br, process_error_py):
+    """Assert process exception is raised."""
+    config = cleantopo_br.dict
+    config.update(process=process_error_py)
+    with mapchete.open(config) as mp:
+        with pytest.raises(MapcheteTaskFailed):
+            list(mp.compute(zoom=5, concurrency="dask", dask_compute_graph=False))
