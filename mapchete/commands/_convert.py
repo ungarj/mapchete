@@ -337,6 +337,7 @@ def _get_input_info(inp):
 
     # assuming single file if path has a file extension
     if os.path.splitext(inp)[1]:
+        logger.debug("assuming single file")
         driver = driver_from_file(inp)
 
         # single file input can be a mapchete file or a rasterio/fiona file
