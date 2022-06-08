@@ -36,7 +36,7 @@ jobs:
       run: |
         sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
         sudo apt-get -y update
-        sudo apt-get install -y gdal-bin python-tk libgdal-dev libproj-dev libgeos-3.8.0
+        sudo apt-get install -y gdal-bin python-tk libgdal-dev libproj-dev libgeos-dev
         python -m pip install --upgrade pip wheel
         pip install -r test/requirements.txt
         pip install -e .[complete]
