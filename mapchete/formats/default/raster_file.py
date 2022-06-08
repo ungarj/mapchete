@@ -254,14 +254,7 @@ class InputTile(base.InputTile):
             self._in_memory_raster = in_memory_raster
         else:
             self.path = input_data._cached_path or input_data.path
-            if io.path_is_remote(input_data.path):
-                file_ext = os.path.splitext(self.path)[1]
-                self.gdal_opts = {
-                    "GDAL_DISABLE_READDIR_ON_OPEN": True,
-                    "CPL_VSIL_CURL_ALLOWED_EXTENSIONS": "%s,.ovr" % file_ext,
-                }
-            else:
-                self.gdal_opts = {}
+            self.gdal_opts = {}
 
     def __repr__(self):  # pragma: no cover
         source = (

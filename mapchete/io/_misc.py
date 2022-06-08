@@ -17,12 +17,12 @@ GDAL_HTTP_OPTS = dict(
         "GDAL_DISABLE_READDIR_ON_OPEN", "TRUE"
     ).upper()
     == "TRUE",
-    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2, .png, .xml",
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2, .png, .xml, .rpc",
     GDAL_HTTP_TIMEOUT=int(os.environ.get("GDAL_HTTP_TIMEOUT", "30")),
     GDAL_HTTP_MAX_RETRY=int(os.environ.get("GDAL_HTTP_MAX_RETRY", "3")),
     GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=os.environ.get(
         "GDAL_HTTP_MERGE_CONSECUTIVE_RANGES", "TRUE"
-    ).upper
+    ).upper()
     == "TRUE",
     GDAL_HTTP_RETRY_DELAY=int(os.environ.get("GDAL_HTTP_RETRY_DELAY", "5")),
 )
