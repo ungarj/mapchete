@@ -169,12 +169,12 @@ def driver_from_file(input_file, quick=True):
     # brute force by trying to open file with rasterio and fiona:
     try:
         logger.debug("try to open %s with rasterio...", input_file)
-        with rasterio.open(input_file):
+        with rasterio.open(input_file):  # pragma: no cover
             return "raster_file"
     except Exception as rio_exception:
         try:
             logger.debug("try to open %s with fiona...", input_file)
-            with fiona.open(input_file):
+            with fiona.open(input_file):  # pragma: no cover
                 return "vector_file"
         except Exception as fio_exception:
             if path_exists(input_file):
