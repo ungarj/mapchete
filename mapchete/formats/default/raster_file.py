@@ -80,6 +80,28 @@ class InputData(base.InputData):
             if "abstract" in input_params
             else input_params["path"]
         )
+        with rasterio.open(self.path, "r") as src:
+            self.profile = deepcopy(src.meta)
+            # determine bounding box
+            if src.transform.is_identity:
+                if src.gcps[1] is not None:
+                    with WarpedVRT(src) as dst:
+                        self._src_bounds = dst.bounds
+                        self._src_crs = src.gcps[1]
+                        self._src_transform = dst.transform
+                elif src.rpcs:  # pragma: no cover
+                    with WarpedVRT(src) as dst:
+                        self._src_bounds = dst.bounds
+                        self._src_crs = CRS.from_string("EPSG:4326")
+                        self._src_transform = dst.transform
+                else:  # pragma: no cover
+                    raise TypeError("cannot determine georeference")
+            else:
+                self._src_crs = src.crs
+                self._src_bounds = src.bounds
+                self._src_transform = src.transform
+            self._src_bbox = box(*self._src_bounds)
+
         self._cache_task = f"cache_{self.path}"
         if "abstract" in input_params and "cache" in input_params["abstract"]:
             if isinstance(input_params["abstract"]["cache"], dict):
@@ -117,12 +139,6 @@ class InputData(base.InputData):
                 raise ValueError(
                     f"invalid cache configuration given: {input_params['abstract']['cache']}"
                 )
-
-    @cached_property
-    def profile(self):
-        """Return raster metadata."""
-        with rasterio.open(self.path, "r") as src:
-            return deepcopy(src.meta)
 
     def open(self, tile, **kwargs):
         """
@@ -166,37 +182,20 @@ class InputData(base.InputData):
             Shapely geometry object
         """
         out_crs = self.pyramid.crs if out_crs is None else out_crs
-        with rasterio.open(self.path) as src:
-            if src.transform.is_identity:
-                if src.gcps[1] is not None:
-                    with WarpedVRT(src) as dst:
-                        src_bounds = dst.bounds
-                        src_crs = src.gcps[1]
-                        src_transform = dst.transform
-                elif src.rpcs:  # pragma: no cover
-                    with WarpedVRT(src) as dst:
-                        src_bounds = dst.bounds
-                        src_crs = CRS.from_string("EPSG:4326")
-                        src_transform = dst.transform
-                else:  # pragma: no cover
-                    raise TypeError("cannot determine georeference")
-            else:
-                src_crs = src.crs
-                src_bounds = src.bounds
-                src_transform = src.transform
 
-            out_bbox = bbox = box(*src_bounds)
         # If soucre and target CRSes differ, segmentize and reproject
-        if src_crs != out_crs:
+        if self._src_crs != out_crs:
             # estimate segmentize value (raster pixel size * tile size)
             # and get reprojected bounding box
             return reproject_geometry(
-                segmentize_geometry(bbox, src_transform[0] * self.pyramid.tile_size),
-                src_crs=src_crs,
+                segmentize_geometry(
+                    self._src_bbox, self._src_transform[0] * self.pyramid.tile_size
+                ),
+                src_crs=self._src_crs,
                 dst_crs=out_crs,
             )
         else:
-            return out_bbox
+            return self._src_bbox
 
     def exists(self):
         """

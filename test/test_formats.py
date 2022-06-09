@@ -64,7 +64,7 @@ def test_driver_from_file_errors(execute_kwargs_py):
         driver_from_file(execute_kwargs_py)
 
     with pytest.raises(FileNotFoundError):
-        driver_from_file("non_existing_file.tif")
+        driver_from_file("non_existing_file.tif", quick=False)
 
 
 def test_mapchete_input(mapchete_input):
