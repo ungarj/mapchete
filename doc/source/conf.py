@@ -46,7 +46,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Mapchete"
-copyright = "2015, 2016, 2017, 2018, EOX IT Services"
+copyright = "2015 - 2022 EOX IT Services"
 author = "Joachim Ungar"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -177,12 +177,20 @@ autodoc_mock_imports = [
     "pyyaml",
     "pyproj",
     "rasterio",
+    "rasterio.crs",
+    "rasterio.dtypes",
+    "rasterio.enums",
+    "rasterio.errors",
     "rasterio.features",
+    "rasterio.io",
+    "rasterio.profiles",
+    "rasterio.rio.options",
+    "rasterio.rio.overview",
+    "rasterio.transform",
+    "rasterio.vrt",
     "rasterio.warp",
     "rasterio.warp.Resampling",
     "rasterio.windows",
-    "rasterio.crs",
-    "rasterio.io",
     "retry",
     "shapely",
     "shapely.geometry",
