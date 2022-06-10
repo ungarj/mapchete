@@ -6,6 +6,10 @@
 Mapchete: geospatial processing
 ===============================
 
+.. figure:: img/mercator_pyramid.svg
+
+   project logo
+
 Mapchete processes raster and vector geodata.
 
 Processing larger amounts of data requires chunking the input data into smaller

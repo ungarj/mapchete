@@ -1,6 +1,4 @@
-========
-Mapchete
-========
+.. image:: logo/mapchete.svg
 
 Tile-based geodata processing.
 
