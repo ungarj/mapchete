@@ -3,12 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Mapchete: geospatial processing
-===============================
-
 .. figure:: img/mercator_pyramid.svg
 
-   project logo
 
 Mapchete processes raster and vector geodata.
 
