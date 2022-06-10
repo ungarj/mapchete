@@ -144,7 +144,7 @@ def driver_metadata(driver_name):
         raise ValueError(f"driver '{driver_name}' not found")
 
 
-def driver_from_file(input_file):
+def driver_from_file(input_file, quick=True):
     """
     Guess driver from file by opening it.
 
@@ -154,14 +154,27 @@ def driver_from_file(input_file):
         driver name
     """
     file_ext = os.path.splitext(input_file)[1].split(".")[1]
+
+    # mapchete files can immediately be returned:
     if file_ext == "mapchete":
         return "Mapchete"
+
+    # use the most common file extensions to quickly determine input driver for file:
+    if quick:
+        if file_ext in ["tif", "jp2"]:
+            return "raster_file"
+        if file_ext in ["shp", "geojson", "gpkg"]:
+            return "vector_file"
+
+    # brute force by trying to open file with rasterio and fiona:
     try:
-        with rasterio.open(input_file):
+        logger.debug("try to open %s with rasterio...", input_file)
+        with rasterio.open(input_file):  # pragma: no cover
             return "raster_file"
     except Exception as rio_exception:
         try:
-            with fiona.open(input_file):
+            logger.debug("try to open %s with fiona...", input_file)
+            with fiona.open(input_file):  # pragma: no cover
                 return "vector_file"
         except Exception as fio_exception:
             if path_exists(input_file):
