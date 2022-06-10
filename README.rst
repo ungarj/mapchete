@@ -1,14 +1,12 @@
-========
-Mapchete
-========
+.. image:: logo/mapchete.svg
 
 Tile-based geodata processing.
 
 .. image:: https://badge.fury.io/py/mapchete.svg
     :target: https://badge.fury.io/py/mapchete
 
-.. image:: https://travis-ci.org/ungarj/mapchete.svg?branch=master
-    :target: https://travis-ci.org/ungarj/mapchete
+.. image:: https://github.com/ungarj/mapchete/actions/workflows/python-package.yml/badge.svg
+    :target: https://github.com/ungarj/mapchete/actions
 
 .. image:: https://coveralls.io/repos/github/ungarj/mapchete/badge.svg?branch=master
     :target: https://coveralls.io/github/ungarj/mapchete?branch=master
@@ -28,6 +26,10 @@ like shapely_ or numpy_. From within your process code you will have access to t
 in the form of ``NumPy`` arrays for raster data or GeoJSON-like feature dictionaries for
 vector data.
 
+Internally the processing job is split into tasks which can processed in parallel using either
+``concurrent.futures`` or build task graphs and use dask_ to intelligently process either on
+the local machine or on a cluster.
+
 With the help of fiona_ and rasterio_ Mapchete takes care about resampling and
 reprojecting geodata, applying your Python code to the tiles and writing the output either
 into a single file or into a directory of files organized in a WMTS_-like tile pyramid.
@@ -36,6 +38,7 @@ Details on tiling scheme and available map projections are outlined in the
 
 .. _shapely: http://toblerity.org/shapely/
 .. _numpy: http://www.numpy.org/
+.. _dask: https://www.dask.org/
 .. _fiona: https://github.com/Toblerity/Fiona
 .. _rasterio: https://github.com/mapbox/rasterio/
 .. _WMTS: https://en.wikipedia.org/wiki/Web_Map_Tile_Service
@@ -177,6 +180,9 @@ are only available if you manually install additional dependencies:
     # for contour extraction:
     $ pip install mapchete[contours]
 
+    # for dask processing:
+    $ pip install mapchete[dask]
+
     # for S3 bucket reading and writing:
     $ pip install mapchete[s3]
 
@@ -193,6 +199,6 @@ License
 
 MIT License
 
-Copyright (c) 2015 - 2021 `EOX IT Services`_
+Copyright (c) 2015 - 2022 `EOX IT Services`_
 
 .. _`EOX IT Services`: https://eox.at/
