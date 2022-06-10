@@ -180,6 +180,9 @@ are only available if you manually install additional dependencies:
     # for contour extraction:
     $ pip install mapchete[contours]
 
+    # for dask processing:
+    $ pip install mapchete[dask]
+
     # for S3 bucket reading and writing:
     $ pip install mapchete[s3]
 
@@ -196,6 +199,6 @@ License
 
 MIT License
 
-Copyright (c) 2015 - 2021 `EOX IT Services`_
+Copyright (c) 2015 - 2022 `EOX IT Services`_
 
 .. _`EOX IT Services`: https://eox.at/

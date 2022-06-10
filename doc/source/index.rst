@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. figure:: img/mercator_pyramid.svg
+.. figure:: img/mapchete.svg
 
 
 Mapchete processes raster and vector geodata.
