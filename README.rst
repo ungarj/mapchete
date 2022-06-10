@@ -26,6 +26,10 @@ like shapely_ or numpy_. From within your process code you will have access to t
 in the form of ``NumPy`` arrays for raster data or GeoJSON-like feature dictionaries for
 vector data.
 
+Internally the processing job is split into tasks which can processed in parallel using either
+``concurrent.futures`` or build task graphs and use dask_ to intelligently process either on
+the local machine or on a cluster.
+
 With the help of fiona_ and rasterio_ Mapchete takes care about resampling and
 reprojecting geodata, applying your Python code to the tiles and writing the output either
 into a single file or into a directory of files organized in a WMTS_-like tile pyramid.
@@ -34,6 +38,7 @@ Details on tiling scheme and available map projections are outlined in the
 
 .. _shapely: http://toblerity.org/shapely/
 .. _numpy: http://www.numpy.org/
+.. _dask: https://www.dask.org/
 .. _fiona: https://github.com/Toblerity/Fiona
 .. _rasterio: https://github.com/mapbox/rasterio/
 .. _WMTS: https://en.wikipedia.org/wiki/Web_Map_Tile_Service
