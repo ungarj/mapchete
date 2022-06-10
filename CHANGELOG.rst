@@ -2,6 +2,21 @@
 Changelog
 #########
 
+---------------------
+2022.6.0 - 2022-06-10
+---------------------
+
+* core
+
+  * don't log in info when executor closes #463
+  * provide task id in exception if task failes #464
+  * allow overwriting certain GDAL settings which are automatically applied when reading from remote data #467
+
+* packaging/CI
+
+  * add ubuntu 22.04 to test matrix #468
+  * add project logo and repaired readthedocs build #469
+
 
 ---------------------
 2022.4.1 - 2022-04-28
