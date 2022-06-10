@@ -5,8 +5,8 @@ Tile-based geodata processing.
 .. image:: https://badge.fury.io/py/mapchete.svg
     :target: https://badge.fury.io/py/mapchete
 
-.. image:: https://travis-ci.org/ungarj/mapchete.svg?branch=master
-    :target: https://travis-ci.org/ungarj/mapchete
+.. image:: https://github.com/ungarj/mapchete/actions/workflows/python-package.yml/badge.svg
+    :target: https://github.com/ungarj/mapchete/actions
 
 .. image:: https://coveralls.io/repos/github/ungarj/mapchete/badge.svg?branch=master
     :target: https://coveralls.io/github/ungarj/mapchete?branch=master
