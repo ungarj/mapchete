@@ -738,3 +738,13 @@ def test_index_text(cleantopo_br):
 def test_index_errors(mp_tmpdir, cleantopo_br):
     with pytest.raises(ValueError):
         index(cleantopo_br.dict, zoom=5)
+
+
+def test_convert_empty_gpkg(empty_gpkg, mp_tmpdir):
+    convert(
+        empty_gpkg,
+        mp_tmpdir,
+        output_pyramid="geodetic",
+        zoom=5,
+        output_format="GeoJSON",
+    )

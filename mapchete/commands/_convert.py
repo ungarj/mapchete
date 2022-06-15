@@ -421,7 +421,7 @@ def _input_fiona_info(inp):
             crs=src.crs,
             zoom_levels=None,
             input_type="vector",
-            bounds=src.bounds,
+            bounds=src.bounds if len(src) else None,
         )
 
 

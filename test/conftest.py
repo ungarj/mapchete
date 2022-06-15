@@ -122,6 +122,12 @@ def s2_band_remote():
 
 
 @pytest.fixture
+def empty_gpkg():
+    """Fixture for HTTP raster."""
+    return os.path.join(TESTDATA_DIR, "empty.gpkg")
+
+
+@pytest.fixture
 def s3_metadata_json():
     """
     Fixture for s3://mapchete-test/metadata.json.

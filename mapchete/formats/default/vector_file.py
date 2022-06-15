@@ -7,7 +7,7 @@ Currently limited by extensions .shp and .geojson but could be extended easily.
 from cached_property import cached_property
 import fiona
 import logging
-from shapely.geometry import box
+from shapely.geometry import box, Point
 from rasterio.crs import CRS
 
 from mapchete.formats import base
@@ -173,8 +173,11 @@ class InputData(base.InputData):
         out_crs = self.pyramid.crs if out_crs is None else out_crs
         if self._bbox_cache is None:
             with fiona.open(self.path) as inp:
-                self._bbox_cache = CRS(inp.crs), tuple(inp.bounds)
+                self._bbox_cache = CRS(inp.crs), tuple(inp.bounds) if len(inp) else None
         inp_crs, bounds = self._bbox_cache
+        if bounds is None:
+            # this creates an empty GeometryCollection object
+            return Point()
         # TODO find a way to get a good segmentize value in bbox source CRS
         return reproject_geometry(
             box(*bounds), src_crs=inp_crs, dst_crs=out_crs, clip_to_crs_bounds=False
