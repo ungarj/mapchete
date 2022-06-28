@@ -6,6 +6,7 @@ import shutil
 
 import mapchete
 from mapchete.formats import available_input_formats
+from mapchete.formats.default.tile_directory import InputData
 from mapchete.errors import MapcheteDriverError
 
 
@@ -147,6 +148,26 @@ def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
         mp.batch_process(zoom=4)
     config = dict(cleantopo_br_tiledir.dict, input=dict(file1="tmp/cleantopo_br"))
     _run_tiledir_process_raster(config, 4, bounds)
+
+
+def test_read_indexes_shape(cleantopo_br_tiledir):
+    mp = cleantopo_br_tiledir.mp()
+    # create local TileDirectory
+    list(mp.compute())
+    input_data = InputData({"path": mp.config.output_reader.path})
+    input_tile = input_data.open(cleantopo_br_tiledir.first_process_tile())
+
+    # no indexes --> 3D array
+    three_d_arr = input_tile.read()
+    assert three_d_arr.ndim == 3
+
+    # list index --> 3D array
+    three_d_arr = input_tile.read([1])
+    assert three_d_arr.ndim == 3
+
+    # int index --> 2D array
+    two_d_arr = input_tile.read(1)
+    assert two_d_arr.ndim == 2
 
 
 def test_no_metadata_json(mp_tmpdir, cleantopo_br_tiledir):

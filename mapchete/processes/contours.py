@@ -77,6 +77,7 @@ def execute(
     ) as dem:
         logger.debug("reading input raster")
         dem_data = dem.read(
+            1,
             resampling=resampling,
             matching_method=td_matching_method,
             matching_max_zoom=td_matching_max_zoom,

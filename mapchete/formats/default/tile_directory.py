@@ -290,7 +290,8 @@ class InputTile(base.InputTile):
             vector file: also run checks if reprojected geometry is valid,
             otherwise throw RuntimeError (default: True)
         indexes : list or int
-            raster file: a list of band numbers; None will read all.
+            Either a list of band indexes or a single band index. If only a single
+            band index is given, the function returns a 2D array, otherwise a 3D array.
         dst_nodata : int or float, optional
             raster file: if not set, the nodata value from the source dataset
             will be used

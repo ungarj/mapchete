@@ -265,6 +265,14 @@ class InputTile(base.InputTile):
         """
         Read reprojected & resampled input data.
 
+        Parameters
+        ----------
+        indexes : list or int
+            Either a list of band indexes or a single band index. If only a single
+            band index is given, the function returns a 2D array, otherwise a 3D array.
+        resampling : str
+            Resampling method to be used.
+
         Returns
         -------
         data : array
@@ -311,12 +319,9 @@ class InputTile(base.InputTile):
     def _get_band_indexes(self, indexes=None):
         """Return valid band indexes."""
         if indexes:
-            if isinstance(indexes, list):
-                return indexes
-            else:
-                return [indexes]
+            return indexes
         else:
-            return range(1, self.profile["count"] + 1)
+            return list(range(1, self.profile["count"] + 1))
 
 
 def get_segmentize_value(input_file=None, tile_pyramid=None):
