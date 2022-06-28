@@ -86,7 +86,7 @@ def test_read_raster_window_reproject(dummy1_3857_tif, minmax_zoom):
             assert band.shape == tile.shape
         bands = read_raster_window(dummy1_3857_tif, tile, [1])
         assert isinstance(bands, ma.MaskedArray)
-        assert bands.shape == tile.shape
+        assert bands.shape == (1, *tile.shape)
     # errors
     with pytest.raises(IOError):
         read_raster_window("nonexisting_path", tile)

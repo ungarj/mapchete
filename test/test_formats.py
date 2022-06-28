@@ -148,7 +148,7 @@ def test_read_from_raster_file(cleantopo_br):
             input=mp.config.get_inputs_for_tile(tile),
         )
         with user_process.open("file1") as f:
-            assert f.read().shape == f.read([1]).shape == f.read(1).shape
+            assert f.read().shape == f.read([1]).shape == (1, *f.read(1).shape)
 
 
 def test_invalid_input_type(example_mapchete):

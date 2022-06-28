@@ -67,7 +67,7 @@ def test_contours(cleantopo_tl):
             input=mp.config.get_inputs_for_tile(tile),
         )
         with user_process.open("file1") as dem:
-            arr = dem.read()
+            arr = dem.read(1)
             # valid contours
             contours = user_process.contours(arr)
             assert contours

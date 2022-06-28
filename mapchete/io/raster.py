@@ -68,7 +68,9 @@ def read_raster_window(
     tile : Tile
         a Tile object
     indexes : list or int
-        a list of band numbers; None will read all.
+        Either a list of band indexes or a single band index. If only a single
+        band index is given, the function returns a 2D array, otherwise a 3D array.
+        None will read all. This behavior mimicks rasterios.
     resampling : string
         one of "nearest", "average", "bilinear" or "lanczos"
     src_nodata : int or float, optional
@@ -131,7 +133,7 @@ def _read_raster_window(
             )
         dst_shape = (
             (len(indexes), tile.height, tile.width)
-            if len(indexes) > 1
+            if isinstance(indexes, list)
             else (tile.height, tile.width)
         )
         return ma.masked_array(
@@ -177,13 +179,10 @@ def _read_raster_window(
         try:
             input_file = input_files
             dst_shape = tile.shape
-
             if not isinstance(indexes, int):
                 if indexes is None:
                     dst_shape = (None,) + dst_shape
-                elif len(indexes) == 1:
-                    indexes = indexes[0]
-                else:
+                elif isinstance(indexes, list):
                     dst_shape = (len(indexes),) + dst_shape
             # Check if potentially tile boundaries exceed tile matrix boundaries on
             # the antimeridian, the northern or the southern boundary.
