@@ -11,6 +11,7 @@ from mapchete.formats import (
     available_output_formats,
     base,
     driver_from_file,
+    driver_from_extension,
     load_input_reader,
     load_output_reader,
     load_output_writer,
@@ -56,6 +57,22 @@ def test_input_reader_errors():
         load_input_reader({})
     with pytest.raises(errors.MapcheteDriverError):
         load_input_reader({"abstract": {"format": "invalid_format"}})
+
+
+def test_driver_from_file_tif():
+    assert driver_from_file("some.tif") == "raster_file"
+
+
+def test_driver_from_file_jp2():
+    assert driver_from_file("some.jp2") == "raster_file"
+
+
+def test_driver_from_file_geojson():
+    assert driver_from_file("some.geojson") == "vector_file"
+
+
+def test_driver_from_file_shp():
+    assert driver_from_file("some.shp") == "vector_file"
 
 
 def test_driver_from_file_errors(execute_kwargs_py):
@@ -168,3 +185,24 @@ def test_old_style_metadata(old_style_metadata_json, old_geodetic_shape_metadata
     with pytest.deprecated_call():
         params = read_output_metadata(old_geodetic_shape_metadata_json)
         assert params["pyramid"].grid.type == "geodetic"
+
+
+def test_driver_from_extension_tif():
+    assert driver_from_extension("tif") == "raster_file"
+
+
+def test_driver_from_extension_jp2():
+    assert driver_from_extension("jp2") == "raster_file"
+
+
+def test_driver_from_extension_geojson():
+    assert driver_from_extension("geojson") == "vector_file"
+
+
+def test_driver_from_extension_shp():
+    assert driver_from_extension("shp") == "vector_file"
+
+
+def test_driver_from_extension_invalid():
+    with pytest.raises(ValueError):
+        driver_from_extension("invalid")

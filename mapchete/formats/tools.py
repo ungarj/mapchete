@@ -125,7 +125,7 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
                 logger.exception(f"fiona error: {fio_exception}")
                 logger.exception(f"rasterio error: {rio_exception}")
                 raise MapcheteDriverError(
-                    "%s has an unknown file extension or could not be opened by neither "
+                    "%s has an unknown file extension and could not be opened by neither "
                     "rasterio nor fiona." % input_file
                 )
             else:
@@ -146,19 +146,19 @@ def driver_from_extension(file_extension: str) -> str:
     driver : string
         driver name
     """
-    drivers_extensions = {}
+    all_drivers_extensions = {}
     for v in drivers:
         driver = v.load()
         try:
-            driver_extensions = driver.METADATA.get("file_extensions")
-            drivers_extensions[driver.METADATA["driver_name"]] = driver_extensions
+            driver_extensions = driver.METADATA.get("file_extensions", []).copy()
+            all_drivers_extensions[driver.METADATA["driver_name"]] = driver_extensions
             if driver_extensions and file_extension in driver_extensions:
                 return driver.METADATA["driver_name"]
         except AttributeError:  # pragma: no cover
             pass
     else:
         raise ValueError(
-            f"driver name for file extension {file_extension} could not be found: {drivers_extensions}"
+            f"driver name for file extension {file_extension} could not be found: {all_drivers_extensions}"
         )
 
 
@@ -179,7 +179,7 @@ def data_type_from_extension(file_extension: str) -> str:
     for v in drivers:
         driver = v.load()
         try:
-            driver_extensions = driver.METADATA.get("file_extensions")
+            driver_extensions = driver.METADATA.get("file_extensions", [])
             if driver_extensions and file_extension in driver_extensions:
                 return driver.METADATA["data_type"]
         except AttributeError:  # pragma: no cover
