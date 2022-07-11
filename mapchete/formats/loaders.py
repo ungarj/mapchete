@@ -90,6 +90,8 @@ def load_input_reader(
     logger.debug("find input reader with params %s", input_params)
     if not isinstance(input_params, dict):
         raise TypeError("input_params must be a dictionary")
+
+    # find out driver name
     if "abstract" in input_params:
         driver_name = input_params["abstract"]["format"]
     elif "path" in input_params:
@@ -103,6 +105,8 @@ def load_input_reader(
             driver_name = "TileDirectory"
     else:
         raise MapcheteDriverError("invalid input parameters %s" % input_params)
+
+    # load this driver module and try to initialize an InputData object
     for v in drivers:
         driver_ = v.load()
         if hasattr(driver_, "METADATA") and (

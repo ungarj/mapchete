@@ -4,13 +4,15 @@ Functions handling output formats.
 This module deserves a cleaner rewrite some day.
 """
 
+import datetime
+import dateutil.parser
 import fiona
 import logging
 import os
 from pprint import pformat
 import rasterio
 from rasterio.crs import CRS
-from typing import Dict
+from typing import Dict, Type
 import warnings
 
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
@@ -190,9 +192,12 @@ def data_type_from_extension(file_extension: str) -> str:
         )
 
 
-def dump_metadata(params: Dict) -> Dict:
+def dump_metadata(params: Dict, parse_datetime=True) -> Dict:
     """
     Transform params to JSON-serializable dictionary for a metadata.json file.
+
+    This also converts the BufferedTilePyramid to a dictionary and any datetime
+    objects into strings.
 
     Parameters
     ----------
@@ -204,7 +209,7 @@ def dump_metadata(params: Dict) -> Dict:
     Dictionary of output parameters ready to be written as metadata.json.
     """
     # in case GridDefinition was not yet initialized
-    return dict(
+    out = dict(
         pyramid=BufferedTilePyramid(
             grid=params["grid"],
             tile_size=params.get("tile_size", 256),
@@ -217,6 +222,14 @@ def dump_metadata(params: Dict) -> Dict:
             if k not in ["path", "grid", "pixelbuffer", "metatiling"]
         },
     )
+
+    def _datetime_to_str(value):
+        return value.isoformat()
+
+    strategies = [
+        ((datetime.date, datetime.datetime), _datetime_to_str),
+    ]
+    return _unparse_dict(out, strategies=strategies) if parse_datetime else out
 
 
 def read_output_metadata(metadata_json: str, **kwargs: str) -> Dict:
@@ -236,12 +249,12 @@ def read_output_metadata(metadata_json: str, **kwargs: str) -> Dict:
     return load_metadata(read_json(metadata_json, **kwargs))
 
 
-def load_metadata(params: Dict) -> Dict:
+def load_metadata(params: Dict, parse_known_types=True) -> Dict:
     """
     Parse output metadata dictionary.
 
     This function raises DeprecationWarning instances if needed and initializes the
-    BufferedTilePyramid.
+    BufferedTilePyramid as well as datetime objects.
 
     Parameters
     ----------
@@ -253,7 +266,10 @@ def load_metadata(params: Dict) -> Dict:
     out_params : dict
         Output metadata parameters with initialized BufferedTilePyramid.
     """
-    grid = params["pyramid"]["grid"]
+    if not isinstance(params, dict):
+        raise TypeError(f"metadata parameters must be a dictionary, not {params}")
+    out = params.copy()
+    grid = out["pyramid"]["grid"]
     if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:  # pragma: no cover
         warnings.warn(
             DeprecationWarning(
@@ -261,7 +277,7 @@ def load_metadata(params: Dict) -> Dict:
                 "Please change grid shape from [2, 1] to [1, 2]."
             )
         )
-        params["pyramid"]["grid"]["shape"] = [1, 2]
+        out["pyramid"]["grid"]["shape"] = [1, 2]
     if "crs" in grid and isinstance(grid["crs"], str):
         crs = CRS.from_string(grid["crs"])
         warnings.warn(
@@ -271,16 +287,22 @@ def load_metadata(params: Dict) -> Dict:
                 % (grid["crs"], pformat(dict(wkt=crs.to_wkt())))
             )
         )
-        params["pyramid"]["grid"].update(srs=dict(wkt=crs.to_wkt()))
-    params.update(
+        out["pyramid"]["grid"].update(srs=dict(wkt=crs.to_wkt()))
+
+    out.update(
         pyramid=BufferedTilePyramid(
-            params["pyramid"]["grid"],
-            metatiling=params["pyramid"].get("metatiling", 1),
-            tile_size=params["pyramid"].get("tile_size", 256),
-            pixelbuffer=params["pyramid"].get("pixelbuffer", 0),
+            out["pyramid"]["grid"],
+            metatiling=out["pyramid"].get("metatiling", 1),
+            tile_size=out["pyramid"].get("tile_size", 256),
+            pixelbuffer=out["pyramid"].get("pixelbuffer", 0),
         )
     )
-    return params
+
+    strategies = [
+        # create datetime objects and skip on these allowed exceptions
+        (dateutil.parser.parse, (dateutil.parser.ParserError, TypeError)),
+    ]
+    return _parse_dict(out, strategies=strategies) if parse_known_types else out
 
 
 def write_output_metadata(output_params: Dict) -> None:
@@ -339,3 +361,34 @@ def compare_metadata_params(params1: Dict, params2: Dict) -> None:
             "existing output format does not match new output format: "
             "%s != %s" % ((params1["driver"]["format"], params2["driver"]["format"]))
         )
+
+
+def _parse_dict(d, strategies=None):
+    """Iterate through dictionary and try to parse values according to strategies."""
+    strategies = strategies or []
+    out = dict()
+    for k, v in d.items():
+        if isinstance(v, dict):
+            v = _parse_dict(v, strategies=strategies)
+        else:
+            for func, allowed_exception in strategies:
+                try:
+                    v = func(v)
+                except allowed_exception:
+                    pass
+        out[k] = v
+    return out
+
+
+def _unparse_dict(d, strategies=None):
+    """Iterate through dictionary and try to unparse values according to strategies."""
+    strategies = strategies or []
+    out = dict()
+    for k, v in d.items():
+        if isinstance(v, dict):
+            v = _unparse_dict(v, strategies=strategies)
+        for instance_type, func in strategies:
+            if isinstance(v, instance_type):
+                v = func(v)
+        out[k] = v
+    return out
