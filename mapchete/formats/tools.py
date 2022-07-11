@@ -365,30 +365,51 @@ def compare_metadata_params(params1: Dict, params2: Dict) -> None:
 
 def _parse_dict(d, strategies=None):
     """Iterate through dictionary and try to parse values according to strategies."""
+
+    def _parse_val(val):
+        for func, allowed_exception in strategies:
+            try:
+                return func(val)
+            except allowed_exception:
+                pass
+        else:
+            return val
+
     strategies = strategies or []
     out = dict()
     for k, v in d.items():
         if isinstance(v, dict):
             v = _parse_dict(v, strategies=strategies)
+        elif isinstance(v, list):
+            v = [_parse_val(val) for val in v]
+        elif isinstance(v, tuple):
+            v = tuple(_parse_val(val) for val in v)
         else:
-            for func, allowed_exception in strategies:
-                try:
-                    v = func(v)
-                except allowed_exception:
-                    pass
+            v = _parse_val(v)
         out[k] = v
     return out
 
 
 def _unparse_dict(d, strategies=None):
     """Iterate through dictionary and try to unparse values according to strategies."""
+
+    def _unparse_val(val):
+        for instance_type, func in strategies:
+            if isinstance(val, instance_type):
+                return func(val)
+        else:
+            return val
+
     strategies = strategies or []
     out = dict()
     for k, v in d.items():
         if isinstance(v, dict):
             v = _unparse_dict(v, strategies=strategies)
-        for instance_type, func in strategies:
-            if isinstance(v, instance_type):
-                v = func(v)
+        elif isinstance(v, list):
+            v = [_unparse_val(val) for val in v]
+        elif isinstance(v, tuple):
+            v = tuple(_unparse_val(val) for val in v)
+        else:
+            v = _unparse_val(v)
         out[k] = v
     return out

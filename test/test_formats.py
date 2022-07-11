@@ -1,8 +1,9 @@
 """Test Mapchete default formats."""
 
+import datetime
 import pytest
-from tilematrix import TilePyramid
 from rasterio.crs import CRS
+from tilematrix import TilePyramid
 
 import mapchete
 from mapchete import errors
@@ -16,7 +17,10 @@ from mapchete.formats import (
     load_output_reader,
     load_output_writer,
     read_output_metadata,
+    load_metadata,
+    dump_metadata,
 )
+from mapchete.tile import BufferedTilePyramid
 
 
 def test_available_input_formats():
@@ -206,3 +210,36 @@ def test_driver_from_extension_shp():
 def test_driver_from_extension_invalid():
     with pytest.raises(ValueError):
         driver_from_extension("invalid")
+
+
+def test_load_metadata_pyramid(driver_metadata_dict):
+    loaded = load_metadata(driver_metadata_dict)
+    assert isinstance(loaded["pyramid"], BufferedTilePyramid)
+
+
+def test_dump_metadata_pyramid(driver_output_params_dict):
+    dumped = dump_metadata(driver_output_params_dict)
+    assert isinstance(dumped, dict)
+
+
+def test_dump_metadata_datetime(driver_output_params_dict):
+    dumped = dump_metadata(driver_output_params_dict)
+    assert isinstance(dumped["driver"]["time"]["start"], str)
+    assert isinstance(dumped["driver"]["time"]["end"], str)
+
+
+def test_dump_metadata_datetime_list(driver_output_params_dict):
+    dumped = dump_metadata(driver_output_params_dict)
+    for t in dumped["driver"]["time"]["steps"]:
+        assert isinstance(t, str)
+
+
+def test_load_metadata_datetime(driver_output_params_dict):
+    loaded = load_metadata(dump_metadata(driver_output_params_dict))
+    assert isinstance(loaded["driver"]["time"]["start"], datetime.date)
+
+
+def test_load_metadata_datetime_list(driver_output_params_dict):
+    loaded = load_metadata(dump_metadata(driver_output_params_dict))
+    for t in loaded["driver"]["time"]["steps"]:
+        assert isinstance(t, datetime.date)
