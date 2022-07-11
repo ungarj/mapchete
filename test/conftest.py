@@ -1,13 +1,15 @@
 """All pytest fixtures."""
 
-import boto3
 from collections import namedtuple
+import datetime
 import os
 import pytest
 from shapely import wkt
 import shutil
 import uuid
 import yaml
+
+from tilematrix import Bounds, GridDefinition
 
 from mapchete.cli.default.serve import create_app
 from mapchete.io import fs_from_path
@@ -157,6 +159,78 @@ def old_geodetic_shape_metadata_json():
     Fixture for old_geodetic_shape_metadata.json.
     """
     return os.path.join(TESTDATA_DIR, "old_geodetic_shape_metadata.json")
+
+
+@pytest.fixture
+def driver_metadata_dict():
+    """Content of a metadata.json file as dictionary."""
+    return {
+        "driver": {
+            "bands": 1,
+            "compress": "deflate",
+            "delimiters": {
+                "bounds": [-180.0, -90.0, 180.0, 90.0],
+                "effective_bounds": [-180.17578125, -90.0, 180.17578125, 90.0],
+                "process_bounds": [-180.0, -90.0, 180.0, 90.0],
+                "zoom": [0, 1, 2, 3, 4, 5, 6, 7, 8],
+            },
+            "dtype": "float32",
+            "format": "GTiff",
+            "mode": "continue",
+            "nodata": -32768.0,
+            "predictor": 3,
+        },
+        "pyramid": {
+            "grid": {
+                "bounds": [-180.0, -90.0, 180.0, 90.0],
+                "is_global": True,
+                "shape": [1, 2],
+                "srs": {
+                    "wkt": 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]'
+                },
+                "type": "geodetic",
+            },
+            "metatiling": 8,
+            "pixelbuffer": 64,
+            "tile_size": 256,
+        },
+    }
+
+
+@pytest.fixture
+def driver_output_params_dict():
+    return {
+        "format": "xarray",
+        "path": "/foo/bar",
+        "dtype": "uint16",
+        "bands": 3,
+        "chunksize": 256,
+        "time": {
+            "start": datetime.date(2022, 6, 1),
+            "end": datetime.date(2022, 6, 11),
+            "steps": [
+                datetime.date(2022, 6, 1),
+                datetime.date(2022, 6, 4),
+                datetime.date(2022, 6, 6),
+                datetime.date(2022, 6, 9),
+                datetime.date(2022, 6, 11),
+            ],
+        },
+        "grid": GridDefinition("geodetic"),
+        "pixelbuffer": 0,
+        "metatiling": 1,
+        "delimiters": {
+            "zoom": [5],
+            "bounds": Bounds(left=15.0064, bottom=47.7604, right=16.4863, top=48.7485),
+            "process_bounds": Bounds(
+                left=15.0064, bottom=47.7604, right=16.4863, top=48.7485
+            ),
+            "effective_bounds": Bounds(
+                left=11.25, bottom=45.0, right=16.875, top=50.625
+            ),
+        },
+        "mode": "continue",
+    }
 
 
 @pytest.fixture

@@ -14,7 +14,7 @@ from mapchete.formats import (
     read_output_metadata,
 )
 from mapchete.io import path_exists, absolute_path, tile_to_zoom_level
-from mapchete.io.vector import reproject_geometry, segmentize_geometry
+from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -129,10 +129,12 @@ class InputData(base.InputData):
 
         # additional params
         self._bounds = self._params.get("bounds", self.td_pyramid.bounds)
-        self.METADATA.update(
-            data_type=self._data_type, file_extensions=[self._params["extension"]]
+        self._metadata = dict(
+            self.METADATA,
+            data_type=self._data_type,
+            file_extensions=[self._params["extension"]],
         )
-        if self.METADATA.get("data_type") == "raster":
+        if self._metadata.get("data_type") == "raster":
             self._params["count"] = self._params.get(
                 "count", self._params.get("bands", None)
             )
@@ -160,7 +162,7 @@ class InputData(base.InputData):
         """
         return InputTile(
             tile,
-            data_type=self.METADATA.get("data_type"),
+            data_type=self._metadata.get("data_type"),
             basepath=self.path,
             file_extension=self._ext,
             profile=self._profile,
