@@ -266,7 +266,7 @@ def load_metadata(params: Dict, parse_known_types=True) -> Dict:
     out_params : dict
         Output metadata parameters with initialized BufferedTilePyramid.
     """
-    if not isinstance(params, dict):
+    if not isinstance(params, dict):  # pragma: no cover
         raise TypeError(f"metadata parameters must be a dictionary, not {params}")
     out = params.copy()
     grid = out["pyramid"]["grid"]
