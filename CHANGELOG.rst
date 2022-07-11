@@ -3,6 +3,17 @@ Changelog
 #########
 
 ---------------------
+2022.7.0 - 2022-07-11
+---------------------
+
+* core
+
+  * raster drivers `read()` functions now conform with the rasterio behavior in that only if a band index is given as integer, it will return a 2D array. Previously, it also returned an 2D array if a list with only one band index was given. #473
+  * empty vector files (read by Fiona) don't fail if the bounds cannot determined in case the file does not contain any features.
+  * move metadata parser and driver helper functions into `mapchete.formats.loaders` and `mapchete.formats.tools` packages (#475)
+
+
+---------------------
 2022.6.0 - 2022-06-10
 ---------------------
 
