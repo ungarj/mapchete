@@ -1,8 +1,9 @@
 """Test Mapchete default formats."""
 
+import datetime
 import pytest
-from tilematrix import TilePyramid
 from rasterio.crs import CRS
+from tilematrix import TilePyramid
 
 import mapchete
 from mapchete import errors
@@ -11,11 +12,15 @@ from mapchete.formats import (
     available_output_formats,
     base,
     driver_from_file,
+    driver_from_extension,
     load_input_reader,
     load_output_reader,
     load_output_writer,
     read_output_metadata,
+    load_metadata,
+    dump_metadata,
 )
+from mapchete.tile import BufferedTilePyramid
 
 
 def test_available_input_formats():
@@ -56,6 +61,22 @@ def test_input_reader_errors():
         load_input_reader({})
     with pytest.raises(errors.MapcheteDriverError):
         load_input_reader({"abstract": {"format": "invalid_format"}})
+
+
+def test_driver_from_file_tif():
+    assert driver_from_file("some.tif") == "raster_file"
+
+
+def test_driver_from_file_jp2():
+    assert driver_from_file("some.jp2") == "raster_file"
+
+
+def test_driver_from_file_geojson():
+    assert driver_from_file("some.geojson") == "vector_file"
+
+
+def test_driver_from_file_shp():
+    assert driver_from_file("some.shp") == "vector_file"
 
 
 def test_driver_from_file_errors(execute_kwargs_py):
@@ -168,3 +189,57 @@ def test_old_style_metadata(old_style_metadata_json, old_geodetic_shape_metadata
     with pytest.deprecated_call():
         params = read_output_metadata(old_geodetic_shape_metadata_json)
         assert params["pyramid"].grid.type == "geodetic"
+
+
+def test_driver_from_extension_tif():
+    assert driver_from_extension("tif") == "raster_file"
+
+
+def test_driver_from_extension_jp2():
+    assert driver_from_extension("jp2") == "raster_file"
+
+
+def test_driver_from_extension_geojson():
+    assert driver_from_extension("geojson") == "vector_file"
+
+
+def test_driver_from_extension_shp():
+    assert driver_from_extension("shp") == "vector_file"
+
+
+def test_driver_from_extension_invalid():
+    with pytest.raises(ValueError):
+        driver_from_extension("invalid")
+
+
+def test_load_metadata_pyramid(driver_metadata_dict):
+    loaded = load_metadata(driver_metadata_dict)
+    assert isinstance(loaded["pyramid"], BufferedTilePyramid)
+
+
+def test_dump_metadata_pyramid(driver_output_params_dict):
+    dumped = dump_metadata(driver_output_params_dict)
+    assert isinstance(dumped, dict)
+
+
+def test_dump_metadata_datetime(driver_output_params_dict):
+    dumped = dump_metadata(driver_output_params_dict)
+    assert isinstance(dumped["driver"]["time"]["start"], str)
+    assert isinstance(dumped["driver"]["time"]["end"], str)
+
+
+def test_dump_metadata_datetime_list(driver_output_params_dict):
+    dumped = dump_metadata(driver_output_params_dict)
+    for t in dumped["driver"]["time"]["steps"]:
+        assert isinstance(t, str)
+
+
+def test_load_metadata_datetime(driver_output_params_dict):
+    loaded = load_metadata(dump_metadata(driver_output_params_dict))
+    assert isinstance(loaded["driver"]["time"]["start"], datetime.date)
+
+
+def test_load_metadata_datetime_list(driver_output_params_dict):
+    loaded = load_metadata(dump_metadata(driver_output_params_dict))
+    for t in loaded["driver"]["time"]["steps"]:
+        assert isinstance(t, datetime.date)
