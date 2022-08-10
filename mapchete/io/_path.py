@@ -90,7 +90,7 @@ def relative_path(path=None, base_dir=None):
         return os.path.relpath(path, base_dir)
 
 
-def makedirs(path):
+def makedirs(path, fs=None):
     """
     Silently create all subdirectories of path if path is local.
 
@@ -98,7 +98,7 @@ def makedirs(path):
     ----------
     path : path
     """
-    fs = fs_from_path(path)
+    fs = fs or fs_from_path(path)
     # create parent directories on local filesystems
     if fs.protocol == "file":
         fs.makedirs(path, exist_ok=True)

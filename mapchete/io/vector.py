@@ -487,6 +487,10 @@ class IndexedFeatures:
                 return validate_bounds(feature.bounds)
             elif hasattr(feature, "__geo_interface__"):
                 return validate_bounds(shape(feature).bounds)
+            elif hasattr(feature, "geometry"):
+                return validate_bounds(to_shape(feature.geometry).bounds)
+            elif hasattr(feature, "bbox"):
+                return validate_bounds(feature.bbox)
             elif feature.get("bounds"):
                 return validate_bounds(feature["bounds"])
             elif feature.get("geometry"):
