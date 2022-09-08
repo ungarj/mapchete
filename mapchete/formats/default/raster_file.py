@@ -33,7 +33,7 @@ METADATA = {
     "driver_name": "raster_file",
     "data_type": "raster",
     "mode": "r",
-    "file_extensions": ["tif", "vrt", "png", "jp2"],
+    "file_extensions": ["tif", "vrt", "png", "jp2", "json"],
 }
 
 
@@ -66,7 +66,7 @@ class InputData(base.InputData):
         "driver_name": "raster_file",
         "data_type": "raster",
         "mode": "r",
-        "file_extensions": ["tif", "vrt", "png", "jp2"],
+        "file_extensions": ["tif", "vrt", "png", "jp2", "json"],
     }
     _cached_path = None
     _cache_keep = False

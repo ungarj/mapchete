@@ -6,11 +6,11 @@ import logging
 import fiona
 from fiona.errors import DriverError, FionaError, FionaValueError
 from fiona.io import MemoryFile
-import json
 from retry import retry
 from rasterio.crs import CRS
 from shapely.geometry import box, mapping, shape
 from shapely.errors import TopologicalError
+from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds
 from tilematrix._funcs import Bounds
 from itertools import chain
@@ -554,3 +554,72 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
 def read_vector(inp, index="rtree"):
     with fiona.open(inp, "r") as src:
         return IndexedFeatures(src, index=index)
+
+
+def fiona_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
+    """
+    Wrap fiona.open() but handle bucket upload if path is remote.
+
+    Parameters
+    ----------
+    path : str
+        Path to write to.
+    mode : str
+        One of the fiona.open() modes.
+    fs : fsspec.FileSystem
+        Target filesystem.
+    in_memory : bool
+        On remote output store an in-memory file instead of writing to a tempfile.
+    args : list
+        Arguments to be passed on to fiona.open()
+    kwargs : dict
+        Keyword arguments to be passed on to fiona.open()
+
+    Returns
+    -------
+    FionaRemoteWriter if target is remote, otherwise return fiona.open().
+    """
+    if path.startswith("s3://"):
+        return FionaRemoteWriter(path, fs=fs, in_memory=in_memory, *args, **kwargs)
+    else:
+        return fiona.open(path, mode=mode, *args, **kwargs)
+
+
+class FionaRemoteWriter:
+    def __init__(self, path, *args, fs=None, in_memory=True, **kwargs):
+        logger.debug(f"open FionaRemoteWriter for path {path}")
+        self.path = path
+        self.fs = fs or fs_from_path(path)
+        self.in_memory = in_memory
+        if self.in_memory:
+            self._dst = MemoryFile()
+        else:
+            self._dst = NamedTemporaryFile(suffix=os.path.splitext(self.path))
+        self.fio_memfile = MemoryFile()
+        self._open_args = args
+        self._open_kwargs = kwargs
+
+    def __enter__(self):
+        if self.in_memory:
+            self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
+        else:
+            self._sink = fiona.open(
+                self._dst.name, "w+", *self._open_args, **self._open_kwargs
+            )
+        return self._sink
+
+    def __exit__(self, *args):
+        try:
+            self._sink.close()
+            if self.in_memory:
+                logger.debug("write fiona MemoryFile to %s", self.path)
+                with self.fs.open(self.path, "wb") as dst:
+                    dst.write(self._dst.getbuffer())
+            else:
+                self.fs.put_file(self._dst.name, self.path)
+        finally:
+            if self.in_memory:
+                logger.debug("close fiona MemoryFile")
+            else:
+                logger.debug("close and remove tempfile")
+            self._dst.close()

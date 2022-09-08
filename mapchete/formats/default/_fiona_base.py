@@ -1,23 +1,31 @@
 """
 Baseclasses for all drivers using fiona for reading and writing data.
 """
-
+from contextlib import ExitStack
 import fiona
 from fiona.errors import DriverError
 import logging
+import os
+from shapely.geometry import mapping
 import types
 
-from mapchete.config import validate_values
+from mapchete.config import validate_values, _OUTPUT_PARAMETERS
+from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import get_boto3_bucket
-from mapchete.io.vector import write_vector_window
+from mapchete.io import get_boto3_bucket, makedirs, path_exists, path_is_remote
+from mapchete.io._geometry_operations import (
+    to_shape,
+    multipart_to_singleparts,
+    clean_geometry_type,
+)
+from mapchete.io.vector import write_vector_window, fiona_write
 from mapchete.tile import BufferedTile
 
 
 logger = logging.getLogger(__name__)
 
 
-class OutputDataReader(base.TileDirectoryOutputReader):
+class OutputDataReader:
     """
     Output reader base class for vector drivers.
 
@@ -141,7 +149,11 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         return InputTile(tile, process)
 
 
-class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
+class TileDirectoryOutputDataWriter(
+    base.TileDirectoryOutputWriter,
+    OutputDataReader,
+    base.TileDirectoryOutputReader,
+):
     def write(self, process_tile, data):
         """
         Write data from process tiles into vector file(s).
@@ -181,6 +193,164 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
                         self.output_params["schema"]["geometry"].startswith("Multi")
                     ),
                 )
+
+
+class SingleFileOutputDataWriter(OutputDataReader, base.SingleFileOutputWriter):
+
+    write_in_parent_process = True
+
+    def __init__(self, output_params, **kwargs):
+        """Initialize."""
+        logger.debug("output is single file")
+        self.dst = None
+        super().__init__(output_params, **kwargs)
+        self._set_attributes(output_params)
+        if len(self.output_params["delimiters"]["zoom"]) != 1:
+            raise ValueError("single file output only works with one zoom level")
+        self.zoom = output_params["delimiters"]["zoom"][0]
+        self.in_memory = output_params.get("in_memory", True)
+
+    def _set_attributes(self, output_params):
+        self.path = output_params["path"]
+        self.output_params = output_params
+
+    def prepare(self, process_area=None, **kwargs):
+        # set up fiona
+        if path_exists(self.path):
+            if self.output_params["mode"] != "overwrite":
+                raise MapcheteConfigError(
+                    f"{self.path} already exists, use overwrite mode to replace"
+                )
+            elif not path_is_remote(self.path):
+                logger.debug("remove existing file: %s", self.path)
+                os.remove(self.path)
+        # create output directory if necessary
+        makedirs(os.path.dirname(self.path))
+        logger.debug("open output file: %s", self.path)
+        self._ctx = ExitStack()
+        self.dst = self._ctx.enter_context(
+            fiona_write(
+                self.path,
+                "w",
+                driver=self.METADATA["driver_name"],
+                schema=self.output_params["schema"],
+                crs=self.crs,
+            )
+        )
+
+    def read(self, output_tile, **kwargs):
+        """
+        Read existing process output.
+
+        Parameters
+        ----------
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        NumPy array
+        """
+        # ATTENTION: Fiona cannot handle reading from Collection opened in write mode.
+        # return list(self.dst)
+        return []
+
+    def get_path(self, tile=None):
+        """
+        Determine target file path.
+
+        Parameters
+        ----------
+        tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        path : string
+        """
+        return self.path
+
+    def tiles_exist(self, process_tile=None, output_tile=None):
+        """
+        Check whether output tiles of a tile (either process or output) exists.
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        output_tile : ``BufferedTile``
+            must be member of output ``TilePyramid``
+
+        Returns
+        -------
+        exists : bool
+        """
+        if process_tile and output_tile:
+            raise ValueError("just one of 'process_tile' and 'output_tile' allowed")
+        if process_tile:
+            for tile in self.pyramid.intersecting(process_tile):
+                if len(self.read(tile)) > 0:
+                    return True
+            else:
+                return False
+
+        if output_tile:
+            return len(self.read(output_tile)) > 0
+
+    def write(self, process_tile, data, allow_multipart_geometries=False):
+        """
+        Write data from process tiles into GeoTIFF file(s).
+
+        Parameters
+        ----------
+        process_tile : ``BufferedTile``
+            must be member of process ``TilePyramid``
+        """
+        if data is None or len(data) == 0:
+            return
+        if not isinstance(data, (list, types.GeneratorType)):  # pragma: no cover
+            raise TypeError(
+                "vector driver data has to be a list or generator of GeoJSON objects"
+            )
+
+        data = list(data)
+        if not len(data):  # pragma: no cover
+            logger.debug("no features to write")
+        else:
+            # Convert from process_tile to output_tiles and write
+            for tile in self.pyramid.intersecting(process_tile):
+                out_tile = BufferedTile(tile, self.pixelbuffer)
+                out_features = []
+                for feature in data:
+                    try:
+                        # clip feature geometry to tile bounding box and append for writing
+                        clipped = clean_geometry_type(
+                            to_shape(feature["geometry"]).intersection(out_tile.bbox),
+                            self.output_params["schema"]["geometry"],
+                        )
+                        if allow_multipart_geometries:
+                            cleaned_output_features = [clipped]
+                        else:
+                            cleaned_output_features = multipart_to_singleparts(clipped)
+                        for out_geom in cleaned_output_features:
+                            if out_geom.is_empty:  # pragma: no cover
+                                continue
+
+                            out_features.append(
+                                {
+                                    "geometry": mapping(out_geom),
+                                    "properties": feature["properties"],
+                                }
+                            )
+                    except Exception as e:
+                        logger.warning("failed to prepare geometry for writing: %s", e)
+                        continue
+                if out_features:
+                    self.dst.writerecords(out_features)
+
+    def close(self, exc_type=None, exc_value=None, exc_traceback=None):
+        """Build overviews and write file."""
+        self._ctx.close()
 
 
 class InputTile(base.InputTile):

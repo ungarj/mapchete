@@ -22,7 +22,7 @@ import logging
 from shapely.geometry import mapping, shape
 
 from mapchete.config import validate_values
-from mapchete.formats.default import geojson
+from mapchete.formats.default import _fiona_base
 from mapchete.io import fs_from_path
 from mapchete.io._geometry_operations import _repair, reproject_geometry
 
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 METADATA = {"driver_name": "Geobuf", "data_type": "vector", "mode": "rw"}
 
 
-class OutputDataReader(geojson.OutputDataReader):
+class OutputDataReader(_fiona_base.OutputDataReader):
     """
     Output reader class for Geobuf Tile Directory.
 
@@ -166,7 +166,7 @@ class OutputDataReader(geojson.OutputDataReader):
         # --> this part is covered by the CLI tests but somehow gets omitted
 
 
-class OutputDataWriter(geojson.OutputDataWriter, OutputDataReader):
+class OutputDataWriter(_fiona_base.TileDirectoryOutputDataWriter, OutputDataReader):
     """
     Output writer class.
     """
@@ -174,7 +174,7 @@ class OutputDataWriter(geojson.OutputDataWriter, OutputDataReader):
     METADATA = METADATA
 
 
-class InputTile(geojson.InputTile):
+class InputTile(_fiona_base.InputTile):
     """
     Target Tile representation of input data.
 

@@ -374,7 +374,7 @@ class BufferedTile(Tile):
 
 
 def count_tiles(
-    geometry, pyramid, minzoom, maxzoom, init_zoom=0, rasterize_threshold=0
+    geometry, pyramid, minzoom, maxzoom, init_zoom=0, rasterize_threshold=100_000
 ):
     """
     Count number of tiles intersecting with geometry.

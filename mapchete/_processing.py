@@ -2,7 +2,7 @@
 
 from collections import namedtuple
 from contextlib import ExitStack
-from itertools import chain
+import inspect
 import logging
 import multiprocessing
 import os
@@ -868,6 +868,8 @@ def _execute(tile_process=None, dependencies=None, append_data=True, **_):
     with Timer() as duration:
         try:
             output = tile_process.execute(dependencies=dependencies)
+            if inspect.isgenerator(output):
+                output = list(output)
         except MapcheteNodataTile:  # pragma: no cover
             output = "empty"
     processor_message = "processed in %s" % duration

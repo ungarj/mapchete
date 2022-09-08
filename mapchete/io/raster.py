@@ -14,7 +14,7 @@ from rasterio.errors import RasterioIOError
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds as affine_from_bounds
 from rasterio.vrt import WarpedVRT
-from rasterio.warp import reproject, calculate_default_transform
+from rasterio.warp import reproject
 from rasterio.windows import from_bounds
 from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
@@ -658,17 +658,17 @@ class RasterioRemoteWriter:
 
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
     """
-    Extract raster data window array.
+        Extract raster data window array.
+    write_raster_windo
+        Parameters
+        ----------
+        in_raster : array or ReferencedRaster
+        in_affine : ``Affine`` required if in_raster is an array
+        out_tile : ``BufferedTile``
 
-    Parameters
-    ----------
-    in_raster : array or ReferencedRaster
-    in_affine : ``Affine`` required if in_raster is an array
-    out_tile : ``BufferedTile``
-
-    Returns
-    -------
-    extracted array : array
+        Returns
+        -------
+        extracted array : array
     """
     if isinstance(in_raster, ReferencedRaster):  # pragma: no cover
         in_affine, in_raster = in_raster.affine, in_raster.data

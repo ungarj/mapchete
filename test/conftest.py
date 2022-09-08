@@ -583,6 +583,15 @@ def geojson_s3():
 
 
 @pytest.fixture
+def geojson_singlefile_output():
+    """Fixture for geojson_singlefile_output.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "geojson_singlefile_output.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def geobuf():
     """Fixture for geobuf.mapchete."""
     with ProcessFixture(

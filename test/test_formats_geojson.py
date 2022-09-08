@@ -1,4 +1,6 @@
 """Test GeoJSON as process output."""
+import fiona
+import os
 import pytest
 from shapely.geometry import shape
 
@@ -63,7 +65,7 @@ def test_for_web(client, mp_tmpdir):
     assert features
 
 
-def test_output_data(mp_tmpdir, geojson):
+def test_tiledirectory_output_data(mp_tmpdir, geojson):
     """Check GeoJSON as output data."""
     output_params = dict(
         grid="geodetic",
@@ -89,6 +91,25 @@ def test_output_data(mp_tmpdir, geojson):
         read_output = mp.get_raw_output(tile)
         assert isinstance(read_output, list)
         assert len(read_output)
+
+
+def test_singlefile_output_data(geojson_singlefile_output):
+    """Check GeoJSON as output data."""
+    with mapchete.open(geojson_singlefile_output.dict) as mp:
+        out_path = mp.config.output.path
+        tile = mp.config.process_pyramid.tile(4, 3, 7)
+        # write empty
+        mp.write(tile, None)
+        # write data
+        raw_output = mp.get_raw_output(tile)
+        mp.write(tile, raw_output)
+        # read data
+        read_output = mp.get_raw_output(tile)
+        assert isinstance(read_output, list)
+        assert len(read_output)
+
+    with fiona.open(out_path) as src:
+        assert list(src)
 
 
 @pytest.mark.remote

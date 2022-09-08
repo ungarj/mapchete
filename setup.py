@@ -88,6 +88,7 @@ setup(
             "flatgeobuf=mapchete.formats.default.flatgeobuf",
             "geobuf=mapchete.formats.default.geobuf",
             "geojson=mapchete.formats.default.geojson",
+            "gpkg=mapchete.formats.default.gpkg",
             "gtiff=mapchete.formats.default.gtiff",
             "mapchete_input=mapchete.formats.default.mapchete_input",
             "png_hillshade=mapchete.formats.default.png_hillshade",

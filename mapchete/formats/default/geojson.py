@@ -66,9 +66,29 @@ class OutputDataReader(_fiona_base.OutputDataReader):
         )
 
 
-class OutputDataWriter(_fiona_base.OutputDataWriter, OutputDataReader):
+class TileDirectoryOutputDataWriter(
+    _fiona_base.TileDirectoryOutputDataWriter, OutputDataReader
+):
 
     METADATA = METADATA
+
+
+class SingleFileOutputDataWriter(
+    _fiona_base.SingleFileOutputDataWriter, OutputDataReader
+):
+
+    METADATA = METADATA
+
+
+class OutputDataWriter:
+    def __new__(self, output_params, **kwargs):
+        """Initialize."""
+        self.path = output_params["path"]
+        self.file_extension = ".geojson"
+        if self.path.endswith(self.file_extension):
+            return SingleFileOutputDataWriter(output_params, **kwargs)
+        else:
+            return TileDirectoryOutputDataWriter(output_params, **kwargs)
 
 
 class InputTile(_fiona_base.InputTile):
