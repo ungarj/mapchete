@@ -12,10 +12,11 @@ from rasterio.crs import CRS
 from shapely.geometry import box, mapping, shape
 from shapely.errors import TopologicalError
 from tilematrix import clip_geometry_to_srs_bounds
+from tilematrix._funcs import Bounds
 from itertools import chain
 import warnings
 
-from mapchete.errors import GeometryTypeError, MapcheteIOError
+from mapchete.errors import NoGeoError, MapcheteIOError
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.io._path import fs_from_path, path_exists, makedirs, copy
 from mapchete.io._geometry_operations import (
@@ -405,9 +406,13 @@ class IndexedFeatures:
             else:
                 id_ = self._get_feature_id(feature)
             self._items[id_] = feature
-            bounds = self._get_feature_bounds(
-                feature, allow_non_geo_objects=allow_non_geo_objects
-            )
+            try:
+                bounds = object_bounds(feature)
+            except NoGeoError:
+                if allow_non_geo_objects:
+                    bounds = None
+                else:
+                    raise
             if bounds is None:
                 self._non_geo_items.add(id_)
             else:
@@ -481,24 +486,29 @@ class IndexedFeatures:
             except TypeError:
                 raise TypeError("features need to have an id or have to be hashable")
 
-    def _get_feature_bounds(self, feature, allow_non_geo_objects=False):
-        try:
-            if hasattr(feature, "bounds"):
-                return validate_bounds(feature.bounds)
-            elif hasattr(feature, "__geo_interface__"):
-                return validate_bounds(shape(feature).bounds)
-            elif feature.get("bounds"):
-                return validate_bounds(feature["bounds"])
-            elif feature.get("geometry"):
-                return validate_bounds(to_shape(feature["geometry"]).bounds)
-            else:
-                raise TypeError("no bounds")
-        except Exception as exc:
-            if allow_non_geo_objects:
-                return None
-            else:
-                logger.exception(exc)
-                raise TypeError(f"cannot determine bounds from feature: {feature}")
+
+def object_bounds(obj) -> Bounds:
+    """
+    Determine geographic bounds from object if available.
+    """
+    try:
+        if hasattr(obj, "bounds"):
+            return validate_bounds(obj.bounds)
+        elif hasattr(obj, "__geo_interface__"):
+            return validate_bounds(shape(obj).bounds)
+        elif hasattr(obj, "geometry"):
+            return validate_bounds(to_shape(obj.geometry).bounds)
+        elif hasattr(obj, "bbox"):
+            return validate_bounds(obj.bbox)
+        elif obj.get("bounds"):
+            return validate_bounds(obj["bounds"])
+        elif obj.get("geometry"):
+            return validate_bounds(to_shape(obj["geometry"]).bounds)
+        else:
+            raise TypeError("no bounds")
+    except Exception as exc:
+        logger.exception(exc)
+        raise NoGeoError(f"cannot determine bounds from object: {obj}") from exc
 
 
 def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):

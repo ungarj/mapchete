@@ -74,7 +74,7 @@ def validate_zoom(zoom):
     return zoom
 
 
-def validate_bounds(bounds):
+def validate_bounds(bounds) -> Bounds:
     """
     Return validated bounds.
 

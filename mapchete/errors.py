@@ -55,3 +55,7 @@ class NoTaskGeometry(TypeError):
 
 class ReprojectionFailed(RuntimeError):
     """Raised when geometry cannot be reprojected."""
+
+
+class NoGeoError(AttributeError):
+    """Raised when object does not contain geographic information."""
