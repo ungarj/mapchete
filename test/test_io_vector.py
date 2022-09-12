@@ -8,7 +8,12 @@ from shapely.errors import TopologicalError
 from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString, mapping
 
 from mapchete.config import MapcheteConfig
-from mapchete.errors import GeometryTypeError, MapcheteIOError, ReprojectionFailed
+from mapchete.errors import (
+    GeometryTypeError,
+    MapcheteIOError,
+    NoGeoError,
+    ReprojectionFailed,
+)
 from mapchete.io.vector import (
     read_vector_window,
     reproject_geometry,
@@ -19,6 +24,7 @@ from mapchete.io.vector import (
     convert_vector,
     IndexedFeatures,
     bounds_intersect,
+    object_bounds,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -381,7 +387,7 @@ def test_indexed_features_bounds():
 
     # no bounds
     feature = {"properties": {"foo": "bar"}, "id": 0}
-    with pytest.raises(TypeError):
+    with pytest.raises(NoGeoError):
         IndexedFeatures([feature])
 
 
@@ -502,3 +508,67 @@ def test_reproject_from_crs_wkt():
     dst_crs = "EPSG:4326"
     with pytest.raises(ReprojectionFailed):
         reproject_geometry(geom, src_crs, dst_crs).is_valid
+
+
+def test_object_bounds_attr_bounds():
+    # if hasattr(obj, "bounds"):
+    #     return validate_bounds(obj.bounds)
+    control = (0, 1, 2, 3)
+
+    class Foo:
+        bounds = control
+
+    assert object_bounds(Foo()) == (0, 1, 2, 3)
+
+
+def test_object_bounds_geo_interface():
+    # elif hasattr(obj, "__geo_interface__"):
+    #     return validate_bounds(shape(obj).bounds)
+    control = (0, 1, 2, 3)
+
+    class Foo:
+        __geo_interface__ = mapping(box(*control))
+
+    assert object_bounds(Foo()) == (0, 1, 2, 3)
+
+
+def test_object_bounds_attr_geometry():
+    # elif hasattr(obj, "geometry"):
+    #     return validate_bounds(to_shape(obj.geometry).bounds)
+    control = (0, 1, 2, 3)
+
+    class Foo:
+        geometry = mapping(box(*control))
+
+    assert object_bounds(Foo()) == (0, 1, 2, 3)
+
+
+def test_object_bounds_attr_bbox():
+    # elif hasattr(obj, "bbox"):
+    #     return validate_bounds(obj.bbox)
+    control = (0, 1, 2, 3)
+
+    class Foo:
+        bbox = control
+
+    assert object_bounds(Foo()) == (0, 1, 2, 3)
+
+
+def test_object_bounds_key_bbox():
+    # elif obj.get("bounds"):
+    #     return validate_bounds(obj["bounds"])
+    control = (0, 1, 2, 3)
+
+    foo = {"bounds": control}
+
+    assert object_bounds(foo) == (0, 1, 2, 3)
+
+
+def test_object_bounds_key_geometry():
+    # elif obj.get("geometry"):
+    #     return validate_bounds(to_shape(obj["geometry"]).bounds)
+    control = (0, 1, 2, 3)
+
+    foo = {"geometry": mapping(box(*control))}
+
+    assert object_bounds(foo) == (0, 1, 2, 3)
