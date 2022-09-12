@@ -84,3 +84,6 @@ class InputData(base.InputData):
             src_crs=self.process.config.process_pyramid.crs,
             dst_crs=self.pyramid.crs if out_crs is None else out_crs,
         )
+
+    def exists(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError()

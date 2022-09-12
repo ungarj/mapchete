@@ -192,6 +192,9 @@ class InputData(base.InputData):
             except FileNotFoundError:
                 pass
 
+    def exists(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError()
+
 
 class InputTile(base.InputTile):
     """

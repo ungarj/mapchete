@@ -33,7 +33,12 @@ def load_output_reader(output_params: Dict) -> "OutputDataReader":
         if all(
             [hasattr(_driver, attr) for attr in ["OutputDataReader", "METADATA"]]
         ) and (_driver.METADATA["driver_name"] == driver_name):
-            return _driver.OutputDataReader(output_params, readonly=True)
+            try:
+                return _driver.OutputDataReader(output_params, readonly=True)
+            except Exception as e:  # pragma: no cover
+                raise MapcheteDriverError(
+                    f"cannot instantiate OutputDataReader object in {_driver}"
+                ) from e
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 
@@ -63,7 +68,12 @@ def load_output_writer(
         if all(
             [hasattr(_driver, attr) for attr in ["OutputDataWriter", "METADATA"]]
         ) and (_driver.METADATA["driver_name"] == driver_name):
-            return _driver.OutputDataWriter(output_params, readonly=readonly)
+            try:
+                return _driver.OutputDataWriter(output_params, readonly=readonly)
+            except Exception as e:  # pragma: no cover
+                raise MapcheteDriverError(
+                    f"cannot instantiate OutputDataWriter object in {_driver}"
+                ) from e
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)
 
 
@@ -112,7 +122,12 @@ def load_input_reader(
         if hasattr(driver_, "METADATA") and (
             driver_.METADATA["driver_name"] == driver_name
         ):
-            return driver_.InputData(
-                input_params, readonly=readonly, input_key=input_key
-            )
+            try:
+                return driver_.InputData(
+                    input_params, readonly=readonly, input_key=input_key
+                )
+            except Exception as e:  # pragma: no cover
+                raise MapcheteDriverError(
+                    f"cannot instantiate InputData object in {driver_}"
+                ) from e
     raise MapcheteDriverError("no loader for driver '%s' could be found." % driver_name)

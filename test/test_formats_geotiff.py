@@ -12,7 +12,7 @@ from tilematrix import Bounds
 import warnings
 
 import mapchete
-from mapchete.errors import MapcheteConfigError
+from mapchete.errors import MapcheteConfigError, MapcheteDriverError
 from mapchete.io import path_exists
 from mapchete.formats.default import gtiff
 from mapchete.tile import BufferedTilePyramid
@@ -252,7 +252,7 @@ def test_output_single_gtiff(output_single_gtiff):
 
 def test_output_single_gtiff_errors(output_single_gtiff):
     # single gtiff does not work on multiple zoom levels
-    with pytest.raises(ValueError):
+    with pytest.raises(MapcheteDriverError):
         mapchete.open(dict(output_single_gtiff.dict, zoom_levels=[5, 6]))
 
     # provide either process_tile or output_tile

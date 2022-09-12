@@ -5,13 +5,16 @@ When writing a new driver, please inherit from these classes and implement the
 respective interfaces.
 """
 
+from abc import ABC, abstractmethod
 from itertools import chain
 import logging
 import numpy as np
 import numpy.ma as ma
 import os
 from shapely.geometry import shape
+from shapely.geometry.base import BaseGeometry
 import types
+from typing import Any, Union
 import warnings
 
 from mapchete.config import get_hash
@@ -31,7 +34,60 @@ from mapchete.tile import BufferedTilePyramid
 logger = logging.getLogger(__name__)
 
 
-class InputData(object):
+class InputTile(ABC):
+    """
+    Target Tile representation of input data.
+
+    Parameters
+    ----------
+    tile : ``Tile``
+    kwargs : keyword arguments
+        driver specific parameters
+    """
+
+    preprocessing_tasks_results = {}
+    input_key = None
+
+    def __init__(self, tile, **kwargs) -> None:
+        """Initialize."""
+
+    @abstractmethod
+    def read(self, **kwargs) -> Union[np.ndarray, list]:  # pragma: no cover
+        """
+        Read reprojected & resampled input data.
+
+        Returns
+        -------
+        data : array or list
+            NumPy array for raster data or feature list for vector data
+        """
+
+    @abstractmethod
+    def is_empty(self) -> bool:  # pragma: no cover
+        """
+        Check if there is data within this tile.
+
+        Returns
+        -------
+        is empty : bool
+        """
+
+    def set_preprocessing_task_result(self, task_key=None, result=None) -> None:
+        """
+        Adds a preprocessing task result.
+        """
+        self.preprocessing_tasks_results[task_key] = result
+
+    def __enter__(self):
+        """Required for 'with' statement."""
+        return self
+
+    def __exit__(self, t, v, tb):
+        """Clean up."""
+        pass
+
+
+class InputData(ABC):
     """
     Template class handling geographic input data.
 
@@ -52,7 +108,7 @@ class InputData(object):
 
     METADATA = {"driver_name": None, "data_type": None, "mode": "r"}
 
-    def __init__(self, input_params, input_key=None, **kwargs):
+    def __init__(self, input_params, input_key=None, **kwargs) -> None:
         """Initialize relevant input information."""
         self.input_key = input_key
         self.pyramid = input_params.get("pyramid")
@@ -63,7 +119,8 @@ class InputData(object):
         # storage location of all preprocessing tasks
         self.preprocessing_tasks_results = {}
 
-    def open(self, tile, **kwargs):
+    @abstractmethod
+    def open(self, tile, **kwargs) -> InputTile:  # pragma: no cover
         """
         Return InputTile object.
 
@@ -76,9 +133,9 @@ class InputData(object):
         input tile : ``InputTile``
             tile view of input data
         """
-        raise NotImplementedError
 
-    def bbox(self, out_crs=None):
+    @abstractmethod
+    def bbox(self, out_crs=None) -> BaseGeometry:  # pragma: no cover
         """
         Return data bounding box.
 
@@ -92,9 +149,9 @@ class InputData(object):
         bounding box : geometry
             Shapely geometry object
         """
-        raise NotImplementedError
 
-    def exists(self):
+    @abstractmethod
+    def exists(self) -> bool:  # pragma: no cover
         """
         Check if data or file even exists.
 
@@ -102,15 +159,14 @@ class InputData(object):
         -------
         file exists : bool
         """
-        raise NotImplementedError
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Optional cleanup function called when Mapchete exits."""
         pass
 
     def add_preprocessing_task(
         self, func, fargs=None, fkwargs=None, key=None, geometry=None, bounds=None
-    ):
+    ) -> None:
         """
         Add longer running preprocessing function to be called right before processing.
 
@@ -136,7 +192,7 @@ class InputData(object):
             bounds=bounds,
         )
 
-    def get_preprocessing_task_result(self, task_key):
+    def get_preprocessing_task_result(self, task_key) -> Any:
         """
         Get result of preprocessing task.
         """
@@ -148,7 +204,7 @@ class InputData(object):
             raise ValueError(f"task {task_key} has not yet been executed")
         return self.preprocessing_tasks_results[task_key]
 
-    def set_preprocessing_task_result(self, task_key, result):
+    def set_preprocessing_task_result(self, task_key, result) -> None:
         """
         Set result of preprocessing task.
         """
@@ -162,7 +218,7 @@ class InputData(object):
             raise KeyError(f"task {task_key} has already been set")
         self.preprocessing_tasks_results[task_key] = result
 
-    def preprocessing_task_finished(self, task_key):
+    def preprocessing_task_finished(self, task_key) -> bool:
         """
         Return whether preprocessing task already ran.
         """
@@ -173,60 +229,7 @@ class InputData(object):
         return task_key in self.preprocessing_tasks_results
 
 
-class InputTile(object):
-    """
-    Target Tile representation of input data.
-
-    Parameters
-    ----------
-    tile : ``Tile``
-    kwargs : keyword arguments
-        driver specific parameters
-    """
-
-    preprocessing_tasks_results = {}
-    input_key = None
-
-    def __init__(self, tile, **kwargs):
-        """Initialize."""
-
-    def read(self, **kwargs):
-        """
-        Read reprojected & resampled input data.
-
-        Returns
-        -------
-        data : array or list
-            NumPy array for raster data or feature list for vector data
-        """
-        raise NotImplementedError
-
-    def is_empty(self):
-        """
-        Check if there is data within this tile.
-
-        Returns
-        -------
-        is empty : bool
-        """
-        raise NotImplementedError
-
-    def set_preprocessing_task_result(self, task_key=None, result=None):
-        """
-        Adds a preprocessing task result.
-        """
-        self.preprocessing_tasks_results[task_key] = result
-
-    def __enter__(self):
-        """Required for 'with' statement."""
-        return self
-
-    def __exit__(self, t, v, tb):
-        """Clean up."""
-        pass
-
-
-class OutputDataBaseFunctions:
+class OutputDataBaseFunctions(ABC):
 
     write_in_parent_process = False
 
@@ -252,13 +255,13 @@ class OutputDataBaseFunctions:
         self.fs_kwargs = self._fs_kwargs = output_params.get("fs_kwargs") or {}
 
     @property
-    def stac_path(self):
+    def stac_path(self) -> str:
         """Return path to STAC JSON file."""
         default_basepath = os.path.dirname(self.path.rstrip("/") + "/")
         return os.path.join(default_basepath, f"{self.stac_item_id}.json")
 
     @property
-    def stac_item_id(self):
+    def stac_item_id(self) -> str:
         """
         Return STAC item ID according to configuration.
 
@@ -270,16 +273,17 @@ class OutputDataBaseFunctions:
         )
 
     @property
-    def stac_item_metadata(self):
+    def stac_item_metadata(self) -> dict:
         """Custom STAC metadata."""
         return self.output_params.get("stac", {})
 
     @property
-    def stac_asset_type(self):  # pragma: no cover
+    def stac_asset_type(self) -> str:  # pragma: no cover
         """Asset MIME type."""
         raise ValueError("no MIME type set for this output")
 
-    def is_valid_with_config(self, config):
+    @abstractmethod
+    def is_valid_with_config(self, config) -> bool:
         """
         Check if output format is valid with other process parameters.
 
@@ -292,9 +296,8 @@ class OutputDataBaseFunctions:
         -------
         is_valid : bool
         """
-        raise NotImplementedError()
 
-    def get_path(self, tile):
+    def get_path(self, tile) -> str:
         """
         Determine target file path.
 
@@ -316,7 +319,9 @@ class OutputDataBaseFunctions:
             ]
         )
 
-    def extract_subset(self, input_data_tiles=None, out_tile=None):
+    def extract_subset(
+        self, input_data_tiles=None, out_tile=None
+    ) -> Union[np.ndarray, list]:
         """
         Extract subset from multiple tiles.
         input_data_tiles : list of (``Tile``, process data) tuples
@@ -345,12 +350,14 @@ class OutputDataBaseFunctions:
                 if shape(feature["geometry"]).intersects(out_tile.bbox)
             ]
 
-    def prepare(self, **kwargs):
+    def prepare(self, **kwargs) -> None:
+        """Steps to be run before processing begins."""
         pass
 
 
 class OutputDataReader(OutputDataBaseFunctions):
-    def read(self, output_tile):
+    @abstractmethod
+    def read(self, output_tile) -> Union[np.ndarray, list]:
         """
         Read existing process output.
 
@@ -363,9 +370,9 @@ class OutputDataReader(OutputDataBaseFunctions):
         -------
         process output : array or list
         """
-        raise NotImplementedError()
 
-    def empty(self, process_tile):
+    @abstractmethod
+    def empty(self, process_tile) -> Union[np.ndarray, list]:
         """
         Return empty data.
 
@@ -380,9 +387,9 @@ class OutputDataReader(OutputDataBaseFunctions):
             empty array with correct data type for raster data or empty list
             for vector data
         """
-        raise NotImplementedError()
 
-    def open(self, tile, process):
+    @abstractmethod
+    def open(self, tile, process) -> InputTile:
         """
         Open process output as input for other process.
 
@@ -391,9 +398,8 @@ class OutputDataReader(OutputDataBaseFunctions):
         tile : ``Tile``
         process : ``MapcheteProcess``
         """
-        raise NotImplementedError
 
-    def for_web(self, data):
+    def for_web(self, data) -> np.ndarray:  # pragma: no cover
         """
         Convert data to web output (raster only).
 
@@ -430,6 +436,7 @@ class OutputDataWriter(OutputDataReader):
     METADATA = {"driver_name": None, "data_type": None, "mode": "w"}
     use_stac = False
 
+    @abstractmethod
     def write(self, process_tile, data):
         """
         Write data from one or more process tiles.
@@ -439,7 +446,6 @@ class OutputDataWriter(OutputDataReader):
         process_tile : ``BufferedTile``
             must be member of process ``TilePyramid``
         """
-        raise NotImplementedError
 
     def prepare_path(self, tile):
         """
@@ -605,7 +611,8 @@ class SingleFileOutputReader(OutputDataReader):
         """Initialize."""
         super().__init__(output_params, readonly=readonly)
 
-    def tiles_exist(self, process_tile=None, output_tile=None):
+    @abstractmethod
+    def tiles_exist(self, process_tile=None, output_tile=None) -> bool:
         """
         Check whether output tiles of a tile (either process or output) exists.
 
@@ -620,8 +627,6 @@ class SingleFileOutputReader(OutputDataReader):
         -------
         exists : bool
         """
-        # TODO
-        raise NotImplementedError  # pragma: no cover
 
 
 class SingleFileOutputWriter(OutputDataWriter, SingleFileOutputReader):

@@ -234,3 +234,6 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
                     out_path=out_path,
                     bucket_resource=bucket_resource,
                 )
+
+    def open(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError()

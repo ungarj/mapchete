@@ -192,6 +192,9 @@ class InputData(base.InputData):
             segmentize_on_clip=True,
         )
 
+    def exists(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError()
+
 
 def _get_tiles_paths(
     basepath=None, ext=None, pyramid=None, bounds=None, zoom=None, exists_check=False

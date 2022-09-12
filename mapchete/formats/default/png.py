@@ -85,6 +85,9 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             self.path.split("/")[2] if self.path.startswith("s3://") else None
         )
 
+    def open(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError()
+
     def read(self, output_tile, **kwargs):
         """
         Read existing process output.

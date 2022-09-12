@@ -6,4 +6,5 @@ except ImportError:  # pragma: no cover
 
 commands = metadata.entry_points().get("mapchete.cli.commands", ())
 drivers = metadata.entry_points().get("mapchete.formats.drivers", ())
+driver_modules = metadata.entry_points().get("mapchete.formats.drivers", ())
 processes = metadata.entry_points().get("mapchete.processes", ())

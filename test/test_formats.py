@@ -99,47 +99,6 @@ def test_mapchete_input(mapchete_input):
         assert not mp_input.is_empty()
 
 
-def test_base_format_classes():
-    """Base format classes."""
-    # InputData
-    tp = TilePyramid("geodetic")
-    tmp = base.InputData(dict(pyramid=tp, pixelbuffer=0))
-    assert tmp.pyramid
-    assert tmp.pixelbuffer == 0
-    assert tmp.crs
-    with pytest.raises(NotImplementedError):
-        tmp.open(None)
-    with pytest.raises(NotImplementedError):
-        tmp.bbox()
-    with pytest.raises(NotImplementedError):
-        tmp.exists()
-
-    # InputTile
-    tmp = base.InputTile(None)
-    with pytest.raises(NotImplementedError):
-        tmp.read()
-    with pytest.raises(NotImplementedError):
-        tmp.is_empty()
-
-    # OutputDataWriter
-    tmp = base.OutputDataWriter(dict(pixelbuffer=0, grid="geodetic", metatiling=1))
-    assert tmp.pyramid
-    assert tmp.pixelbuffer == 0
-    assert tmp.crs
-    with pytest.raises(NotImplementedError):
-        tmp.read(None)
-    with pytest.raises(NotImplementedError):
-        tmp.write(None, None)
-    with pytest.raises(NotImplementedError):
-        tmp.is_valid_with_config(None)
-    with pytest.raises(NotImplementedError):
-        tmp.for_web(None)
-    with pytest.raises(NotImplementedError):
-        tmp.empty(None)
-    with pytest.raises(NotImplementedError):
-        tmp.open(None, None)
-
-
 @pytest.mark.remote
 def test_http_rasters(files_bounds, http_raster):
     """Raster file on remote server with http:// or https:// URLs."""
