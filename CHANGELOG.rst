@@ -3,6 +3,17 @@ Changelog
 #########
 
 ---------------------
+2022.9.0 - 2022-09-14
+---------------------
+
+* core
+  * extend capabilities of IndexedFeatures to detect geometries
+  * reuse `FileSystem`` object if provided in `makedirs()``
+  * add `object_bounds()` to determine object geometry bounds
+  * adapt code to changes introduced by `fiona 1.9a2`
+
+
+---------------------
 2022.7.0 - 2022-07-11
 ---------------------
 
