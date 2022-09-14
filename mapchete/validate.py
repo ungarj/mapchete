@@ -203,8 +203,6 @@ def validate_crs(crs):
             return CRS().from_string(crs)
     elif isinstance(crs, int):
         return CRS().from_epsg(crs)
-    elif isinstance(crs, dict):
-        return CRS().from_dict(crs)
     else:
         try:
             return CRS.from_user_input(crs)

@@ -78,7 +78,7 @@ def reproject_geometry(
     """
     src_crs = validate_crs(src_crs)
     dst_crs = validate_crs(dst_crs)
-    if not isinstance(geometry, base.BaseGeometry):
+    if not isinstance(geometry, base.BaseGeometry):  # pragma: no cover
         raise TypeError(f"invalid geometry type: {type(geometry)}")
 
     def _reproject_geom(geometry, src_crs, dst_crs):
