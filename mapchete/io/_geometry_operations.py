@@ -91,8 +91,8 @@ def reproject_geometry(
                 mapping(geometry),
                 antimeridian_cutting=antimeridian_cutting,
             )
-            # Fiona returns None if transformation errored
-            if transformed is None:
+            # Fiona >1.9 returns None if transformation errored
+            if transformed is None:  # pragma: no cover
                 raise ReprojectionFailed(
                     f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
                 )
