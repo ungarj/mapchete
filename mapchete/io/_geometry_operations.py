@@ -93,7 +93,7 @@ def reproject_geometry(
             )
             # Fiona returns None if transformation errored
             if transformed is None:
-                raise RuntimeError(
+                raise ReprojectionFailed(
                     f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
                 )
             out_geom = to_shape(transformed)
