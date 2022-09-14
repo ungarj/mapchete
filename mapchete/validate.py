@@ -196,7 +196,20 @@ def validate_crs(crs):
     """
     if isinstance(crs, CRS):
         return crs
-    return CRS.from_user_input(crs)
+    elif isinstance(crs, str):
+        try:
+            return CRS().from_epsg(int(crs))
+        except Exception:
+            return CRS().from_string(crs)
+    elif isinstance(crs, int):
+        return CRS().from_epsg(crs)
+    elif isinstance(crs, dict):
+        return CRS().from_dict(crs)
+    else:
+        try:
+            return CRS.from_user_input(crs)
+        except Exception:
+            raise TypeError(f"invalid CRS given: {crs}")
 
 
 def validate_write_window_params(in_tile, out_tile, in_data, out_profile):
