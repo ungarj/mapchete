@@ -20,12 +20,14 @@ schema: key-value pairs
 
 import warnings
 
+from mapchete.formats import driver
 from mapchete.formats.default import _fiona_base
 
 
 METADATA = {"driver_name": "FlatGeobuf", "data_type": "vector", "mode": "rw"}
 
 
+@driver(name="FlatGeobuf", data_type="vector", mode="r", output_reader=True)
 class OutputDataReader(_fiona_base.OutputDataReader):
     """
     Output reader class for FlatGeobuf.
@@ -78,6 +80,7 @@ class OutputDataReader(_fiona_base.OutputDataReader):
         )
 
 
+@driver(name="FlatGeobuf", data_type="vector", mode="w", output_writer=True)
 class OutputDataWriter(_fiona_base.OutputDataWriter, OutputDataReader):
 
     METADATA = METADATA

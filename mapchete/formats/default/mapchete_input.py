@@ -2,18 +2,11 @@
 
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
-from mapchete.formats import base
+from mapchete.formats import base, driver
 from mapchete.io.vector import reproject_geometry
 
 
-METADATA = {
-    "driver_name": "Mapchete",
-    "data_type": None,
-    "mode": "r",
-    "file_extensions": ["mapchete"],
-}
-
-
+@driver(name="Mapchete", mode="r", file_extensions=["mapchete"], input_reader=True)
 class InputData(base.InputData):
     """
     Main input class.
@@ -36,13 +29,6 @@ class InputData(base.InputData):
     srid : string
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
-
-    METADATA = {
-        "driver_name": "Mapchete",
-        "data_type": None,
-        "mode": "r",
-        "file_extensions": ["mapchete"],
-    }
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""

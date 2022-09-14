@@ -248,7 +248,7 @@ def convert(
         raise ValueError("Output format required.")
     if mapchete_config["output"]["format"] == "GTiff":
         mapchete_config["output"].update(cog=cog)
-    output_type = OUTPUT_FORMATS[mapchete_config["output"]["format"]]["data_type"]
+    output_type = OUTPUT_FORMATS[mapchete_config["output"]["format"]].data_type
     if bidx is not None:
         mapchete_config["output"].update(bands=len(bidx))
     if mapchete_config["pyramid"] is None:
@@ -374,7 +374,7 @@ def _input_mapchete_info(inp):
         crs=pyramid.crs,
         zoom_levels=validate_zooms(conf["zoom_levels"], expand=False),
         pixel_size=None,
-        input_type=OUTPUT_FORMATS[output_params["format"]]["data_type"],
+        input_type=OUTPUT_FORMATS[output_params["format"]].data_type,
         bounds=conf.get("bounds"),
     )
 
@@ -434,7 +434,7 @@ def _input_tile_directory_info(inp):
         crs=pyramid.crs,
         zoom_levels=None,
         pixel_size=None,
-        input_type=OUTPUT_FORMATS[conf["driver"]["format"]]["data_type"],
+        input_type=OUTPUT_FORMATS[conf["driver"]["format"]].data_type,
         bounds=None,
     )
 

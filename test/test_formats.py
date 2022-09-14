@@ -19,6 +19,7 @@ from mapchete.formats import (
     read_output_metadata,
     load_metadata,
     dump_metadata,
+    detect_driver_classes,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -202,3 +203,8 @@ def test_load_metadata_datetime_list(driver_output_params_dict):
     loaded = load_metadata(dump_metadata(driver_output_params_dict))
     for t in loaded["driver"]["time"]["steps"]:
         assert isinstance(t, datetime.date)
+
+
+def test_detect_driver_classes():
+    drivers = detect_driver_classes()
+    assert len(drivers) > 0

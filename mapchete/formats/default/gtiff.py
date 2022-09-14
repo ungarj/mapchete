@@ -48,7 +48,7 @@ from tilematrix import Bounds
 
 from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
 from mapchete.errors import MapcheteConfigError
-from mapchete.formats import base
+from mapchete.formats import base, driver
 from mapchete.io import makedirs, path_exists, path_is_remote
 from mapchete.io.raster import (
     write_raster_window,
@@ -81,11 +81,12 @@ class DefaultGTiffProfile(Profile):
     }
 
 
-METADATA = {"driver_name": "GTiff", "data_type": "raster", "mode": "rw"}
+# METADATA = {"driver_name": "GTiff", "data_type": "raster", "mode": "rw"}
 GTIFF_DEFAULT_PROFILE = DefaultGTiffProfile()
 IN_MEMORY_THRESHOLD = int(os.environ.get("MP_IN_MEMORY_THRESHOLD", 20000 * 20000))
 
 
+@driver(name="GTiff", data_type="raster", output_reader=True)
 class OutputDataReader:
     """
     Constructor class which returns GTiffTileDirectoryOutputReader.
@@ -120,6 +121,7 @@ class OutputDataReader:
         return GTiffTileDirectoryOutputReader(output_params, **kwargs)
 
 
+@driver(name="GTiff", data_type="raster", output_writer=True)
 class OutputDataWriter:
     """
     Constructor class which either returns GTiffSingleFileOutputWriter or
@@ -155,15 +157,17 @@ class OutputDataWriter:
         self.path = output_params["path"]
         self.file_extension = ".tif"
         if self.path.endswith(self.file_extension):
-            return GTiffSingleFileOutputWriter(output_params, **kwargs)
+            writer = GTiffSingleFileOutputWriter(output_params, **kwargs)
         else:
-            return GTiffTileDirectoryOutputWriter(output_params, **kwargs)
+            writer = GTiffTileDirectoryOutputWriter(output_params, **kwargs)
+        writer.__mp_driver__ = self.__mp_driver__
+        return writer
 
 
 class GTiffOutputReaderFunctions:
     """Common functions."""
 
-    METADATA = METADATA
+    # METADATA = METADATA
 
     def empty(self, process_tile):
         """

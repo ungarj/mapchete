@@ -20,6 +20,7 @@ import warnings
 from mapchete.config import get_hash
 from mapchete.errors import MapcheteProcessOutputError, MapcheteNodataTile
 from mapchete.formats import write_output_metadata
+from mapchete.formats.models import DriverClassMetadata
 from mapchete.io import makedirs, path_exists, fs_from_path
 from mapchete.io.raster import (
     create_mosaic,
@@ -105,8 +106,6 @@ class InputData(ABC):
     crs : ``rasterio.crs.CRS``
         object describing the process coordinate reference system
     """
-
-    METADATA = {"driver_name": None, "data_type": None, "mode": "r"}
 
     def __init__(self, input_params, input_key=None, **kwargs) -> None:
         """Initialize relevant input information."""
@@ -330,7 +329,7 @@ class OutputDataBaseFunctions(ABC):
         -------
         NumPy array or list of features.
         """
-        if self.METADATA["data_type"] == "raster":
+        if self.__mp_driver__.data_type == "raster":
             mosaic = create_mosaic(input_data_tiles)
             return extract_from_array(
                 in_raster=prepare_array(
@@ -341,7 +340,7 @@ class OutputDataBaseFunctions(ABC):
                 in_affine=mosaic.affine,
                 out_tile=out_tile,
             )
-        elif self.METADATA["data_type"] == "vector":
+        elif self.__mp_driver__.data_type == "vector":
             return [
                 feature
                 for feature in list(
@@ -433,7 +432,6 @@ class OutputDataWriter(OutputDataReader):
         object describing the process coordinate reference system
     """
 
-    METADATA = {"driver_name": None, "data_type": None, "mode": "w"}
     use_stac = False
 
     @abstractmethod
@@ -470,11 +468,11 @@ class OutputDataWriter(OutputDataReader):
         -------
         True or False
         """
-        if self.METADATA["data_type"] == "raster":
+        if self.__mp_driver__.data_type == "raster":
             return is_numpy_or_masked_array(
                 process_data
             ) or is_numpy_or_masked_array_with_tags(process_data)
-        elif self.METADATA["data_type"] == "vector":
+        elif self.__mp_driver__.data_type == "vector":
             return is_feature_list(process_data)
 
     def output_cleaned(self, process_data):
@@ -489,7 +487,7 @@ class OutputDataWriter(OutputDataReader):
         -------
         NumPy array or list of features.
         """
-        if self.METADATA["data_type"] == "raster":
+        if self.__mp_driver__.data_type == "raster":
             if is_numpy_or_masked_array(process_data):
                 return prepare_array(
                     process_data,
@@ -500,7 +498,7 @@ class OutputDataWriter(OutputDataReader):
             elif is_numpy_or_masked_array_with_tags(process_data):
                 data, tags = process_data
                 return self.output_cleaned(data), tags
-        elif self.METADATA["data_type"] == "vector":
+        elif self.__mp_driver__.data_type == "vector":
             return list(process_data)
 
     def streamline_output(self, process_data):
@@ -588,7 +586,7 @@ class TileDirectoryOutputReader(OutputDataReader):
         data : list for vector files or numpy array for raster files
         """
         return _read_as_tiledir(
-            data_type=self.METADATA["data_type"],
+            data_type=self.__mp_driver__.data_type,
             out_tile=out_tile,
             td_crs=td_crs,
             tiles_paths=tiles_paths,
