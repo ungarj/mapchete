@@ -226,7 +226,7 @@ class VectorFileWriter:
                 self.sink = fiona.open(self.path, "a")
             else:
                 self.sink = fiona.open(
-                    self.path, "w", driver=self.driver, crs=crs, schema=schema
+                    self.path, "w", driver=self.driver, crs=crs.to_dict(), schema=schema
                 )
                 self._existing = {}
         else:  # pragma: no cover

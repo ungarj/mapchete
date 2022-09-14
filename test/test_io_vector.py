@@ -359,7 +359,6 @@ def test_indexed_features(landpoly):
     assert features.keys()
 
     for f in features:
-        assert isinstance(f, dict)
         assert "properties" in f
         assert "geometry" in f
 

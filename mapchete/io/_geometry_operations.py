@@ -78,19 +78,25 @@ def reproject_geometry(
     """
     src_crs = validate_crs(src_crs)
     dst_crs = validate_crs(dst_crs)
+    if not isinstance(geometry, base.BaseGeometry):
+        raise TypeError(f"invalid geometry type: {type(geometry)}")
 
     def _reproject_geom(geometry, src_crs, dst_crs):
         if geometry.is_empty:
             return geometry
         else:
-            out_geom = to_shape(
-                transform_geom(
-                    src_crs.to_dict(),
-                    dst_crs.to_dict(),
-                    mapping(geometry),
-                    antimeridian_cutting=antimeridian_cutting,
-                )
+            transformed = transform_geom(
+                src_crs.to_dict(),
+                dst_crs.to_dict(),
+                mapping(geometry),
+                antimeridian_cutting=antimeridian_cutting,
             )
+            # Fiona returns None if transformation errored
+            if transformed is None:
+                raise RuntimeError(
+                    f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
+                )
+            out_geom = to_shape(transformed)
             return _repair(out_geom) if validity_check else out_geom
 
     def _segmentize_value(geometry, segmentize_fraction):
@@ -232,7 +238,7 @@ def segmentize_geometry(geometry, segmentize_value):
     )
 
 
-def to_shape(geom):
+def to_shape(geom) -> base.BaseGeometry:
     """
     Convert geometry to shapely geometry if necessary.
 
@@ -244,7 +250,7 @@ def to_shape(geom):
     -------
     shapely geometry
     """
-    return shape(geom) if isinstance(geom, dict) else geom
+    return shape(geom) if not isinstance(geom, base.BaseGeometry) else geom
 
 
 def multipart_to_singleparts(geom):

@@ -15,7 +15,8 @@ def test_input_data_read(mp_tmpdir, flatgeobuf, landpoly_3857):
             input_tile = formats.default.geojson.InputTile(tile, mp)
             assert isinstance(input_tile.read(), list)
             for feature in input_tile.read():
-                assert isinstance(feature, dict)
+                assert "geometry" in feature
+                assert "properties" in feature
 
     # reprojected FlatGeobuf
     config = flatgeobuf.dict
@@ -36,7 +37,8 @@ def test_input_data_read(mp_tmpdir, flatgeobuf, landpoly_3857):
                 any_data = True
                 assert isinstance(input_tile.read(), list)
                 for feature in input_tile.read():
-                    assert isinstance(feature, dict)
+                    assert "geometry" in feature
+                    assert "properties" in feature
         assert any_data
 
 
