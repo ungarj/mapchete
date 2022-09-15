@@ -12,6 +12,7 @@ import yaml
 from tilematrix import Bounds, GridDefinition
 
 from mapchete.cli.default.serve import create_app
+from mapchete._executor import DaskExecutor
 from mapchete.io import fs_from_path
 from mapchete.testing import ProcessFixture, dict_from_mapchete
 
@@ -745,3 +746,10 @@ def stac_metadata():
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)
+
+
+@pytest.fixture(scope="package")
+def dask_executor():
+    """DaskExecutor()"""
+    with DaskExecutor() as executor:
+        yield executor

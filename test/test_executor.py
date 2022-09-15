@@ -186,24 +186,13 @@ def test_dask_executor_as_completed_skip():
         assert items == count
 
 
-def test_dask_executor_as_completed_max_tasks():
+@pytest.mark.parametrize("max_submitted_tasks", [1, None])
+def test_dask_executor_as_completed_max_tasks(max_submitted_tasks):
     items = 100
     with Executor(concurrency="dask") as executor:
         # abort
         for future in executor.as_completed(
-            _dummy_process, range(items), max_submitted_tasks=1
-        ):
-            assert future.result()
-
-        assert not executor.running_futures
-
-
-def test_dask_executor_as_completed_unlimited_max_tasks():
-    items = 100
-    with Executor(concurrency="dask") as executor:
-        # abort
-        for future in executor.as_completed(
-            _dummy_process, range(items), max_submitted_tasks=None
+            _dummy_process, range(items), max_submitted_tasks=max_submitted_tasks
         ):
             assert future.result()
 

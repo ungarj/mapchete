@@ -406,7 +406,7 @@ def test_convert_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_mapchete(cleantopo_br, mp_tmpdir):
     # prepare data
-    job = execute(cleantopo_br.path, zoom=[1, 4])
+    job = execute(cleantopo_br.path, zoom=[1, 3])
     assert len(job)
 
     job = convert(
@@ -414,10 +414,10 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
         mp_tmpdir,
         output_pyramid="geodetic",
         output_metatiling=1,
-        zoom=[1, 4],
+        zoom=[1, 3],
     )
     assert len(job)
-    for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
+    for zoom, row, col in [(3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio.open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"

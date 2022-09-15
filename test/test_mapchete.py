@@ -158,15 +158,6 @@ def test_get_raw_output_continue_vector(mp_tmpdir, geojson):
         assert mp.get_raw_output(tile)
 
 
-# def test_get_raw_output_reproject(mp_tmpdir, cleantopo_tl):
-#     """Get process output from a different CRS."""
-#     with pytest.raises(NotImplementedError):
-#         with mapchete.open(cleantopo_tl.path) as mp:
-#             assert mp.config.mode == "continue"
-#             # TODO implement function
-#             print(mp.get_raw_output((5, 0, 0)))
-
-
 def test_baselevels(mp_tmpdir, baselevels):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.dict, mode="continue") as mp:
@@ -194,12 +185,11 @@ def test_baselevels(mp_tmpdir, baselevels):
         )
 
 
-def test_baselevels_dask(mp_tmpdir, baselevels):
+def test_baselevels_dask(mp_tmpdir, baselevels, dask_executor):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.dict, mode="continue") as mp:
         # process data before getting baselevels
-        with DaskExecutor() as executor:
-            mp.batch_process(executor=executor)
+        mp.batch_process(executor=dask_executor)
 
         # get tile from lower zoom level
         for tile in mp.get_process_tiles(4):
@@ -270,8 +260,14 @@ def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
         )
 
 
-def test_update_baselevels(mp_tmpdir, baselevels):
+@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
+def test_update_baselevels(mp_tmpdir, baselevels, concurrency, dask_executor):
     """Baselevel interpolation."""
+    compute_kwargs = (
+        {"executor": dask_executor}
+        if concurrency == "dask"
+        else {"concurrency": concurrency}
+    )
     conf = dict(baselevels.dict)
     conf.update(zoom_levels=[7, 8], baselevels=dict(min=8, max=8))
     baselevel_tile = (8, 125, 260)
@@ -281,7 +277,7 @@ def test_update_baselevels(mp_tmpdir, baselevels):
 
     # process using bounds of just one baselevel tile
     with mapchete.open(conf, mode="continue", bounds=tile_bounds) as mp:
-        list(mp.compute())
+        list(mp.compute(**compute_kwargs))
         with rasterio.open(
             mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
         ) as src:
@@ -290,7 +286,7 @@ def test_update_baselevels(mp_tmpdir, baselevels):
 
     # process full area which leaves out overview tile for baselevel tile above
     with mapchete.open(conf, mode="continue") as mp:
-        list(mp.compute())
+        list(mp.compute(**compute_kwargs))
 
     # delete baselevel tile
     written_tile = (
@@ -310,57 +306,7 @@ def test_update_baselevels(mp_tmpdir, baselevels):
     # the tile in zoom 4
     with mapchete.open(conf, mode="continue") as mp:
         # process data before getting baselevels
-        list(mp.compute())
-        with rasterio.open(
-            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
-        ) as src:
-            overview_after = src.read()
-            assert overview_after.any()
-
-    assert not np.array_equal(overview_before, overview_after)
-
-
-def test_update_baselevels_dask(mp_tmpdir, baselevels):
-    """Baselevel interpolation."""
-    conf = dict(baselevels.dict)
-    conf.update(zoom_levels=[7, 8], baselevels=dict(min=8, max=8))
-    baselevel_tile = (8, 125, 260)
-    overview_tile = (7, 62, 130)
-    with mapchete.open(conf, mode="continue") as mp:
-        tile_bounds = mp.config.output_pyramid.tile(*baselevel_tile).bounds
-
-    # process using bounds of just one baselevel tile
-    with mapchete.open(conf, mode="continue", bounds=tile_bounds) as mp:
-        list(mp.compute(concurrency="dask"))
-        with rasterio.open(
-            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
-        ) as src:
-            overview_before = src.read()
-            assert overview_before.any()
-
-    # process full area which leaves out overview tile for baselevel tile above
-    with mapchete.open(conf, mode="continue") as mp:
-        list(mp.compute(concurrency="dask"))
-
-    # delete baselevel tile
-    written_tile = (
-        os.path.join(
-            *[
-                baselevels.dict["config_dir"],
-                baselevels.dict["output"]["path"],
-                *map(str, baselevel_tile),
-            ]
-        )
-        + ".tif"
-    )
-    os.remove(written_tile)
-    assert not os.path.exists(written_tile)
-
-    # run again in continue mode. this processes the missing tile on zoom 5 but overwrites
-    # the tile in zoom 4
-    with mapchete.open(conf, mode="continue") as mp:
-        # process data before getting baselevels
-        list(mp.compute(concurrency="dask"))
+        list(mp.compute(concurrency=concurrency))
         with rasterio.open(
             mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
         ) as src:
@@ -685,11 +631,33 @@ def test_bufferedtiles():
     assert a.get_neighbors() != a.get_neighbors(connectedness=4)
 
 
-def test_compute_dask_graph(preprocess_cache_memory):
+@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
+def test_compute(preprocess_cache_memory, concurrency, dask_executor):
+    compute_kwargs = (
+        {"executor": dask_executor}
+        if concurrency == "dask"
+        else {"concurrency": concurrency}
+    )
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(concurrency="dask", dask_compute_graph=True):
+        for future in mp.compute(**compute_kwargs, dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 20
+    assert preprocessing_tasks == 2
+
+
+def test_compute_dask_graph(preprocess_cache_memory, dask_executor):
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(executor=dask_executor, dask_compute_graph=True):
             result = future.result()
             if isinstance(result, PreprocessingProcessInfo):
                 assert result.data is not None
@@ -705,60 +673,12 @@ def test_compute_dask_graph(preprocess_cache_memory):
     assert preprocessing_tasks == 2
 
 
-def test_compute_dask(preprocess_cache_memory):
-    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
-        preprocessing_tasks = 0
-        tile_tasks = 0
-        for future in mp.compute(concurrency="dask", dask_compute_graph=False):
-            result = future.result()
-            if isinstance(result, PreprocessingProcessInfo):
-                preprocessing_tasks += 1
-            else:
-                assert isinstance(result, TileProcessInfo)
-                tile_tasks += 1
-                assert result.data is None
-    assert tile_tasks == 20
-    assert preprocessing_tasks == 2
-
-
-def test_compute_threads(preprocess_cache_memory):
-    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
-        preprocessing_tasks = 0
-        tile_tasks = 0
-        for future in mp.compute(concurrency="threads", dask_compute_graph=False):
-            result = future.result()
-            if isinstance(result, PreprocessingProcessInfo):
-                preprocessing_tasks += 1
-            else:
-                assert isinstance(result, TileProcessInfo)
-                tile_tasks += 1
-                assert result.data is None
-    assert tile_tasks == 20
-    assert preprocessing_tasks == 2
-
-
-def test_compute_processes(preprocess_cache_memory):
-    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
-        preprocessing_tasks = 0
-        tile_tasks = 0
-        for future in mp.compute(concurrency="processes", dask_compute_graph=False):
-            result = future.result()
-            if isinstance(result, PreprocessingProcessInfo):
-                preprocessing_tasks += 1
-            else:
-                assert isinstance(result, TileProcessInfo)
-                tile_tasks += 1
-                assert result.data is None
-    assert tile_tasks == 20
-    assert preprocessing_tasks == 2
-
-
-def test_compute_dask_without_results(baselevels):
+def test_compute_dask_without_results(baselevels, dask_executor):
     # make sure task results are appended to tasks
     with baselevels.mp() as mp:
         tile_tasks = 0
         for future in mp.compute(
-            concurrency="dask", dask_compute_graph=True, dask_propagate_results=True
+            executor=dask_executor, dask_compute_graph=True, dask_propagate_results=True
         ):
             result = future.result()
             assert result.data is not None
@@ -777,11 +697,13 @@ def test_compute_dask_without_results(baselevels):
     assert tile_tasks == 6
 
 
-def test_compute_dask_graph_single_file(preprocess_cache_memory_single_file):
+def test_compute_dask_graph_single_file(
+    preprocess_cache_memory_single_file, dask_executor
+):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(concurrency="dask", dask_compute_graph=True):
+        for future in mp.compute(executor=dask_executor, dask_compute_graph=True):
             result = future.result()
             if isinstance(result, PreprocessingProcessInfo):
                 assert result.data is not None
@@ -796,11 +718,11 @@ def test_compute_dask_graph_single_file(preprocess_cache_memory_single_file):
         assert not src.read(masked=True).mask.all()
 
 
-def test_compute_dask_single_file(preprocess_cache_memory_single_file):
+def test_compute_dask_single_file(preprocess_cache_memory_single_file, dask_executor):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(concurrency="dask", dask_compute_graph=False):
+        for future in mp.compute(executor=dask_executor, dask_compute_graph=False):
             result = future.result()
             if isinstance(result, PreprocessingProcessInfo):
                 preprocessing_tasks += 1
