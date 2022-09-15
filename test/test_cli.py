@@ -711,6 +711,11 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
             "-d",
             "--concurrency",
             "none",
+            "--bounds",
+            "168.75",
+            "-90.0",
+            "180.0",
+            "-78.75",
         ]
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
@@ -742,6 +747,11 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
             "-d",
             "--concurrency",
             "none",
+            "--bounds",
+            "168.75",
+            "-90.0",
+            "180.0",
+            "-78.75",
         ]
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
@@ -793,6 +803,11 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
             "Geobuf",
             "--concurrency",
             "none",
+            "--bounds",
+            "-101.25",
+            "67.5",
+            "-90.0",
+            "90.0",
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
@@ -819,6 +834,11 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
             "GeoJSON",
             "--concurrency",
             "none",
+            "--bounds",
+            "-101.25",
+            "67.5",
+            "-90.0",
+            "90.0",
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, [31, 32]]):

@@ -29,36 +29,47 @@ from mapchete.io.vector import (
 from mapchete.tile import BufferedTilePyramid
 
 
-def test_read_vector_window(geojson, landpoly_3857):
+def test_read_vector_window(geojson):
     """Read vector data from read_vector_window."""
     zoom = 4
     config = MapcheteConfig(geojson.dict)
     vectorfile = config.params_at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = tile_pyramid.tiles_from_geom(vectorfile.bbox(), zoom)
-    feature_count = 0
+    tiles = tile_pyramid.tiles_from_geom(
+        vectorfile.bbox(out_crs=tile_pyramid.crs), zoom
+    )
     for tile in tiles:
-        for feature in read_vector_window(vectorfile.path, tile):
-            assert "properties" in feature
-            assert shape(feature["geometry"]).is_valid
-            feature_count += 1
-    assert feature_count
-    # into different CRS
+        features = read_vector_window(vectorfile.path, tile)
+        if features:
+            for feature in features:
+                assert "properties" in feature
+                assert shape(feature["geometry"]).is_valid
+            break
+    else:
+        raise RuntimeError("no features read!")
+
+
+def test_read_vector_window_reproject(geojson, landpoly_3857):
+    zoom = 4
     raw_config = geojson.dict
     raw_config["input"].update(file1=landpoly_3857)
     config = MapcheteConfig(raw_config)
     vectorfile = config.params_at_zoom(zoom)["input"]["file1"]
     pixelbuffer = 5
     tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = tile_pyramid.tiles_from_geom(vectorfile.bbox(), zoom)
-    feature_count = 0
+    tiles = tile_pyramid.tiles_from_geom(
+        vectorfile.bbox(out_crs=tile_pyramid.crs), zoom
+    )
     for tile in tiles:
-        for feature in read_vector_window(vectorfile.path, tile):
-            assert "properties" in feature
-            assert shape(feature["geometry"]).is_valid
-            feature_count += 1
-    assert feature_count
+        features = read_vector_window(vectorfile.path, tile)
+        if features:
+            for feature in features:
+                assert "properties" in feature
+                assert shape(feature["geometry"]).is_valid
+            break
+    else:
+        raise RuntimeError("no features read!")
 
 
 def test_read_vector_window_errors(invalid_geojson):
@@ -409,7 +420,10 @@ def test_bounds_intersect():
     assert bounds_intersect(b1, b7)
     assert bounds_intersect(b1, b8)
 
-    intersecting = [
+
+@pytest.mark.parametrize(
+    "intersecting",
+    [
         (-121.2451171875, 75.7177734375, -120.849609375, 76.025390625),
         (-119.3994140625, 75.498046875, -117.4658203125, 76.11328125),
         (-122.958984375, 75.8056640625, -115.400390625, 77.5634765625),
@@ -458,9 +472,10 @@ def test_bounds_intersect():
         (-91.1865234375, 77.2119140625, -89.9560546875, 77.6513671875),
         (-96.7236328125, 78.134765625, -89.9560546875, 81.38671875),
         (-168.134765625, 13.6669921875, -89.9560546875, 74.1796875),
-    ]
-    for b in intersecting:
-        assert bounds_intersect(b, (-135.0, 60, -90, 80))
+    ],
+)
+def test_bounds_intersect_custom(intersecting):
+    assert bounds_intersect(intersecting, (-135.0, 60, -90, 80))
 
 
 def test_bounds_not_intersect():

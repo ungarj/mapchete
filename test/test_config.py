@@ -103,18 +103,18 @@ def test_read_zoom_level(zoom_mapchete):
     assert 5 in config.zoom_levels
 
 
-def test_minmax_zooms(minmax_zoom):
+@pytest.mark.parametrize("zoom", [7, 8, 9, 10])
+def test_minmax_zooms(minmax_zoom, zoom):
     """Read min/max zoom levels from config file."""
     config = MapcheteConfig(minmax_zoom.dict)
-    for zoom in [7, 8, 9, 10]:
-        assert zoom in config.zoom_levels
+    assert zoom in config.zoom_levels
 
 
-def test_override_zoom_levels(minmax_zoom):
+@pytest.mark.parametrize("zoom", [7, 8])
+def test_override_zoom_levels(minmax_zoom, zoom):
     """Override zoom levels when constructing configuration."""
     config = MapcheteConfig(minmax_zoom.dict, zoom=[7, 8])
-    for zoom in [7, 8]:
-        assert zoom in config.zoom_levels
+    assert zoom in config.zoom_levels
 
 
 def test_read_bounds(zoom_mapchete):

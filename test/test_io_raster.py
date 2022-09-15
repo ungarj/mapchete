@@ -543,7 +543,8 @@ def test_create_mosaic_errors():
         create_mosaic(tiles=[])
 
 
-def test_create_mosaic():
+@pytest.mark.parametrize("pixelbuffer", [0, 10])
+def test_create_mosaic(pixelbuffer):
     """Create mosaic from tiles."""
     tp = BufferedTilePyramid("geodetic")
     # quick return mosaic if there is just one tile
@@ -555,48 +556,46 @@ def test_create_mosaic():
     assert tile.affine == mosaic.affine
     zoom = 5
     # multiple tiles on top left corner of tile matrix
-    for pixelbuffer in [0, 10]:
-        tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-        tiles = [
-            (tp.tile(zoom, row, col), np.ones(tp.tile(zoom, row, col).shape))
-            for row, col in product(range(4), range(4))
-        ]
-        # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
-        # also use tile generator
-        mosaic = create_mosaic((t for t in tiles))
-        assert isinstance(mosaic, ReferencedRaster)
-        assert np.all(np.where(mosaic.data == 1, True, False))
-        mosaic_bbox = box(
-            mosaic.affine[2],
-            mosaic.affine[5] + mosaic.data.shape[1] * mosaic.affine[4],
-            mosaic.affine[2] + mosaic.data.shape[2] * mosaic.affine[0],
-            mosaic.affine[5],
-        )
-        control_bbox = box(*unary_union([t.bbox for t, _ in tiles]).bounds)
-        assert mosaic_bbox.equals(control_bbox)
+    tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
+    tiles = [
+        (tp.tile(zoom, row, col), np.ones(tp.tile(zoom, row, col).shape))
+        for row, col in product(range(4), range(4))
+    ]
+    # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
+    # also use tile generator
+    mosaic = create_mosaic((t for t in tiles))
+    assert isinstance(mosaic, ReferencedRaster)
+    assert np.all(np.where(mosaic.data == 1, True, False))
+    mosaic_bbox = box(
+        mosaic.affine[2],
+        mosaic.affine[5] + mosaic.data.shape[1] * mosaic.affine[4],
+        mosaic.affine[2] + mosaic.data.shape[2] * mosaic.affine[0],
+        mosaic.affine[5],
+    )
+    control_bbox = box(*unary_union([t.bbox for t, _ in tiles]).bounds)
+    assert mosaic_bbox.equals(control_bbox)
     # multiple tiles on bottom right corner of tile matrix
-    for pixelbuffer in [0, 10]:
-        tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-        tiles = [
-            (tp.tile(zoom, row, col), np.ones(tp.tile(zoom, row, col).shape))
-            for row, col in product(
-                range(tp.matrix_height(zoom) - 4, tp.matrix_height(zoom)),
-                range(tp.matrix_width(zoom) - 4, tp.matrix_width(zoom)),
-            )
-        ]
-        # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
-        # also use tile generator
-        mosaic = create_mosaic((t for t in tiles))
-        assert isinstance(mosaic, ReferencedRaster)
-        assert np.all(np.where(mosaic.data == 1, True, False))
-        mosaic_bbox = box(
-            mosaic.affine[2],
-            mosaic.affine[5] + mosaic.data.shape[1] * mosaic.affine[4],
-            mosaic.affine[2] + mosaic.data.shape[2] * mosaic.affine[0],
-            mosaic.affine[5],
+    tp = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
+    tiles = [
+        (tp.tile(zoom, row, col), np.ones(tp.tile(zoom, row, col).shape))
+        for row, col in product(
+            range(tp.matrix_height(zoom) - 4, tp.matrix_height(zoom)),
+            range(tp.matrix_width(zoom) - 4, tp.matrix_width(zoom)),
         )
-        control_bbox = box(*unary_union([t.bbox for t, _ in tiles]).bounds)
-        assert mosaic_bbox.equals(control_bbox)
+    ]
+    # 4x4 top left tiles from zoom 5 equal top left tile from zoom 3
+    # also use tile generator
+    mosaic = create_mosaic((t for t in tiles))
+    assert isinstance(mosaic, ReferencedRaster)
+    assert np.all(np.where(mosaic.data == 1, True, False))
+    mosaic_bbox = box(
+        mosaic.affine[2],
+        mosaic.affine[5] + mosaic.data.shape[1] * mosaic.affine[4],
+        mosaic.affine[2] + mosaic.data.shape[2] * mosaic.affine[0],
+        mosaic.affine[5],
+    )
+    control_bbox = box(*unary_union([t.bbox for t, _ in tiles]).bounds)
+    assert mosaic_bbox.equals(control_bbox)
 
 
 def test_create_mosaic_antimeridian():
