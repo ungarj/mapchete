@@ -397,12 +397,8 @@ def count_tiles(
     unbuffered_pyramid = BufferedTilePyramid(
         pyramid.grid, tile_size=pyramid.tile_size, metatiling=pyramid.metatiling
     )
-    # make sure no rounding errors occur
-    geometry = geometry.buffer(-0.000000001)
-
     height = pyramid.matrix_height(init_zoom)
     width = pyramid.matrix_width(init_zoom)
-
     # rasterize to array and count cells if too many tiles are expected
     if width > rasterize_threshold or height > rasterize_threshold:
         logger.debug("rasterize tiles to count geometry overlap")
@@ -428,18 +424,18 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
     count = 0
     for tile in tiles:
         # determine data covered by tile
-        tile_intersection = tile.bbox.intersection(geometry)
+        tile_intersection = geometry.intersection(tile.bbox)
 
-        # skip if there is no data
-        if tile_intersection.is_empty:
+        # skip if there is no intersection
+        if not tile_intersection.area:
             continue
+
         # increase counter as tile contains data
-        elif tile.zoom >= minzoom:
+        if tile.zoom >= minzoom:
             count += 1
 
         # if there are further zoom levels, analyze descendants
         if tile.zoom < maxzoom:
-
             # if tile is half full, analyze each descendant
             # also do this if the tile children are not four in which case we cannot use
             # the count formula below
@@ -467,9 +463,18 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 
 
 def _count_cells(pyramid, geometry, minzoom, maxzoom):
-    # rasterize geometry on maxzoom
     if geometry.is_empty:
         return 0
+
+    # for the rasterization algorithm we need to keep the all_touched flag True
+    # but slightly reduce the geometry area in order to get the same results as
+    # with the tiles/vector algorithm.
+    left, bottom, right, top = geometry.bounds
+    width = right - left
+    height = top - bottom
+    buffer_distance = ((width + height) / 2) * -0.0000001
+    # geometry will be reduced by a tiny fraction of the average from bounds width & height
+    geometry_reduced = geometry.buffer(buffer_distance)
 
     logger.debug(
         "rasterize polygon on %s x %s cells",
@@ -478,7 +483,7 @@ def _count_cells(pyramid, geometry, minzoom, maxzoom):
     )
     transform = pyramid.matrix_affine(maxzoom)
     raster = rasterize(
-        [(geometry, 1)],
+        [(geometry_reduced, 1)],
         out_shape=(pyramid.matrix_height(maxzoom), pyramid.matrix_width(maxzoom)),
         fill=0,
         transform=transform,
