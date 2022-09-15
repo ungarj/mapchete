@@ -514,7 +514,8 @@ def test_process_template(dummy1_tif, mp_tmpdir):
         mp.execute(process_tile)
 
 
-def test_count_tiles(zoom_mapchete):
+@pytest.mark.parametrize("minzoom", range(0, 14))
+def test_count_tiles(zoom_mapchete, minzoom):
     """Count tiles function."""
     maxzoom = 13
     conf = zoom_mapchete.dict
@@ -524,37 +525,39 @@ def test_count_tiles(zoom_mapchete):
         input=None,
     )
     conf["pyramid"].update(metatiling=8, pixelbuffer=5)
-    for minzoom in range(0, 14):
-        conf["zoom_levels"].update(min=minzoom)
-        with mapchete.open(conf) as mp:
-            assert len(list(mp.get_process_tiles())) == mapchete.count_tiles(
-                mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom, maxzoom
-            )
-
-
-def test_count_tiles_mercator():
-    for metatiling in [1, 2, 4, 8, 16]:
-        tp = BufferedTilePyramid("mercator", metatiling=metatiling)
-        for zoom in range(13):
-            count_by_geom = count_tiles(box(*tp.bounds), tp, zoom, zoom)
-            count_by_tp = tp.matrix_width(zoom) * tp.matrix_height(zoom)
-            assert count_by_geom == count_by_tp
-
-
-def test_count_tiles_large_init_zoom(geometrycollection):
-    tp = BufferedTilePyramid(
-        grid=dict(
-            shape=[100, 200],
-            bounds=[-180, -90, 180, 90],
-            srs=dict(epsg=4326),
-            is_global=True,
+    conf["zoom_levels"].update(min=minzoom)
+    with mapchete.open(conf) as mp:
+        assert len(list(mp.get_process_tiles())) == mapchete.count_tiles(
+            mp.config.area_at_zoom(), mp.config.process_pyramid, minzoom, maxzoom
         )
+
+
+@pytest.mark.parametrize("metatiling", [1, 2, 4, 8, 16])
+@pytest.mark.parametrize("zoom", range(15))
+def test_count_tiles_mercator(metatiling, zoom):
+    tp = BufferedTilePyramid("mercator", metatiling=metatiling)
+    count_by_geom = count_tiles(box(*tp.bounds), tp, zoom, zoom)
+    count_by_tp = tp.matrix_width(zoom) * tp.matrix_height(zoom)
+    assert count_by_geom == count_by_tp
+
+
+# This test only works until zoom 14. After this the results between the count_tiles()
+# algorithms (rasterized & tile-based) start to differ from the actual TilePyramid.tiles_from_geom()
+# implementation. Please also note that TilePyramid.tiles_from_geom(exact=True) ast to be activated
+# in order to pass
+@pytest.mark.parametrize("zoom", range(14))
+def test_count_tiles_large_init_zoom(geometrycollection, zoom):
+    tp = BufferedTilePyramid(grid="geodetic")
+    raster_count = count_tiles(
+        geometrycollection, tp, zoom, zoom, rasterize_threshold=0
     )
-    minzoom = 0
-    maxzoom = 7
-    assert count_tiles(
-        geometrycollection, tp, minzoom, maxzoom, rasterize_threshold=0
-    ) == count_tiles(geometrycollection, tp, minzoom, maxzoom, rasterize_threshold=1000)
+    tile_count = count_tiles(
+        geometrycollection, tp, zoom, zoom, rasterize_threshold=100_000_000
+    )
+    tiles = len(
+        list(tp.tiles_from_geom(geometry=geometrycollection, zoom=zoom, exact=True))
+    )
+    assert raster_count == tile_count == tiles
 
 
 def test_batch_process(mp_tmpdir, cleantopo_tl):
@@ -605,21 +608,21 @@ def test_execute_kwargs(example_mapchete, execute_kwargs_py):
         mp.execute((7, 61, 129))
 
 
-def test_snap_bounds_to_zoom():
+@pytest.mark.parametrize("pixelbuffer", [0, 5, 10])
+@pytest.mark.parametrize("metatiling", [1, 2, 4])
+@pytest.mark.parametrize("zoom", range(3, 5))
+def test_snap_bounds_to_zoom(pixelbuffer, metatiling, zoom):
     bounds = (-180, -90, -60, -30)
-    for pixelbuffer in [0, 5, 10]:
-        for metatiling in [1, 2, 4]:
-            pyramid = BufferedTilePyramid(
-                "geodetic", pixelbuffer=pixelbuffer, metatiling=metatiling
-            )
-            for zoom in range(3, 5):
-                snapped_bounds = mapchete.config.snap_bounds(
-                    bounds=bounds, pyramid=pyramid, zoom=zoom
-                )
-                control_bounds = unary_union(
-                    [t.bbox for t in pyramid.tiles_from_bounds(bounds, zoom)]
-                ).bounds
-                assert snapped_bounds == control_bounds
+    pyramid = BufferedTilePyramid(
+        "geodetic", pixelbuffer=pixelbuffer, metatiling=metatiling
+    )
+    snapped_bounds = mapchete.config.snap_bounds(
+        bounds=bounds, pyramid=pyramid, zoom=zoom
+    )
+    control_bounds = unary_union(
+        [t.bbox for t in pyramid.tiles_from_bounds(bounds, zoom)]
+    ).bounds
+    assert snapped_bounds == control_bounds
 
 
 def test_snap_bounds_errors():
