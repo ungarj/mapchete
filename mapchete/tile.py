@@ -476,10 +476,6 @@ def _count_cells(pyramid, geometry, minzoom, maxzoom):
     # geometry will be reduced by a tiny fraction of the average from bounds width & height
     geometry_reduced = geometry.buffer(buffer_distance)
 
-    # rasterize geometry on maxzoom
-    if geometry_reduced.is_empty:
-        return 0
-
     logger.debug(
         "rasterize polygon on %s x %s cells",
         pyramid.matrix_height(maxzoom),
