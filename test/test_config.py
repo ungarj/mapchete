@@ -26,44 +26,62 @@ SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
 
-def test_config_errors(example_mapchete):
+def test_errors_filenotfound(example_mapchete):
     """Test various configuration parsing errors."""
-    config_orig = example_mapchete.dict
     # wrong config type
     with pytest.raises(FileNotFoundError):
         mapchete.open("not_a_config")
+
+
+def test_errors_missing_process(example_mapchete):
+    config_orig = example_mapchete.dict
     # missing process
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
         config.pop("process")
         MapcheteConfig(config)
-    # using input and input_files
-    with pytest.raises(MapcheteConfigError):
-        config = deepcopy(config_orig)
-        config.update(input=None, input_files=None)
-        mapchete.open(config)
+
+
+def test_errors_invalid_output_config(example_mapchete):
+    config_orig = example_mapchete.dict
     # output configuration not compatible with driver
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
         config["output"].pop("bands")
         MapcheteConfig(config)
+
+
+def test_errors_no_baselevel_params(example_mapchete):
+    config_orig = example_mapchete.dict
     # no baselevel params
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
         config.update(baselevels={})
         with mapchete.open(config) as mp:
             mp.config.baselevels
+
+
+def test_errors_wrong_baselevel_min_max(example_mapchete):
+    config_orig = example_mapchete.dict
     # wrong baselevel min or max
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
         config.update(baselevels={"min": "invalid"})
         with mapchete.open(config) as mp:
             mp.config.baselevels
+
+
+def test_errors_wrong_pixelbuffer_type(example_mapchete):
+    config_orig = example_mapchete.dict
     # wrong pixelbuffer type
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
         config["pyramid"].update(pixelbuffer="wrong_type")
         mapchete.open(config)
+
+
+def test_errors_wrong_metatiling_type(example_mapchete):
+    config_orig = example_mapchete.dict
     # wrong metatiling type
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
@@ -78,10 +96,10 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
     input_files = zoom7["input"]
     assert input_files["file1"] is None
     assert input_files["file2"].path == dummy2_tif
-    assert zoom7["some_integer_parameter"] == 12
-    assert zoom7["some_float_parameter"] == 5.3
-    assert zoom7["some_string_parameter"] == "string1"
-    assert zoom7["some_bool_parameter"] is True
+    assert zoom7["process_parameters"]["some_integer_parameter"] == 12
+    assert zoom7["process_parameters"]["some_float_parameter"] == 5.3
+    assert zoom7["process_parameters"]["some_string_parameter"] == "string1"
+    assert zoom7["process_parameters"]["some_bool_parameter"] is True
 
 
 def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
@@ -91,10 +109,10 @@ def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
     input_files = zoom11["input"]
     assert input_files["file1"].path == dummy1_tif
     assert input_files["file2"].path == dummy2_tif
-    assert zoom11["some_integer_parameter"] == 12
-    assert zoom11["some_float_parameter"] == 5.3
-    assert zoom11["some_string_parameter"] == "string2"
-    assert zoom11["some_bool_parameter"] is True
+    assert zoom11["process_parameters"]["some_integer_parameter"] == 12
+    assert zoom11["process_parameters"]["some_float_parameter"] == 5.3
+    assert zoom11["process_parameters"]["some_string_parameter"] == "string2"
+    assert zoom11["process_parameters"]["some_bool_parameter"] is True
 
 
 def test_read_zoom_level(zoom_mapchete):
@@ -386,8 +404,8 @@ def test_bounds_from_opts(example_mapchete, wkt_geom):
 def test_init_overrides_config(example_mapchete):
     process_bounds = (0, 1, 2, 3)
     init_bounds = (3, 4, 5, 6)
-    process_area = box(*process_bounds)
-    init_area = box(*init_bounds)
+    process_area = box(*process_bounds).wkt
+    init_area = box(*init_bounds).wkt
 
     # bounds
     with mapchete.open(
