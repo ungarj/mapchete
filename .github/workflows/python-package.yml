@@ -5,9 +5,9 @@ name: Python package test
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   test:
@@ -16,46 +16,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.7", "3.8", "3.9" ]
-        os: [ "ubuntu-20.04", "ubuntu-22.04" ]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        os: ["ubuntu-20.04", "ubuntu-22.04"]
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      env:
-        CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
-      run: |
-        sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
-        sudo apt-get -y update
-        sudo apt-get install -y gdal-bin python-tk libgdal-dev libproj-dev libgeos-dev
-        python -m pip install --upgrade pip wheel
-        pip install -r test/requirements.txt -r requirements.txt
-        pip install -e .[complete]
+      - name: Install dependencies
+        env:
+          CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+        run: |
+          sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
+          sudo apt-get -y update
+          sudo apt-get install -y gdal-bin python-tk libgdal-dev libproj-dev libgeos-dev
+          python -m pip install --upgrade pip wheel
+          pip install -r test/requirements.txt -r requirements.txt
+          pip install -e .[complete]
 
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 mapchete --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 mapchete --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 mapchete --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 mapchete --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Test with pytest
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REQUEST_PAYER: ${{ secrets.AWS_REQUEST_PAYER }}
-        CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
-      run: |
-        pytest -v --cov mapchete
+      - name: Test with pytest
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REQUEST_PAYER: ${{ secrets.AWS_REQUEST_PAYER }}
+          CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+        run: |
+          pytest -v --cov mapchete
 
-    - name: Coveralls
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        coveralls --service=github
+      - name: Coveralls
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          coveralls --service=github
