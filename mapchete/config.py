@@ -13,6 +13,7 @@ when initializing the configuration.
 from cached_property import cached_property
 from collections import OrderedDict
 from copy import deepcopy
+from enum import Enum
 import fiona
 import hashlib
 import importlib
@@ -22,6 +23,9 @@ import operator
 import os
 import oyaml as yaml
 import py_compile
+from pydantic import BaseModel, ValidationError, validator
+from rasterio.crs import CRS
+from typing import Union, Optional, Dict, List, Tuple
 from shapely import wkt
 from shapely.geometry import box, Point, shape
 from shapely.geometry.base import BaseGeometry
@@ -83,7 +87,40 @@ _RESERVED_PARAMETERS = [
     "process_maxzoom",  # maximum zoom where process is valid (deprecated)
     "process_zoom",  # single zoom where process is valid (deprecated)
     "process_bounds",  # process boundaries (deprecated)
+    "process_parameters",
 ]
+
+
+class MapcheteConfigSchema(BaseModel):
+    pyramid: Dict
+    output: Dict
+    zoom_levels: Union[int, Dict, List]
+    input: Dict = None
+    process: Union[str, List] = None
+    area: str = None
+    area_crs: str = None
+    baselevels: Dict = None
+    bounds: Union[List, Tuple, Bounds, None] = None
+    bounds_crs: str = None
+    config_dir: str = None
+    process_parameters: Dict = None
+    mapchete_file: str = None
+
+    @validator("bounds")
+    def validate_bounds(cls, bounds):
+        if bounds is not None:
+            try:
+                return validate_bounds(bounds)
+            except Exception as exc:
+                raise ValidationError(exc)
+
+
+class Mode(str, Enum):
+    memory = "memory"
+    continue_ = "continue"
+    readonly = "readonly"
+    overwrite = "overwrite"
+
 
 # parameters for output configuration
 _OUTPUT_PARAMETERS = [
@@ -185,7 +222,11 @@ class MapcheteConfig(object):
         logger.debug(f"parsing {input_config}")
         # get dictionary representation of input_config and
         # (0) map deprecated params to new structure
-        self._raw = _map_to_new_config(_config_to_dict(input_config))
+        self._raw = _extract_process_parameters(_config_to_dict(input_config))
+        try:
+            self._config = MapcheteConfigSchema(**self._raw)
+        except ValidationError as exc:
+            raise MapcheteConfigError(exc)
         self._raw["init_zoom_levels"] = zoom
         self._raw["init_bounds"] = bounds
         self._raw["init_bounds_crs"] = bounds_crs
@@ -564,7 +605,7 @@ class MapcheteConfig(object):
         """Return function kwargs."""
         return {
             k: v
-            for k, v in self.params_at_zoom(zoom).items()
+            for k, v in self.params_at_zoom(zoom)["process_parameters"].items()
             if k in inspect.signature(self.process_func).parameters
         }
 
@@ -1152,6 +1193,24 @@ def _config_to_dict(input_config):
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file."
         )
+
+
+def _extract_process_parameters(config_dict):
+    out = OrderedDict()
+    out["process_parameters"] = {}
+    for k, v in config_dict.items():
+        if k == "process_parameters":
+            out["process_parameters"].update(v)
+        elif k not in MapcheteConfigSchema.__fields__.keys():
+            warnings.warn(
+                DeprecationWarning(
+                    f"custom process parameter {k} has to go to the 'process_parameters' section"
+                )
+            )
+            out["process_parameters"][k] = v
+        else:
+            out[k] = v
+    return out
 
 
 def _raw_at_zoom(config, zooms):

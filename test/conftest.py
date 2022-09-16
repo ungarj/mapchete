@@ -363,12 +363,6 @@ def output_error_py():
 
 
 @pytest.fixture
-def old_style_process_py():
-    """Fixture for old_style_process.py"""
-    return os.path.join(TESTDATA_DIR, "old_style_process.py")
-
-
-@pytest.fixture
 def custom_grid_json():
     return os.path.join(TESTDATA_DIR, "custom_grid.json")
 
@@ -379,15 +373,6 @@ def custom_grid():
     """Fixture for custom_grid.mapchete."""
     with ProcessFixture(
         os.path.join(TESTDATA_DIR, "custom_grid.mapchete"),
-    ) as example:
-        yield example
-
-
-@pytest.fixture
-def deprecated_params():
-    """Fixture for deprecated_params.mapchete."""
-    with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "deprecated_params.mapchete"),
     ) as example:
         yield example
 
