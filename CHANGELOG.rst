@@ -6,11 +6,21 @@ Changelog
 2022.9.1 - 2022-09-15
 ---------------------
 
+* packaging
+
+  * remove shapely version <1.8.1 constraint from setup.py
+
+
+---------------------
+2022.9.1 - 2022-09-15
+---------------------
+
 * core
   * adapt tiles_count() to handle new shapely behavior; use pytest.mark.parametrize for some tests
 
 * tests
   * make slowest tests faster; reuse DaskExecutor() where possible
+
 
 ---------------------
 2022.9.0 - 2022-09-14
