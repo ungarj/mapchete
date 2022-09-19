@@ -282,7 +282,7 @@ def _get_reprojected_features(
                     if exists:
                         # raise fiona exception
                         raise e
-                    else:
+                    else:  # pragma: no cover
                         # file does not exist
                         raise FileNotFoundError(
                             "%s not found and cannot be opened with Fiona" % inp
