@@ -34,7 +34,7 @@ install_requires = [
     "oyaml",
     "pyproj",
     "retry",
-    "rasterio>=1.0.28",
+    "rasterio>1.2.10",
     "shapely",
     "tilematrix>=2022.3.0",
     "tqdm",
@@ -132,8 +132,8 @@ setup(
         "Intended Audience :: Developers",
         "Topic :: Scientific/Engineering :: GIS",
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
 )

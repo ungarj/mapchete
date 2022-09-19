@@ -411,7 +411,7 @@ def _rasterio_read(
                 if exists:
                     # raise rasterio exception
                     raise e
-                else:
+                else:  # pragma: no cover
                     # file does not exist
                     raise FileNotFoundError(
                         "%s not found and cannot be opened with rasterio" % input_file
