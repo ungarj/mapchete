@@ -187,7 +187,7 @@ def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_custom_grid(s2_band, mp_tmpdir, custom_grid_json):
     """Automatic mercator tile pyramid creation of raster files."""
-    job = convert(s2_band, mp_tmpdir, output_pyramid=custom_grid_json)
+    job = convert(s2_band, mp_tmpdir, output_pyramid=custom_grid_json, concurrency=None)
     assert len(job)
     for zoom, row, col in [(0, 5298, 631)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])

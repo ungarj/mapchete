@@ -1223,6 +1223,12 @@ def _raw_at_zoom(config, zooms):
                 out_element = _element_at_zoom(name, element, zoom)
                 if out_element is not None:
                     params[name] = out_element
+            elif name == "process_parameters":
+                params["process_parameters"] = OrderedDict()
+                for param_name, param_value in element.items():
+                    out_element = _element_at_zoom(param_name, param_value, zoom)
+                    if out_element is not None:
+                        params["process_parameters"][param_name] = out_element
         params_per_zoom[zoom] = params
     return OrderedDict(params_per_zoom)
 

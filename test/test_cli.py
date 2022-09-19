@@ -515,6 +515,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         assert src.overviews(1)
 
 
+@pytest.mark.remote
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
