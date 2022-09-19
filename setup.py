@@ -34,7 +34,7 @@ install_requires = [
     "oyaml",
     "pyproj",
     "retry",
-    "rasterio>=1.0.28",
+    "rasterio>1.2.10",
     "shapely",
     "tilematrix>=2022.3.0",
     "tqdm",
