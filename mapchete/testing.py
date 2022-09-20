@@ -23,7 +23,11 @@ def dict_from_mapchete(path):
     Read mapchete configuration from file and return as dictionary.
     """
     with open(path) as src:
-        return dict(yaml.safe_load(src.read()), config_dir=os.path.dirname(path))
+        return dict(
+            yaml.safe_load(src.read()),
+            root_dir=os.path.dirname(path),
+            config_dir=os.path.dirname(path),
+        )
 
 
 class ProcessFixture:
@@ -60,7 +64,7 @@ class ProcessFixture:
         if self._output_tempdir:
             out_dir = self._output_tempdir
         else:
-            out_dir = os.path.join(self.dict["config_dir"], self.dict["output"]["path"])
+            out_dir = os.path.join(self.dict["root_dir"], self.dict["output"]["path"])
         try:
             fs_from_path(out_dir).rm(out_dir, recursive=True)
         except FileNotFoundError:
@@ -101,7 +105,7 @@ def get_process_mp(tile=None, zoom=0, input=None, params=None, metatiling=1, **k
     pyramid = BufferedTilePyramid("geodetic", metatiling=metatiling)
     initialized_inputs = initialize_inputs(
         input,
-        config_dir=None,
+        root_dir=None,
         pyramid=pyramid,
         delimiters=None,
         readonly=False,

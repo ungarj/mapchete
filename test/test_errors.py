@@ -133,17 +133,9 @@ def test_wrong_bounds(example_mapchete):
         MapcheteConfig(dict(example_mapchete.dict, bounds=[2, 3]))
 
 
-def test_empty_input_files(example_mapchete):
-    """Assert empty input files raises error."""
-    with pytest.raises(errors.MapcheteConfigError):
-        config = deepcopy(example_mapchete.dict)
-        del config["input"]
-        MapcheteConfig(config)
-
-
 def test_mandatory_params(example_mapchete):
     """Check availability of mandatory parameters."""
-    for param in ["process", "input", "output"]:
+    for param in ["process", "output", "pyramid"]:
         with pytest.raises(errors.MapcheteConfigError):
             config = deepcopy(example_mapchete.dict)
             del config[param]
@@ -157,6 +149,7 @@ def test_mandatory_params(example_mapchete):
     # no config dir given
     with pytest.raises(errors.MapcheteConfigError):
         config = deepcopy(example_mapchete.dict)
+        config.pop("root_dir")
         config.pop("config_dir")
         MapcheteConfig(config).process
 

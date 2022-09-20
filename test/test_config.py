@@ -26,7 +26,7 @@ SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
 
 
-def test_errors_filenotfound(example_mapchete):
+def test_errors_filenotfound():
     """Test various configuration parsing errors."""
     # wrong config type
     with pytest.raises(FileNotFoundError):

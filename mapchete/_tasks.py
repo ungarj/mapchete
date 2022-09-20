@@ -164,7 +164,7 @@ class TileTask(Task):
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
         self.process = None if skip else config.process
-        self.config_dir = None if skip else config.config_dir
+        self.root_dir = None if skip else config._root_dir
         if (
             skip
             or self.tile.zoom not in self.config_zoom_levels
@@ -224,9 +224,7 @@ class TileTask(Task):
             elif self.tile.zoom > max(self.config_baselevels["zooms"]):
                 return self._interpolate_from_baselevel("higher", dependencies)
         # Otherwise, execute from process file.
-        process_func = get_process_func(
-            process=self.process, config_dir=self.config_dir
-        )
+        process_func = get_process_func(process=self.process, root_dir=self.root_dir)
         try:
             with Timer() as duration:
                 # append dependent preprocessing task results to input objects

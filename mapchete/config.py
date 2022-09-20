@@ -23,7 +23,7 @@ import operator
 import os
 import oyaml as yaml
 import py_compile
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, ValidationError, validator, Field
 from rasterio.crs import CRS
 from typing import Union, Optional, Dict, List, Tuple
 from shapely import wkt
@@ -79,7 +79,7 @@ _RESERVED_PARAMETERS = [
     "baselevels",  # enable interpolation from other zoom levels
     "bounds",  # process bounds
     "bounds_crs",  # optional CRS of bounds (default: process CRS)
-    "config_dir",  # configuration base directory
+    "root_dir",  # configuration base directory
     "metatiling",  # process metatile size (deprecated)
     "pixelbuffer",  # buffer around each tile in pixels (deprecated)
     "process",  # path to .py file or module path
@@ -91,20 +91,56 @@ _RESERVED_PARAMETERS = [
 ]
 
 
+class OutputSchema(BaseModel):
+    """
+    Base schema for output parameters.
+    """
+
+    format: str = Field(..., description="Output format driver.")
+    path: str = Field(None, description="Output path.")
+    pixelbuffer: int = Field(
+        None,
+        description="Pixelbuffer around output tiles. (defaults to process pyramid pixelbuffer)",
+    )
+    metatiling: int = Field(
+        None,
+        description="Metatiling setting of output tiles. (defaults to process pyramid metatiling)",
+    )
+
+
 class MapcheteConfigSchema(BaseModel):
-    pyramid: Dict
-    output: Dict
-    zoom_levels: Union[int, Dict, List]
-    input: Dict = None
-    process: Union[str, List] = None
-    area: str = None
-    area_crs: str = None
-    baselevels: Dict = None
-    bounds: Union[List, Tuple, Bounds, None] = None
-    bounds_crs: str = None
-    config_dir: str = None
-    process_parameters: Dict = None
-    mapchete_file: str = None
+    """
+    Schema for a mapchete configuration.
+    """
+
+    pyramid: Dict = Field(..., description="Process pyramid.")
+    zoom_levels: Union[int, Dict, List] = Field(..., description="Process zoom levels.")
+    output: Dict = Field(..., description="Process output definition.")
+    process: Union[str, List] = Field(
+        None, description="Path to process file or process module."
+    )
+    input: Dict = Field(None, description="Mapping of process inputs.")
+    area: str = Field(
+        None, description="Process area as either WKT or path to a vector file."
+    )
+    area_crs: str = Field(
+        None, description="Process area CRS if process area is a WKT."
+    )
+    baselevels: Dict = Field(
+        None,
+        description="Optionally derive zoom levels from other zoom levels like overviews.",
+    )
+    bounds: Union[List, Tuple, Bounds, None] = Field(
+        None, description="Process bounds."
+    )
+    bounds_crs: str = Field(
+        None,
+        description="Process bounds CRS if bounds deviate from process pyramid CRS.",
+    )
+    process_parameters: Dict = Field(
+        None, description="Keyword arguments passed on to process function."
+    )
+    # root_dir: str = Field(None, description="TODO: is this really required?")
 
     @validator("bounds")
     def validate_bounds(cls, bounds):
@@ -113,6 +149,28 @@ class MapcheteConfigSchema(BaseModel):
                 return validate_bounds(bounds)
             except Exception as exc:
                 raise ValidationError(exc)
+
+    @validator("baselevels")
+    def validate_baselevels(cls, baselevels):
+        if baselevels is None:
+            return {}
+
+        minmax = {k: v for k, v in baselevels.items() if k in ["min", "max"]}
+
+        if not minmax:
+            raise ValueError("no min and max values given for baselevels")
+        for v in minmax.values():
+            if not isinstance(v, int) or v < 0:
+                raise TypeError(
+                    "invalid baselevel zoom parameter given: %s" % minmax.values()
+                )
+
+        return dict(
+            min=minmax.get("min"),
+            max=minmax.get("max"),
+            lower=baselevels.get("lower", "nearest"),
+            higher=baselevels.get("higher", "nearest"),
+        )
 
 
 class Mode(str, Enum):
@@ -165,7 +223,7 @@ class MapcheteConfig(object):
         process mode
     process : string
         absolute path to process file
-    config_dir : string
+    root_dir : string
         path to configuration directory
     process_pyramid : ``tilematrix.TilePyramid``
         ``TilePyramid`` used to process data
@@ -222,16 +280,12 @@ class MapcheteConfig(object):
         logger.debug(f"parsing {input_config}")
         # get dictionary representation of input_config and
         # (0) map deprecated params to new structure
-        self._raw = _extract_process_parameters(_config_to_dict(input_config))
-        try:
-            self._config = MapcheteConfigSchema(**self._raw)
-        except ValidationError as exc:
-            raise MapcheteConfigError(exc)
-        self._raw["init_zoom_levels"] = zoom
-        self._raw["init_bounds"] = bounds
-        self._raw["init_bounds_crs"] = bounds_crs
-        self._raw["init_area"] = area
-        self._raw["init_area_crs"] = area_crs
+        self._load_config(input_config)
+        self._init_zoom_levels = zoom
+        self._init_bounds = bounds
+        self._init_bounds_crs = bounds_crs
+        self._init_area = area
+        self._init_area_crs = area_crs
         self._cache_area_at_zoom = {}
         self._cache_full_process_area = None
 
@@ -240,15 +294,8 @@ class MapcheteConfig(object):
         self.mode = mode
         self.preprocessing_tasks_finished = False
 
-        # (1) assert mandatory params are available
-        try:
-            validate_values(self._raw, _MANDATORY_PARAMETERS)
-        except Exception as e:
-            raise MapcheteConfigError(e)
-
         # (2) check user process
-        self.config_dir = self._raw["config_dir"]
-        self.process_name = self.process_path = self.process = self._raw["process"]
+        self.process_name = self.process_path = self.process = self._config.process
         if self.mode != "readonly":
             logger.debug("validating process code")
             self.process_func
@@ -256,10 +303,10 @@ class MapcheteConfig(object):
         # (3) set process and output pyramids
         logger.debug("initializing pyramids")
         try:
-            process_metatiling = self._raw["pyramid"].get("metatiling", 1)
+            process_metatiling = self._config.pyramid.get("metatiling", 1)
             # output metatiling defaults to process metatiling if not set
             # explicitly
-            output_metatiling = self._raw["output"].get(
+            output_metatiling = self._config.output.get(
                 "metatiling", process_metatiling
             )
             # we cannot properly handle output tiles which are bigger than
@@ -271,14 +318,14 @@ class MapcheteConfig(object):
             # these two BufferedTilePyramid instances will help us with all
             # the tile geometries etc.
             self.process_pyramid = BufferedTilePyramid(
-                self._raw["pyramid"]["grid"],
+                self._config.pyramid["grid"],
                 metatiling=process_metatiling,
-                pixelbuffer=self._raw["pyramid"].get("pixelbuffer", 0),
+                pixelbuffer=self._config.pyramid.get("pixelbuffer", 0),
             )
             self.output_pyramid = BufferedTilePyramid(
-                self._raw["pyramid"]["grid"],
+                self._config.pyramid["grid"],
                 metatiling=output_metatiling,
-                pixelbuffer=self._raw["output"].get("pixelbuffer", 0),
+                pixelbuffer=self._config.output.get("pixelbuffer", 0),
             )
         except Exception as e:
             logger.exception(e)
@@ -307,7 +354,7 @@ class MapcheteConfig(object):
         # (5) prepare process parameters per zoom level without initializing
         # input and output classes
         logger.debug("preparing process parameters")
-        self._params_at_zoom = _raw_at_zoom(self._raw, self.init_zoom_levels)
+        self._params_at_zoom = _config_at_zoom(self._config, self.init_zoom_levels)
 
         # (6) determine process area and process boundaries both from config as well
         # as from initialization.
@@ -319,8 +366,8 @@ class MapcheteConfig(object):
         # To finally determine the process tiles, the intersection of process area and the
         # union of all inputs is considered.
         self.area = self._get_process_area(
-            area=self._raw.get("area"),
-            bounds=self._raw.get("bounds"),
+            area=self._config.area,
+            bounds=self._config.bounds,
             area_fallback=box(*self.process_pyramid.bounds),
             bounds_fallback=self.process_pyramid.bounds,
             area_crs=area_crs,
@@ -330,8 +377,8 @@ class MapcheteConfig(object):
         self.bounds = Bounds(*self.area.bounds)
         logger.debug(f"process bounds: {self.bounds}")
         self.init_area = self._get_process_area(
-            area=self._raw.get("init_area"),
-            bounds=self._raw.get("init_bounds"),
+            area=self._init_area,
+            bounds=self._init_bounds,
             area_fallback=self.area,
             bounds_fallback=self.bounds,
             area_crs=area_crs,
@@ -363,6 +410,47 @@ class MapcheteConfig(object):
         # process area to prepare
         logger.debug("prepare output")
         self.output.prepare(process_area=self.area_at_zoom())
+
+    def _load_config(self, input_config):
+        try:
+            if isinstance(input_config, dict):
+                if "root_dir" not in input_config:
+                    if "config_dir" in input_config:
+                        warnings.warn(
+                            DeprecationWarning(
+                                "'config_dir' is deprecated and is called 'root_dir' now."
+                            )
+                        )
+                        input_config["root_dir"] = input_config.pop("config_dir")
+                    else:
+                        raise MapcheteConfigError("root_dir parameter missing")
+                conf = OrderedDict(input_config)
+                self._root_dir = input_config.get("root_dir")
+                self._mapchete_file = None
+            # from Mapchete file
+            elif os.path.splitext(input_config)[1] == ".mapchete":
+                with open(input_config, "r") as config_file:
+                    conf = OrderedDict(
+                        yaml.safe_load(config_file.read()),
+                    )
+                    self._root_dir = os.path.dirname(os.path.realpath(input_config))
+                    self._mapchete_file = input_config
+            # throw error if unknown object
+            else:  # pragma: no cover
+                raise TypeError(
+                    "Configuration has to be a dictionary or a .mapchete file."
+                )
+        except ValidationError as exc:
+            raise MapcheteConfigError(exc)
+
+        try:
+            self._config = MapcheteConfigSchema(
+                **_handle_deprecated_process_parameters(conf)
+            )
+        except Exception as exc:
+            raise MapcheteConfigError(
+                f"mapchete configuration does not fit schema: {exc}"
+            ) from exc
 
     def input_at_zoom(self, key=None, zoom=None):
         if zoom is None:  # pragma: no cover
@@ -418,7 +506,7 @@ class MapcheteConfig(object):
     @cached_property
     def zoom_levels(self):
         """Process zoom levels as defined in the configuration."""
-        return validate_zooms(self._raw["zoom_levels"])
+        return validate_zooms(self._config.zoom_levels)
 
     @cached_property
     def init_zoom_levels(self):
@@ -430,8 +518,8 @@ class MapcheteConfig(object):
         """
         try:
             return get_zoom_levels(
-                process_zoom_levels=self._raw["zoom_levels"],
-                init_zoom_levels=self._raw["init_zoom_levels"],
+                process_zoom_levels=self._config.zoom_levels,
+                init_zoom_levels=self._init_zoom_levels,
             )
         except Exception as e:
             raise MapcheteConfigError(e)
@@ -458,7 +546,7 @@ class MapcheteConfig(object):
     def _output_params(self):
         """Output params of driver."""
         output_params = dict(
-            self._raw["output"],
+            self._config.output,
             grid=self.output_pyramid.grid,
             pixelbuffer=self.output_pyramid.pixelbuffer,
             metatiling=self.output_pyramid.metatiling,
@@ -467,7 +555,7 @@ class MapcheteConfig(object):
         )
         if "path" in output_params:
             output_params.update(
-                path=absolute_path(path=output_params["path"], base_dir=self.config_dir)
+                path=absolute_path(path=output_params["path"], base_dir=self._root_dir)
             )
 
         if "format" not in output_params:
@@ -533,7 +621,7 @@ class MapcheteConfig(object):
         if self._init_inputs:
             return initialize_inputs(
                 raw_inputs,
-                config_dir=self.config_dir,
+                root_dir=self._root_dir,
                 pyramid=self.process_pyramid,
                 delimiters=self._delimiters,
                 readonly=self.mode == "readonly",
@@ -553,23 +641,15 @@ class MapcheteConfig(object):
             lower: <resampling method>
             higher: <resampling method>
         """
-        if "baselevels" not in self._raw:
+        if not self._config.baselevels:
             return {}
-        baselevels = self._raw["baselevels"]
-        minmax = {k: v for k, v in baselevels.items() if k in ["min", "max"]}
 
-        if not minmax:
-            raise MapcheteConfigError("no min and max values given for baselevels")
-        for v in minmax.values():
-            if not isinstance(v, int) or v < 0:
-                raise MapcheteConfigError(
-                    "invalid baselevel zoom parameter given: %s" % minmax.values()
-                )
-
+        _min = self._config.baselevels["min"]
+        _max = self._config.baselevels["max"]
         zooms = list(
             range(
-                minmax.get("min", min(self.zoom_levels)),
-                minmax.get("max", max(self.zoom_levels)) + 1,
+                min(self.zoom_levels) if _min is None else _min,
+                (max(self.zoom_levels) if _max is None else _max) + 1,
             )
         )
 
@@ -577,9 +657,8 @@ class MapcheteConfig(object):
             raise MapcheteConfigError("baselevels zooms fully cover process zooms")
 
         return dict(
+            self._config.baselevels,
             zooms=zooms,
-            lower=baselevels.get("lower", "nearest"),
-            higher=baselevels.get("higher", "nearest"),
             tile_pyramid=BufferedTilePyramid(
                 self.output_pyramid.grid,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
@@ -597,7 +676,7 @@ class MapcheteConfig(object):
         else:
             return get_process_func(
                 process=self.process,
-                config_dir=self.config_dir,
+                root_dir=self._root_dir,
                 run_compile=True,
             )
 
@@ -752,7 +831,7 @@ class MapcheteConfig(object):
                 return area_fallback
 
             elif bounds is None:
-                area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                area, crs = _guess_geometry(area, base_dir=self._root_dir)
                 # in case vector file has no CRS use manually provided CRS
                 area_crs = crs or area_crs
 
@@ -768,7 +847,7 @@ class MapcheteConfig(object):
                 )
 
             else:
-                area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                area, crs = _guess_geometry(area, base_dir=self._root_dir)
                 # in case vector file has no CRS use manually provided CRS
                 area_crs = crs or area_crs
 
@@ -826,7 +905,7 @@ class MapcheteConfig(object):
     def process_file(self):
         """Deprecated."""
         warnings.warn(DeprecationWarning("'self.process_file' is deprecated"))
-        return os.path.join(self._raw["config_dir"], self._raw["process"])
+        return os.path.join(self._root_dir, self._config.process)
 
     def at_zoom(self, zoom):
         """Deprecated."""
@@ -1037,11 +1116,13 @@ def bounds_from_opts(
         return
 
 
-def get_process_func(process=None, config_dir=None, run_compile=False):
+def get_process_func(process=None, root_dir=None, run_compile=False):
     """Import and return process function."""
+    if process is None:
+        raise MapcheteConfigError("no process provided")
     logger.debug(f"get process function from {process}")
     process_module = _load_process_module(
-        process=process, config_dir=config_dir, run_compile=run_compile
+        process=process, root_dir=root_dir, run_compile=run_compile
     )
     try:
         if hasattr(process_module, "Process"):
@@ -1059,7 +1140,7 @@ def get_process_func(process=None, config_dir=None, run_compile=False):
 
 def initialize_inputs(
     raw_inputs,
-    config_dir=None,
+    root_dir=None,
     pyramid=None,
     delimiters=None,
     readonly=False,
@@ -1072,7 +1153,7 @@ def initialize_inputs(
             try:
                 reader = load_input_reader(
                     dict(
-                        path=absolute_path(path=v, base_dir=config_dir),
+                        path=absolute_path(path=v, base_dir=root_dir),
                         pyramid=pyramid,
                         pixelbuffer=pyramid.pixelbuffer,
                         delimiters=delimiters,
@@ -1092,7 +1173,7 @@ def initialize_inputs(
                 abstract = deepcopy(v)
                 if "path" in abstract:
                     abstract.update(
-                        path=absolute_path(path=abstract["path"], base_dir=config_dir)
+                        path=absolute_path(path=abstract["path"], base_dir=root_dir)
                     )
                 reader = load_input_reader(
                     dict(
@@ -1100,7 +1181,7 @@ def initialize_inputs(
                         pyramid=pyramid,
                         pixelbuffer=pyramid.pixelbuffer,
                         delimiters=delimiters,
-                        conf_dir=config_dir,
+                        conf_dir=root_dir,
                     ),
                     readonly=readonly,
                     input_key=k,
@@ -1122,7 +1203,7 @@ def initialize_inputs(
     return initalized_inputs
 
 
-def _load_process_module(process=None, config_dir=None, run_compile=False):
+def _load_process_module(process=None, root_dir=None, run_compile=False):
     tmpfile = None
     try:
         if isinstance(process, list):
@@ -1133,7 +1214,7 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
                     dst.write(line + "\n")
             process = tmpfile.name
         if process.endswith(".py"):
-            module_path = absolute_path(path=process, base_dir=config_dir)
+            module_path = absolute_path(path=process, base_dir=root_dir)
             if not os.path.isfile(module_path):
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
@@ -1175,27 +1256,15 @@ def open_inputs(inputs, tile):
             yield (k, v.open(tile))
 
 
-def _config_to_dict(input_config):
-    if isinstance(input_config, dict):
-        if "config_dir" not in input_config:
-            raise MapcheteConfigError("config_dir parameter missing")
-        return OrderedDict(input_config, mapchete_file=None)
-    # from Mapchete file
-    elif os.path.splitext(input_config)[1] == ".mapchete":
-        with open(input_config, "r") as config_file:
-            return OrderedDict(
-                yaml.safe_load(config_file.read()),
-                config_dir=os.path.dirname(os.path.realpath(input_config)),
-                mapchete_file=input_config,
-            )
-    # throw error if unknown object
-    else:  # pragma: no cover
-        raise MapcheteConfigError(
-            "Configuration has to be a dictionary or a .mapchete file."
-        )
+def _handle_deprecated_process_parameters(config_dict):
+    """
+    Helper function to collect non-standard parameters as process parameters.
 
+    Process parameters for the process function has now to be collected in the "process_parameters"
+    dictionary but in older days, all non-standard parameters were assumed to be process parameters.
 
-def _extract_process_parameters(config_dict):
+    This function helps to keep old configurations kompatible.
+    """
     out = OrderedDict()
     out["process_parameters"] = {}
     for k, v in config_dict.items():
@@ -1213,12 +1282,12 @@ def _extract_process_parameters(config_dict):
     return out
 
 
-def _raw_at_zoom(config, zooms):
+def _config_at_zoom(config, zooms):
     """Return parameter dictionary per zoom level."""
     params_per_zoom = OrderedDict()
     for zoom in zooms:
         params = OrderedDict()
-        for name, element in config.items():
+        for name, element in config.dict().items():
             if name not in _RESERVED_PARAMETERS:
                 out_element = _element_at_zoom(name, element, zoom)
                 if out_element is not None:

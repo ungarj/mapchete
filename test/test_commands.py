@@ -432,7 +432,7 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
         mp.batch_process(zoom=[1, 4])
     job = convert(
         os.path.join(
-            cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
+            cleantopo_br.dict["root_dir"], cleantopo_br.dict["output"]["path"]
         ),
         mp_tmpdir,
         output_pyramid="geodetic",
@@ -510,7 +510,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
     with mapchete.open(cleantopo_br.dict) as mp:
         mp.batch_process(zoom=[1, 4])
     tiledir_path = os.path.join(
-        cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
+        cleantopo_br.dict["root_dir"], cleantopo_br.dict["output"]["path"]
     )
 
     # zoom level required
