@@ -462,6 +462,9 @@ class GTiffSingleFileOutputWriter(
             crs=self.pyramid.crs,
             **creation_options,
         )
+        for blocksize in ["blockxsize", "blockysize"]:
+            if self._profile.get(blocksize) is not None:
+                self._profile[blocksize] = int(self._profile[blocksize])
         logger.debug("single GTiff profile: %s", self._profile)
         logger.debug(
             get_maximum_overview_level(
