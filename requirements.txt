@@ -7,6 +7,7 @@ cached-property>=1.5.1
 click>=7.1.1
 click-plugins>=1.1.1
 click-spinner>=0.1.10
+python-dateutil
 fiona>=1.8.13.post1
 Flask>=1.1.2
 fsspec[s3]>=0.8.4

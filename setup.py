@@ -26,6 +26,7 @@ install_requires = [
     "click>=7.1.1",
     "click-plugins",
     "click-spinner",
+    "python-dateutil",
     "fiona>=1.8.13.post1",
     "fsspec",
     "importlib-metadata",
