@@ -90,10 +90,7 @@ def read_raster_window(
     try:
         with rasterio.Env(
             **get_gdal_options(
-                gdal_opts,
-                is_remote=path_is_remote(input_files[0], s3=True)
-                if isinstance(input_files, str)
-                else False,
+                gdal_opts, is_remote=path_is_remote(input_files[0], s3=True)
             )
         ) as env:
             logger.debug(
@@ -154,7 +151,7 @@ def _read_raster_window(
         for f in input_files:
             try:
                 f_array = _read_raster_window(
-                    f,
+                    [f],
                     tile=tile,
                     indexes=indexes,
                     resampling=resampling,
@@ -670,7 +667,7 @@ class RasterioRemoteTempFileWriter:
 
 
 class RasterioRemoteWriter:
-    def __init__(self, path, *args, fs=None, in_memory=True, **kwargs):
+    def __new__(self, path, *args, fs=None, in_memory=True, **kwargs):
         fs = fs or fs_from_path(path)
         if in_memory:
             return RasterioRemoteMemoryWriter(path, *args, fs=fs, **kwargs)
