@@ -205,6 +205,7 @@ def execute(
 def _process_everything(
     msg_callback,
     mp,
+    print_task_details=True,
     **kwargs,
 ):
     try:
