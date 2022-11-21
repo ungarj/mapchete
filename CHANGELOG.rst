@@ -2,12 +2,33 @@
 Changelog
 #########
 
+----------------------
+2022.11.0 - 2022-11-21
+----------------------
+
+* core
+  * GTiff driver: force blocksize being int (#496)
+  * fix TileDirectory read error from exotic CRSes (#498)
+  * split up `raster.io.RasterioRemoteWriter` class to memory and tempfile subclasses (#500)
+  * make sure dask_compute_graph and dask_chunksize are passed on (#502)
+
+* CLI
+  * print task details also when using dask executor when `--verbose` flag is active (#501)
+
+* packaging
+  * exclude vulnerable rasterio dependency (#490)
+  * add python-dateutil to package requirements (#495)
+  * rename `master` branch to `main`
+
+* tests
+  * add Python 3.10 to tests
+
+
 ---------------------
 2022.9.1 - 2022-09-15
 ---------------------
 
 * packaging
-
   * remove shapely version <1.8.1 constraint from setup.py
 
 
