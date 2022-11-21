@@ -204,22 +204,12 @@ def execute(
 def _process_everything(
     msg_callback,
     mp,
-    executor=None,
-    workers=None,
     concurrency=None,
-    dask_max_submitted_tasks=500,
-    dask_chunksize=100,
-    dask_compute_graph=True,
     **kwargs,
 ):
     try:
         for i, future in enumerate(
             mp.compute(
-                executor=executor,
-                workers=workers,
-                dask_max_submitted_tasks=dask_max_submitted_tasks,
-                dask_chunksize=dask_chunksize,
-                dask_compute_graph=dask_compute_graph,
                 **kwargs,
             ),
             1,
