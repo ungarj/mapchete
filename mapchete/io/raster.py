@@ -148,10 +148,10 @@ def _read_raster_window(
         # is read and a 3D array if multiple bands are read
         dst_array = None
         # read files and add one by one to the output array
-        for f in input_files:
+        for ff in input_files:
             try:
                 f_array = _read_raster_window(
-                    [f],
+                    [ff],
                     tile=tile,
                     indexes=indexes,
                     resampling=resampling,
@@ -166,7 +166,7 @@ def _read_raster_window(
                     logger.debug("added to output array")
             except FileNotFoundError:
                 if skip_missing_files:
-                    logger.debug("skip missing file %s", f)
+                    logger.debug("skip missing file %s", ff)
                 else:  # pragma: no cover
                     raise
         if dst_array is None:
@@ -209,7 +209,7 @@ def _read_raster_window(
                 )
         except FileNotFoundError:  # pragma: no cover
             if skip_missing_files:
-                logger.debug("skip missing file %s", f)
+                logger.debug("skip missing file %s", input_file)
                 return _empty_array()
             else:
                 raise
