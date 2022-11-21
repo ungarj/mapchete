@@ -649,12 +649,9 @@ class RasterioRemoteTempFileWriter:
         self._sink = None
 
     def __enter__(self):
-        if self.in_memory:
-            self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
-        else:
-            self._sink = rasterio.open(
-                self._dst.name, "w+", *self._open_args, **self._open_kwargs
-            )
+        self._sink = rasterio.open(
+            self._dst.name, "w+", *self._open_args, **self._open_kwargs
+        )
         return self._sink
 
     def __exit__(self, *args):
