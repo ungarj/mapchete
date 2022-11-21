@@ -84,16 +84,13 @@ def read_raster_window(
     -------
     raster : MaskedArray
     """
+    input_files = input_files if isinstance(input_files, list) else [input_files]
+    if len(input_files) == 0:  # pragma: no cover
+        raise ValueError("no input given")
     try:
         with rasterio.Env(
             **get_gdal_options(
-                gdal_opts,
-                is_remote=path_is_remote(
-                    input_files[0] if isinstance(input_files, list) else input_files,
-                    s3=True,
-                )
-                if isinstance(input_files, str)
-                else False,
+                gdal_opts, is_remote=path_is_remote(input_files[0], s3=True)
             )
         ) as env:
             logger.debug(
@@ -145,16 +142,16 @@ def _read_raster_window(
             mask=True,
         )
 
-    if isinstance(input_files, list):
+    if len(input_files) > 1:
         # in case multiple input files are given, merge output into one array
         # using the default rasterio behavior, create a 2D array if only one band
         # is read and a 3D array if multiple bands are read
         dst_array = None
         # read files and add one by one to the output array
-        for f in input_files:
+        for ff in input_files:
             try:
                 f_array = _read_raster_window(
-                    f,
+                    [ff],
                     tile=tile,
                     indexes=indexes,
                     resampling=resampling,
@@ -169,7 +166,7 @@ def _read_raster_window(
                     logger.debug("added to output array")
             except FileNotFoundError:
                 if skip_missing_files:
-                    logger.debug("skip missing file %s", f)
+                    logger.debug("skip missing file %s", ff)
                 else:  # pragma: no cover
                     raise
         if dst_array is None:
@@ -177,7 +174,7 @@ def _read_raster_window(
         return dst_array
     else:
         try:
-            input_file = input_files
+            input_file = input_files[0]
             dst_shape = tile.shape
             if not isinstance(indexes, int):
                 if indexes is None:
@@ -212,7 +209,7 @@ def _read_raster_window(
                 )
         except FileNotFoundError:  # pragma: no cover
             if skip_missing_files:
-                logger.debug("skip missing file %s", f)
+                logger.debug("skip missing file %s", input_file)
                 return _empty_array()
             else:
                 raise
@@ -616,44 +613,63 @@ def rasterio_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
         return rasterio.open(path, mode=mode, *args, **kwargs)
 
 
-class RasterioRemoteWriter:
-    def __init__(self, path, *args, fs=None, in_memory=True, **kwargs):
-        logger.debug("open RasterioRemoteWriter for path %s", path)
+class RasterioRemoteMemoryWriter:
+    def __init__(self, path, *args, fs=None, **kwargs):
+        logger.debug("open RasterioRemoteMemoryWriter for path %s", path)
         self.path = path
-        self.fs = fs or fs_from_path(path)
-        self.in_memory = in_memory
-        if self.in_memory:
-            self._dst = MemoryFile()
-        else:
-            self._dst = NamedTemporaryFile(suffix=".tif")
+        self.fs = fs
+        self._dst = MemoryFile()
         self._open_args = args
         self._open_kwargs = kwargs
         self._sink = None
 
     def __enter__(self):
-        if self.in_memory:
-            self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
-        else:
-            self._sink = rasterio.open(
-                self._dst.name, "w+", *self._open_args, **self._open_kwargs
-            )
+        self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
         return self._sink
 
     def __exit__(self, *args):
         try:
             self._sink.close()
-            if self.in_memory:
-                logger.debug("write rasterio MemoryFile to %s", self.path)
-                with self.fs.open(self.path, "wb") as dst:
-                    dst.write(self._dst.getbuffer())
-            else:
-                self.fs.put_file(self._dst.name, self.path)
+            logger.debug("write rasterio MemoryFile to %s", self.path)
+            with self.fs.open(self.path, "wb") as dst:
+                dst.write(self._dst.getbuffer())
         finally:
-            if self.in_memory:
-                logger.debug("close rasterio MemoryFile")
-            else:
-                logger.debug("close and remove tempfile")
+            logger.debug("close rasterio MemoryFile")
             self._dst.close()
+
+
+class RasterioRemoteTempFileWriter:
+    def __init__(self, path, *args, fs=None, **kwargs):
+        logger.debug("open RasterioTempFileWriter for path %s", path)
+        self.path = path
+        self.fs = fs
+        self._dst = NamedTemporaryFile(suffix=".tif")
+        self._open_args = args
+        self._open_kwargs = kwargs
+        self._sink = None
+
+    def __enter__(self):
+        self._sink = rasterio.open(
+            self._dst.name, "w+", *self._open_args, **self._open_kwargs
+        )
+        return self._sink
+
+    def __exit__(self, *args):
+        try:
+            self._sink.close()
+            self.fs.put_file(self._dst.name, self.path)
+        finally:
+            logger.debug("close and remove tempfile")
+            self._dst.close()
+
+
+class RasterioRemoteWriter:
+    def __new__(self, path, *args, fs=None, in_memory=True, **kwargs):
+        fs = fs or fs_from_path(path)
+        if in_memory:
+            return RasterioRemoteMemoryWriter(path, *args, fs=fs, **kwargs)
+        else:
+            return RasterioRemoteTempFileWriter(path, *args, fs=fs, **kwargs)
 
 
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
@@ -908,9 +924,7 @@ def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
     minrow, maxrow, mincol, maxcol
     """
     return itertools.chain(
-        *from_bounds(
-            *out_bounds, transform=in_affine, height=in_shape[-2], width=in_shape[-1]
-        )
+        *from_bounds(*out_bounds, transform=in_affine)
         .round_lengths(pixel_precision=0)
         .round_offsets(pixel_precision=0)
         .toranges()
