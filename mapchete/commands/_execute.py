@@ -120,6 +120,7 @@ def execute(
     def _empty_callback(_):
         pass
 
+    print_task_details = msg_callback is not None
     msg_callback = msg_callback or _empty_callback
     if multi is not None:  # pragma: no cover
         warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
@@ -177,7 +178,7 @@ def execute(
                 tile=tile,
                 workers=workers,
                 zoom=None if tile else zoom,
-                concurrency=concurrency,
+                print_task_details=print_task_details,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
                 dask_compute_graph=dask_compute_graph,
@@ -204,7 +205,7 @@ def execute(
 def _process_everything(
     msg_callback,
     mp,
-    concurrency=None,
+    print_task_details=True,
     **kwargs,
 ):
     try:
@@ -214,10 +215,7 @@ def _process_everything(
             ),
             1,
         ):
-            if concurrency == "dask":
-                # don't call future.result()
-                msg_callback(f"Task {i} finished")
-            else:
+            if print_task_details:
                 process_info = future.result()
                 if isinstance(
                     process_info, PreprocessingProcessInfo
