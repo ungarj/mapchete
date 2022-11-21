@@ -613,6 +613,8 @@ def _compute_tasks(
     zoom_levels=None,
     tile=None,
     skip_output_check=False,
+    dask_max_submitted_tasks=None,
+    dask_chunksize=None,
     **kwargs,
 ):
     if not process.config.preprocessing_tasks_finished:
@@ -625,6 +627,8 @@ def _compute_tasks(
             func=_preprocess_task_wrapper,
             iterable=tasks.values(),
             fkwargs=dict(append_data=True),
+            max_submitted_tasks=dask_max_submitted_tasks,
+            chunksize=dask_chunksize,
             **kwargs,
         ):
             future = future_raise_exception(future)
