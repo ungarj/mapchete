@@ -16,7 +16,7 @@ from mapchete.validate import validate_zooms
 logger = logging.getLogger(__name__)
 
 
-@click.group()
+@click.group(help="Tools to handle STAC metadata.")
 def stac():
     pass
 
