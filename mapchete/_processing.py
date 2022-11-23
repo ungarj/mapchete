@@ -686,7 +686,7 @@ def _compute_tasks(
             fkwargs=fkwargs,
             write_in_parent_process=write_in_parent_process,
             dask_max_submitted_tasks=dask_max_submitted_tasks,
-            chunksize=dask_chunksize,
+            dask_chunksize=dask_chunksize,
             **kwargs,
         ):
             yield future_raise_exception(future)
