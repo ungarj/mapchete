@@ -189,6 +189,7 @@ def execute(
                 dask_scheduler=dask_scheduler,
                 dask_client=dask_client,
                 multiprocessing_start_method=multiprocessing_start_method,
+                max_workers=workers,
             ),
             as_iterator=as_iterator,
             preprocessing_tasks=preprocessing_tasks,
@@ -209,12 +210,7 @@ def _process_everything(
     **kwargs,
 ):
     try:
-        for i, future in enumerate(
-            mp.compute(
-                **kwargs,
-            ),
-            1,
-        ):
+        for future in mp.compute(**kwargs):
             if print_task_details:
                 process_info = future.result()
                 if isinstance(
