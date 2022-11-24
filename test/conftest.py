@@ -474,6 +474,15 @@ def example_mapchete():
 
 
 @pytest.fixture
+def env_storage_options_mapchete():
+    """Fixture for env_storage_options.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "env_storage_options.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def example_custom_process_mapchete():
     """Fixture for example.mapchete."""
     with ProcessFixture(

@@ -449,3 +449,10 @@ def test_init_overrides_config(example_mapchete):
 def test_custom_process(example_custom_process_mapchete):
     with mapchete.open(example_custom_process_mapchete.dict) as mp:
         assert callable(mp.config.process_func)
+
+
+def test_env_params(env_storage_options_mapchete):
+    with mapchete.open(env_storage_options_mapchete.dict) as mp:
+        inp = mp.config.params_at_zoom(5)
+        assert inp["input"]["file1"].storage_options.get("SOME_ACCESS_KEY") == "foo"
+        assert mp.config.output.storage_options.get("SOME_ACCESS_KES") == "bar"

@@ -62,6 +62,9 @@ class InputData(object):
         self.preprocessing_tasks = {}
         # storage location of all preprocessing tasks
         self.preprocessing_tasks_results = {}
+        self.storage_options = input_params.get("abstract", {}).get(
+            "storage_options", {}
+        )
 
     def open(self, tile, **kwargs):
         """
@@ -246,6 +249,7 @@ class OutputDataBaseFunctions:
         )
         self.crs = self.pyramid.crs
         self._bucket = None
+        self.storage_options = output_params.get("storage_options")
         self.fs = self._fs = output_params.get(
             "fs", fs_from_path(output_params.get("path", ""))
         )

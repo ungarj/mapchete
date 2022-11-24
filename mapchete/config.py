@@ -1138,12 +1138,12 @@ def _config_to_dict(input_config):
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
             raise MapcheteConfigError("config_dir parameter missing")
-        return OrderedDict(input_config, mapchete_file=None)
+        return OrderedDict(_include_env(input_config), mapchete_file=None)
     # from Mapchete file
     elif os.path.splitext(input_config)[1] == ".mapchete":
         with open(input_config, "r") as config_file:
             return OrderedDict(
-                yaml.safe_load(config_file.read()),
+                _include_env(yaml.safe_load(config_file.read())),
                 config_dir=os.path.dirname(os.path.realpath(input_config)),
                 mapchete_file=input_config,
             )
@@ -1152,6 +1152,17 @@ def _config_to_dict(input_config):
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file."
         )
+
+
+def _include_env(d):
+    out = OrderedDict()
+    for k, v in d.items():
+        if isinstance(v, dict):
+            out[k] = _include_env(v)
+        if isinstance(v, str) and v.startswith("${") and v.endswith("}"):
+            envvar = v.lstrip("${").rstrip("}")
+            out[k] = os.environ.get(envvar)
+    return out
 
 
 def _raw_at_zoom(config, zooms):
