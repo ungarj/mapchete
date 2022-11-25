@@ -128,7 +128,7 @@ class InputData(object):
             raise KeyError(f"preprocessing task with key {key} already exists")
         logger.debug(f"add preprocessing task {key, func}")
         self.preprocessing_tasks[key] = Task(
-            id=key,
+            id=f"preprocessing_task-{key}",
             func=func,
             fargs=fargs,
             fkwargs=fkwargs,

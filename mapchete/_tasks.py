@@ -159,7 +159,8 @@ class TileTask(Task):
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
         )
-        self.id = id or f"tile_task_{self.tile.zoom}-{self.tile.row}-{self.tile.col}"
+        _default_id = f"tile_task_z{self.tile.zoom}-({self.tile.zoom}-{self.tile.row}-{self.tile.col})"
+        self.id = id or _default_id
         self.skip = skip
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
@@ -179,9 +180,7 @@ class TileTask(Task):
         self.output_reader = (
             None if skip or not config.baselevels else config.output_reader
         )
-        super().__init__(
-            id=f"tile_task_{tile.zoom}-{tile.row}-{tile.col}", geometry=tile.bbox
-        )
+        super().__init__(id=_default_id, geometry=tile.bbox)
 
     def execute(self, dependencies=None):
         """
@@ -432,7 +431,7 @@ def to_dask_collection(batches):
                 task,
                 dependencies=dependencies,
                 **batch.fkwargs,
-                dask_key_name=f"{task.id}_finished",
+                dask_key_name=f"{task.id}",
             )
         previous_batch = batch
     return list(tasks.values())
