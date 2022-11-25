@@ -7,11 +7,11 @@ input:
         format: raster_file
         path: dummy2.tif
         storage_options:
-            SOME_ACCESS_KEY: ${AK1}
+            access_key: ${AK1}
 output:
     dtype: float32
     bands: 1
     format: GTiff
     path: tmp/gtiff
     storage_options:
-        SOME_ACCESS_KEY: ${AK2}
+        access_key: ${AK2}

@@ -1159,9 +1159,11 @@ def _include_env(d):
     for k, v in d.items():
         if isinstance(v, dict):
             out[k] = _include_env(v)
-        if isinstance(v, str) and v.startswith("${") and v.endswith("}"):
+        elif isinstance(v, str) and v.startswith("${") and v.endswith("}"):
             envvar = v.lstrip("${").rstrip("}")
             out[k] = os.environ.get(envvar)
+        else:
+            out[k] = v
     return out
 
 
