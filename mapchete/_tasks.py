@@ -161,8 +161,6 @@ class TileTask(Task):
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
         )
-        if id is not None:
-            1 / 0
         _default_id = f"tile_task_z{self.tile.zoom}-({self.tile.zoom}-{self.tile.row}-{self.tile.col})"
         self.id = id or _default_id
         self.skip = skip
