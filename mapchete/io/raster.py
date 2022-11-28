@@ -38,7 +38,32 @@ from mapchete.validate import validate_write_window_params
 
 logger = logging.getLogger(__name__)
 
-ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine", "bounds", "crs"))
+
+class ReferencedRaster:
+    def __init__(
+        self, data=None, affine=None, bounds=None, crs=None, compression_options=False
+    ):
+        # --> try to compress as good as possible
+        self.data = data
+        self.affine = affine
+        self.bounds = bounds
+        self.crs = crs
+
+    def read(self, tile=None, resampling="nearest"):
+        if tile is not None:
+            return resample_from_array(
+                in_raster=self.data, out_tile=tile, resampling=resampling
+            )
+        else:
+            return self.data
+
+    @staticmethod
+    def encode(data, compression_options):
+        raise NotImplementedError()
+
+    @staticmethod
+    def decode(data, compression_options):
+        raise NotImplementedError()
 
 
 def read_raster_window(
