@@ -19,7 +19,7 @@ from shapely.geometry import box, mapping
 from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
 from types import GeneratorType
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import warnings
 
 from mapchete.errors import MapcheteIOError
@@ -49,11 +49,11 @@ class ReferencedRaster:
 
     def __init__(
         self,
-        data: np.ndarray | ma.masked_array = None,
+        data: Union[np.ndarray, ma.masked_array] = None,
         transform: Affine = None,
-        bounds: List[float] | Tuple[float] | Bounds = None,
-        crs: str | rasterio.crs.CRS = None,
-        nodata: int | float = None,
+        bounds: Union[List[float], Tuple[float], Bounds] = None,
+        crs: Union[str, rasterio.crs.CRS] = None,
+        nodata: Union[int, float] = None,
         driver: str = None,
         **kwargs,
     ):
@@ -91,7 +91,7 @@ class ReferencedRaster:
 
     def read(
         self,
-        indexes: int | List[int] = None,
+        indexes: Union[int, List[int]] = None,
         tile: BufferedTile = None,
         resampling: str = "nearest",
     ) -> np.ndarray:
@@ -118,7 +118,7 @@ class ReferencedRaster:
                 resampling=resampling,
             )
 
-    def _get_band_indexes(self, indexes: List[int] | int = None) -> List[int]:
+    def _get_band_indexes(self, indexes: Union[List[int], int] = None) -> List[int]:
         """Return valid band indexes."""
         if isinstance(indexes, int):
             return [indexes]
