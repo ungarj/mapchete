@@ -4,17 +4,20 @@ from collections import namedtuple
 import datetime
 import os
 import pytest
+import rasterio
 from shapely import wkt
+from shapely.geometry import box
 import shutil
 import uuid
-import yaml
 
 from tilematrix import Bounds, GridDefinition
 
 from mapchete.cli.default.serve import create_app
 from mapchete._executor import DaskExecutor
 from mapchete.io import fs_from_path
-from mapchete.testing import ProcessFixture, dict_from_mapchete
+from mapchete.io.vector import reproject_geometry
+from mapchete.testing import ProcessFixture
+from mapchete.tile import BufferedTilePyramid
 
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -103,6 +106,16 @@ def s2_band():
     s3://sentinel-s2-l1c/tiles/33/T/WN/2016/4/3/0/B02.jp2
     """
     return os.path.join(TESTDATA_DIR, "s2_band.tif")
+
+
+@pytest.fixture
+def s2_band_tile():
+    tp = BufferedTilePyramid("geodetic")
+    with rasterio.open(os.path.join(TESTDATA_DIR, "s2_band.tif")) as src:
+        rr_center = reproject_geometry(
+            geometry=box(*src.bounds), src_crs=src.crs, dst_crs=tp.crs
+        ).centroid
+        return next(tp.tiles_from_geom(rr_center, 13))
 
 
 @pytest.fixture

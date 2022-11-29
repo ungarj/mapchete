@@ -1,7 +1,6 @@
 """Wrapper functions around rasterio and useful raster functions."""
 
 from affine import Affine
-from collections import namedtuple
 import itertools
 import logging
 import numpy as np
@@ -14,11 +13,13 @@ from rasterio.errors import RasterioIOError
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds as affine_from_bounds
 from rasterio.vrt import WarpedVRT
-from rasterio.warp import reproject, calculate_default_transform
+from rasterio.warp import reproject
 from rasterio.windows import from_bounds
+from shapely.geometry import box, mapping
 from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
 from types import GeneratorType
+from typing import List, Tuple
 import warnings
 
 from mapchete.errors import MapcheteIOError
@@ -40,30 +41,111 @@ logger = logging.getLogger(__name__)
 
 
 class ReferencedRaster:
+    """
+    A loose in-memory representation of a rasterio dataset.
+
+    Useful to ship cached raster files between worker nodes.
+    """
+
     def __init__(
-        self, data=None, affine=None, bounds=None, crs=None, compression_options=False
+        self,
+        data: np.ndarray | ma.masked_array = None,
+        transform: Affine = None,
+        bounds: List[float] | Tuple[float] | Bounds = None,
+        crs: str | rasterio.crs.CRS = None,
+        nodata: int | float = None,
+        driver: str = None,
+        **kwargs,
     ):
-        # --> try to compress as good as possible
+        if data.ndim == 2:
+            self.count = 1
+            self.height, self.width = data.shape
+        elif data.ndim == 3:
+            self.count, self.height, self.width = data.shape
+        else:  # pragma: no cover
+            raise TypeError("input array must be 2- or 3-dimensional")
+        transform = transform or kwargs.get("affine")
+        if transform is None:  # pragma: no cover
+            raise ValueError("georeference given")
         self.data = data
-        self.affine = affine
-        self.bounds = bounds
+        self.driver = driver
+        self.dtype = self.data.dtype
+        self.nodata = nodata
         self.crs = crs
+        self.transform = self.affine = transform
+        self.bounds = bounds
+        self.__geo_interface__ = mapping(box(*self.bounds))
 
-    def read(self, tile=None, resampling="nearest"):
-        if tile is not None:
-            return resample_from_array(
-                in_raster=self.data, out_tile=tile, resampling=resampling
-            )
+    @property
+    def meta(self) -> dict:
+        return {
+            "driver": self.driver,
+            "dtype": self.dtype,
+            "nodata": self.nodata,
+            "width": self.width,
+            "height": self.height,
+            "count": self.count,
+            "crs": self.crs,
+            "transform": self.transform,
+        }
+
+    def read(
+        self,
+        indexes: int | List[int] = None,
+        tile: BufferedTile = None,
+        resampling: str = "nearest",
+    ) -> np.ndarray:
+        """Either read full array or resampled to tile."""
+        # select bands using band indexes
+        if indexes is None or self.data.ndim == 2:
+            band_selection = self.data
         else:
-            return self.data
+            band_selection = self._stack(
+                [self.data[i - 1] for i in self._get_band_indexes(indexes)]
+            )
+
+        # return either full array or a window resampled to tile
+        if tile is None:
+            return band_selection
+        else:
+            return resample_from_array(
+                in_raster=band_selection,
+                in_affine=self.transform,
+                in_crs=self.crs,
+                nodataval=self.nodata,
+                nodata=self.nodata,
+                out_tile=tile,
+                resampling=resampling,
+            )
+
+    def _get_band_indexes(self, indexes: List[int] | int = None) -> List[int]:
+        """Return valid band indexes."""
+        if isinstance(indexes, int):
+            return [indexes]
+        else:
+            return indexes
+
+    def _stack(self, *args) -> np.ndarray:
+        """return stack of numpy or numpy.masked depending on array type"""
+        return (
+            ma.stack(*args)
+            if isinstance(self.data, ma.masked_array)
+            else np.stack(*args)
+        )
 
     @staticmethod
-    def encode(data, compression_options):
-        raise NotImplementedError()
+    def from_rasterio(src, masked: bool = True) -> "ReferencedRaster":
+        return ReferencedRaster(
+            data=src.read(masked=masked).copy(),
+            transform=src.transform,
+            bounds=src.bounds,
+            crs=src.crs,
+        )
 
     @staticmethod
-    def decode(data, compression_options):
-        raise NotImplementedError()
+    def from_file(path, masked: bool = True) -> "ReferencedRaster":
+        with rasterio.open(path) as src:
+            return ReferencedRaster.from_rasterio(src, masked=masked)
 
 
 def read_raster_window(
