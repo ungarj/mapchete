@@ -82,7 +82,7 @@ def reproject_geometry(
         geometry = (
             geometry if isinstance(geometry, base.BaseGeometry) else shape(geometry)
         )
-    except Exception:
+    except Exception:  # pragma: no cover
         raise TypeError(f"invalid geometry type: {type(geometry)}")
 
     def _reproject_geom(geometry, src_crs, dst_crs):
