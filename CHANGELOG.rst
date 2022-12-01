@@ -3,6 +3,17 @@ Changelog
 #########
 
 ----------------------
+2022.11.2 - 2022-11-30
+----------------------
+
+* core
+  * use group prefix for preprocessing tasks (#512)
+
+* CLI
+  * pass on `max_workers`` to dask executor (#508)
+
+
+----------------------
 2022.11.1 - 2022-11-23
 ----------------------
 
