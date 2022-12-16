@@ -3,6 +3,19 @@ Changelog
 #########
 
 ----------------------
+2022.12.0 - 2022-12-16
+----------------------
+
+* core
+  * extend capabilities of `mapchete.io.raster.ReferencedRaster` (#513)
+  * allow executing remote mapchete files (#514)
+  * adapt to `Shapely 2.0` (#515)
+
+* packaging
+  * replace `setuptools` with `hatch` (#516)
+
+
+----------------------
 2022.11.2 - 2022-11-30
 ----------------------
 
@@ -10,7 +23,7 @@ Changelog
   * use group prefix for preprocessing tasks (#512)
 
 * CLI
-  * pass on `max_workers`` to dask executor (#508)
+  * pass on `max_workers` to dask executor (#508)
 
 
 ----------------------
