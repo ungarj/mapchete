@@ -14,6 +14,7 @@ from cached_property import cached_property
 from collections import OrderedDict
 from copy import deepcopy
 import fiona
+import fsspec
 import hashlib
 import importlib
 import inspect
@@ -886,7 +887,8 @@ def raw_conf(mapchete_file):
     if isinstance(mapchete_file, dict):
         return _map_to_new_config(mapchete_file)
     else:
-        return _map_to_new_config(yaml.safe_load(open(mapchete_file, "r").read()))
+        with fsspec.open(mapchete_file, "r") as src:
+            return _map_to_new_config(yaml.safe_load(src.read()))
 
 
 def raw_conf_process_pyramid(raw_conf, reset_pixelbuffer=False):
@@ -1141,7 +1143,7 @@ def _config_to_dict(input_config):
         return OrderedDict(input_config, mapchete_file=None)
     # from Mapchete file
     elif os.path.splitext(input_config)[1] == ".mapchete":
-        with open(input_config, "r") as config_file:
+        with fsspec.open(input_config, "r") as config_file:
             return OrderedDict(
                 yaml.safe_load(config_file.read()),
                 config_dir=os.path.dirname(os.path.realpath(input_config)),
