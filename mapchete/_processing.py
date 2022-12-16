@@ -244,9 +244,10 @@ def compute(
     multiprocessing_module=None,
     skip_output_check=False,
     dask_compute_graph=True,
+    dask_propagate_results=True,
+    dask_max_submitted_tasks=500,
     raise_errors=True,
     with_results=False,
-    dask_propagate_results=True,
     **kwargs,
 ):
     """Computes all tasks and yields progress."""
@@ -299,6 +300,7 @@ def compute(
                     zoom_levels=zoom_levels,
                     tile=tile,
                     skip_output_check=skip_output_check,
+                    dask_max_submitted_tasks=dask_max_submitted_tasks,
                     **kwargs,
                 ),
                 1,
@@ -325,8 +327,8 @@ def _preprocess(
     tasks,
     process=None,
     dask_scheduler=None,
-    dask_max_submitted_tasks=500,
-    dask_chunksize=100,
+    dask_max_submitted_tasks=None,
+    dask_chunksize=None,
     workers=None,
     multiprocessing_module=None,
     multiprocessing_start_method=None,
@@ -423,8 +425,8 @@ def _run_area(
     process=None,
     zoom_levels=None,
     dask_scheduler=None,
-    dask_max_submitted_tasks=500,
-    dask_chunksize=100,
+    dask_max_submitted_tasks=None,
+    dask_chunksize=None,
     workers=None,
     multiprocessing_module=None,
     multiprocessing_start_method=None,
@@ -493,8 +495,8 @@ def _run_multi(
     zoom_levels=None,
     process=None,
     dask_scheduler=None,
-    dask_max_submitted_tasks=500,
-    dask_chunksize=100,
+    dask_max_submitted_tasks=None,
+    dask_chunksize=None,
     workers=None,
     multiprocessing_start_method=None,
     multiprocessing_module=None,
@@ -613,6 +615,8 @@ def _compute_tasks(
     zoom_levels=None,
     tile=None,
     skip_output_check=False,
+    dask_max_submitted_tasks=None,
+    dask_chunksize=None,
     **kwargs,
 ):
     if not process.config.preprocessing_tasks_finished:
@@ -625,6 +629,8 @@ def _compute_tasks(
             func=_preprocess_task_wrapper,
             iterable=tasks.values(),
             fkwargs=dict(append_data=True),
+            max_submitted_tasks=dask_max_submitted_tasks,
+            chunksize=dask_chunksize,
             **kwargs,
         ):
             future = future_raise_exception(future)
@@ -679,6 +685,8 @@ def _compute_tasks(
             skip_output_check=skip_output_check,
             fkwargs=fkwargs,
             write_in_parent_process=write_in_parent_process,
+            dask_max_submitted_tasks=dask_max_submitted_tasks,
+            dask_chunksize=dask_chunksize,
             **kwargs,
         ):
             yield future_raise_exception(future)
@@ -691,8 +699,8 @@ def _run_multi_overviews(
     process=None,
     skip_output_check=None,
     fkwargs=None,
-    dask_chunksize=None,
     dask_max_submitted_tasks=None,
+    dask_chunksize=None,
     write_in_parent_process=None,
 ):
     # here we store the parents of processed tiles so we can update overviews
@@ -778,8 +786,8 @@ def _run_multi_no_overviews(
     process=None,
     skip_output_check=None,
     fkwargs=None,
-    dask_chunksize=None,
     dask_max_submitted_tasks=None,
+    dask_chunksize=None,
     write_in_parent_process=None,
 ):
     logger.debug("sending tasks to executor %s...", executor)

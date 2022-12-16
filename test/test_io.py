@@ -119,6 +119,13 @@ def test_tile_to_zoom_level():
         == 4
     )
 
+
+def test_tile_to_zoom_level_geodetic_from_mercator():
+    tp_merc = BufferedTilePyramid("mercator")
+    tp_geod = BufferedTilePyramid("geodetic")
+    zoom = 9
+    col = 0
+
     # geodetic from mercator
     # at Northern boundary
     # NOTE: using a newer proj version (8.2.0) will yield different results

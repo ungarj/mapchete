@@ -117,11 +117,11 @@ def _cb_none_concurrency(ctx, param, value):
 
 # click arguments #
 ###################
-arg_mapchete_file = click.argument("mapchete_file", type=click.Path(exists=True))
+arg_mapchete_file = click.argument("mapchete_file", type=click.Path())
 arg_create_mapchete_file = click.argument("mapchete_file", type=click.Path())
 arg_mapchete_files = click.argument(
     "mapchete_files",
-    type=click.Path(exists=True),
+    type=click.Path(),
     nargs=-1,
     callback=_validate_mapchete_files,
 )
@@ -129,7 +129,7 @@ arg_process_file = click.argument("process_file", type=click.Path())
 arg_out_format = click.argument(
     "out_format", type=click.Choice(available_output_formats())
 )
-arg_input_raster = click.argument("input_raster", type=click.Path(exists=True))
+arg_input_raster = click.argument("input_raster", type=click.Path())
 arg_out_dir = click.argument("output_dir", type=click.Path())
 arg_input = click.argument("input_", metavar="INPUT", type=click.STRING)
 arg_output = click.argument("output", type=click.STRING)

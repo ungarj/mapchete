@@ -223,7 +223,6 @@ class DaskExecutor(_ExecutorBase):
     def __init__(
         self,
         *args,
-        address=None,
         dask_scheduler=None,
         dask_client=None,
         max_workers=None,
@@ -308,8 +307,8 @@ class DaskExecutor(_ExecutorBase):
         """
         from dask.distributed import TimeoutError
 
-        max_submitted_tasks = max_submitted_tasks or 1
-        chunksize = chunksize or 1
+        max_submitted_tasks = max_submitted_tasks or 500
+        chunksize = chunksize or 100
 
         try:
             fargs = fargs or ()

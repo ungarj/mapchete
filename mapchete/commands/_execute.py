@@ -120,6 +120,7 @@ def execute(
     def _empty_callback(_):
         pass
 
+    print_task_details = msg_callback is not None
     msg_callback = msg_callback or _empty_callback
     if multi is not None:  # pragma: no cover
         warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
@@ -177,7 +178,7 @@ def execute(
                 tile=tile,
                 workers=workers,
                 zoom=None if tile else zoom,
-                concurrency=concurrency,
+                print_task_details=print_task_details,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
                 dask_compute_graph=dask_compute_graph,
@@ -188,6 +189,7 @@ def execute(
                 dask_scheduler=dask_scheduler,
                 dask_client=dask_client,
                 multiprocessing_start_method=multiprocessing_start_method,
+                max_workers=workers,
             ),
             as_iterator=as_iterator,
             preprocessing_tasks=preprocessing_tasks,
@@ -204,30 +206,12 @@ def execute(
 def _process_everything(
     msg_callback,
     mp,
-    executor=None,
-    workers=None,
-    concurrency=None,
-    dask_max_submitted_tasks=500,
-    dask_chunksize=100,
-    dask_compute_graph=True,
+    print_task_details=True,
     **kwargs,
 ):
     try:
-        for i, future in enumerate(
-            mp.compute(
-                executor=executor,
-                workers=workers,
-                dask_max_submitted_tasks=dask_max_submitted_tasks,
-                dask_chunksize=dask_chunksize,
-                dask_compute_graph=dask_compute_graph,
-                **kwargs,
-            ),
-            1,
-        ):
-            if concurrency == "dask":
-                # don't call future.result()
-                msg_callback(f"Task {i} finished")
-            else:
+        for future in mp.compute(**kwargs):
+            if print_task_details:
                 process_info = future.result()
                 if isinstance(
                     process_info, PreprocessingProcessInfo

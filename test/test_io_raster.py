@@ -29,6 +29,7 @@ from mapchete.io.raster import (
     convert_raster,
 )
 from mapchete.tile import BufferedTilePyramid
+from mapchete.io.vector import reproject_geometry
 
 
 def test_read_raster_window(dummy1_tif, minmax_zoom):
@@ -838,3 +839,31 @@ def test_convert_raster_other_format_overwrite(cleantopo_br_tif, tmpdir):
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG", overwrite=True)
     with rasterio.open(out) as src:
         assert not src.read(masked=True).mask.all()
+
+
+def test_referencedraster_meta(s2_band):
+    rr = ReferencedRaster.from_file(s2_band)
+    meta = rr.meta
+    for k in [
+        "driver",
+        "dtype",
+        "nodata",
+        "width",
+        "height",
+        "count",
+        "crs",
+        "transform",
+    ]:
+        assert k in meta
+
+
+@pytest.mark.parametrize("indexes", [None, 1, [1]])
+def test_referencedraster_read_band(s2_band, indexes):
+    rr = ReferencedRaster.from_file(s2_band)
+    assert rr.read(indexes).any()
+
+
+@pytest.mark.parametrize("indexes", [None, 1, [1]])
+def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
+    rr = ReferencedRaster.from_file(s2_band)
+    assert rr.read(indexes, tile=s2_band_tile).any()

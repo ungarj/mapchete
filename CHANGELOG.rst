@@ -2,12 +2,65 @@
 Changelog
 #########
 
+----------------------
+2022.12.0 - 2022-12-16
+----------------------
+
+* core
+  * extend capabilities of `mapchete.io.raster.ReferencedRaster` (#513)
+  * allow executing remote mapchete files (#514)
+  * adapt to `Shapely 2.0` (#515)
+
+* packaging
+  * replace `setuptools` with `hatch` (#516)
+
+
+----------------------
+2022.11.2 - 2022-11-30
+----------------------
+
+* core
+  * use group prefix for preprocessing tasks (#512)
+
+* CLI
+  * pass on `max_workers` to dask executor (#508)
+
+
+----------------------
+2022.11.1 - 2022-11-23
+----------------------
+
+* core
+  * dask `chunksize` and `max_submitted_tasks` fix (#506)
+
+
+----------------------
+2022.11.0 - 2022-11-21
+----------------------
+
+* core
+  * GTiff driver: force blocksize being int (#496)
+  * fix TileDirectory read error from exotic CRSes (#498)
+  * split up `raster.io.RasterioRemoteWriter` class to memory and tempfile subclasses (#500)
+  * make sure dask_compute_graph and dask_chunksize are passed on (#502)
+
+* CLI
+  * print task details also when using dask executor when `--verbose` flag is active (#501)
+
+* packaging
+  * exclude vulnerable rasterio dependency (#490)
+  * add python-dateutil to package requirements (#495)
+  * rename `master` branch to `main`
+
+* tests
+  * add Python 3.10 to tests
+
+
 ---------------------
 2022.9.1 - 2022-09-15
 ---------------------
 
 * packaging
-
   * remove shapely version <1.8.1 constraint from setup.py
 
 
