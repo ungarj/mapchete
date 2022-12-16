@@ -40,7 +40,9 @@ def clip_array_with_vector(
         if feature_geom.geom_type == "GeometryCollection":
             # for GeometryCollections apply buffer to every subgeometry
             # and make union
-            buffered_geom = unary_union([g.buffer(clip_buffer) for g in feature_geom])
+            buffered_geom = unary_union(
+                [g.buffer(clip_buffer) for g in feature_geom.geoms]
+            )
         else:
             buffered_geom = feature_geom.buffer(clip_buffer)
         if not buffered_geom.is_empty:
