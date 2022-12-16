@@ -122,11 +122,19 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
     """
 
     def width_height(bounds):
+        """
+        Determine with and height in destination pyramid CRS.
+
+        Raises a TopologicalError if bounds cannot be reprojected.
+        """
         try:
-            l, b, r, t = reproject_geometry(
+            geom = reproject_geometry(
                 box(*bounds), src_crs=tile.crs, dst_crs=dst_pyramid.crs
-            ).bounds
-        except ValueError:
+            )
+            if geom.is_empty:  # Shapely>=2.0
+                raise ValueError("geometry empty after reprojection")
+            l, b, r, t = geom.bounds
+        except ValueError:  # pragma: no cover
             raise TopologicalError("bounds cannot be translated into target CRS")
         return r - l, t - b
 

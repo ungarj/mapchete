@@ -46,12 +46,14 @@ class Task:
         geometry=None,
         bounds=None,
         dependencies=None,
+        result_key_name=None,
     ):
         self.id = id or uuid4().hex
         self.func = func
         self.fargs = fargs or ()
         self.fkwargs = fkwargs or {}
         self.dependencies = dependencies or {}
+        self.result_key_name = result_key_name or f"{self.id}_result"
         if geometry and bounds:
             raise ValueError("only provide one of either 'geometry' or 'bounds'")
         elif geometry:
@@ -159,7 +161,8 @@ class TileTask(Task):
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
         )
-        self.id = id or f"tile_task_{self.tile.zoom}-{self.tile.row}-{self.tile.col}"
+        _default_id = f"tile_task_z{self.tile.zoom}-({self.tile.zoom}-{self.tile.row}-{self.tile.col})"
+        self.id = id or _default_id
         self.skip = skip
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
@@ -179,9 +182,7 @@ class TileTask(Task):
         self.output_reader = (
             None if skip or not config.baselevels else config.output_reader
         )
-        super().__init__(
-            id=f"tile_task_{tile.zoom}-{tile.row}-{tile.col}", geometry=tile.bbox
-        )
+        super().__init__(id=self.id, geometry=tile.bbox)
 
     def execute(self, dependencies=None):
         """
@@ -232,7 +233,6 @@ class TileTask(Task):
                 # append dependent preprocessing task results to input objects
                 if dependencies:
                     for task_key, task_result in dependencies.items():
-                        logger.debug("HERBERT: %s", task_key)
                         if not task_key.startswith("tile_task"):
                             inp_key, task_key = task_key.split(":")[0], ":".join(
                                 task_key.split(":")[1:]
@@ -432,7 +432,7 @@ def to_dask_collection(batches):
                 task,
                 dependencies=dependencies,
                 **batch.fkwargs,
-                dask_key_name=f"{task.id}_finished",
+                dask_key_name=f"{task.result_key_name}",
             )
         previous_batch = batch
     return list(tasks.values())
