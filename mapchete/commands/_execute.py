@@ -158,7 +158,7 @@ def execute(
             f"processing {preprocessing_tasks} preprocessing tasks and {tiles_tasks} tile tasks on {workers} worker(s)"
         )
         # automatically use dask Executor if dask scheduler is defined
-        if dask_scheduler or dask_client:  # pragma: no cover
+        if dask_scheduler or dask_client or concurrency == "dask":
             concurrency = "dask"
         # use sequential Executor if only one tile or only one worker is defined
         elif total_tasks == 1 or workers == 1:
