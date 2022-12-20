@@ -3,6 +3,18 @@ Changelog
 #########
 
 ----------------------
+2022.12.1 - 2022-12-20
+----------------------
+
+* core
+  * always use dask executor if defined, even if there is only one task or worker (#517)
+  * try to provide more useful information if dask task exception cannot be recovered (#519)
+
+* CI
+  * schedule tests every monday and thursday (#518) 
+
+
+----------------------
 2022.12.0 - 2022-12-16
 ----------------------
 
