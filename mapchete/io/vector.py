@@ -90,28 +90,33 @@ def read_vector_window(
 
 
 def _read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False):
-    if tile.pixelbuffer and tile.is_on_edge():
-        return chain.from_iterable(
-            _get_reprojected_features(
+    try:
+        if tile.pixelbuffer and tile.is_on_edge():
+            return chain.from_iterable(
+                _get_reprojected_features(
+                    inp=inp,
+                    dst_bounds=bbox.bounds,
+                    dst_crs=tile.crs,
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
+                )
+                for bbox in clip_geometry_to_srs_bounds(
+                    tile.bbox, tile.tile_pyramid, multipart=True
+                )
+            )
+        else:
+            features = _get_reprojected_features(
                 inp=inp,
-                dst_bounds=bbox.bounds,
+                dst_bounds=tile.bounds,
                 dst_crs=tile.crs,
                 validity_check=validity_check,
                 clip_to_crs_bounds=clip_to_crs_bounds,
             )
-            for bbox in clip_geometry_to_srs_bounds(
-                tile.bbox, tile.tile_pyramid, multipart=True
-            )
-        )
-    else:
-        features = _get_reprojected_features(
-            inp=inp,
-            dst_bounds=tile.bounds,
-            dst_crs=tile.crs,
-            validity_check=validity_check,
-            clip_to_crs_bounds=clip_to_crs_bounds,
-        )
-        return features
+            return features
+    except FileNotFoundError:  # pragma: no cover
+        raise
+    except Exception as exc:  # pragma: no cover
+        raise IOError(f"failed to read {inp}") from exc
 
 
 def write_vector_window(
