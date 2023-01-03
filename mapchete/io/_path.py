@@ -1,6 +1,7 @@
 """Functions handling paths and file systems."""
 
 from collections import defaultdict
+from functools import cached_property
 import logging
 import os
 
@@ -11,7 +12,114 @@ from mapchete._executor import Executor
 logger = logging.getLogger(__name__)
 
 
-def path_is_remote(path, s3=True):
+class Path:
+    """Partially replicates pathlib.Path but with remote file support."""
+
+    def __init__(self, path_str, fs=None, fs_options=None, fs_session=None, **kwargs):
+        if path_str.startswith("/vsicurl/"):
+            self._path_str = path_str.lstrip("/vsicurl/")
+            if not self._path_str.startswith(["http://", "https://"]):
+                raise ValueError(f"wrong usage of GDAL VSI paths: {path_str}")
+        else:
+            self._path_str = path_str
+        self._kwargs = kwargs
+        self._fs = fs
+        default_fs_options = {"asynchronous": False, "timeout": 5}
+        self._fs_options = dict(default_fs_options, **fs_options or {})
+        self._fs_session = fs_session
+
+    def __str__(self):
+        return self._path_str
+
+    @cached_property
+    def fs(self):
+        """Return path filesystem."""
+        if self._fs is not None:
+            return self._fs
+        elif self._path_str.startswith("s3"):
+            return fsspec.filesystem(
+                "s3",
+                requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
+                config_kwargs=dict(
+                    connect_timeout=self.fs_options.get("timeout"),
+                    read_timeout=self.fs_options.get("timeout"),
+                ),
+                session=self.fs_session,
+                client_kwargs=self._kwargs,
+            )
+        elif self._path_str.startswith(("http://", "https://")):
+            if self._kwargs.get("username"):  # pragma: no cover
+                from aiohttp import BasicAuth
+
+                auth = BasicAuth(
+                    self._kwargs.get("username"), self._kwargs.get("password")
+                )
+            else:
+                auth = None
+            return fsspec.filesystem("https", auth=auth, **self._fs_options)
+        else:
+            return fsspec.filesystem("file", **self._fs_options)
+
+    @cached_property
+    def protocols(self):
+        """Return set of filesystem protocols."""
+        if isinstance(self.fs.protocol, str):
+            return set([self.fs.protocol])
+        else:
+            return set(self.fs.protocol)
+
+    def exists(self):
+        return self.fs.exists(self._path_str)
+
+    def is_remote(self):
+        remote_protocols = {"http", "https", "s3", "s3a"}
+        return bool(self.protocols.intersection(remote_protocols))
+
+    def is_absolute(self):
+        return os.path.isabs(self._path_str)
+
+    def absolute_path(self, base_dir=None):
+        """
+        Return absolute path if path is local.
+
+        Parameters
+        ----------
+        path : path to file
+        base_dir : base directory used for absolute path
+
+        Returns
+        -------
+        absolute path
+        """
+        if self.is_remote() or self.is_absolute():
+            return self
+        else:
+            if base_dir is None or not os.path.isabs(base_dir):
+                raise TypeError("base_dir must be an absolute path.")
+            return Path(
+                os.path.abspath(os.path.join(base_dir, self._path_str)), fs=self.fs
+            )
+
+    def relative_path(self, base_dir=None):
+        """
+        Return relative path if path is local.
+
+        Parameters
+        ----------
+        path : path to file
+        base_dir : directory where path sould be relative to
+
+        Returns
+        -------
+        relative path
+        """
+        if self.is_remote() or self.is_absolute():
+            return self
+        else:
+            return Path(os.path.relpath(self._path_str, base_dir), fs=self.fs)
+
+
+def path_is_remote(path, **kwargs):
     """
     Determine whether file path is remote or local.
 
@@ -23,10 +131,8 @@ def path_is_remote(path, s3=True):
     -------
     is_remote : bool
     """
-    prefixes = ("http://", "https://", "/vsicurl/")
-    if s3:
-        prefixes += ("s3://", "/vsis3/")
-    return path.startswith(prefixes)
+    path = path if isinstance(path, Path) else Path(path)
+    return path.is_remote()
 
 
 def path_exists(path, fs=None, **kwargs):
@@ -41,10 +147,9 @@ def path_exists(path, fs=None, **kwargs):
     -------
     exists : bool
     """
-    fs = fs or fs_from_path(path, **kwargs)
-    fs.invalidate_cache(path=path)
+    path = path if isinstance(path, Path) else Path(path)
     logger.debug("check if path exists: %s", path)
-    return fs.exists(path)
+    return path.exists(path)
 
 
 def absolute_path(path=None, base_dir=None):
@@ -60,15 +165,8 @@ def absolute_path(path=None, base_dir=None):
     -------
     absolute path
     """
-    if path_is_remote(path):
-        return path
-    else:
-        if os.path.isabs(path):
-            return path
-        else:
-            if base_dir is None or not os.path.isabs(base_dir):
-                raise TypeError("base_dir must be an absolute path.")
-            return os.path.abspath(os.path.join(base_dir, path))
+    path = path if isinstance(path, Path) else Path(path)
+    return path.absolute_path(base_dir)
 
 
 def relative_path(path=None, base_dir=None):
@@ -84,10 +182,8 @@ def relative_path(path=None, base_dir=None):
     -------
     relative path
     """
-    if path_is_remote(path) or not os.path.isabs(path):
-        return path
-    else:
-        return os.path.relpath(path, base_dir)
+    path = path if isinstance(path, Path) else Path(path)
+    return path.relative_path(base_dir)
 
 
 def makedirs(path, fs=None):
@@ -274,26 +370,10 @@ def _process_tiles_batch_exists(tiles, config):
         return []
 
 
-def fs_from_path(path, timeout=5, session=None, username=None, password=None, **kwargs):
+def fs_from_path(path, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
-    if path.startswith("s3://"):
-        return fsspec.filesystem(
-            "s3",
-            requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
-            config_kwargs=dict(connect_timeout=timeout, read_timeout=timeout),
-            session=session,
-            client_kwargs=kwargs,
-        )
-    elif path.startswith(("http://", "https://")):
-        if username:  # pragma: no cover
-            from aiohttp import BasicAuth
-
-            auth = BasicAuth(username, password)
-        else:
-            auth = None
-        return fsspec.filesystem("https", auth=auth, asynchronous=False, **kwargs)
-    else:
-        return fsspec.filesystem("file", asynchronous=False, **kwargs)
+    path = path if isinstance(path, Path) else Path(path, fs_options=kwargs)
+    return path.fs
 
 
 def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):

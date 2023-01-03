@@ -39,6 +39,7 @@ dependencies = [
     "shapely",
     "tilematrix>=2022.12.0",
     "tqdm",
+    "universal_pathlib"
 ]
 
 [project.optional-dependencies]

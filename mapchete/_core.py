@@ -6,6 +6,7 @@ import logging
 import multiprocessing
 import os
 import threading
+from upath import UPath
 import warnings
 
 from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
@@ -64,7 +65,7 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
     """
     if isinstance(some_input, str) and not some_input.endswith(".mapchete"):
         logger.debug("assuming TileDirectory")
-        metadata_json = os.path.join(some_input, "metadata.json")
+        metadata_json = UPath(some_input) / "metadata.json"
         fs_kwargs = fs_kwargs or {}
         fs = fs or fs_from_path(metadata_json, **fs_kwargs)
         logger.debug("read metadata.json")
@@ -693,7 +694,7 @@ class Mapchete(object):
                 bands_type=self.config.output.stac_asset_type,
             )
             logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
-            makedirs(os.path.dirname(self.config.output.stac_path))
+            makedirs(self.config.output.stac_path.parent)
             with self.config.output.fs.open(self.config.output.stac_path, "w") as dst:
                 dst.write(json.dumps(item.to_dict(), indent=indent))
         except ReprojectionFailed:

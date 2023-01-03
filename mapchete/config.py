@@ -782,30 +782,12 @@ class MapcheteConfig(object):
         warnings.warn(DeprecationWarning("self.inputs renamed to self.input."))
         return self.input
 
-    @cached_property
-    def process_file(self):
-        """Deprecated."""
-        warnings.warn(DeprecationWarning("'self.process_file' is deprecated"))
-        return os.path.join(self._raw["config_dir"], self._raw["process"])
-
     def at_zoom(self, zoom):
         """Deprecated."""
         warnings.warn(
             DeprecationWarning("Method renamed to self.params_at_zoom(zoom).")
         )
         return self.params_at_zoom(zoom)
-
-    def process_area(self, zoom=None):
-        """Deprecated."""
-        warnings.warn(DeprecationWarning("Method renamed to self.area_at_zoom(zoom)."))
-        return self.area_at_zoom(zoom)
-
-    def process_bounds(self, zoom=None):
-        """Deprecated."""
-        warnings.warn(
-            DeprecationWarning("Method renamed to self.bounds_at_zoom(zoom).")
-        )
-        return self.bounds_at_zoom(zoom)
 
 
 def get_hash(x, length=16):
@@ -1095,7 +1077,7 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
             process = tmpfile.name
         if process.endswith(".py"):
             module_path = absolute_path(path=process, base_dir=config_dir)
-            if not os.path.isfile(module_path):
+            if not module_path.exists():
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
                 if run_compile:
