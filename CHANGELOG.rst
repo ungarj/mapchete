@@ -2,6 +2,15 @@
 Changelog
 #########
 
+---------------------
+2023.1.0 - 2023-01-03
+---------------------
+
+* core
+  * use new `importlib.metadata` interface to select entry points (#521)
+  * add filename which caused read error to MapcheteIOError when calling `read_raster_window()` and `read_vector_window()` (#522)
+
+
 ----------------------
 2022.12.1 - 2022-12-20
 ----------------------
