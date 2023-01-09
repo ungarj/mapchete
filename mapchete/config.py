@@ -1081,7 +1081,7 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
                 if run_compile:
-                    py_compile.compile(module_path, doraise=True)
+                    py_compile.compile(str(module_path), doraise=True)
                 module_name = os.path.splitext(os.path.basename(module_path))[0]
                 # load module
                 spec = importlib.util.spec_from_file_location(module_name, module_path)

@@ -4,6 +4,7 @@ from collections import defaultdict
 from functools import cached_property
 import logging
 import os
+import pathlib
 
 import fsspec
 
@@ -12,16 +13,17 @@ from mapchete._executor import Executor
 logger = logging.getLogger(__name__)
 
 
-class Path:
+class Path(pathlib.Path):
     """Partially replicates pathlib.Path but with remote file support."""
 
     def __init__(self, path_str, fs=None, fs_options=None, fs_session=None, **kwargs):
         if path_str.startswith("/vsicurl/"):
             self._path_str = path_str.lstrip("/vsicurl/")
-            if not self._path_str.startswith(["http://", "https://"]):
+            if not self._path_str.startswith(("http://", "https://")):
                 raise ValueError(f"wrong usage of GDAL VSI paths: {path_str}")
         else:
             self._path_str = path_str
+        self._flavour = pathlib.Path(self._path_str)._flavour
         self._kwargs = kwargs
         self._fs = fs
         default_fs_options = {"asynchronous": False, "timeout": 5}
@@ -30,6 +32,18 @@ class Path:
 
     def __str__(self):
         return self._path_str
+
+    @property
+    def name(self):
+        return os.path.basename(self._path_str.rstrip("/"))
+
+    @property
+    def stem(self):
+        return self.name.split(".")[0]
+
+    @property
+    def suffix(self):
+        return os.path.splitext(self._path_str)[1]
 
     @cached_property
     def fs(self):
@@ -41,10 +55,10 @@ class Path:
                 "s3",
                 requester_pays=os.environ.get("AWS_REQUEST_PAYER") == "requester",
                 config_kwargs=dict(
-                    connect_timeout=self.fs_options.get("timeout"),
-                    read_timeout=self.fs_options.get("timeout"),
+                    connect_timeout=self._fs_options.get("timeout"),
+                    read_timeout=self._fs_options.get("timeout"),
                 ),
-                session=self.fs_session,
+                session=self._fs_session,
                 client_kwargs=self._kwargs,
             )
         elif self._path_str.startswith(("http://", "https://")):
