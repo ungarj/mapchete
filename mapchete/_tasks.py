@@ -1,8 +1,7 @@
 from collections import namedtuple
-from itertools import chain
+from dask.optimization import cull
 import logging
 from shapely.geometry import box, mapping
-from traceback import format_exc
 from uuid import uuid4
 
 from mapchete._timer import Timer
@@ -10,7 +9,6 @@ from mapchete.config import get_process_func
 from mapchete.errors import (
     MapcheteNodataTile,
     NoTaskGeometry,
-    MapcheteProcessException,
     MapcheteProcessOutputError,
 )
 from mapchete.io import raster
@@ -401,7 +399,7 @@ class TileTaskBatch(TaskBatch):
             yield item.tile, item
 
 
-def to_dask_collection(batches):
+def to_dask_collection(batches, optimize=True):
     from dask.delayed import delayed
 
     tasks = {}
@@ -435,4 +433,9 @@ def to_dask_collection(batches):
                 dask_key_name=f"{task.result_key_name}",
             )
         previous_batch = batch
-    return list(tasks.values())
+
+    if optimize:
+        # remove tasks which are not needed to compute tasks from last layer
+        return list(cull(tasks, list(batch.values()))[0].values())
+    else:
+        return list(tasks.values())
