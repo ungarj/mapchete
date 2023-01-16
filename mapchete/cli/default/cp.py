@@ -5,6 +5,10 @@ from mapchete import commands
 from mapchete.cli import options
 
 
+def _cb_none_concurrency(ctx, param, value):
+    return None if value == "none" else value
+
+
 @click.command(help="Copy TileDirectory from one source to another.")
 @options.arg_src_tiledir
 @options.arg_dst_tiledir
@@ -22,7 +26,13 @@ from mapchete.cli import options
 @options.opt_logfile
 @options.opt_workers
 @options.opt_dask_scheduler
-@options.opt_concurrency
+@click.option(
+    "--concurrency",
+    type=click.Choice(["processes", "threads", "dask", "none"]),
+    default="threads",
+    callback=_cb_none_concurrency,
+    help="Decide which Executor to use for concurrent processing.",
+)
 @options.opt_http_username
 @options.opt_http_password
 @options.opt_src_fs_opts
