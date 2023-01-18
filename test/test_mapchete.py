@@ -673,6 +673,56 @@ def test_compute_dask_graph(preprocess_cache_memory, dask_executor):
     assert preprocessing_tasks == 2
 
 
+@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
+def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
+    compute_kwargs = (
+        {"executor": dask_executor, "dask_compute_graph": True}
+        if concurrency == "dask"
+        else {"concurrency": concurrency}
+    )
+
+    # run red_raster on tile 1, 0, 0
+    with red_raster.mp() as mp_red:
+        list(mp_red.compute(tile=(1, 0, 0), **compute_kwargs))
+    fs_red = fs_from_path(mp_red.config.output.path)
+    assert len(fs_red.glob(f"{mp_red.config.output.path}/*/*/*.tif")) == 1
+    with rasterio.open(f"{mp_red.config.output.path}/1/0/0.tif") as src:
+        assert np.array_equal(
+            src.read(),
+            np.stack([np.full((256, 256), c, dtype=np.uint8) for c in (255, 1, 1)]),
+        )
+
+    # copy red_raster output to green_raster output
+    with green_raster.mp() as mp_green:
+        fs_green = fs_from_path(mp_green.config.output.path)
+        fs_green.copy(
+            mp_red.config.output.path, mp_green.config.output.path, recursive=True
+        )
+
+        # run green_raster on zoom 1
+        list(mp_green.compute(zoom=1, **compute_kwargs))
+
+    # assert red tile is still there and other tiles were written and are green
+    assert len(fs_green.glob(f"{mp_green.config.output.path}/*/*/*.tif")) == 8
+    for path in fs_green.glob(f"{mp_green.config.output.path}/*/*/*.tif"):
+        if path.endswith("/1/0/0.tif"):
+            with rasterio.open(path) as src:
+                assert np.array_equal(
+                    src.read(),
+                    np.stack(
+                        [np.full((256, 256), c, dtype=np.uint8) for c in (255, 1, 1)]
+                    ),
+                )
+        else:
+            with rasterio.open(path) as src:
+                assert np.array_equal(
+                    src.read(),
+                    np.stack(
+                        [np.full((256, 256), c, dtype=np.uint8) for c in (1, 255, 1)]
+                    ),
+                )
+
+
 def test_compute_dask_without_results(baselevels, dask_executor):
     # make sure task results are appended to tasks
     with baselevels.mp() as mp:
