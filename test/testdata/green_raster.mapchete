@@ -10,5 +10,8 @@ output:
   bands: 3
   format: GTiff
   path: tmp/green_raster
+baselevels:
+    min: 3
+bounds: [-180, 0, 0, 90]
 
 color: [1, 255, 1]

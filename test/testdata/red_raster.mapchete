@@ -10,5 +10,8 @@ output:
   bands: 3
   format: GTiff
   path: tmp/red_raster
+baselevels:
+    min: 3
+bounds: [-180, 0, 0, 90]
 
 color: [255, 1, 1]
