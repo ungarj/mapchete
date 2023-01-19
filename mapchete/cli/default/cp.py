@@ -38,7 +38,7 @@ def _cb_none_concurrency(ctx, param, value):
 @options.opt_src_fs_opts
 @options.opt_dst_fs_opts
 def cp(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwargs):
-    """Copy TileDirectory."""
+    """Copy TileDirectory in full or a subset from one source to another."""
     # handle deprecated options
     for x in ["password", "username"]:
         if kwargs.get(x):  # pragma: no cover
