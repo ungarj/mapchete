@@ -159,8 +159,10 @@ class InputData(object):
             task_key = f"{self.input_key}:{task_key}"
         if task_key not in self.preprocessing_tasks:  # pragma: no cover
             raise KeyError(f"task {task_key} is not a task for current input")
-        if task_key in self.preprocessing_tasks_results:  # pragma: no cover
-            raise KeyError(f"task {task_key} has already been set")
+        # The following part was commented out because on some rare occasions a
+        # mapchete Hub job would fail because of this.
+        # if task_key in self.preprocessing_tasks_results:  # pragma: no cover
+        #     raise KeyError(f"task {task_key} has already been set")
         self.preprocessing_tasks_results[task_key] = result
 
     def preprocessing_task_finished(self, task_key):
