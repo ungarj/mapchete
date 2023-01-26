@@ -3,6 +3,19 @@ Changelog
 #########
 
 ---------------------
+2023.1.1 - 2023-01-26
+---------------------
+
+* core
+  * use threaded concurrency on default when calling `mapchete cp` (#526)
+  * removing check whether preprocessing task result is already set to avoid random KeyErrors (#529)
+
+* testing
+  * add test cases for continue mode (#527)
+  * add test to eplicitly test rasterio_write functionality (#528)
+
+
+---------------------
 2023.1.0 - 2023-01-03
 ---------------------
 
