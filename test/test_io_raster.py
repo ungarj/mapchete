@@ -15,6 +15,7 @@ from itertools import product
 import mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteIOError
+from mapchete.formats.default.gtiff import DefaultGTiffProfile
 from mapchete.io import path_exists
 from mapchete.io.raster import (
     read_raster_window,
@@ -27,9 +28,9 @@ from mapchete.io.raster import (
     RasterWindowMemoryFile,
     read_raster_no_crs,
     convert_raster,
+    rasterio_write,
 )
 from mapchete.tile import BufferedTilePyramid
-from mapchete.io.vector import reproject_geometry
 
 
 def test_read_raster_window(dummy1_tif, minmax_zoom):
@@ -864,3 +865,28 @@ def test_referencedraster_read_band(s2_band, indexes):
 def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
     rr = ReferencedRaster.from_file(s2_band)
     assert rr.read(indexes, tile=s2_band_tile).any()
+
+
+@pytest.mark.parametrize(
+    "path", [pytest.lazy_fixture("mp_s3_tmpdir"), pytest.lazy_fixture("mp_tmpdir")]
+)
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("in_memory", [True, False])
+def test_rasterio_write(path, dtype, in_memory):
+    arr = np.ones((1, 256, 256)).astype(dtype)
+    count, width, height = arr.shape
+    path = os.path.join(path, "temp.tif")
+    with rasterio_write(
+        path,
+        "w",
+        in_memory=in_memory,
+        count=count,
+        width=width,
+        height=height,
+        crs="EPSG:4326",
+        **DefaultGTiffProfile(dtype=dtype),
+    ) as dst:
+        dst.write(arr)
+    with rasterio.open(path) as src:
+        written = src.read()
+        assert np.array_equal(arr, written)

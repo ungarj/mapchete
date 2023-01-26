@@ -756,6 +756,24 @@ def stac_metadata():
 
 
 @pytest.fixture
+def red_raster():
+    """Fixture for red_raster.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "red_raster.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
+def green_raster():
+    """Fixture for green_raster.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "green_raster.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)
