@@ -280,8 +280,8 @@ def _read_raster_window(
             dst_array = _empty_array()
         return dst_array
     else:
+        input_file = input_files[0]
         try:
-            input_file = input_files[0]
             dst_shape = tile.shape
             if not isinstance(indexes, int):
                 if indexes is None:
@@ -320,6 +320,8 @@ def _read_raster_window(
                 return _empty_array()
             else:
                 raise
+        except Exception as exc:  # pragma: no cover
+            raise IOError(f"failed to read {input_file}") from exc
 
 
 def _get_warped_edge_array(

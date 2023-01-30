@@ -1,0 +1,17 @@
+process: write_color.py
+zoom_levels:
+  min: 0
+  max: 5
+pyramid:
+  grid: geodetic
+input:
+output:
+  dtype: uint8
+  bands: 3
+  format: GTiff
+  path: tmp/green_raster
+baselevels:
+    min: 3
+bounds: [-180, 0, 0, 90]
+
+color: [1, 255, 1]

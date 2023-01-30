@@ -673,6 +673,78 @@ def test_compute_dask_graph(preprocess_cache_memory, dask_executor):
     assert preprocessing_tasks == 2
 
 
+@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
+def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
+    compute_kwargs = (
+        {"executor": dask_executor, "dask_compute_graph": True}
+        if concurrency == "dask"
+        else {"concurrency": concurrency}
+    )
+    zoom = 3
+
+    # run red_raster on tile 1, 0, 0
+    with red_raster.mp() as mp_red:
+        list(mp_red.compute(tile=(zoom, 0, 0), **compute_kwargs))
+    fs_red = fs_from_path(mp_red.config.output.path)
+    assert len(fs_red.glob(f"{mp_red.config.output.path}/*/*/*.tif")) == 1
+    with rasterio.open(f"{mp_red.config.output.path}/{zoom}/0/0.tif") as src:
+        assert np.array_equal(
+            src.read(),
+            np.stack([np.full((256, 256), c, dtype=np.uint8) for c in (255, 1, 1)]),
+        )
+
+    # copy red_raster output to green_raster output
+    with green_raster.mp() as mp_green:
+        fs_green = fs_from_path(mp_green.config.output.path)
+        fs_green.copy(
+            mp_red.config.output.path, mp_green.config.output.path, recursive=True
+        )
+
+        # run green_raster on zoom 1
+        list(mp_green.compute(zoom=[0, zoom], **compute_kwargs))
+
+    # assert red tile is still there and other tiles were written and are green
+    assert len(
+        fs_green.glob(f"{mp_green.config.output.path}/*/*/*.tif")
+    ) == mp_green.count_tiles(minzoom=0, maxzoom=zoom)
+    tp = mp_green.config.process_pyramid
+    red_tile = tp.tile(zoom, 0, 0)
+    overview_tiles = [
+        tp.tile_from_xy(red_tile.bbox.centroid.x, red_tile.bbox.centroid.y, z)
+        for z in range(0, zoom)
+    ]
+    for path in fs_green.glob(f"{mp_green.config.output.path}/*/*/*.tif"):
+        zoom, row, col = [int(p.rstrip(".tif")) for p in path.split("/")[-3:]]
+        tile = tp.tile(zoom, row, col)
+
+        # make sure red tile still is red
+        if tile == red_tile:
+            with rasterio.open(path) as src:
+                assert np.array_equal(
+                    src.read(),
+                    np.stack(
+                        [np.full((256, 256), c, dtype=np.uint8) for c in (255, 1, 1)]
+                    ),
+                )
+
+        # make sure overview tiles from red tile contain both red and green values
+        elif tile in overview_tiles:
+            with rasterio.open(path) as src:
+                for band in src.read([1, 2], masked=True):
+                    assert 1 in band
+                    assert 255 in band
+
+        # make sure all other tiles are green
+        else:
+            with rasterio.open(path) as src:
+                assert np.array_equal(
+                    src.read(),
+                    np.stack(
+                        [np.full((256, 256), c, dtype=np.uint8) for c in (1, 255, 1)]
+                    ),
+                )
+
+
 def test_compute_dask_without_results(baselevels, dask_executor):
     # make sure task results are appended to tasks
     with baselevels.mp() as mp:
