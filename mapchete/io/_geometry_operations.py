@@ -1,5 +1,4 @@
 from fiona.transform import transform_geom
-from fiona import model
 import logging
 import pyproj
 from rasterio.crs import CRS
