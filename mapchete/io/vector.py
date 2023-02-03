@@ -6,10 +6,9 @@ import logging
 import fiona
 from fiona.errors import DriverError, FionaError, FionaValueError
 from fiona.io import MemoryFile
-import json
 from retry import retry
 from rasterio.crs import CRS
-from shapely.geometry import box, mapping, shape
+from shapely.geometry import base, box, mapping
 from shapely.errors import TopologicalError
 from tilematrix import clip_geometry_to_srs_bounds
 from tilematrix._funcs import Bounds
@@ -492,6 +491,24 @@ class IndexedFeatures:
                 raise TypeError("features need to have an id or have to be hashable")
 
 
+def object_geometry(obj) -> base.BaseGeometry:
+    """
+    Determine geometry from object if available.
+    """
+    try:
+        if hasattr(obj, "__geo_interface__"):
+            return to_shape(obj)
+        elif hasattr(obj, "geometry"):
+            return to_shape(obj.geometry)
+        elif hasattr(obj, "get") and obj.get("geometry"):
+            return to_shape(obj["geometry"])
+        else:
+            raise TypeError("no geometry")
+    except Exception as exc:
+        logger.exception(exc)
+        raise NoGeoError(f"cannot determine geometry from object: {obj}") from exc
+
+
 def object_bounds(obj) -> Bounds:
     """
     Determine geographic bounds from object if available.
@@ -499,18 +516,12 @@ def object_bounds(obj) -> Bounds:
     try:
         if hasattr(obj, "bounds"):
             return validate_bounds(obj.bounds)
-        elif hasattr(obj, "__geo_interface__"):
-            return validate_bounds(shape(obj).bounds)
-        elif hasattr(obj, "geometry"):
-            return validate_bounds(to_shape(obj.geometry).bounds)
         elif hasattr(obj, "bbox"):
             return validate_bounds(obj.bbox)
-        elif obj.get("bounds"):
+        elif hasattr(obj, "get") and obj.get("bounds"):
             return validate_bounds(obj["bounds"])
-        elif obj.get("geometry"):
-            return validate_bounds(to_shape(obj["geometry"]).bounds)
         else:
-            raise TypeError("no bounds")
+            return validate_bounds(object_geometry(obj).bounds)
     except Exception as exc:
         logger.exception(exc)
         raise NoGeoError(f"cannot determine bounds from object: {obj}") from exc
