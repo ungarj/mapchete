@@ -10,7 +10,6 @@ from shapely.errors import WKTReadingError
 from shapely.geometry import box, mapping, Polygon, shape
 from shapely import wkt
 import oyaml as yaml
-from tilematrix._funcs import Bounds
 
 import mapchete
 from mapchete.config import (
@@ -20,6 +19,7 @@ from mapchete.config import (
     _guess_geometry,
 )
 from mapchete.errors import MapcheteDriverError, MapcheteConfigError
+from mapchete.types import Bounds
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))

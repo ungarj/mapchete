@@ -7,7 +7,6 @@ import logging
 import multiprocessing
 import os
 from shapely.geometry import mapping
-from tilematrix._funcs import Bounds
 from traceback import format_exc
 from typing import Generator
 
@@ -22,6 +21,7 @@ from mapchete._executor import (
 from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
 from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch
 from mapchete._timer import Timer
+from mapchete.types import Bounds
 from mapchete.validate import validate_zooms
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))

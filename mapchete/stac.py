@@ -7,13 +7,12 @@ import os
 from pyproj import CRS
 from shapely.geometry import box, mapping
 
-from tilematrix._funcs import Bounds
-
 from mapchete.errors import ReprojectionFailed
 from mapchete.io import makedirs
 from mapchete.io.raster import write_raster_window
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
+from mapchete.types import Bounds
 
 
 logger = logging.getLogger(__name__)

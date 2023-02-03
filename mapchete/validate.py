@@ -1,12 +1,13 @@
 """Convenience validator functions for core and extension packages."""
 
 
+from collections.abc import Iterable
 import numpy.ma as ma
 from rasterio.crs import CRS
-from tilematrix._funcs import Bounds
 import warnings
 
 from mapchete.tile import BufferedTile, BufferedTilePyramid
+from mapchete.types import Bounds
 
 ########################
 # validator functionrs #
@@ -74,7 +75,7 @@ def validate_zoom(zoom):
     return zoom
 
 
-def validate_bounds(bounds) -> Bounds:
+def validate_bounds(bounds: Iterable) -> Bounds:
     """
     Return validated bounds.
 
@@ -92,8 +93,8 @@ def validate_bounds(bounds) -> Bounds:
     ------
     TypeError if type is invalid.
     """
-    if not isinstance(bounds, (tuple, list)):
-        raise TypeError("bounds must be either a tuple or a list: %s" % str(bounds))
+    if not isinstance(bounds, Iterable):
+        raise TypeError("bounds must be an iterable: %s" % str(bounds))
     if len(bounds) != 4:
         raise ValueError("bounds has to have exactly four values: %s" % str(bounds))
     return Bounds(*bounds)
