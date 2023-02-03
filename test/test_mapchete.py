@@ -261,58 +261,59 @@ def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
 
 
 @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_update_baselevels(mp_tmpdir, baselevels, concurrency, dask_executor):
+def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
     """Baselevel interpolation."""
     compute_kwargs = (
         {"executor": dask_executor}
         if concurrency == "dask"
         else {"concurrency": concurrency}
     )
-    conf = dict(baselevels.dict)
-    conf.update(zoom_levels=[7, 8], baselevels=dict(min=8, max=8))
-    baselevel_tile = (8, 125, 260)
-    overview_tile = (7, 62, 130)
-    with mapchete.open(conf, mode="continue") as mp:
-        tile_bounds = mp.config.output_pyramid.tile(*baselevel_tile).bounds
-
-    # process using bounds of just one baselevel tile
-    with mapchete.open(conf, mode="continue", bounds=tile_bounds) as mp:
-        list(mp.compute(**compute_kwargs))
-        with rasterio.open(
-            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
-        ) as src:
-            overview_before = src.read()
-            assert overview_before.any()
-
-    # process full area which leaves out overview tile for baselevel tile above
-    with mapchete.open(conf, mode="continue") as mp:
-        list(mp.compute(**compute_kwargs))
-
-    # delete baselevel tile
-    written_tile = (
-        os.path.join(
-            *[
-                baselevels.dict["config_dir"],
-                baselevels.dict["output"]["path"],
-                *map(str, baselevel_tile),
-            ]
+    # process everything and make sure output was written
+    with overviews.mp() as mp:
+        baselevel_tile = overviews.first_process_tile()
+        overview_tile = baselevel_tile.get_parent()
+        baselevel_tile_path = mp.config.output.get_path(
+            mp.config.output_pyramid.tile(*baselevel_tile)
         )
-        + ".tif"
-    )
-    os.remove(written_tile)
-    assert not os.path.exists(written_tile)
+        overview_tile_path = mp.config.output.get_path(
+            mp.config.output_pyramid.tile(*overview_tile)
+        )
 
-    # run again in continue mode. this processes the missing tile on zoom 5 but overwrites
-    # the tile in zoom 4
-    with mapchete.open(conf, mode="continue") as mp:
+        # process baselevel (zoom 7)
+        list(mp.compute(**compute_kwargs, zoom=7))
+
+    # make sure baselevel tile has content
+    with rasterio.open(baselevel_tile_path) as src:
+        assert src.read().any()
+
+    # remove baselevel_tile
+    os.remove(baselevel_tile_path)
+    assert not os.path.exists(baselevel_tile_path)
+
+    with overviews.mp() as mp:
+        # process overviews
+        list(mp.compute(**compute_kwargs, zoom=[0, 6]))
+    assert not os.path.exists(baselevel_tile_path)
+
+    # read overview tile which is half empty
+    with rasterio.open(overview_tile_path) as src:
+        overview_before = src.read()
+        assert overview_before.any()
+
+    # run again in continue mode. this processes the missing tile on baselevel but overwrites
+    # the overview tiles
+    with overviews.mp() as mp:
         # process data before getting baselevels
         list(mp.compute(concurrency=concurrency))
-        with rasterio.open(
-            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
-        ) as src:
-            overview_after = src.read()
-            assert overview_after.any()
 
+    assert os.path.exists(baselevel_tile_path)
+    with rasterio.open(
+        mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
+    ) as src:
+        overview_after = src.read()
+        assert overview_after.any()
+
+    # now make sure the overview tile was updated
     assert not np.array_equal(overview_before, overview_after)
 
 
