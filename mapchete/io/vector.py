@@ -500,7 +500,7 @@ def object_bounds(obj) -> Bounds:
         if hasattr(obj, "bounds"):
             return validate_bounds(obj.bounds)
         elif hasattr(obj, "__geo_interface__"):
-            return validate_bounds(shape(obj).bounds)
+            return validate_bounds(to_shape(obj).bounds)
         elif hasattr(obj, "geometry"):
             return validate_bounds(to_shape(obj.geometry).bounds)
         elif hasattr(obj, "bbox"):
