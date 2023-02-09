@@ -167,7 +167,7 @@ class Mapchete(object):
             ):
                 yield tile
         else:
-            for i in reversed(self.config.zoom_levels):
+            for i in self.config.zoom_levels.descending():
                 for tile in self.config.process_pyramid.tiles_from_geom(
                     self.config.area_at_zoom(i), zoom=i, batch_by=batch_by, exact=True
                 ):
@@ -423,7 +423,7 @@ class Mapchete(object):
         else:
             for future in _run_area(
                 process=self,
-                zoom_levels=list(_get_zoom_level(zoom, self)),
+                zoom_levels=_get_zoom_level(zoom, self),
                 dask_scheduler=dask_scheduler,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
@@ -473,8 +473,8 @@ class Mapchete(object):
         -------
         number of tiles
         """
-        minzoom = min(self.config.init_zoom_levels) if minzoom is None else minzoom
-        maxzoom = max(self.config.init_zoom_levels) if maxzoom is None else maxzoom
+        minzoom = self.config.init_zoom_levels.min if minzoom is None else minzoom
+        maxzoom = self.config.init_zoom_levels.max if maxzoom is None else maxzoom
         if (minzoom, maxzoom) not in self._count_tiles_cache:
             logger.debug("counting tiles...")
             with Timer() as t:
@@ -784,6 +784,4 @@ class Mapchete(object):
 
 def _get_zoom_level(zoom, process):
     """Determine zoom levels."""
-    return (
-        reversed(process.config.zoom_levels) if zoom is None else validate_zooms(zoom)
-    )
+    return process.config.zoom_levels if zoom is None else validate_zooms(zoom)

@@ -7,7 +7,7 @@ from rasterio.crs import CRS
 import warnings
 
 from mapchete.tile import BufferedTile, BufferedTilePyramid
-from mapchete.types import Bounds
+from mapchete.types import Bounds, ZoomLevels
 
 ########################
 # validator functionrs #
@@ -34,26 +34,7 @@ def validate_zooms(zooms, expand=True):
     -------
     List of zoom levels.
     """
-    if isinstance(zooms, dict):
-        if any([a not in zooms for a in ["min", "max"]]):
-            raise TypeError("min and max zoom required: %s" % str(zooms))
-        zmin = validate_zoom(zooms["min"])
-        zmax = validate_zoom(zooms["max"])
-        if zmin > zmax:
-            raise TypeError(
-                "max zoom must not be smaller than min zoom: %s" % str(zooms)
-            )
-        return list(range(zmin, zmax + 1)) if expand else zooms
-    elif isinstance(zooms, list):
-        if len(zooms) == 1:
-            return zooms
-        elif len(zooms) == 2:
-            zmin, zmax = sorted([validate_zoom(z) for z in zooms])
-            return list(range(zmin, zmax + 1)) if expand else zooms
-        else:
-            return zooms
-    else:
-        return [validate_zoom(zooms)] if expand else zooms
+    return ZoomLevels(zooms)
 
 
 def validate_zoom(zoom):

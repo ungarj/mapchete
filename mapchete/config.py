@@ -394,6 +394,7 @@ class MapcheteConfig(object):
                 init_zoom_levels=self._raw["init_zoom_levels"],
             )
         except Exception as e:
+            logger.exception(e)
             raise MapcheteConfigError(e)
 
     @cached_property
