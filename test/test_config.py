@@ -126,7 +126,7 @@ def test_read_bounds(zoom_mapchete):
 
 def test_override_bounds(zoom_mapchete):
     """Override bounds when construcing configuration."""
-    config = MapcheteConfig(zoom_mapchete.dict, bounds=[3, 2, 3.5, 1.5])
+    config = MapcheteConfig(zoom_mapchete.dict, bounds=[3, 1.5, 3.5, 2])
     test_polygon = Polygon([[3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
     assert config.area_at_zoom(5).equals(test_polygon)
 
