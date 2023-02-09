@@ -222,9 +222,9 @@ def test_zoom_levels_errors():
         ZoomLevels(min=dict(max=1), max=5)
     with pytest.raises(TypeError):
         ZoomLevels(min=["invalid"])
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         ZoomLevels(min=[])
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         ZoomLevels(min=[1, 3, 4])
     with pytest.raises(ValueError):
         ZoomLevels(-6)
