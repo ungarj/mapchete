@@ -6,8 +6,10 @@ class Bounds(list):
     bottom: float = None
     right: float = None
     top: float = None
+    height: float = None
+    width: float = None
 
-    def __init__(self, left=None, bottom=None, right=None, top=None):
+    def __init__(self, left=None, bottom=None, right=None, top=None, strict=True):
         if isinstance(left, Iterable):
             if len(left) != 4:
                 raise ValueError("Bounds must be initialized with exactly four values.")
@@ -18,6 +20,13 @@ class Bounds(list):
                 raise TypeError(
                     f"all bounds values must be integers or floats: {list(self)}"
                 )
+        if strict:
+            if self.left >= self.right:
+                raise ValueError("right must be larger than left")
+            elif self.bottom >= self.top:
+                raise ValueError("top must be larger than bottom")
+        self.height = self.top - self.bottom
+        self.width = self.right - self.left
 
     def __iter__(self):
         yield self.left

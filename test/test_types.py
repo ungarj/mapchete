@@ -58,11 +58,23 @@ def test_bounds_geo_interface():
     assert shape(bounds).is_valid
 
 
+def test_bounds_width():
+    assert Bounds(1, 2, 3, 4).width == 2
+
+
+def test_bounds_height():
+    assert Bounds(1, 2, 3, 4).height == 2
+
+
 def test_bounds_errors():
     with pytest.raises(ValueError):
         Bounds([1, 2, 3])
     with pytest.raises(TypeError):
         Bounds(1, 2, None, 3)
+    with pytest.raises(ValueError):
+        Bounds(3, 2, 1, 4)
+    with pytest.raises(ValueError):
+        Bounds(1, 4, 3, 2)
 
 
 @pytest.mark.parametrize(
