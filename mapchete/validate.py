@@ -93,11 +93,7 @@ def validate_bounds(bounds: Iterable) -> Bounds:
     ------
     TypeError if type is invalid.
     """
-    if not isinstance(bounds, Iterable):
-        raise TypeError("bounds must be an iterable: %s" % str(bounds))
-    if len(bounds) != 4:
-        raise ValueError("bounds has to have exactly four values: %s" % str(bounds))
-    return Bounds(*bounds)
+    return Bounds(bounds)
 
 
 def validate_values(config, values):

@@ -9,8 +9,15 @@ class Bounds(list):
 
     def __init__(self, left=None, bottom=None, right=None, top=None):
         if isinstance(left, Iterable):
+            if len(left) != 4:
+                raise ValueError("Bounds must be initialized with exactly four values.")
             left, bottom, right, top = left
         self.left, self.bottom, self.right, self.top = left, bottom, right, top
+        for value in self:
+            if not isinstance(value, (int, float)):
+                raise TypeError(
+                    f"all bounds values must be integers or floats: {list(self)}"
+                )
 
     def __iter__(self):
         yield self.left
@@ -22,7 +29,10 @@ class Bounds(list):
         return 4
 
     def __str__(self):
-        return f"<Bounds(left={self.left}, bottom={self.bottom}, left={self.right}, left={self.top})>"
+        return f"<Bounds(left={self.left}, bottom={self.bottom}, right={self.right}, top={self.top})>"
+
+    def __repr__(self):
+        return str(self)
 
     def __getitem__(self, item):
         if isinstance(item, int):
@@ -30,7 +40,43 @@ class Bounds(list):
         elif isinstance(item, str):
             return self.__getattribute__(item)
 
-    def intersects(self, other):
+    def __eq__(self, other):
+        other = other if isinstance(other, Bounds) else Bounds(other)
+        return (
+            float(self.left) == float(other.left)
+            and float(self.bottom) == float(other.bottom)
+            and float(self.right) == float(other.right)
+            and float(self.top) == float(other.top)
+        )
+
+    def __ne__(self, other):
+        return not self == other
+
+    @property
+    def __geo_interface__(self):
+        return {
+            "type": "Polygon",
+            "bbox": tuple(self),
+            "coordinates": [
+                [
+                    [self.left, self.bottom],
+                    [self.right, self.bottom],
+                    [self.right, self.top],
+                    [self.left, self.top],
+                    [self.left, self.bottom],
+                ]
+            ],
+        }
+
+    def to_dict(self) -> dict:
+        return {
+            "left": self.left,
+            "bottom": self.bottom,
+            "right": self.right,
+            "top": self.top,
+        }
+
+    def intersects(self, other) -> bool:
         other = other if isinstance(other, Bounds) else Bounds(other)
         horizontal = (
             # partial overlap
