@@ -10,7 +10,7 @@ class Bounds(list):
     width: float = None
 
     def __init__(self, left=None, bottom=None, right=None, top=None, strict=True):
-        if isinstance(left, Iterable):
+        if isinstance(left, (list, tuple)):
             if len(left) != 4:
                 raise ValueError("Bounds must be initialized with exactly four values.")
             left, bottom, right, top = left
