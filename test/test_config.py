@@ -10,7 +10,6 @@ from shapely.errors import WKTReadingError
 from shapely.geometry import box, mapping, Polygon, shape
 from shapely import wkt
 import oyaml as yaml
-from tilematrix._funcs import Bounds
 
 import mapchete
 from mapchete.config import (
@@ -20,6 +19,7 @@ from mapchete.config import (
     _guess_geometry,
 )
 from mapchete.errors import MapcheteDriverError, MapcheteConfigError
+from mapchete.types import Bounds
 
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -126,7 +126,7 @@ def test_read_bounds(zoom_mapchete):
 
 def test_override_bounds(zoom_mapchete):
     """Override bounds when construcing configuration."""
-    config = MapcheteConfig(zoom_mapchete.dict, bounds=[3, 2, 3.5, 1.5])
+    config = MapcheteConfig(zoom_mapchete.dict, bounds=[3, 1.5, 3.5, 2])
     test_polygon = Polygon([[3, 1.5], [3, 2], [3.5, 2], [3.5, 1.5], [3, 1.5]])
     assert config.area_at_zoom(5).equals(test_polygon)
 

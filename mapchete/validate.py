@@ -1,19 +1,23 @@
 """Convenience validator functions for core and extension packages."""
 
 
+from collections.abc import Iterable
 import numpy.ma as ma
 from rasterio.crs import CRS
-from tilematrix._funcs import Bounds
+from typing import Union, List, Dict
 import warnings
 
 from mapchete.tile import BufferedTile, BufferedTilePyramid
+from mapchete.types import Bounds, ZoomLevels
 
 ########################
 # validator functionrs #
 ########################
 
 
-def validate_zooms(zooms, expand=True):
+def validate_zooms(
+    zooms: Union[int, Dict[str, int], List[int]], **kwargs
+) -> ZoomLevels:
     """
     Return a list of zoom levels.
 
@@ -26,55 +30,15 @@ def validate_zooms(zooms, expand=True):
     Parameters
     ----------
     zoom : dict, int or list
-    expand : bool
-        Return full list of zoom levels instead of [min, max]
 
     Returns
     -------
     List of zoom levels.
     """
-    if isinstance(zooms, dict):
-        if any([a not in zooms for a in ["min", "max"]]):
-            raise TypeError("min and max zoom required: %s" % str(zooms))
-        zmin = validate_zoom(zooms["min"])
-        zmax = validate_zoom(zooms["max"])
-        if zmin > zmax:
-            raise TypeError(
-                "max zoom must not be smaller than min zoom: %s" % str(zooms)
-            )
-        return list(range(zmin, zmax + 1)) if expand else zooms
-    elif isinstance(zooms, list):
-        if len(zooms) == 1:
-            return zooms
-        elif len(zooms) == 2:
-            zmin, zmax = sorted([validate_zoom(z) for z in zooms])
-            return list(range(zmin, zmax + 1)) if expand else zooms
-        else:
-            return zooms
-    else:
-        return [validate_zoom(zooms)] if expand else zooms
+    return ZoomLevels.from_inp(zooms)
 
 
-def validate_zoom(zoom):
-    """
-    Return validated zoom.
-
-    Assert zoom value is positive integer.
-
-    Returns
-    -------
-    zoom
-
-    Raises
-    ------
-    TypeError if type is invalid.
-    """
-    if any([not isinstance(zoom, int), zoom < 0]):
-        raise TypeError("zoom must be a positive integer: %s" % zoom)
-    return zoom
-
-
-def validate_bounds(bounds) -> Bounds:
+def validate_bounds(bounds: Iterable) -> Bounds:
     """
     Return validated bounds.
 
@@ -92,11 +56,7 @@ def validate_bounds(bounds) -> Bounds:
     ------
     TypeError if type is invalid.
     """
-    if not isinstance(bounds, (tuple, list)):
-        raise TypeError("bounds must be either a tuple or a list: %s" % str(bounds))
-    if len(bounds) != 4:
-        raise ValueError("bounds has to have exactly four values: %s" % str(bounds))
-    return Bounds(*bounds)
+    return Bounds.from_inp(bounds)
 
 
 def validate_values(config, values):
