@@ -55,7 +55,7 @@ class Bounds(list):
             raise TypeError(f"desired item '{item}' has wrong type {type(item)}")
 
     def __eq__(self, other):
-        other = other if isinstance(other, Bounds) else Bounds(other)
+        other = other if isinstance(other, Bounds) else Bounds.from_inp(other)
         return (
             float(self.left) == float(other.left)
             and float(self.bottom) == float(other.bottom)
@@ -108,7 +108,7 @@ class Bounds(list):
 
     def intersects(self, other) -> bool:
         """Indicate whether bounds intersect spatially."""
-        other = other if isinstance(other, Bounds) else Bounds(other)
+        other = other if isinstance(other, Bounds) else Bounds.from_inp(other)
         horizontal = (
             # partial overlap
             self.left <= other.left <= self.right
@@ -169,7 +169,7 @@ class ZoomLevels(list):
             return self.__getattribute__(item)
 
     def __eq__(self, other):
-        other = other if isinstance(other, ZoomLevels) else ZoomLevels(other)
+        other = other if isinstance(other, ZoomLevels) else ZoomLevels.from_inp(other)
         return self.min == other.min and self.max and other.max
 
     def __ne__(self, other):

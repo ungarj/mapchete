@@ -20,7 +20,6 @@ from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
 from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch
 from mapchete._timer import Timer
 from mapchete.types import Bounds, ZoomLevels
-from mapchete.validate import validate_zooms
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
 
@@ -161,12 +160,14 @@ def task_batches(
 
     with Timer() as duration:
         if tile:
-            zoom_levels = ZoomLevels(tile.zoom)
+            zoom_levels = ZoomLevels.from_inp(tile.zoom)
             skip_output_check = True
             tiles = {tile.zoom: [(tile, False)]}
         else:
             zoom_levels = (
-                process.config.zoom_levels if zoom is None else ZoomLevels(zoom)
+                process.config.zoom_levels
+                if zoom is None
+                else ZoomLevels.from_inp(zoom)
             )
             tiles = {}
 
@@ -267,10 +268,12 @@ def compute(
         duration = exit_stack.enter_context(Timer())
         if tile:
             tile = process.config.process_pyramid.tile(*tile)
-            zoom_levels = ZoomLevels(tile.zoom)
+            zoom_levels = ZoomLevels.from_inp(tile.zoom)
         else:
             zoom_levels = (
-                process.config.zoom_levels if zoom is None else ZoomLevels(zoom)
+                process.config.zoom_levels
+                if zoom is None
+                else ZoomLevels.from_inp(zoom)
             )
         if dask_compute_graph and isinstance(executor, DaskExecutor):
             for num_processed, future in enumerate(

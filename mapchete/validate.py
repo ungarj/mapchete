@@ -35,7 +35,7 @@ def validate_zooms(
     -------
     List of zoom levels.
     """
-    return ZoomLevels(zooms)
+    return ZoomLevels.from_inp(zooms)
 
 
 def validate_bounds(bounds: Iterable) -> Bounds:
@@ -56,7 +56,7 @@ def validate_bounds(bounds: Iterable) -> Bounds:
     ------
     TypeError if type is invalid.
     """
-    return Bounds(bounds)
+    return Bounds.from_inp(bounds)
 
 
 def validate_values(config, values):

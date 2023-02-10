@@ -336,7 +336,7 @@ def _get_reprojected_features(
 
 
 def bounds_intersect(bounds1, bounds2):
-    return Bounds(bounds1).intersects(bounds2)
+    return Bounds.from_inp(bounds1).intersects(bounds2)
 
 
 class FakeIndex:
