@@ -2,6 +2,10 @@ from collections.abc import Iterable
 
 
 class Bounds(list):
+    """
+    Class to handle geographic bounds.
+    """
+
     left: float = None
     bottom: float = None
     right: float = None
@@ -10,10 +14,6 @@ class Bounds(list):
     width: float = None
 
     def __init__(self, left=None, bottom=None, right=None, top=None, strict=True):
-        if isinstance(left, (list, tuple)):
-            if len(left) != 4:
-                raise ValueError("Bounds must be initialized with exactly four values.")
-            left, bottom, right, top = left
         self.left, self.bottom, self.right, self.top = left, bottom, right, top
         for value in self:
             if not isinstance(value, (int, float)):
@@ -47,9 +47,12 @@ class Bounds(list):
         if isinstance(item, int):
             return list(self)[item]
         elif isinstance(item, str):
-            return self.__getattribute__(item)
-        else:  # pragma: no cover
-            raise KeyError(f"{item} not in {str(self)}")
+            try:
+                return self.__getattribute__(item)
+            except AttributeError as exc:
+                raise KeyError(exc)
+        else:
+            raise TypeError(f"desired item '{item}' has wrong type {type(item)}")
 
     def __eq__(self, other):
         other = other if isinstance(other, Bounds) else Bounds(other)
@@ -79,7 +82,23 @@ class Bounds(list):
             ],
         }
 
+    @classmethod
+    def from_inp(cls, inp, strict=True):
+        if isinstance(inp, (list, tuple)):
+            if len(inp) != 4:
+                raise ValueError("Bounds must be initialized with exactly four values.")
+            return Bounds(*inp, strict=strict)
+        elif isinstance(inp, dict):
+            return Bounds.from_dict(inp, strict=strict)
+        else:
+            raise TypeError(f"cannot create Bounds using {inp}")
+
+    @staticmethod
+    def from_dict(inp, strict=True):
+        return Bounds(**inp, strict=strict)
+
     def to_dict(self) -> dict:
+        """Return dictionary representation."""
         return {
             "left": self.left,
             "bottom": self.bottom,
@@ -88,6 +107,7 @@ class Bounds(list):
         }
 
     def intersects(self, other) -> bool:
+        """Indicate whether bounds intersect spatially."""
         other = other if isinstance(other, Bounds) else Bounds(other)
         horizontal = (
             # partial overlap
@@ -115,25 +135,16 @@ class ZoomLevels(list):
     max: int = None
 
     def __init__(self, min=None, max=None, descending=False):
-        if isinstance(min, int) and isinstance(max, int):
-            self.min, self.max = min, max
-        elif isinstance(min, int) and max is None:
-            self._from_int(min)
-        elif isinstance(min, list) and max is None:
-            self._from_list(min)
-        elif isinstance(min, dict) and max is None:
-            self._from_dict(min)
-        elif isinstance(min, ZoomLevels) and max is None:  # pragma: no cover
-            self.min = min.min
-            self.max = min.max
-        else:
-            raise TypeError(f"Cannot initialize ZoomLevels with min={min}, max={max}")
-
+        self.min, self.max = min, max
+        # assert that min and max are positive integers
         for key, value in [("min", self.min), ("max", self.max)]:
             if not isinstance(value, int):
                 raise TypeError(f"{key} is not an integer: {value}")
             elif value < 0:
                 raise ValueError(f"{key} is not greater or equal than 0: {value}")
+        # assert that min is not greater than max
+        if self.min > self.max:
+            raise ValueError(f"min ({min}) cannot be greater than max ({max})")
         self.is_descending = descending
 
     def __iter__(self):
@@ -167,33 +178,48 @@ class ZoomLevels(list):
     def __contains__(self, value):
         return value in list(self)
 
-    def _from_int(self, inp):
-        self.min = inp
-        self.max = inp
+    @classmethod
+    def from_inp(cls, min=None, max=None, descending=False):
+        """Constructs ZoomLevels from various input forms"""
+        if isinstance(min, int) and max is None:
+            return cls.from_int(min, descending=descending)
+        elif isinstance(min, ZoomLevels) and max is None:
+            if min.is_descending == descending:
+                return min
+            else:
+                return ZoomLevels(min=min.min, max=min.max, descending=descending)
+        elif isinstance(min, list) and max is None:
+            return cls.from_list(min, descending=descending)
+        elif isinstance(min, dict) and max is None:
+            return cls.from_dict(min, descending=descending)
+        else:
+            raise TypeError(f"cannot create ZoomLevels with min={min}, max={max}")
 
-    def _from_list(self, inp):
+    @staticmethod
+    def from_int(inp, **kwargs):
+        return ZoomLevels(min=inp, max=inp, **kwargs)
+
+    @staticmethod
+    def from_list(inp, **kwargs):
         if len(inp) == 0:
             raise ValueError("zoom level list is empty")
         elif len(inp) == 1:
-            self.min = inp[0]
-            self.max = inp[0]
+            return ZoomLevels(min=inp[0], max=inp[0], **kwargs)
         elif len(inp) == 2:
-            self.min = min(inp)
-            self.max = max(inp)
+            return ZoomLevels(min=min(inp), max=max(inp), **kwargs)
         else:
             if set(inp) != set(range(min(inp), max(inp) + 1)):
                 raise ValueError(
                     f"zoom level list must be a full sequence without missing zoom levels: {inp}"
                 )
-            self.min = min(inp)
-            self.max = max(inp)
+            return ZoomLevels(min=min(inp), max=max(inp), **kwargs)
 
-    def _from_dict(self, value):
+    @staticmethod
+    def from_dict(inp, **kwargs):
         try:
-            self.min = value["min"]
-            self.max = value["max"]
+            return ZoomLevels(min=inp["min"], max=inp["max"], **kwargs)
         except KeyError:
-            raise KeyError("dict does not contain 'min' and 'max' keys")
+            raise KeyError(f"dict does not contain 'min' and 'max' keys: {inp}")
 
     def to_dict(self) -> dict:
         return {
