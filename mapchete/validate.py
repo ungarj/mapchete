@@ -4,6 +4,7 @@
 from collections.abc import Iterable
 import numpy.ma as ma
 from rasterio.crs import CRS
+from typing import Union, List, Dict
 import warnings
 
 from mapchete.tile import BufferedTile, BufferedTilePyramid
@@ -14,7 +15,9 @@ from mapchete.types import Bounds, ZoomLevels
 ########################
 
 
-def validate_zooms(zooms, expand=True):
+def validate_zooms(
+    zooms: Union[int, Dict[str, int], List[int]], **kwargs
+) -> ZoomLevels:
     """
     Return a list of zoom levels.
 
@@ -27,33 +30,12 @@ def validate_zooms(zooms, expand=True):
     Parameters
     ----------
     zoom : dict, int or list
-    expand : bool
-        Return full list of zoom levels instead of [min, max]
 
     Returns
     -------
     List of zoom levels.
     """
     return ZoomLevels(zooms)
-
-
-def validate_zoom(zoom):
-    """
-    Return validated zoom.
-
-    Assert zoom value is positive integer.
-
-    Returns
-    -------
-    zoom
-
-    Raises
-    ------
-    TypeError if type is invalid.
-    """
-    if any([not isinstance(zoom, int), zoom < 0]):
-        raise TypeError("zoom must be a positive integer: %s" % zoom)
-    return zoom
 
 
 def validate_bounds(bounds: Iterable) -> Bounds:
