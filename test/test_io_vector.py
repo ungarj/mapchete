@@ -25,6 +25,7 @@ from mapchete.io.vector import (
     IndexedFeatures,
     bounds_intersect,
     object_bounds,
+    Bounds,
 )
 from mapchete.tile import BufferedTilePyramid
 

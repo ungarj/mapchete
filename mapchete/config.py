@@ -33,7 +33,6 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 import sys
 from tempfile import NamedTemporaryFile
-from tilematrix._funcs import Bounds
 import warnings
 
 from mapchete.validate import (
@@ -60,6 +59,7 @@ from mapchete.io import absolute_path
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid
+from mapchete.types import Bounds
 
 
 logger = logging.getLogger(__name__)
@@ -523,6 +523,7 @@ class MapcheteConfig(object):
                 init_zoom_levels=self._init_zoom_levels,
             )
         except Exception as e:
+            logger.exception(e)
             raise MapcheteConfigError(e)
 
     @cached_property
