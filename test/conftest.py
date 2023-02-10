@@ -409,6 +409,15 @@ def file_groups():
 
 
 @pytest.fixture
+def overviews():
+    """Fixture for overviews.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "overviews.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def baselevels():
     """Fixture for baselevels.mapchete."""
     with ProcessFixture(
@@ -736,6 +745,24 @@ def stac_metadata():
     """Fixture for stac_metadata.mapchete."""
     with ProcessFixture(
         os.path.join(TESTDATA_DIR, "stac_metadata.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
+def red_raster():
+    """Fixture for red_raster.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "red_raster.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
+def green_raster():
+    """Fixture for green_raster.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "green_raster.mapchete"),
     ) as example:
         yield example
 

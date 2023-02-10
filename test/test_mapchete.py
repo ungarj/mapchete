@@ -261,58 +261,59 @@ def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
 
 
 @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_update_baselevels(mp_tmpdir, baselevels, concurrency, dask_executor):
+def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
     """Baselevel interpolation."""
     compute_kwargs = (
         {"executor": dask_executor}
         if concurrency == "dask"
         else {"concurrency": concurrency}
     )
-    conf = dict(baselevels.dict)
-    conf.update(zoom_levels=[7, 8], baselevels=dict(min=8, max=8))
-    baselevel_tile = (8, 125, 260)
-    overview_tile = (7, 62, 130)
-    with mapchete.open(conf, mode="continue") as mp:
-        tile_bounds = mp.config.output_pyramid.tile(*baselevel_tile).bounds
-
-    # process using bounds of just one baselevel tile
-    with mapchete.open(conf, mode="continue", bounds=tile_bounds) as mp:
-        list(mp.compute(**compute_kwargs))
-        with rasterio.open(
-            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
-        ) as src:
-            overview_before = src.read()
-            assert overview_before.any()
-
-    # process full area which leaves out overview tile for baselevel tile above
-    with mapchete.open(conf, mode="continue") as mp:
-        list(mp.compute(**compute_kwargs))
-
-    # delete baselevel tile
-    written_tile = (
-        os.path.join(
-            *[
-                baselevels.dict["config_dir"],
-                baselevels.dict["output"]["path"],
-                *map(str, baselevel_tile),
-            ]
+    # process everything and make sure output was written
+    with overviews.mp() as mp:
+        baselevel_tile = overviews.first_process_tile()
+        overview_tile = baselevel_tile.get_parent()
+        baselevel_tile_path = mp.config.output.get_path(
+            mp.config.output_pyramid.tile(*baselevel_tile)
         )
-        + ".tif"
-    )
-    os.remove(written_tile)
-    assert not os.path.exists(written_tile)
+        overview_tile_path = mp.config.output.get_path(
+            mp.config.output_pyramid.tile(*overview_tile)
+        )
 
-    # run again in continue mode. this processes the missing tile on zoom 5 but overwrites
-    # the tile in zoom 4
-    with mapchete.open(conf, mode="continue") as mp:
+        # process baselevel (zoom 7)
+        list(mp.compute(**compute_kwargs, zoom=7))
+
+    # make sure baselevel tile has content
+    with rasterio.open(baselevel_tile_path) as src:
+        assert src.read().any()
+
+    # remove baselevel_tile
+    os.remove(baselevel_tile_path)
+    assert not os.path.exists(baselevel_tile_path)
+
+    with overviews.mp() as mp:
+        # process overviews
+        list(mp.compute(**compute_kwargs, zoom=[0, 6]))
+    assert not os.path.exists(baselevel_tile_path)
+
+    # read overview tile which is half empty
+    with rasterio.open(overview_tile_path) as src:
+        overview_before = src.read()
+        assert overview_before.any()
+
+    # run again in continue mode. this processes the missing tile on baselevel but overwrites
+    # the overview tiles
+    with overviews.mp() as mp:
         # process data before getting baselevels
         list(mp.compute(concurrency=concurrency))
-        with rasterio.open(
-            mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
-        ) as src:
-            overview_after = src.read()
-            assert overview_after.any()
 
+    assert os.path.exists(baselevel_tile_path)
+    with rasterio.open(
+        mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
+    ) as src:
+        overview_after = src.read()
+        assert overview_after.any()
+
+    # now make sure the overview tile was updated
     assert not np.array_equal(overview_before, overview_after)
 
 
@@ -671,6 +672,78 @@ def test_compute_dask_graph(preprocess_cache_memory, dask_executor):
                     assert result.data is None
     assert tile_tasks == 20
     assert preprocessing_tasks == 2
+
+
+@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
+def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
+    compute_kwargs = (
+        {"executor": dask_executor, "dask_compute_graph": True}
+        if concurrency == "dask"
+        else {"concurrency": concurrency}
+    )
+    zoom = 3
+
+    # run red_raster on tile 1, 0, 0
+    with red_raster.mp() as mp_red:
+        list(mp_red.compute(tile=(zoom, 0, 0), **compute_kwargs))
+    fs_red = fs_from_path(mp_red.config.output.path)
+    assert len(fs_red.glob(f"{mp_red.config.output.path}/*/*/*.tif")) == 1
+    with rasterio.open(f"{mp_red.config.output.path}/{zoom}/0/0.tif") as src:
+        assert np.array_equal(
+            src.read(),
+            np.stack([np.full((256, 256), c, dtype=np.uint8) for c in (255, 1, 1)]),
+        )
+
+    # copy red_raster output to green_raster output
+    with green_raster.mp() as mp_green:
+        fs_green = fs_from_path(mp_green.config.output.path)
+        fs_green.copy(
+            mp_red.config.output.path, mp_green.config.output.path, recursive=True
+        )
+
+        # run green_raster on zoom 1
+        list(mp_green.compute(zoom=[0, zoom], **compute_kwargs))
+
+    # assert red tile is still there and other tiles were written and are green
+    assert len(
+        fs_green.glob(f"{mp_green.config.output.path}/*/*/*.tif")
+    ) == mp_green.count_tiles(minzoom=0, maxzoom=zoom)
+    tp = mp_green.config.process_pyramid
+    red_tile = tp.tile(zoom, 0, 0)
+    overview_tiles = [
+        tp.tile_from_xy(red_tile.bbox.centroid.x, red_tile.bbox.centroid.y, z)
+        for z in range(0, zoom)
+    ]
+    for path in fs_green.glob(f"{mp_green.config.output.path}/*/*/*.tif"):
+        zoom, row, col = [int(p.rstrip(".tif")) for p in path.split("/")[-3:]]
+        tile = tp.tile(zoom, row, col)
+
+        # make sure red tile still is red
+        if tile == red_tile:
+            with rasterio.open(path) as src:
+                assert np.array_equal(
+                    src.read(),
+                    np.stack(
+                        [np.full((256, 256), c, dtype=np.uint8) for c in (255, 1, 1)]
+                    ),
+                )
+
+        # make sure overview tiles from red tile contain both red and green values
+        elif tile in overview_tiles:
+            with rasterio.open(path) as src:
+                for band in src.read([1, 2], masked=True):
+                    assert 1 in band
+                    assert 255 in band
+
+        # make sure all other tiles are green
+        else:
+            with rasterio.open(path) as src:
+                assert np.array_equal(
+                    src.read(),
+                    np.stack(
+                        [np.full((256, 256), c, dtype=np.uint8) for c in (1, 255, 1)]
+                    ),
+                )
 
 
 def test_compute_dask_without_results(baselevels, dask_executor):

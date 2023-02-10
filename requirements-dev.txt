@@ -5,4 +5,5 @@ pre-commit
 pytest
 pytest-cov
 pytest-flask
+pytest-lazy-fixture
 rio-cogeo
