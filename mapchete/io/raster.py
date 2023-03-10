@@ -416,7 +416,11 @@ def _get_warped_array(
         raise
 
 
-@retry(logger=logger, exceptions=RasterioIOError, **MAPCHETE_IO_RETRY_SETTINGS)
+@retry(
+    logger=logger,
+    exceptions=(RasterioIOError, OSError, IOError),
+    **MAPCHETE_IO_RETRY_SETTINGS,
+)
 def _rasterio_read(
     input_file=None,
     indexes=None,
@@ -541,7 +545,11 @@ def _rasterio_read(
         )
 
 
-@retry(logger=logger, exceptions=RasterioIOError, **MAPCHETE_IO_RETRY_SETTINGS)
+@retry(
+    logger=logger,
+    exceptions=(RasterioIOError, OSError, IOError),
+    **MAPCHETE_IO_RETRY_SETTINGS,
+)
 def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
     """
     Wrapper function around rasterio.open().read().
