@@ -479,42 +479,24 @@ def _rasterio_read(
                         masked=True,
                     )
 
-    if isinstance(input_file, str):
-        try:
-            with Timer() as t:
-                with rasterio.open(input_file, "r") as src:
-                    logger.debug("read from %s...", input_file)
-                    out = _read(
-                        src,
-                        indexes,
-                        dst_bounds,
-                        dst_shape,
-                        dst_crs,
-                        resampling,
-                        src_nodata,
-                        dst_nodata,
-                    )
-            logger.debug("read %s in %s", input_file, t)
-            return out
-        except RasterioIOError as rio_exc:
-            _extract_filenotfound_exception(rio_exc, input_file)
-
-    else:  # pragma: no cover
-        logger.debug("assuming file object %s", input_file)
-        warnings.warn(
-            "passing on a rasterio dataset object is not recommended, see "
-            "https://github.com/mapbox/rasterio/issues/1309"
-        )
-        return _read(
-            input_file,
-            indexes,
-            dst_bounds,
-            dst_shape,
-            dst_crs,
-            resampling,
-            src_nodata,
-            dst_nodata,
-        )
+    try:
+        with Timer() as t:
+            with rasterio.open(input_file, "r") as src:
+                logger.debug("read from %s...", input_file)
+                out = _read(
+                    src,
+                    indexes,
+                    dst_bounds,
+                    dst_shape,
+                    dst_crs,
+                    resampling,
+                    src_nodata,
+                    dst_nodata,
+                )
+        logger.debug("read %s in %s", input_file, t)
+        return out
+    except RasterioIOError as rio_exc:
+        _extract_filenotfound_exception(rio_exc, input_file)
 
 
 def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
