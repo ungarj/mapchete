@@ -2,13 +2,10 @@
 
 from collections import namedtuple
 from contextlib import ExitStack
-from itertools import chain
 import logging
 import multiprocessing
 import os
 from shapely.geometry import mapping
-from tilematrix._funcs import Bounds
-from traceback import format_exc
 from typing import Generator
 
 from mapchete.config import get_process_func
@@ -22,7 +19,7 @@ from mapchete._executor import (
 from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
 from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch
 from mapchete._timer import Timer
-from mapchete.validate import validate_zooms
+from mapchete.types import Bounds, ZoomLevels
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
 
@@ -163,20 +160,21 @@ def task_batches(
 
     with Timer() as duration:
         if tile:
-            zoom_levels = [tile.zoom]
+            zoom_levels = ZoomLevels.from_inp(tile.zoom)
             skip_output_check = True
             tiles = {tile.zoom: [(tile, False)]}
         else:
-            zoom_levels = list(
-                process.config.zoom_levels if zoom is None else validate_zooms(zoom)
+            zoom_levels = (
+                process.config.zoom_levels
+                if zoom is None
+                else ZoomLevels.from_inp(zoom)
             )
-            zoom_levels.sort(reverse=True)
             tiles = {}
 
             # here we store the parents of tiles about to be processed so we can update overviews
             # also in "continue" mode in case there were updates at the baselevel
             overview_parents = set()
-            for i, zoom in enumerate(zoom_levels):
+            for i, zoom in enumerate(zoom_levels.descending()):
                 tiles[zoom] = []
 
                 for tile, skip, _ in _filter_skipable(
@@ -210,7 +208,7 @@ def task_batches(
             )
 
         # tile tasks
-        for zoom in zoom_levels:
+        for zoom in zoom_levels.descending():
             yield TileTaskBatch(
                 id=f"zoom_{zoom}",
                 tasks=(
@@ -270,12 +268,13 @@ def compute(
         duration = exit_stack.enter_context(Timer())
         if tile:
             tile = process.config.process_pyramid.tile(*tile)
-            zoom_levels = [tile.zoom]
+            zoom_levels = ZoomLevels.from_inp(tile.zoom)
         else:
-            zoom_levels = list(
-                process.config.zoom_levels if zoom is None else validate_zooms(zoom)
+            zoom_levels = (
+                process.config.zoom_levels
+                if zoom is None
+                else ZoomLevels.from_inp(zoom)
             )
-        zoom_levels.sort(reverse=True)
         if dask_compute_graph and isinstance(executor, DaskExecutor):
             for num_processed, future in enumerate(
                 _compute_task_graph(
@@ -433,8 +432,6 @@ def _run_area(
     skip_output_check=False,
 ):
     logger.info("run process on area")
-    zoom_levels.sort(reverse=True)
-
     # for output drivers requiring writing data in parent process
     if process.config.output.write_in_parent_process:
         for future in _run_multi(
@@ -504,8 +501,7 @@ def _run_multi(
     fkwargs=None,
     skip_output_check=False,
 ):
-    zoom_levels.sort(reverse=True)
-    total_tiles = process.count_tiles(min(zoom_levels), max(zoom_levels))
+    total_tiles = process.count_tiles(zoom_levels.min, zoom_levels.max)
     workers = min([workers, total_tiles])
     num_processed = 0
 
@@ -707,7 +703,7 @@ def _run_multi_overviews(
     # also in "continue" mode in case there were updates at the baselevel
     overview_parents = set()
 
-    for i, zoom in enumerate(zoom_levels):
+    for i, zoom in enumerate(zoom_levels.descending()):
 
         logger.debug("sending tasks to executor %s...", executor)
         # get generator list of tiles, whether they are to be skipped and skip_info
@@ -814,7 +810,7 @@ def _run_multi_no_overviews(
                 process=process,
                 tiles_batches=(
                     batch
-                    for zoom in zoom_levels
+                    for zoom in zoom_levels.descending()
                     for batch in process.get_process_tiles(zoom, batch_by="row")
                 ),
                 target_set=None,

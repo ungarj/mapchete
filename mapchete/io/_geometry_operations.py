@@ -254,7 +254,12 @@ def to_shape(geom) -> base.BaseGeometry:
     -------
     shapely geometry
     """
-    return shape(geom) if not isinstance(geom, base.BaseGeometry) else geom
+    if isinstance(geom, base.BaseGeometry):
+        return geom
+    elif hasattr(geom, "__geo_interface__") and geom.__geo_interface__.get("geometry"):
+        return shape(geom.__geo_interface__["geometry"])
+    else:
+        return shape(geom)
 
 
 def multipart_to_singleparts(geom):

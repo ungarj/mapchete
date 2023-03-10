@@ -424,6 +424,15 @@ def file_groups():
 
 
 @pytest.fixture
+def overviews():
+    """Fixture for overviews.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "overviews.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def baselevels():
     """Fixture for baselevels.mapchete."""
     with ProcessFixture(
