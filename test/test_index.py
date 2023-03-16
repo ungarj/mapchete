@@ -6,7 +6,7 @@ import rasterio
 
 import mapchete
 from mapchete.index import zoom_index_gen
-from mapchete.io import get_boto3_bucket
+from mapchete.io import fs_from_path
 
 
 @pytest.mark.remote
@@ -36,12 +36,8 @@ def test_remote_indexes(gtiff_s3):
 
         # assert TXT exists
         txt_index = os.path.join(mp.config.output.path, "%s.txt" % zoom)
-        bucket = get_boto3_bucket(txt_index.split("/")[2])
-        key = "/".join(txt_index.split("/")[3:])
-        for obj in bucket.objects.filter(Prefix=key):
-            if obj.key == key:
-                content = obj.get()["Body"].read().decode()
-                assert len([l + "\n" for l in content.split("\n") if l]) == 2
+        with fs_from_path(mp.config.output.path).open(txt_index) as src:
+            assert len(list(src.readlines())) == 2
 
         # assert VRT exists
         with rasterio.open(os.path.join(mp.config.output.path, "%s.vrt" % zoom)) as src:

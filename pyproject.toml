@@ -77,7 +77,6 @@ http = [
     "requests",
 ]
 s3 = [
-    "boto3",
     "fsspec[s3]",
     "s3fs<=2023.3.0",
 ]
