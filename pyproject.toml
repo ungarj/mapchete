@@ -44,7 +44,6 @@ dependencies = [
 [project.optional-dependencies]
 complete = [
     "aiohttp",
-    "boto3",
     "dask",
     "distributed",
     "flask",
@@ -57,7 +56,6 @@ complete = [
     "pystac",
     "requests",
     "rtree",
-    "s3fs>=0.5.1",
     "werkzeug>=0.15",
 ]
 contours = [
