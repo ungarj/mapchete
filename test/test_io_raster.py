@@ -8,6 +8,7 @@ import os
 from rasterio.enums import Compression
 from shapely.geometry import box
 from shapely.ops import unary_union
+import time
 from tilematrix import Bounds
 from itertools import product
 
@@ -887,6 +888,8 @@ def test_rasterio_write(path, dtype, in_memory):
         **DefaultGTiffProfile(dtype=dtype),
     ) as dst:
         dst.write(arr)
+    if path.startswith("s3://"):
+        time.sleep(1)
     with rasterio.open(path) as src:
         written = src.read()
         assert np.array_equal(arr, written)
