@@ -79,7 +79,7 @@ http = [
 s3 = [
     "boto3",
     "fsspec[s3]",
-    "s3fs>=2023.3.0",
+    "s3fs<=2023.3.0",
 ]
 serve = [
     "flask",
