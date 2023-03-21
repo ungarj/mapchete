@@ -39,9 +39,7 @@ jobs:
           python -m pip install --upgrade pip wheel
           pip install -r test/requirements.txt -r requirements.txt
           pip install -e .[complete]
-
-      -name: List installed packages
-        run: pip freeze
+          pip freeze
 
       - name: Lint with flake8
         run: |
