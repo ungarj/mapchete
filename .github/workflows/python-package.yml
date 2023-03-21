@@ -40,6 +40,9 @@ jobs:
           pip install -r test/requirements.txt -r requirements.txt
           pip install -e .[complete]
 
+      -name: List installed packages
+        run: pip freeze
+
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
