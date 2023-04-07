@@ -736,11 +736,11 @@ class RasterioRemoteMemoryWriter:
         self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
         return self._sink
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         try:
             self._sink.close()
-            if exc_type is None:
-                logger.debug("write rasterio MemoryFile to %s", self.path)
+            if exc_value is None:
+                logger.debug("upload rasterio MemoryFile to %s", self.path)
                 with self.fs.open(self.path, "wb") as dst:
                     dst.write(self._dst.getbuffer())
         finally:
@@ -764,10 +764,11 @@ class RasterioRemoteTempFileWriter:
         )
         return self._sink
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         try:
             self._sink.close()
-            if exc_type is None:
+            if exc_value is None:
+                logger.debug("upload TempFile %s to %s", self._dst.name, self.path)
                 self.fs.put_file(self._dst.name, self.path)
         finally:
             logger.debug("close and remove tempfile")
