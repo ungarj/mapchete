@@ -887,6 +887,9 @@ def test_rasterio_write(path, dtype, in_memory):
         **DefaultGTiffProfile(dtype=dtype),
     ) as dst:
         dst.write(arr)
+    import time
+
+    time.sleep(10)
     with rasterio.open(path) as src:
         written = src.read()
         assert np.array_equal(arr, written)
