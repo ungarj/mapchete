@@ -769,6 +769,7 @@ class Mapchete(object):
                 ip.cleanup()
         # run output driver cleanup
         logger.debug(f"closing output driver {self.config.output}...")
+        # HINT: probably cleaner to use the outputs __exit__ function and use a contextmanager interface
         self.config.output.close(
             exc_type=exc_type, exc_value=exc_value, exc_traceback=exc_traceback
         )
