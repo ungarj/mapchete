@@ -190,19 +190,9 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
         return zoom
 
 
-def get_boto3_bucket(bucket_name):
+def get_boto3_bucket(bucket_name):  # pragma: no cover
     """Return boto3.Bucket object from bucket name."""
-    import boto3
-
-    url = os.environ.get("AWS_S3_ENDPOINT")
-    return boto3.resource(
-        "s3",
-        endpoint_url=(
-            "https://" + url
-            if url and not url.startswith(("http://", "https://"))
-            else url
-        ),
-    ).Bucket(bucket_name)
+    raise DeprecationWarning("get_boto3_bucket() is deprecated")
 
 
 def get_gdal_options(opts, is_remote=False, allowed_remote_extensions=[]):

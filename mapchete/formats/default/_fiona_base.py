@@ -9,7 +9,6 @@ import types
 
 from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.io import get_boto3_bucket
 from mapchete.io.vector import write_vector_window
 from mapchete.tile import BufferedTile
 
@@ -162,9 +161,6 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
         if not len(data):  # pragma: no cover
             logger.debug("no features to write")
         else:
-            # in case of S3 output, create an boto3 resource
-            bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
-
             # Convert from process_tile to output_tiles
             for tile in self.pyramid.intersecting(process_tile):
                 out_path = self.get_path(tile)
@@ -176,7 +172,6 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
                     out_schema=self.output_params["schema"],
                     out_tile=out_tile,
                     out_path=out_path,
-                    bucket_resource=bucket_resource,
                     allow_multipart_geometries=(
                         self.output_params["schema"]["geometry"].startswith("Multi")
                     ),

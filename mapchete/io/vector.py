@@ -124,8 +124,8 @@ def write_vector_window(
     out_schema=None,
     out_tile=None,
     out_path=None,
-    bucket_resource=None,
     allow_multipart_geometries=True,
+    **kwargs,
 ):
     """
     Write features to file.
