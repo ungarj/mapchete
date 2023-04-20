@@ -76,7 +76,8 @@ http = [
 ]
 s3 = [
     "fsspec[s3]",
-    "boto3>=1.14.44"
+    "boto3>=1.14.44",
+    "aiobotocore>=1.1.2",
 ]
 serve = [
     "flask",
