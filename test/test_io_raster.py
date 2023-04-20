@@ -6,9 +6,11 @@ import numpy as np
 import numpy.ma as ma
 import os
 from rasterio.enums import Compression
+from rasterio.errors import RasterioIOError
 from shapely.geometry import box
 from shapely.ops import unary_union
 from tilematrix import Bounds
+import time
 from itertools import product
 
 
@@ -875,7 +877,7 @@ def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
 def test_rasterio_write(path, dtype, in_memory):
     arr = np.ones((1, 256, 256)).astype(dtype)
     count, width, height = arr.shape
-    path = os.path.join(path, f"test_rasterio_write-{dtype}-{in_memory}.tif")
+    path = os.path.join(path, f"test_rasterio_write-{str(dtype)}-{in_memory}.tif")
     with rasterio_write(
         path,
         "w",
@@ -888,6 +890,19 @@ def test_rasterio_write(path, dtype, in_memory):
     ) as dst:
         dst.write(arr)
     assert path_exists(path)
-    with rasterio.open(path) as src:
-        written = src.read()
-        assert np.array_equal(arr, written)
+
+    # retry a couple of times in case S3 does something funky
+    max_attempts = 3
+    wait_for_seconds = 1
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            with rasterio.open(path) as src:
+                written = src.read()
+                assert np.array_equal(arr, written)
+            break
+        except RasterioIOError:
+            if attempt >= max_attempts:
+                raise
+        time.sleep(wait_for_seconds)
