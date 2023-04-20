@@ -888,6 +888,6 @@ def test_rasterio_write(path, dtype, in_memory):
     ) as dst:
         dst.write(arr)
     assert path_exists(path)
-    # with rasterio.open(path) as src:
-    #     written = src.read()
-    #     assert np.array_equal(arr, written)
+    with rasterio.open(path) as src:
+        written = src.read()
+        assert np.array_equal(arr, written)
