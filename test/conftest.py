@@ -679,6 +679,17 @@ def output_single_gtiff():
         yield example
 
 
+@pytest.fixture(scope="function")
+def output_s3_single_gtiff_error():
+    """Fixture for output_s3_single_gtiff_error.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "output_s3_single_gtiff_error.mapchete"),
+        output_tempdir=S3_TEMP_DIR,
+        output_suffix=".tif",
+    ) as example:
+        yield example
+
+
 @pytest.fixture
 def output_single_gtiff_s3():
     """Fixture for output_single_gtiff.mapchete."""

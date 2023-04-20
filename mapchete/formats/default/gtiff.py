@@ -646,7 +646,7 @@ class GTiffSingleFileOutputWriter(
                         ].name.upper()
                     )
         finally:
-            self._ctx.close()
+            self._ctx.__exit__(exc_type, exc_value, exc_traceback)
 
 
 def _window_in_out_file(window, rio_file):
