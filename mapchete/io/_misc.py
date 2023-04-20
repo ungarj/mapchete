@@ -190,7 +190,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
         return zoom
 
 
-def get_boto3_bucket(bucket_name):
+def get_boto3_bucket(bucket_name):  # pragma: no cover
     """Return boto3.Bucket object from bucket name."""
     raise DeprecationWarning("get_boto3_bucket() is deprecated")
 
