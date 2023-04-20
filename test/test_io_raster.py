@@ -875,7 +875,7 @@ def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
 def test_rasterio_write(path, dtype, in_memory):
     arr = np.ones((1, 256, 256)).astype(dtype)
     count, width, height = arr.shape
-    path = os.path.join(path, "temp.tif")
+    path = os.path.join(path, f"test_rasterio_write-{dtype}-{in_memory}.tif")
     with rasterio_write(
         path,
         "w",
