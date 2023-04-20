@@ -710,6 +710,10 @@ def rasterio_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
     RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
     """
     if path.startswith("s3://"):
+        try:  # pragma: no cover
+            import boto3
+        except ImportError:  # pragma: no cover
+            raise ImportError("please install [s3] extra to write remote files")
         return RasterioRemoteWriter(path, fs=fs, in_memory=in_memory, *args, **kwargs)
     else:
         return rasterio.open(path, mode=mode, *args, **kwargs)

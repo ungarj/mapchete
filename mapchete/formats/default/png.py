@@ -25,7 +25,6 @@ import numpy.ma as ma
 
 from mapchete.config import validate_values
 from mapchete.formats import base
-from mapchete.io import get_boto3_bucket
 from mapchete.io.raster import (
     write_raster_window,
     prepare_array,
@@ -80,9 +79,6 @@ class OutputDataReader(base.TileDirectoryOutputReader):
             output_params,
             nodata=output_params.get("nodata", PNG_DEFAULT_PROFILE["nodata"]),
             dtype=PNG_DEFAULT_PROFILE["dtype"],
-        )
-        self._bucket = (
-            self.path.split("/")[2] if self.path.startswith("s3://") else None
         )
 
     def read(self, output_tile, **kwargs):
@@ -237,9 +233,6 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
         if data.mask.all():
             logger.debug("data empty, nothing to write")
         else:
-            # in case of S3 output, create an boto3 resource
-            bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
-
             # Convert from process_tile to output_tiles and write
             for tile in self.pyramid.intersecting(process_tile):
                 out_path = self.get_path(tile)
@@ -251,5 +244,4 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
                     out_profile=self.profile(out_tile),
                     out_tile=out_tile,
                     out_path=out_path,
-                    bucket_resource=bucket_resource,
                 )
