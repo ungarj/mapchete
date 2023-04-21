@@ -3,11 +3,127 @@ Changelog
 #########
 
 ---------------------
+2023.4.1 - 2023-04-20
+---------------------
+
+* packaging
+  * add all `s3` extra dependencies to `complete`
+
+
+---------------------
+2023.4.0 - 2023-04-20
+---------------------
+
+* core
+  * `to_shape()`: enable handling full feature dicts in `__geo_interface__` (#531)
+  * add `object_geometry()` method, which works like `object_bounds()` (#531)
+  * add `types` module containing `Bounds` and `ZoomLevel` classes (#532)
+  * remove `validate_zoom()`
+  * `mapchete.io._misc.get_boto3_bucket()`: function is now deprecated
+  * `mapchete.io._geometry_operations.reproject_geometry`: account for new fiona transform_geom behavior
+  * replace remaining `boto3` bucket calls with `fsspec`
+  * `mapchete.io.raster`: use same logic to extract `FileNotFoundError` for `read_raster_window` and `read_raster_no_crs`; replace deprecated `IOError` with `OSError`
+
+* packaging
+  * remove direct `s3fs`dependency but keep `boto3` and `aiobotocore` as direct dependencies for `s3`extra
+
+* testing
+  * fix test case to reflect bug which prevents dask from updating overview tile using the task graph (#530)
+
+
+---------------------
+2023.1.1 - 2023-01-26
+---------------------
+
+* core
+  * use threaded concurrency on default when calling `mapchete cp` (#526)
+  * removing check whether preprocessing task result is already set to avoid random KeyErrors (#529)
+
+* testing
+  * add test cases for continue mode (#527)
+  * add test to eplicitly test rasterio_write functionality (#528)
+
+
+---------------------
+2023.1.0 - 2023-01-03
+---------------------
+
+* core
+  * use new `importlib.metadata` interface to select entry points (#521)
+  * add filename which caused read error to MapcheteIOError when calling `read_raster_window()` and `read_vector_window()` (#522)
+
+
+----------------------
+2022.12.1 - 2022-12-20
+----------------------
+
+* core
+  * always use dask executor if defined, even if there is only one task or worker (#517)
+  * try to provide more useful information if dask task exception cannot be recovered (#519)
+
+* CI
+  * schedule tests every monday and thursday (#518) 
+
+
+----------------------
+2022.12.0 - 2022-12-16
+----------------------
+
+* core
+  * extend capabilities of `mapchete.io.raster.ReferencedRaster` (#513)
+  * allow executing remote mapchete files (#514)
+  * adapt to `Shapely 2.0` (#515)
+
+* packaging
+  * replace `setuptools` with `hatch` (#516)
+
+
+----------------------
+2022.11.2 - 2022-11-30
+----------------------
+
+* core
+  * use group prefix for preprocessing tasks (#512)
+
+* CLI
+  * pass on `max_workers` to dask executor (#508)
+
+
+----------------------
+2022.11.1 - 2022-11-23
+----------------------
+
+* core
+  * dask `chunksize` and `max_submitted_tasks` fix (#506)
+
+
+----------------------
+2022.11.0 - 2022-11-21
+----------------------
+
+* core
+  * GTiff driver: force blocksize being int (#496)
+  * fix TileDirectory read error from exotic CRSes (#498)
+  * split up `raster.io.RasterioRemoteWriter` class to memory and tempfile subclasses (#500)
+  * make sure dask_compute_graph and dask_chunksize are passed on (#502)
+
+* CLI
+  * print task details also when using dask executor when `--verbose` flag is active (#501)
+
+* packaging
+  * exclude vulnerable rasterio dependency (#490)
+  * add python-dateutil to package requirements (#495)
+  * rename `master` branch to `main`
+
+* tests
+  * add Python 3.10 to tests
+
+
+---------------------
 2022.9.1 - 2022-09-15
 ---------------------
 
 * packaging
-
   * remove shapely version <1.8.1 constraint from setup.py
 
 

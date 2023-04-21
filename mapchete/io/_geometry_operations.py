@@ -1,3 +1,4 @@
+import fiona
 from fiona.transform import transform_geom
 import logging
 import pyproj
@@ -34,6 +35,39 @@ CRS_BOUNDS = {
 }
 
 
+def _reproject_geom(
+    geometry, src_crs, dst_crs, validity_check, antimeridian_cutting, fiona_env
+):
+    if geometry.is_empty:
+        return geometry
+    else:
+        with fiona.env.Env(**fiona_env):
+            try:
+                transformed = transform_geom(
+                    src_crs.to_dict(),
+                    dst_crs.to_dict(),
+                    mapping(geometry),
+                    antimeridian_cutting=antimeridian_cutting,
+                )
+            except Exception as exc:
+                raise ReprojectionFailed(
+                    f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
+                ) from exc
+        # Fiona >1.9 returns None if transformation errored
+        if transformed is None:  # pragma: no cover
+            raise ReprojectionFailed(
+                f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
+            )
+        out_geom = to_shape(transformed)
+        return _repair(out_geom) if validity_check else out_geom
+
+
+def _segmentize_value(geometry, segmentize_fraction):
+    height = geometry.bounds[3] - geometry.bounds[1]
+    width = geometry.bounds[2] - geometry.bounds[0]
+    return min([height, width]) / segmentize_fraction
+
+
 def reproject_geometry(
     geometry,
     src_crs=None,
@@ -46,6 +80,7 @@ def reproject_geometry(
     validity_check=True,
     antimeridian_cutting=False,
     retry_with_clip=True,
+    fiona_env=None,
 ):
     """
     Reproject a geometry to target CRS.
@@ -78,31 +113,13 @@ def reproject_geometry(
     """
     src_crs = validate_crs(src_crs)
     dst_crs = validate_crs(dst_crs)
-    if not isinstance(geometry, base.BaseGeometry):  # pragma: no cover
+    fiona_env = fiona_env or {}
+    try:
+        geometry = (
+            geometry if isinstance(geometry, base.BaseGeometry) else shape(geometry)
+        )
+    except Exception:  # pragma: no cover
         raise TypeError(f"invalid geometry type: {type(geometry)}")
-
-    def _reproject_geom(geometry, src_crs, dst_crs):
-        if geometry.is_empty:
-            return geometry
-        else:
-            transformed = transform_geom(
-                src_crs.to_dict(),
-                dst_crs.to_dict(),
-                mapping(geometry),
-                antimeridian_cutting=antimeridian_cutting,
-            )
-            # Fiona >1.9 returns None if transformation errored
-            if transformed is None:  # pragma: no cover
-                raise ReprojectionFailed(
-                    f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
-                )
-            out_geom = to_shape(transformed)
-            return _repair(out_geom) if validity_check else out_geom
-
-    def _segmentize_value(geometry, segmentize_fraction):
-        height = geometry.bounds[3] - geometry.bounds[1]
-        width = geometry.bounds[2] - geometry.bounds[0]
-        return min([height, width]) / segmentize_fraction
 
     # return repaired geometry if no reprojection needed
     if src_crs == dst_crs or geometry.is_empty:
@@ -126,7 +143,14 @@ def reproject_geometry(
             )
         )
         # reproject geometry to WGS84
-        geometry_4326 = _reproject_geom(geometry, src_crs, wgs84_crs)
+        geometry_4326 = _reproject_geom(
+            geometry,
+            src_crs,
+            wgs84_crs,
+            validity_check,
+            antimeridian_cutting,
+            fiona_env,
+        )
         # raise error if geometry has to be clipped
         if error_on_clip and not geometry_4326.within(crs_bbox):
             raise RuntimeError("geometry outside target CRS bounds")
@@ -141,7 +165,9 @@ def reproject_geometry(
             )
 
         # clip geometry dst_crs boundaries and return
-        return _reproject_geom(clipped, wgs84_crs, dst_crs)
+        return _reproject_geom(
+            clipped, wgs84_crs, dst_crs, validity_check, antimeridian_cutting, fiona_env
+        )
 
     # return without clipping if destination CRS does not have defined bounds
     else:
@@ -153,9 +179,19 @@ def reproject_geometry(
                     ),
                     src_crs,
                     dst_crs,
+                    validity_check,
+                    antimeridian_cutting,
+                    fiona_env,
                 )
             else:
-                return _reproject_geom(geometry, src_crs, dst_crs)
+                return _reproject_geom(
+                    geometry,
+                    src_crs,
+                    dst_crs,
+                    validity_check,
+                    antimeridian_cutting,
+                    fiona_env,
+                )
         except TopologicalError:  # pragma: no cover
             raise
         except ValueError as exc:  # pragma: no cover
@@ -250,7 +286,12 @@ def to_shape(geom) -> base.BaseGeometry:
     -------
     shapely geometry
     """
-    return shape(geom) if not isinstance(geom, base.BaseGeometry) else geom
+    if isinstance(geom, base.BaseGeometry):
+        return geom
+    elif hasattr(geom, "__geo_interface__") and geom.__geo_interface__.get("geometry"):
+        return shape(geom.__geo_interface__["geometry"])
+    else:
+        return shape(geom)
 
 
 def multipart_to_singleparts(geom):

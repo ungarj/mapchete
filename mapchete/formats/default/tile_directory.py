@@ -386,9 +386,15 @@ class InputTile(base.InputTile):
         matching_max_zoom=None,
     ):
         # determine tile bounds in TileDirectory CRS
-        td_bounds = reproject_geometry(
+        _geom = reproject_geometry(
             self.tile.bbox, src_crs=self.tile.tp.crs, dst_crs=self._td_pyramid.crs
-        ).bounds
+        )
+        if _geom.is_empty:  # pragma: no cover
+            logger.debug(
+                "tile %s reprojected to %s is empty", self.tile, self._td_pyramid
+            )
+            return []
+        td_bounds = _geom.bounds
 
         # find target zoom level
         if tile_directory_zoom is None:

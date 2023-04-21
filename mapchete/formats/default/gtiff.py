@@ -466,6 +466,9 @@ class GTiffSingleFileOutputWriter(
             crs=self.pyramid.crs,
             **creation_options,
         )
+        for blocksize in ["blockxsize", "blockysize"]:
+            if self._profile.get(blocksize) is not None:
+                self._profile[blocksize] = int(self._profile[blocksize])
         logger.debug("single GTiff profile: %s", self._profile)
         logger.debug(
             get_maximum_overview_level(
@@ -647,7 +650,7 @@ class GTiffSingleFileOutputWriter(
                         ].name.upper()
                     )
         finally:
-            self._ctx.close()
+            self._ctx.__exit__(exc_type, exc_value, exc_traceback)
 
 
 def _window_in_out_file(window, rio_file):

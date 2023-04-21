@@ -1,3 +1,144 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mapchete"
+dynamic = ["version"]
+description = "Tile-based geodata processing using rasterio & Fiona"
+readme = "README.rst"
+license = "MIT"
+authors = [
+    { name = "Joachim Ungar", email = "joachim.ungar@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+dependencies = [
+    "cached_property",
+    "cachetools",
+    "click-plugins",
+    "click-spinner",
+    "click>=7.1.1",
+    "fiona>=1.8.13.post1",
+    "fsspec",
+    "importlib-metadata",
+    "importlib-resources",
+    "numpy>=1.16",
+    "oyaml",
+    "pyproj",
+    "python-dateutil",
+    "rasterio>1.2.10",
+    "retry",
+    "shapely",
+    "tilematrix>=2022.12.0",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+complete = [
+    "aiohttp",
+    "aiobotocore>=1.1.2",
+    "boto3>=1.14.44",
+    "dask",
+    "distributed",
+    "flask",
+    "fsspec[http]",
+    "fsspec[s3]",
+    "geobuf",
+    "lxml",
+    "matplotlib",
+    "protobuf<=3.20.1",
+    "pystac",
+    "requests",
+    "rtree",
+    "werkzeug>=0.15",
+]
+contours = [
+    "matplotlib",
+]
+dask = [
+    "dask",
+    "distributed",
+]
+geobuf = [
+    "geobuf",
+    "protobuf<=3.20.1",
+]
+http = [
+    "aiohttp",
+    "fsspec[http]",
+    "requests",
+]
+s3 = [
+    "aiobotocore>=1.1.2",
+    "boto3>=1.14.44",
+    "fsspec[s3]",
+]
+serve = [
+    "flask",
+    "werkzeug>=0.15",
+]
+spatial-index = [
+    "rtree",
+]
+stac = [
+    "pystac",
+]
+vrt = [
+    "lxml",
+]
+
+[project.scripts]
+mapchete = "mapchete.cli.main:main"
+
+[project.entry-points."mapchete.cli.commands"]
+convert = "mapchete.cli.default.convert:convert"
+cp = "mapchete.cli.default.cp:cp"
+create = "mapchete.cli.default.create:create"
+execute = "mapchete.cli.default.execute:execute"
+formats = "mapchete.cli.default.formats:formats"
+index = "mapchete.cli.default.index:index"
+processes = "mapchete.cli.default.processes:processes"
+rm = "mapchete.cli.default.rm:rm"
+serve = "mapchete.cli.default.serve:serve"
+stac = "mapchete.cli.default.stac:stac"
+
+[project.entry-points."mapchete.formats.drivers"]
+flatgeobuf = "mapchete.formats.default.flatgeobuf"
+geobuf = "mapchete.formats.default.geobuf"
+geojson = "mapchete.formats.default.geojson"
+gtiff = "mapchete.formats.default.gtiff"
+mapchete_input = "mapchete.formats.default.mapchete_input"
+png = "mapchete.formats.default.png"
+png_hillshade = "mapchete.formats.default.png_hillshade"
+raster_file = "mapchete.formats.default.raster_file"
+tile_directory = "mapchete.formats.default.tile_directory"
+vector_file = "mapchete.formats.default.vector_file"
+
+[project.entry-points."mapchete.processes"]
+contours = "mapchete.processes.contours"
+convert = "mapchete.processes.convert"
+example_process = "mapchete.processes.examples.example_process"
+hillshade = "mapchete.processes.hillshade"
+
+[project.urls]
+Homepage = "https://github.com/ungarj/mapchete"
+
+[tool.hatch.version]
+path = "mapchete/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/mapchete",
+]
+
 [tool.black]
 include = '\.pyi?$'
 exclude = '''

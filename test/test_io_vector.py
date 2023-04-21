@@ -25,6 +25,7 @@ from mapchete.io.vector import (
     IndexedFeatures,
     bounds_intersect,
     object_bounds,
+    Bounds,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -514,14 +515,20 @@ def test_indexed_features_polygon(aoi_br_geojson):
         assert len(index.filter(tile.bounds)) == 1
 
 
-def test_reproject_from_crs_wkt():
+@pytest.mark.parametrize("enable_partial_reprojection", [True, False])
+def test_reproject_from_crs_wkt(enable_partial_reprojection):
     geom = wkt.loads(
         "POLYGON ((6453888 -6453888, 6453888 6453888, -6453888 6453888, -6453888 -6453888, 6453888 -6453888))"
     )
     src_crs = 'PROJCS["unknown",GEOGCS["unknown",DATUM["Unknown based on WGS84 ellipsoid",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]]],PROJECTION["Orthographic"],PARAMETER["latitude_of_origin",-90],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
     dst_crs = "EPSG:4326"
     with pytest.raises(ReprojectionFailed):
-        reproject_geometry(geom, src_crs, dst_crs).is_valid
+        reproject_geometry(
+            geom,
+            src_crs,
+            dst_crs,
+            fiona_env={"OGR_ENABLE_PARTIAL_REPROJECTION": enable_partial_reprojection},
+        ).is_valid
 
 
 def test_object_bounds_attr_bounds():

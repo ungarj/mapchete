@@ -223,7 +223,6 @@ class DaskExecutor(_ExecutorBase):
     def __init__(
         self,
         *args,
-        address=None,
         dask_scheduler=None,
         dask_client=None,
         max_workers=None,
@@ -308,8 +307,8 @@ class DaskExecutor(_ExecutorBase):
         """
         from dask.distributed import TimeoutError
 
-        max_submitted_tasks = max_submitted_tasks or 1
-        chunksize = chunksize or 1
+        max_submitted_tasks = max_submitted_tasks or 500
+        chunksize = chunksize or 100
 
         try:
             fargs = fargs or ()
@@ -709,12 +708,14 @@ def future_exception(future):
             exception = future.exception(timeout=FUTURE_TIMEOUT)
         else:  # pragma: no cover
             exception = None
+
+    # concurrent.futures futures
     else:
-        # concurrent.futures futures
         exception = future.exception(timeout=FUTURE_TIMEOUT)
 
     if exception is None:  # pragma: no cover
         raise TypeError("future %s does not have an exception to raise", future)
+
     return exception
 
 
@@ -723,10 +724,20 @@ def future_raise_exception(future, raise_errors=True):
     Checks whether future contains an exception and raises it.
     """
     if raise_errors and future_is_failed_or_cancelled(future):
-        exception = future_exception(future)
         future_name = (
             future.key.rstrip("_finished") if hasattr(future, "key") else str(future)
         )
+        try:
+            exception = future_exception(future)
+        except Exception as exc:  # pragma: no cover
+            # dask futures
+            if hasattr(future, "status"):
+                msg = f"{future_name} has status '{future.status}' but its exception could not be recovered due to a {exc}"
+            # concurrent.futures futures
+            else:
+                msg = f"{future_name} failed but its exception could not be recovered due to a {exc}"
+            raise MapcheteTaskFailed(msg)
+
         raise MapcheteTaskFailed(
             f"{future_name} raised a {repr(exception)}"
         ).with_traceback(exception.__traceback__)

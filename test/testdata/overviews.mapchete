@@ -1,0 +1,16 @@
+process: ../example_process.py
+zoom_levels:
+    min: 0
+    max: 7
+pyramid:
+    grid: geodetic
+input:
+    file1: dummy1.tif
+output:
+    dtype: float32
+    bands: 3
+    format: GTiff
+    path: tmp/baselevels
+baselevels:
+    min: 7
+    lower: bilinear

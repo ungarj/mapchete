@@ -15,6 +15,7 @@ from itertools import product
 import mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteIOError
+from mapchete.formats.default.gtiff import DefaultGTiffProfile
 from mapchete.io import path_exists
 from mapchete.io.raster import (
     read_raster_window,
@@ -27,6 +28,7 @@ from mapchete.io.raster import (
     RasterWindowMemoryFile,
     read_raster_no_crs,
     convert_raster,
+    rasterio_write,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -835,3 +837,86 @@ def test_convert_raster_other_format_overwrite(cleantopo_br_tif, tmpdir):
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG", overwrite=True)
     with rasterio.open(out) as src:
         assert not src.read(masked=True).mask.all()
+
+
+def test_referencedraster_meta(s2_band):
+    rr = ReferencedRaster.from_file(s2_band)
+    meta = rr.meta
+    for k in [
+        "driver",
+        "dtype",
+        "nodata",
+        "width",
+        "height",
+        "count",
+        "crs",
+        "transform",
+    ]:
+        assert k in meta
+
+
+@pytest.mark.parametrize("indexes", [None, 1, [1]])
+def test_referencedraster_read_band(s2_band, indexes):
+    rr = ReferencedRaster.from_file(s2_band)
+    assert rr.read(indexes).any()
+
+
+@pytest.mark.parametrize("indexes", [None, 1, [1]])
+def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
+    rr = ReferencedRaster.from_file(s2_band)
+    assert rr.read(indexes, tile=s2_band_tile).any()
+
+
+@pytest.mark.parametrize(
+    "path", [pytest.lazy_fixture("mp_s3_tmpdir"), pytest.lazy_fixture("mp_tmpdir")]
+)
+@pytest.mark.parametrize("dtype", [np.uint8, np.float32])
+@pytest.mark.parametrize("in_memory", [True, False])
+def test_rasterio_write(path, dtype, in_memory):
+    arr = np.ones((1, 256, 256)).astype(dtype)
+    count, width, height = arr.shape
+    path = os.path.join(path, f"test_rasterio_write-{str(dtype)}-{in_memory}.tif")
+    with rasterio_write(
+        path,
+        "w",
+        in_memory=in_memory,
+        count=count,
+        width=width,
+        height=height,
+        crs="EPSG:4326",
+        **DefaultGTiffProfile(dtype=dtype),
+    ) as dst:
+        dst.write(arr)
+    assert path_exists(path)
+    with rasterio.open(path) as src:
+        written = src.read()
+        assert np.array_equal(arr, written)
+
+
+@pytest.mark.parametrize("in_memory", [True, False])
+def test_rasterio_write_remote_exception(mp_s3_tmpdir, in_memory):
+    path = os.path.join(mp_s3_tmpdir, "temp.tif")
+    with pytest.raises(ValueError):
+        # raise exception on purpose
+        with rasterio_write(
+            path,
+            "w",
+            in_memory=in_memory,
+            count=3,
+            width=256,
+            height=256,
+            crs="EPSG:4326",
+            **DefaultGTiffProfile(dtype="uint8"),
+        ):
+            raise ValueError()
+    # make sure no output has been written
+    assert not path_exists(path)
+
+
+def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
+    # the process file will raise an exception on purpose
+    with pytest.raises(AssertionError):
+        with output_s3_single_gtiff_error.mp() as mp:
+            mp.execute(output_s3_single_gtiff_error.first_process_tile())
+    # make sure no output has been written
+    assert not path_exists(mp.config.output.path)

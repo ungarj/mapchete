@@ -1,7 +1,6 @@
 """Wrapper functions around rasterio and useful raster functions."""
 
 from affine import Affine
-from collections import namedtuple
 import itertools
 import logging
 import numpy as np
@@ -14,11 +13,13 @@ from rasterio.errors import RasterioIOError
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds as affine_from_bounds
 from rasterio.vrt import WarpedVRT
-from rasterio.warp import reproject, calculate_default_transform
+from rasterio.warp import reproject
 from rasterio.windows import from_bounds
+from shapely.geometry import box, mapping
 from tempfile import NamedTemporaryFile
 from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
 from types import GeneratorType
+from typing import List, Tuple, Union
 import warnings
 
 from mapchete.errors import MapcheteIOError
@@ -38,7 +39,113 @@ from mapchete.validate import validate_write_window_params
 
 logger = logging.getLogger(__name__)
 
-ReferencedRaster = namedtuple("ReferencedRaster", ("data", "affine", "bounds", "crs"))
+
+class ReferencedRaster:
+    """
+    A loose in-memory representation of a rasterio dataset.
+
+    Useful to ship cached raster files between worker nodes.
+    """
+
+    def __init__(
+        self,
+        data: Union[np.ndarray, ma.masked_array] = None,
+        transform: Affine = None,
+        bounds: Union[List[float], Tuple[float], Bounds] = None,
+        crs: Union[str, rasterio.crs.CRS] = None,
+        nodata: Union[int, float] = None,
+        driver: str = None,
+        **kwargs,
+    ):
+        if data.ndim == 2:
+            self.count = 1
+            self.height, self.width = data.shape
+        elif data.ndim == 3:
+            self.count, self.height, self.width = data.shape
+        else:  # pragma: no cover
+            raise TypeError("input array must be 2- or 3-dimensional")
+        transform = transform or kwargs.get("affine")
+        if transform is None:  # pragma: no cover
+            raise ValueError("georeference given")
+        self.data = data
+        self.driver = driver
+        self.dtype = self.data.dtype
+        self.nodata = nodata
+        self.crs = crs
+        self.transform = self.affine = transform
+        self.bounds = bounds
+        self.__geo_interface__ = mapping(box(*self.bounds))
+
+    @property
+    def meta(self) -> dict:
+        return {
+            "driver": self.driver,
+            "dtype": self.dtype,
+            "nodata": self.nodata,
+            "width": self.width,
+            "height": self.height,
+            "count": self.count,
+            "crs": self.crs,
+            "transform": self.transform,
+        }
+
+    def read(
+        self,
+        indexes: Union[int, List[int]] = None,
+        tile: BufferedTile = None,
+        resampling: str = "nearest",
+    ) -> np.ndarray:
+        """Either read full array or resampled to tile."""
+        # select bands using band indexes
+        if indexes is None or self.data.ndim == 2:
+            band_selection = self.data
+        else:
+            band_selection = self._stack(
+                [self.data[i - 1] for i in self._get_band_indexes(indexes)]
+            )
+
+        # return either full array or a window resampled to tile
+        if tile is None:
+            return band_selection
+        else:
+            return resample_from_array(
+                in_raster=band_selection,
+                in_affine=self.transform,
+                in_crs=self.crs,
+                nodataval=self.nodata,
+                nodata=self.nodata,
+                out_tile=tile,
+                resampling=resampling,
+            )
+
+    def _get_band_indexes(self, indexes: Union[List[int], int] = None) -> List[int]:
+        """Return valid band indexes."""
+        if isinstance(indexes, int):
+            return [indexes]
+        else:
+            return indexes
+
+    def _stack(self, *args) -> np.ndarray:
+        """return stack of numpy or numpy.masked depending on array type"""
+        return (
+            ma.stack(*args)
+            if isinstance(self.data, ma.masked_array)
+            else np.stack(*args)
+        )
+
+    @staticmethod
+    def from_rasterio(src, masked: bool = True) -> "ReferencedRaster":
+        return ReferencedRaster(
+            data=src.read(masked=masked).copy(),
+            transform=src.transform,
+            bounds=src.bounds,
+            crs=src.crs,
+        )
+
+    @staticmethod
+    def from_file(path, masked: bool = True) -> "ReferencedRaster":
+        with rasterio.open(path) as src:
+            return ReferencedRaster.from_rasterio(src, masked=masked)
 
 
 def read_raster_window(
@@ -84,16 +191,13 @@ def read_raster_window(
     -------
     raster : MaskedArray
     """
+    input_files = input_files if isinstance(input_files, list) else [input_files]
+    if len(input_files) == 0:  # pragma: no cover
+        raise ValueError("no input given")
     try:
         with rasterio.Env(
             **get_gdal_options(
-                gdal_opts,
-                is_remote=path_is_remote(
-                    input_files[0] if isinstance(input_files, list) else input_files,
-                    s3=True,
-                )
-                if isinstance(input_files, str)
-                else False,
+                gdal_opts, is_remote=path_is_remote(input_files[0], s3=True)
             )
         ) as env:
             logger.debug(
@@ -145,16 +249,16 @@ def _read_raster_window(
             mask=True,
         )
 
-    if isinstance(input_files, list):
+    if len(input_files) > 1:
         # in case multiple input files are given, merge output into one array
         # using the default rasterio behavior, create a 2D array if only one band
         # is read and a 3D array if multiple bands are read
         dst_array = None
         # read files and add one by one to the output array
-        for f in input_files:
+        for ff in input_files:
             try:
                 f_array = _read_raster_window(
-                    f,
+                    [ff],
                     tile=tile,
                     indexes=indexes,
                     resampling=resampling,
@@ -169,15 +273,15 @@ def _read_raster_window(
                     logger.debug("added to output array")
             except FileNotFoundError:
                 if skip_missing_files:
-                    logger.debug("skip missing file %s", f)
+                    logger.debug("skip missing file %s", ff)
                 else:  # pragma: no cover
                     raise
         if dst_array is None:
             dst_array = _empty_array()
         return dst_array
     else:
+        input_file = input_files[0]
         try:
-            input_file = input_files
             dst_shape = tile.shape
             if not isinstance(indexes, int):
                 if indexes is None:
@@ -212,10 +316,12 @@ def _read_raster_window(
                 )
         except FileNotFoundError:  # pragma: no cover
             if skip_missing_files:
-                logger.debug("skip missing file %s", f)
+                logger.debug("skip missing file %s", input_file)
                 return _empty_array()
             else:
                 raise
+        except Exception as exc:  # pragma: no cover
+            raise OSError(f"failed to read {input_file}") from exc
 
 
 def _get_warped_edge_array(
@@ -373,69 +479,26 @@ def _rasterio_read(
                         masked=True,
                     )
 
-    if isinstance(input_file, str):
-        try:
-            with Timer() as t:
-                with rasterio.open(input_file, "r") as src:
-                    logger.debug("read from %s...", input_file)
-                    out = _read(
-                        src,
-                        indexes,
-                        dst_bounds,
-                        dst_shape,
-                        dst_crs,
-                        resampling,
-                        src_nodata,
-                        dst_nodata,
-                    )
-            logger.debug("read %s in %s", input_file, t)
-            return out
-        except RasterioIOError as e:
-            # rasterio errors which indicate file does not exist
-            for i in (
-                "does not exist in the file system",
-                "No such file or directory",
-                "The specified key does not exist",
-            ):
-                if i in str(e):
-                    raise FileNotFoundError(
-                        "%s not found and cannot be opened with rasterio" % input_file
-                    )
-            else:
-                try:
-                    # NOTE: this can cause addional S3 requests
-                    exists = path_exists(input_file)
-                except Exception:  # pragma: no cover
-                    # in order not to mask the original rasterio exception, raise it
-                    raise e
-                if exists:
-                    # raise rasterio exception
-                    raise e
-                else:
-                    # file does not exist
-                    raise FileNotFoundError(
-                        "%s not found and cannot be opened with rasterio" % input_file
-                    )
-
-    else:  # pragma: no cover
-        logger.debug("assuming file object %s", input_file)
-        warnings.warn(
-            "passing on a rasterio dataset object is not recommended, see "
-            "https://github.com/mapbox/rasterio/issues/1309"
-        )
-        return _read(
-            input_file,
-            indexes,
-            dst_bounds,
-            dst_shape,
-            dst_crs,
-            resampling,
-            src_nodata,
-            dst_nodata,
-        )
+    try:
+        with Timer() as t:
+            with rasterio.open(input_file, "r") as src:
+                logger.debug("read from %s...", input_file)
+                out = _read(
+                    src,
+                    indexes,
+                    dst_bounds,
+                    dst_shape,
+                    dst_crs,
+                    resampling,
+                    src_nodata,
+                    dst_nodata,
+                )
+        logger.debug("read %s in %s", input_file, t)
+        return out
+    except RasterioIOError as rio_exc:
+        _extract_filenotfound_exception(rio_exc, input_file)
 
 
-@retry(logger=logger, exceptions=RasterioIOError, **MAPCHETE_IO_RETRY_SETTINGS)
 def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
     """
     Wrapper function around rasterio.open().read().
@@ -457,26 +520,62 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
     ------
     FileNotFoundError if file cannot be found.
     """
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        try:
-            with rasterio.Env(
-                **get_gdal_options(
-                    gdal_opts,
-                    is_remote=path_is_remote(input_file, s3=True),
-                    allowed_remote_extensions=os.path.splitext(input_file)[1],
-                ),
-            ) as env:
-                logger.debug("reading %s with GDAL options %s", input_file, env.options)
-                with rasterio.open(input_file, "r") as src:
-                    return src.read(indexes=indexes, masked=True)
-        except RasterioIOError as e:
+
+    @retry(logger=logger, exceptions=RasterioIOError, **MAPCHETE_IO_RETRY_SETTINGS)
+    def _read():
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
             try:
-                if path_exists(input_file):
-                    raise MapcheteIOError(e)
-            except Exception:
-                raise MapcheteIOError(e)
-            raise FileNotFoundError("%s not found" % input_file)
+                with rasterio.Env(
+                    **get_gdal_options(
+                        gdal_opts,
+                        is_remote=path_is_remote(input_file, s3=True),
+                        allowed_remote_extensions=os.path.splitext(input_file)[1],
+                    ),
+                ) as env:
+                    logger.debug(
+                        "reading %s with GDAL options %s", input_file, env.options
+                    )
+                    with rasterio.open(input_file, "r") as src:
+                        return src.read(indexes=indexes, masked=True)
+            except RasterioIOError as rio_exc:
+                _extract_filenotfound_exception(rio_exc, input_file)
+
+    try:
+        return _read()
+    except Exception as exc:
+        if isinstance(exc, FileNotFoundError):
+            raise
+        else:
+            raise MapcheteIOError(exc)
+
+
+def _extract_filenotfound_exception(rio_exc, path):
+    """
+    Extracts and raises FileNotFoundError from RasterioIOError if applicable.
+    """
+    filenotfound_msg = f"{path} not found and cannot be opened with rasterio"
+    # rasterio errors which indicate file does not exist
+    for i in (
+        "does not exist in the file system",
+        "No such file or directory",
+        "The specified key does not exist",
+    ):
+        if i in str(rio_exc):
+            raise FileNotFoundError(filenotfound_msg)
+    else:
+        try:
+            # NOTE: this can cause addional S3 requests
+            exists = path_exists(path)
+        except Exception:  # pragma: no cover
+            # in order not to mask the original rasterio exception, raise it as is
+            raise rio_exc
+        if exists:
+            # raise original rasterio exception
+            raise rio_exc
+        else:  # pragma: no cover
+            # file does not exist
+            raise FileNotFoundError(filenotfound_msg)
 
 
 class RasterWindowMemoryFile:
@@ -611,49 +710,75 @@ def rasterio_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
     RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
     """
     if path.startswith("s3://"):
+        try:  # pragma: no cover
+            import boto3
+        except ImportError:  # pragma: no cover
+            raise ImportError("please install [s3] extra to write remote files")
         return RasterioRemoteWriter(path, fs=fs, in_memory=in_memory, *args, **kwargs)
     else:
         return rasterio.open(path, mode=mode, *args, **kwargs)
 
 
-class RasterioRemoteWriter:
-    def __init__(self, path, *args, fs=None, in_memory=True, **kwargs):
-        logger.debug("open RasterioRemoteWriter for path %s", path)
+class RasterioRemoteMemoryWriter:
+    def __init__(self, path, *args, fs=None, **kwargs):
+        logger.debug("open RasterioRemoteMemoryWriter for path %s", path)
         self.path = path
-        self.fs = fs or fs_from_path(path)
-        self.in_memory = in_memory
-        if self.in_memory:
-            self._dst = MemoryFile()
-        else:
-            self._dst = NamedTemporaryFile(suffix=".tif")
+        self.fs = fs
+        self._dst = MemoryFile()
         self._open_args = args
         self._open_kwargs = kwargs
         self._sink = None
 
     def __enter__(self):
-        if self.in_memory:
-            self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
-        else:
-            self._sink = rasterio.open(
-                self._dst.name, "w+", *self._open_args, **self._open_kwargs
-            )
+        self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
         return self._sink
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         try:
             self._sink.close()
-            if self.in_memory:
-                logger.debug("write rasterio MemoryFile to %s", self.path)
+            if exc_value is None:
+                logger.debug("upload rasterio MemoryFile to %s", self.path)
                 with self.fs.open(self.path, "wb") as dst:
                     dst.write(self._dst.getbuffer())
-            else:
+        finally:
+            logger.debug("close rasterio MemoryFile")
+            self._dst.close()
+
+
+class RasterioRemoteTempFileWriter:
+    def __init__(self, path, *args, fs=None, **kwargs):
+        logger.debug("open RasterioTempFileWriter for path %s", path)
+        self.path = path
+        self.fs = fs
+        self._dst = NamedTemporaryFile(suffix=".tif")
+        self._open_args = args
+        self._open_kwargs = kwargs
+        self._sink = None
+
+    def __enter__(self):
+        self._sink = rasterio.open(
+            self._dst.name, "w+", *self._open_args, **self._open_kwargs
+        )
+        return self._sink
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        try:
+            self._sink.close()
+            if exc_value is None:
+                logger.debug("upload TempFile %s to %s", self._dst.name, self.path)
                 self.fs.put_file(self._dst.name, self.path)
         finally:
-            if self.in_memory:
-                logger.debug("close rasterio MemoryFile")
-            else:
-                logger.debug("close and remove tempfile")
+            logger.debug("close and remove tempfile")
             self._dst.close()
+
+
+class RasterioRemoteWriter:
+    def __new__(self, path, *args, fs=None, in_memory=True, **kwargs):
+        fs = fs or fs_from_path(path)
+        if in_memory:
+            return RasterioRemoteMemoryWriter(path, *args, fs=fs, **kwargs)
+        else:
+            return RasterioRemoteTempFileWriter(path, *args, fs=fs, **kwargs)
 
 
 def extract_from_array(in_raster=None, in_affine=None, out_tile=None):
@@ -908,9 +1033,7 @@ def bounds_to_ranges(out_bounds=None, in_affine=None, in_shape=None):
     minrow, maxrow, mincol, maxcol
     """
     return itertools.chain(
-        *from_bounds(
-            *out_bounds, transform=in_affine, height=in_shape[-2], width=in_shape[-1]
-        )
+        *from_bounds(*out_bounds, transform=in_affine)
         .round_lengths(pixel_precision=0)
         .round_offsets(pixel_precision=0)
         .toranges()
@@ -1130,7 +1253,7 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     """
     if path_exists(out):
         if not exists_ok:
-            raise IOError(f"{out} already exists")
+            raise OSError(f"{out} already exists")
         elif not overwrite:
             logger.debug("output %s already exists and will not be overwritten")
             return

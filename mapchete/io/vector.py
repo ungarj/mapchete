@@ -6,13 +6,11 @@ import logging
 import fiona
 from fiona.errors import DriverError, FionaError, FionaValueError
 from fiona.io import MemoryFile
-import json
 from retry import retry
 from rasterio.crs import CRS
-from shapely.geometry import box, mapping, shape
+from shapely.geometry import base, box, mapping
 from shapely.errors import TopologicalError
 from tilematrix import clip_geometry_to_srs_bounds
-from tilematrix._funcs import Bounds
 from itertools import chain
 import warnings
 
@@ -27,6 +25,7 @@ from mapchete.io._geometry_operations import (
     clean_geometry_type,
     _repair,
 )
+from mapchete.types import Bounds
 from mapchete.validate import validate_bounds
 
 __all__ = [
@@ -90,28 +89,33 @@ def read_vector_window(
 
 
 def _read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False):
-    if tile.pixelbuffer and tile.is_on_edge():
-        return chain.from_iterable(
-            _get_reprojected_features(
+    try:
+        if tile.pixelbuffer and tile.is_on_edge():
+            return chain.from_iterable(
+                _get_reprojected_features(
+                    inp=inp,
+                    dst_bounds=bbox.bounds,
+                    dst_crs=tile.crs,
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
+                )
+                for bbox in clip_geometry_to_srs_bounds(
+                    tile.bbox, tile.tile_pyramid, multipart=True
+                )
+            )
+        else:
+            features = _get_reprojected_features(
                 inp=inp,
-                dst_bounds=bbox.bounds,
+                dst_bounds=tile.bounds,
                 dst_crs=tile.crs,
                 validity_check=validity_check,
                 clip_to_crs_bounds=clip_to_crs_bounds,
             )
-            for bbox in clip_geometry_to_srs_bounds(
-                tile.bbox, tile.tile_pyramid, multipart=True
-            )
-        )
-    else:
-        features = _get_reprojected_features(
-            inp=inp,
-            dst_bounds=tile.bounds,
-            dst_crs=tile.crs,
-            validity_check=validity_check,
-            clip_to_crs_bounds=clip_to_crs_bounds,
-        )
-        return features
+            return features
+    except FileNotFoundError:  # pragma: no cover
+        raise
+    except Exception as exc:  # pragma: no cover
+        raise IOError(f"failed to read {inp}") from exc
 
 
 def write_vector_window(
@@ -120,8 +124,8 @@ def write_vector_window(
     out_schema=None,
     out_tile=None,
     out_path=None,
-    bucket_resource=None,
     allow_multipart_geometries=True,
+    **kwargs,
 ):
     """
     Write features to file.
@@ -282,7 +286,7 @@ def _get_reprojected_features(
                     if exists:
                         # raise fiona exception
                         raise e
-                    else:
+                    else:  # pragma: no cover
                         # file does not exist
                         raise FileNotFoundError(
                             "%s not found and cannot be opened with Fiona" % inp
@@ -332,27 +336,7 @@ def _get_reprojected_features(
 
 
 def bounds_intersect(bounds1, bounds2):
-    bounds1 = validate_bounds(bounds1)
-    bounds2 = validate_bounds(bounds2)
-    horizontal = (
-        # partial overlap
-        bounds1.left <= bounds2.left <= bounds1.right
-        or bounds1.left <= bounds2.right <= bounds1.right
-        # bounds 1 within bounds 2
-        or bounds2.left <= bounds1.left < bounds1.right <= bounds2.right
-        # bounds 2 within bounds 1
-        or bounds1.left <= bounds2.left < bounds2.right <= bounds1.right
-    )
-    vertical = (
-        # partial overlap
-        bounds1.bottom <= bounds2.bottom <= bounds1.top
-        or bounds1.bottom <= bounds2.top <= bounds1.top
-        # bounds 1 within bounds 2
-        or bounds2.bottom <= bounds1.bottom < bounds1.top <= bounds2.top
-        # bounds 2 within bounds 1
-        or bounds1.bottom <= bounds2.bottom < bounds2.top <= bounds1.top
-    )
-    return horizontal and vertical
+    return Bounds.from_inp(bounds1).intersects(bounds2)
 
 
 class FakeIndex:
@@ -487,6 +471,24 @@ class IndexedFeatures:
                 raise TypeError("features need to have an id or have to be hashable")
 
 
+def object_geometry(obj) -> base.BaseGeometry:
+    """
+    Determine geometry from object if available.
+    """
+    try:
+        if hasattr(obj, "__geo_interface__"):
+            return to_shape(obj)
+        elif hasattr(obj, "geometry"):
+            return to_shape(obj.geometry)
+        elif hasattr(obj, "get") and obj.get("geometry"):
+            return to_shape(obj["geometry"])
+        else:
+            raise TypeError("no geometry")
+    except Exception as exc:
+        logger.exception(exc)
+        raise NoGeoError(f"cannot determine geometry from object: {obj}") from exc
+
+
 def object_bounds(obj) -> Bounds:
     """
     Determine geographic bounds from object if available.
@@ -494,18 +496,12 @@ def object_bounds(obj) -> Bounds:
     try:
         if hasattr(obj, "bounds"):
             return validate_bounds(obj.bounds)
-        elif hasattr(obj, "__geo_interface__"):
-            return validate_bounds(shape(obj).bounds)
-        elif hasattr(obj, "geometry"):
-            return validate_bounds(to_shape(obj.geometry).bounds)
         elif hasattr(obj, "bbox"):
             return validate_bounds(obj.bbox)
-        elif obj.get("bounds"):
+        elif hasattr(obj, "get") and obj.get("bounds"):
             return validate_bounds(obj["bounds"])
-        elif obj.get("geometry"):
-            return validate_bounds(to_shape(obj["geometry"]).bounds)
         else:
-            raise TypeError("no bounds")
+            return validate_bounds(object_geometry(obj).bounds)
     except Exception as exc:
         logger.exception(exc)
         raise NoGeoError(f"cannot determine bounds from object: {obj}") from exc
