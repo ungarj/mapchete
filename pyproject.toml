@@ -45,7 +45,8 @@ dependencies = [
 [project.optional-dependencies]
 complete = [
     "aiohttp",
-    "boto3",
+    "aiobotocore>=1.1.2",
+    "boto3>=1.14.44",
     "dask",
     "distributed",
     "flask",
@@ -58,7 +59,6 @@ complete = [
     "pystac",
     "requests",
     "rtree",
-    "s3fs>=0.5.1",
     "werkzeug>=0.15",
 ]
 contours = [
@@ -78,15 +78,15 @@ http = [
     "requests",
 ]
 s3 = [
-    "boto3",
+    "aiobotocore>=1.1.2",
+    "boto3>=1.14.44",
     "fsspec[s3]",
-    "s3fs>=0.5.1",
 ]
 serve = [
     "flask",
     "werkzeug>=0.15",
 ]
-spatial_index = [
+spatial-index = [
     "rtree",
 ]
 stac = [

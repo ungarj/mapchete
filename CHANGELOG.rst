@@ -3,6 +3,35 @@ Changelog
 #########
 
 ---------------------
+2023.4.1 - 2023-04-20
+---------------------
+
+* packaging
+  * add all `s3` extra dependencies to `complete`
+
+
+---------------------
+2023.4.0 - 2023-04-20
+---------------------
+
+* core
+  * `to_shape()`: enable handling full feature dicts in `__geo_interface__` (#531)
+  * add `object_geometry()` method, which works like `object_bounds()` (#531)
+  * add `types` module containing `Bounds` and `ZoomLevel` classes (#532)
+  * remove `validate_zoom()`
+  * `mapchete.io._misc.get_boto3_bucket()`: function is now deprecated
+  * `mapchete.io._geometry_operations.reproject_geometry`: account for new fiona transform_geom behavior
+  * replace remaining `boto3` bucket calls with `fsspec`
+  * `mapchete.io.raster`: use same logic to extract `FileNotFoundError` for `read_raster_window` and `read_raster_no_crs`; replace deprecated `IOError` with `OSError`
+
+* packaging
+  * remove direct `s3fs`dependency but keep `boto3` and `aiobotocore` as direct dependencies for `s3`extra
+
+* testing
+  * fix test case to reflect bug which prevents dask from updating overview tile using the task graph (#530)
+
+
+---------------------
 2023.1.1 - 2023-01-26
 ---------------------
 

@@ -27,6 +27,7 @@ Submodules
    mapchete.stac
    mapchete.testing
    mapchete.tile
+   mapchete.types
    mapchete.validate
 
 Module contents
