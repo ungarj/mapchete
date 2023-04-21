@@ -4,4 +4,4 @@
 
 def execute(mp):
     """User defined process."""
-    assert 0
+    raise AssertionError("this error is raised on purpose!")

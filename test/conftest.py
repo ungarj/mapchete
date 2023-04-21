@@ -424,6 +424,15 @@ def file_groups():
 
 
 @pytest.fixture
+def overviews():
+    """Fixture for overviews.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "overviews.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def baselevels():
     """Fixture for baselevels.mapchete."""
     with ProcessFixture(
@@ -666,6 +675,17 @@ def output_single_gtiff():
     """Fixture for output_single_gtiff.mapchete."""
     with ProcessFixture(
         os.path.join(TESTDATA_DIR, "output_single_gtiff.mapchete"),
+    ) as example:
+        yield example
+
+
+@pytest.fixture(scope="function")
+def output_s3_single_gtiff_error():
+    """Fixture for output_s3_single_gtiff_error.mapchete."""
+    with ProcessFixture(
+        os.path.join(TESTDATA_DIR, "output_s3_single_gtiff_error.mapchete"),
+        output_tempdir=S3_TEMP_DIR,
+        output_suffix=".tif",
     ) as example:
         yield example
 
