@@ -878,7 +878,7 @@ def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
 def test_rasterio_write(path, dtype, in_memory):
     arr = np.ones((1, 256, 256)).astype(dtype)
     count, width, height = arr.shape
-    path = os.path.join(path, "temp.tif")
+    path = os.path.join(path, f"test_rasterio_write-{str(dtype)}-{in_memory}.tif")
     with rasterio_write(
         path,
         "w",
@@ -890,6 +890,36 @@ def test_rasterio_write(path, dtype, in_memory):
         **DefaultGTiffProfile(dtype=dtype),
     ) as dst:
         dst.write(arr)
+    assert path_exists(path)
     with rasterio.open(path) as src:
         written = src.read()
         assert np.array_equal(arr, written)
+
+
+@pytest.mark.parametrize("in_memory", [True, False])
+def test_rasterio_write_remote_exception(mp_s3_tmpdir, in_memory):
+    path = os.path.join(mp_s3_tmpdir, "temp.tif")
+    with pytest.raises(ValueError):
+        # raise exception on purpose
+        with rasterio_write(
+            path,
+            "w",
+            in_memory=in_memory,
+            count=3,
+            width=256,
+            height=256,
+            crs="EPSG:4326",
+            **DefaultGTiffProfile(dtype="uint8"),
+        ):
+            raise ValueError()
+    # make sure no output has been written
+    assert not path_exists(path)
+
+
+def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
+    # the process file will raise an exception on purpose
+    with pytest.raises(AssertionError):
+        with output_s3_single_gtiff_error.mp() as mp:
+            mp.execute(output_s3_single_gtiff_error.first_process_tile())
+    # make sure no output has been written
+    assert not path_exists(mp.config.output.path)

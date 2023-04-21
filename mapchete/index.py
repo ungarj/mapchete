@@ -32,9 +32,9 @@ from xml.dom import minidom
 
 from mapchete.config import get_zoom_levels
 from mapchete.io import (
+    fs_from_path,
     path_exists,
     path_is_remote,
-    get_boto3_bucket,
     raster,
     relative_path,
     tiles_exist,
@@ -283,31 +283,15 @@ class TextFileWriter:
 
     def __init__(self, out_path=None):
         self.path = out_path
-        self._bucket = (
-            self.path.split("/")[2] if self.path.startswith("s3://") else None
-        )
-        self.bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
         logger.debug("initialize TXT writer")
+        self.fs = fs_from_path(out_path)
         if path_exists(self.path):
-            if self._bucket:
-                key = "/".join(self.path.split("/")[3:])
-                for obj in self.bucket_resource.objects.filter(Prefix=key):
-                    if obj.key == key:
-                        self._existing = {
-                            l + "\n"
-                            for l in obj.get()["Body"].read().decode().split("\n")
-                            if l
-                        }
-            else:
-                with open(self.path) as src:
-                    self._existing = {l for l in src}
+            with self.fs.open(self.path, "r") as src:
+                self._existing = {l for l in src.readlines()}
         else:
             self._existing = {}
         self.new_entries = 0
-        if self._bucket:
-            self.sink = ""
-        else:
-            self.sink = open(self.path, "w")
+        self.sink = self.fs.open(self.path, "w")
         for l in self._existing:
             self._write_line(l)
 
@@ -321,10 +305,7 @@ class TextFileWriter:
         self.close()
 
     def _write_line(self, line):
-        if self._bucket:
-            self.sink += line
-        else:
-            self.sink.write(line)
+        self.sink.write(line)
 
     def write(self, tile, path):
         if not self.entry_exists(path=path):
@@ -339,12 +320,7 @@ class TextFileWriter:
 
     def close(self):
         logger.debug("%s new entries in %s", self.new_entries, self)
-        if self._bucket:
-            key = "/".join(self.path.split("/")[3:])
-            logger.debug("upload %s", key)
-            self.bucket_resource.put_object(Key=key, Body=self.sink)
-        else:
-            self.sink.close()
+        self.sink.close()
 
 
 class VRTFileWriter:
@@ -357,25 +333,11 @@ class VRTFileWriter:
         self.path = out_path
         self._tp = out_pyramid
         self._output = output
-        self._bucket = (
-            self.path.split("/")[2] if self.path.startswith("s3://") else None
-        )
-        self.bucket_resource = get_boto3_bucket(self._bucket) if self._bucket else None
+        self.fs = fs_from_path(out_path)
         logger.debug("initialize VRT writer for %s", self.path)
         if path_exists(self.path):
-            if self._bucket:
-                key = "/".join(self.path.split("/")[3:])
-                for obj in self.bucket_resource.objects.filter(Prefix=key):
-                    if obj.key == key:
-                        self._existing = {
-                            k: v
-                            for k, v in self._xml_to_entries(
-                                obj.get()["Body"].read().decode()
-                            )
-                        }
-            else:
-                with open(self.path) as src:
-                    self._existing = {k: v for k, v in self._xml_to_entries(src.read())}
+            with self.fs.open(self.path) as src:
+                self._existing = {k: v for k, v in self._xml_to_entries(src.read())}
         else:
             self._existing = {}
         logger.debug("%s existing entries", len(self._existing))
@@ -512,11 +474,6 @@ class VRTFileWriter:
         )
         # generate pretty XML and write
         xmlstr = minidom.parseString(ET.tostring(vrt)).toprettyxml(indent="  ")
-        if self._bucket:
-            key = "/".join(self.path.split("/")[3:])
-            logger.debug("upload %s", key)
-            self.bucket_resource.put_object(Key=key, Body=xmlstr)
-        else:
-            logger.debug("write to %s", self.path)
-            with open(self.path, "w") as dst:
-                dst.write(xmlstr)
+        logger.debug("write to %s", self.path)
+        with self.fs.open(self.path, "w") as dst:
+            dst.write(xmlstr)
