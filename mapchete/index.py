@@ -38,6 +38,7 @@ from mapchete.io import (
     raster,
     relative_path,
     tiles_exist,
+    MPath,
 )
 
 logger = logging.getLogger(__name__)
@@ -188,21 +189,16 @@ def zoom_index_gen(
 
 
 def _index_file_path(out_dir, zoom, ext):
-    return os.path.join(out_dir, str(zoom) + "." + ext)
+    return MPath(out_dir) / f"{str(zoom)}.{ext}"
 
 
 def _tile_path(orig_path=None, basepath=None, for_gdal=True):
-    path = (
+    path = MPath(
         os.path.join(basepath, "/".join(orig_path.split("/")[-3:]))
         if basepath
         else orig_path
     )
-    if for_gdal and path.startswith(("http://", "https://")):
-        return "/vsicurl/" + path
-    elif for_gdal and path.startswith("s3://"):
-        return path.replace("s3://", "/vsis3/")
-    else:
-        return path
+    return path.as_gdal_str()
 
 
 class VectorFileWriter:
@@ -221,24 +217,28 @@ class VectorFileWriter:
         if self._append:
             if os.path.isfile(self.path):
                 logger.debug("read existing entries")
-                with fiona.open(self.path, "r") as src:
+                with fiona.open(str(self.path), "r") as src:
                     self._existing = {f["properties"]["tile_id"]: f for f in src}
-                self.sink = fiona.open(self.path, "a")
+                self.sink = fiona.open(str(self.path), "a")
             else:
                 self.sink = fiona.open(
-                    self.path, "w", driver=self.driver, crs=crs.to_dict(), schema=schema
+                    str(self.path),
+                    "w",
+                    driver=self.driver,
+                    crs=crs.to_dict(),
+                    schema=schema,
                 )
                 self._existing = {}
         else:  # pragma: no cover
             if os.path.isfile(self.path):
                 logger.debug("read existing entries")
-                with fiona.open(self.path, "r") as src:
+                with fiona.open(str(self.path), "r") as src:
                     self._existing = {f["properties"]["tile_id"]: f for f in src}
                 fiona.remove(self.path, driver=driver)
             else:
                 self._existing = {}
             self.sink = fiona.open(
-                self.path, "w", driver=self.driver, crs=crs, schema=schema
+                str(self.path), "w", driver=self.driver, crs=crs, schema=schema
             )
             self.sink.writerecords(self._existing.values())
 
@@ -409,8 +409,10 @@ class VRTFileWriter:
                             E.SourceFilename(
                                 _tile_path(orig_path=path, for_gdal=True)
                                 if path_is_remote(path)
-                                else relative_path(
-                                    path=path, base_dir=os.path.split(self.path)[0]
+                                else str(
+                                    relative_path(
+                                        path=path, base_dir=os.path.split(self.path)[0]
+                                    )
                                 ),
                                 relativeToVRT="0" if path_is_remote(path) else "1",
                             ),

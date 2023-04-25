@@ -41,7 +41,7 @@ def version_is_greater_equal(a, b):
 
 def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
     result = CliRunner(env=dict(MAPCHETE_TEST="TRUE"), mix_stderr=True).invoke(
-        mapchete_cli, args
+        mapchete_cli, map(str, args)
     )
     if output_contains:
         assert output_contains in result.output or output_contains in str(
@@ -189,7 +189,7 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
     """Using debug output."""
     run_cli(["execute", cleantopo_br.path, "-z", "5", "--vrt"])
     with mapchete.open(cleantopo_br.dict) as mp:
-        vrt_path = os.path.join(mp.config.output.path, "5.vrt")
+        vrt_path = mp.config.output.path / "5.vrt"
         with rasterio.open(vrt_path) as src:
             assert src.read().any()
 

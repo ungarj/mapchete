@@ -16,7 +16,7 @@ import warnings
 
 from mapchete.errors import NoGeoError, MapcheteIOError
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
-from mapchete.io._path import fs_from_path, path_exists, makedirs, copy
+from mapchete.io._path import fs_from_path, path_exists, makedirs, copy, MPath
 from mapchete.io._geometry_operations import (
     reproject_geometry,
     segmentize_geometry,
@@ -192,7 +192,7 @@ def write_vector_window(
                 # this part is not covered by tests as we now try to let fiona directly
                 # write to S3
                 with fiona.open(
-                    out_path,
+                    str(out_path),
                     "w",
                     schema=out_schema,
                     driver=out_driver,
@@ -261,9 +261,9 @@ def _get_reprojected_features(
 ):
     logger.debug("reading %s", inp)
     with ExitStack() as exit_stack:
-        if isinstance(inp, str):
+        if isinstance(inp, (str, MPath)):
             try:
-                src = exit_stack.enter_context(fiona.open(inp, "r"))
+                src = exit_stack.enter_context(fiona.open(str(inp), "r"))
                 src_crs = CRS(src.crs)
             except Exception as e:
                 # fiona errors which indicate file does not exist
@@ -538,9 +538,9 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs = kwargs or {}
     if kwargs:
         logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
-        with fiona.open(inp, "r") as src:
+        with fiona.open(str(inp), "r") as src:
             makedirs(os.path.dirname(out))
-            with fiona.open(out, mode="w", **{**src.meta, **kwargs}) as dst:
+            with fiona.open(str(out), mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
         logger.debug("copy %s to %s", inp, out)
@@ -548,5 +548,5 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
 
 
 def read_vector(inp, index="rtree"):
-    with fiona.open(inp, "r") as src:
+    with fiona.open(str(inp), "r") as src:
         return IndexedFeatures(src, index=index)

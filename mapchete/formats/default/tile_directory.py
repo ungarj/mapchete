@@ -13,7 +13,7 @@ from mapchete.formats import (
     load_output_writer,
     read_output_metadata,
 )
-from mapchete.io import path_exists, absolute_path, tile_to_zoom_level
+from mapchete.io import path_exists, absolute_path, tile_to_zoom_level, MPath
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
@@ -71,7 +71,7 @@ class InputData(base.InputData):
             self._read_as_tiledir_func = base._read_as_tiledir
             try:
                 self._tiledir_metadata_json = read_output_metadata(
-                    os.path.join(self.path, "metadata.json")
+                    self.path.joinpath("metadata.json")
                 )
                 try:
                     self._data_type = self._tiledir_metadata_json["driver"]["data_type"]
@@ -90,7 +90,7 @@ class InputData(base.InputData):
             )
             try:
                 self._tiledir_metadata_json = read_output_metadata(
-                    os.path.join(self.path, "metadata.json")
+                    self.path.joinpath("metadata.json")
                 )
             except FileNotFoundError:
                 raise MapcheteConfigError(f"Cannot find metadata.json in {self.path}")
@@ -123,7 +123,8 @@ class InputData(base.InputData):
 
         # validate parameters
         validate_values(
-            self._params, [("path", str), ("grid", (str, dict)), ("extension", str)]
+            self._params,
+            [("path", (str, MPath)), ("grid", (str, dict)), ("extension", str)],
         )
         self._ext = self._params["extension"]
 

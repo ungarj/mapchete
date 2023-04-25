@@ -16,7 +16,7 @@ from typing import Dict, Type
 import warnings
 
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
-from mapchete.io import read_json, write_json, path_exists
+from mapchete.io import read_json, write_json, path_exists, MPath
 from mapchete._registered import drivers
 from mapchete.tile import BufferedTilePyramid
 
@@ -99,16 +99,16 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     driver : string
         driver name
     """
-    file_ext = os.path.splitext(input_file)[1].split(".")[1]
+    input_file = input_file if isinstance(input_file, MPath) else MPath(input_file)
 
     # mapchete files can immediately be returned:
-    if file_ext == "mapchete":
+    if input_file.suffix == "mapchete":
         return "Mapchete"
 
     # use the most common file extensions to quickly determine input driver for file:
     if quick:
         try:
-            return driver_from_extension(file_ext)
+            return driver_from_extension(input_file.suffix)
         except ValueError:
             pass
 
@@ -120,10 +120,10 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     except Exception as rio_exception:
         try:
             logger.debug("try to open %s with fiona...", input_file)
-            with fiona.open(input_file):  # pragma: no cover
+            with fiona.open(str(input_file)):  # pragma: no cover
                 return "vector_file"
         except Exception as fio_exception:
-            if path_exists(input_file):
+            if input_file.exists():
                 logger.exception(f"fiona error: {fio_exception}")
                 logger.exception(f"rasterio error: {rio_exception}")
                 raise MapcheteDriverError(
@@ -148,6 +148,7 @@ def driver_from_extension(file_extension: str) -> str:
     driver : string
         driver name
     """
+    file_extension = file_extension.lstrip(".")
     all_drivers_extensions = {}
     for v in drivers:
         driver = v.load()
@@ -315,7 +316,7 @@ def write_output_metadata(output_params: Dict) -> None:
         Output parameters
     """
     if "path" in output_params:
-        metadata_path = os.path.join(output_params["path"], "metadata.json")
+        metadata_path = MPath(output_params["path"]) / "metadata.json"
         logger.debug("check for output %s", metadata_path)
         try:
             existing_params = read_output_metadata(metadata_path)

@@ -21,7 +21,7 @@ from mapchete.io._path import (
     absolute_path,
     relative_path,
     makedirs,
-    Path,
+    MPath,
 )
 
 

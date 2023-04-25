@@ -1,6 +1,6 @@
 import pytest
 
-from mapchete.io import Path
+from mapchete.io import MPath
 
 
 @pytest.mark.parametrize(
@@ -15,12 +15,12 @@ from mapchete.io import Path
     ],
 )
 def test_parse(path_str):
-    path = Path(path_str)
+    path = MPath(path_str)
     assert path.fs
 
 
 def test_s3_path():
-    path = Path("s3://foo/bar.json")
+    path = MPath("s3://foo/bar.json")
     assert path.is_remote()
     assert path.name == "bar.json"
     assert path.stem == "bar"
@@ -28,7 +28,7 @@ def test_s3_path():
 
 
 def test_http_path():
-    path = Path("http://foo/bar.json")
+    path = MPath("http://foo/bar.json")
     assert not path.exists()
     assert path.is_remote()
     assert path.name == "bar.json"
@@ -37,7 +37,7 @@ def test_http_path():
 
 
 def test_https_path():
-    path = Path("https://foo/bar.json")
+    path = MPath("https://foo/bar.json")
     assert not path.exists()
     assert path.is_remote()
     assert path.name == "bar.json"
@@ -46,7 +46,7 @@ def test_https_path():
 
 
 def test_vsicurl_path():
-    path = Path("/vsicurl/https://foo/bar.json")
+    path = MPath("/vsicurl/https://foo/bar.json")
     assert not path.exists()
     assert path.is_remote()
     assert path.name == "bar.json"
@@ -55,7 +55,7 @@ def test_vsicurl_path():
 
 
 def test_absolute_path():
-    path = Path("/foo/bar.json")
+    path = MPath("/foo/bar.json")
     assert not path.exists()
     assert not path.is_remote()
     assert path.name == "bar.json"
@@ -64,7 +64,7 @@ def test_absolute_path():
 
 
 def test_relative_path():
-    path = Path("foo/bar.json")
+    path = MPath("foo/bar.json")
     assert not path.exists()
     assert not path.is_remote()
     assert path.name == "bar.json"
@@ -74,7 +74,7 @@ def test_relative_path():
 
 @pytest.mark.parametrize("path_str", ["s3://foo/bar", "s3://foo/bar/"])
 def test_s3_dirpath(path_str):
-    path = Path(path_str)
+    path = MPath(path_str)
     assert path.is_remote()
     assert path.name == "bar"
     assert path.stem == "bar"
@@ -91,7 +91,7 @@ def test_s3_dirpath(path_str):
     ],
 )
 def test_remote_dirpath(path_str):
-    path = Path(path_str)
+    path = MPath(path_str)
     assert not path.exists()
     assert path.is_remote()
     assert path.name == "bar"
@@ -101,9 +101,23 @@ def test_remote_dirpath(path_str):
 
 @pytest.mark.parametrize("path_str", ["/foo/bar", "/foo/bar/" "foo/bar", "foo/bar/"])
 def test_local_dirpath(path_str):
-    path = Path(path_str)
+    path = MPath(path_str)
     assert not path.exists()
     assert not path.is_remote()
     assert path.name == "bar"
     assert path.stem == "bar"
     assert path.suffix == ""
+
+
+def test_makedirs_filepath(mp_tmpdir):
+    path = MPath(mp_tmpdir).joinpath("path_mkdir_test", "file")
+    path.makedirs()
+    assert path.parent.exists()
+    assert not path.exists()
+
+
+def test_makedirs_dirpath(mp_tmpdir):
+    path = MPath(mp_tmpdir).joinpath("path_mkdir_test", "directory/")
+    path.makedirs()
+    assert path.parent.exists()
+    assert path.exists()

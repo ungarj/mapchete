@@ -26,6 +26,7 @@ import numpy.ma as ma
 
 from mapchete.config import validate_values
 from mapchete.formats import base
+from mapchete.io import MPath
 from mapchete.io.raster import (
     write_raster_window,
     prepare_array,
@@ -126,7 +127,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         -------
         is_valid : bool
         """
-        return validate_values(config, [("path", str)])
+        return validate_values(config, [("path", (str, MPath))])
 
     def profile(self, tile=None):
         """

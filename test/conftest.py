@@ -14,16 +14,16 @@ from tilematrix import Bounds, GridDefinition
 
 from mapchete.cli.default.serve import create_app
 from mapchete._executor import DaskExecutor
-from mapchete.io import fs_from_path
+from mapchete.io import fs_from_path, MPath
 from mapchete.io.vector import reproject_geometry
 from mapchete.testing import ProcessFixture
 from mapchete.tile import BufferedTilePyramid
 
 
-SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-TESTDATA_DIR = os.path.join(SCRIPT_DIR, "testdata")
-TEMP_DIR = os.path.join(TESTDATA_DIR, "tmp")
-S3_TEMP_DIR = "s3://mapchete-test/tmp/" + uuid.uuid4().hex
+SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
+TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata"))
+TEMP_DIR = MPath(os.path.join(TESTDATA_DIR, "tmp"))
+S3_TEMP_DIR = MPath("s3://mapchete-test/tmp/" + uuid.uuid4().hex)
 
 
 # flask test app for mapchete serve
@@ -63,7 +63,7 @@ def mp_s3_tmpdir():
 
     def _cleanup():
         try:
-            fs.rm(S3_TEMP_DIR, recursive=True)
+            fs.rm(str(S3_TEMP_DIR), recursive=True)
         except FileNotFoundError:
             pass
 

@@ -24,12 +24,12 @@ import warnings
 
 from mapchete.errors import MapcheteIOError
 from mapchete.io import (
-    path_is_remote,
     get_gdal_options,
     path_exists,
     fs_from_path,
     copy,
     makedirs,
+    MPath,
 )
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.tile import BufferedTile
@@ -191,14 +191,17 @@ def read_raster_window(
     -------
     raster : MaskedArray
     """
-    input_files = input_files if isinstance(input_files, list) else [input_files]
+    input_files = [
+        MPath(input_file)
+        for input_file in (
+            input_files if isinstance(input_files, list) else [input_files]
+        )
+    ]
     if len(input_files) == 0:  # pragma: no cover
         raise ValueError("no input given")
     try:
         with rasterio.Env(
-            **get_gdal_options(
-                gdal_opts, is_remote=path_is_remote(input_files[0], s3=True)
-            )
+            **get_gdal_options(gdal_opts, is_remote=input_files[0].is_remote())
         ) as env:
             logger.debug(
                 "reading %s file(s) with GDAL options %s", len(input_files), env.options
@@ -529,12 +532,12 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
                 with rasterio.Env(
                     **get_gdal_options(
                         gdal_opts,
-                        is_remote=path_is_remote(input_file, s3=True),
-                        allowed_remote_extensions=os.path.splitext(input_file)[1],
+                        is_remote=input_file.is_remote(),
+                        allowed_remote_extensions=input_file.suffix,
                     ),
                 ) as env:
                     logger.debug(
-                        "reading %s with GDAL options %s", input_file, env.options
+                        "reading %s with GDAL options %s", str(input_file), env.options
                     )
                     with rasterio.open(input_file, "r") as src:
                         return src.read(indexes=indexes, masked=True)
@@ -554,7 +557,7 @@ def _extract_filenotfound_exception(rio_exc, path):
     """
     Extracts and raises FileNotFoundError from RasterioIOError if applicable.
     """
-    filenotfound_msg = f"{path} not found and cannot be opened with rasterio"
+    filenotfound_msg = f"{str(path)} not found and cannot be opened with rasterio"
     # rasterio errors which indicate file does not exist
     for i in (
         "does not exist in the file system",
@@ -566,7 +569,7 @@ def _extract_filenotfound_exception(rio_exc, path):
     else:
         try:
             # NOTE: this can cause addional S3 requests
-            exists = path_exists(path)
+            exists = path.exists()
         except Exception:  # pragma: no cover
             # in order not to mask the original rasterio exception, raise it as is
             raise rio_exc
@@ -636,7 +639,7 @@ def write_raster_window(
         output path to write to
     tags : optional tags to be added to GeoTIFF file
     """
-    if not isinstance(out_path, str):
+    if not isinstance(out_path, (str, MPath)):
         raise TypeError("out_path must be a string")
     logger.debug("write %s", out_path)
     if out_path == "memoryfile":
@@ -709,7 +712,7 @@ def rasterio_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
     -------
     RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
     """
-    if path.startswith("s3://"):
+    if str(path).startswith("s3://"):
         try:  # pragma: no cover
             import boto3
         except ImportError:  # pragma: no cover
@@ -1251,9 +1254,10 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs : mapping
         Creation parameters passed on to output file.
     """
-    if path_exists(out):
+    out = MPath(out)
+    if out.exists():
         if not exists_ok:
-            raise OSError(f"{out} already exists")
+            raise OSError(f"{str(out)} already exists")
         elif not overwrite:
             logger.debug("output %s already exists and will not be overwritten")
             return
@@ -1261,11 +1265,11 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     if kwargs:
         logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
         with rasterio.open(inp, "r") as src:
-            makedirs(os.path.dirname(out))
+            out.makedirs()
             with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.write(src.read())
     else:
-        logger.debug("copy %s to %s", inp, out)
+        logger.debug("copy %s to %s", inp, (out))
         copy(inp, out, overwrite=overwrite)
 
 

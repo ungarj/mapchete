@@ -1026,7 +1026,9 @@ def initialize_inputs(
                 )
             except Exception as e:
                 logger.exception(e)
-                raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
+                raise MapcheteDriverError(
+                    "error when loading input %s: %s" % (v, e)
+                ) from e
             logger.debug("input reader for simple input %s is %s", v, reader)
 
         # for abstract inputs
@@ -1082,8 +1084,8 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
                 if run_compile:
-                    py_compile.compile(str(module_path), doraise=True)
-                module_name = os.path.splitext(os.path.basename(module_path))[0]
+                    py_compile.compile(module_path, doraise=True)
+                module_name = module_path.stem
                 # load module
                 spec = importlib.util.spec_from_file_location(module_name, module_path)
                 module = importlib.util.module_from_spec(spec)
@@ -1362,7 +1364,7 @@ def _guess_geometry(i, base_dir=None):
         if i.upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
             geom = wkt.loads(i)
         else:
-            with fiona.open(absolute_path(path=i, base_dir=base_dir)) as src:
+            with fiona.open(str(absolute_path(path=i, base_dir=base_dir))) as src:
                 geom = unary_union([shape(f["geometry"]) for f in src])
                 crs = src.crs
     # GeoJSON mapping

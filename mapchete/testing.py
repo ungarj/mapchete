@@ -10,7 +10,7 @@ import uuid
 
 import mapchete
 from mapchete.config import initialize_inputs, open_inputs
-from mapchete.io import fs_from_path
+from mapchete.io import fs_from_path, MPath
 from mapchete.tile import BufferedTile, BufferedTilePyramid
 
 
@@ -28,7 +28,7 @@ def dict_from_mapchete(path):
 
 class ProcessFixture:
     def __init__(self, path=None, output_tempdir=None, output_suffix=""):
-        self.path = path
+        self.path = MPath(path)
         self.dict = None
         if output_tempdir:
             self._output_tempdir = (

@@ -96,7 +96,7 @@ def load_input_reader(
         driver_name = input_params["abstract"]["format"]
     elif "path" in input_params:
         # if path has a file extension it is considered a single file
-        if os.path.splitext(input_params["path"])[1]:
+        if input_params["path"].suffix:
             input_file = input_params["path"]
             driver_name = driver_from_file(input_file)
         # else a TileDirectory is assumed

@@ -77,7 +77,7 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
     zoom7 = config.params_at_zoom(7)
     input_files = zoom7["input"]
     assert input_files["file1"] is None
-    assert input_files["file2"].path == dummy2_tif
+    assert str(input_files["file2"].path) == dummy2_tif
     assert zoom7["some_integer_parameter"] == 12
     assert zoom7["some_float_parameter"] == 5.3
     assert zoom7["some_string_parameter"] == "string1"
@@ -89,8 +89,8 @@ def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
     config = MapcheteConfig(example_mapchete.dict)
     zoom11 = config.params_at_zoom(11)
     input_files = zoom11["input"]
-    assert input_files["file1"].path == dummy1_tif
-    assert input_files["file2"].path == dummy2_tif
+    assert str(input_files["file1"].path) == dummy1_tif
+    assert str(input_files["file2"].path) == dummy2_tif
     assert zoom11["some_integer_parameter"] == 12
     assert zoom11["some_float_parameter"] == 5.3
     assert zoom11["some_string_parameter"] == "string2"

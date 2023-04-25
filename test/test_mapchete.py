@@ -697,10 +697,10 @@ def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
     # copy red_raster output to green_raster output
     with green_raster.mp() as mp_green:
         fs_green = fs_from_path(mp_green.config.output.path)
-        fs_green.mkdir(mp_green.config.output.path + f"/{zoom}/0", create_parents=True)
+        fs_green.mkdir(mp_green.config.output.path / f"{zoom}/0", create_parents=True)
         fs_green.copy(
-            mp_red.config.output.path + f"/{zoom}/0/0.tif",
-            mp_green.config.output.path + f"/{zoom}/0/0.tif",
+            str(mp_red.config.output.path / f"{zoom}/0/0.tif"),
+            str(mp_green.config.output.path / f"{zoom}/0/0.tif"),
         )
         # run green_raster on zoom 1
         list(mp_green.compute(zoom=[0, zoom], **compute_kwargs))

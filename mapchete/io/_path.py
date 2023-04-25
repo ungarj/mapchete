@@ -4,7 +4,6 @@ from collections import defaultdict
 from functools import cached_property
 import logging
 import os
-import pathlib
 
 import fsspec
 
@@ -13,40 +12,61 @@ from mapchete._executor import Executor
 logger = logging.getLogger(__name__)
 
 
-class Path(pathlib.Path):
+class MPath(os.PathLike):
     """Partially replicates pathlib.Path but with remote file support."""
 
-    def __init__(self, path_str, fs=None, fs_options=None, fs_session=None, **kwargs):
+    def __init__(self, path, **kwargs):
+        self._kwargs = kwargs
+        if isinstance(path, MPath):
+            path_str = str(path)
+            self._kwargs.update(path._kwargs)
+        else:
+            path_str = path
         if path_str.startswith("/vsicurl/"):
             self._path_str = path_str.lstrip("/vsicurl/")
             if not self._path_str.startswith(("http://", "https://")):
                 raise ValueError(f"wrong usage of GDAL VSI paths: {path_str}")
         else:
             self._path_str = path_str
-        self._flavour = pathlib.Path(self._path_str)._flavour
-        self._kwargs = kwargs
-        self._fs = fs
+        self._fs = self._kwargs.get("fs")
         default_fs_options = {"asynchronous": False, "timeout": 5}
-        self._fs_options = dict(default_fs_options, **fs_options or {})
-        self._fs_session = fs_session
+        self._fs_options = dict(
+            default_fs_options, **self._kwargs.get("fs_options") or {}
+        )
+        self._fs_session = self._kwargs.get("fs_session")
 
     def __str__(self):
         return self._path_str
 
+    def __fspath__(self):
+        return self._path_str
+
     @property
-    def name(self):
+    def name(self) -> str:
         return os.path.basename(self._path_str.rstrip("/"))
 
     @property
-    def stem(self):
+    def stem(self) -> str:
         return self.name.split(".")[0]
 
     @property
-    def suffix(self):
+    def suffix(self) -> str:
         return os.path.splitext(self._path_str)[1]
 
+    @property
+    def dirname(self) -> str:
+        return os.path.dirname(self._path_str)
+
+    @property
+    def parent(self) -> "MPath":
+        return self.new(self.dirname)
+
+    @property
+    def elements(self) -> list:
+        return self._path_str.split("/")
+
     @cached_property
-    def fs(self):
+    def fs(self) -> fsspec.AbstractFileSystem:
         """Return path filesystem."""
         if self._fs is not None:
             return self._fs
@@ -59,7 +79,11 @@ class Path(pathlib.Path):
                     read_timeout=self._fs_options.get("timeout"),
                 ),
                 session=self._fs_session,
-                client_kwargs=self._kwargs,
+                client_kwargs={
+                    k: v
+                    for k, v in self._kwargs.items()
+                    if k not in ["fs", "fs_options", "fs_session"]
+                },
             )
         elif self._path_str.startswith(("http://", "https://")):
             if self._kwargs.get("username"):  # pragma: no cover
@@ -75,24 +99,40 @@ class Path(pathlib.Path):
             return fsspec.filesystem("file", **self._fs_options)
 
     @cached_property
-    def protocols(self):
+    def protocols(self) -> set:
         """Return set of filesystem protocols."""
         if isinstance(self.fs.protocol, str):
             return set([self.fs.protocol])
         else:
             return set(self.fs.protocol)
 
-    def exists(self):
+    def startswith(self, string):
+        return self._path_str.startswith(string)
+
+    def endswith(self, string):
+        return self._path_str.endswith(string)
+
+    def split(self, by):
+        return self._path_str.split(by)
+
+    def new(self, path) -> "MPath":
+        """Create a new MPath instance with given path."""
+        return MPath(path, **self._kwargs)
+
+    def exists(self) -> bool:
+        """Check if path exists."""
         return self.fs.exists(self._path_str)
 
-    def is_remote(self):
+    def is_remote(self) -> bool:
+        """Check whether path is remote or not."""
         remote_protocols = {"http", "https", "s3", "s3a"}
         return bool(self.protocols.intersection(remote_protocols))
 
-    def is_absolute(self):
+    def is_absolute(self) -> bool:
+        """Return whether path is absolute."""
         return os.path.isabs(self._path_str)
 
-    def absolute_path(self, base_dir=None):
+    def absolute_path(self, base_dir=None) -> "MPath":
         """
         Return absolute path if path is local.
 
@@ -110,11 +150,9 @@ class Path(pathlib.Path):
         else:
             if base_dir is None or not os.path.isabs(base_dir):
                 raise TypeError("base_dir must be an absolute path.")
-            return Path(
-                os.path.abspath(os.path.join(base_dir, self._path_str)), fs=self.fs
-            )
+            return self.new(os.path.abspath(os.path.join(base_dir, self._path_str)))
 
-    def relative_path(self, base_dir=None):
+    def relative_path(self, base_dir=None) -> "MPath":
         """
         Return relative path if path is local.
 
@@ -130,7 +168,51 @@ class Path(pathlib.Path):
         if self.is_remote() or self.is_absolute():
             return self
         else:
-            return Path(os.path.relpath(self._path_str, base_dir), fs=self.fs)
+            return self.new(os.path.relpath(self._path_str, base_dir))
+
+    def open(self, mode="r"):
+        """Open file."""
+        return self.fs.open(self._path_str, mode)
+
+    def read_text(self) -> str:
+        """Open and return file content as text."""
+        with self.open() as src:
+            return src.read()
+
+    def makedirs(self) -> None:
+        """Create all parent directories for path."""
+        # create parent directories on local filesystems
+        if self.fs.protocol == "file":
+            self.fs.makedirs(self.dirname, exist_ok=True)
+
+    def ls(self, detail=False):
+        return self.fs.ls(self._path_str, detail=detail)
+
+    def joinpath(self, *other) -> "MPath":
+        """Join path with other."""
+        return self.new(os.path.join(self._path_str, *other))
+
+    def as_gdal_str(self) -> str:
+        """Return path as GDAL VSI string."""
+        if self._path_str.startswith(("http://", "https://")):
+            return "/vsicurl/" + self._path_str
+        elif self._path_str.startswith("s3://"):
+            return self._path_str.replace("s3://", "/vsis3/")
+        else:
+            return self._path_str
+
+    def __truediv__(self, other) -> "MPath":
+        """Short for self.joinpath()."""
+        return self.joinpath(other)
+
+    def __eq__(self, other):
+        return hash(self) == hash(MPath(other))
+
+    def __repr__(self):
+        return f"<mapchete.io.MPath object: {self._path_str}>"
+
+    def __hash__(self):
+        return hash(repr(self))
 
 
 def path_is_remote(path, **kwargs):
@@ -145,7 +227,7 @@ def path_is_remote(path, **kwargs):
     -------
     is_remote : bool
     """
-    path = path if isinstance(path, Path) else Path(path)
+    path = path if isinstance(path, MPath) else MPath(path)
     return path.is_remote()
 
 
@@ -161,9 +243,8 @@ def path_exists(path, fs=None, **kwargs):
     -------
     exists : bool
     """
-    path = path if isinstance(path, Path) else Path(path)
-    logger.debug("check if path exists: %s", path)
-    return path.exists(path)
+    path = path if isinstance(path, MPath) else MPath(path)
+    return path.exists()
 
 
 def absolute_path(path=None, base_dir=None):
@@ -179,8 +260,8 @@ def absolute_path(path=None, base_dir=None):
     -------
     absolute path
     """
-    path = path if isinstance(path, Path) else Path(path)
-    return path.absolute_path(base_dir)
+    path = path if isinstance(path, MPath) else MPath(path)
+    return path.absolute_path(base_dir=base_dir)
 
 
 def relative_path(path=None, base_dir=None):
@@ -196,8 +277,8 @@ def relative_path(path=None, base_dir=None):
     -------
     relative path
     """
-    path = path if isinstance(path, Path) else Path(path)
-    return path.relative_path(base_dir)
+    path = path if isinstance(path, MPath) else MPath(path)
+    return path.relative_path(base_dir=base_dir)
 
 
 def makedirs(path, fs=None):
@@ -208,10 +289,8 @@ def makedirs(path, fs=None):
     ----------
     path : path
     """
-    fs = fs or fs_from_path(path)
-    # create parent directories on local filesystems
-    if fs.protocol == "file":
-        fs.makedirs(path, exist_ok=True)
+    path = path if isinstance(path, MPath) else MPath(path)
+    path.makedirs()
 
 
 def tiles_exist(
@@ -260,7 +339,7 @@ def tiles_exist(
     basepath = config.output_reader.path
 
     # for single file outputs:
-    if basepath.endswith(config.output_reader.file_extension):
+    if basepath.suffix == config.output_reader.file_extension:
 
         def _exists(tile):
             return (
@@ -302,7 +381,7 @@ def _batch_tiles_by_row(tiles):
 
 
 def _crop_path(path, elements=-3):
-    return "/".join(path.split("/")[elements:])
+    return "/".join(MPath(path).elements[elements:])
 
 
 def _output_tiles_batches_exist(output_tiles_batches, config):
@@ -327,7 +406,7 @@ def _output_tiles_batch_exists(tiles, config):
         existing_tiles = set()
         row = tiles[0].row
         logger.debug("check existing tiles in row %s", row)
-        rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
+        rowpath = config.output_reader.path.joinpath(str(zoom), str(row))
         logger.debug("rowpath: %s", rowpath)
         try:
             for path in config.output_reader.fs.ls(rowpath, detail=False):
@@ -369,10 +448,10 @@ def _process_tiles_batch_exists(tiles, config):
         existing_tiles = set()
         for row in output_rows:
             logger.debug("check existing tiles in row %s", row)
-            rowpath = os.path.join(config.output_reader.path, str(zoom), str(row))
+            rowpath = config.output_reader.path.joinpath(str(zoom), str(row))
             logger.debug("rowpath: %s", rowpath)
             try:
-                for path in config.output_reader.fs.ls(rowpath, detail=False):
+                for path in rowpath.ls(detail=False):
                     path = _crop_path(path)
                     if path in output_paths:
                         existing_tiles.add(output_paths[path])
@@ -386,8 +465,11 @@ def _process_tiles_batch_exists(tiles, config):
 
 def fs_from_path(path, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
-    path = path if isinstance(path, Path) else Path(path, fs_options=kwargs)
-    return path.fs
+    path = path if isinstance(path, MPath) else MPath(path, **kwargs)
+    if hasattr(path, "fs"):
+        return path.fs
+    else:
+        return fsspec.filesystem("file", **kwargs)
 
 
 def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
@@ -403,7 +485,7 @@ def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
 
     # copy either within a filesystem or between filesystems
     if src_fs == dst_fs:
-        src_fs.copy(src_path, dst_path)
+        src_fs.copy(str(src_path), str(dst_path))
     else:
         with src_fs.open(src_path, "rb") as src:
             with dst_fs.open(dst_path, "wb") as dst:

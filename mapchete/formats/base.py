@@ -251,7 +251,6 @@ class OutputDataBaseFunctions:
             pixelbuffer=output_params["pixelbuffer"],
         )
         self.crs = self.pyramid.crs
-        self._bucket = None
         self.storage_options = output_params.get("storage_options")
         self.fs = self._fs = output_params.get(
             "fs", fs_from_path(output_params.get("path", ""))
@@ -261,8 +260,7 @@ class OutputDataBaseFunctions:
     @property
     def stac_path(self):
         """Return path to STAC JSON file."""
-        default_basepath = os.path.dirname(self.path.rstrip("/") + "/")
-        return os.path.join(default_basepath, f"{self.stac_item_id}.json")
+        return self.path.joinpath(f"{self.stac_item_id}.json")
 
     @property
     def stac_item_id(self):
@@ -271,10 +269,7 @@ class OutputDataBaseFunctions:
 
         Defaults to path basename.
         """
-        default_basepath = os.path.dirname(self.path.rstrip("/") + "/")
-        return self.output_params.get("stac", {}).get("id") or os.path.basename(
-            default_basepath
-        )
+        return self.output_params.get("stac", {}).get("id") or self.path.stem
 
     @property
     def stac_item_metadata(self):
@@ -314,13 +309,8 @@ class OutputDataBaseFunctions:
         -------
         path : string
         """
-        return os.path.join(
-            *[
-                self.path,
-                str(tile.zoom),
-                str(tile.row),
-                str(tile.col) + self.file_extension,
-            ]
+        return self.path.joinpath(
+            str(tile.zoom), str(tile.row), str(tile.col) + self.file_extension
         )
 
     def extract_subset(self, input_data_tiles=None, out_tile=None):
@@ -457,7 +447,7 @@ class OutputDataWriter(OutputDataReader):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        makedirs(os.path.dirname(self.get_path(tile)))
+        self.get_path(tile).makedirs()
 
     def output_is_valid(self, process_data):
         """

@@ -329,7 +329,7 @@ def convert(
 
 
 def _clip_bbox(clip_geometry, dst_crs=None):
-    with fiona.open(clip_geometry) as src:
+    with fiona.open(str(clip_geometry)) as src:
         return reproject_geometry(box(*src.bounds), src_crs=src.crs, dst_crs=dst_crs)
 
 
@@ -411,7 +411,7 @@ def _input_rasterio_info(inp):
 
 
 def _input_fiona_info(inp):
-    with fiona.open(inp) as src:
+    with fiona.open(str(inp)) as src:
         return dict(
             output_params=dict(
                 schema=src.schema,

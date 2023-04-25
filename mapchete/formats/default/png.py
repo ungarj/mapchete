@@ -30,6 +30,7 @@ from mapchete.io.raster import (
     prepare_array,
     memory_file,
     read_raster_no_crs,
+    MPath,
 )
 from mapchete.tile import BufferedTile
 
@@ -112,7 +113,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         -------
         is_valid : bool
         """
-        return validate_values(config, [("path", str)])
+        return validate_values(config, [("path", (str, MPath))])
 
     def profile(self, tile=None):
         """

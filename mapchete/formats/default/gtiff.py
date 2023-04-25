@@ -49,7 +49,7 @@ from tilematrix import Bounds
 from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import makedirs, path_exists, path_is_remote
+from mapchete.io import makedirs, path_exists, path_is_remote, MPath
 from mapchete.io.raster import (
     write_raster_window,
     prepare_array,
@@ -154,7 +154,7 @@ class OutputDataWriter:
         """Initialize."""
         self.path = output_params["path"]
         self.file_extension = ".tif"
-        if self.path.endswith(self.file_extension):
+        if self.path.suffix == self.file_extension:
             return GTiffSingleFileOutputWriter(output_params, **kwargs)
         else:
             return GTiffTileDirectoryOutputWriter(output_params, **kwargs)
@@ -240,7 +240,9 @@ class GTiffOutputReaderFunctions:
         -------
         is_valid : bool
         """
-        return validate_values(config, [("bands", int), ("path", str), ("dtype", str)])
+        return validate_values(
+            config, [("bands", int), ("path", (str, MPath)), ("dtype", str)]
+        )
 
     def _set_attributes(self, output_params):
         self.path = output_params["path"]
@@ -507,7 +509,7 @@ class GTiffSingleFileOutputWriter(
                 logger.debug("remove existing file: %s", self.path)
                 os.remove(self.path)
         # create output directory if necessary
-        makedirs(os.path.dirname(self.path))
+        self.path.makedirs()
         logger.debug("open output file: %s", self.path)
         self._ctx = ExitStack()
         self.dst = self._ctx.enter_context(

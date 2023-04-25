@@ -40,9 +40,12 @@ def test_remote_path_exists(http_raster):
 
 
 def test_absolute_path():
-    assert absolute_path(path="file.tif", base_dir="/mnt/data") == "/mnt/data/file.tif"
     assert (
-        absolute_path(path="/mnt/data/file.tif", base_dir="/mnt/other_data")
+        str(absolute_path(path="file.tif", base_dir="/mnt/data"))
+        == "/mnt/data/file.tif"
+    )
+    assert (
+        str(absolute_path(path="/mnt/data/file.tif", base_dir="/mnt/other_data"))
         == "/mnt/data/file.tif"
     )
     with pytest.raises(TypeError):
@@ -50,8 +53,8 @@ def test_absolute_path():
     with pytest.raises(TypeError):
         absolute_path(path="file.tif", base_dir="no/abs/dir")
     assert (
-        absolute_path(path="https://file.tif", base_dir="/mnt/data")
-        == "https://file.tif"
+        str(absolute_path(path="https://example.com/file.tif", base_dir="/mnt/data"))
+        == "https://example.com/file.tif"
     )
 
 
