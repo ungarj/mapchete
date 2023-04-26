@@ -111,6 +111,13 @@ class MPath(os.PathLike):
         else:
             return set(self.fs.protocol)
 
+    def without_suffix(self):
+        return self.new(os.path.splitext(self._path_str)[0])
+
+    def with_suffix(self, suffix):
+        suffix = suffix.lstrip(".")
+        return self.new(self.without_suffix() + f".{suffix}")
+
     def startswith(self, string):
         return self._path_str.startswith(string)
 
@@ -211,8 +218,24 @@ class MPath(os.PathLike):
         """Short for self.joinpath()."""
         return self.joinpath(other)
 
+    def __add__(self, other) -> "MPath":
+        """Short for self.joinpath()."""
+        return self.new(str(self) + other)
+
     def __eq__(self, other):
         return hash(self) == hash(MPath(other))
+
+    def __gt__(self, other):  # pragma: no cover
+        return str(self) > str(MPath(other))
+
+    def __ge__(self, other):  # pragma: no cover
+        return str(self) >= str(MPath(other))
+
+    def __lt__(self, other):  # pragma: no cover
+        return str(self) < str(MPath(other))
+
+    def __le__(self, other):  # pragma: no cover
+        return str(self) <= str(MPath(other))
 
     def __repr__(self):
         return f"<mapchete.io.MPath object: {self._path_str}>"

@@ -193,11 +193,7 @@ def _index_file_path(out_dir, zoom, ext):
 
 
 def _tile_path(orig_path=None, basepath=None, for_gdal=True):
-    path = MPath(
-        os.path.join(basepath, "/".join(orig_path.split("/")[-3:]))
-        if basepath
-        else orig_path
-    )
+    path = MPath(basepath.joinpath(orig_path.elements[-3:]) if basepath else orig_path)
     if for_gdal:
         return path.as_gdal_str()
     else:
@@ -208,9 +204,11 @@ class VectorFileWriter:
     """Writes GeoJSON or GeoPackage files."""
 
     def __init__(self, out_path=None, crs=None, fieldname=None, driver=None):
-        self._append = "a" in fiona.supported_drivers[driver]
+        self.path = MPath(out_path)
+        self._append = (
+            "a" in fiona.supported_drivers[driver] and not self.path.is_remote()
+        )
         logger.debug("initialize %s writer with append %s", driver, self._append)
-        self.path = out_path
         self.driver = driver
         self.fieldname = fieldname
         self.new_entries = 0
@@ -218,7 +216,7 @@ class VectorFileWriter:
         schema["properties"][fieldname] = "str:254"
 
         if self._append:
-            if os.path.isfile(self.path):
+            if self.path.exists():
                 logger.debug("read existing entries")
                 with fiona.open(str(self.path), "r") as src:
                     self._existing = {f["properties"]["tile_id"]: f for f in src}
@@ -233,11 +231,12 @@ class VectorFileWriter:
                 )
                 self._existing = {}
         else:  # pragma: no cover
-            if os.path.isfile(self.path):
+            if self.path.exists():
                 logger.debug("read existing entries")
                 with fiona.open(str(self.path), "r") as src:
                     self._existing = {f["properties"]["tile_id"]: f for f in src}
-                fiona.remove(self.path, driver=driver)
+                if not self.path.is_remote():
+                    fiona.remove(str(self.path), driver=driver)
             else:
                 self._existing = {}
             self.sink = fiona.open(
@@ -340,7 +339,9 @@ class VRTFileWriter:
         logger.debug("initialize VRT writer for %s", self.path)
         if path_exists(self.path):
             with self.fs.open(self.path) as src:
-                self._existing = {k: v for k, v in self._xml_to_entries(src.read())}
+                self._existing = {
+                    k: MPath(v) for k, v in self._xml_to_entries(src.read())
+                }
         else:
             self._existing = {}
         logger.debug("%s existing entries", len(self._existing))
@@ -357,10 +358,10 @@ class VRTFileWriter:
         self.close()
 
     def _path_to_tile(self, path):
-        return self._tp.tile(*map(int, os.path.splitext(path)[0].split("/")[-3:]))
+        return self._tp.tile(*map(int, MPath(path).without_suffix().elements[-3:]))
 
     def _add_entry(self, tile=None, path=None):
-        self._new[tile] = path
+        self._new[tile] = MPath(path)
 
     def _xml_to_entries(self, xml_string):
         for entry in next(
@@ -411,13 +412,9 @@ class VRTFileWriter:
                         E.ComplexSource(
                             E.SourceFilename(
                                 _tile_path(orig_path=path, for_gdal=True)
-                                if path_is_remote(path)
-                                else str(
-                                    relative_path(
-                                        path=path, base_dir=os.path.split(self.path)[0]
-                                    )
-                                ),
-                                relativeToVRT="0" if path_is_remote(path) else "1",
+                                if path.is_remote()
+                                else str(path.relative_path(start=self.path.dirname)),
+                                relativeToVRT="0" if path.is_remote() else "1",
                             ),
                             E.SourceBand(str(b_idx)),
                             E.SourceProperties(

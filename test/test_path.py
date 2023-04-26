@@ -136,3 +136,13 @@ def test_endswith():
 def test_relative_path_func():
     path = MPath("bar")
     assert isinstance(path.relative_path("/foo/bar"), MPath)
+
+
+def test_without_suffix():
+    path = MPath("foo/bar.tif")
+    assert str(path.without_suffix()) == "foo/bar"
+
+
+def test_with_suffix():
+    path = MPath("foo/bar.tif")
+    assert str(path.with_suffix("jpg")) == "foo/bar.jpg"
