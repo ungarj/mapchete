@@ -51,7 +51,7 @@ from mapchete.formats import (
     available_output_formats,
     load_input_reader,
 )
-from mapchete.io import absolute_path
+from mapchete.io import absolute_path, MPath
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid
@@ -793,6 +793,8 @@ class MapcheteConfig(object):
 
 def get_hash(x, length=16):
     """Return hash of x."""
+    if isinstance(x, MPath):
+        x = str(x)
     return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
 
 
@@ -1011,7 +1013,7 @@ def initialize_inputs(
     initalized_inputs = OrderedDict()
     for k, v in raw_inputs.items():
         # for files and tile directories
-        if isinstance(v, str):
+        if isinstance(v, (str, MPath)):
             logger.debug("load input reader for simple input %s", v)
             try:
                 reader = load_input_reader(
@@ -1127,13 +1129,12 @@ def _config_to_dict(input_config):
             raise MapcheteConfigError("config_dir parameter missing")
         return OrderedDict(_include_env(input_config), mapchete_file=None)
     # from Mapchete file
-    elif os.path.splitext(input_config)[1] == ".mapchete":
-        with fsspec.open(input_config, "r") as config_file:
-            return OrderedDict(
-                _include_env(yaml.safe_load(config_file.read())),
-                config_dir=os.path.dirname(os.path.realpath(input_config)),
-                mapchete_file=input_config,
-            )
+    elif input_config.suffix == ".mapchete":
+        return OrderedDict(
+            _include_env(yaml.safe_load(input_config.read_text())),
+            config_dir=input_config.dirname,
+            mapchete_file=input_config,
+        )
     # throw error if unknown object
     else:  # pragma: no cover
         raise MapcheteConfigError(

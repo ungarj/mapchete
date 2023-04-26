@@ -79,6 +79,10 @@ def test_driver_from_file_shp():
     assert driver_from_file("some.shp") == "vector_file"
 
 
+def test_driver_from_file_mapchete():
+    assert driver_from_file("some.mapchete") == "Mapchete"
+
+
 def test_driver_from_file_errors(execute_kwargs_py):
     """Test errors when determining input driver from filename."""
     with pytest.raises(errors.MapcheteDriverError):

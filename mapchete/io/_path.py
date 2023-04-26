@@ -4,6 +4,7 @@ from collections import defaultdict
 from functools import cached_property
 import logging
 import os
+from typing import Union
 
 import fsspec
 
@@ -24,7 +25,9 @@ class MPath(os.PathLike):
             path_str = path
         if path_str.startswith("/vsicurl/"):
             self._path_str = path_str.lstrip("/vsicurl/")
-            if not self._path_str.startswith(("http://", "https://")):
+            if not self._path_str.startswith(
+                ("http://", "https://")
+            ):  # pragma: no cover
                 raise ValueError(f"wrong usage of GDAL VSI paths: {path_str}")
         else:
             self._path_str = path_str
@@ -86,7 +89,9 @@ class MPath(os.PathLike):
                 },
             )
         elif self._path_str.startswith(("http://", "https://")):
-            if self._kwargs.get("username"):  # pragma: no cover
+            if self._kwargs.get("username") or self._kwargs.get(
+                "password"
+            ):  # pragma: no cover
                 from aiohttp import BasicAuth
 
                 auth = BasicAuth(
@@ -152,7 +157,7 @@ class MPath(os.PathLike):
                 raise TypeError("base_dir must be an absolute path.")
             return self.new(os.path.abspath(os.path.join(base_dir, self._path_str)))
 
-    def relative_path(self, base_dir=None) -> "MPath":
+    def relative_path(self, start=None, base_dir=None) -> "MPath":
         """
         Return relative path if path is local.
 
@@ -165,10 +170,11 @@ class MPath(os.PathLike):
         -------
         relative path
         """
+        start = start or base_dir
         if self.is_remote() or self.is_absolute():
             return self
         else:
-            return self.new(os.path.relpath(self._path_str, base_dir))
+            return self.new(os.path.relpath(self._path_str, start=start))
 
     def open(self, mode="r"):
         """Open file."""
@@ -289,7 +295,7 @@ def makedirs(path, fs=None):
     ----------
     path : path
     """
-    path = path if isinstance(path, MPath) else MPath(path)
+    path = path if isinstance(path, MPath) else MPath(path, fs=fs)
     path.makedirs()
 
 
@@ -409,7 +415,7 @@ def _output_tiles_batch_exists(tiles, config):
         rowpath = config.output_reader.path.joinpath(str(zoom), str(row))
         logger.debug("rowpath: %s", rowpath)
         try:
-            for path in config.output_reader.fs.ls(rowpath, detail=False):
+            for path in rowpath.ls(detail=False):
                 path = _crop_path(path)
                 if path in output_paths:
                     existing_tiles.add(output_paths[path])
@@ -466,27 +472,24 @@ def _process_tiles_batch_exists(tiles, config):
 def fs_from_path(path, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
     path = path if isinstance(path, MPath) else MPath(path, **kwargs)
-    if hasattr(path, "fs"):
-        return path.fs
-    else:
-        return fsspec.filesystem("file", **kwargs)
+    return path.fs
 
 
 def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
     """Copy path from one place to the other."""
-    src_fs = src_fs or fs_from_path(src_path)
-    dst_fs = dst_fs or fs_from_path(dst_path)
+    src_path = MPath(src_path, fs=src_fs)
+    dst_path = MPath(dst_path, fs=dst_fs)
 
-    if not overwrite and dst_fs.exists(dst_path):
+    if not overwrite and dst_path.fs.exists(dst_path):
         raise IOError(f"{dst_path} already exists")
 
     # create parent directories on local filesystems
-    makedirs(os.path.dirname(dst_path))
+    dst_path.makedirs()
 
     # copy either within a filesystem or between filesystems
-    if src_fs == dst_fs:
-        src_fs.copy(str(src_path), str(dst_path))
+    if src_path.fs == dst_path.fs:
+        src_path.fs.copy(str(src_path), str(dst_path))
     else:
-        with src_fs.open(src_path, "rb") as src:
-            with dst_fs.open(dst_path, "wb") as dst:
+        with src_path.open("rb") as src:
+            with dst_path.open("wb") as dst:
                 dst.write(src.read())

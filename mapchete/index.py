@@ -198,7 +198,10 @@ def _tile_path(orig_path=None, basepath=None, for_gdal=True):
         if basepath
         else orig_path
     )
-    return path.as_gdal_str()
+    if for_gdal:
+        return path.as_gdal_str()
+    else:
+        return str(path)
 
 
 class VectorFileWriter:

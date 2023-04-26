@@ -11,7 +11,7 @@ import warnings
 from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.formats import read_output_metadata
-from mapchete.io import fs_from_path, tiles_exist, makedirs, MPath
+from mapchete.io import fs_from_path, tiles_exist, MPath
 from mapchete._processing import (
     compute,
     _run_on_single_tile,
@@ -62,7 +62,11 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
     Mapchete
         a Mapchete process object
     """
-    if isinstance(some_input, str) and not some_input.endswith(".mapchete"):
+    # convert to MPath object if possible
+    if isinstance(some_input, str):
+        some_input = MPath(some_input)
+    # for TileDirectory inputs
+    if isinstance(some_input, MPath) and some_input.suffix == "":
         logger.debug("assuming TileDirectory")
         metadata_json = MPath(some_input).joinpath("metadata.json")
         fs_kwargs = fs_kwargs or {}
@@ -89,8 +93,19 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
         )
         kwargs.update(mode="readonly")
         return Mapchete(MapcheteConfig(config, **kwargs))
-
-    return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
+    # for dicts, .mapchete file paths or MpacheteConfig objects
+    elif (
+        isinstance(some_input, dict)
+        or isinstance(some_input, MPath)
+        and some_input.suffix == ".mapchete"
+        or isinstance(some_input, MapcheteConfig)
+    ):
+        return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
+    else:  # pragma: no cover
+        raise TypeError(
+            "can only open input in form of a mapchete file path, a TileDirectory path, "
+            f"a dictionary or a MapcheteConfig object, not {type(some_input)}"
+        )
 
 
 class Mapchete(object):

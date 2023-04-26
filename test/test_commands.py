@@ -24,7 +24,6 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     ) as mp:
         mp.batch_process(zoom=5)
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
-
     # copy tiles and subset by bounds
     tiles = cp(
         out_path,

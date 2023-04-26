@@ -11,15 +11,15 @@ from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
-from mapchete.io import fs_from_path, tiles_exist, copy
+from mapchete.io import fs_from_path, tiles_exist, copy, MPath
 from mapchete.io.vector import reproject_geometry
 
 logger = logging.getLogger(__name__)
 
 
 def cp(
-    src_tiledir: str,
-    dst_tiledir: str,
+    src_tiledir: Union[str, MPath],
+    dst_tiledir: Union[str, MPath],
     zoom: Union[int, List[int]] = None,
     area: Union[BaseGeometry, str, dict] = None,
     area_crs: Union[CRS, str] = None,
@@ -113,8 +113,10 @@ def cp(
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom level(s) required")
 
-    src_fs = fs_from_path(src_tiledir, **src_fs_opts)
-    dst_fs = fs_from_path(dst_tiledir, **dst_fs_opts)
+    src_tiledir = MPath(src_tiledir, **src_fs_opts)
+    dst_tiledir = MPath(dst_tiledir, **dst_fs_opts)
+    src_fs = src_tiledir.fs
+    dst_fs = dst_tiledir.fs
 
     # open source tile directory
     with mapchete.open(

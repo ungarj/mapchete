@@ -454,7 +454,7 @@ def create_prototype_files(mp):
         else:
             logger.debug("creating prototype tile %s", tile_path)
             out_profile = mp.config.output.profile(prototype_tile)
-            makedirs(os.path.dirname(tile_path))
+            tile_path.makedirs()
             write_raster_window(
                 in_tile=prototype_tile,
                 in_data=ma.masked_array(

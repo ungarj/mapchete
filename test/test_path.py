@@ -121,3 +121,18 @@ def test_makedirs_dirpath(mp_tmpdir):
     path.makedirs()
     assert path.parent.exists()
     assert path.exists()
+
+
+def test_startswith():
+    path = MPath("foo.tif")
+    assert path.startswith("foo")
+
+
+def test_endswith():
+    path = MPath("foo.tif")
+    assert path.endswith("tif")
+
+
+def test_relative_path_func():
+    path = MPath("bar")
+    assert isinstance(path.relative_path("/foo/bar"), MPath)
