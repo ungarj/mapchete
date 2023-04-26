@@ -24,7 +24,6 @@ from copy import deepcopy
 import fiona
 import logging
 import operator
-import os
 from rasterio.dtypes import _gdal_typename
 from shapely.geometry import mapping
 import xml.etree.ElementTree as ET
@@ -377,7 +376,7 @@ class VRTFileWriter:
             self.new_entries += 1
 
     def entry_exists(self, tile=None, path=None):
-        path = relative_path(path=path, base_dir=os.path.split(self.path)[0])
+        path = relative_path(path=path, base_dir=self.path.dirname)
         exists = path in self._existing
         logger.debug("tile %s with path %s exists: %s", tile, path, exists)
         return exists
