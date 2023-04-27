@@ -192,7 +192,11 @@ def _index_file_path(out_dir, zoom, ext):
 
 
 def _tile_path(orig_path=None, basepath=None, for_gdal=True):
-    path = MPath(basepath.joinpath(orig_path.elements[-3:]) if basepath else orig_path)
+    path = (
+        MPath(basepath).joinpath(*orig_path.elements[-3:])
+        if basepath
+        else MPath(orig_path)
+    )
     if for_gdal:
         return path.as_gdal_str()
     else:
