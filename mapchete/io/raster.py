@@ -203,6 +203,7 @@ def read_raster_window(
         with rasterio.Env(
             **get_gdal_options(gdal_opts, is_remote=input_files[0].is_remote())
         ) as env:
+            breakpoint()
             logger.debug(
                 "reading %s file(s) with GDAL options %s", len(input_files), env.options
             )

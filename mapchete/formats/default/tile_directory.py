@@ -1,7 +1,7 @@
 """Use a directory of zoom/row/column tiles as input."""
 
+from functools import cached_property
 import logging
-import os
 from shapely.geometry import box
 
 from mapchete.config import validate_values
@@ -55,24 +55,34 @@ class InputData(base.InputData):
     def __init__(self, input_params, **kwargs):
         """Initialize."""
         super().__init__(input_params, **kwargs)
+        self._read_as_tiledir_func = None
+        logger.debug("InputData params: %s", input_params)
+        # populate internal parameters initially depending on whether this input was
+        # defined as simple or abstract input
+        self._params = input_params.get("abstract") or dict(path=input_params["path"])
+        # construct path and append optional filesystem options
+        self.path = MPath(
+            self._params["path"], **self._params.get("fs_opts", {})
+        ).absolute_path(input_params.get("conf_dir"))
         if "abstract" in input_params:
-            self._params = input_params["abstract"]
-            self.path = absolute_path(
-                path=self._params["path"], base_dir=input_params["conf_dir"]
-            )
-            logger.debug("InputData params: %s", input_params)
-            # define pyramid
-            self.td_pyramid = BufferedTilePyramid(
-                self._params["grid"],
-                metatiling=self._params.get("metatiling", 1),
-                tile_size=self._params.get("tile_size", 256),
-                pixelbuffer=self._params.get("pixelbuffer", 0),
-            )
-            self._read_as_tiledir_func = base._read_as_tiledir
-            try:
-                self._tiledir_metadata_json = read_output_metadata(
-                    self.path.joinpath("metadata.json")
+            # define pyramid either by hardcoded given values or by existing metadata.json
+            if "grid" in self._params:
+                self.td_pyramid = BufferedTilePyramid(
+                    self._params["grid"],
+                    metatiling=self._params.get("metatiling", 1),
+                    tile_size=self._params.get("tile_size", 256),
+                    pixelbuffer=self._params.get("pixelbuffer", 0),
                 )
+            else:
+                try:
+                    self.td_pyramid = self._tiledir_metadata_json["pyramid"]
+                except FileNotFoundError:
+                    raise MapcheteConfigError(
+                        f"Pyramid not defined and cannot find metadata.json in {self.path}"
+                    )
+            self._read_as_tiledir_func = base._read_as_tiledir
+
+            try:
                 try:
                     self._data_type = self._tiledir_metadata_json["driver"]["data_type"]
                 except KeyError:
@@ -82,45 +92,39 @@ class InputData(base.InputData):
             except FileNotFoundError:
                 # in case no metadata.json is available, try to guess data type via the
                 # format file extension
-                self._data_type = data_type_from_extension(self._params["extension"])
+                raise MapcheteConfigError(
+                    f"data type not defined and cannot find metadata.json in {self.path}"
+                )
 
         elif "path" in input_params:
-            self.path = absolute_path(
-                path=input_params["path"], base_dir=input_params.get("conf_dir")
-            )
-            try:
-                self._tiledir_metadata_json = read_output_metadata(
-                    self.path.joinpath("metadata.json")
-                )
-            except FileNotFoundError:
-                raise MapcheteConfigError(f"Cannot find metadata.json in {self.path}")
             # define pyramid
             self.td_pyramid = self._tiledir_metadata_json["pyramid"]
-            self.output_data = load_output_writer(
-                dict(
-                    self._tiledir_metadata_json["driver"],
-                    metatiling=self.td_pyramid.metatiling,
-                    pixelbuffer=self.td_pyramid.pixelbuffer,
-                    pyramid=self.td_pyramid,
-                    grid=self.td_pyramid.grid,
-                    path=self.path,
-                ),
-                readonly=True,
-            )
-            self._params = dict(
-                path=self.path,
-                grid=self.td_pyramid.grid.to_dict(),
-                metatiling=self.td_pyramid.metatiling,
-                pixelbuffer=self.td_pyramid.pixelbuffer,
-                tile_size=self.td_pyramid.tile_size,
-                extension=self.output_data.file_extension.split(".")[-1],
-                **self._tiledir_metadata_json["driver"],
-            )
-            self._read_as_tiledir_func = self.output_data._read_as_tiledir
             self._data_type = driver_metadata(
                 self._tiledir_metadata_json["driver"]["format"]
             )["data_type"]
 
+        self.output_data = load_output_writer(
+            dict(
+                self._tiledir_metadata_json["driver"],
+                metatiling=self.td_pyramid.metatiling,
+                pixelbuffer=self.td_pyramid.pixelbuffer,
+                pyramid=self.td_pyramid,
+                grid=self.td_pyramid.grid,
+                path=self.path,
+            ),
+            readonly=True,
+        )
+        self._read_as_tiledir_func = (
+            self._read_as_tiledir_func or self.output_data._read_as_tiledir
+        )
+        self._params.update(
+            grid=self.td_pyramid.grid.to_dict(),
+            metatiling=self.td_pyramid.metatiling,
+            pixelbuffer=self.td_pyramid.pixelbuffer,
+            tile_size=self.td_pyramid.tile_size,
+            extension=self.output_data.file_extension.split(".")[-1],
+            **self._tiledir_metadata_json["driver"],
+        )
         # validate parameters
         validate_values(
             self._params,
@@ -147,6 +151,10 @@ class InputData(base.InputData):
             }
         else:
             self._profile = None
+
+    @cached_property
+    def _tiledir_metadata_json(self):
+        return read_output_metadata(self.path.joinpath("metadata.json"))
 
     def open(self, tile, **kwargs):
         """
@@ -200,17 +208,10 @@ def _get_tiles_paths(
     return [
         (_tile, _path)
         for _tile, _path in [
-            (
-                t,
-                "%s.%s"
-                % (
-                    basepath.joinpath(str(t.zoom), str(t.row), str(t.col)),
-                    ext,
-                ),
-            )
+            (t, basepath.joinpath(str(t.zoom), str(t.row), str(t.col)).with_suffix(ext))
             for t in pyramid.tiles_from_bounds(bounds, zoom)
         ]
-        if not exists_check or (exists_check and path_exists(_path))
+        if not exists_check or (exists_check and _path.exists())
     ]
 
 
@@ -430,5 +431,4 @@ class InputTile(base.InputTile):
                 zoom=zoom,
             )
             logger.debug("%s potential tiles at zoom %s", len(tiles_paths), zoom)
-
         return tiles_paths

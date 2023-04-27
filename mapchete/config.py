@@ -1038,9 +1038,12 @@ def initialize_inputs(
             logger.debug("load input reader for abstract input %s", v)
             try:
                 abstract = deepcopy(v)
+                # make path absolute and add filesystem options
                 if "path" in abstract:
                     abstract.update(
-                        path=absolute_path(path=abstract["path"], base_dir=config_dir)
+                        path=MPath(
+                            abstract["path"], **v.get("fs_opts", {})
+                        ).absolute_path(config_dir)
                     )
                 reader = load_input_reader(
                     dict(
