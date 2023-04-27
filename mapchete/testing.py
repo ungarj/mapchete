@@ -3,7 +3,6 @@ Useful tools to facilitate testing.
 """
 from collections import OrderedDict
 import logging
-import os
 import oyaml as yaml
 from shapely.ops import unary_union
 import uuid
@@ -11,7 +10,7 @@ import uuid
 import mapchete
 from mapchete.config import initialize_inputs, open_inputs
 from mapchete.io import fs_from_path, MPath
-from mapchete.tile import BufferedTile, BufferedTilePyramid
+from mapchete.tile import BufferedTilePyramid
 
 
 logger = logging.getLogger(__name__)
@@ -22,8 +21,9 @@ def dict_from_mapchete(path):
     """
     Read mapchete configuration from file and return as dictionary.
     """
-    with open(path) as src:
-        return dict(yaml.safe_load(src.read()), config_dir=os.path.dirname(path))
+    path = MPath(path)
+    with path.open() as src:
+        return dict(yaml.safe_load(src.read()), config_dir=path.dirname)
 
 
 class ProcessFixture:
@@ -31,8 +31,8 @@ class ProcessFixture:
         self.path = MPath(path)
         self.dict = None
         if output_tempdir:
-            self._output_tempdir = (
-                os.path.join(output_tempdir, uuid.uuid4().hex) + output_suffix
+            self._output_tempdir = MPath(output_tempdir).joinpath(
+                uuid.uuid4().hex + output_suffix
             )
         else:
             self._output_tempdir = None
@@ -60,9 +60,9 @@ class ProcessFixture:
         if self._output_tempdir:
             out_dir = self._output_tempdir
         else:
-            out_dir = os.path.join(self.dict["config_dir"], self.dict["output"]["path"])
+            out_dir = MPath(self.dict["config_dir"]) / self.dict["output"]["path"]
         try:
-            fs_from_path(out_dir).rm(out_dir, recursive=True)
+            fs_from_path(out_dir).rm(str(out_dir), recursive=True)
         except FileNotFoundError:
             pass
 

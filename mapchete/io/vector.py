@@ -527,7 +527,9 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs : mapping
         Creation parameters passed on to output file.
     """
-    if path_exists(out):
+    inp = MPath(inp)
+    out = MPath(out)
+    if out.exists():
         if not exists_ok:
             raise IOError(f"{out} already exists")
         elif not overwrite:
@@ -537,13 +539,13 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
             fs_from_path(out).rm(out)
     kwargs = kwargs or {}
     if kwargs:
-        logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
+        logger.debug("convert raster file %s to %s using %s", str(inp), out, kwargs)
         with fiona.open(str(inp), "r") as src:
             makedirs(os.path.dirname(out))
             with fiona.open(str(out), mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
-        logger.debug("copy %s to %s", inp, out)
+        logger.debug("copy %s to %s", str(inp), str(out))
         copy(inp, out, overwrite=overwrite)
 
 

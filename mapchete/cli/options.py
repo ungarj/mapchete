@@ -1,20 +1,15 @@
 import click
-import click_spinner
 import logging
 from multiprocessing import cpu_count, get_all_start_methods
 import os
 from rasterio.enums import Resampling
 import tilematrix
-import tqdm
 
-import mapchete
 from mapchete.config import (
-    raw_conf,
-    bounds_from_opts,
     MULTIPROCESSING_DEFAULT_START_METHOD,
 )
 from mapchete.formats import available_output_formats
-from mapchete.index import zoom_index_gen
+from mapchete.io import MPath
 from mapchete.log import set_log_level, setup_logfile
 from mapchete.validate import validate_bounds, validate_crs, validate_zooms
 
@@ -143,7 +138,7 @@ arg_tiledir = click.argument("tiledir", type=click.STRING)
 opt_out_path = click.option(
     "--out-path",
     type=click.Path(),
-    default=os.path.join(os.getcwd(), "output"),
+    default=MPath(os.getcwd()) / "output",
     help="Output path.",
 )
 opt_idx_out_dir = click.option(

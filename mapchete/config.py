@@ -1072,6 +1072,7 @@ def initialize_inputs(
 
 def _load_process_module(process=None, config_dir=None, run_compile=False):
     tmpfile = None
+    process = MPath(process) if isinstance(process, str) else process
     try:
         if isinstance(process, list):
             tmpfile = NamedTemporaryFile(suffix=".py")
@@ -1079,8 +1080,8 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
             with open(tmpfile.name, "w") as dst:
                 for line in process:
                     dst.write(line + "\n")
-            process = tmpfile.name
-        if process.endswith(".py"):
+            process = MPath(tmpfile.name)
+        if process.suffix == ".py":
             module_path = absolute_path(path=process, base_dir=config_dir)
             if not module_path.exists():
                 raise MapcheteConfigError(f"{module_path} is not available")
@@ -1089,7 +1090,9 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
                     py_compile.compile(module_path, doraise=True)
                 module_name = module_path.stem
                 # load module
-                spec = importlib.util.spec_from_file_location(module_name, module_path)
+                spec = importlib.util.spec_from_file_location(
+                    module_name, str(module_path)
+                )
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 # required to make imported module available using multiprocessing
@@ -1102,7 +1105,7 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
                 raise MapcheteProcessImportError(e)
         else:
             try:
-                module = importlib.import_module(process)
+                module = importlib.import_module(str(process))
             except ImportError as e:
                 raise MapcheteProcessImportError(e)
         logger.debug(f"return process func: {module}")
@@ -1132,7 +1135,7 @@ def _config_to_dict(input_config):
     elif input_config.suffix == ".mapchete":
         return OrderedDict(
             _include_env(yaml.safe_load(input_config.read_text())),
-            config_dir=input_config.dirname,
+            config_dir=input_config.dirname or os.getcwd(),
             mapchete_file=input_config,
         )
     # throw error if unknown object

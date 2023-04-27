@@ -21,7 +21,7 @@ from mapchete.formats import (
     available_output_formats,
     available_input_formats,
 )
-from mapchete.io import read_json, get_best_zoom_level, fs_from_path
+from mapchete.io import read_json, get_best_zoom_level, fs_from_path, MPath
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 from mapchete.validate import validate_zooms
@@ -31,8 +31,8 @@ OUTPUT_FORMATS = available_output_formats()
 
 
 def convert(
-    tiledir: Union[str, dict],
-    output: str,
+    tiledir: Union[str, dict, MPath],
+    output: Union[str, MPath],
     zoom: Union[int, List[int]] = None,
     area: Union[BaseGeometry, str, dict] = None,
     area_crs: Union[CRS, str] = None,
@@ -177,6 +177,8 @@ def convert(
     workers = workers or multi or cpu_count()
     creation_options = creation_options or {}
     bidx = [bidx] if isinstance(bidx, int) else bidx
+    tiledir = MPath(tiledir) if isinstance(tiledir, str) else tiledir
+    output = MPath(output)
     try:
         input_info = _get_input_info(tiledir)
         logger.debug("input params: %s", input_info)
@@ -336,7 +338,7 @@ def _clip_bbox(clip_geometry, dst_crs=None):
 def _get_input_info(inp):
 
     # assuming single file if path has a file extension
-    if os.path.splitext(inp)[1]:
+    if inp.suffix:
         logger.debug("assuming single file")
         driver = driver_from_file(inp)
 
@@ -425,8 +427,8 @@ def _input_fiona_info(inp):
         )
 
 
-def _input_tile_directory_info(inp):
-    conf = read_json(os.path.join(inp, "metadata.json"))
+def _input_tile_directory_info(tiledir_path):
+    conf = read_json(tiledir_path / "metadata.json")
     pyramid = BufferedTilePyramid.from_dict(conf["pyramid"])
     return dict(
         output_params=conf["driver"],
@@ -440,10 +442,9 @@ def _input_tile_directory_info(inp):
 
 
 def _get_output_info(output):
-    _, file_ext = os.path.splitext(output)
-    if not file_ext:
+    if not output.suffix:
         return dict(type="TileDirectory", driver=None)
-    elif file_ext == ".tif":
+    elif output.suffix == ".tif":
         return dict(type="SingleFile", driver="GTiff")
     else:
-        raise TypeError(f"Could not determine output from extension: {file_ext}")
+        raise TypeError(f"Could not determine output from extension: {output.suffix}")

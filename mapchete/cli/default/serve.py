@@ -10,6 +10,7 @@ from rasterio.io import MemoryFile
 
 import mapchete
 from mapchete.cli import options
+from mapchete.io import MPath
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ def create_app(
 
     app = Flask(__name__)
     mapchete_processes = {
-        os.path.splitext(os.path.basename(mapchete_file))[0]: mapchete.open(
+        str(MPath(MPath(mapchete_file).name).without_suffix()): mapchete.open(
             mapchete_file,
             zoom=zoom,
             bounds=bounds,
