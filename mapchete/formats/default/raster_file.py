@@ -205,7 +205,7 @@ class InputData(base.InputData):
         -------
         file exists : bool
         """
-        return os.path.isfile(self.path)  # pragma: no cover
+        return self.path.exists()  # pragma: no cover
 
     def cleanup(self):
         """Cleanup when mapchete closes."""

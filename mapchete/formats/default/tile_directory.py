@@ -204,7 +204,7 @@ def _get_tiles_paths(
                 t,
                 "%s.%s"
                 % (
-                    os.path.join(*([basepath, str(t.zoom), str(t.row), str(t.col)])),
+                    basepath.joinpath(str(t.zoom), str(t.row), str(t.col)),
                     ext,
                 ),
             )

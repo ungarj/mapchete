@@ -133,8 +133,8 @@ def cp(
         tp = src_mp.config.output_pyramid
 
         # copy metadata to destination if necessary
-        src_metadata = os.path.join(src_tiledir, "metadata.json")
-        dst_metadata = os.path.join(dst_tiledir, "metadata.json")
+        src_metadata = src_tiledir / "metadata.json"
+        dst_metadata = dst_tiledir / "metadata.json"
         if not dst_fs.exists(dst_metadata):
             msg = f"copy {src_metadata} to {dst_metadata}"
             logger.debug(msg)

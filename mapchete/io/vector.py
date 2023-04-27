@@ -541,7 +541,7 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     if kwargs:
         logger.debug("convert raster file %s to %s using %s", str(inp), out, kwargs)
         with fiona.open(str(inp), "r") as src:
-            makedirs(os.path.dirname(out))
+            out.makedirs()
             with fiona.open(str(out), mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
