@@ -8,6 +8,7 @@ from typing import Union
 
 import fsspec
 
+from mapchete.io._misc import GDAL_HTTP_OPTS
 from mapchete._executor import Executor
 
 logger = logging.getLogger(__name__)
@@ -213,6 +214,40 @@ class MPath(os.PathLike):
             return self._path_str.replace("s3://", "/vsis3/")
         else:
             return self._path_str
+
+    def gdal_env_params(self, opts=None, allowed_remote_extensions=None) -> dict:
+        """
+        Return a merged set of custom and default GDAL/rasterio Env options.
+
+        If is_remote is set to True, the default GDAL_HTTP_OPTS are appended.
+
+        Parameters
+        ----------
+        opts : dict or None
+            Explicit GDAL options.
+        is_remote : bool
+            Indicate whether Env is for a remote file.
+
+        Returns
+        -------
+        dictionary
+        """
+        user_opts = {} if opts is None else dict(**opts)
+        if self.is_remote():
+            gdal_opts = GDAL_HTTP_OPTS.copy()
+            if allowed_remote_extensions:
+                gdal_opts.update(
+                    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=allowed_remote_extensions
+                )
+            if "auth" in self.fs.kwargs:
+                gdal_opts.update(
+                    GDAL_HTTP_USERPWD=f"{self.fs.kwargs['auth'].login}:{self.fs.kwargs['auth'].password}"
+                )
+            gdal_opts.update(user_opts)
+        else:
+            gdal_opts = user_opts
+        logger.debug("using GDAL options: %s", gdal_opts)
+        return gdal_opts
 
     def __truediv__(self, other) -> "MPath":
         """Short for self.joinpath()."""

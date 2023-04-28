@@ -12,8 +12,9 @@ from mapchete.formats import (
     driver_metadata,
     load_output_writer,
     read_output_metadata,
+    driver_from_extension,
 )
-from mapchete.io import path_exists, absolute_path, tile_to_zoom_level, MPath
+from mapchete.io import tile_to_zoom_level, MPath
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
@@ -81,20 +82,22 @@ class InputData(base.InputData):
                         f"Pyramid not defined and cannot find metadata.json in {self.path}"
                     )
             self._read_as_tiledir_func = base._read_as_tiledir
-
-            try:
+            if "extension" in self._params:
+                self._data_type = data_type_from_extension(self._params["extension"])
+            else:
                 try:
-                    self._data_type = self._tiledir_metadata_json["driver"]["data_type"]
-                except KeyError:
-                    self._data_type = driver_metadata(
-                        self._tiledir_metadata_json["driver"]["format"]
-                    )["data_type"]
-            except FileNotFoundError:
-                # in case no metadata.json is available, try to guess data type via the
-                # format file extension
-                raise MapcheteConfigError(
-                    f"data type not defined and cannot find metadata.json in {self.path}"
-                )
+                    self._data_type = self._tiledir_metadata_json["driver"].get(
+                        "data_type",
+                        driver_metadata(
+                            self._tiledir_metadata_json["driver"]["format"]
+                        )["data_type"],
+                    )
+                except FileNotFoundError:
+                    # in case no metadata.json is available, try to guess data type via the
+                    # format file extension
+                    raise MapcheteConfigError(
+                        f"data type not defined and cannot find metadata.json in {self.path}"
+                    )
 
         elif "path" in input_params:
             # define pyramid
@@ -103,27 +106,31 @@ class InputData(base.InputData):
                 self._tiledir_metadata_json["driver"]["format"]
             )["data_type"]
 
-        self.output_data = load_output_writer(
-            dict(
-                self._tiledir_metadata_json["driver"],
-                metatiling=self.td_pyramid.metatiling,
-                pixelbuffer=self.td_pyramid.pixelbuffer,
-                pyramid=self.td_pyramid,
-                grid=self.td_pyramid.grid,
-                path=self.path,
-            ),
-            readonly=True,
-        )
-        self._read_as_tiledir_func = (
-            self._read_as_tiledir_func or self.output_data._read_as_tiledir
-        )
+        try:
+            self.output_data = load_output_writer(
+                dict(
+                    self._tiledir_metadata_json["driver"],
+                    metatiling=self.td_pyramid.metatiling,
+                    pixelbuffer=self.td_pyramid.pixelbuffer,
+                    pyramid=self.td_pyramid,
+                    grid=self.td_pyramid.grid,
+                    path=self.path,
+                ),
+                readonly=True,
+            )
+            self._read_as_tiledir_func = self.output_data._read_as_tiledir
+            self._params.update(
+                extension=self.output_data.file_extension.split(".")[-1],
+                **self._tiledir_metadata_json["driver"],
+            )
+        except FileNotFoundError:
+            self.output_data = None
+            self._read_as_tiledir_func = self._read_as_tiledir_func
         self._params.update(
             grid=self.td_pyramid.grid.to_dict(),
             metatiling=self.td_pyramid.metatiling,
             pixelbuffer=self.td_pyramid.pixelbuffer,
             tile_size=self.td_pyramid.tile_size,
-            extension=self.output_data.file_extension.split(".")[-1],
-            **self._tiledir_metadata_json["driver"],
         )
         # validate parameters
         validate_values(
@@ -137,7 +144,7 @@ class InputData(base.InputData):
         self._metadata = dict(
             self.METADATA,
             data_type=self._data_type,
-            file_extensions=[self._params["extension"]],
+            file_extensions=[self._ext],
         )
         if self._metadata.get("data_type") == "raster":
             self._params["count"] = self._params.get(

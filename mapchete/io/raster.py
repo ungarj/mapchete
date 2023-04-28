@@ -5,7 +5,6 @@ import itertools
 import logging
 import numpy as np
 import numpy.ma as ma
-import os
 from retry import retry
 import rasterio
 from rasterio.enums import Resampling
@@ -25,10 +24,8 @@ import warnings
 from mapchete.errors import MapcheteIOError
 from mapchete.io import (
     get_gdal_options,
-    path_exists,
     fs_from_path,
     copy,
-    makedirs,
     MPath,
 )
 from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
@@ -200,10 +197,7 @@ def read_raster_window(
     if len(input_files) == 0:  # pragma: no cover
         raise ValueError("no input given")
     try:
-        with rasterio.Env(
-            **get_gdal_options(gdal_opts, is_remote=input_files[0].is_remote())
-        ) as env:
-            breakpoint()
+        with rasterio.Env(**input_files[0].gdal_env_params(gdal_opts)) as env:
             logger.debug(
                 "reading %s file(s) with GDAL options %s", len(input_files), env.options
             )
