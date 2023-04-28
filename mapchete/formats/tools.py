@@ -102,7 +102,7 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     input_file = input_file if isinstance(input_file, MPath) else MPath(input_file)
 
     # mapchete files can immediately be returned:
-    if input_file.suffix == "mapchete":
+    if input_file.suffix == ".mapchete":
         return "Mapchete"
 
     # use the most common file extensions to quickly determine input driver for file:

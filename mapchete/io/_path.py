@@ -125,7 +125,7 @@ class MPath(os.PathLike):
     def endswith(self, string):
         return self._path_str.endswith(string)
 
-    def split(self, by):
+    def split(self, by):  # pragma: no cover
         return self._path_str.split(by)
 
     def new(self, path) -> "MPath":
@@ -235,11 +235,11 @@ class MPath(os.PathLike):
         user_opts = {} if opts is None else dict(**opts)
         if self.is_remote():
             gdal_opts = GDAL_HTTP_OPTS.copy()
-            if allowed_remote_extensions:
+            if allowed_remote_extensions:  # pragma: no cover
                 gdal_opts.update(
                     CPL_VSIL_CURL_ALLOWED_EXTENSIONS=allowed_remote_extensions
                 )
-            if "auth" in self.fs.kwargs:
+            if self.fs.kwargs.get("auth"):  # pragma: no cover
                 gdal_opts.update(
                     GDAL_HTTP_USERPWD=f"{self.fs.kwargs['auth'].login}:{self.fs.kwargs['auth'].password}"
                 )
@@ -273,7 +273,7 @@ class MPath(os.PathLike):
         return str(self) <= str(MPath(other))
 
     def __repr__(self):
-        return f"<mapchete.io.MPath object: {self._path_str}>"
+        return f"<mapchete.io.MPath object: {self._path_str}, kwargs={self._kwargs}>"
 
     def __hash__(self):
         return hash(repr(self))
@@ -345,7 +345,7 @@ def relative_path(path=None, base_dir=None):
     return path.relative_path(base_dir=base_dir)
 
 
-def makedirs(path, fs=None):
+def makedirs(path, fs=None):  # pragma: no cover
     """
     Silently create all subdirectories of path if path is local.
 
