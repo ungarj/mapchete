@@ -24,6 +24,7 @@ Submodules
    mapchete.errors
    mapchete.index
    mapchete.log
+   mapchete.path
    mapchete.stac
    mapchete.testing
    mapchete.tile
