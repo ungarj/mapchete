@@ -9,7 +9,7 @@ from mapchete.path import (
     relative_path,
     makedirs,
     MPath,
-)
+)  # pragma: no cover
 
 
 __all__ = [
@@ -21,4 +21,4 @@ __all__ = [
     "relative_path",
     "makedirs",
     "MPath",
-]
+]  # pragma: no cover
