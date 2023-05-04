@@ -25,7 +25,7 @@ Changelog
   * `mapchete.io.raster`: use same logic to extract `FileNotFoundError` for `read_raster_window` and `read_raster_no_crs`; replace deprecated `IOError` with `OSError`
 
 * packaging
-  * remove direct `s3fs`dependency but keep `boto3` and `aiobotocore` as direct dependencies for `s3`extra
+  * remove direct `s3fs` dependency but keep `boto3` and `aiobotocore` as direct dependencies for `s3` extra
 
 * testing
   * fix test case to reflect bug which prevents dask from updating overview tile using the task graph (#530)
@@ -479,7 +479,8 @@ Changelog
 
     * use `pyproj` to determine CRS bounds to clip geometries when reprojecting
     * enable geometry segmentation before geometry is clipped (`segmentize_on_clip=False` and `segmentize_fraction=100` args)
-  * suppress `rasterio` warnings when reading rasters (too many `rasterio.errors.NodataShadowWarning`s)
+
+  * suppress `rasterio` warnings when reading rasters (too many `rasterio.errors.NodataShadowWarning`)
 
 * packaging
 
