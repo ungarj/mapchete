@@ -146,3 +146,10 @@ def test_without_suffix():
 def test_with_suffix():
     path = MPath("foo/bar.tif")
     assert str(path.with_suffix("jpg")) == "foo/bar.jpg"
+
+
+def test_ls(testdata_dir):
+    for path in testdata_dir.ls():
+        assert isinstance(path, MPath)
+    for path in testdata_dir.ls(detail=True):
+        assert isinstance(path.get("name"), MPath)

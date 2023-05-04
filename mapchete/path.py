@@ -8,7 +8,7 @@ from typing import Union
 
 import fsspec
 
-from mapchete.io._misc import GDAL_HTTP_OPTS
+from mapchete.io.settings import GDAL_HTTP_OPTS
 from mapchete._executor import Executor
 
 logger = logging.getLogger(__name__)
@@ -128,6 +128,9 @@ class MPath(os.PathLike):
     def split(self, by):  # pragma: no cover
         return self._path_str.split(by)
 
+    def crop(self, elements):
+        return self.new("/".join(self.elements[elements:]))
+
     def new(self, path) -> "MPath":
         """Create a new MPath instance with given path."""
         return MPath(path, **self._kwargs)
@@ -200,7 +203,16 @@ class MPath(os.PathLike):
             self.fs.makedirs(self.dirname, exist_ok=True)
 
     def ls(self, detail=False):
-        return self.fs.ls(self._path_str, detail=detail)
+        if detail:
+            # return as is but convert "name" from string to MPath instead
+            return [
+                {k: (self.new(v) if k == "name" else v) for k, v in path_info.items()}
+                for path_info in self.fs.ls(self._path_str, detail=detail)
+            ]
+        else:
+            return [
+                self.new(path) for path in self.fs.ls(self._path_str, detail=detail)
+            ]
 
     def joinpath(self, *other) -> "MPath":
         """Join path with other."""
@@ -444,10 +456,6 @@ def _batch_tiles_by_row(tiles):
     return ((t for t in ordered[row]) for row in sorted(list(ordered.keys())))
 
 
-def _crop_path(path, elements=-3):
-    return "/".join(MPath(path).elements[elements:])
-
-
 def _output_tiles_batches_exist(output_tiles_batches, config):
     with Executor(concurrency="threads") as executor:
         for batch in executor.as_completed(
@@ -463,7 +471,7 @@ def _output_tiles_batch_exists(tiles, config):
         zoom = tiles[0].zoom
         # determine output paths
         output_paths = {
-            _crop_path(config.output_reader.get_path(output_tile)): output_tile
+            config.output_reader.get_path(output_tile).crop(-3): output_tile
             for output_tile in tiles
         }
         # iterate through output tile rows and determine existing output tiles
@@ -474,7 +482,7 @@ def _output_tiles_batch_exists(tiles, config):
         logger.debug("rowpath: %s", rowpath)
         try:
             for path in rowpath.ls(detail=False):
-                path = _crop_path(path)
+                path = path.crop(-3)
                 if path in output_paths:
                     existing_tiles.add(output_paths[path])
         # this happens when the row directory does not even exist
@@ -504,7 +512,7 @@ def _process_tiles_batch_exists(tiles, config):
         )
         # determine output paths
         output_paths = {
-            _crop_path(config.output_reader.get_path(output_tile)): process_tile
+            config.output_reader.get_path(output_tile).crop(-3): process_tile
             for process_tile in tiles
             for output_tile in config.output_pyramid.intersecting(process_tile)
         }
@@ -516,7 +524,7 @@ def _process_tiles_batch_exists(tiles, config):
             logger.debug("rowpath: %s", rowpath)
             try:
                 for path in rowpath.ls(detail=False):
-                    path = _crop_path(path)
+                    path = path.crop(-3)
                     if path in output_paths:
                         existing_tiles.add(output_paths[path])
             # this happens when the row directory does not even exist
@@ -531,23 +539,3 @@ def fs_from_path(path, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
     path = path if isinstance(path, MPath) else MPath(path, **kwargs)
     return path.fs
-
-
-def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
-    """Copy path from one place to the other."""
-    src_path = MPath(src_path, fs=src_fs)
-    dst_path = MPath(dst_path, fs=dst_fs)
-
-    if not overwrite and dst_path.fs.exists(dst_path):
-        raise IOError(f"{dst_path} already exists")
-
-    # create parent directories on local filesystems
-    dst_path.makedirs()
-
-    # copy either within a filesystem or between filesystems
-    if src_path.fs == dst_path.fs:
-        src_path.fs.copy(str(src_path), str(dst_path))
-    else:
-        with src_path.open("rb") as src:
-            with dst_path.open("wb") as dst:
-                dst.write(src.read())

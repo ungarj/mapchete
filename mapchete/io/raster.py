@@ -22,13 +22,12 @@ from typing import List, Tuple, Union
 import warnings
 
 from mapchete.errors import MapcheteIOError
-from mapchete.io import (
-    get_gdal_options,
+from mapchete.io import get_gdal_options, copy
+from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
+from mapchete.path import (
     fs_from_path,
-    copy,
     MPath,
 )
-from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.tile import BufferedTile
 from mapchete._timer import Timer
 from mapchete.validate import validate_write_window_params

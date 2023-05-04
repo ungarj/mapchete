@@ -15,8 +15,8 @@ from itertools import chain
 import warnings
 
 from mapchete.errors import NoGeoError, MapcheteIOError
-from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
-from mapchete.io._path import fs_from_path, path_exists, makedirs, copy, MPath
+from mapchete.io import copy
+from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.io._geometry_operations import (
     reproject_geometry,
     segmentize_geometry,
@@ -25,6 +25,7 @@ from mapchete.io._geometry_operations import (
     clean_geometry_type,
     _repair,
 )
+from mapchete.path import fs_from_path, path_exists, MPath
 from mapchete.types import Bounds
 from mapchete.validate import validate_bounds
 

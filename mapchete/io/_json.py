@@ -1,8 +1,7 @@
 import json
 import logging
-import os
 
-from mapchete.io._path import fs_from_path, path_exists, MPath
+from mapchete.path import MPath
 
 
 logger = logging.getLogger(__name__)

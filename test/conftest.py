@@ -26,6 +26,11 @@ TEMP_DIR = MPath(os.path.join(TESTDATA_DIR, "tmp"))
 S3_TEMP_DIR = MPath("s3://mapchete-test/tmp/" + uuid.uuid4().hex)
 
 
+@pytest.fixture()
+def testdata_dir():
+    return MPath(TESTDATA_DIR)
+
+
 # flask test app for mapchete serve
 @pytest.fixture
 def app(dem_to_hillshade, cleantopo_br, geobuf, geojson, mp_tmpdir):

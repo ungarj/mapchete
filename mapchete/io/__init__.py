@@ -5,15 +5,14 @@ from mapchete.io._json import (
     read_json,
 )
 from mapchete.io._misc import (
-    GDAL_HTTP_OPTS,
     get_best_zoom_level,
     get_segmentize_value,
     tile_to_zoom_level,
     get_boto3_bucket,
-    get_gdal_options,
-)
-from mapchete.io._path import (
     copy,
+)
+from mapchete.io.settings import GDAL_HTTP_OPTS, get_gdal_options
+from mapchete.path import (
     fs_from_path,
     path_is_remote,
     path_exists,
@@ -43,4 +42,5 @@ __all__ = [
     "read_json",
     "get_boto3_bucket",
     "get_gdal_options",
+    "MPath",
 ]
