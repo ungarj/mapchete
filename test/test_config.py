@@ -451,6 +451,7 @@ def test_custom_process(example_custom_process_mapchete):
         assert callable(mp.config.process_func)
 
 
+# pytest-env must be installed
 def test_env_params(env_storage_options_mapchete):
     with mapchete.open(env_storage_options_mapchete.dict) as mp:
         inp = mp.config.params_at_zoom(5)
