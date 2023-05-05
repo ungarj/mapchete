@@ -153,3 +153,13 @@ def test_ls(testdata_dir):
         assert isinstance(path, MPath)
     for path in testdata_dir.ls(detail=True):
         assert isinstance(path.get("name"), MPath)
+
+
+def test_protected_https():
+    # TODO
+    raise NotImplementedError()
+
+
+def test_s3():
+    # TODO
+    raise NotImplementedError()

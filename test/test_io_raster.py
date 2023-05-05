@@ -920,3 +920,47 @@ def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
             mp.execute(output_s3_single_gtiff_error.first_process_tile())
     # make sure no output has been written
     assert not path_exists(mp.config.output.path)
+
+
+def test_read_raster_no_crs_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_read_raster_window_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_read_raster_no_crs_s3_mock():
+    raise NotImplementedError()
+
+
+def test_read_raster_window_s3_mock():
+    raise NotImplementedError()
+
+
+def test_write_raster_window_s3_mock():
+    raise NotImplementedError()
+
+
+def test_rasterio_write_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_rasterio_write_s3_mock():
+    raise NotImplementedError()
+
+
+def test_convert_raster_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_convert_raster_s3_mock():
+    raise NotImplementedError()
+
+
+def test_read_raster_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_read_raster_s3_mock():
+    raise NotImplementedError()

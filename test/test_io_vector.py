@@ -593,3 +593,35 @@ def test_object_bounds_key_geometry():
     foo = {"geometry": mapping(box(*control))}
 
     assert object_bounds(foo) == (0, 1, 2, 3)
+
+
+def test_read_vector_window_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_read_vector_window_s3_mock():
+    raise NotImplementedError()
+
+
+def test_write_vector_window_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_write_vector_window_s3_mock():
+    raise NotImplementedError()
+
+
+def test_convert_vector_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_convert_vector_s3_mock():
+    raise NotImplementedError()
+
+
+def test_read_vector_protected_https_mock():
+    raise NotImplementedError()
+
+
+def test_read_vector_s3_mock():
+    raise NotImplementedError()
