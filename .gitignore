@@ -13,3 +13,4 @@ htmlcov/
 .env
 dask-worker-space/
 .vscode/
+*.minio.sys/

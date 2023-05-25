@@ -1,7 +1,7 @@
 """All pytest fixtures."""
 
-from collections import namedtuple
 import datetime
+from minio import Minio
 import os
 import pytest
 import rasterio
@@ -14,21 +14,43 @@ from tilematrix import Bounds, GridDefinition
 
 from mapchete.cli.default.serve import create_app
 from mapchete._executor import DaskExecutor
-from mapchete.io import fs_from_path, MPath
+from mapchete.io import copy, MPath
 from mapchete.io.vector import reproject_geometry
 from mapchete.testing import ProcessFixture
 from mapchete.tile import BufferedTilePyramid
 
+MINIO_TESTDATA_BUCKET = "testdata"
 
 SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
-TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata"))
-TEMP_DIR = MPath(os.path.join(TESTDATA_DIR, "tmp"))
-S3_TEMP_DIR = MPath("s3://mapchete-test/tmp/" + uuid.uuid4().hex)
+TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata/"))
+TEMP_DIR = MPath(os.path.join(TESTDATA_DIR, "tmp/"))
+
+
+def prepare_s3_testfile(bucket, testfile):
+    dst = bucket / testfile
+    if not dst.exists():
+        copy(TESTDATA_DIR / testfile, dst)
+    return dst
 
 
 @pytest.fixture()
 def testdata_dir():
-    return MPath(TESTDATA_DIR)
+    return TESTDATA_DIR
+
+
+@pytest.fixture()
+def minio_testdata_bucket():
+    key = "eecang7G"
+    secret = "Eashei2a"
+    endpoint_url = "localhost:9000"
+    minio = Minio(endpoint_url, access_key=key, secret_key=secret, secure=False)
+    if not minio.bucket_exists(MINIO_TESTDATA_BUCKET):
+        minio.make_bucket(MINIO_TESTDATA_BUCKET)
+    s3_testdata = MPath(
+        f"s3://{MINIO_TESTDATA_BUCKET}/",
+        fs_options=dict(endpoint_url=f"http://{endpoint_url}", key=key, secret=secret),
+    )
+    return s3_testdata
 
 
 # flask test app for mapchete serve
@@ -54,26 +76,26 @@ def app(dem_to_hillshade, cleantopo_br, geobuf, geojson, mp_tmpdir):
 @pytest.fixture(autouse=True)
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
-    shutil.rmtree(TEMP_DIR, ignore_errors=True)
-    os.makedirs(TEMP_DIR)
-    yield TEMP_DIR
-    shutil.rmtree(TEMP_DIR, ignore_errors=True)
+    temp_dir = TEMP_DIR / uuid.uuid4().hex
+    temp_dir.makedirs(until_parent=False)
+    yield temp_dir
+    TEMP_DIR.rm(recursive=True, ignore_errors=True)
 
 
 # temporary directory for I/O tests
 @pytest.fixture
-def mp_s3_tmpdir():
+def mp_s3_tmpdir(minio_testdata_bucket):
     """Setup and teardown temporary directory."""
-    fs = fs_from_path(S3_TEMP_DIR)
+    tempdir = minio_testdata_bucket / "tmp" / uuid.uuid4().hex
 
     def _cleanup():
         try:
-            fs.rm(str(S3_TEMP_DIR), recursive=True)
+            tempdir.rm(recursive=True)
         except FileNotFoundError:
             pass
 
     _cleanup()
-    yield S3_TEMP_DIR
+    yield tempdir
     _cleanup()
 
 
@@ -110,13 +132,13 @@ def s2_band():
     Original file:
     s3://sentinel-s2-l1c/tiles/33/T/WN/2016/4/3/0/B02.jp2
     """
-    return os.path.join(TESTDATA_DIR, "s2_band.tif")
+    return TESTDATA_DIR / "s2_band.tif"
 
 
 @pytest.fixture
 def s2_band_tile():
     tp = BufferedTilePyramid("geodetic")
-    with rasterio.open(os.path.join(TESTDATA_DIR, "s2_band.tif")) as src:
+    with rasterio.open(TESTDATA_DIR / "s2_band.tif") as src:
         rr_center = reproject_geometry(
             geometry=box(*src.bounds), src_crs=src.crs, dst_crs=tp.crs
         ).centroid
@@ -131,29 +153,29 @@ def s2_band_jp2():
     Original file:
     s3://sentinel-s2-l1c/tiles/33/T/WN/2016/4/3/0/B02.jp2
     """
-    return os.path.join(TESTDATA_DIR, "s2_band.jp2")
+    return TESTDATA_DIR / "s2_band.jp2"
 
 
 @pytest.fixture
-def s2_band_remote():
+def s2_band_remote(minio_testdata_bucket):
     """
     Fixture for remote file on S3 bucket.
     """
-    return "s3://mapchete-test/4band_test.tif"
+    return prepare_s3_testfile(minio_testdata_bucket, "4band_test.tif")
 
 
 @pytest.fixture
 def empty_gpkg():
     """Fixture for HTTP raster."""
-    return os.path.join(TESTDATA_DIR, "empty.gpkg")
+    return TESTDATA_DIR / "empty.gpkg"
 
 
 @pytest.fixture
-def s3_metadata_json():
+def s3_metadata_json(minio_testdata_bucket):
     """
     Fixture for s3://mapchete-test/metadata.json.
     """
-    return "s3://mapchete-test/metadata.json"
+    prepare_s3_testfile(minio_testdata_bucket, "metadata.json")
 
 
 @pytest.fixture
@@ -169,7 +191,7 @@ def old_style_metadata_json():
     """
     Fixture for old_style_metadata.json.
     """
-    return os.path.join(TESTDATA_DIR, "old_style_metadata.json")
+    return TESTDATA_DIR / "old_style_metadata.json"
 
 
 @pytest.fixture
@@ -177,7 +199,7 @@ def old_geodetic_shape_metadata_json():
     """
     Fixture for old_geodetic_shape_metadata.json.
     """
-    return os.path.join(TESTDATA_DIR, "old_geodetic_shape_metadata.json")
+    return TESTDATA_DIR / "old_geodetic_shape_metadata.json"
 
 
 @pytest.fixture
@@ -255,25 +277,25 @@ def driver_output_params_dict():
 @pytest.fixture
 def landpoly():
     """Fixture for landpoly.geojson."""
-    return os.path.join(TESTDATA_DIR, "landpoly.geojson")
+    return TESTDATA_DIR / "landpoly.geojson"
 
 
 @pytest.fixture
 def landpoly_3857():
     """Fixture for landpoly_3857.geojson"""
-    return os.path.join(TESTDATA_DIR, "landpoly_3857.geojson")
+    return TESTDATA_DIR / "landpoly_3857.geojson"
 
 
 @pytest.fixture
 def aoi_br_geojson():
     """Fixture for aoi_br.geojson"""
-    return os.path.join(TESTDATA_DIR, "aoi_br.geojson")
+    return TESTDATA_DIR / "aoi_br.geojson"
 
 
 @pytest.fixture
 def sample_geojson():
     """Fixture for sample.geojson"""
-    return os.path.join(TESTDATA_DIR, "sample.geojson")
+    return TESTDATA_DIR / "sample.geojson"
 
 
 @pytest.fixture
@@ -287,108 +309,114 @@ def geometrycollection():
 @pytest.fixture
 def cleantopo_br_tif():
     """Fixture for cleantopo_br.tif"""
-    return os.path.join(TESTDATA_DIR, "cleantopo_br.tif")
+    return TESTDATA_DIR / "cleantopo_br.tif"
+
+
+@pytest.fixture
+def cleantopo_br_tif_s3(minio_testdata_bucket):
+    """Fixture for cleantopo_br.tif"""
+    return prepare_s3_testfile(minio_testdata_bucket, "cleantopo_br.tif")
 
 
 @pytest.fixture
 def cleantopo_tl_tif():
     """Fixture for cleantopo_tl.tif"""
-    return os.path.join(TESTDATA_DIR, "cleantopo_tl.tif")
+    return TESTDATA_DIR / "cleantopo_tl.tif"
 
 
 @pytest.fixture
 def dummy1_3857_tif():
     """Fixture for dummy1_3857.tif"""
-    return os.path.join(TESTDATA_DIR, "dummy1_3857.tif")
+    return TESTDATA_DIR / "dummy1_3857.tif"
 
 
 @pytest.fixture
 def dummy1_tif():
     """Fixture for dummy1.tif"""
-    return os.path.join(TESTDATA_DIR, "dummy1.tif")
+    return TESTDATA_DIR / "dummy1.tif"
 
 
 @pytest.fixture
 def dummy2_tif():
     """Fixture for dummy2.tif"""
-    return os.path.join(TESTDATA_DIR, "dummy2.tif")
+    return TESTDATA_DIR / "dummy2.tif"
 
 
 @pytest.fixture
 def invalid_tif():
     """Fixture for invalid.tif"""
-    return os.path.join(TESTDATA_DIR, "invalid.tif")
+    return TESTDATA_DIR / "invalid.tif"
 
 
 @pytest.fixture
 def gcps_tif():
     """Fixture for gcps.tif"""
-    return os.path.join(TESTDATA_DIR, "gcps.tif")
+    return TESTDATA_DIR / "gcps.tif"
 
 
 @pytest.fixture
 def invalid_geojson():
     """Fixture for invalid.geojson"""
-    return os.path.join(TESTDATA_DIR, "invalid.geojson")
+    return TESTDATA_DIR / "invalid.geojson"
 
 
 @pytest.fixture
 def execute_kwargs_py():
     """Fixture for execute_kwargs.py"""
-    return os.path.join(TESTDATA_DIR, "execute_kwargs.py")
+    return TESTDATA_DIR / "execute_kwargs.py"
 
 
 @pytest.fixture
 def write_rasterfile_tags_py():
     """Fixture for write_rasterfile_tags.py"""
-    return os.path.join(TESTDATA_DIR, "write_rasterfile_tags.py")
+    return TESTDATA_DIR / "write_rasterfile_tags.py"
 
 
 @pytest.fixture
 def import_error_py():
     """Fixture for import_error.py"""
-    return os.path.join(TESTDATA_DIR, "import_error.py")
+    return TESTDATA_DIR / "import_error.py"
 
 
 @pytest.fixture
 def malformed_py():
     """Fixture for malformed.py"""
-    return os.path.join(TESTDATA_DIR, "malformed.py")
+    return TESTDATA_DIR / "malformed.py"
 
 
 @pytest.fixture
 def syntax_error_py():
     """Fixture for syntax_error.py"""
-    return os.path.join(TESTDATA_DIR, "syntax_error.py")
+    return TESTDATA_DIR / "syntax_error.py"
 
 
 @pytest.fixture
 def execute_params_error_py():
     """Fixture for execute_params_error.py"""
-    return os.path.join(TESTDATA_DIR, "execute_params_error.py")
+    return TESTDATA_DIR / "execute_params_error.py"
 
 
 @pytest.fixture
 def process_error_py():
     """Fixture for process_error.py"""
-    return os.path.join(TESTDATA_DIR, "process_error.py")
+    return TESTDATA_DIR / "process_error.py"
 
 
 @pytest.fixture
 def output_error_py():
     """Fixture for output_error.py"""
-    return os.path.join(TESTDATA_DIR, "output_error.py")
+    return TESTDATA_DIR / "output_error.py"
 
 
 @pytest.fixture
 def old_style_process_py():
     """Fixture for old_style_process.py"""
-    return os.path.join(TESTDATA_DIR, "old_style_process.py")
+    return TESTDATA_DIR / "old_style_process.py"
 
 
 @pytest.fixture
 def custom_grid_json():
-    return os.path.join(TESTDATA_DIR, "custom_grid.json")
+    return TESTDATA_DIR / "custom_grid.json"
 
 
 # example mapchete configurations
@@ -396,7 +424,7 @@ def custom_grid_json():
 def custom_grid():
     """Fixture for custom_grid.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "custom_grid.mapchete"),
+        TESTDATA_DIR / "custom_grid.mapchete",
     ) as example:
         yield example
 
@@ -405,7 +433,7 @@ def custom_grid():
 def deprecated_params():
     """Fixture for deprecated_params.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "deprecated_params.mapchete"),
+        TESTDATA_DIR / "deprecated_params.mapchete",
     ) as example:
         yield example
 
@@ -414,7 +442,7 @@ def deprecated_params():
 def files_zooms():
     """Fixture for files_zooms.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "files_zooms.mapchete"),
+        TESTDATA_DIR / "files_zooms.mapchete",
     ) as example:
         yield example
 
@@ -423,7 +451,7 @@ def files_zooms():
 def file_groups():
     """Fixture for file_groups.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "file_groups.mapchete"),
+        TESTDATA_DIR / "file_groups.mapchete",
     ) as example:
         yield example
 
@@ -432,7 +460,7 @@ def file_groups():
 def overviews():
     """Fixture for overviews.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "overviews.mapchete"),
+        TESTDATA_DIR / "overviews.mapchete",
     ) as example:
         yield example
 
@@ -441,7 +469,7 @@ def overviews():
 def baselevels():
     """Fixture for baselevels.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "baselevels.mapchete"),
+        TESTDATA_DIR / "baselevels.mapchete",
     ) as example:
         yield example
 
@@ -450,7 +478,7 @@ def baselevels():
 def baselevels_output_buffer():
     """Fixture for baselevels_output_buffer.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "baselevels_output_buffer.mapchete"),
+        TESTDATA_DIR / "baselevels_output_buffer.mapchete",
     ) as example:
         yield example
 
@@ -459,7 +487,7 @@ def baselevels_output_buffer():
 def baselevels_custom_nodata():
     """Fixture for baselevels_custom_nodata.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "baselevels_custom_nodata.mapchete"),
+        TESTDATA_DIR / "baselevels_custom_nodata.mapchete",
     ) as example:
         yield example
 
@@ -468,7 +496,7 @@ def baselevels_custom_nodata():
 def mapchete_input():
     """Fixture for mapchete_input.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "mapchete_input.mapchete"),
+        TESTDATA_DIR / "mapchete_input.mapchete",
     ) as example:
         yield example
 
@@ -477,7 +505,7 @@ def mapchete_input():
 def dem_to_hillshade():
     """Fixture for dem_to_hillshade.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "dem_to_hillshade.mapchete"),
+        TESTDATA_DIR / "dem_to_hillshade.mapchete",
     ) as example:
         yield example
 
@@ -486,7 +514,7 @@ def dem_to_hillshade():
 def files_bounds():
     """Fixture for files_bounds.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "files_bounds.mapchete"),
+        TESTDATA_DIR / "files_bounds.mapchete",
     ) as example:
         yield example
 
@@ -495,7 +523,7 @@ def files_bounds():
 def example_mapchete():
     """Fixture for example.mapchete."""
     with ProcessFixture(
-        os.path.join(SCRIPT_DIR, "example.mapchete"),
+        SCRIPT_DIR / "example.mapchete",
     ) as example:
         yield example
 
@@ -504,7 +532,7 @@ def example_mapchete():
 def env_storage_options_mapchete():
     """Fixture for env_storage_options.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "env_storage_options.mapchete"),
+        TESTDATA_DIR / "env_storage_options.mapchete",
     ) as example:
         yield example
 
@@ -513,7 +541,7 @@ def env_storage_options_mapchete():
 def example_custom_process_mapchete():
     """Fixture for example.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "example_custom_process.mapchete"),
+        TESTDATA_DIR / "example_custom_process.mapchete",
     ) as example:
         yield example
 
@@ -522,7 +550,7 @@ def example_custom_process_mapchete():
 def zoom_mapchete():
     """Fixture for zoom.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "zoom.mapchete"),
+        TESTDATA_DIR / "zoom.mapchete",
     ) as example:
         yield example
 
@@ -531,7 +559,7 @@ def zoom_mapchete():
 def minmax_zoom():
     """Fixture for minmax_zoom.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "minmax_zoom.mapchete"),
+        TESTDATA_DIR / "minmax_zoom.mapchete",
     ) as example:
         yield example
 
@@ -540,7 +568,7 @@ def minmax_zoom():
 def cleantopo_tl():
     """Fixture for cleantopo_tl.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "cleantopo_tl.mapchete"),
+        TESTDATA_DIR / "cleantopo_tl.mapchete",
     ) as example:
         yield example
 
@@ -549,7 +577,7 @@ def cleantopo_tl():
 def cleantopo_br():
     """Fixture for cleantopo_br.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "cleantopo_br.mapchete"),
+        TESTDATA_DIR / "cleantopo_br.mapchete",
     ) as example:
         yield example
 
@@ -558,7 +586,7 @@ def cleantopo_br():
 def cleantopo_br_metatiling_1():
     """Fixture for cleantopo_br.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "cleantopo_br_metatiling_1.mapchete"),
+        TESTDATA_DIR / "cleantopo_br_metatiling_1.mapchete",
     ) as example:
         yield example
 
@@ -567,7 +595,7 @@ def cleantopo_br_metatiling_1():
 def cleantopo_remote():
     """Fixture for cleantopo_remote.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "cleantopo_remote.mapchete"),
+        TESTDATA_DIR / "cleantopo_remote.mapchete",
     ) as example:
         yield example
 
@@ -576,7 +604,7 @@ def cleantopo_remote():
 def cleantopo_br_tiledir():
     """Fixture for cleantopo_br_tiledir.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "cleantopo_br_tiledir.mapchete"),
+        TESTDATA_DIR / "cleantopo_br_tiledir.mapchete",
     ) as example:
         yield example
 
@@ -585,7 +613,7 @@ def cleantopo_br_tiledir():
 def cleantopo_br_tiledir_mercator():
     """Fixture for cleantopo_br_tiledir_mercator.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "cleantopo_br_tiledir_mercator.mapchete"),
+        TESTDATA_DIR / "cleantopo_br_tiledir_mercator.mapchete",
     ) as example:
         yield example
 
@@ -594,7 +622,7 @@ def cleantopo_br_tiledir_mercator():
 def cleantopo_br_mercator():
     """Fixture for cleantopo_br_mercator.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "cleantopo_br_mercator.mapchete"),
+        TESTDATA_DIR / "cleantopo_br_mercator.mapchete",
     ) as example:
         yield example
 
@@ -603,17 +631,17 @@ def cleantopo_br_mercator():
 def geojson():
     """Fixture for geojson.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "geojson.mapchete"),
+        TESTDATA_DIR / "geojson.mapchete",
     ) as example:
         yield example
 
 
 @pytest.fixture
-def geojson_s3():
+def geojson_s3(mp_s3_tmpdir):
     """Fixture for geojson.mapchete with updated output path."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "geojson.mapchete"),
-        output_tempdir=S3_TEMP_DIR,
+        TESTDATA_DIR / "geojson.mapchete",
+        output_tempdir=mp_s3_tmpdir,
     ) as example:
         yield example
 
@@ -622,17 +650,17 @@ def geojson_s3():
 def geobuf():
     """Fixture for geobuf.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "geobuf.mapchete"),
+        TESTDATA_DIR / "geobuf.mapchete",
     ) as example:
         yield example
 
 
 @pytest.fixture
-def geobuf_s3():
+def geobuf_s3(mp_s3_tmpdir):
     """Fixture for geobuf.mapchete with updated output path."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "geobuf.mapchete"),
-        output_tempdir=S3_TEMP_DIR,
+        TESTDATA_DIR / "geobuf.mapchete",
+        output_tempdir=mp_s3_tmpdir,
     ) as example:
         yield example
 
@@ -641,17 +669,17 @@ def geobuf_s3():
 def flatgeobuf():
     """Fixture for flatgeobuf.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "flatgeobuf.mapchete"),
+        TESTDATA_DIR / "flatgeobuf.mapchete",
     ) as example:
         yield example
 
 
 @pytest.fixture
-def flatgeobuf_s3():
+def flatgeobuf_s3(mp_s3_tmpdir):
     """Fixture for flatgeobuf.mapchete with updated output path."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "flatgeobuf.mapchete"),
-        output_tempdir=S3_TEMP_DIR,
+        TESTDATA_DIR / "flatgeobuf.mapchete",
+        output_tempdir=mp_s3_tmpdir,
     ) as example:
         yield example
 
@@ -660,7 +688,7 @@ def flatgeobuf_s3():
 def geojson_tiledir():
     """Fixture for geojson_tiledir.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "geojson_tiledir.mapchete"),
+        TESTDATA_DIR / "geojson_tiledir.mapchete",
     ) as example:
         yield example
 
@@ -669,17 +697,17 @@ def geojson_tiledir():
 def process_module():
     """Fixture for process_module.mapchete"""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "process_module.mapchete"),
+        TESTDATA_DIR / "process_module.mapchete",
     ) as example:
         yield example
 
 
 @pytest.fixture
-def gtiff_s3():
+def gtiff_s3(mp_s3_tmpdir):
     """Fixture for gtiff_s3.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "gtiff_s3.mapchete"),
-        output_tempdir=S3_TEMP_DIR,
+        TESTDATA_DIR / "gtiff_s3.mapchete",
+        output_tempdir=mp_s3_tmpdir,
     ) as example:
         yield example
 
@@ -688,28 +716,28 @@ def gtiff_s3():
 def output_single_gtiff():
     """Fixture for output_single_gtiff.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "output_single_gtiff.mapchete"),
+        TESTDATA_DIR / "output_single_gtiff.mapchete",
     ) as example:
         yield example
 
 
 @pytest.fixture(scope="function")
-def output_s3_single_gtiff_error():
+def output_s3_single_gtiff_error(mp_s3_tmpdir):
     """Fixture for output_s3_single_gtiff_error.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "output_s3_single_gtiff_error.mapchete"),
-        output_tempdir=S3_TEMP_DIR,
+        TESTDATA_DIR / "output_s3_single_gtiff_error.mapchete",
+        output_tempdir=mp_s3_tmpdir,
         output_suffix=".tif",
     ) as example:
         yield example
 
 
 @pytest.fixture
-def output_single_gtiff_s3():
+def output_single_gtiff_s3(mp_s3_tmpdir):
     """Fixture for output_single_gtiff.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "output_single_gtiff.mapchete"),
-        output_tempdir=S3_TEMP_DIR,
+        TESTDATA_DIR / "output_single_gtiff.mapchete",
+        output_tempdir=mp_s3_tmpdir,
         output_suffix=".tif",
     ) as example:
         yield example
@@ -719,17 +747,17 @@ def output_single_gtiff_s3():
 def output_single_gtiff_cog():
     """Fixture for output_single_gtiff_cog.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "output_single_gtiff_cog.mapchete"),
+        TESTDATA_DIR / "output_single_gtiff_cog.mapchete",
     ) as example:
         yield example
 
 
 @pytest.fixture
-def output_single_gtiff_cog_s3():
+def output_single_gtiff_cog_s3(mp_s3_tmpdir):
     """Fixture for output_single_gtiff_cog.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "output_single_gtiff_cog.mapchete"),
-        output_tempdir=S3_TEMP_DIR,
+        TESTDATA_DIR / "output_single_gtiff_cog.mapchete",
+        output_tempdir=mp_s3_tmpdir,
         output_suffix=".tif",
     ) as example:
         yield example
@@ -739,7 +767,7 @@ def output_single_gtiff_cog_s3():
 def aoi_br():
     """Fixture for aoi_br.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "aoi_br.mapchete"),
+        TESTDATA_DIR / "aoi_br.mapchete",
     ) as example:
         yield example
 
@@ -748,7 +776,7 @@ def aoi_br():
 def preprocess_cache_raster_vector():
     """Fixture for preprocess_cache_raster_vector.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "preprocess_cache_raster_vector.mapchete"),
+        TESTDATA_DIR / "preprocess_cache_raster_vector.mapchete",
     ) as example:
         yield example
 
@@ -757,7 +785,7 @@ def preprocess_cache_raster_vector():
 def preprocess_cache_memory():
     """Fixture for preprocess_cache_memory.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "preprocess_cache_memory.mapchete"),
+        TESTDATA_DIR / "preprocess_cache_memory.mapchete",
     ) as example:
         yield example
 
@@ -766,7 +794,7 @@ def preprocess_cache_memory():
 def preprocess_cache_memory_single_file():
     """Fixture for preprocess_cache_memory_single_file.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "preprocess_cache_memory_single_file.mapchete"),
+        TESTDATA_DIR / "preprocess_cache_memory_single_file.mapchete",
     ) as example:
         yield example
 
@@ -775,7 +803,7 @@ def preprocess_cache_memory_single_file():
 def custom_grid_points():
     """Fixture for custom_grid_points.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "custom_grid_points.mapchete"),
+        TESTDATA_DIR / "custom_grid_points.mapchete",
     ) as example:
         yield example
 
@@ -784,7 +812,7 @@ def custom_grid_points():
 def stac_metadata():
     """Fixture for stac_metadata.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "stac_metadata.mapchete"),
+        TESTDATA_DIR / "stac_metadata.mapchete",
     ) as example:
         yield example
 
@@ -793,7 +821,7 @@ def stac_metadata():
 def red_raster():
     """Fixture for red_raster.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "red_raster.mapchete"),
+        TESTDATA_DIR / "red_raster.mapchete",
     ) as example:
         yield example
 
@@ -802,7 +830,7 @@ def red_raster():
 def green_raster():
     """Fixture for green_raster.mapchete."""
     with ProcessFixture(
-        os.path.join(TESTDATA_DIR, "green_raster.mapchete"),
+        TESTDATA_DIR / "green_raster.mapchete",
     ) as example:
         yield example
 

@@ -197,7 +197,7 @@ def read_raster_window(
         raise ValueError("no input given")
     try:
         with rasterio.Env(
-            **input_files[0].rasterio_env(gdal_opts),
+            **input_files[0].rio_env(gdal_opts),
         ) as env:
             logger.debug(
                 "reading %s file(s) with GDAL options %s", len(input_files), env.options
@@ -527,7 +527,7 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
             warnings.simplefilter("ignore")
             try:
                 with rasterio.Env(
-                    **input_file.rasterio_env(
+                    **input_file.rio_env(
                         gdal_opts, allowed_remote_extensions=input_file.suffix
                     )
                 ) as env:
@@ -1251,6 +1251,7 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs : mapping
         Creation parameters passed on to output file.
     """
+    inp = MPath(inp)
     out = MPath(out)
     if out.exists():
         if not exists_ok:
@@ -1261,21 +1262,24 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs = kwargs or {}
     if kwargs:
         logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
-        with rasterio.open(inp, "r") as src:
-            out.makedirs()
-            with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
-                dst.write(src.read())
+        with rasterio.Env(**inp.rio_env()):
+            with rasterio.open(inp, "r") as src:
+                out.makedirs()
+                with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
+                    dst.write(src.read())
     else:
         logger.debug("copy %s to %s", inp, (out))
         copy(inp, out, overwrite=overwrite)
 
 
 def read_raster(inp, **kwargs):
-    logger.debug("reading {inp} into memory")
-    with rasterio.open(inp, "r") as src:
-        return ReferencedRaster(
-            data=src.read(masked=True),
-            affine=src.transform,
-            bounds=src.bounds,
-            crs=src.crs,
-        )
+    inp = MPath(inp)
+    logger.debug(f"reading {str(inp)} into memory")
+    with rasterio.Env(**inp.rio_env()):
+        with rasterio.open(inp, "r") as src:
+            return ReferencedRaster(
+                data=src.read(masked=True),
+                affine=src.transform,
+                bounds=src.bounds,
+                crs=src.crs,
+            )

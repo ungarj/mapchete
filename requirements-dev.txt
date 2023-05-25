@@ -1,6 +1,7 @@
 black
 coveralls
 flake8
+minio
 pre-commit
 pytest
 pytest-cov

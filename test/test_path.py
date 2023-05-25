@@ -155,11 +155,16 @@ def test_ls(testdata_dir):
         assert isinstance(path.get("name"), MPath)
 
 
-def test_protected_https():
+def test_io_protected_https():
     # TODO
     raise NotImplementedError()
 
 
-def test_s3():
-    # TODO
-    raise NotImplementedError()
+def test_io_s3(mp_s3_tmpdir):
+    testfile = mp_s3_tmpdir / "bar.txt"
+    assert not testfile.exists()
+    with testfile.open("w") as dst:
+        dst.write("test text")
+    assert testfile.exists()
+    with testfile.open("r") as src:
+        assert src.read() == "test text"

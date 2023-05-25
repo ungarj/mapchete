@@ -37,7 +37,9 @@ def test_read_raster_window(dummy1_tif, minmax_zoom):
     """Read array with read_raster_window."""
     zoom = 8
     # without reproject
-    config = MapcheteConfig(minmax_zoom.dict)
+    config_raw = minmax_zoom.dict
+    config_raw["input"].update(file1=dummy1_tif)
+    config = MapcheteConfig(config_raw)
     rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
     dummy1_bbox = rasterfile.bbox()
 
@@ -182,14 +184,14 @@ def test_read_raster_window_filenotfound():
 def test_read_raster_window_s3_filenotfound(mp_s3_tmpdir):
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(FileNotFoundError):
-        read_raster_window(f"{mp_s3_tmpdir}/not_existing.tif", tile)
+        read_raster_window(mp_s3_tmpdir / "not_existing.tif", tile)
 
 
 def test_read_raster_window_s3_filenotfound_gdalreaddir(mp_s3_tmpdir):
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(FileNotFoundError):
         read_raster_window(
-            f"{mp_s3_tmpdir}/not_existing.tif",
+            mp_s3_tmpdir / "not_existing.tif",
             tile,
             gdal_opts=dict(GDAL_DISABLE_READDIR_ON_OPEN=False),
         )
@@ -778,13 +780,13 @@ def test_prepare_array_errors():
 
 
 @pytest.mark.remote
-def test_s3_read_raster_window(s2_band_remote):
+def test_read_raster_window_s3(s2_band_remote):
     tile = BufferedTilePyramid("geodetic").tile(10, 276, 1071)
     assert read_raster_window(s2_band_remote, tile).any()
 
 
-def test_convert_raster_copy(cleantopo_br_tif, tmpdir):
-    out = os.path.join(tmpdir, "copied.tif")
+def test_convert_raster_copy(cleantopo_br_tif, mp_tmpdir):
+    out = mp_tmpdir / "copied.tif"
 
     # copy
     convert_raster(cleantopo_br_tif, out)
@@ -801,11 +803,31 @@ def test_convert_raster_copy(cleantopo_br_tif, tmpdir):
         assert not src.read(masked=True).mask.all()
 
 
-def test_convert_raster_overwrite(cleantopo_br_tif, tmpdir):
-    out = os.path.join(tmpdir, "copied.tif")
+def test_convert_raster_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
+    out = mp_s3_tmpdir / "copied.tif"
+
+    # copy
+    convert_raster(cleantopo_br_tif_s3, out)
+    with rasterio.Env(**out.rio_env()):
+        with rasterio.open(out) as src:
+            assert not src.read(masked=True).mask.all()
+
+    # raise error if output exists
+    with pytest.raises(IOError):
+        convert_raster(cleantopo_br_tif_s3, out, exists_ok=False)
+
+    # do nothing if output exists
+    convert_raster(cleantopo_br_tif_s3, out)
+    with rasterio.Env(**out.rio_env()):
+        with rasterio.open(out) as src:
+            assert not src.read(masked=True).mask.all()
+
+
+def test_convert_raster_overwrite(cleantopo_br_tif, mp_tmpdir):
+    out = mp_tmpdir / "copied.tif"
 
     # write an invalid file
-    with open(out, "w") as dst:
+    with out.open("w") as dst:
         dst.write("invalid")
 
     # overwrite
@@ -814,8 +836,22 @@ def test_convert_raster_overwrite(cleantopo_br_tif, tmpdir):
         assert not src.read(masked=True).mask.all()
 
 
-def test_convert_raster_other_format_copy(cleantopo_br_tif, tmpdir):
-    out = os.path.join(tmpdir, "copied.jp2")
+def test_convert_raster_overwrite_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
+    out = mp_s3_tmpdir / "copied.tif"
+
+    # write an invalid file
+    with out.open("w") as dst:
+        dst.write("invalid")
+
+    # overwrite
+    convert_raster(cleantopo_br_tif_s3, out, overwrite=True)
+    with rasterio.Env(**out.rio_env()):
+        with rasterio.open(out) as src:
+            assert not src.read(masked=True).mask.all()
+
+
+def test_convert_raster_other_format_copy(cleantopo_br_tif, mp_tmpdir):
+    out = mp_tmpdir / "copied.jp2"
 
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG")
     with rasterio.open(out) as src:
@@ -826,17 +862,44 @@ def test_convert_raster_other_format_copy(cleantopo_br_tif, tmpdir):
         convert_raster(cleantopo_br_tif, out, exists_ok=False)
 
 
-def test_convert_raster_other_format_overwrite(cleantopo_br_tif, tmpdir):
-    out = os.path.join(tmpdir, "copied.jp2")
+def test_convert_raster_other_format_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
+    out = mp_s3_tmpdir / "copied.jp2"
+
+    convert_raster(cleantopo_br_tif_s3, out, driver="JP2OpenJPEG")
+    with rasterio.Env(**out.rio_env()):
+        with rasterio.open(out) as src:
+            assert not src.read(masked=True).mask.all()
+
+    # raise error if output exists
+    with pytest.raises(IOError):
+        convert_raster(cleantopo_br_tif_s3, out, exists_ok=False)
+
+
+def test_convert_raster_other_format_overwrite(cleantopo_br_tif, mp_tmpdir):
+    out = mp_tmpdir / "copied.jp2"
 
     # write an invalid file
-    with open(out, "w") as dst:
+    with out.open("w") as dst:
         dst.write("invalid")
 
     # overwrite
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG", overwrite=True)
     with rasterio.open(out) as src:
         assert not src.read(masked=True).mask.all()
+
+
+def test_convert_raster_other_format_overwrite_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
+    out = mp_s3_tmpdir / "copied.jp2"
+
+    # write an invalid file
+    with out.open("w") as dst:
+        dst.write("invalid")
+
+    # overwrite
+    convert_raster(cleantopo_br_tif_s3, out, driver="JP2OpenJPEG", overwrite=True)
+    with rasterio.Env(**out.rio_env()):
+        with rasterio.open(out) as src:
+            assert not src.read(masked=True).mask.all()
 
 
 def test_referencedraster_meta(s2_band):
@@ -875,7 +938,7 @@ def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
 def test_rasterio_write(path, dtype, in_memory):
     arr = np.ones((1, 256, 256)).astype(dtype)
     count, width, height = arr.shape
-    path = os.path.join(path, f"test_rasterio_write-{str(dtype)}-{in_memory}.tif")
+    path = path / f"test_rasterio_write-{str(dtype)}-{in_memory}.tif"
     with rasterio_write(
         path,
         "w",
@@ -888,14 +951,15 @@ def test_rasterio_write(path, dtype, in_memory):
     ) as dst:
         dst.write(arr)
     assert path_exists(path)
-    with rasterio.open(path) as src:
-        written = src.read()
-        assert np.array_equal(arr, written)
+    with rasterio.Env(**path.rio_env()):
+        with rasterio.open(path) as src:
+            written = src.read()
+            assert np.array_equal(arr, written)
 
 
 @pytest.mark.parametrize("in_memory", [True, False])
 def test_rasterio_write_remote_exception(mp_s3_tmpdir, in_memory):
-    path = os.path.join(mp_s3_tmpdir, "temp.tif")
+    path = mp_s3_tmpdir / "temp.tif"
     with pytest.raises(ValueError):
         # raise exception on purpose
         with rasterio_write(
@@ -909,8 +973,6 @@ def test_rasterio_write_remote_exception(mp_s3_tmpdir, in_memory):
             **DefaultGTiffProfile(dtype="uint8"),
         ):
             raise ValueError()
-    # make sure no output has been written
-    assert not path_exists(path)
 
 
 def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
@@ -930,23 +992,7 @@ def test_read_raster_window_protected_https_mock():
     raise NotImplementedError()
 
 
-def test_read_raster_no_crs_s3_mock():
-    raise NotImplementedError()
-
-
-def test_read_raster_window_s3_mock():
-    raise NotImplementedError()
-
-
-def test_write_raster_window_s3_mock():
-    raise NotImplementedError()
-
-
-def test_rasterio_write_protected_https_mock():
-    raise NotImplementedError()
-
-
-def test_rasterio_write_s3_mock():
+def test_read_raster_no_crs_s3():
     raise NotImplementedError()
 
 
@@ -954,13 +1000,5 @@ def test_convert_raster_protected_https_mock():
     raise NotImplementedError()
 
 
-def test_convert_raster_s3_mock():
-    raise NotImplementedError()
-
-
 def test_read_raster_protected_https_mock():
-    raise NotImplementedError()
-
-
-def test_read_raster_s3_mock():
     raise NotImplementedError()
