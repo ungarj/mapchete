@@ -22,6 +22,34 @@ deviating from global process settings) can be set.
 Default formats can also read and write from and to S3 Object Storages. This is simply
 achieved by providing the full S3 path, i.e. ``s3://my_output_bucket/process_output``.
 
+Storage specific settings can be provided in a `storage_options` mapping either by directly
+inserting the values or pointing to environment variables for increased security:
+
+**Example:**
+
+.. code-block:: yaml
+
+    output:
+        type: geodetic
+        format: GTiff
+        metatiling: 4  # optional
+        pixelbuffer: 10  # optional
+        storage_options:
+            AWS_ACCESS_KEY_ID: some_key_id
+            AWS_SECRET_ACCESS_KEY: some_key_secret
+
+
+.. code-block:: yaml
+
+    output:
+        type: geodetic
+        format: GTiff
+        metatiling: 4  # optional
+        pixelbuffer: 10  # optional
+        storage_options:
+            AWS_ACCESS_KEY_ID: ${SOME_KEY_ID}
+            AWS_SECRET_ACCESS_KEY: ${SOME_KEY_SECRET}
+
 
 ----------------------
 Default output formats
