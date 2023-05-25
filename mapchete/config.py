@@ -1042,7 +1042,8 @@ def initialize_inputs(
                 if "path" in abstract:
                     abstract.update(
                         path=MPath(
-                            abstract["path"], **v.get("fs_opts", {})
+                            abstract["path"],
+                            **v.get("fs_opts", v.get("storage_options", {})),
                         ).absolute_path(config_dir)
                     )
                 reader = load_input_reader(
