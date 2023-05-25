@@ -1,0 +1,15 @@
+version: "3.6"
+services:
+  minio:
+    image: minio/minio
+    environment:
+      MINIO_ACCESS_KEY: eecang7G
+      MINIO_SECRET_KEY: Eashei2a
+    # volumes:
+    #   - type: bind
+    #     source: ./testdata
+    #     target: /data
+    ports:
+     - "9000:9000"
+    command:
+      ['server', '/data']
