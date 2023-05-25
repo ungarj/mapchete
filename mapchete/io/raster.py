@@ -196,7 +196,9 @@ def read_raster_window(
     if len(input_files) == 0:  # pragma: no cover
         raise ValueError("no input given")
     try:
-        with rasterio.Env(**input_files[0].gdal_env_params(gdal_opts)) as env:
+        with rasterio.Env(
+            **input_files[0].rasterio_env(gdal_opts),
+        ) as env:
             logger.debug(
                 "reading %s file(s) with GDAL options %s", len(input_files), env.options
             )
@@ -213,6 +215,7 @@ def read_raster_window(
     except FileNotFoundError:  # pragma: no cover
         raise
     except Exception as e:  # pragma: no cover
+        logger.exception(e)
         raise MapcheteIOError(e)
 
 
@@ -524,11 +527,9 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
             warnings.simplefilter("ignore")
             try:
                 with rasterio.Env(
-                    **get_gdal_options(
-                        gdal_opts,
-                        is_remote=input_file.is_remote(),
-                        allowed_remote_extensions=input_file.suffix,
-                    ),
+                    **input_file.rasterio_env(
+                        gdal_opts, allowed_remote_extensions=input_file.suffix
+                    )
                 ) as env:
                     logger.debug(
                         "reading %s with GDAL options %s", str(input_file), env.options
@@ -551,7 +552,9 @@ def _extract_filenotfound_exception(rio_exc, path):
     """
     Extracts and raises FileNotFoundError from RasterioIOError if applicable.
     """
-    filenotfound_msg = f"{str(path)} not found and cannot be opened with rasterio"
+    filenotfound_msg = (
+        f"{str(path)} not found and cannot be opened with rasterio: {str(rio_exc)}"
+    )
     # rasterio errors which indicate file does not exist
     for i in (
         "does not exist in the file system",

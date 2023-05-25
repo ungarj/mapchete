@@ -4,6 +4,7 @@ from collections import defaultdict
 from functools import cached_property
 import logging
 import os
+from rasterio.session import Session
 from typing import Union
 
 import fsspec
@@ -105,6 +106,13 @@ class MPath(os.PathLike):
             return fsspec.filesystem("file", **self._fs_options)
 
     @cached_property
+    def session(self):
+        if hasattr(self.fs, "session"):
+            return self.fs.session
+        else:
+            return None
+
+    @cached_property
     def protocols(self) -> set:
         """Return set of filesystem protocols."""
         if isinstance(self.fs.protocol, str):
@@ -196,11 +204,11 @@ class MPath(os.PathLike):
         with self.open() as src:
             return src.read()
 
-    def makedirs(self) -> None:
+    def makedirs(self, exist_ok=True) -> None:
         """Create all parent directories for path."""
         # create parent directories on local filesystems
         if self.fs.protocol == "file":
-            self.fs.makedirs(self.dirname, exist_ok=True)
+            self.fs.makedirs(self.dirname, exist_ok=exist_ok)
 
     def ls(self, detail=False):
         if detail:
@@ -213,6 +221,9 @@ class MPath(os.PathLike):
             return [
                 self.new(path) for path in self.fs.ls(self._path_str, detail=detail)
             ]
+
+    def rm(self, recursive=False):
+        self.fs.rm(str(self), recursive=recursive)
 
     def joinpath(self, *other) -> "MPath":
         """Join path with other."""
@@ -260,6 +271,44 @@ class MPath(os.PathLike):
             gdal_opts = user_opts
         logger.debug("using GDAL options: %s", gdal_opts)
         return gdal_opts
+
+    def rasterio_env(self, opts=None, allowed_remote_extensions=None):
+        out = self.gdal_env_params(
+            opts=opts, allowed_remote_extensions=allowed_remote_extensions
+        )
+        if self.session:
+            try:
+                from aiobotocore.session import AioSession
+
+                if isinstance(self.session, AioSession):
+                    kwargs = dict(
+                        aws_access_key_id=self.session._credentials.access_key,
+                        aws_secret_access_key=self.session._credentials.secret_key,
+                        **{
+                            k: v
+                            for k, v in self.fs.storage_options.get(
+                                "client_kwargs", {}
+                            ).items()
+                            if k
+                            in [
+                                "region_name",
+                                "profile_name",
+                                "endpoint_url",
+                                "requester_pays",
+                            ]
+                        },
+                    )
+                    endpoint_url = kwargs.pop("endpoint_url")
+                    if endpoint_url:
+                        kwargs["aws_s3_endpoint"] = (
+                            endpoint_url.lstrip("http://")
+                            .lstrip("https://")
+                            .rstrip("/")
+                        )
+                    out.update(kwargs, AWS_VIRTUAL_HOSTING=False)
+            except ImportError:
+                pass
+        return out
 
     def __truediv__(self, other) -> "MPath":
         """Short for self.joinpath()."""
