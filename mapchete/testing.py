@@ -23,7 +23,12 @@ def dict_from_mapchete(path):
     """
     path = MPath(path)
     with path.open() as src:
-        return dict(yaml.safe_load(src.read()), config_dir=path.dirname)
+        out = dict(yaml.safe_load(src.read()), config_dir=path.dirname)
+        if "config_dir" in out:
+            out["config_dir"] = MPath(out["config_dir"])
+        elif "path" in out.get("output", {}):
+            out["output"]["path"] = MPath(out["output"]["path"])
+    return out
 
 
 class ProcessFixture:

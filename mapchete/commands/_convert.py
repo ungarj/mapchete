@@ -188,11 +188,10 @@ def convert(
         raise ValueError(e)
 
     if (
-        isinstance(output_pyramid, str)
+        isinstance(output_pyramid, (str, MPath))
         and output_pyramid not in tilematrix._conf.PYRAMID_PARAMS.keys()
     ):
-        with fs_from_path(output_pyramid).open(output_pyramid) as src:
-            output_pyramid = json.loads(src.read())
+        output_pyramid = json.loads(MPath(output_pyramid).read_text())
 
     # collect mapchete configuration
     mapchete_config = dict(

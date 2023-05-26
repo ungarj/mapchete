@@ -239,7 +239,7 @@ class MPath(os.PathLike):
 
     def joinpath(self, *other) -> "MPath":
         """Join path with other."""
-        return self.new(os.path.join(self._path_str, *other))
+        return self.new(os.path.join(self._path_str, *list(map(str, other))))
 
     def as_gdal_str(self) -> str:
         """Return path as GDAL VSI string."""
@@ -320,7 +320,10 @@ class MPath(os.PathLike):
         return self.new(str(self) + other)
 
     def __eq__(self, other):
-        return hash(self) == hash(MPath(other))
+        if isinstance(other, str):
+            return str(self) == other
+        else:
+            return hash(self) == hash(MPath(other))
 
     def __gt__(self, other):  # pragma: no cover
         return str(self) > str(MPath(other))
@@ -528,7 +531,7 @@ def _output_tiles_batch_exists(tiles, config):
         existing_tiles = set()
         row = tiles[0].row
         logger.debug("check existing tiles in row %s", row)
-        rowpath = config.output_reader.path.joinpath(str(zoom), str(row))
+        rowpath = config.output_reader.path.joinpath(zoom, row)
         logger.debug("rowpath: %s", rowpath)
         try:
             for path in rowpath.ls(detail=False):
@@ -570,7 +573,7 @@ def _process_tiles_batch_exists(tiles, config):
         existing_tiles = set()
         for row in output_rows:
             logger.debug("check existing tiles in row %s", row)
-            rowpath = config.output_reader.path.joinpath(str(zoom), str(row))
+            rowpath = config.output_reader.path.joinpath(zoom, row)
             logger.debug("rowpath: %s", rowpath)
             try:
                 for path in rowpath.ls(detail=False):
