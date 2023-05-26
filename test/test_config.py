@@ -276,7 +276,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
     zoom = 7
 
     # read geojson geometry
-    with fiona.open(aoi_br_geojson) as src:
+    with fiona.open(str(aoi_br_geojson)) as src:
         area = shape(next(iter(src))["geometry"])
     # read input tiff bounds
     with rasterio.open(cleantopo_br_tif) as src:
@@ -311,7 +311,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
 
 
 def test_guess_geometry(aoi_br_geojson):
-    with fiona.open(aoi_br_geojson) as src:
+    with fiona.open(str(aoi_br_geojson)) as src:
         area = shape(next(iter(src))["geometry"])
 
     # WKT

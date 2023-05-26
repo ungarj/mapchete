@@ -1368,11 +1368,12 @@ def _guess_geometry(i, base_dir=None):
     """
     crs = None
     # WKT or path:
-    if isinstance(i, str):
-        if i.upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
+    if isinstance(i, (str, MPath)):
+        if str(i).upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
             geom = wkt.loads(i)
         else:
-            with fiona.open(str(absolute_path(path=i, base_dir=base_dir))) as src:
+            path = MPath(i)
+            with fiona.open(str(path.absolute_path(base_dir))) as src:
                 geom = unary_union([shape(f["geometry"]) for f in src])
                 crs = src.crs
     # GeoJSON mapping
