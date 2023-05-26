@@ -48,7 +48,8 @@ jobs:
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 mapchete --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-      - name: Start the services and install test dependencies
+      - name: Docker Compose Action
+        uses: isbang/compose-action@v1.4.1
         run: |
           docker-compose -f test/docker-compose.yml up
 
