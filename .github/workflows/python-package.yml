@@ -48,6 +48,10 @@ jobs:
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           flake8 mapchete --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
+      - name: Start the services and install test dependencies
+        run: |
+          docker-compose -f test/docker-compose.yml up
+
       - name: Test with pytest
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
