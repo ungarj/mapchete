@@ -196,9 +196,7 @@ def read_raster_window(
     if len(input_files) == 0:  # pragma: no cover
         raise ValueError("no input given")
     try:
-        with rasterio.Env(
-            **input_files[0].rio_env(gdal_opts),
-        ) as env:
+        with input_files[0].rio_env(gdal_opts) as env:
             logger.debug(
                 "reading %s file(s) with GDAL options %s", len(input_files), env.options
             )
@@ -526,10 +524,8 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                with rasterio.Env(
-                    **input_file.rio_env(
-                        gdal_opts, allowed_remote_extensions=input_file.suffix
-                    )
+                with input_file.rio_env(
+                    gdal_opts, allowed_remote_extensions=input_file.suffix
                 ) as env:
                     logger.debug(
                         "reading %s with GDAL options %s", str(input_file), env.options
@@ -1262,7 +1258,7 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs = kwargs or {}
     if kwargs:
         logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
-        with rasterio.Env(**inp.rio_env()):
+        with inp.rio_env():
             with rasterio.open(inp, "r") as src:
                 out.makedirs()
                 with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
@@ -1275,7 +1271,7 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
 def read_raster(inp, **kwargs):
     inp = MPath(inp)
     logger.debug(f"reading {str(inp)} into memory")
-    with rasterio.Env(**inp.rio_env()):
+    with inp.rio_env():
         with rasterio.open(inp, "r") as src:
             return ReferencedRaster(
                 data=src.read(masked=True),

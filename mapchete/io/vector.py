@@ -1,7 +1,6 @@
 """Functions handling vector data."""
 
 from contextlib import ExitStack
-import os
 import logging
 import fiona
 from fiona.errors import DriverError, FionaError, FionaValueError
@@ -146,11 +145,8 @@ def write_vector_window(
         output path for file
     """
     # Delete existing file.
-    try:
-        os.remove(out_path)
-    except OSError:
-        pass
-
+    out_path = MPath(out_path)
+    out_path.rm(ignore_errors=True)
     out_features = []
     for feature in in_data:
         try:
@@ -186,21 +182,20 @@ def write_vector_window(
                     driver=out_driver,
                 ) as memfile:
                     logger.debug((out_tile.id, "write tile", out_path))
-                    with fs_from_path(out_path).open(out_path, "wb") as dst:
+                    with out_path.open("wb") as dst:
                         dst.write(memfile)
             else:  # pragma: no cover
                 # write data to local file
-                # this part is not covered by tests as we now try to let fiona directly
-                # write to S3
-                with fiona.open(
-                    str(out_path),
-                    "w",
-                    schema=out_schema,
-                    driver=out_driver,
-                    crs=out_tile.crs.to_dict(),
-                ) as dst:
-                    logger.debug((out_tile.id, "write tile", out_path))
-                    dst.writerecords(out_features)
+                with out_path.fio_env():
+                    with fiona.open(
+                        str(out_path),
+                        "w",
+                        schema=out_schema,
+                        driver=out_driver,
+                        crs=out_tile.crs.to_dict(),
+                    ) as dst:
+                        logger.debug((out_tile.id, "write tile", out_path))
+                        dst.writerecords(out_features)
         except Exception as e:
             logger.error("error while writing file %s: %s", out_path, e)
             raise
@@ -264,6 +259,7 @@ def _get_reprojected_features(
     with ExitStack() as exit_stack:
         if isinstance(inp, (str, MPath)):
             try:
+                exit_stack.enter_context(inp.fio_env())
                 src = exit_stack.enter_context(fiona.open(str(inp), "r"))
                 src_crs = CRS(src.crs)
             except Exception as e:
@@ -540,16 +536,22 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
             fs_from_path(out).rm(out)
     kwargs = kwargs or {}
     if kwargs:
-        logger.debug("convert raster file %s to %s using %s", str(inp), out, kwargs)
-        with fiona.open(str(inp), "r") as src:
-            out.makedirs()
-            with fiona.open(str(out), mode="w", **{**src.meta, **kwargs}) as dst:
-                dst.writerecords(src)
+        logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
+        with inp.fio_env():
+            with fiona.open(str(inp), "r") as src:
+                out.makedirs()
+                with out.fio_env():
+                    with fiona.open(
+                        str(out), mode="w", **{**src.meta, **kwargs}
+                    ) as dst:
+                        dst.writerecords(src)
     else:
         logger.debug("copy %s to %s", str(inp), str(out))
         copy(inp, out, overwrite=overwrite)
 
 
 def read_vector(inp, index="rtree"):
-    with fiona.open(str(inp), "r") as src:
-        return IndexedFeatures(src, index=index)
+    path = MPath(inp)
+    with path.fio_env():
+        with fiona.open(str(path), "r") as src:
+            return IndexedFeatures(src, index=index)

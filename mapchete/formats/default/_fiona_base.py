@@ -58,8 +58,10 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         process output : list
         """
         try:
-            with fiona.open(str(self.get_path(output_tile)), "r") as src:
-                return list(src)
+            path = self.get_path(output_tile)
+            with path.fio_env():
+                with fiona.open(str(path), "r") as src:
+                    return list(src)
         except DriverError as e:
             for i in (
                 "does not exist in the file system",

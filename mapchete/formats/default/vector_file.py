@@ -172,8 +172,12 @@ class InputData(base.InputData):
         """
         out_crs = self.pyramid.crs if out_crs is None else out_crs
         if self._bbox_cache is None:
-            with fiona.open(str(self.path)) as inp:
-                self._bbox_cache = CRS(inp.crs), tuple(inp.bounds) if len(inp) else None
+            with self.path.fio_env():
+                with fiona.open(str(self.path)) as inp:
+                    self._bbox_cache = (
+                        CRS(inp.crs),
+                        tuple(inp.bounds) if len(inp) else None,
+                    )
         inp_crs, bounds = self._bbox_cache
         if bounds is None:
             # this creates an empty GeometryCollection object

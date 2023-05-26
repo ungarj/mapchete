@@ -1,11 +1,11 @@
 """Functions handling paths and file systems."""
 
 from collections import defaultdict
+import fiona
 from functools import cached_property
 import logging
 import os
-from rasterio.session import Session
-from typing import Union
+import rasterio
 
 import fsspec
 
@@ -285,8 +285,28 @@ class MPath(os.PathLike):
         return gdal_opts
 
     def rio_session(self):
+        from rasterio.session import Session
+
         if self.fs_session:
             # rasterio accepts a Session object but only a boto3.session.Session
+            # object and not a aiobotocore.session.AioSession which we get from fsspec
+            return Session.from_path(
+                self._path_str,
+                aws_access_key_id=self.fs.key,
+                aws_secret_access_key=self.fs.secret,
+                # GDAL parses the paths in a weird way, so we have to be careful with a custom
+                # endpoint
+                endpoint_url=self.fs.endpoint_url.lstrip("http://").lstrip("https://"),
+                requester_pays=self.fs.storage_options.get("requester_pays", False),
+            )
+        else:
+            return Session.from_path(self._path_str)
+
+    def fio_session(self):
+        from fiona.session import Session
+
+        if self.fs_session:
+            # fiona accepts a Session object but only a boto3.session.Session
             # object and not a aiobotocore.session.AioSession which we get from fsspec
             return Session.from_path(
                 self._path_str,
@@ -309,7 +329,18 @@ class MPath(os.PathLike):
             out.update(
                 session=self.rio_session(), AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
             )
-        return out
+        return rasterio.Env(**out)
+
+    def fio_env(self, opts=None, allowed_remote_extensions=None):
+        out = self.gdal_env_params(
+            opts=opts,
+            allowed_remote_extensions=allowed_remote_extensions or self.suffix,
+        )
+        if self.is_remote():
+            out.update(
+                session=self.fio_session(), AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
+            )
+        return fiona.Env(**out)
 
     def __truediv__(self, other) -> "MPath":
         """Short for self.joinpath()."""

@@ -99,7 +99,7 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     driver : string
         driver name
     """
-    input_file = input_file if isinstance(input_file, MPath) else MPath(input_file)
+    input_file = MPath(input_file)
 
     # mapchete files can immediately be returned:
     if input_file.suffix == ".mapchete":
@@ -115,13 +115,15 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     # brute force by trying to open file with rasterio and fiona:
     try:
         logger.debug("try to open %s with rasterio...", input_file)
-        with rasterio.open(input_file):  # pragma: no cover
-            return "raster_file"
+        with input_file.rio_env():
+            with rasterio.open(input_file):  # pragma: no cover
+                return "raster_file"
     except Exception as rio_exception:
         try:
             logger.debug("try to open %s with fiona...", input_file)
-            with fiona.open(str(input_file)):  # pragma: no cover
-                return "vector_file"
+            with input_file.fio_env():
+                with fiona.open(str(input_file)):  # pragma: no cover
+                    return "vector_file"
         except Exception as fio_exception:
             if input_file.exists():
                 logger.exception(f"fiona error: {fio_exception}")

@@ -218,34 +218,35 @@ class VectorFileWriter:
         schema = deepcopy(spatial_schema)
         schema["properties"][fieldname] = "str:254"
 
-        if self._append:
-            if self.path.exists():
-                logger.debug("read existing entries")
-                with fiona.open(str(self.path), "r") as src:
-                    self._existing = {f["properties"]["tile_id"]: f for f in src}
-                self.sink = fiona.open(str(self.path), "a")
-            else:
+        with self.path.fio_env():
+            if self._append:
+                if self.path.exists():
+                    logger.debug("read existing entries")
+                    with fiona.open(str(self.path), "r") as src:
+                        self._existing = {f["properties"]["tile_id"]: f for f in src}
+                    self.sink = fiona.open(str(self.path), "a")
+                else:
+                    self.sink = fiona.open(
+                        str(self.path),
+                        "w",
+                        driver=self.driver,
+                        crs=crs.to_dict(),
+                        schema=schema,
+                    )
+                    self._existing = {}
+            else:  # pragma: no cover
+                if self.path.exists():
+                    logger.debug("read existing entries")
+                    with fiona.open(str(self.path), "r") as src:
+                        self._existing = {f["properties"]["tile_id"]: f for f in src}
+                    if not self.path.is_remote():
+                        fiona.remove(str(self.path), driver=driver)
+                else:
+                    self._existing = {}
                 self.sink = fiona.open(
-                    str(self.path),
-                    "w",
-                    driver=self.driver,
-                    crs=crs.to_dict(),
-                    schema=schema,
+                    str(self.path), "w", driver=self.driver, crs=crs, schema=schema
                 )
-                self._existing = {}
-        else:  # pragma: no cover
-            if self.path.exists():
-                logger.debug("read existing entries")
-                with fiona.open(str(self.path), "r") as src:
-                    self._existing = {f["properties"]["tile_id"]: f for f in src}
-                if not self.path.is_remote():
-                    fiona.remove(str(self.path), driver=driver)
-            else:
-                self._existing = {}
-            self.sink = fiona.open(
-                str(self.path), "w", driver=self.driver, crs=crs, schema=schema
-            )
-            self.sink.writerecords(self._existing.values())
+                self.sink.writerecords(self._existing.values())
 
     def __repr__(self):
         return "VectorFileWriter(%s)" % self.path

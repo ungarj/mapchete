@@ -1373,9 +1373,10 @@ def _guess_geometry(i, base_dir=None):
             geom = wkt.loads(i)
         else:
             path = MPath(i)
-            with fiona.open(str(path.absolute_path(base_dir))) as src:
-                geom = unary_union([shape(f["geometry"]) for f in src])
-                crs = src.crs
+            with path.fio_env():
+                with fiona.open(str(path.absolute_path(base_dir))) as src:
+                    geom = unary_union([shape(f["geometry"]) for f in src])
+                    crs = src.crs
     # GeoJSON mapping
     elif isinstance(i, dict):
         geom = shape(i)
