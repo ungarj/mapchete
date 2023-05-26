@@ -490,4 +490,5 @@ def test_output_single_gtiff_cog_s3(output_single_gtiff_cog_s3):
         )
         mp.config.output.write(process_tile, data)
     assert path_exists(mp.config.output.path)
-    assert cog_validate(mp.config.output.path, strict=True)
+    with mp.config.output.path.rio_env() as env:
+        assert cog_validate(mp.config.output.path, strict=True, config=env.__dict__)

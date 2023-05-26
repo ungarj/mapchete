@@ -2,10 +2,12 @@
 
 from collections import defaultdict
 import fiona
+from fiona.session import Session as FioSession
 from functools import cached_property
 import logging
 import os
 import rasterio
+from rasterio.session import Session as RioSession
 
 import fsspec
 
@@ -284,13 +286,12 @@ class MPath(os.PathLike):
         logger.debug("using GDAL options: %s", gdal_opts)
         return gdal_opts
 
-    def rio_session(self):
-        from rasterio.session import Session
-
+    @cached_property
+    def rio_session(self) -> "rasterio.session.Session":
         if self.fs_session:
             # rasterio accepts a Session object but only a boto3.session.Session
             # object and not a aiobotocore.session.AioSession which we get from fsspec
-            return Session.from_path(
+            return RioSession.from_path(
                 self._path_str,
                 aws_access_key_id=self.fs.key,
                 aws_secret_access_key=self.fs.secret,
@@ -300,47 +301,64 @@ class MPath(os.PathLike):
                 requester_pays=self.fs.storage_options.get("requester_pays", False),
             )
         else:
-            return Session.from_path(self._path_str)
+            return RioSession.from_path(self._path_str)
 
-    def fio_session(self):
-        from fiona.session import Session
-
-        if self.fs_session:
-            # fiona accepts a Session object but only a boto3.session.Session
-            # object and not a aiobotocore.session.AioSession which we get from fsspec
-            return Session.from_path(
-                self._path_str,
-                aws_access_key_id=self.fs.key,
-                aws_secret_access_key=self.fs.secret,
-                # GDAL parses the paths in a weird way, so we have to be careful with a custom
-                # endpoint
-                endpoint_url=self.fs.endpoint_url.lstrip("http://").lstrip("https://"),
-                requester_pays=self.fs.storage_options.get("requester_pays", False),
-            )
-        else:
-            return Session.from_path(self._path_str)
-
-    def rio_env(self, opts=None, allowed_remote_extensions=None):
+    def rio_env_config(self, opts=None, allowed_remote_extensions=None) -> dict:
+        """Return configuration parameters for rasterio.Env()."""
         out = self.gdal_env_params(
             opts=opts,
             allowed_remote_extensions=allowed_remote_extensions,
         )
         if self.is_remote():
             out.update(
-                session=self.rio_session(), AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
+                session=self.rio_session, AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
             )
-        return rasterio.Env(**out)
+        return out
 
-    def fio_env(self, opts=None, allowed_remote_extensions=None):
+    def rio_env(self, opts=None, allowed_remote_extensions=None) -> rasterio.Env:
+        """Return preconfigured rasterio.Env context manager for path."""
+        return rasterio.Env(
+            **self.rio_env_config(
+                opts=opts, allowed_remote_extensions=allowed_remote_extensions
+            )
+        )
+
+    @cached_property
+    def fio_session(self) -> "fiona.session.Session":
+        if self.fs_session:
+            # fiona accepts a Session object but only a boto3.session.Session
+            # object and not a aiobotocore.session.AioSession which we get from fsspec
+            return FioSession.from_path(
+                self._path_str,
+                aws_access_key_id=self.fs.key,
+                aws_secret_access_key=self.fs.secret,
+                # GDAL parses the paths in a weird way, so we have to be careful with a custom
+                # endpoint
+                endpoint_url=self.fs.endpoint_url.lstrip("http://").lstrip("https://"),
+                requester_pays=self.fs.storage_options.get("requester_pays", False),
+            )
+        else:
+            return FioSession.from_path(self._path_str)
+
+    def fio_env_config(self, opts=None, allowed_remote_extensions=None) -> dict:
+        """Return configuration parameters for fiona.Env()."""
         out = self.gdal_env_params(
             opts=opts,
             allowed_remote_extensions=allowed_remote_extensions or self.suffix,
         )
         if self.is_remote():
             out.update(
-                session=self.fio_session(), AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
+                session=self.fio_session, AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
             )
-        return fiona.Env(**out)
+        return out
+
+    def fio_env(self, opts=None, allowed_remote_extensions=None) -> fiona.Env:
+        """Return preconfigured fiona.Env context manager for path."""
+        return fiona.Env(
+            **self.fio_env_config(
+                opts=opts, allowed_remote_extensions=allowed_remote_extensions
+            )
+        )
 
     def __truediv__(self, other) -> "MPath":
         """Short for self.joinpath()."""

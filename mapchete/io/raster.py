@@ -746,7 +746,7 @@ class RasterioRemoteTempFileWriter:
         logger.debug("open RasterioTempFileWriter for path %s", path)
         self.path = path
         self.fs = fs
-        self._dst = NamedTemporaryFile(suffix=".tif")
+        self._dst = NamedTemporaryFile(suffix=self.path.suffix)
         self._open_args = args
         self._open_kwargs = kwargs
         self._sink = None
