@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 
 # parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process", (str, list, type(None))),  # path to .py file or module path
+    ("process", (str, list, type(None), MPath)),  # path to .py file or module path
     ("pyramid", dict),  # process pyramid definition
     ("input", (dict, type(None))),  # files & other types
     ("output", dict),  # process output parameters
