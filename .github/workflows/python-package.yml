@@ -49,9 +49,8 @@ jobs:
           flake8 mapchete --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Docker Compose Action
-        uses: isbang/compose-action@v1.4.1
         run: |
-          docker-compose -f test/docker-compose.yml up
+          docker-compose -f "test/docker-compose.yml" up -d
 
       - name: Test with pytest
         env:
@@ -67,3 +66,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           coveralls --service=github
+
+      - name: Stop containers
+        if: always()
+        run: docker-compose -f "test/docker-compose.yml" down
