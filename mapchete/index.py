@@ -33,11 +33,11 @@ from mapchete.config import get_zoom_levels
 from mapchete.io import (
     fs_from_path,
     path_exists,
-    path_is_remote,
     raster,
     relative_path,
     tiles_exist,
     MPath,
+    vector,
 )
 
 logger = logging.getLogger(__name__)
@@ -215,23 +215,33 @@ class VectorFileWriter:
         self.driver = driver
         self.fieldname = fieldname
         self.new_entries = 0
-        schema = deepcopy(spatial_schema)
-        schema["properties"][fieldname] = "str:254"
+        self.schema = deepcopy(spatial_schema)
+        self.schema["properties"][fieldname] = "str:254"
+        self.crs = crs
 
+    def __repr__(self):
+        return "VectorFileWriter(%s)" % self.path
+
+    def __enter__(self):
+        self.es = ExitStack().__enter__()
         with self.path.fio_env():
             if self._append:
                 if self.path.exists():
                     logger.debug("read existing entries")
                     with fiona.open(str(self.path), "r") as src:
                         self._existing = {f["properties"]["tile_id"]: f for f in src}
-                    self.sink = fiona.open(str(self.path), "a")
+                    self.sink = self.es.enter_context(
+                        vector.fiona_write(self.path, "a")
+                    )
                 else:
-                    self.sink = fiona.open(
-                        str(self.path),
-                        "w",
-                        driver=self.driver,
-                        crs=crs.to_dict(),
-                        schema=schema,
+                    self.sink = self.es.enter_context(
+                        vector.fiona_write(
+                            self.path,
+                            "w",
+                            driver=self.driver,
+                            crs=self.crs.to_dict(),
+                            schema=self.schema,
+                        )
                     )
                     self._existing = {}
             else:  # pragma: no cover
@@ -240,22 +250,26 @@ class VectorFileWriter:
                     with fiona.open(str(self.path), "r") as src:
                         self._existing = {f["properties"]["tile_id"]: f for f in src}
                     if not self.path.is_remote():
-                        fiona.remove(str(self.path), driver=driver)
+                        fiona.remove(str(self.path), driver=self.driver)
                 else:
                     self._existing = {}
-                self.sink = fiona.open(
-                    str(self.path), "w", driver=self.driver, crs=crs, schema=schema
+                self.sink = self.es.enter_context(
+                    vector.fiona_write(
+                        self.path,
+                        "w",
+                        driver=self.driver,
+                        crs=self.crs,
+                        schema=self.schema,
+                    )
                 )
                 self.sink.writerecords(self._existing.values())
-
-    def __repr__(self):
-        return "VectorFileWriter(%s)" % self.path
-
-    def __enter__(self):
         return self
 
-    def __exit__(self, *args):
-        self.close()
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        try:
+            self.es.__exit__(exc_type, exc_value, exc_traceback)
+        finally:
+            self.close()
 
     def write(self, tile, path):
         if not self.entry_exists(tile=tile):

@@ -808,7 +808,7 @@ def test_convert_raster_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
 
     # copy
     convert_raster(cleantopo_br_tif_s3, out)
-    with rasterio.Env(**out.rio_env()):
+    with out.rio_env():
         with rasterio.open(out) as src:
             assert not src.read(masked=True).mask.all()
 
@@ -818,7 +818,7 @@ def test_convert_raster_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
 
     # do nothing if output exists
     convert_raster(cleantopo_br_tif_s3, out)
-    with rasterio.Env(**out.rio_env()):
+    with out.rio_env():
         with rasterio.open(out) as src:
             assert not src.read(masked=True).mask.all()
 
@@ -845,7 +845,7 @@ def test_convert_raster_overwrite_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
 
     # overwrite
     convert_raster(cleantopo_br_tif_s3, out, overwrite=True)
-    with rasterio.Env(**out.rio_env()):
+    with out.rio_env():
         with rasterio.open(out) as src:
             assert not src.read(masked=True).mask.all()
 
@@ -866,7 +866,7 @@ def test_convert_raster_other_format_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
     out = mp_s3_tmpdir / "copied.jp2"
 
     convert_raster(cleantopo_br_tif_s3, out, driver="JP2OpenJPEG")
-    with rasterio.Env(**out.rio_env()):
+    with out.rio_env():
         with rasterio.open(out) as src:
             assert not src.read(masked=True).mask.all()
 
@@ -897,7 +897,7 @@ def test_convert_raster_other_format_overwrite_s3(cleantopo_br_tif_s3, mp_s3_tmp
 
     # overwrite
     convert_raster(cleantopo_br_tif_s3, out, driver="JP2OpenJPEG", overwrite=True)
-    with rasterio.Env(**out.rio_env()):
+    with out.rio_env():
         with rasterio.open(out) as src:
             assert not src.read(masked=True).mask.all()
 
@@ -951,7 +951,7 @@ def test_rasterio_write(path, dtype, in_memory):
     ) as dst:
         dst.write(arr)
     assert path_exists(path)
-    with rasterio.Env(**path.rio_env()):
+    with path.rio_env():
         with rasterio.open(path) as src:
             written = src.read()
             assert np.array_equal(arr, written)

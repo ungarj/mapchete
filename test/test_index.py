@@ -6,7 +6,6 @@ import rasterio
 
 import mapchete
 from mapchete.index import zoom_index_gen
-from mapchete.io import fs_from_path
 
 
 @pytest.mark.remote
@@ -29,19 +28,21 @@ def test_remote_indexes(gtiff_s3):
         )
 
         # assert GeoJSON exists
-        with fiona.open(
-            os.path.join(mp.config.output.path, "%s.geojson" % zoom)
-        ) as src:
-            assert len(src) == 2
+        path = mp.config.output.path / zoom + ".geojson"
+        with path.fio_env():
+            with fiona.open(str(path)) as src:
+                assert len(src) == 2
 
         # assert TXT exists
-        txt_index = os.path.join(mp.config.output.path, "%s.txt" % zoom)
-        with fs_from_path(mp.config.output.path).open(txt_index) as src:
+        txt_index = mp.config.output.path / zoom + ".txt"
+        with txt_index.open() as src:
             assert len(list(src.readlines())) == 2
 
         # assert VRT exists
-        with rasterio.open(os.path.join(mp.config.output.path, "%s.vrt" % zoom)) as src:
-            assert src.read().any()
+        path = mp.config.output.path / zoom + ".vrt"
+        with path.rio_env():
+            with rasterio.open(path) as src:
+                assert src.read().any()
 
     with mapchete.open(gtiff_s3.dict) as mp:
         # write output data
@@ -84,35 +85,32 @@ def test_vrt(mp_tmpdir, cleantopo_br):
         )
         # bounds = mp.config.effective_bounds
 
-    vrt_index = os.path.join(mp.config.output.path, "%s.vrt" % zoom)
+    vrt_index = mp.config.output.path / zoom + ".vrt"
 
-    with rasterio.open(vrt_index) as vrt:
-        assert vrt.driver == "VRT"
-        assert vrt.dtypes[0] == "uint16"
-        assert vrt.meta["dtype"] == "uint16"
-        assert vrt.count == 1
-        assert vrt.nodata == 0
-        assert vrt.bounds == bounds
-        vrt_data = vrt.read()
-        assert vrt_data.any()
+    with vrt_index.rio_env():
+        with rasterio.open(vrt_index) as vrt:
+            assert vrt.driver == "VRT"
+            assert vrt.dtypes[0] == "uint16"
+            assert vrt.meta["dtype"] == "uint16"
+            assert vrt.count == 1
+            assert vrt.nodata == 0
+            assert vrt.bounds == bounds
+            vrt_data = vrt.read()
+            assert vrt_data.any()
 
     # generate a VRT using GDAL and compare
-    out_dir = os.path.join(mp_tmpdir, "cleantopo_br")
-    temp_vrt = os.path.join(out_dir, str(zoom) + "_gdal.vrt")
-    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-        temp_vrt,
-        out_dir,
-        zoom,
-    )
+    temp_vrt = mp.config.output.path / zoom + "_gdal.vrt"
+    gdalbuildvrt = f"gdalbuildvrt {str(temp_vrt)} {str(mp.config.output.path)}/{str(zoom)}/*/*.tif > /dev/null"
     os.system(gdalbuildvrt)
-    with rasterio.open(temp_vrt, "r") as gdal_vrt:
-        assert gdal_vrt.dtypes[0] == "uint16"
-        assert gdal_vrt.meta["dtype"] == "uint16"
-        assert gdal_vrt.count == 1
-        assert gdal_vrt.nodata == 0
-        assert gdal_vrt.bounds == bounds
-        gdal_vrt_data = gdal_vrt.read()
-        assert np.array_equal(vrt_data, gdal_vrt_data)
+    with temp_vrt.rio_env():
+        with rasterio.open(temp_vrt, "r") as gdal_vrt:
+            assert gdal_vrt.dtypes[0] == "uint16"
+            assert gdal_vrt.meta["dtype"] == "uint16"
+            assert gdal_vrt.count == 1
+            assert gdal_vrt.nodata == 0
+            assert gdal_vrt.bounds == bounds
+            gdal_vrt_data = gdal_vrt.read()
+            assert np.array_equal(vrt_data, gdal_vrt_data)
 
     # make sure handling an existing VRT works
     with mapchete.open(
@@ -132,7 +130,7 @@ def test_vrt(mp_tmpdir, cleantopo_br):
         )
 
 
-def test_vrt_mercator(mp_tmpdir, cleantopo_br_mercator):
+def test_vrt_mercator(cleantopo_br_mercator):
     zoom = 8
     with mapchete.open(
         dict(cleantopo_br_mercator.dict, zoom_levels=dict(min=0, max=zoom))
@@ -162,7 +160,7 @@ def test_vrt_mercator(mp_tmpdir, cleantopo_br_mercator):
         )
         # bounds = mp.config.effective_bounds
 
-    vrt_index = os.path.join(mp.config.output.path, "%s.vrt" % zoom)
+    vrt_index = mp.config.output.path / zoom + ".vrt"
 
     with rasterio.open(vrt_index) as vrt:
         assert vrt.driver == "VRT"
@@ -176,24 +174,20 @@ def test_vrt_mercator(mp_tmpdir, cleantopo_br_mercator):
         assert vrt_data.any()
 
     # generate a VRT using GDAL and compare
-    out_dir = os.path.join(mp_tmpdir, "cleantopo_br_mercator")
-    temp_vrt = os.path.join(out_dir, str(zoom) + "_gdal.vrt")
-    gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
-        temp_vrt,
-        out_dir,
-        zoom,
-    )
+    temp_vrt = mp.config.output.path / zoom + "_gdal.vrt"
+    gdalbuildvrt = f"gdalbuildvrt {str(temp_vrt)} {str(mp.config.output.path)}/{str(zoom)}/*/*.tif > /dev/null"
     os.system(gdalbuildvrt)
-    with rasterio.open(temp_vrt, "r") as gdal_vrt:
-        assert gdal_vrt.dtypes[0] == "uint16"
-        assert gdal_vrt.meta["dtype"] == "uint16"
-        assert gdal_vrt.count == 1
-        assert gdal_vrt.nodata == 0
-        for vrt_b, b in zip(vrt.bounds, bounds):
-            assert round(vrt_b, 6) == round(b, 6)
-        gdal_vrt_data = gdal_vrt.read()
-        assert np.array_equal(vrt_data, gdal_vrt_data)
-        assert gdal_vrt_data.any()
+    with temp_vrt.rio_env():
+        with rasterio.open(temp_vrt, "r") as gdal_vrt:
+            assert gdal_vrt.dtypes[0] == "uint16"
+            assert gdal_vrt.meta["dtype"] == "uint16"
+            assert gdal_vrt.count == 1
+            assert gdal_vrt.nodata == 0
+            for vrt_b, b in zip(vrt.bounds, bounds):
+                assert round(vrt_b, 6) == round(b, 6)
+            gdal_vrt_data = gdal_vrt.read()
+            assert np.array_equal(vrt_data, gdal_vrt_data)
+            assert gdal_vrt_data.any()
 
     # make sure handling an existing VRT works
     with mapchete.open(
