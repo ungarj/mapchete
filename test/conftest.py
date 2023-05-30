@@ -175,7 +175,7 @@ def s3_metadata_json(minio_testdata_bucket):
     """
     Fixture for s3://mapchete-test/metadata.json.
     """
-    prepare_s3_testfile(minio_testdata_bucket, "metadata.json")
+    return prepare_s3_testfile(minio_testdata_bucket, "metadata.json")
 
 
 @pytest.fixture

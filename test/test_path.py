@@ -168,3 +168,22 @@ def test_io_s3(mp_s3_tmpdir):
     assert testfile.exists()
     with testfile.open("r") as src:
         assert src.read() == "test text"
+
+
+@pytest.mark.parametrize(
+    "path_str",
+    [
+        "s3://some-bucket/file.geojson",
+        "s3://some-bucket/file.tif",
+        "http://some-bucket/file.geojson",
+        "http://some-bucket/file.tif",
+        "https://some-bucket/file.geojson",
+        "https://some-bucket/file.tif",
+    ],
+)
+def test_gdal_env_params(path_str):
+    path = MPath(path_str)
+    remote_extensions = path.gdal_env_params()[
+        "CPL_VSIL_CURL_ALLOWED_EXTENSIONS"
+    ].split(", ")
+    assert path.suffix in remote_extensions

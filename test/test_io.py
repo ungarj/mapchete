@@ -59,15 +59,29 @@ def test_absolute_path():
 
 
 @pytest.mark.remote
-def test_read_remote_json(s3_metadata_json, http_metadata_json):
-    assert isinstance(read_json(s3_metadata_json), dict)
-    assert isinstance(read_json(http_metadata_json), dict)
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("s3_metadata_json"),
+        pytest.lazy_fixture("http_metadata_json"),
+    ],
+)
+def test_read_remote_json(path):
+    assert isinstance(read_json(path), dict)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("s3_metadata_json"),
+        pytest.lazy_fixture("http_metadata_json"),
+    ],
+)
+def test_read_remote_json_errors(path):
+    # keep access credentials but invalidate URI
+    path = path + "not_here"
     with pytest.raises(FileNotFoundError):
-        read_json("s3://mapchete-test/invalid_metadata.json")
-    with pytest.raises(FileNotFoundError):
-        read_json(
-            "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/invalid_metadata.json"
-        )
+        read_json(path)
 
 
 def test_tile_to_zoom_level():

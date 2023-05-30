@@ -25,8 +25,12 @@ class MPath(os.PathLike):
         if isinstance(path, MPath):
             path_str = str(path)
             self._kwargs.update(path._kwargs)
-        else:
+        elif isinstance(path, str):
             path_str = path
+        else:
+            raise TypeError(
+                f"MPath has to be initialized with either a string or another MPath instance, not {path}"
+            )
         if path_str.startswith("/vsicurl/"):
             self._path_str = path_str.lstrip("/vsicurl/")
             if not self._path_str.startswith(
@@ -272,11 +276,24 @@ class MPath(os.PathLike):
         user_opts = {} if opts is None else dict(**opts)
         if self.is_remote():
             gdal_opts = GDAL_HTTP_OPTS.copy()
-            if allowed_remote_extensions:  # pragma: no cover
+            if self.suffix == ".vrt":
+                # we cannot know at this point which file types the VRT is pointing to,
+                # so in order to play safe, we remove the extensions constraint here
+                gdal_opts.pop("CPL_VSIL_CURL_ALLOWED_EXTENSIONS")
+            else:
+                default_remote_extensions = gdal_opts.get(
+                    "CPL_VSIL_CURL_ALLOWED_EXTENSIONS", []
+                ).split(", ")
+                extensions = default_remote_extensions + [self.suffix]
+                if allowed_remote_extensions:
+                    extensions = allowed_remote_extensions.split(",").extend(
+                        default_remote_extensions
+                    )
+                # make sure current path extension is added to allowed_remote_extensions
                 gdal_opts.update(
-                    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=allowed_remote_extensions
+                    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=", ".join(set(extensions))
                 )
-            if self.fs.kwargs.get("auth"):  # pragma: no cover
+            if self.fs.kwargs.get("auth"):
                 gdal_opts.update(
                     GDAL_HTTP_USERPWD=f"{self.fs.kwargs['auth'].login}:{self.fs.kwargs['auth'].password}"
                 )
@@ -344,7 +361,7 @@ class MPath(os.PathLike):
         """Return configuration parameters for fiona.Env()."""
         out = self.gdal_env_params(
             opts=opts,
-            allowed_remote_extensions=allowed_remote_extensions or self.suffix,
+            allowed_remote_extensions=allowed_remote_extensions,
         )
         if self.is_remote():
             out.update(
