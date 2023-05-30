@@ -287,13 +287,13 @@ def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
         assert src.read().any()
 
     # remove baselevel_tile
-    os.remove(baselevel_tile_path)
-    assert not os.path.exists(baselevel_tile_path)
+    baselevel_tile_path.rm()
+    assert not baselevel_tile_path.exists()
 
     with overviews.mp() as mp:
         # process overviews
         list(mp.compute(**compute_kwargs, zoom=[0, 6]))
-    assert not os.path.exists(baselevel_tile_path)
+    assert not baselevel_tile_path.exists()
 
     # read overview tile which is half empty
     with rasterio.open(overview_tile_path) as src:
@@ -306,7 +306,7 @@ def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
         # process data before getting baselevels
         list(mp.compute(concurrency=concurrency))
 
-    assert os.path.exists(baselevel_tile_path)
+    assert baselevel_tile_path.exists()
     with rasterio.open(
         mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
     ) as src:
@@ -351,7 +351,7 @@ def test_baselevels_output_buffer(mp_tmpdir, baselevels_output_buffer):
         mp.batch_process()
         # read tile 6/62/125.tif
         with rasterio.open(
-            os.path.join(mp.config.output.output_params["path"], "6/62/125.tif")
+            mp.config.output.output_params["path"] / 6 / 62 / 125 + ".tif"
         ) as src:
             window = windows.from_bounds(
                 171.46155, -87.27184, 174.45159, -84.31281, transform=src.transform
@@ -398,7 +398,8 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                     mp.write(tile, output)
                 mosaic = create_mosaic(tiles)
                 try:
-                    temp_vrt = os.path.join(mp_tmpdir, str(zoom) + ".vrt")
+                    temp_vrt = mp_tmpdir / zoom + ".vrt"
+                    temp_vrt.makedirs(until_parent=True)
                     gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
                         temp_vrt,
                         mp.config.output.path,
