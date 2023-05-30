@@ -181,9 +181,11 @@ class MPath(os.PathLike):
         if self.is_remote() or self.is_absolute():
             return self
         else:
-            if base_dir is None or not os.path.isabs(base_dir):
-                raise TypeError("base_dir must be an absolute path.")
-            return self.new(os.path.abspath(os.path.join(base_dir, self._path_str)))
+            if base_dir:
+                if not os.path.isabs(base_dir):
+                    raise TypeError("base_dir must be an absolute path.")
+                return self.new(os.path.abspath(os.path.join(base_dir, self._path_str)))
+            return self.new(os.path.abspath(self._path_str))
 
     def relative_path(self, start=None, base_dir=None) -> "MPath":
         """
@@ -213,11 +215,12 @@ class MPath(os.PathLike):
         with self.open() as src:
             return src.read()
 
-    def makedirs(self, exist_ok=True, until_parent=True) -> None:
+    def makedirs(self, exist_ok=True) -> None:
         """Create all parent directories for path."""
         # create parent directories on local filesystems
         if self.fs.protocol == "file":
-            if until_parent:
+            # if path has no suffix, assume a file path and only create parent directories
+            if self.suffix != "":
                 self.fs.makedirs(self.dirname, exist_ok=exist_ok)
             else:
                 self.fs.makedirs(self, exist_ok=exist_ok)

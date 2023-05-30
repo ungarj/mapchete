@@ -75,7 +75,7 @@ def app(dem_to_hillshade, cleantopo_br, geobuf, geojson, mp_tmpdir):
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
     temp_dir = TEMP_DIR / uuid.uuid4().hex
-    temp_dir.makedirs(until_parent=False)
+    temp_dir.makedirs()
     yield temp_dir
     TEMP_DIR.rm(recursive=True, ignore_errors=True)
 

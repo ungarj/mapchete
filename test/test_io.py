@@ -49,8 +49,6 @@ def test_absolute_path():
         == "/mnt/data/file.tif"
     )
     with pytest.raises(TypeError):
-        absolute_path(path="file.tif", base_dir=None)
-    with pytest.raises(TypeError):
         absolute_path(path="file.tif", base_dir="no/abs/dir")
     assert (
         str(absolute_path(path="https://example.com/file.tif", base_dir="/mnt/data"))

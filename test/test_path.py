@@ -110,7 +110,7 @@ def test_local_dirpath(path_str):
 
 
 def test_makedirs_filepath(mp_tmpdir):
-    path = MPath(mp_tmpdir).joinpath("path_mkdir_test", "file")
+    path = MPath(mp_tmpdir).joinpath("path_mkdir_test", "file.ext")
     path.makedirs()
     assert path.parent.exists()
     assert not path.exists()
