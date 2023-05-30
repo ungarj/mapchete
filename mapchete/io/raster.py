@@ -22,7 +22,7 @@ from typing import List, Tuple, Union
 import warnings
 
 from mapchete.errors import MapcheteIOError
-from mapchete.io import get_gdal_options, copy
+from mapchete.io import copy
 from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.path import (
     fs_from_path,
@@ -524,9 +524,7 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                with input_file.rio_env(
-                    gdal_opts, allowed_remote_extensions=input_file.suffix
-                ) as env:
+                with input_file.rio_env(gdal_opts) as env:
                     logger.debug(
                         "reading %s with GDAL options %s", str(input_file), env.options
                     )

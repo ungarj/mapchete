@@ -286,7 +286,7 @@ class MPath(os.PathLike):
                 ).split(", ")
                 extensions = default_remote_extensions + [self.suffix]
                 if allowed_remote_extensions:
-                    extensions = allowed_remote_extensions.split(",").extend(
+                    extensions = allowed_remote_extensions.split(",") + (
                         default_remote_extensions
                     )
                 # make sure current path extension is added to allowed_remote_extensions
