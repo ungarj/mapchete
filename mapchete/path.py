@@ -565,10 +565,29 @@ def tiles_exist(
         logger.debug("sort output tiles by row, this could take a while")
         output_tiles_batches = _batch_tiles_by_row(output_tiles)
 
+    # Some HTTP endpoints won't allow ls() on them, so we will have to
+    # request tile by tile in order to determine whether they exist or not.
+    # This flag will trigger this further down.
+    is_https_without_ls = False
+    if "https" in config.output_reader.path.protocols:
+        try:
+            config.output_reader.path.ls()
+        except FileNotFoundError:
+            metadata_json = config.output_reader.path / "metadata.json"
+            if not metadata_json.exists():
+                raise FileNotFoundError(
+                    f"TileDirectory does not seem to exist or metadata.json is not available: {config.output_reader.path}"
+                )
+            is_https_without_ls = True
+
     if process_tiles_batches:
-        yield from _process_tiles_batches_exist(process_tiles_batches, config)
+        yield from _process_tiles_batches_exist(
+            process_tiles_batches, config, is_https_without_ls
+        )
     elif output_tiles_batches:
-        yield from _output_tiles_batches_exist(output_tiles_batches, config)
+        yield from _output_tiles_batches_exist(
+            output_tiles_batches, config, is_https_without_ls
+        )
 
 
 def _batch_tiles_by_row(tiles):
@@ -578,17 +597,17 @@ def _batch_tiles_by_row(tiles):
     return ((t for t in ordered[row]) for row in sorted(list(ordered.keys())))
 
 
-def _output_tiles_batches_exist(output_tiles_batches, config):
+def _output_tiles_batches_exist(output_tiles_batches, config, is_https_without_ls):
     with Executor(concurrency="threads") as executor:
         for batch in executor.as_completed(
             _output_tiles_batch_exists,
             (list(b) for b in output_tiles_batches),
-            fargs=(config,),
+            fargs=(config, is_https_without_ls),
         ):
             yield from batch.result()
 
 
-def _output_tiles_batch_exists(tiles, config):
+def _output_tiles_batch_exists(tiles, config, is_https_without_ls):
     if tiles:
         zoom = tiles[0].zoom
         # determine output paths
@@ -597,35 +616,29 @@ def _output_tiles_batch_exists(tiles, config):
             for output_tile in tiles
         }
         # iterate through output tile rows and determine existing output tiles
-        existing_tiles = set()
-        row = tiles[0].row
-        logger.debug("check existing tiles in row %s", row)
-        rowpath = config.output_reader.path.joinpath(zoom, row)
-        logger.debug("rowpath: %s", rowpath)
-        try:
-            for path in rowpath.ls(detail=False):
-                path = path.crop(-3)
-                if path in output_paths:
-                    existing_tiles.add(output_paths[path])
-        # this happens when the row directory does not even exist
-        except FileNotFoundError:
-            pass
+        existing_tiles = _existing_tiles(
+            output_rows=[tiles[0].row],
+            output_paths=output_paths,
+            config=config,
+            zoom=zoom,
+            is_https_without_ls=is_https_without_ls,
+        )
         return [(tile, tile in existing_tiles) for tile in tiles]
     else:  # pragma: no cover
         return []
 
 
-def _process_tiles_batches_exist(process_tiles_batches, config):
+def _process_tiles_batches_exist(process_tiles_batches, config, is_https_without_ls):
     with Executor(concurrency="threads") as executor:
         for batch in executor.as_completed(
             _process_tiles_batch_exists,
             (list(b) for b in process_tiles_batches),
-            fargs=(config,),
+            fargs=(config, is_https_without_ls),
         ):
             yield from batch.result()
 
 
-def _process_tiles_batch_exists(tiles, config):
+def _process_tiles_batch_exists(tiles, config, is_https_without_ls):
     if tiles:
         zoom = tiles[0].zoom
         # determine output tile rows
@@ -639,11 +652,38 @@ def _process_tiles_batch_exists(tiles, config):
             for output_tile in config.output_pyramid.intersecting(process_tile)
         }
         # iterate through output tile rows and determine existing process tiles
-        existing_tiles = set()
-        for row in output_rows:
-            logger.debug("check existing tiles in row %s", row)
-            rowpath = config.output_reader.path.joinpath(zoom, row)
-            logger.debug("rowpath: %s", rowpath)
+        existing_tiles = _existing_tiles(
+            output_rows=output_rows,
+            output_paths=output_paths,
+            config=config,
+            zoom=zoom,
+            is_https_without_ls=is_https_without_ls,
+        )
+        return [(tile, tile in existing_tiles) for tile in tiles]
+    else:  # pragma: no cover
+        return []
+
+
+def _existing_tiles(
+    output_rows=None,
+    output_paths=None,
+    config=None,
+    zoom=None,
+    is_https_without_ls=False,
+):
+    existing_tiles = set()
+    for row in output_rows:
+        logger.debug("check existing tiles in row %s", row)
+        rowpath = config.output_reader.path.joinpath(zoom, row)
+        logger.debug("rowpath: %s", rowpath)
+
+        if is_https_without_ls:
+            for path, tile in output_paths.items():
+                full_path = rowpath / path.elements[-1]
+                if full_path.exists():
+                    existing_tiles.add(tile)
+
+        else:
             try:
                 for path in rowpath.ls(detail=False):
                     path = path.crop(-3)
@@ -652,9 +692,8 @@ def _process_tiles_batch_exists(tiles, config):
             # this happens when the row directory does not even exist
             except FileNotFoundError:
                 pass
-        return [(tile, tile in existing_tiles) for tile in tiles]
-    else:  # pragma: no cover
-        return []
+
+    return existing_tiles
 
 
 def fs_from_path(path, **kwargs):
