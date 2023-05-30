@@ -13,3 +13,13 @@ services:
      - "9000:9000"
     command:
       ['server', '/data']
+
+  nginx:
+    image: nginx
+    # environment:
+    volumes:
+      - type: bind
+        source: ./testdata
+        target: /usr/share/nginx/html
+    ports:
+     - "8080:80"
