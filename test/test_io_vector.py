@@ -86,7 +86,7 @@ def test_read_vector_window_errors(invalid_geojson):
 
 def test_reproject_geometry(landpoly):
     """Reproject geometry."""
-    with fiona.open(landpoly, "r") as src:
+    with fiona.open(str(landpoly), "r") as src:
         for feature in src:
 
             # WGS84 to Spherical Mercator
@@ -241,7 +241,7 @@ def test_repair_geometry():
 
 
 def test_write_vector_window_errors(landpoly):
-    with fiona.open(landpoly) as src:
+    with fiona.open(str(landpoly)) as src:
         feature = next(iter(src))
     with pytest.raises((DriverError, ValueError, TypeError)):
         write_vector_window(
@@ -307,7 +307,7 @@ def test_convert_vector_copy(aoi_br_geojson, tmpdir):
 
     # copy
     convert_vector(aoi_br_geojson, out)
-    with fiona.open(out) as src:
+    with fiona.open(str(out)) as src:
         assert list(iter(src))
 
     # raise error if output exists
@@ -316,7 +316,7 @@ def test_convert_vector_copy(aoi_br_geojson, tmpdir):
 
     # do nothing if output exists
     convert_vector(aoi_br_geojson, out)
-    with fiona.open(out) as src:
+    with fiona.open(str(out)) as src:
         assert list(iter(src))
 
 
@@ -329,7 +329,7 @@ def test_convert_vector_overwrite(aoi_br_geojson, tmpdir):
 
     # overwrite
     convert_vector(aoi_br_geojson, out, overwrite=True)
-    with fiona.open(out) as src:
+    with fiona.open(str(out)) as src:
         assert list(iter(src))
 
 
@@ -337,7 +337,7 @@ def test_convert_vector_other_format_copy(aoi_br_geojson, tmpdir):
     out = os.path.join(tmpdir, "copied.gpkg")
 
     convert_vector(aoi_br_geojson, out, driver="GPKG")
-    with fiona.open(out) as src:
+    with fiona.open(str(out)) as src:
         assert list(iter(src))
 
     # raise error if output exists
@@ -354,12 +354,12 @@ def test_convert_vector_other_format_overwrite(aoi_br_geojson, tmpdir):
 
     # overwrite
     convert_vector(aoi_br_geojson, out, driver="GPKG", overwrite=True)
-    with fiona.open(out) as src:
+    with fiona.open(str(out)) as src:
         assert list(iter(src))
 
 
 def test_indexed_features(landpoly):
-    with fiona.open(landpoly) as src:
+    with fiona.open(str(landpoly)) as src:
         some_id = next(iter(src))["id"]
         features = IndexedFeatures(src)
 
@@ -499,7 +499,7 @@ def test_bounds_not_intersect():
 
 
 def test_indexed_features_fakeindex(landpoly):
-    with fiona.open(landpoly) as src:
+    with fiona.open(str(landpoly)) as src:
         features = list(src)
         idx = IndexedFeatures(features)
         fake_idx = IndexedFeatures(features, index=None)
@@ -508,7 +508,7 @@ def test_indexed_features_fakeindex(landpoly):
 
 
 def test_indexed_features_polygon(aoi_br_geojson):
-    with fiona.open(aoi_br_geojson) as src:
+    with fiona.open(str(aoi_br_geojson)) as src:
         index = IndexedFeatures(src)
     tp = BufferedTilePyramid("geodetic")
     for tile in tp.tiles_from_bounds(bounds=index.bounds, zoom=5):
