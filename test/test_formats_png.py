@@ -1,10 +1,11 @@
 """Test PNG as process output."""
 
+import os
+import shutil
+
 import numpy as np
 import numpy.ma as ma
-import os
 import pytest
-import shutil
 
 from mapchete.formats.default import png
 from mapchete.tile import BufferedTilePyramid

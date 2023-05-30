@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 """Command line utility to serve a Mapchete process."""
 
-import click
 import logging
 import logging.config
 import os
 import pkgutil
+
+import click
 from rasterio.io import MemoryFile
 
 import mapchete
@@ -165,7 +166,7 @@ def _tile_response(mp, web_tile, debug):
 
 
 def _valid_tile_response(mp, data):
-    from flask import send_file, make_response, jsonify
+    from flask import jsonify, make_response, send_file
 
     out_data, mime_type = mp.config.output.for_web(data)
     logger.debug("create tile response %s", mime_type)

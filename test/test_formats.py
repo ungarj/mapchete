@@ -1,6 +1,7 @@
 """Test Mapchete default formats."""
 
 import datetime
+
 import pytest
 from rasterio.crs import CRS
 from tilematrix import TilePyramid
@@ -11,14 +12,14 @@ from mapchete.formats import (
     available_input_formats,
     available_output_formats,
     base,
-    driver_from_file,
     driver_from_extension,
+    driver_from_file,
+    dump_metadata,
     load_input_reader,
+    load_metadata,
     load_output_reader,
     load_output_writer,
     read_output_metadata,
-    load_metadata,
-    dump_metadata,
 )
 from mapchete.tile import BufferedTilePyramid
 

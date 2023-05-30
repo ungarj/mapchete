@@ -1,11 +1,12 @@
-import fiona
-import numpy as np
 import os
+
+import numpy as np
 import pytest
 import rasterio
 
 import mapchete
 from mapchete.index import zoom_index_gen
+from mapchete.io import fiona_open
 
 
 @pytest.mark.remote
@@ -29,9 +30,8 @@ def test_remote_indexes(gtiff_s3):
 
         # assert GeoJSON exists
         path = mp.config.output.path / zoom + ".geojson"
-        with path.fio_env():
-            with fiona.open(str(path)) as src:
-                assert len(src) == 2
+        with fiona_open(path) as src:
+            assert len(src) == 2
 
         # assert TXT exists
         txt_index = mp.config.output.path / zoom + ".txt"

@@ -5,21 +5,19 @@ This module deserves a cleaner rewrite some day.
 """
 
 import datetime
-import dateutil.parser
-import fiona
 import logging
-import os
+import warnings
 from pprint import pformat
+from typing import Dict
+
+import dateutil.parser
 import rasterio
 from rasterio.crs import CRS
-from typing import Dict, Type
-import warnings
 
-from mapchete.errors import MapcheteConfigError, MapcheteDriverError
-from mapchete.io import read_json, write_json, path_exists, MPath
 from mapchete._registered import drivers
+from mapchete.errors import MapcheteConfigError, MapcheteDriverError
+from mapchete.io import MPath, fiona_open, read_json, write_json
 from mapchete.tile import BufferedTilePyramid
-
 
 logger = logging.getLogger(__name__)
 
@@ -121,9 +119,8 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     except Exception as rio_exception:
         try:
             logger.debug("try to open %s with fiona...", input_file)
-            with input_file.fio_env():
-                with fiona.open(str(input_file)):  # pragma: no cover
-                    return "vector_file"
+            with fiona_open(input_file):  # pragma: no cover
+                return "vector_file"
         except Exception as fio_exception:
             if input_file.exists():
                 logger.exception(f"fiona error: {fio_exception}")

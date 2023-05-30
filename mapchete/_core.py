@@ -1,6 +1,5 @@
 """Main module managing processes."""
 
-from cachetools import LRUCache
 import json
 import logging
 import multiprocessing
@@ -8,22 +7,24 @@ import os
 import threading
 import warnings
 
-from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
-from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
-from mapchete.formats import read_output_metadata
-from mapchete.io import fs_from_path, tiles_exist, MPath
+from cachetools import LRUCache
+
 from mapchete._processing import (
-    compute,
-    _run_on_single_tile,
-    _run_area,
-    _preprocess,
     ProcessInfo,
+    _preprocess,
+    _run_area,
+    _run_on_single_tile,
+    compute,
     task_batches,
 )
-from mapchete.stac import update_tile_directory_stac_item
 from mapchete._tasks import TileTask
-from mapchete.tile import count_tiles
 from mapchete._timer import Timer
+from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD, MapcheteConfig
+from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
+from mapchete.formats import read_output_metadata
+from mapchete.io import MPath, fs_from_path, tiles_exist
+from mapchete.stac import update_tile_directory_stac_item
+from mapchete.tile import count_tiles
 from mapchete.validate import validate_tile, validate_zooms
 
 logger = logging.getLogger(__name__)

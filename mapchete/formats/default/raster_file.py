@@ -5,27 +5,27 @@ Currently limited by extensions .tif, .vrt., .png and .jp2 but could be
 extended easily.
 """
 
-from cached_property import cached_property
-from copy import deepcopy
 import logging
-import numpy.ma as ma
 import os
+import warnings
+from copy import deepcopy
+
+import numpy.ma as ma
 import rasterio
+from cached_property import cached_property
 from rasterio.crs import CRS
 from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
-import warnings
 
+from mapchete import io
 from mapchete.formats import base
-from mapchete.io.vector import reproject_geometry, segmentize_geometry
 from mapchete.io.raster import (
-    read_raster_window,
     convert_raster,
     read_raster,
+    read_raster_window,
     resample_from_array,
 )
-from mapchete import io
-
+from mapchete.io.vector import reproject_geometry, segmentize_geometry
 
 logger = logging.getLogger(__name__)
 

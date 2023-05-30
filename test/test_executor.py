@@ -1,10 +1,11 @@
-import pytest
 import time
+
+import pytest
 
 import mapchete
 from mapchete import Executor, SkippedFuture
-from mapchete.errors import MapcheteTaskFailed
 from mapchete._executor import FakeFuture
+from mapchete.errors import MapcheteTaskFailed
 
 
 def _dummy_process(i, sleep=0):

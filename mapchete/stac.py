@@ -1,6 +1,7 @@
-from collections import OrderedDict
 import datetime
 import logging
+from collections import OrderedDict
+
 import numpy as np
 import numpy.ma as ma
 from pyproj import CRS
@@ -12,7 +13,6 @@ from mapchete.io.raster import write_raster_window
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import Bounds
-
 
 logger = logging.getLogger(__name__)
 

@@ -1,23 +1,23 @@
 """Test Mapchete main module and processing."""
 
-from click.testing import CliRunner
-import fiona
-import geobuf
 import os
-from packaging import version
+import warnings
+
+import geobuf
 import pytest
-from shapely import wkt
-from shapely.geometry import shape
 import rasterio
+import yaml
+from click.testing import CliRunner
+from packaging import version
 from rasterio.io import MemoryFile
 from rio_cogeo.cogeo import cog_validate
-import warnings
-import yaml
+from shapely import wkt
+from shapely.geometry import shape
 
 import mapchete
-from mapchete.cli.main import main as mapchete_cli
 from mapchete.cli import options
-
+from mapchete.cli.main import main as mapchete_cli
+from mapchete.io import fiona_open
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -743,7 +743,7 @@ def test_convert_geojson(landpoly, mp_tmpdir):
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
         out_file = mp_tmpdir / zoom / row / col + ".geojson"
-        with fiona.open(str(out_file), "r") as src:
+        with fiona_open(out_file, "r") as src:
             assert len(src) == control
             for f in src:
                 assert shape(f["geometry"]).is_valid
@@ -803,7 +803,7 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, [31, 32]]):
         out_file = geojson_outdir / zoom / row / col + ".geojson"
-        with fiona.open(str(out_file), "r") as src:
+        with fiona_open(out_file, "r") as src:
             if isinstance(control, list):
                 assert len(src) in control
             else:
@@ -1024,7 +1024,7 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = mp.config.output.path.ls()
         assert len(files) == 4
-    with fiona.open(str(mp.config.output.path / "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1050,7 +1050,7 @@ def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
         ]
     )
     with mapchete.open(cleantopo_br.dict) as mp:
-        with fiona.open(str(mp.config.output.path / "3.geojson")) as src:
+        with fiona_open(mp.config.output.path / "3.geojson") as src:
             for f in src:
                 assert "new_fieldname" in f["properties"]
             assert len(list(src)) == 1
@@ -1077,7 +1077,7 @@ def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
         ]
     )
     with mapchete.open(cleantopo_br.dict) as mp:
-        with fiona.open(str(mp.config.output.path / "3.geojson")) as src:
+        with fiona_open(mp.config.output.path / "3.geojson") as src:
             for f in src:
                 assert f["properties"]["location"].startswith(basepath)
             assert len(list(src)) == 1
@@ -1103,7 +1103,7 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
         ]
     )
     with mapchete.open(cleantopo_br.dict) as mp:
-        with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+        with fiona_open(mp.config.output.path / "3.geojson") as src:
             for f in src:
                 assert f["properties"]["location"].startswith("/vsicurl/" + basepath)
             assert len(list(src)) == 1
@@ -1129,7 +1129,7 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert len(files) == 4
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         assert len(list(src)) == 1
 
 
@@ -1167,7 +1167,7 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
+    with fiona_open(mp.config.output.path / "5.gpkg") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1177,7 +1177,7 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
+    with fiona_open(mp.config.output.path / "5.gpkg") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1194,7 +1194,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.shp")) as src:
+    with fiona_open(mp.config.output.path / "5.shp") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1204,7 +1204,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.shp")) as src:
+    with fiona_open(mp.config.output.path / "5.shp") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1

@@ -1,24 +1,25 @@
 """Internal processing classes and functions."""
 
-from collections import namedtuple
-from contextlib import ExitStack
 import logging
 import multiprocessing
 import os
-from shapely.geometry import mapping
+from collections import namedtuple
+from contextlib import ExitStack
 from typing import Generator
 
-from mapchete.config import get_process_func
+from shapely.geometry import mapping
+
 from mapchete._executor import (
     DaskExecutor,
     Executor,
-    SkippedFuture,
     FinishedFuture,
+    SkippedFuture,
     future_raise_exception,
 )
-from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
-from mapchete._tasks import to_dask_collection, TileTaskBatch, TileTask, TaskBatch
+from mapchete._tasks import TaskBatch, TileTask, TileTaskBatch, to_dask_collection
 from mapchete._timer import Timer
+from mapchete.config import get_process_func
+from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
 from mapchete.types import Bounds, ZoomLevels
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))

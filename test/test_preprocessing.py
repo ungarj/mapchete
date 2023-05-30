@@ -1,8 +1,9 @@
-import mapchete
-from mapchete.io import fs_from_path
-from mapchete._tasks import Task
 import pytest
 import rasterio
+
+import mapchete
+from mapchete._tasks import Task
+from mapchete.io import fs_from_path
 
 
 def _trivial_func(arg, kwarg=None):

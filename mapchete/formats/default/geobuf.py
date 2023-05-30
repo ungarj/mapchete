@@ -19,13 +19,13 @@ schema: key-value pairs
 """
 
 import logging
+
 from shapely.geometry import mapping, shape
 
 from mapchete.config import validate_values
 from mapchete.formats.default import geojson
-from mapchete.io import fs_from_path, MPath
+from mapchete.io import MPath, fs_from_path
 from mapchete.io._geometry_operations import _repair, reproject_geometry
-
 
 logger = logging.getLogger(__name__)
 METADATA = {"driver_name": "Geobuf", "data_type": "vector", "mode": "rw"}

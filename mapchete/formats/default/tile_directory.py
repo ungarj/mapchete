@@ -1,7 +1,8 @@
 """Use a directory of zoom/row/column tiles as input."""
 
-from functools import cached_property
 import logging
+from functools import cached_property
+
 from shapely.geometry import box
 
 from mapchete.config import validate_values
@@ -9,15 +10,14 @@ from mapchete.errors import MapcheteConfigError
 from mapchete.formats import (
     base,
     data_type_from_extension,
+    driver_from_extension,
     driver_metadata,
     load_output_writer,
     read_output_metadata,
-    driver_from_extension,
 )
-from mapchete.io import tile_to_zoom_level, MPath
+from mapchete.io import MPath, tile_to_zoom_level
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
-
 
 logger = logging.getLogger(__name__)
 METADATA = {

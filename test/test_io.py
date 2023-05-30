@@ -1,22 +1,22 @@
 """Test Mapchete io module."""
 
+import os
+
 import pytest
 import rasterio
-import os
 from shapely.errors import TopologicalError
 
 import mapchete
 from mapchete.io import (
+    absolute_path,
+    copy,
     get_best_zoom_level,
     path_exists,
-    absolute_path,
     read_json,
     tile_to_zoom_level,
     tiles_exist,
-    copy,
 )
 from mapchete.tile import BufferedTilePyramid
-
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")

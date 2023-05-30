@@ -19,24 +19,26 @@ generate GPKG files 3.gpkg, 4.gpkg and 5.gpkg for zoom levels 3, 4 and 5.
 
 """
 
-from contextlib import ExitStack
-from copy import deepcopy
-import fiona
 import logging
 import operator
+import xml.etree.ElementTree as ET
+from contextlib import ExitStack
+from copy import deepcopy
+from xml.dom import minidom
+
+import fiona
 from rasterio.dtypes import _gdal_typename
 from shapely.geometry import mapping
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
 
 from mapchete.config import get_zoom_levels
 from mapchete.io import (
+    MPath,
+    fiona_open,
     fs_from_path,
     path_exists,
     raster,
     relative_path,
     tiles_exist,
-    MPath,
     vector,
 )
 
@@ -228,7 +230,7 @@ class VectorFileWriter:
             if self._append:
                 if self.path.exists():
                     logger.debug("read existing entries")
-                    with fiona.open(str(self.path), "r") as src:
+                    with fiona_open(self.path, "r") as src:
                         self._existing = {f["properties"]["tile_id"]: f for f in src}
                     self.sink = self.es.enter_context(
                         vector.fiona_write(self.path, "a")
@@ -247,7 +249,7 @@ class VectorFileWriter:
             else:  # pragma: no cover
                 if self.path.exists():
                     logger.debug("read existing entries")
-                    with fiona.open(str(self.path), "r") as src:
+                    with fiona_open(self.path, "r") as src:
                         self._existing = {f["properties"]["tile_id"]: f for f in src}
                     if not self.path.is_remote():
                         fiona.remove(str(self.path), driver=self.driver)

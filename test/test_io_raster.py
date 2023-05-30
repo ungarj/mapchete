@@ -1,16 +1,16 @@
-import pytest
+import os
 import shutil
-import rasterio
 import tempfile
+from itertools import product
+
 import numpy as np
 import numpy.ma as ma
-import os
+import pytest
+import rasterio
 from rasterio.enums import Compression
 from shapely.geometry import box
 from shapely.ops import unary_union
 from tilematrix import Bounds
-from itertools import product
-
 
 import mapchete
 from mapchete.config import MapcheteConfig
@@ -18,17 +18,17 @@ from mapchete.errors import MapcheteIOError
 from mapchete.formats.default.gtiff import DefaultGTiffProfile
 from mapchete.io import path_exists
 from mapchete.io.raster import (
-    read_raster_window,
-    write_raster_window,
-    extract_from_array,
-    resample_from_array,
-    create_mosaic,
-    ReferencedRaster,
-    prepare_array,
     RasterWindowMemoryFile,
-    read_raster_no_crs,
+    ReferencedRaster,
     convert_raster,
+    create_mosaic,
+    extract_from_array,
+    prepare_array,
     rasterio_write,
+    read_raster_no_crs,
+    read_raster_window,
+    resample_from_array,
+    write_raster_window,
 )
 from mapchete.tile import BufferedTilePyramid
 

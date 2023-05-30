@@ -1,7 +1,8 @@
 import json
-from packaging import version
+
 import pytest
 import rasterio
+from packaging import version
 from rasterio.errors import RasterioIOError
 from shapely.geometry import box, shape
 
@@ -9,11 +10,11 @@ from mapchete.commands import execute
 from mapchete.io import fs_from_path
 from mapchete.io.vector import reproject_geometry
 from mapchete.stac import (
-    tile_directory_stac_item,
-    update_tile_directory_stac_item,
-    tile_pyramid_from_item,
-    zoom_levels_from_item,
     create_prototype_files,
+    tile_directory_stac_item,
+    tile_pyramid_from_item,
+    update_tile_directory_stac_item,
+    zoom_levels_from_item,
 )
 from mapchete.tile import BufferedTilePyramid
 

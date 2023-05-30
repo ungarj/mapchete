@@ -1,17 +1,17 @@
 """
 Useful tools to facilitate testing.
 """
-from collections import OrderedDict
 import logging
+import uuid
+from collections import OrderedDict
+
 import oyaml as yaml
 from shapely.ops import unary_union
-import uuid
 
 import mapchete
 from mapchete.config import initialize_inputs, open_inputs
-from mapchete.io import fs_from_path, MPath
+from mapchete.io import MPath, fs_from_path
 from mapchete.tile import BufferedTilePyramid
-
 
 logger = logging.getLogger(__name__)
 

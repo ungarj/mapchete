@@ -1,20 +1,21 @@
 """Test GeoTIFF as process output."""
 
+import os
+import shutil
+import warnings
+
 import numpy as np
 import numpy.ma as ma
-import os
 import pytest
 import rasterio
 from rasterio.io import MemoryFile
 from rio_cogeo.cogeo import cog_validate
-import shutil
 from tilematrix import Bounds
-import warnings
 
 import mapchete
 from mapchete.errors import MapcheteConfigError
-from mapchete.io import path_exists
 from mapchete.formats.default import gtiff
+from mapchete.io import path_exists
 from mapchete.tile import BufferedTilePyramid
 
 

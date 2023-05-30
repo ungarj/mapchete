@@ -22,7 +22,6 @@ import warnings
 
 from mapchete.formats.default import _fiona_base
 
-
 METADATA = {"driver_name": "FlatGeobuf", "data_type": "vector", "mode": "rw"}
 
 

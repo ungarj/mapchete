@@ -1,10 +1,11 @@
 """Create dummy Mapchete and python process files."""
 
+import os
+from shutil import copyfile
+from string import Template
+
 import click
 from importlib_resources import files
-import os
-from string import Template
-from shutil import copyfile
 from oyaml import dump
 
 from mapchete.cli import options

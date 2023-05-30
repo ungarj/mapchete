@@ -5,26 +5,27 @@ When writing a new driver, please inherit from these classes and implement the
 respective interfaces.
 """
 
-from itertools import chain
 import logging
-import numpy as np
-import numpy.ma as ma
 import os
-from shapely.geometry import shape
 import types
 import warnings
+from itertools import chain
 
+import numpy as np
+import numpy.ma as ma
+from shapely.geometry import shape
+
+from mapchete._tasks import Task
 from mapchete.config import get_hash
-from mapchete.errors import MapcheteProcessOutputError, MapcheteNodataTile
+from mapchete.errors import MapcheteNodataTile, MapcheteProcessOutputError
 from mapchete.formats import write_output_metadata
-from mapchete.io import makedirs, path_exists, fs_from_path
+from mapchete.io import fs_from_path, makedirs, path_exists
 from mapchete.io.raster import (
     create_mosaic,
     extract_from_array,
     prepare_array,
     read_raster_window,
 )
-from mapchete._tasks import Task
 from mapchete.io.vector import read_vector_window
 from mapchete.tile import BufferedTilePyramid
 

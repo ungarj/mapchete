@@ -1,35 +1,31 @@
 """Test Mapchete main module and processing."""
 
-from itertools import chain
 import json
-import pytest
 import os
 import shutil
-import rasterio
-from rasterio import windows
+from itertools import chain
+
 import numpy as np
 import numpy.ma as ma
 import pkg_resources
-
-import fsspec
+import pytest
+import rasterio
+from rasterio import windows
 
 try:
     from cPickle import dumps as pickle_dumps
 except ImportError:
     from pickle import dumps as pickle_dumps
+
 from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
 import mapchete
-from mapchete.io import fs_from_path
-from mapchete.io.raster import create_mosaic, _shift_required
+from mapchete._processing import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.errors import MapcheteProcessOutputError
+from mapchete.io import fs_from_path
+from mapchete.io.raster import _shift_required, create_mosaic
 from mapchete.tile import BufferedTilePyramid, count_tiles
-from mapchete._executor import DaskExecutor
-from mapchete._processing import (
-    PreprocessingProcessInfo,
-    TileProcessInfo,
-)
 
 
 def test_empty_execute(mp_tmpdir, cleantopo_br):

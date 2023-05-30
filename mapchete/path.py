@@ -1,18 +1,18 @@
 """Functions handling paths and file systems."""
 
-from collections import defaultdict
-import fiona
-from fiona.session import Session as FioSession
-from functools import cached_property
 import logging
 import os
+from collections import defaultdict
+from functools import cached_property
+
+import fiona
+import fsspec
 import rasterio
+from fiona.session import Session as FioSession
 from rasterio.session import Session as RioSession
 
-import fsspec
-
-from mapchete.io.settings import GDAL_HTTP_OPTS
 from mapchete._executor import Executor
+from mapchete.io.settings import GDAL_HTTP_OPTS
 
 logger = logging.getLogger(__name__)
 

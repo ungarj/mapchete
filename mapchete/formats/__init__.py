@@ -6,15 +6,15 @@ from mapchete.formats.loaders import (
 from mapchete.formats.tools import (
     available_input_formats,
     available_output_formats,
-    driver_metadata,
+    compare_metadata_params,
+    data_type_from_extension,
     driver_from_extension,
     driver_from_file,
-    data_type_from_extension,
+    driver_metadata,
     dump_metadata,
     load_metadata,
     read_output_metadata,
     write_output_metadata,
-    compare_metadata_params,
 )
 
 __all__ = [

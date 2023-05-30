@@ -30,14 +30,14 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
-from contextlib import ExitStack
 import logging
 import math
 import os
 import warnings
+from contextlib import ExitStack
 
-from affine import Affine
 import numpy as np
+from affine import Affine
 from numpy import ma
 from rasterio.enums import Resampling
 from rasterio.profiles import Profile
@@ -46,21 +46,20 @@ from rasterio.windows import from_bounds
 from shapely.geometry import box
 from tilematrix import Bounds
 
-from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
+from mapchete.config import _OUTPUT_PARAMETERS, snap_bounds, validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import makedirs, path_exists, path_is_remote, MPath
+from mapchete.io import MPath, makedirs, path_exists, path_is_remote
 from mapchete.io.raster import (
-    write_raster_window,
-    prepare_array,
-    memory_file,
-    read_raster_no_crs,
     extract_from_array,
+    memory_file,
+    prepare_array,
     rasterio_write,
+    read_raster_no_crs,
+    write_raster_window,
 )
 from mapchete.tile import BufferedTile
 from mapchete.validate import deprecated_kwargs
-
 
 logger = logging.getLogger(__name__)
 

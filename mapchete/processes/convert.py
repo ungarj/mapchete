@@ -1,7 +1,8 @@
 import logging
+import warnings
+
 import numpy as np
 from rasterio.dtypes import dtype_ranges
-import warnings
 
 logger = logging.getLogger(__name__)
 

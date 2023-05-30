@@ -1,18 +1,16 @@
-import click
 import logging
-from multiprocessing import cpu_count, get_all_start_methods
 import os
-from rasterio.enums import Resampling
-import tilematrix
+from multiprocessing import cpu_count, get_all_start_methods
 
-from mapchete.config import (
-    MULTIPROCESSING_DEFAULT_START_METHOD,
-)
+import click
+import tilematrix
+from rasterio.enums import Resampling
+
+from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.formats import available_output_formats
 from mapchete.io import MPath
 from mapchete.log import set_log_level, setup_logfile
 from mapchete.validate import validate_bounds, validate_crs, validate_zooms
-
 
 logger = logging.getLogger(__name__)
 

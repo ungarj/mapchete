@@ -3,7 +3,6 @@ import logging
 
 from mapchete.path import MPath
 
-
 logger = logging.getLogger(__name__)
 
 

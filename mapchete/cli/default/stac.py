@@ -1,8 +1,9 @@
+import json
+import logging
+import os
+
 import click
 import fsspec
-import logging
-import json
-import os
 import oyaml as yaml
 
 import mapchete
@@ -10,9 +11,8 @@ from mapchete.cli import options
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import read_output_metadata
 from mapchete.io import MPath
-from mapchete.stac import tile_directory_stac_item, create_prototype_files
+from mapchete.stac import create_prototype_files, tile_directory_stac_item
 from mapchete.validate import validate_zooms
-
 
 logger = logging.getLogger(__name__)
 

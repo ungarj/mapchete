@@ -2,14 +2,15 @@
 """Test custom Mapchete errors."""
 
 
-import pytest
 from copy import deepcopy
 
+import pytest
+
 import mapchete
-from mapchete.config import MapcheteConfig, validate_values
-from mapchete._processing import Executor
-from mapchete.tile import BufferedTilePyramid
 from mapchete import errors
+from mapchete._processing import Executor
+from mapchete.config import MapcheteConfig, validate_values
+from mapchete.tile import BufferedTilePyramid
 
 
 def test_mapchete_init():

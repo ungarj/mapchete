@@ -4,8 +4,8 @@ import numpy as np
 import numpy.ma as ma
 
 import mapchete
-from mapchete.processes.examples import example_process
 from mapchete.processes import contours, convert, hillshade
+from mapchete.processes.examples import example_process
 from mapchete.testing import get_process_mp
 
 

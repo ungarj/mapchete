@@ -1,26 +1,26 @@
 """Test Mapchete config module."""
 
-from copy import deepcopy
-import fiona
-from fiona.errors import DriverError
 import os
+from copy import deepcopy
+
+import oyaml as yaml
 import pytest
 import rasterio
-from shapely.errors import WKTReadingError
-from shapely.geometry import box, mapping, Polygon, shape
+from fiona.errors import DriverError
 from shapely import wkt
-import oyaml as yaml
+from shapely.errors import WKTReadingError
+from shapely.geometry import Polygon, box, mapping, shape
 
 import mapchete
 from mapchete.config import (
-    bounds_from_opts,
     MapcheteConfig,
-    snap_bounds,
     _guess_geometry,
+    bounds_from_opts,
+    snap_bounds,
 )
-from mapchete.errors import MapcheteDriverError, MapcheteConfigError
+from mapchete.errors import MapcheteConfigError
+from mapchete.io import fiona_open
 from mapchete.types import Bounds
-
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -276,7 +276,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
     zoom = 7
 
     # read geojson geometry
-    with fiona.open(str(aoi_br_geojson)) as src:
+    with fiona_open(aoi_br_geojson) as src:
         area = shape(next(iter(src))["geometry"])
     # read input tiff bounds
     with rasterio.open(cleantopo_br_tif) as src:
@@ -311,7 +311,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
 
 
 def test_guess_geometry(aoi_br_geojson):
-    with fiona.open(str(aoi_br_geojson)) as src:
+    with fiona_open(aoi_br_geojson) as src:
         area = shape(next(iter(src))["geometry"])
 
     # WKT

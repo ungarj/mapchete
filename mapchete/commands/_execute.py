@@ -1,17 +1,17 @@
 """Execute a process."""
 
 import logging
-from multiprocessing import cpu_count
 import traceback
-from typing import Callable, List, Tuple, Union
 import warnings
+from multiprocessing import cpu_count
+from typing import Callable, List, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
-from mapchete.config import bounds_from_opts, raw_conf, raw_conf_process_pyramid
 from mapchete._processing import PreprocessingProcessInfo, TileProcessInfo
+from mapchete.config import bounds_from_opts, raw_conf, raw_conf_process_pyramid
 
 logger = logging.getLogger(__name__)
 

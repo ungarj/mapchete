@@ -1,27 +1,27 @@
-import fiona
-import logging
 import json
-from multiprocessing import cpu_count
+import logging
 import os
+import warnings
+from multiprocessing import cpu_count
 from pprint import pformat
+from typing import Callable, List, Tuple, Union
+
 import rasterio
+import tilematrix
 from rasterio.crs import CRS
 from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
-import tilematrix
-from typing import Callable, List, Tuple, Union
-import warnings
 
 import mapchete
 from mapchete.commands._execute import execute
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import (
-    driver_from_file,
-    available_output_formats,
     available_input_formats,
+    available_output_formats,
+    driver_from_file,
 )
-from mapchete.io import read_json, get_best_zoom_level, fs_from_path, MPath
+from mapchete.io import MPath, fiona_open, get_best_zoom_level, read_json
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 from mapchete.validate import validate_zooms
@@ -330,12 +330,8 @@ def convert(
 
 
 def _clip_bbox(clip_geometry, dst_crs=None):
-    path = MPath(clip_geometry)
-    with path.fio_env():
-        with fiona.open(str(path)) as src:
-            return reproject_geometry(
-                box(*src.bounds), src_crs=src.crs, dst_crs=dst_crs
-            )
+    with fiona_open(clip_geometry) as src:
+        return reproject_geometry(box(*src.bounds), src_crs=src.crs, dst_crs=dst_crs)
 
 
 def _get_input_info(inp):
@@ -416,22 +412,18 @@ def _input_rasterio_info(inp):
 
 
 def _input_fiona_info(inp):
-    path = MPath(inp)
-    with inp.fio_env():
-        with fiona.open(str(path)) as src:
-            return dict(
-                output_params=dict(
-                    schema=src.schema,
-                    format=src.driver
-                    if src.driver in available_input_formats()
-                    else None,
-                ),
-                pyramid=None,
-                crs=src.crs,
-                zoom_levels=None,
-                input_type="vector",
-                bounds=src.bounds if len(src) else None,
-            )
+    with fiona_open(inp) as src:
+        return dict(
+            output_params=dict(
+                schema=src.schema,
+                format=src.driver if src.driver in available_input_formats() else None,
+            ),
+            pyramid=None,
+            crs=src.crs,
+            zoom_levels=None,
+            input_type="vector",
+            bounds=src.bounds if len(src) else None,
+        )
 
 
 def _input_tile_directory_info(tiledir_path):

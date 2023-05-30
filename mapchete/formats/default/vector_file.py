@@ -4,22 +4,21 @@ Vector file input which can be read by fiona.
 Currently limited by extensions .shp and .geojson but could be extended easily.
 """
 
-from cached_property import cached_property
-import fiona
 import logging
-from shapely.geometry import box, Point
+
+from cached_property import cached_property
 from rasterio.crs import CRS
+from shapely.geometry import Point, box
 
 from mapchete.formats import base
+from mapchete.io import absolute_path, fiona_open, fs_from_path
 from mapchete.io.vector import (
-    reproject_geometry,
-    read_vector_window,
+    IndexedFeatures,
     convert_vector,
     read_vector,
-    IndexedFeatures,
+    read_vector_window,
+    reproject_geometry,
 )
-from mapchete.io import fs_from_path, absolute_path
-
 
 logger = logging.getLogger(__name__)
 
@@ -172,12 +171,11 @@ class InputData(base.InputData):
         """
         out_crs = self.pyramid.crs if out_crs is None else out_crs
         if self._bbox_cache is None:
-            with self.path.fio_env():
-                with fiona.open(str(self.path)) as inp:
-                    self._bbox_cache = (
-                        CRS(inp.crs),
-                        tuple(inp.bounds) if len(inp) else None,
-                    )
+            with fiona_open(self.path) as inp:
+                self._bbox_cache = (
+                    CRS(inp.crs),
+                    tuple(inp.bounds) if len(inp) else None,
+                )
         inp_crs, bounds = self._bbox_cache
         if bounds is None:
             # this creates an empty GeometryCollection object

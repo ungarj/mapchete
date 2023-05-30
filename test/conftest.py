@@ -1,20 +1,20 @@
 """All pytest fixtures."""
 
 import datetime
-from minio import Minio
 import os
-import pytest
-import rasterio
-from shapely import wkt
-from shapely.geometry import box
 import shutil
 import uuid
 
+import pytest
+import rasterio
+from minio import Minio
+from shapely import wkt
+from shapely.geometry import box
 from tilematrix import Bounds, GridDefinition
 
-from mapchete.cli.default.serve import create_app
 from mapchete._executor import DaskExecutor
-from mapchete.io import copy, MPath
+from mapchete.cli.default.serve import create_app
+from mapchete.io import MPath, copy
 from mapchete.io.vector import reproject_geometry
 from mapchete.testing import ProcessFixture
 from mapchete.tile import BufferedTilePyramid

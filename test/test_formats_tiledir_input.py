@@ -1,13 +1,14 @@
 """Test Mapchete default formats."""
 
-from copy import deepcopy
-import pytest
 import shutil
+from copy import deepcopy
+
+import pytest
 
 import mapchete
+from mapchete.errors import MapcheteDriverError
 from mapchete.formats import available_input_formats
 from mapchete.formats.default.tile_directory import InputData
-from mapchete.errors import MapcheteDriverError
 
 
 def test_driver_available():

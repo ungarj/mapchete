@@ -1,17 +1,17 @@
 """Copy tiles between Tile Directories."""
 
 import logging
-from multiprocessing import cpu_count
 import os
-from typing import Callable, List, Tuple, Union
 import warnings
+from multiprocessing import cpu_count
+from typing import Callable, List, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
-from mapchete.io import fs_from_path, tiles_exist, copy, MPath
+from mapchete.io import MPath, copy, fs_from_path, tiles_exist
 from mapchete.io.vector import reproject_geometry
 
 logger = logging.getLogger(__name__)

@@ -1,24 +1,24 @@
+import logging
 from collections import namedtuple
 from itertools import chain
-import logging
-from shapely.geometry import box, mapping
 from traceback import format_exc
 from uuid import uuid4
 
+from shapely.geometry import box, mapping
+
 from mapchete._timer import Timer
+from mapchete._user_process import MapcheteProcess
 from mapchete.config import get_process_func
 from mapchete.errors import (
     MapcheteNodataTile,
-    NoTaskGeometry,
     MapcheteProcessException,
     MapcheteProcessOutputError,
+    NoTaskGeometry,
 )
 from mapchete.io import raster
 from mapchete.io._geometry_operations import to_shape
 from mapchete.io.vector import IndexedFeatures
 from mapchete.validate import validate_bounds
-from mapchete._user_process import MapcheteProcess
-
 
 logger = logging.getLogger(__name__)
 

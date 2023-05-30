@@ -1,12 +1,12 @@
 import logging
 import os
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional
+
+from mapchete._registered import drivers
+from mapchete.errors import MapcheteDriverError
 
 # from mapchete.formats.base import OutputDataReader, OutputDataWriter, InputData
 from mapchete.formats.tools import driver_from_file
-from mapchete.errors import MapcheteDriverError
-from mapchete._registered import drivers
-
 
 logger = logging.getLogger(__name__)
 

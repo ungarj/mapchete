@@ -10,53 +10,52 @@ An invalid process configuration or an invalid process file cause an Exception
 when initializing the configuration.
 """
 
-from cached_property import cached_property
-from collections import OrderedDict
-from copy import deepcopy
-import fiona
-import fsspec
 import hashlib
 import importlib
 import inspect
 import logging
 import operator
 import os
-import oyaml as yaml
 import py_compile
+import sys
+import warnings
+from collections import OrderedDict
+from copy import deepcopy
+from tempfile import NamedTemporaryFile
+
+import fsspec
+import oyaml as yaml
+from cached_property import cached_property
 from shapely import wkt
-from shapely.geometry import box, Point, shape
+from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
-import sys
-from tempfile import NamedTemporaryFile
-import warnings
 
-from mapchete.validate import (
-    validate_bounds,
-    validate_zooms,
-    validate_values,
-    validate_bufferedtilepyramid,
-)
-from mapchete.errors import (
-    MapcheteConfigError,
-    MapcheteProcessSyntaxError,
-    MapcheteProcessImportError,
-    MapcheteDriverError,
-    GeometryTypeError,
-)
 from mapchete._executor import MULTIPROCESSING_DEFAULT_START_METHOD
+from mapchete.errors import (
+    GeometryTypeError,
+    MapcheteConfigError,
+    MapcheteDriverError,
+    MapcheteProcessImportError,
+    MapcheteProcessSyntaxError,
+)
 from mapchete.formats import (
-    load_output_reader,
-    load_output_writer,
     available_output_formats,
     load_input_reader,
+    load_output_reader,
+    load_output_writer,
 )
-from mapchete.io import absolute_path, MPath
+from mapchete.io import MPath, absolute_path, fiona_open
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import Bounds
-
+from mapchete.validate import (
+    validate_bounds,
+    validate_bufferedtilepyramid,
+    validate_values,
+    validate_zooms,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1374,7 +1373,7 @@ def _guess_geometry(i, base_dir=None):
         else:
             path = MPath(i)
             with path.fio_env():
-                with fiona.open(str(path.absolute_path(base_dir))) as src:
+                with fiona_open(str(path.absolute_path(base_dir))) as src:
                     geom = unary_union([shape(f["geometry"]) for f in src])
                     crs = src.crs
     # GeoJSON mapping

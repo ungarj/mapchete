@@ -1,31 +1,32 @@
 """Functions handling vector data."""
 
-from contextlib import ExitStack
 import logging
+import warnings
+from contextlib import ExitStack, contextmanager
+from itertools import chain
+from tempfile import NamedTemporaryFile
+
 import fiona
 from fiona.errors import DriverError, FionaError, FionaValueError
 from fiona.io import MemoryFile
-from retry import retry
 from rasterio.crs import CRS
-from shapely.geometry import base, box, mapping
+from retry import retry
 from shapely.errors import TopologicalError
-from tempfile import NamedTemporaryFile
+from shapely.geometry import base, box, mapping
 from tilematrix import clip_geometry_to_srs_bounds
-from itertools import chain
-import warnings
 
-from mapchete.errors import NoGeoError, MapcheteIOError
+from mapchete.errors import MapcheteIOError, NoGeoError
 from mapchete.io import copy
-from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
 from mapchete.io._geometry_operations import (
+    _repair,
+    clean_geometry_type,
+    multipart_to_singleparts,
     reproject_geometry,
     segmentize_geometry,
     to_shape,
-    multipart_to_singleparts,
-    clean_geometry_type,
-    _repair,
 )
-from mapchete.path import fs_from_path, path_exists, MPath
+from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
+from mapchete.path import MPath, fs_from_path, path_exists
 from mapchete.types import Bounds
 from mapchete.validate import validate_bounds
 
@@ -258,8 +259,7 @@ def _get_reprojected_features(
     with ExitStack() as exit_stack:
         if isinstance(inp, (str, MPath)):
             try:
-                exit_stack.enter_context(inp.fio_env())
-                src = exit_stack.enter_context(fiona.open(str(inp), "r"))
+                src = exit_stack.enter_context(fiona_open(inp, "r"))
                 src_crs = CRS(src.crs)
             except Exception as e:
                 # fiona errors which indicate file does not exist
@@ -536,24 +536,18 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs = kwargs or {}
     if kwargs:
         logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
-        with inp.fio_env():
-            with fiona.open(str(inp), "r") as src:
-                out.makedirs()
-                with out.fio_env():
-                    with fiona.open(
-                        str(out), mode="w", **{**src.meta, **kwargs}
-                    ) as dst:
-                        dst.writerecords(src)
+        with fiona_open(inp, "r") as src:
+            out.makedirs()
+            with fiona_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
+                dst.writerecords(src)
     else:
         logger.debug("copy %s to %s", str(inp), str(out))
         copy(inp, out, overwrite=overwrite)
 
 
 def read_vector(inp, index="rtree"):
-    path = MPath(inp)
-    with path.fio_env():
-        with fiona.open(str(path), "r") as src:
-            return IndexedFeatures(src, index=index)
+    with fiona_open(inp, "r") as src:
+        return IndexedFeatures(src, index=index)
 
 
 def fiona_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
@@ -651,3 +645,14 @@ class FionaRemoteWriter:
             return FionaRemoteMemoryWriter(path, *args, fs=fs, **kwargs)
         else:
             return FionaRemoteTempFileWriter(path, *args, fs=fs, **kwargs)
+
+
+@contextmanager
+def fiona_open(path, mode="r", **kwargs):
+    """Call fiona.open but set environment correctly and return custom writer if needed."""
+    path = MPath(path)
+    if "w" in mode:
+        yield fiona_write(path, mode=mode, **kwargs)
+    else:
+        with path.fio_env():
+            yield fiona.open(str(path), mode=mode, **kwargs)

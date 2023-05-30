@@ -1,12 +1,16 @@
 """Wrapper functions around rasterio and useful raster functions."""
 
-from affine import Affine
 import itertools
 import logging
+import warnings
+from tempfile import NamedTemporaryFile
+from types import GeneratorType
+from typing import List, Tuple, Union
+
 import numpy as np
 import numpy.ma as ma
-from retry import retry
 import rasterio
+from affine import Affine
 from rasterio.enums import Resampling
 from rasterio.errors import RasterioIOError
 from rasterio.io import MemoryFile
@@ -14,24 +18,17 @@ from rasterio.transform import from_bounds as affine_from_bounds
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
+from retry import retry
 from shapely.geometry import box, mapping
-from tempfile import NamedTemporaryFile
-from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
-from types import GeneratorType
-from typing import List, Tuple, Union
-import warnings
+from tilematrix import Bounds, Shape, clip_geometry_to_srs_bounds
 
+from mapchete._timer import Timer
 from mapchete.errors import MapcheteIOError
 from mapchete.io import copy
 from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
-from mapchete.path import (
-    fs_from_path,
-    MPath,
-)
+from mapchete.path import MPath, fs_from_path
 from mapchete.tile import BufferedTile
-from mapchete._timer import Timer
 from mapchete.validate import validate_write_window_params
-
 
 logger = logging.getLogger(__name__)
 
