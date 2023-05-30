@@ -11,12 +11,11 @@ from pprint import pformat
 from typing import Dict
 
 import dateutil.parser
-import rasterio
 from rasterio.crs import CRS
 
 from mapchete._registered import drivers
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
-from mapchete.io import MPath, fiona_open, read_json, write_json
+from mapchete.io import MPath, fiona_open, read_json, write_json, rasterio_open
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
@@ -113,9 +112,8 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     # brute force by trying to open file with rasterio and fiona:
     try:
         logger.debug("try to open %s with rasterio...", input_file)
-        with input_file.rio_env():
-            with rasterio.open(input_file):  # pragma: no cover
-                return "raster_file"
+        with rasterio_open(input_file):  # pragma: no cover
+            return "raster_file"
     except Exception as rio_exception:
         try:
             logger.debug("try to open %s with fiona...", input_file)

@@ -6,7 +6,6 @@ from multiprocessing import cpu_count
 from pprint import pformat
 from typing import Callable, List, Tuple, Union
 
-import rasterio
 import tilematrix
 from rasterio.crs import CRS
 from rasterio.vrt import WarpedVRT
@@ -21,7 +20,7 @@ from mapchete.formats import (
     available_output_formats,
     driver_from_file,
 )
-from mapchete.io import MPath, fiona_open, get_best_zoom_level, read_json
+from mapchete.io import MPath, fiona_open, get_best_zoom_level, read_json, rasterio_open
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 from mapchete.validate import validate_zooms
@@ -381,7 +380,7 @@ def _input_mapchete_info(inp):
 
 
 def _input_rasterio_info(inp):
-    with rasterio.open(inp) as src:
+    with rasterio_open(inp) as src:
         if src.transform.is_identity:
             if src.gcps[1] is not None:
                 with WarpedVRT(src) as dst:

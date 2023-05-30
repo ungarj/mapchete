@@ -9,7 +9,6 @@ import numpy as np
 import numpy.ma as ma
 import pkg_resources
 import pytest
-import rasterio
 from rasterio import windows
 
 try:
@@ -23,7 +22,7 @@ from shapely.ops import unary_union
 import mapchete
 from mapchete._processing import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.errors import MapcheteProcessOutputError
-from mapchete.io import fs_from_path
+from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.raster import _shift_required, create_mosaic
 from mapchete.tile import BufferedTilePyramid, count_tiles
 
@@ -279,7 +278,7 @@ def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
         list(mp.compute(**compute_kwargs, zoom=7))
 
     # make sure baselevel tile has content
-    with rasterio.open(baselevel_tile_path) as src:
+    with rasterio_open(baselevel_tile_path) as src:
         assert src.read().any()
 
     # remove baselevel_tile
@@ -292,7 +291,7 @@ def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
     assert not baselevel_tile_path.exists()
 
     # read overview tile which is half empty
-    with rasterio.open(overview_tile_path) as src:
+    with rasterio_open(overview_tile_path) as src:
         overview_before = src.read()
         assert overview_before.any()
 
@@ -303,7 +302,7 @@ def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
         list(mp.compute(concurrency=concurrency))
 
     assert baselevel_tile_path.exists()
-    with rasterio.open(
+    with rasterio_open(
         mp.config.output.get_path(mp.config.output_pyramid.tile(*overview_tile))
     ) as src:
         overview_after = src.read()
@@ -346,7 +345,7 @@ def test_baselevels_output_buffer(mp_tmpdir, baselevels_output_buffer):
         # process all
         mp.batch_process()
         # read tile 6/62/125.tif
-        with rasterio.open(
+        with rasterio_open(
             mp.config.output.output_params["path"] / 6 / 62 / 125 + ".tif"
         ) as src:
             window = windows.from_bounds(
@@ -402,7 +401,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                         zoom,
                     )
                     os.system(gdalbuildvrt)
-                    with rasterio.open(temp_vrt, "r") as testfile:
+                    with rasterio_open(temp_vrt, "r") as testfile:
                         for file_item, mosaic_item in zip(
                             testfile.meta["transform"], mosaic.affine
                         ):
@@ -685,7 +684,7 @@ def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
         list(mp_red.compute(tile=(zoom, 0, 0), **compute_kwargs))
     fs_red = fs_from_path(mp_red.config.output.path)
     assert len(fs_red.glob(f"{mp_red.config.output.path}/*/*/*.tif")) == 1
-    with rasterio.open(f"{mp_red.config.output.path}/{zoom}/0/0.tif") as src:
+    with rasterio_open(f"{mp_red.config.output.path}/{zoom}/0/0.tif") as src:
         assert np.array_equal(
             src.read(),
             np.stack([np.full((256, 256), c, dtype=np.uint8) for c in (255, 1, 1)]),
@@ -717,7 +716,7 @@ def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
         tile = tp.tile(zoom, row, col)
         # make sure red tile still is red
         if tile == red_tile:
-            with rasterio.open(path) as src:
+            with rasterio_open(path) as src:
                 assert np.array_equal(
                     src.read(),
                     np.stack(
@@ -727,14 +726,14 @@ def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
 
         # make sure overview tiles from red tile contain both red and green values
         elif tile in overview_tiles:
-            with rasterio.open(path) as src:
+            with rasterio_open(path) as src:
                 for band in src.read([1, 2], masked=True):
                     assert 1 in band
                     assert 255 in band
 
         # make sure all other tiles are green
         else:
-            with rasterio.open(path) as src:
+            with rasterio_open(path) as src:
                 assert np.array_equal(
                     src.read(),
                     np.stack(
@@ -784,7 +783,7 @@ def test_compute_dask_graph_single_file(
                 assert result.data is None
     assert tile_tasks == 12
     assert preprocessing_tasks == 2
-    with rasterio.open(mp.config.output.path) as src:
+    with rasterio_open(mp.config.output.path) as src:
         assert not src.read(masked=True).mask.all()
 
 
@@ -802,7 +801,7 @@ def test_compute_dask_single_file(preprocess_cache_memory_single_file, dask_exec
                 assert result.data is None
     assert tile_tasks == 12
     assert preprocessing_tasks == 2
-    with rasterio.open(mp.config.output.path) as src:
+    with rasterio_open(mp.config.output.path) as src:
         assert not src.read(masked=True).mask.all()
 
 

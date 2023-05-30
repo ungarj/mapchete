@@ -8,6 +8,7 @@ from mapchete.io._misc import (
     get_segmentize_value,
     tile_to_zoom_level,
 )
+from mapchete.io.raster import rasterio_open
 from mapchete.io.settings import GDAL_HTTP_OPTS, get_gdal_options
 from mapchete.io.vector import fiona_open
 from mapchete.path import (
@@ -41,4 +42,5 @@ __all__ = [
     "get_gdal_options",
     "MPath",
     "fiona_open",
+    "rasterio_open",
 ]

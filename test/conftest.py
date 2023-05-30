@@ -2,11 +2,9 @@
 
 import datetime
 import os
-import shutil
 import uuid
 
 import pytest
-import rasterio
 from minio import Minio
 from shapely import wkt
 from shapely.geometry import box
@@ -14,7 +12,7 @@ from tilematrix import Bounds, GridDefinition
 
 from mapchete._executor import DaskExecutor
 from mapchete.cli.default.serve import create_app
-from mapchete.io import MPath, copy
+from mapchete.io import MPath, copy, rasterio_open
 from mapchete.io.vector import reproject_geometry
 from mapchete.testing import ProcessFixture
 from mapchete.tile import BufferedTilePyramid
@@ -138,7 +136,7 @@ def s2_band():
 @pytest.fixture
 def s2_band_tile():
     tp = BufferedTilePyramid("geodetic")
-    with rasterio.open(TESTDATA_DIR / "s2_band.tif") as src:
+    with rasterio_open(TESTDATA_DIR / "s2_band.tif") as src:
         rr_center = reproject_geometry(
             geometry=box(*src.bounds), src_crs=src.crs, dst_crs=tp.crs
         ).centroid

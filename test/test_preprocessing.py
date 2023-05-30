@@ -1,9 +1,8 @@
 import pytest
-import rasterio
 
 import mapchete
 from mapchete._tasks import Task
-from mapchete.io import fs_from_path
+from mapchete.io import fs_from_path, rasterio_open
 
 
 def _trivial_func(arg, kwarg=None):
@@ -181,7 +180,7 @@ def test_preprocessing_tasks_dependencies_single_tile(preprocess_cache_memory):
         out_path = mp.config.output_reader.get_path(
             mp.config.process_pyramid.tile(*tile)
         )
-        with rasterio.open(out_path) as src:
+        with rasterio_open(out_path) as src:
             assert not src.read(masked=True).mask.all()
 
         out_path = mp.config.output_reader.path
@@ -208,7 +207,7 @@ def test_preprocessing_tasks_dependencies_single_tile_dask(preprocess_cache_memo
         out_path = mp.config.output_reader.get_path(
             mp.config.process_pyramid.tile(*tile)
         )
-        with rasterio.open(out_path) as src:
+        with rasterio_open(out_path) as src:
             assert not src.read(masked=True).mask.all()
 
         out_path = mp.config.output_reader.path

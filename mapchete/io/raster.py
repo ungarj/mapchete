@@ -1,5 +1,6 @@
 """Wrapper functions around rasterio and useful raster functions."""
 
+from contextlib import contextmanager
 import itertools
 import logging
 import warnings
@@ -137,7 +138,7 @@ class ReferencedRaster:
 
     @staticmethod
     def from_file(path, masked: bool = True) -> "ReferencedRaster":
-        with rasterio.open(path) as src:
+        with rasterio_open(path) as src:
             return ReferencedRaster.from_rasterio(src, masked=masked)
 
 
@@ -476,7 +477,7 @@ def _rasterio_read(
 
     try:
         with Timer() as t:
-            with rasterio.open(input_file, "r") as src:
+            with rasterio_open(input_file, "r") as src:
                 logger.debug("read from %s...", input_file)
                 out = _read(
                     src,
@@ -521,12 +522,8 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                with input_file.rio_env(gdal_opts) as env:
-                    logger.debug(
-                        "reading %s with GDAL options %s", str(input_file), env.options
-                    )
-                    with rasterio.open(input_file, "r") as src:
-                        return src.read(indexes=indexes, masked=True)
+                with rasterio_open(input_file, "r") as src:
+                    return src.read(indexes=indexes, masked=True)
             except RasterioIOError as rio_exc:
                 _extract_filenotfound_exception(rio_exc, input_file)
 
@@ -1253,11 +1250,10 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs = kwargs or {}
     if kwargs:
         logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
-        with inp.rio_env():
-            with rasterio.open(inp, "r") as src:
-                out.makedirs()
-                with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
-                    dst.write(src.read())
+        with rasterio_open(inp, "r") as src:
+            out.makedirs()
+            with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
+                dst.write(src.read())
     else:
         logger.debug("copy %s to %s", inp, (out))
         copy(inp, out, overwrite=overwrite)
@@ -1266,11 +1262,22 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
 def read_raster(inp, **kwargs):
     inp = MPath(inp)
     logger.debug(f"reading {str(inp)} into memory")
-    with inp.rio_env():
-        with rasterio.open(inp, "r") as src:
-            return ReferencedRaster(
-                data=src.read(masked=True),
-                affine=src.transform,
-                bounds=src.bounds,
-                crs=src.crs,
-            )
+    with rasterio_open(inp, "r") as src:
+        return ReferencedRaster(
+            data=src.read(masked=True),
+            affine=src.transform,
+            bounds=src.bounds,
+            crs=src.crs,
+        )
+
+
+@contextmanager
+def rasterio_open(path, mode="r", **kwargs):
+    """Call rasterio.open but set environment correctly and return custom writer if needed."""
+    path = MPath(path)
+    if "w" in mode:
+        yield rasterio_write(path, mode=mode, **kwargs)
+    else:
+        with path.rio_env() as env:
+            logger.debug("reading %s with GDAL options %s", str(path), env.options)
+            yield rasterio.open(path, mode=mode, **kwargs)

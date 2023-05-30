@@ -5,7 +5,6 @@ from copy import deepcopy
 
 import oyaml as yaml
 import pytest
-import rasterio
 from fiona.errors import DriverError
 from shapely import wkt
 from shapely.errors import WKTReadingError
@@ -19,7 +18,7 @@ from mapchete.config import (
     snap_bounds,
 )
 from mapchete.errors import MapcheteConfigError
-from mapchete.io import fiona_open
+from mapchete.io import fiona_open, rasterio_open
 from mapchete.types import Bounds
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -279,7 +278,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
     with fiona_open(aoi_br_geojson) as src:
         area = shape(next(iter(src))["geometry"])
     # read input tiff bounds
-    with rasterio.open(cleantopo_br_tif) as src:
+    with rasterio_open(cleantopo_br_tif) as src:
         raster = box(*src.bounds)
     aoi = area.intersection(raster)
 

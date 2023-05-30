@@ -17,7 +17,7 @@ from shapely.geometry import shape
 import mapchete
 from mapchete.cli import options
 from mapchete.cli.main import main as mapchete_cli
-from mapchete.io import fiona_open
+from mapchete.io import fiona_open, rasterio_open
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -190,7 +190,7 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
     run_cli(["execute", cleantopo_br.path, "-z", "5", "--vrt"])
     with mapchete.open(cleantopo_br.dict) as mp:
         vrt_path = mp.config.output.path / "5.vrt"
-        with rasterio.open(vrt_path) as src:
+        with rasterio_open(vrt_path) as src:
             assert src.read().any()
 
     # run again, this time with custom output directory
@@ -209,7 +209,7 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
     )
     with mapchete.open(cleantopo_br.dict) as mp:
         vrt_path = os.path.join(mp_tmpdir, "5.vrt")
-        with rasterio.open(vrt_path) as src:
+        with rasterio_open(vrt_path) as src:
             assert src.read().any()
 
     # run with single tile
@@ -333,7 +333,7 @@ def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -355,7 +355,7 @@ def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -378,7 +378,7 @@ def test_convert_custom_grid(s2_band, mp_tmpdir, custom_grid_json):
 
     for zoom, row, col in [(0, 5298, 631)]:
         out_file = mp_tmpdir / zoom / row / col + ".tif"
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -404,7 +404,7 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
         out_file = mp_tmpdir / zoom / row / col + ".png"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            with rasterio.open(out_file, "r") as src:
+            with rasterio_open(out_file, "r") as src:
                 assert src.meta["driver"] == "PNG"
                 assert src.meta["dtype"] == "uint8"
                 data = src.read(masked=True)
@@ -429,7 +429,7 @@ def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -453,7 +453,7 @@ def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -478,7 +478,7 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -507,7 +507,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -531,7 +531,7 @@ def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -555,7 +555,7 @@ def test_convert_dtype(cleantopo_br_tif, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = mp_tmpdir / zoom / row / col + ".tif"
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -581,7 +581,7 @@ def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = mp_tmpdir / zoom / row / col + ".tif"
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -608,7 +608,7 @@ def test_convert_scale_offset(cleantopo_br_tif, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = mp_tmpdir / zoom / row / col + ".tif"
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -684,7 +684,7 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = mp_tmpdir / zoom / row / col + ".tif"
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -720,7 +720,7 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = mp_tmpdir / zoom / row / col + ".tif"
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -863,7 +863,7 @@ def test_convert_vrt(cleantopo_br_tif, mp_tmpdir):
     )
     for zoom in [4, 3, 2, 1]:
         out_file = mp_tmpdir / zoom + ".vrt"
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "VRT"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -1492,4 +1492,4 @@ def test_stac_tiledir(http_tiledir, mp_tmpdir):
 def test_stac_prototype_files(cleantopo_br):
     run_cli(["execute", cleantopo_br.path])
     run_cli(["stac", "create-prototype-files", cleantopo_br.path])
-    rasterio.open(cleantopo_br.mp().config.output.stac_path)
+    rasterio_open(cleantopo_br.mp().config.output.stac_path)

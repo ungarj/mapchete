@@ -6,7 +6,6 @@ from itertools import product
 import numpy as np
 import numpy.ma as ma
 import pytest
-import rasterio
 from rasterio.enums import Compression
 from shapely.geometry import box
 from shapely.ops import unary_union
@@ -16,7 +15,7 @@ import mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteIOError
 from mapchete.formats.default.gtiff import DefaultGTiffProfile
-from mapchete.io import path_exists
+from mapchete.io import path_exists, rasterio_open
 from mapchete.io.raster import (
     RasterWindowMemoryFile,
     ReferencedRaster,
@@ -99,7 +98,7 @@ def test_read_raster_window_reproject(dummy1_3857_tif, minmax_zoom):
 def test_read_raster_window_resampling(cleantopo_br_tif):
     """Assert various resampling options work."""
     tp = BufferedTilePyramid("geodetic")
-    with rasterio.open(cleantopo_br_tif, "r") as src:
+    with rasterio_open(cleantopo_br_tif, "r") as src:
         tiles = tp.tiles_from_bounds(src.bounds, 4)
     for tile in tiles:
         outputs = [
@@ -259,7 +258,7 @@ def test_write_raster_window():
             write_raster_window(
                 in_tile=tile, in_data=data, out_profile=out_profile, out_path=path
             )
-            with rasterio.open(path, "r") as src:
+            with rasterio_open(path, "r") as src:
                 assert src.read().any()
                 assert src.meta["driver"] == out_profile["driver"]
                 assert src.transform == tile.affine
@@ -291,7 +290,7 @@ def test_write_raster_window():
             out_tile=out_tile,
             out_path=path,
         )
-        with rasterio.open(path, "r") as src:
+        with rasterio_open(path, "r") as src:
             assert src.shape == out_tile.shape
             assert src.read().any()
             assert src.meta["driver"] == out_profile["driver"]
@@ -790,7 +789,7 @@ def test_convert_raster_copy(cleantopo_br_tif, mp_tmpdir):
 
     # copy
     convert_raster(cleantopo_br_tif, out)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
     # raise error if output exists
@@ -799,7 +798,7 @@ def test_convert_raster_copy(cleantopo_br_tif, mp_tmpdir):
 
     # do nothing if output exists
     convert_raster(cleantopo_br_tif, out)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
 
@@ -809,7 +808,7 @@ def test_convert_raster_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
     # copy
     convert_raster(cleantopo_br_tif_s3, out)
     with out.rio_env():
-        with rasterio.open(out) as src:
+        with rasterio_open(out) as src:
             assert not src.read(masked=True).mask.all()
 
     # raise error if output exists
@@ -818,9 +817,8 @@ def test_convert_raster_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
 
     # do nothing if output exists
     convert_raster(cleantopo_br_tif_s3, out)
-    with out.rio_env():
-        with rasterio.open(out) as src:
-            assert not src.read(masked=True).mask.all()
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
 
 
 def test_convert_raster_overwrite(cleantopo_br_tif, mp_tmpdir):
@@ -832,7 +830,7 @@ def test_convert_raster_overwrite(cleantopo_br_tif, mp_tmpdir):
 
     # overwrite
     convert_raster(cleantopo_br_tif, out, overwrite=True)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
 
@@ -845,16 +843,15 @@ def test_convert_raster_overwrite_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
 
     # overwrite
     convert_raster(cleantopo_br_tif_s3, out, overwrite=True)
-    with out.rio_env():
-        with rasterio.open(out) as src:
-            assert not src.read(masked=True).mask.all()
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
 
 
 def test_convert_raster_other_format_copy(cleantopo_br_tif, mp_tmpdir):
     out = mp_tmpdir / "copied.jp2"
 
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG")
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
     # raise error if output exists
@@ -866,9 +863,8 @@ def test_convert_raster_other_format_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
     out = mp_s3_tmpdir / "copied.jp2"
 
     convert_raster(cleantopo_br_tif_s3, out, driver="JP2OpenJPEG")
-    with out.rio_env():
-        with rasterio.open(out) as src:
-            assert not src.read(masked=True).mask.all()
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
 
     # raise error if output exists
     with pytest.raises(IOError):
@@ -884,7 +880,7 @@ def test_convert_raster_other_format_overwrite(cleantopo_br_tif, mp_tmpdir):
 
     # overwrite
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG", overwrite=True)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
 
@@ -897,9 +893,8 @@ def test_convert_raster_other_format_overwrite_s3(cleantopo_br_tif_s3, mp_s3_tmp
 
     # overwrite
     convert_raster(cleantopo_br_tif_s3, out, driver="JP2OpenJPEG", overwrite=True)
-    with out.rio_env():
-        with rasterio.open(out) as src:
-            assert not src.read(masked=True).mask.all()
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
 
 
 def test_referencedraster_meta(s2_band):
@@ -951,10 +946,9 @@ def test_rasterio_write(path, dtype, in_memory):
     ) as dst:
         dst.write(arr)
     assert path_exists(path)
-    with path.rio_env():
-        with rasterio.open(path) as src:
-            written = src.read()
-            assert np.array_equal(arr, written)
+    with rasterio_open(path) as src:
+        written = src.read()
+        assert np.array_equal(arr, written)
 
 
 @pytest.mark.parametrize("in_memory", [True, False])

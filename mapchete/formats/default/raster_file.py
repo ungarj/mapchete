@@ -6,13 +6,10 @@ extended easily.
 """
 
 import logging
-import os
 import warnings
 from copy import deepcopy
 
 import numpy.ma as ma
-import rasterio
-from cached_property import cached_property
 from rasterio.crs import CRS
 from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
@@ -24,6 +21,7 @@ from mapchete.io.raster import (
     read_raster,
     read_raster_window,
     resample_from_array,
+    rasterio_open,
 )
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
 
@@ -80,7 +78,7 @@ class InputData(base.InputData):
             if "abstract" in input_params
             else input_params["path"]
         )
-        with rasterio.open(self.path, "r") as src:
+        with rasterio_open(self.path, "r") as src:
             self.profile = deepcopy(src.meta)
             # determine bounding box
             if src.transform.is_identity:

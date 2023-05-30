@@ -654,5 +654,6 @@ def fiona_open(path, mode="r", **kwargs):
     if "w" in mode:
         yield fiona_write(path, mode=mode, **kwargs)
     else:
-        with path.fio_env():
+        with path.fio_env() as env:
+            logger.debug("reading %s with GDAL options %s", str(path), env.options)
             yield fiona.open(str(path), mode=mode, **kwargs)

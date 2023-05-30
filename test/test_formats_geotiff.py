@@ -15,7 +15,7 @@ from tilematrix import Bounds
 import mapchete
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats.default import gtiff
-from mapchete.io import path_exists
+from mapchete.io import path_exists, rasterio_open
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -176,7 +176,7 @@ def test_write_geotiff_tags(mp_tmpdir, cleantopo_br, write_rasterfile_tags_py):
             mp.write(process_tile=tile, data=(data, tags))
             # read data
             out_path = mp.config.output.get_path(tile)
-            with rasterio.open(out_path) as src:
+            with rasterio_open(out_path) as src:
                 assert "filewide_tag" in src.tags()
                 assert src.tags()["filewide_tag"] == "value"
                 assert "band_tag" in src.tags(1)
@@ -301,7 +301,7 @@ def test_output_single_gtiff_compression(output_single_gtiff):
         assert mp.config.output.profile()["compress"] == "deflate"
         mp.batch_process(tile=process_tile.id)
 
-    with rasterio.open(mp.config.output.path) as src:
+    with rasterio_open(mp.config.output.path) as src:
         assert src.profile["compress"] == "deflate"
 
 
@@ -321,7 +321,7 @@ def test_output_single_gtiff_overviews(output_single_gtiff):
         process_tile = mp.config.process_pyramid.tile(*tile_id)
         mp.batch_process(tile=process_tile.id)
 
-    with rasterio.open(mp.config.output.path) as src:
+    with rasterio_open(mp.config.output.path) as src:
         assert src.overviews(1)
         assert src.tags().get("OVR_RESAMPLING_ALG").lower() == "bilinear"
         for o in [1, 2, 4, 8]:

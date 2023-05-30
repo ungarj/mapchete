@@ -3,7 +3,6 @@
 import os
 
 import pytest
-import rasterio
 from shapely.errors import TopologicalError
 
 import mapchete
@@ -15,6 +14,7 @@ from mapchete.io import (
     read_json,
     tile_to_zoom_level,
     tiles_exist,
+    rasterio_open,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -303,7 +303,7 @@ def test_copy(cleantopo_br_tif, tmpdir):
 
     # copy and verify file is valid
     copy(cleantopo_br_tif, out)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
     # try to copy again, catching the IOError
@@ -312,7 +312,7 @@ def test_copy(cleantopo_br_tif, tmpdir):
 
     # copy again but overwrite
     copy(cleantopo_br_tif, out, overwrite=True)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
 
