@@ -890,6 +890,7 @@ def preprocess_cache_raster_vector(mp_tmpdir):
     with ProcessFixture(
         TESTDATA_DIR / "preprocess_cache_raster_vector.mapchete",
         output_tempdir=mp_tmpdir,
+        inp_cache_tempdir=mp_tmpdir,
     ) as example:
         yield example
 
