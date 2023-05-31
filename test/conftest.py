@@ -102,7 +102,7 @@ def mp_tmpdir():
     tempdir = TEMP_DIR / uuid.uuid4().hex
     tempdir.makedirs()
     yield tempdir
-    tempdir.rm(recursive=True, ignore_errors=True)
+    TEMP_DIR.rm(recursive=True, ignore_errors=True)
 
 
 # temporary directory for I/O tests
