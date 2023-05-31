@@ -30,18 +30,28 @@ from mapchete.io.vector import (
 from mapchete.tile import BufferedTilePyramid
 
 
-def test_read_vector_window(geojson):
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("landpoly"),
+        pytest.lazy_fixture("landpoly_s3"),
+        pytest.lazy_fixture("landpoly_http"),
+        pytest.lazy_fixture("landpoly_secure_http"),
+    ],
+)
+@pytest.mark.parametrize("grid", ["geodetic", "mercator"])
+@pytest.mark.parametrize("pixelbuffer", [0, 10, 500])
+@pytest.mark.parametrize("zoom", [5, 3])
+def test_read_vector_window(path, grid, pixelbuffer, zoom):
     """Read vector data from read_vector_window."""
-    zoom = 4
-    config = MapcheteConfig(geojson.dict)
-    vectorfile = config.params_at_zoom(zoom)["input"]["file1"]
-    pixelbuffer = 5
-    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = tile_pyramid.tiles_from_geom(
-        vectorfile.bbox(out_crs=tile_pyramid.crs), zoom
-    )
+    tile_pyramid = BufferedTilePyramid(grid, pixelbuffer=pixelbuffer)
+    with fiona_open(path) as src:
+        bbox = reproject_geometry(box(*src.bounds), src.crs, tile_pyramid.crs)
+
+    tiles = list(tile_pyramid.tiles_from_geom(bbox, zoom))
+
     for tile in tiles:
-        features = read_vector_window(vectorfile.path, tile)
+        features = read_vector_window(path, tile)
         if features:
             for feature in features:
                 assert "properties" in feature
@@ -586,8 +596,6 @@ def test_object_bounds_key_bbox():
 
 
 def test_object_bounds_key_geometry():
-    # elif obj.get("geometry"):
-    #     return validate_bounds(to_shape(obj["geometry"]).bounds)
     control = (0, 1, 2, 3)
 
     foo = {"geometry": mapping(box(*control))}

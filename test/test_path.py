@@ -148,16 +148,37 @@ def test_with_suffix():
     assert str(path.with_suffix("jpg")) == "foo/bar.jpg"
 
 
-def test_ls(testdata_dir):
-    for path in testdata_dir.ls():
-        assert isinstance(path, MPath)
-    for path in testdata_dir.ls(detail=True):
-        assert isinstance(path.get("name"), MPath)
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("testdata_dir"),
+        pytest.lazy_fixture("http_testdata_dir"),
+        pytest.lazy_fixture("secure_http_testdata_dir"),
+        pytest.lazy_fixture("s3_testdata_dir"),
+    ],
+)
+def test_ls(path):
+    for p in path.ls():
+        assert isinstance(p, MPath)
+    for p in path.ls(detail=True):
+        assert isinstance(p.get("name"), MPath)
 
 
-def test_io_protected_https():
-    # TODO
-    raise NotImplementedError()
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("metadata_json"),
+        pytest.lazy_fixture("http_metadata_json"),
+        pytest.lazy_fixture("s3_metadata_json"),
+    ],
+)
+def test_io_read(path):
+    assert path.exists()
+
+    with path.open() as src:
+        assert src.read()
+
+    assert path.read_text()
 
 
 def test_io_s3(mp_s3_tmpdir):
@@ -187,3 +208,24 @@ def test_gdal_env_params(path_str):
         "CPL_VSIL_CURL_ALLOWED_EXTENSIONS"
     ].split(", ")
     assert path.suffix in remote_extensions
+
+
+@pytest.mark.parametrize(
+    "path_str",
+    [
+        "http://localhost/open/cleantopo/1/",
+        "http://localhost/open/cleantopo/1",
+    ],
+)
+def test_http_ls(path_str):
+    path = MPath(path_str)
+    assert path.ls()
+
+
+def test_secure_http_tiledir(secure_http_tiledir):
+    assert secure_http_tiledir.exists()
+    assert secure_http_tiledir.ls()
+
+
+def test_secure_http_raster(secure_http_raster):
+    assert secure_http_raster.exists()

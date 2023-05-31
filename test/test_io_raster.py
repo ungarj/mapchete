@@ -12,7 +12,6 @@ from shapely.ops import unary_union
 from tilematrix import Bounds
 
 import mapchete
-from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteIOError
 from mapchete.formats.default.gtiff import DefaultGTiffProfile
 from mapchete.io import path_exists, rasterio_open
@@ -24,75 +23,19 @@ from mapchete.io.raster import (
     extract_from_array,
     prepare_array,
     rasterio_write,
+    read_raster,
     read_raster_no_crs,
     read_raster_window,
     resample_from_array,
     write_raster_window,
 )
+from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
 
-def test_read_raster_window(dummy1_tif, minmax_zoom):
-    """Read array with read_raster_window."""
-    zoom = 8
-    # without reproject
-    config_raw = minmax_zoom.dict
-    config_raw["input"].update(file1=dummy1_tif)
-    config = MapcheteConfig(config_raw)
-    rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
-    dummy1_bbox = rasterfile.bbox()
-
-    pixelbuffer = 5
-    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
-    # add edge tile
-    tiles.append(tile_pyramid.tile(8, 0, 0))
-    for tile in tiles:
-        width, height = tile.shape
-        for band in read_raster_window(dummy1_tif, tile):
-            assert isinstance(band, ma.MaskedArray)
-            assert band.shape == (width, height)
-        for index in range(1, 4):
-            band = read_raster_window(dummy1_tif, tile, index)
-            assert isinstance(band, ma.MaskedArray)
-            assert band.shape == (width, height)
-        for index in [None, [1, 2, 3]]:
-            band = read_raster_window(dummy1_tif, tile, index)
-            assert isinstance(band, ma.MaskedArray)
-            assert band.ndim == 3
-            assert band.shape == (3, width, height)
-
-
-def test_read_raster_window_reproject(dummy1_3857_tif, minmax_zoom):
-    """Read array with read_raster_window."""
-    zoom = 8
-    # with reproject
-    config_raw = minmax_zoom.dict
-    config_raw["input"].update(file1=dummy1_3857_tif)
-    config = MapcheteConfig(config_raw)
-    rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
-    dummy1_bbox = rasterfile.bbox()
-
-    pixelbuffer = 5
-    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
-    # target window out of CRS bounds
-    band = read_raster_window(dummy1_3857_tif, tile_pyramid.tile(12, 0, 0))
-    assert isinstance(band, ma.MaskedArray)
-    assert band.mask.all()
-    # not intersecting tile
-    tiles.append(tile_pyramid.tile(zoom, 1, 1))  # out of CRS bounds
-    tiles.append(tile_pyramid.tile(zoom, 16, 1))  # out of file bbox
-    for tile in tiles:
-        for band in read_raster_window(dummy1_3857_tif, tile):
-            assert isinstance(band, ma.MaskedArray)
-            assert band.shape == tile.shape
-        bands = read_raster_window(dummy1_3857_tif, tile, [1])
-        assert isinstance(bands, ma.MaskedArray)
-        assert bands.shape == (1, *tile.shape)
-    # errors
+def test_read_raster_window_nofile(raster_4band_tile):
     with pytest.raises(IOError):
-        read_raster_window("nonexisting_path", tile)
+        read_raster_window("nonexisting_path", raster_4band_tile)
 
 
 def test_read_raster_window_resampling(cleantopo_br_tif):
@@ -778,12 +721,6 @@ def test_prepare_array_errors():
         pass
 
 
-@pytest.mark.remote
-def test_read_raster_window_s3(s2_band_remote):
-    tile = BufferedTilePyramid("geodetic").tile(10, 276, 1071)
-    assert read_raster_window(s2_band_remote, tile).any()
-
-
 def test_convert_raster_copy(cleantopo_br_tif, mp_tmpdir):
     out = mp_tmpdir / "copied.tif"
 
@@ -978,21 +915,80 @@ def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
     assert not path_exists(mp.config.output.path)
 
 
-def test_read_raster_no_crs_protected_https_mock():
-    raise NotImplementedError()
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+def test_read_raster_no_crs(path):
+    arr = read_raster_no_crs(path)
+    assert isinstance(arr, ma.MaskedArray)
+    assert not arr.mask.all()
 
 
-def test_read_raster_window_protected_https_mock():
-    raise NotImplementedError()
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+@pytest.mark.parametrize("grid", ["geodetic", "mercator"])
+@pytest.mark.parametrize("pixelbuffer", [0, 10, 500])
+@pytest.mark.parametrize("zoom", [8, 5])
+def test_read_raster_window(path, grid, pixelbuffer, zoom):
+    """Read array with read_raster_window."""
+    tile_pyramid = BufferedTilePyramid(grid, pixelbuffer=pixelbuffer)
+    with rasterio_open(path) as src:
+        bbox = reproject_geometry(box(*src.bounds), src.crs, tile_pyramid.crs)
+        bands = src.count
+
+    tiles = list(tile_pyramid.tiles_from_geom(bbox, zoom))
+
+    # add edge tile
+    tiles.append(tile_pyramid.tile(zoom, 0, 0))
+
+    for tile in tiles:
+        width, height = tile.shape
+
+        for band in read_raster_window(path, tile):
+            assert isinstance(band, ma.MaskedArray)
+            assert band.shape == (width, height)
+            if tile.row != 0 and tile.col != 0:
+                assert not band.mask.all()
+
+        for index in range(1, bands + 1):
+            band = read_raster_window(path, tile, index)
+            assert isinstance(band, ma.MaskedArray)
+            assert band.shape == (width, height)
+            if tile.row != 0 and tile.col != 0:
+                assert not band.mask.all()
+
+        for index in [None, list(range(1, bands + 1))]:
+            band = read_raster_window(path, tile, index)
+            assert isinstance(band, ma.MaskedArray)
+            assert band.ndim == 3
+            assert band.shape == (bands, width, height)
+            if tile.row != 0 and tile.col != 0:
+                assert not band.mask.all()
 
 
-def test_read_raster_no_crs_s3():
-    raise NotImplementedError()
-
-
-def test_convert_raster_protected_https_mock():
-    raise NotImplementedError()
-
-
-def test_read_raster_protected_https_mock():
-    raise NotImplementedError()
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+def test_read_raster(path):
+    rr = read_raster(path)
+    assert isinstance(rr, ReferencedRaster)
+    assert not rr.data.mask.all()

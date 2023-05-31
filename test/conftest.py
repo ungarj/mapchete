@@ -18,9 +18,18 @@ from mapchete.testing import ProcessFixture
 from mapchete.tile import BufferedTilePyramid
 
 MINIO_TESTDATA_BUCKET = "testdata"
+HTTP_USERNAME = "client"
+HTTP_PASSWORD = "password2022"
+S3_KEY = "eecang7G"
+S3_SECRET = "Eashei2a"
+S3_ENDPOINT_URL = "localhost:9000"
 
 SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
 TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata/"))
+HTTP_TESTDATA_DIR = MPath("http://localhost/open/")
+SECURE_HTTP_TESTDATA_DIR = MPath(
+    "http://localhost/secure/", username=HTTP_USERNAME, password=HTTP_PASSWORD
+)
 TEMP_DIR = MPath(os.path.join(TESTDATA_DIR, "tmp/"))
 
 
@@ -37,16 +46,32 @@ def testdata_dir():
 
 
 @pytest.fixture()
+def http_testdata_dir():
+    return HTTP_TESTDATA_DIR
+
+
+@pytest.fixture()
+def secure_http_testdata_dir():
+    return SECURE_HTTP_TESTDATA_DIR
+
+
+@pytest.fixture()
+def s3_testdata_dir(minio_testdata_bucket):
+    return minio_testdata_bucket / MINIO_TESTDATA_BUCKET
+
+
+@pytest.fixture()
 def minio_testdata_bucket():
-    key = "eecang7G"
-    secret = "Eashei2a"
-    endpoint_url = "localhost:9000"
-    minio = Minio(endpoint_url, access_key=key, secret_key=secret, secure=False)
+    minio = Minio(
+        S3_ENDPOINT_URL, access_key=S3_KEY, secret_key=S3_SECRET, secure=False
+    )
     if not minio.bucket_exists(MINIO_TESTDATA_BUCKET):
         minio.make_bucket(MINIO_TESTDATA_BUCKET)
     s3_testdata = MPath(
         f"s3://{MINIO_TESTDATA_BUCKET}/",
-        fs_options=dict(endpoint_url=f"http://{endpoint_url}", key=key, secret=secret),
+        fs_options=dict(
+            endpoint_url=f"http://{S3_ENDPOINT_URL}", key=S3_KEY, secret=S3_SECRET
+        ),
     )
     return s3_testdata
 
@@ -113,13 +138,25 @@ def wkt_geom_tl():
 @pytest.fixture
 def http_raster():
     """Fixture for HTTP raster."""
-    return "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/1/0/0.tif"
+    return HTTP_TESTDATA_DIR / "cleantopo/1/0/0.tif"
 
 
 @pytest.fixture
 def http_tiledir():
     """Fixture for HTTP TileDirectory."""
-    return "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/"
+    return HTTP_TESTDATA_DIR / "cleantopo"
+
+
+@pytest.fixture
+def secure_http_raster():
+    """Fixture for HTTP raster."""
+    return SECURE_HTTP_TESTDATA_DIR / "cleantopo/1/0/0.tif"
+
+
+@pytest.fixture
+def secure_http_tiledir():
+    """Fixture for HTTP TileDirectory."""
+    return SECURE_HTTP_TESTDATA_DIR / "cleantopo"
 
 
 @pytest.fixture
@@ -155,7 +192,23 @@ def s2_band_jp2():
 
 
 @pytest.fixture
-def s2_band_remote(minio_testdata_bucket):
+def raster_4band_tile():
+    """
+    A tile intersecting with 4band_test.tif.
+    """
+    return BufferedTilePyramid("geodetic").tile(13, 2209, 8569)
+
+
+@pytest.fixture
+def raster_4band():
+    """
+    Fixture for 4band_test.tif.
+    """
+    return TESTDATA_DIR / "4band_test.tif"
+
+
+@pytest.fixture
+def raster_4band_s3(minio_testdata_bucket):
     """
     Fixture for remote file on S3 bucket.
     """
@@ -163,9 +216,33 @@ def s2_band_remote(minio_testdata_bucket):
 
 
 @pytest.fixture
+def raster_4band_http():
+    """
+    Fixture for 4band_test.tif.
+    """
+    return HTTP_TESTDATA_DIR / "4band_test.tif"
+
+
+@pytest.fixture
+def raster_4band_secure_http():
+    """
+    Fixture for 4band_test.tif.
+    """
+    return SECURE_HTTP_TESTDATA_DIR / "4band_test.tif"
+
+
+@pytest.fixture
 def empty_gpkg():
     """Fixture for HTTP raster."""
     return TESTDATA_DIR / "empty.gpkg"
+
+
+@pytest.fixture
+def metadata_json(minio_testdata_bucket):
+    """
+    Fixture for metadata.json.
+    """
+    return TESTDATA_DIR / "cleantopo" / "metadata.json"
 
 
 @pytest.fixture
@@ -179,9 +256,17 @@ def s3_metadata_json(minio_testdata_bucket):
 @pytest.fixture
 def http_metadata_json():
     """
-    Fixture for https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/metadata.json.
+    Fixture for http://localhost/cleantopo/metadata.json.
     """
-    return "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/metadata.json"
+    return HTTP_TESTDATA_DIR / "cleantopo" / "metadata.json"
+
+
+@pytest.fixture
+def secure_http_metadata_json():
+    """
+    Fixture for http://localhost/cleantopo/metadata.json.
+    """
+    return HTTP_TESTDATA_DIR / "cleantopo" / "metadata.json"
 
 
 @pytest.fixture
@@ -276,6 +361,24 @@ def driver_output_params_dict():
 def landpoly():
     """Fixture for landpoly.geojson."""
     return TESTDATA_DIR / "landpoly.geojson"
+
+
+@pytest.fixture
+def landpoly_s3(minio_testdata_bucket):
+    """Fixture for landpoly.geojson."""
+    return prepare_s3_testfile(minio_testdata_bucket, "landpoly.geojson")
+
+
+@pytest.fixture
+def landpoly_http():
+    """Fixture for landpoly.geojson."""
+    return HTTP_TESTDATA_DIR / "landpoly.geojson"
+
+
+@pytest.fixture
+def landpoly_secure_http():
+    """Fixture for landpoly.geojson."""
+    return SECURE_HTTP_TESTDATA_DIR / "landpoly.geojson"
 
 
 @pytest.fixture
