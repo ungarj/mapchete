@@ -21,6 +21,7 @@ from mapchete.io.vector import (
     clean_geometry_type,
     convert_vector,
     fiona_open,
+    fiona_write,
     object_bounds,
     read_vector_window,
     reproject_geometry,
@@ -603,33 +604,15 @@ def test_object_bounds_key_geometry():
     assert object_bounds(foo) == (0, 1, 2, 3)
 
 
-def test_read_vector_window_protected_https_mock():
-    raise NotImplementedError()
-
-
-def test_read_vector_window_s3_mock():
-    raise NotImplementedError()
-
-
-def test_write_vector_window_protected_https_mock():
-    raise NotImplementedError()
-
-
-def test_write_vector_window_s3_mock():
-    raise NotImplementedError()
-
-
-def test_convert_vector_protected_https_mock():
-    raise NotImplementedError()
-
-
-def test_convert_vector_s3_mock():
-    raise NotImplementedError()
-
-
-def test_read_vector_protected_https_mock():
-    raise NotImplementedError()
-
-
-def test_read_vector_s3_mock():
-    raise NotImplementedError()
+@pytest.mark.parametrize(
+    "path", [pytest.lazy_fixture("mp_s3_tmpdir"), pytest.lazy_fixture("mp_tmpdir")]
+)
+def test_fiona_write(path, in_memory, landpoly):
+    path = path / f"test_fiona_write-{in_memory}.tif"
+    with fiona_open(landpoly) as src:
+        with fiona_write(path, "w", **src.profile) as dst:
+            dst.writerecords(src)
+    assert path.exists()
+    with fiona_open(path) as src:
+        written = list(src.read())
+        assert written

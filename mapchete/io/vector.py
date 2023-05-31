@@ -613,7 +613,7 @@ class FionaRemoteMemoryWriter:
 
 class FionaRemoteTempFileWriter:
     def __init__(self, path, *args, fs=None, **kwargs):
-        logger.debug("open RasterioTempFileWriter for path %s", path)
+        logger.debug("open FionaRemoteTempFileWriter for path %s", path)
         self.path = path
         self.fs = fs
         self._dst = NamedTemporaryFile(suffix=self.path.suffix)

@@ -29,14 +29,14 @@ def test_best_zoom_level(dummy1_tif):
 
 
 @pytest.mark.remote
-def test_s3_path_exists(s2_band_remote):
-    assert path_exists(s2_band_remote)
+def test_s3_path_exists(raster_4band_s3):
+    assert path_exists(raster_4band_s3)
 
 
 @pytest.mark.remote
 def test_remote_path_exists(http_raster):
     assert path_exists(http_raster)
-    assert not path_exists("http://ungarj.github.io/invalid_file.tif")
+    assert not path_exists(http_raster / "non_existing.tif")
 
 
 def test_absolute_path():

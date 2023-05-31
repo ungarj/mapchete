@@ -142,15 +142,15 @@ def http_raster():
 
 
 @pytest.fixture
-def http_tiledir():
-    """Fixture for HTTP TileDirectory."""
-    return HTTP_TESTDATA_DIR / "cleantopo"
-
-
-@pytest.fixture
 def secure_http_raster():
     """Fixture for HTTP raster."""
     return SECURE_HTTP_TESTDATA_DIR / "cleantopo/1/0/0.tif"
+
+
+@pytest.fixture
+def http_tiledir():
+    """Fixture for HTTP TileDirectory."""
+    return HTTP_TESTDATA_DIR / "cleantopo"
 
 
 @pytest.fixture
@@ -266,7 +266,17 @@ def secure_http_metadata_json():
     """
     Fixture for http://localhost/cleantopo/metadata.json.
     """
-    return HTTP_TESTDATA_DIR / "cleantopo" / "metadata.json"
+    return SECURE_HTTP_TESTDATA_DIR / "cleantopo" / "metadata.json"
+
+
+@pytest.fixture
+def vsicurl_metadata_json():
+    """
+    Fixture for http://localhost/cleantopo/metadata.json.
+    """
+    return HTTP_TESTDATA_DIR.new(
+        f"/vsicurl/{HTTP_TESTDATA_DIR / 'cleantopo' / 'metadata.json'}"
+    )
 
 
 @pytest.fixture

@@ -19,38 +19,20 @@ def test_parse(path_str):
     assert path.fs
 
 
-def test_s3_path():
-    path = MPath("s3://foo/bar.json")
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("http_metadata_json"),
+        pytest.lazy_fixture("secure_http_metadata_json"),
+        pytest.lazy_fixture("s3_metadata_json"),
+        pytest.lazy_fixture("vsicurl_metadata_json"),
+    ],
+)
+def test_remote_existing_paths(path):
+    assert path.exists()
     assert path.is_remote()
-    assert path.name == "bar.json"
-    assert path.stem == "bar"
-    assert path.suffix == ".json"
-
-
-def test_http_path():
-    path = MPath("http://foo/bar.json")
-    assert not path.exists()
-    assert path.is_remote()
-    assert path.name == "bar.json"
-    assert path.stem == "bar"
-    assert path.suffix == ".json"
-
-
-def test_https_path():
-    path = MPath("https://foo/bar.json")
-    assert not path.exists()
-    assert path.is_remote()
-    assert path.name == "bar.json"
-    assert path.stem == "bar"
-    assert path.suffix == ".json"
-
-
-def test_vsicurl_path():
-    path = MPath("/vsicurl/https://foo/bar.json")
-    assert not path.exists()
-    assert path.is_remote()
-    assert path.name == "bar.json"
-    assert path.stem == "bar"
+    assert path.name == "metadata.json"
+    assert path.stem == "metadata"
     assert path.suffix == ".json"
 
 
@@ -90,7 +72,7 @@ def test_s3_dirpath(path_str):
         "/vsicurl/https://foo/bar/",
     ],
 )
-def test_remote_dirpath(path_str):
+def test_parse_remote_dirpath(path_str):
     path = MPath(path_str)
     assert not path.exists()
     assert path.is_remote()
@@ -100,7 +82,7 @@ def test_remote_dirpath(path_str):
 
 
 @pytest.mark.parametrize("path_str", ["/foo/bar", "/foo/bar/" "foo/bar", "foo/bar/"])
-def test_local_dirpath(path_str):
+def test_parse_local_dirpath(path_str):
     path = MPath(path_str)
     assert not path.exists()
     assert not path.is_remote()
@@ -169,6 +151,7 @@ def test_ls(path):
     [
         pytest.lazy_fixture("metadata_json"),
         pytest.lazy_fixture("http_metadata_json"),
+        pytest.lazy_fixture("secure_http_metadata_json"),
         pytest.lazy_fixture("s3_metadata_json"),
     ],
 )
