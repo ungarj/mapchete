@@ -607,6 +607,7 @@ def test_object_bounds_key_geometry():
 @pytest.mark.parametrize(
     "path", [pytest.lazy_fixture("mp_s3_tmpdir"), pytest.lazy_fixture("mp_tmpdir")]
 )
+@pytest.mark.parametrize("in_memory", [True, False])
 def test_fiona_write(path, in_memory, landpoly):
     path = path / f"test_fiona_write-{in_memory}.tif"
     with fiona_open(landpoly) as src:
@@ -614,5 +615,5 @@ def test_fiona_write(path, in_memory, landpoly):
             dst.writerecords(src)
     assert path.exists()
     with fiona_open(path) as src:
-        written = list(src.read())
+        written = list(src)
         assert written
