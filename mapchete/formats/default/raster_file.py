@@ -24,6 +24,7 @@ from mapchete.io.raster import (
     rasterio_open,
 )
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
+from mapchete.path import MPath
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +105,8 @@ class InputData(base.InputData):
         if "abstract" in input_params and "cache" in input_params["abstract"]:
             if isinstance(input_params["abstract"]["cache"], dict):
                 if "path" in input_params["abstract"]["cache"]:
-                    cached_path = input_params["abstract"]["cache"]["path"]
-                    if cached_path.is_absolute:
+                    cached_path = MPath(input_params["abstract"]["cache"]["path"])
+                    if cached_path.is_absolute():
                         self._cached_path = cached_path
                     else:
                         self._cached_path = cached_path.absolute_path(
@@ -212,10 +213,7 @@ class InputData(base.InputData):
         """Cleanup when mapchete closes."""
         if self._cached_path and not self._cache_keep:
             logger.debug("remove cached file %s", self._cached_path)
-            try:
-                io.fs_from_path(self._cached_path).rm(self._cached_path)
-            except FileNotFoundError:
-                pass
+            self._cached_path.rm(ignore_errors=True)
 
 
 class InputTile(base.InputTile):

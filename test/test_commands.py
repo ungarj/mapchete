@@ -164,7 +164,7 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
     ],
 )
 def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector):
-    job = execute(preprocess_cache_raster_vector.dict, concurrency=concurrency)
+    job = execute(preprocess_cache_raster_vector.path, concurrency=concurrency)
     assert len(job)
 
 
