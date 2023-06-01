@@ -538,10 +538,11 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
         logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
         with fiona_open(inp, "r") as src:
             out.makedirs()
-            with fiona_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
+            with fiona_write(out, **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
         logger.debug("copy %s to %s", str(inp), str(out))
+        out.makedirs()
         copy(inp, out, overwrite=overwrite)
 
 
@@ -550,7 +551,7 @@ def read_vector(inp, index="rtree"):
         return IndexedFeatures(src, index=index)
 
 
-def fiona_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
+def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     """
     Wrap fiona.open() but handle bucket upload if path is remote.
 

@@ -154,8 +154,17 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
     assert len(job) == 1
 
 
-def test_execute_preprocessing_tasks_dask(preprocess_cache_raster_vector):
-    job = execute(preprocess_cache_raster_vector.dict, concurrency="dask")
+@pytest.mark.parametrize(
+    "concurrency",
+    [
+        "threads",
+        "dask",
+        "processes",
+        None,
+    ],
+)
+def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector):
+    job = execute(preprocess_cache_raster_vector.dict, concurrency=concurrency)
     assert len(job)
 
 

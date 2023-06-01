@@ -104,10 +104,13 @@ class InputData(base.InputData):
         if "abstract" in input_params and "cache" in input_params["abstract"]:
             if isinstance(input_params["abstract"]["cache"], dict):
                 if "path" in input_params["abstract"]["cache"]:
-                    self._cached_path = io.absolute_path(
-                        path=input_params["abstract"]["cache"]["path"],
-                        base_dir=input_params["conf_dir"],
-                    )
+                    cached_path = input_params["abstract"]["cache"]["path"]
+                    if cached_path.is_absolute:
+                        self._cached_path = cached_path
+                    else:
+                        self._cached_path = cached_path.absolute_path(
+                            base_dir=input_params["conf_dir"],
+                        )
                 else:  # pragma: no cover
                     raise ValueError("please provide a cache path")
                 # add preprocessing task to cache data

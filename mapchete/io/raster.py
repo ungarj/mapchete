@@ -1256,6 +1256,7 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
                 dst.write(src.read())
     else:
         logger.debug("copy %s to %s", inp, (out))
+        out.makedirs()
         copy(inp, out, overwrite=overwrite)
 
 

@@ -10,8 +10,8 @@ from shapely.ops import unary_union
 
 import mapchete
 from mapchete.config import initialize_inputs, open_inputs
-from mapchete.io import fs_from_path, copy
-from mapchete.path import MPath, absolute_path
+from mapchete.io import fs_from_path
+from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,7 @@ class ProcessFixture:
         else:
             self._tempdir = None
         if inp_cache_tempdir:
-            self._inp_cache_tempdir = inp_cache_tempdir / uuid.uuid4()
+            self._inp_cache_tempdir = inp_cache_tempdir / uuid.uuid4().hex
         else:
             self._inp_cache_tempdir = None
         self._out_fs = None
@@ -81,9 +81,11 @@ class ProcessFixture:
                     if "cache" in val:
                         if "path" in val["cache"]:
                             path = MPath(val["cache"]["path"])
-                            val["cache"]["path"] = (
+                            temp_path = (
                                 self._inp_cache_tempdir / key / "cache" / path.name
                             )
+                            temp_path.makedirs()
+                            val["cache"]["path"] = temp_path
         # replace output path with temporary path
         if self._tempdir:
             # set output directory
