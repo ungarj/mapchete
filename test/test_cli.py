@@ -1365,7 +1365,7 @@ def test_cp_http(mp_tmpdir, http_tiledir):
         [
             "cp",
             http_tiledir,
-            os.path.join(mp_tmpdir, "http"),
+            mp_tmpdir / "http",
             "-z",
             "1",
             "-b",
@@ -1379,7 +1379,7 @@ def test_cp_http(mp_tmpdir, http_tiledir):
     )
 
 
-def test_rm(mp_tmpdir, cleantopo_br):
+def test_rm(cleantopo_br):
     run_cli(
         [
             "execute",
@@ -1395,12 +1395,12 @@ def test_rm(mp_tmpdir, cleantopo_br):
             "none",
         ]
     )
-    out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
-    assert os.path.exists(os.path.join(*[out_path, "5", "3", "7.tif"]))
+    out_path = cleantopo_br.dict["output"]["path"] / 5 / 3 / "7.tif"
+    assert out_path.exists()
     run_cli(
         [
             "rm",
-            out_path,
+            cleantopo_br.output_path,
             "-z",
             "5",
             "-b",
@@ -1411,7 +1411,7 @@ def test_rm(mp_tmpdir, cleantopo_br):
             "-f",
         ]
     )
-    assert not os.path.exists(os.path.join(*[out_path, "5", "3", "7.tif"]))
+    assert not out_path.exists()
 
 
 def test_rm_storage_option_errors(cleantopo_br):

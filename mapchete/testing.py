@@ -10,7 +10,8 @@ from shapely.ops import unary_union
 
 import mapchete
 from mapchete.config import initialize_inputs, open_inputs
-from mapchete.io import MPath, fs_from_path
+from mapchete.io import fs_from_path, copy
+from mapchete.path import MPath, absolute_path
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
@@ -31,18 +32,40 @@ def dict_from_mapchete(path):
     return out
 
 
+def dict_to_yaml(dictionary):
+    def _convert(vv):
+        out = OrderedDict()
+        for k, v in vv.items():
+            if isinstance(v, MPath):
+                v = str(v)
+            elif isinstance(v, dict):
+                v = _convert(v)
+            out[k] = v
+        return out
+
+    return yaml.dump(_convert(dictionary))
+
+
 class ProcessFixture:
     def __init__(
-        self, path=None, output_tempdir=None, inp_cache_tempdir=None, output_suffix=""
+        self,
+        path=None,
+        tempdir=None,
+        inp_cache_tempdir=None,
+        output_suffix="",
+        **kwargs,
     ):
         self.path = MPath(path)
+        self.basepath = MPath.parent
+        self.output_path = None
         self.dict = None
-        if output_tempdir:
-            self._output_tempdir = MPath(output_tempdir) / uuid.uuid4().hex
+        tempdir = tempdir or kwargs.get("output_tempdir")
+        if tempdir:
+            self._tempdir = MPath(tempdir) / uuid.uuid4().hex
         else:
-            self._output_tempdir = None
+            self._tempdir = None
         if inp_cache_tempdir:
-            self._inp_cache_tempdir = MPath(output_tempdir).joinpath(uuid.uuid4().hex)
+            self._inp_cache_tempdir = inp_cache_tempdir / uuid.uuid4()
         else:
             self._inp_cache_tempdir = None
         self._out_fs = None
@@ -50,12 +73,8 @@ class ProcessFixture:
 
     def __enter__(self, *args):
         self.dict = dict_from_mapchete(self.path)
-        if self._output_tempdir:
-            # set output directory
-            current_output_path = MPath(self.dict["output"]["path"])
-            if current_output_path.suffix:
-                self._output_tempdir = self._output_tempdir + current_output_path.suffix
-            self.dict["output"]["path"] = self._output_tempdir
+
+        # move all input/foo/cache/path paths to inp_cache_tempdir
         if self._inp_cache_tempdir:
             for key, val in self.dict.get("input", {}).items():
                 if isinstance(val, dict):
@@ -65,6 +84,22 @@ class ProcessFixture:
                             val["cache"]["path"] = (
                                 self._inp_cache_tempdir / key / "cache" / path.name
                             )
+        # replace output path with temporary path
+        if self._tempdir:
+            # set output directory
+            current_output_path = MPath(self.dict["output"]["path"])
+            if current_output_path.suffix:
+                self._tempdir = self._tempdir + current_output_path.suffix
+            self.dict["output"]["path"] = self._tempdir / "out"
+
+            # dump modified mapchete config to temporary directory
+            self.path = self._tempdir / self.path.name
+            self.path.makedirs()
+            with self.path.open("w") as dst:
+                dst.write(dict_to_yaml(self.dict))
+
+        # shortcut to output path
+        self.output_path = self.dict["output"]["path"]
         return self
 
     def __exit__(self, *args):
@@ -74,11 +109,13 @@ class ProcessFixture:
                 self._mp.__exit__(*args)
         finally:
             self.clear_output()
+        if self._tempdir:
+            self._tempdir.rm(ignore_errors=True)
 
     def clear_output(self):
         # delete written output if any
-        if self._output_tempdir:
-            out_dir = self._output_tempdir
+        if self._tempdir:
+            out_dir = self._tempdir
         else:
             out_dir = MPath(self.dict["config_dir"]) / self.dict["output"]["path"]
         try:

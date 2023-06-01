@@ -1140,9 +1140,12 @@ def _config_to_dict(input_config):
         return OrderedDict(_include_env(input_config), mapchete_file=None)
     # from Mapchete file
     elif input_config.suffix == ".mapchete":
+        config_dict = _include_env(yaml.safe_load(input_config.read_text()))
         return OrderedDict(
-            _include_env(yaml.safe_load(input_config.read_text())),
-            config_dir=input_config.absolute_path().dirname or os.getcwd(),
+            config_dict,
+            config_dir=config_dict.get(
+                "config_dir", input_config.absolute_path().dirname or os.getcwd()
+            ),
             mapchete_file=input_config,
         )
     # throw error if unknown object
