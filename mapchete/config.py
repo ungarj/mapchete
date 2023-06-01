@@ -794,7 +794,11 @@ def get_hash(x, length=16):
     """Return hash of x."""
     if isinstance(x, MPath):
         x = str(x)
-    return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
+    try:
+        return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
+    except TypeError:
+        # in case yaml.dump fails, we just try to get a string representation of object
+        return hashlib.sha224(str(x).encode()).hexdigest()[:length]
 
 
 def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):

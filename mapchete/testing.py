@@ -38,9 +38,7 @@ class ProcessFixture:
         self.path = MPath(path)
         self.dict = None
         if output_tempdir:
-            self._output_tempdir = MPath(output_tempdir).joinpath(
-                uuid.uuid4().hex + output_suffix
-            )
+            self._output_tempdir = MPath(output_tempdir) / uuid.uuid4().hex
         else:
             self._output_tempdir = None
         if inp_cache_tempdir:
@@ -54,6 +52,9 @@ class ProcessFixture:
         self.dict = dict_from_mapchete(self.path)
         if self._output_tempdir:
             # set output directory
+            current_output_path = MPath(self.dict["output"]["path"])
+            if current_output_path.suffix:
+                self._output_tempdir = self._output_tempdir + current_output_path.suffix
             self.dict["output"]["path"] = self._output_tempdir
         if self._inp_cache_tempdir:
             for key, val in self.dict.get("input", {}).items():
