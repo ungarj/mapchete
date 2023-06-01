@@ -89,11 +89,13 @@ class ProcessFixture:
             # set output directory
             current_output_path = MPath(self.dict["output"]["path"])
             if current_output_path.suffix:
-                self._tempdir = self._tempdir + current_output_path.suffix
-            self.dict["output"]["path"] = self._tempdir / "out"
+                self.dict["output"]["path"] = self._tempdir / current_output_path.name
+            else:
+                self.dict["output"]["path"] = self._tempdir / "out"
+
+            self.path = self._tempdir / self.path.name
 
             # dump modified mapchete config to temporary directory
-            self.path = self._tempdir / self.path.name
             self.path.makedirs()
             with self.path.open("w") as dst:
                 dst.write(dict_to_yaml(self.dict))
