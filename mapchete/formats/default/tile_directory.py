@@ -62,9 +62,9 @@ class InputData(base.InputData):
         # defined as simple or abstract input
         self._params = input_params.get("abstract") or dict(path=input_params["path"])
         # construct path and append optional filesystem options
-        self.path = MPath(
-            self._params["path"], **self._params.get("fs_opts", {})
-        ).absolute_path(input_params.get("conf_dir"))
+        self.path = MPath.from_dict(self._params).absolute_path(
+            input_params.get("conf_dir")
+        )
         if "abstract" in input_params:
             # define pyramid either by hardcoded given values or by existing metadata.json
             if "grid" in self._params:

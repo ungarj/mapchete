@@ -105,7 +105,7 @@ class InputData(base.InputData):
         if "abstract" in input_params and "cache" in input_params["abstract"]:
             if isinstance(input_params["abstract"]["cache"], dict):
                 if "path" in input_params["abstract"]["cache"]:
-                    cached_path = MPath(input_params["abstract"]["cache"]["path"])
+                    cached_path = MPath.from_dict(input_params["abstract"]["cache"])
                     if cached_path.is_absolute():
                         self._cached_path = cached_path
                     else:  # pragma: no cover

@@ -28,7 +28,7 @@ def dict_from_mapchete(path):
         if "config_dir" in out:
             out["config_dir"] = MPath(out["config_dir"])
         elif "path" in out.get("output", {}):  # pragma: no cover
-            out["output"]["path"] = MPath(out["output"]["path"])
+            out["output"]["path"] = MPath.from_dict(out["output"])
     return out
 
 
@@ -80,7 +80,7 @@ class ProcessFixture:
                 if isinstance(val, dict):
                     if "cache" in val:
                         if "path" in val["cache"]:
-                            path = MPath(val["cache"]["path"])
+                            path = MPath.from_dict(val["cache"])
                             temp_path = (
                                 self._inp_cache_tempdir / key / "cache" / path.name
                             )
@@ -89,7 +89,7 @@ class ProcessFixture:
         # replace output path with temporary path
         if self._tempdir:
             # set output directory
-            current_output_path = MPath(self.dict["output"]["path"])
+            current_output_path = MPath.from_dict(self.dict["output"])
             if current_output_path.suffix:
                 self.dict["output"]["path"] = self._tempdir / current_output_path.name
             else:

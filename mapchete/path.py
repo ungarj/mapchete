@@ -31,7 +31,6 @@ class MPath(os.PathLike):
         self,
         path,
         fs: AbstractFileSystem = None,
-        fs_session=None,
         storage_options=None,
         **kwargs,
     ):
@@ -55,8 +54,6 @@ class MPath(os.PathLike):
             self._path_str = path_str
         if fs:
             self._kwargs.update(fs=fs)
-        if fs_session:
-            self._kwargs.update(fs_session=fs_session)
         if "fs_options" in kwargs:
             storage_options = kwargs.get("fs_options")
         if storage_options:
@@ -72,13 +69,12 @@ class MPath(os.PathLike):
         path_str = dictionary.get("path")
         if not path_str:
             raise ValueError(
-                "dictionary representation requires at least a 'path' item."
+                f"dictionary representation requires at least a 'path' item: {dictionary}"
             )
         return MPath(
             path_str,
             storage_options=dictionary.get("storage_options", {}),
             fs=dictionary.get("fs"),
-            fs_session=dictionary.get("fs_session"),
         )
 
     def to_dict(self) -> dict:
@@ -86,7 +82,6 @@ class MPath(os.PathLike):
             path=self._path_str,
             storage_options=self._storage_options,
             fs=self.fs,
-            fs_session=self.fs_session,
         )
 
     def __str__(self):

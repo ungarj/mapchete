@@ -427,7 +427,9 @@ class MapcheteConfig(object):
         )
         if "path" in output_params:
             output_params.update(
-                path=absolute_path(path=output_params["path"], base_dir=self.config_dir)
+                path=MPath.from_dict(output_params).absolute_path(
+                    base_dir=self.config_dir
+                )
             )
 
         if "format" not in output_params:
@@ -796,7 +798,7 @@ def get_hash(x, length=16):
         x = str(x)
     try:
         return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
-    except TypeError:
+    except TypeError:  # pragma: no cover
         # in case yaml.dump fails, we just try to get a string representation of object
         return hashlib.sha224(str(x).encode()).hexdigest()[:length]
 

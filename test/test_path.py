@@ -258,3 +258,15 @@ def test_dict_representation(secure_http_metadata_json):
     assert restored_path.exists()
 
     assert secure_http_metadata_json == restored_path
+
+
+def test_from_dict_error():
+    with pytest.raises(ValueError):
+        MPath.from_dict(dict(storage_options=None))
+
+
+def test_transfer_fs(secure_http_testdata_dir):
+    path = MPath(
+        str(secure_http_testdata_dir) + "aoi_br.geojson", fs=secure_http_testdata_dir.fs
+    )
+    assert path.exists()
