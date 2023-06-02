@@ -871,7 +871,7 @@ def test_rasterio_write(path, dtype, in_memory):
     arr = np.ones((1, 256, 256)).astype(dtype)
     count, width, height = arr.shape
     path = path / f"test_rasterio_write-{str(dtype)}-{in_memory}.tif"
-    with rasterio_write(
+    with rasterio_open(
         path,
         "w",
         in_memory=in_memory,

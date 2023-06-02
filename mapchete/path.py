@@ -21,7 +21,7 @@ class MPath(os.PathLike):
     """Partially replicates pathlib.Path but with remote file support."""
 
     def __init__(self, path, **kwargs):
-        self._kwargs = kwargs
+        self._kwargs = {}
         if isinstance(path, MPath):
             path_str = str(path)
             self._kwargs.update(path._kwargs)
@@ -39,6 +39,7 @@ class MPath(os.PathLike):
                 raise ValueError(f"wrong usage of GDAL VSI paths: {path_str}")
         else:
             self._path_str = path_str
+        self._kwargs.update(kwargs)
         self._fs = self._kwargs.get("fs")
         default_fs_options = {"asynchronous": False, "timeout": 5}
         self._fs_options = dict(
@@ -287,11 +288,11 @@ class MPath(os.PathLike):
                 default_remote_extensions = gdal_opts.get(
                     "CPL_VSIL_CURL_ALLOWED_EXTENSIONS", []
                 ).split(", ")
-                extensions = default_remote_extensions + [self.suffix]
                 if allowed_remote_extensions:
                     extensions = allowed_remote_extensions.split(",") + (
                         default_remote_extensions
                     )
+                extensions = default_remote_extensions + [self.suffix]
                 # make sure current path extension is added to allowed_remote_extensions
                 gdal_opts.update(
                     CPL_VSIL_CURL_ALLOWED_EXTENSIONS=", ".join(set(extensions))
@@ -572,7 +573,7 @@ def tiles_exist(
     if "https" in config.output_reader.path.protocols:
         try:
             config.output_reader.path.ls()
-        except FileNotFoundError:
+        except FileNotFoundError:  # pragma: no cover
             metadata_json = config.output_reader.path / "metadata.json"
             if not metadata_json.exists():
                 raise FileNotFoundError(
@@ -677,7 +678,7 @@ def _existing_tiles(
         rowpath = config.output_reader.path.joinpath(zoom, row)
         logger.debug("rowpath: %s", rowpath)
 
-        if is_https_without_ls:
+        if is_https_without_ls:  # pragma: no cover
             for path, tile in output_paths.items():
                 full_path = rowpath / path.elements[-1]
                 if full_path.exists():

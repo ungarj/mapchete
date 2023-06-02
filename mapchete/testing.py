@@ -27,7 +27,7 @@ def dict_from_mapchete(path):
         out = dict(yaml.safe_load(src.read()), config_dir=path.dirname)
         if "config_dir" in out:
             out["config_dir"] = MPath(out["config_dir"])
-        elif "path" in out.get("output", {}):
+        elif "path" in out.get("output", {}):  # pragma: no cover
             out["output"]["path"] = MPath(out["output"]["path"])
     return out
 
@@ -62,7 +62,7 @@ class ProcessFixture:
         tempdir = tempdir or kwargs.get("output_tempdir")
         if tempdir:
             self._tempdir = MPath(tempdir) / uuid.uuid4().hex
-        else:
+        else:  # pragma: no cover
             self._tempdir = None
         if inp_cache_tempdir:
             self._inp_cache_tempdir = inp_cache_tempdir / uuid.uuid4().hex
@@ -114,18 +114,15 @@ class ProcessFixture:
         finally:
             self.clear_output()
         if self._tempdir:
-            self._tempdir.rm(ignore_errors=True)
+            self._tempdir.rm(recursive=True, ignore_errors=True)
 
     def clear_output(self):
         # delete written output if any
-        if self._tempdir:
-            out_dir = self._tempdir
-        else:
-            out_dir = MPath(self.dict["config_dir"]) / self.dict["output"]["path"]
-        try:
-            fs_from_path(out_dir).rm(str(out_dir), recursive=True)
-        except FileNotFoundError:
-            pass
+        out_dir = (
+            self._tempdir
+            or MPath(self.dict["config_dir"]) / self.dict["output"]["path"]
+        )
+        out_dir.rm(recursive=True, ignore_errors=True)
 
     def process_mp(self, tile=None, tile_zoom=None, batch_preprocess=True):
         """

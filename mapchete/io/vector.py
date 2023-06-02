@@ -576,21 +576,23 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     """
     path = MPath(path)
     with path.fio_env():
-        if str(path).startswith("s3://"):
-            try:  # pragma: no cover
-                import boto3
-            except ImportError:  # pragma: no cover
-                raise ImportError("please install [s3] extra to write remote files")
-            return FionaRemoteWriter(path, fs=fs, in_memory=in_memory, *args, **kwargs)
+        if path.is_remote():
+            if "s3" in path.protocols:  # pragma: no cover
+                try:
+                    import boto3
+                except ImportError:
+                    raise ImportError("please install [s3] extra to write remote files")
+                return FionaRemoteWriter(
+                    path, fs=fs, in_memory=in_memory, *args, **kwargs
+                )
         else:
             return fiona.open(str(path), mode=mode, *args, **kwargs)
 
 
 class FionaRemoteMemoryWriter:
-    def __init__(self, path, *args, fs=None, **kwargs):
+    def __init__(self, path, *args, **kwargs):
         logger.debug("open FionaRemoteMemoryWriter for path %s", path)
         self.path = path
-        self.fs = fs
         self._dst = MemoryFile()
         self._open_args = args
         self._open_kwargs = kwargs
@@ -605,7 +607,7 @@ class FionaRemoteMemoryWriter:
             self._sink.close()
             if exc_value is None:
                 logger.debug("upload fiona MemoryFile to %s", self.path)
-                with self.fs.open(self.path, "wb") as dst:
+                with self.path.open("wb") as dst:
                     dst.write(self._dst.getbuffer())
         finally:
             logger.debug("close fiona MemoryFile")
@@ -613,10 +615,9 @@ class FionaRemoteMemoryWriter:
 
 
 class FionaRemoteTempFileWriter:
-    def __init__(self, path, *args, fs=None, **kwargs):
+    def __init__(self, path, *args, **kwargs):
         logger.debug("open FionaRemoteTempFileWriter for path %s", path)
         self.path = path
-        self.fs = fs
         self._dst = NamedTemporaryFile(suffix=self.path.suffix)
         self._open_args = args
         self._open_kwargs = kwargs
@@ -633,19 +634,18 @@ class FionaRemoteTempFileWriter:
             self._sink.close()
             if exc_value is None:
                 logger.debug("upload TempFile %s to %s", self._dst.name, self.path)
-                self.fs.put_file(self._dst.name, self.path)
+                self.path.fs.put_file(self._dst.name, self.path)
         finally:
             logger.debug("close and remove tempfile")
             self._dst.close()
 
 
 class FionaRemoteWriter:
-    def __new__(self, path, *args, fs=None, in_memory=True, **kwargs):
-        fs = fs or fs_from_path(path)
+    def __new__(self, path, *args, in_memory=True, **kwargs):
         if in_memory:
-            return FionaRemoteMemoryWriter(path, *args, fs=fs, **kwargs)
+            return FionaRemoteMemoryWriter(path, *args, **kwargs)
         else:
-            return FionaRemoteTempFileWriter(path, *args, fs=fs, **kwargs)
+            return FionaRemoteTempFileWriter(path, *args, **kwargs)
 
 
 @contextmanager

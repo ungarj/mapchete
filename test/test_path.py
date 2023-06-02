@@ -1,5 +1,6 @@
 import pytest
 
+from mapchete.config import get_hash
 from mapchete.io import MPath
 
 
@@ -17,6 +18,11 @@ from mapchete.io import MPath
 def test_parse(path_str):
     path = MPath(path_str)
     assert path.fs
+
+
+def test_parse_error():
+    with pytest.raises(TypeError):
+        MPath(None)
 
 
 @pytest.mark.parametrize(
@@ -52,6 +58,13 @@ def test_relative_path():
     assert path.name == "bar.json"
     assert path.stem == "bar"
     assert path.suffix == ".json"
+
+
+def test_absolute_from_relative_path():
+    path = MPath("foo/bar.json")
+    abspath = path.absolute_path()
+    assert abspath.is_absolute()
+    assert abspath.endswith("foo/bar.json")
 
 
 @pytest.mark.parametrize("path_str", ["s3://foo/bar", "s3://foo/bar/"])
@@ -187,10 +200,25 @@ def test_io_s3(mp_s3_tmpdir):
 )
 def test_gdal_env_params(path_str):
     path = MPath(path_str)
+
+    # default
     remote_extensions = path.gdal_env_params()[
         "CPL_VSIL_CURL_ALLOWED_EXTENSIONS"
     ].split(", ")
     assert path.suffix in remote_extensions
+
+    # add custom extensions
+    remote_extensions = path.gdal_env_params(allowed_remote_extensions=".foo,.bar")[
+        "CPL_VSIL_CURL_ALLOWED_EXTENSIONS"
+    ].split(", ")
+    assert path.suffix in remote_extensions
+    assert ".xml" in remote_extensions
+    assert ".rpc" in remote_extensions
+
+
+def test_gdal_env_params_vrt():
+    path = MPath("https://some-bucket/file.vrt")
+    assert "CPL_VSIL_CURL_ALLOWED_EXTENSIONS" not in path.gdal_env_params()
 
 
 @pytest.mark.parametrize(
@@ -212,3 +240,8 @@ def test_secure_http_tiledir(secure_http_tiledir):
 
 def test_secure_http_raster(secure_http_raster):
     assert secure_http_raster.exists()
+
+
+@pytest.mark.parametrize("obj", [MPath("/foo/bar"), dict(key=MPath("/foo/bar"))])
+def test_get_hash(obj):
+    assert get_hash(obj)

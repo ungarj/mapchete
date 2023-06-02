@@ -108,7 +108,7 @@ class InputData(base.InputData):
                     cached_path = MPath(input_params["abstract"]["cache"]["path"])
                     if cached_path.is_absolute():
                         self._cached_path = cached_path
-                    else:
+                    else:  # pragma: no cover
                         self._cached_path = cached_path.absolute_path(
                             base_dir=input_params["conf_dir"],
                         )
@@ -211,7 +211,7 @@ class InputData(base.InputData):
 
     def cleanup(self):
         """Cleanup when mapchete closes."""
-        if self._cached_path and not self._cache_keep:
+        if self._cached_path and not self._cache_keep:  # pragma: no cover
             logger.debug("remove cached file %s", self._cached_path)
             self._cached_path.rm(ignore_errors=True)
 
