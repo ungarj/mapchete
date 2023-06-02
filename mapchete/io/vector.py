@@ -653,7 +653,7 @@ class FionaRemoteTempFileWriter:
 
     def __enter__(self):
         self._sink = fiona.open(
-            self._dst.name, "w+", *self._open_args, **self._open_kwargs
+            self._dst.name, "w", *self._open_args, **self._open_kwargs
         )
         return self._sink
 
