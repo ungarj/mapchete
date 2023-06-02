@@ -34,6 +34,70 @@ from mapchete.validate import validate_write_window_params
 logger = logging.getLogger(__name__)
 
 
+@contextmanager
+def rasterio_open(path, mode="r", **kwargs):
+    """Call rasterio.open but set environment correctly and return custom writer if needed."""
+    path = MPath(path)
+    if "w" in mode:
+        with rasterio_write(path, mode=mode, **kwargs) as dst:
+            yield dst
+    else:
+        with rasterio_read(path, mode=mode, **kwargs) as src:
+            yield src
+
+
+@contextmanager
+def rasterio_read(path, mode="r", **kwargs):
+    """
+    Wrapper around rasterio.open but rasterio.Env is set according to path properties.
+    """
+    with path.rio_env() as env:
+        logger.debug("reading %s with GDAL options %s", str(path), env.options)
+        with rasterio.open(path, mode=mode, **kwargs) as src:
+            yield src
+
+
+@contextmanager
+def rasterio_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
+    """
+    Wrap rasterio.open() but handle bucket upload if path is remote.
+
+    Parameters
+    ----------
+    path : str
+        Path to write to.
+    mode : str
+        One of the rasterio.open() modes.
+    fs : fsspec.FileSystem
+        Target filesystem.
+    in_memory : bool
+        On remote output store an in-memory file instead of writing to a tempfile.
+    args : list
+        Arguments to be passed on to rasterio.open()
+    kwargs : dict
+        Keyword arguments to be passed on to rasterio.open()
+
+    Returns
+    -------
+    RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
+    """
+    if path.is_remote():
+        if "s3" in path.protocols:  # pragma: no cover
+            try:
+                import boto3
+            except ImportError:
+                raise ImportError("please install [s3] extra to write remote files")
+        with RasterioRemoteWriter(
+            path, fs=fs, in_memory=in_memory, *args, **kwargs
+        ) as dst:
+            yield dst
+    else:
+        with path.rio_env() as env:
+            logger.debug("reading %s with GDAL options %s", str(path), env.options)
+            with rasterio.open(path, mode=mode, *args, **kwargs) as dst:
+                yield dst
+
+
 class ReferencedRaster:
     """
     A loose in-memory representation of a rasterio dataset.
@@ -674,39 +738,6 @@ def _write_tags(dst, tags):
                 dst.update_tags(**{k: v})
 
 
-def rasterio_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
-    """
-    Wrap rasterio.open() but handle bucket upload if path is remote.
-
-    Parameters
-    ----------
-    path : str
-        Path to write to.
-    mode : str
-        One of the rasterio.open() modes.
-    fs : fsspec.FileSystem
-        Target filesystem.
-    in_memory : bool
-        On remote output store an in-memory file instead of writing to a tempfile.
-    args : list
-        Arguments to be passed on to rasterio.open()
-    kwargs : dict
-        Keyword arguments to be passed on to rasterio.open()
-
-    Returns
-    -------
-    RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
-    """
-    if str(path).startswith("s3://"):
-        try:  # pragma: no cover
-            import boto3
-        except ImportError:  # pragma: no cover
-            raise ImportError("please install [s3] extra to write remote files")
-        return RasterioRemoteWriter(path, fs=fs, in_memory=in_memory, *args, **kwargs)
-    else:
-        return rasterio.open(path, mode=mode, *args, **kwargs)
-
-
 class RasterioRemoteMemoryWriter:
     def __init__(self, path, *args, fs=None, **kwargs):
         logger.debug("open RasterioRemoteMemoryWriter for path %s", path)
@@ -1270,14 +1301,3 @@ def read_raster(inp, **kwargs):
             bounds=src.bounds,
             crs=src.crs,
         )
-
-
-def rasterio_open(path, mode="r", **kwargs):
-    """Call rasterio.open but set environment correctly and return custom writer if needed."""
-    path = MPath(path)
-    if "w" in mode:
-        return rasterio_write(path, mode=mode, **kwargs)
-    else:
-        with path.rio_env() as env:
-            logger.debug("reading %s with GDAL options %s", str(path), env.options)
-            return rasterio.open(path, mode=mode, **kwargs)

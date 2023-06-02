@@ -41,6 +41,72 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
+@contextmanager
+def fiona_open(path, mode="r", **kwargs):
+    """Call fiona.open but set environment correctly and return custom writer if needed."""
+    path = MPath(path)
+
+    if "w" in mode:
+        with fiona_write(path, mode=mode, **kwargs) as dst:
+            yield dst
+
+    else:
+        with fiona_read(path, mode=mode, **kwargs) as src:
+            yield src
+
+
+@contextmanager
+def fiona_read(path, mode="r", **kwargs):
+    """
+    Wrapper around fiona.open but fiona.Env is set according to path properties.
+    """
+    with path.fio_env() as env:
+        logger.debug("reading %s with GDAL options %s", str(path), env.options)
+        with fiona.open(str(path), mode=mode, **kwargs) as src:
+            yield src
+
+
+@contextmanager
+def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
+    """
+    Wrap fiona.open() but handle bucket upload if path is remote.
+
+    Parameters
+    ----------
+    path : str or MPath
+        Path to write to.
+    mode : str
+        One of the fiona.open() modes.
+    fs : fsspec.FileSystem
+        Target filesystem.
+    in_memory : bool
+        On remote output store an in-memory file instead of writing to a tempfile.
+    args : list
+        Arguments to be passed on to fiona.open()
+    kwargs : dict
+        Keyword arguments to be passed on to fiona.open()
+
+    Returns
+    -------
+    FionaRemoteWriter if target is remote, otherwise return fiona.open().
+    """
+    path = MPath(path)
+    if path.is_remote():
+        if "s3" in path.protocols:  # pragma: no cover
+            try:
+                import boto3
+            except ImportError:
+                raise ImportError("please install [s3] extra to write remote files")
+        with FionaRemoteWriter(
+            path, fs=fs, in_memory=in_memory, *args, **kwargs
+        ) as dst:
+            yield dst
+    else:
+        with path.fio_env():
+            with fiona.open(str(path), mode=mode, *args, **kwargs) as dst:
+                yield dst
+
+
 def read_vector_window(
     inp, tile, validity_check=True, clip_to_crs_bounds=False, skip_missing_files=False
 ):
@@ -551,44 +617,6 @@ def read_vector(inp, index="rtree"):
         return IndexedFeatures(src, index=index)
 
 
-def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
-    """
-    Wrap fiona.open() but handle bucket upload if path is remote.
-
-    Parameters
-    ----------
-    path : str or MPath
-        Path to write to.
-    mode : str
-        One of the fiona.open() modes.
-    fs : fsspec.FileSystem
-        Target filesystem.
-    in_memory : bool
-        On remote output store an in-memory file instead of writing to a tempfile.
-    args : list
-        Arguments to be passed on to fiona.open()
-    kwargs : dict
-        Keyword arguments to be passed on to fiona.open()
-
-    Returns
-    -------
-    FionaRemoteWriter if target is remote, otherwise return fiona.open().
-    """
-    path = MPath(path)
-    with path.fio_env():
-        if path.is_remote():
-            if "s3" in path.protocols:  # pragma: no cover
-                try:
-                    import boto3
-                except ImportError:
-                    raise ImportError("please install [s3] extra to write remote files")
-                return FionaRemoteWriter(
-                    path, fs=fs, in_memory=in_memory, *args, **kwargs
-                )
-        else:
-            return fiona.open(str(path), mode=mode, *args, **kwargs)
-
-
 class FionaRemoteMemoryWriter:
     def __init__(self, path, *args, **kwargs):
         logger.debug("open FionaRemoteMemoryWriter for path %s", path)
@@ -625,7 +653,7 @@ class FionaRemoteTempFileWriter:
 
     def __enter__(self):
         self._sink = fiona.open(
-            self._dst.name, "w", *self._open_args, **self._open_kwargs
+            self._dst.name, "w+", *self._open_args, **self._open_kwargs
         )
         return self._sink
 
@@ -646,14 +674,3 @@ class FionaRemoteWriter:
             return FionaRemoteMemoryWriter(path, *args, **kwargs)
         else:
             return FionaRemoteTempFileWriter(path, *args, **kwargs)
-
-
-def fiona_open(path, mode="r", **kwargs):
-    """Call fiona.open but set environment correctly and return custom writer if needed."""
-    path = MPath(path)
-    if "w" in mode:
-        return fiona_write(path, mode=mode, **kwargs)
-    else:
-        with path.fio_env() as env:
-            logger.debug("reading %s with GDAL options %s", str(path), env.options)
-            return fiona.open(str(path), mode=mode, **kwargs)
