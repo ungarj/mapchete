@@ -245,3 +245,16 @@ def test_secure_http_raster(secure_http_raster):
 @pytest.mark.parametrize("obj", [MPath("/foo/bar"), dict(key=MPath("/foo/bar"))])
 def test_get_hash(obj):
     assert get_hash(obj)
+
+
+def test_dict_representation(secure_http_metadata_json):
+    assert secure_http_metadata_json.exists()
+
+    dict_repr = secure_http_metadata_json.to_dict()
+    assert "path" in dict_repr
+    assert "storage_options" in dict_repr
+
+    restored_path = MPath.from_dict(dict_repr)
+    assert restored_path.exists()
+
+    assert secure_http_metadata_json == restored_path

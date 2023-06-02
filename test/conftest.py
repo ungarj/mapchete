@@ -28,7 +28,8 @@ SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
 TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata/"))
 HTTP_TESTDATA_DIR = MPath("http://localhost/open/")
 SECURE_HTTP_TESTDATA_DIR = MPath(
-    "http://localhost/secure/", username=HTTP_USERNAME, password=HTTP_PASSWORD
+    "http://localhost/secure/",
+    storage_options=dict(username=HTTP_USERNAME, password=HTTP_PASSWORD),
 )
 TEMP_DIR = MPath(os.path.join(TESTDATA_DIR, "tmp/"))
 
@@ -112,10 +113,7 @@ def mp_s3_tmpdir(minio_testdata_bucket):
     tempdir = minio_testdata_bucket / "tmp" / uuid.uuid4().hex
 
     def _cleanup():
-        try:
-            tempdir.rm(recursive=True)
-        except FileNotFoundError:
-            pass
+        tempdir.rm(recursive=True, ignore_errors=True)
 
     _cleanup()
     yield tempdir

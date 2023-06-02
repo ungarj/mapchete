@@ -3,6 +3,7 @@
 import logging
 import os
 from collections import defaultdict
+from fsspec import AbstractFileSystem
 from functools import cached_property
 
 import fiona
@@ -16,11 +17,24 @@ from mapchete.io.settings import GDAL_HTTP_OPTS
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_STORAGE_OPTIONS = {"asynchronous": False, "timeout": 5}
+UNALLOWED_S3_KWARGS = ["timeout"]
+UNALLOWED_HTTP_KWARGS = ["username", "password"]
+
 
 class MPath(os.PathLike):
-    """Partially replicates pathlib.Path but with remote file support."""
+    """
+    Partially replicates pathlib.Path but with remote file support.
+    """
 
-    def __init__(self, path, **kwargs):
+    def __init__(
+        self,
+        path,
+        fs: AbstractFileSystem = None,
+        fs_session=None,
+        storage_options=None,
+        **kwargs,
+    ):
         self._kwargs = {}
         if isinstance(path, MPath):
             path_str = str(path)
@@ -39,13 +53,41 @@ class MPath(os.PathLike):
                 raise ValueError(f"wrong usage of GDAL VSI paths: {path_str}")
         else:
             self._path_str = path_str
-        self._kwargs.update(kwargs)
-        self._fs = self._kwargs.get("fs")
-        default_fs_options = {"asynchronous": False, "timeout": 5}
-        self._fs_options = dict(
-            default_fs_options, **self._kwargs.get("fs_options") or {}
+        if fs:
+            self._kwargs.update(fs=fs)
+        if fs_session:
+            self._kwargs.update(fs_session=fs_session)
+        if "fs_options" in kwargs:
+            storage_options = kwargs.get("fs_options")
+        if storage_options:
+            self._kwargs.update(storage_options=storage_options)
+        self._fs = fs
+        self._storage_options = dict(
+            DEFAULT_STORAGE_OPTIONS, **self._kwargs.get("storage_options") or {}
         )
         self._fs_session = self._kwargs.get("fs_session")
+
+    @staticmethod
+    def from_dict(dictionary) -> "MPath":
+        path_str = dictionary.get("path")
+        if not path_str:
+            raise ValueError(
+                "dictionary representation requires at least a 'path' item."
+            )
+        return MPath(
+            path_str,
+            storage_options=dictionary.get("storage_options", {}),
+            fs=dictionary.get("fs"),
+            fs_session=dictionary.get("fs_session"),
+        )
+
+    def to_dict(self) -> dict:
+        return dict(
+            path=self._path_str,
+            storage_options=self._storage_options,
+            fs=self.fs,
+            fs_session=self.fs_session,
+        )
 
     def __str__(self):
         return self._path_str
@@ -85,35 +127,43 @@ class MPath(os.PathLike):
         elif self._path_str.startswith("s3"):
             return fsspec.filesystem(
                 "s3",
-                requester_pays=self._kwargs.get(
+                requester_pays=self._storage_options.get(
                     "requester_pays", os.environ.get("AWS_REQUEST_PAYER") == "requester"
                 ),
                 config_kwargs=dict(
-                    connect_timeout=self._fs_options.get("timeout"),
-                    read_timeout=self._fs_options.get("timeout"),
+                    connect_timeout=self._storage_options.get("timeout"),
+                    read_timeout=self._storage_options.get("timeout"),
                 ),
                 session=self._fs_session,
-                client_kwargs={
+                **{
                     k: v
-                    for k, v in self._kwargs.items()
-                    if k not in ["fs", "fs_options", "fs_session"]
+                    for k, v in self._storage_options.items()
+                    if k not in UNALLOWED_S3_KWARGS
                 },
-                **self._kwargs.get("fs_options", {}),
             )
         elif self._path_str.startswith(("http://", "https://")):
-            if self._kwargs.get("username") or self._kwargs.get(
+            if self._storage_options.get("username") or self._storage_options.get(
                 "password"
             ):  # pragma: no cover
                 from aiohttp import BasicAuth
 
                 auth = BasicAuth(
-                    self._kwargs.get("username"), self._kwargs.get("password")
+                    self._storage_options.get("username"),
+                    self._storage_options.get("password"),
                 )
             else:
                 auth = None
-            return fsspec.filesystem("https", auth=auth, **self._fs_options)
+            return fsspec.filesystem(
+                "https",
+                auth=auth,
+                **{
+                    k: v
+                    for k, v in self._storage_options.items()
+                    if k not in UNALLOWED_HTTP_KWARGS
+                },
+            )
         else:
-            return fsspec.filesystem("file", **self._fs_options)
+            return fsspec.filesystem("file", **self._storage_options)
 
     @cached_property
     def fs_session(self):
@@ -408,7 +458,7 @@ class MPath(os.PathLike):
         return str(self) <= str(MPath(other))
 
     def __repr__(self):
-        return f"<mapchete.io.MPath object: {self._path_str}, kwargs={self._kwargs}>"
+        return f"<mapchete.io.MPath object: {self._path_str}, storage_options={self._storage_options}>"
 
     def __hash__(self):
         return hash(repr(self))
