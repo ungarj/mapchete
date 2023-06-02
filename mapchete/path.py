@@ -289,7 +289,7 @@ class MPath(os.PathLike):
         except FileNotFoundError:
             if ignore_errors:
                 pass
-            else:
+            else:  # pragma: no cover
                 raise
 
     def joinpath(self, *other) -> "MPath":
