@@ -1044,7 +1044,7 @@ def initialize_inputs(
                 # make path absolute and add filesystem options
                 if "path" in abstract:
                     abstract.update(
-                        path=MPath().from_dict(abstract).absolute_path(config_dir)
+                        path=MPath.from_dict(abstract).absolute_path(config_dir)
                     )
                 reader = load_input_reader(
                     dict(
