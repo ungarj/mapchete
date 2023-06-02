@@ -38,9 +38,11 @@ logger = logging.getLogger(__name__)
 def rasterio_open(path, mode="r", **kwargs):
     """Call rasterio.open but set environment correctly and return custom writer if needed."""
     path = MPath(path)
+
     if "w" in mode:
         with rasterio_write(path, mode=mode, **kwargs) as dst:
             yield dst
+
     else:
         with rasterio_read(path, mode=mode, **kwargs) as src:
             yield src
@@ -716,7 +718,7 @@ def write_raster_window(
     if write_empty or (window_data.all() is not ma.masked):
 
         try:
-            with rasterio_write(out_path, "w", fs=fs, **out_profile) as dst:
+            with rasterio_open(out_path, "w", fs=fs, **out_profile) as dst:
                 logger.debug((out_tile.id, "write tile", out_path))
                 dst.write(window_data.astype(out_profile["dtype"], copy=False))
                 _write_tags(dst, tags)
@@ -1283,7 +1285,7 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
         logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
         with rasterio_open(inp, "r") as src:
             out.makedirs()
-            with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
+            with rasterio_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.write(src.read())
     else:
         logger.debug("copy %s to %s", inp, (out))

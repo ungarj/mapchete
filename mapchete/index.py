@@ -226,45 +226,42 @@ class VectorFileWriter:
 
     def __enter__(self):
         self.es = ExitStack().__enter__()
-        with self.path.fio_env():
-            if self._append:
-                if self.path.exists():
-                    logger.debug("read existing entries")
-                    with fiona_open(self.path, "r") as src:
-                        self._existing = {f["properties"]["tile_id"]: f for f in src}
-                    self.sink = self.es.enter_context(
-                        vector.fiona_write(self.path, "a")
-                    )
-                else:
-                    self.sink = self.es.enter_context(
-                        vector.fiona_write(
-                            self.path,
-                            "w",
-                            driver=self.driver,
-                            crs=self.crs.to_dict(),
-                            schema=self.schema,
-                        )
-                    )
-                    self._existing = {}
-            else:  # pragma: no cover
-                if self.path.exists():
-                    logger.debug("read existing entries")
-                    with fiona_open(self.path, "r") as src:
-                        self._existing = {f["properties"]["tile_id"]: f for f in src}
-                    if not self.path.is_remote():
-                        fiona.remove(str(self.path), driver=self.driver)
-                else:
-                    self._existing = {}
+        if self._append:
+            if self.path.exists():
+                logger.debug("read existing entries")
+                with fiona_open(self.path, "r") as src:
+                    self._existing = {f["properties"]["tile_id"]: f for f in src}
+                self.sink = self.es.enter_context(vector.fiona_write(self.path, "a"))
+            else:
                 self.sink = self.es.enter_context(
                     vector.fiona_write(
                         self.path,
                         "w",
                         driver=self.driver,
-                        crs=self.crs,
+                        crs=self.crs.to_dict(),
                         schema=self.schema,
                     )
                 )
-                self.sink.writerecords(self._existing.values())
+                self._existing = {}
+        else:  # pragma: no cover
+            if self.path.exists():
+                logger.debug("read existing entries")
+                with fiona_open(self.path, "r") as src:
+                    self._existing = {f["properties"]["tile_id"]: f for f in src}
+                if not self.path.is_remote():
+                    fiona.remove(str(self.path), driver=self.driver)
+            else:
+                self._existing = {}
+            self.sink = self.es.enter_context(
+                vector.fiona_write(
+                    self.path,
+                    "w",
+                    driver=self.driver,
+                    crs=self.crs,
+                    schema=self.schema,
+                )
+            )
+            self.sink.writerecords(self._existing.values())
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):

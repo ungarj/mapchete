@@ -253,7 +253,7 @@ def write_vector_window(
                     with out_path.open("wb") as dst:
                         dst.write(memfile)
             else:  # pragma: no cover
-                with fiona_write(
+                with fiona_open(
                     out_path,
                     "w",
                     schema=out_schema,
@@ -604,7 +604,7 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
         logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
         with fiona_open(inp, "r") as src:
             out.makedirs()
-            with fiona_write(out, **{**src.meta, **kwargs}) as dst:
+            with fiona_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
         logger.debug("copy %s to %s", str(inp), str(out))
