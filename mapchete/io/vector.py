@@ -625,7 +625,7 @@ class FionaRemoteTempFileWriter:
 
     def __enter__(self):
         self._sink = fiona.open(
-            self._dst.name, "w+", *self._open_args, **self._open_kwargs
+            self._dst.name, "w", *self._open_args, **self._open_kwargs
         )
         return self._sink
 
@@ -648,13 +648,12 @@ class FionaRemoteWriter:
             return FionaRemoteTempFileWriter(path, *args, **kwargs)
 
 
-@contextmanager
 def fiona_open(path, mode="r", **kwargs):
     """Call fiona.open but set environment correctly and return custom writer if needed."""
     path = MPath(path)
     if "w" in mode:
-        yield fiona_write(path, mode=mode, **kwargs)
+        return fiona_write(path, mode=mode, **kwargs)
     else:
         with path.fio_env() as env:
             logger.debug("reading %s with GDAL options %s", str(path), env.options)
-            yield fiona.open(str(path), mode=mode, **kwargs)
+            return fiona.open(str(path), mode=mode, **kwargs)

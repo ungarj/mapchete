@@ -1272,13 +1272,12 @@ def read_raster(inp, **kwargs):
         )
 
 
-@contextmanager
 def rasterio_open(path, mode="r", **kwargs):
     """Call rasterio.open but set environment correctly and return custom writer if needed."""
     path = MPath(path)
     if "w" in mode:
-        yield rasterio_write(path, mode=mode, **kwargs)
+        return rasterio_write(path, mode=mode, **kwargs)
     else:
         with path.rio_env() as env:
             logger.debug("reading %s with GDAL options %s", str(path), env.options)
-            yield rasterio.open(path, mode=mode, **kwargs)
+            return rasterio.open(path, mode=mode, **kwargs)
