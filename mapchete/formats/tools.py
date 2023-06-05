@@ -15,7 +15,7 @@ from rasterio.crs import CRS
 
 from mapchete._registered import drivers
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
-from mapchete.io import MPath, fiona_open, read_json, write_json, rasterio_open
+from mapchete.io import MPath, fiona_open, rasterio_open, read_json, write_json
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)

@@ -20,7 +20,7 @@ from mapchete.formats import (
     available_output_formats,
     driver_from_file,
 )
-from mapchete.io import MPath, fiona_open, get_best_zoom_level, read_json, rasterio_open
+from mapchete.io import MPath, fiona_open, get_best_zoom_level, rasterio_open, read_json
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 from mapchete.validate import validate_zooms

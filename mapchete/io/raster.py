@@ -1,9 +1,9 @@
 """Wrapper functions around rasterio and useful raster functions."""
 
-from contextlib import contextmanager
 import itertools
 import logging
 import warnings
+from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from types import GeneratorType
 from typing import List, Tuple, Union

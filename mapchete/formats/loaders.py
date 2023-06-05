@@ -3,7 +3,6 @@ from typing import Dict, Optional
 
 from mapchete._registered import drivers
 from mapchete.errors import MapcheteDriverError
-
 from mapchete.formats.tools import driver_from_file
 
 logger = logging.getLogger(__name__)

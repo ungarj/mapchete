@@ -3,13 +3,13 @@
 import logging
 import os
 from collections import defaultdict
-from fsspec import AbstractFileSystem
 from functools import cached_property
 
 import fiona
 import fsspec
 import rasterio
 from fiona.session import Session as FioSession
+from fsspec import AbstractFileSystem
 from rasterio.session import Session as RioSession
 
 from mapchete._executor import Executor
