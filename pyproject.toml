@@ -48,7 +48,8 @@ complete = [
     "boto3>=1.14.44",
     "dask",
     "distributed",
-    "flask",
+    "Flask",
+    "Flask-RangeRequest",
     "fsspec[http]",
     "fsspec[s3]",
     "geobuf",
@@ -82,7 +83,8 @@ s3 = [
     "fsspec[s3]",
 ]
 serve = [
-    "flask",
+    "Flask",
+    "Flask-RangeRequest",
     "werkzeug>=0.15",
 ]
 spatial-index = [
