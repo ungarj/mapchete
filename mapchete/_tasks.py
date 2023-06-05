@@ -1,7 +1,6 @@
 import logging
 from collections import namedtuple
 from itertools import chain
-from traceback import format_exc
 from uuid import uuid4
 
 from shapely.geometry import box, mapping
