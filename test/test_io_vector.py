@@ -99,7 +99,6 @@ def test_reproject_geometry(landpoly):
     """Reproject geometry."""
     with fiona_open(str(landpoly), "r") as src:
         for feature in src:
-
             # WGS84 to Spherical Mercator
             out_geom = reproject_geometry(
                 shape(feature["geometry"]), CRS(src.crs), CRS().from_epsg(3857)

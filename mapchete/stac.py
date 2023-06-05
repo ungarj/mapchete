@@ -373,7 +373,6 @@ def update_tile_directory_stac_item(
 def tile_pyramid_from_item(item):
     matrix_sets = item.properties.get("tiles:tile_matrix_sets")
     if matrix_sets:
-
         # find out grid
         wkss = next(iter(matrix_sets.keys()))
         for grid, properties in KNOWN_MATRIX_PROPERTIES.items():

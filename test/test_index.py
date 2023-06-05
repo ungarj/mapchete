@@ -10,7 +10,6 @@ from mapchete.io import fiona_open, rasterio_open
 
 @pytest.mark.remote
 def test_remote_indexes(gtiff_s3):
-
     zoom = 7
     gtiff_s3.dict.update(zoom_levels=zoom)
 

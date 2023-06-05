@@ -705,7 +705,6 @@ def _run_multi_overviews(
     overview_parents = set()
 
     for i, zoom in enumerate(zoom_levels.descending()):
-
         logger.debug("sending tasks to executor %s...", executor)
         # get generator list of tiles, whether they are to be skipped and skip_info
         # from _filter_skipable and pass on to executor

@@ -61,7 +61,6 @@ def _setup_logfile(ctx, param, logfile):
 
 
 def _cb_key_val(ctx, param, value):
-
     """
     from: https://github.com/mapbox/rasterio/blob/69305c72b58b15a96330d371ad90ef31c209e981/rasterio/rio/options.py
 

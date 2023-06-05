@@ -166,7 +166,6 @@ def zoom_index_gen(
             for output_tile, exists in tiles_exist(
                 mp.config, output_tiles_batches=output_tiles_batches
             ):
-
                 tile_path = _tile_path(
                     orig_path=mp.config.output.get_path(output_tile),
                     basepath=basepath,

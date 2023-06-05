@@ -334,7 +334,6 @@ def _clip_bbox(clip_geometry, dst_crs=None):
 
 
 def _get_input_info(inp):
-
     # assuming single file if path has a file extension
     if inp.suffix:
         logger.debug("assuming single file")

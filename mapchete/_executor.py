@@ -315,7 +315,6 @@ class DaskExecutor(_ExecutorBase):
             fkwargs = fkwargs or {}
             chunk = []
             for item in iterable:
-
                 # abort if execution is cancelled
                 if self.cancelled:  # pragma: no cover
                     logger.debug("executor cancelled")

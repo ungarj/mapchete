@@ -75,7 +75,6 @@ class OutputDataReader(_fiona_base.OutputDataReader):
 
 
 class OutputDataWriter(_fiona_base.OutputDataWriter, OutputDataReader):
-
     METADATA = METADATA
 
 

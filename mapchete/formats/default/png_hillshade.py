@@ -198,7 +198,6 @@ class OutputDataReader(base.TileDirectoryOutputReader):
 
 
 class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
-
     METADATA = METADATA
 
     def write(self, process_tile, data):

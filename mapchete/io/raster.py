@@ -716,7 +716,6 @@ def write_raster_window(
 
     # write if there is any band with non-masked data
     if write_empty or (window_data.all() is not ma.masked):
-
         try:
             with rasterio_open(out_path, "w", fs=fs, **out_profile) as dst:
                 logger.debug((out_tile.id, "write tile", out_path))

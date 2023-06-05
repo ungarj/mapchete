@@ -367,7 +367,6 @@ def _get_reprojected_features(
                 validity_check=True,
             )
         for feature in src.filter(bbox=dst_bbox.bounds):
-
             try:
                 # check validity
                 original_geom = _repair(to_shape(feature["geometry"]))
