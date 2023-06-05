@@ -166,12 +166,13 @@ def _tile_response(mp, web_tile, debug):
 
 
 def _valid_tile_response(mp, data):
-    from flask import jsonify, make_response, send_file
+    from flask import make_response, jsonify
+    from flask_rangerequest import RangeRequest
 
     out_data, mime_type = mp.config.output.for_web(data)
     logger.debug("create tile response %s", mime_type)
     if isinstance(out_data, MemoryFile):
-        response = make_response(send_file(out_data, mime_type))
+        return RangeRequest(out_data).make_response()
     elif isinstance(out_data, list):
         response = make_response(jsonify(data))
     else:

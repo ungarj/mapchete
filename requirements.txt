@@ -10,6 +10,7 @@ click-spinner>=0.1.10
 python-dateutil
 fiona>=1.8.13.post1
 Flask>=1.1.2
+Flask-RangeRequest>=0.0.2
 fsspec[s3]>=0.8.4
 geobuf>=1.1.1
 importlib-metadata>=1.6.0
