@@ -353,6 +353,15 @@ class MPath(os.PathLike):
         return gdal_opts
 
     @cached_property
+    def _endpoint_url(self):
+        # GDAL parses the paths in a weird way, so we have to be careful with a custom
+        # endpoint
+        if hasattr(self.fs, "endpoint_url") and isinstance(self.fs.endpoint_url, str):
+            return self.fs.endpoint_url.lstrip("http://").lstrip("https://")
+        else:  # pragma: no cover
+            return None
+
+    @cached_property
     def rio_session(self) -> "rasterio.session.Session":
         if self.fs_session:
             # rasterio accepts a Session object but only a boto3.session.Session
@@ -361,9 +370,7 @@ class MPath(os.PathLike):
                 self._path_str,
                 aws_access_key_id=self.fs.key,
                 aws_secret_access_key=self.fs.secret,
-                # GDAL parses the paths in a weird way, so we have to be careful with a custom
-                # endpoint
-                endpoint_url=self.fs.endpoint_url.lstrip("http://").lstrip("https://"),
+                endpoint_url=self._endpoint_url,
                 requester_pays=self.fs.storage_options.get("requester_pays", False),
             )
         else:
@@ -398,9 +405,7 @@ class MPath(os.PathLike):
                 self._path_str,
                 aws_access_key_id=self.fs.key,
                 aws_secret_access_key=self.fs.secret,
-                # GDAL parses the paths in a weird way, so we have to be careful with a custom
-                # endpoint
-                endpoint_url=self.fs.endpoint_url.lstrip("http://").lstrip("https://"),
+                endpoint_url=self._endpoint_url,
                 requester_pays=self.fs.storage_options.get("requester_pays", False),
             )
         else:
