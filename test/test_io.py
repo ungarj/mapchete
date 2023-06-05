@@ -11,10 +11,10 @@ from mapchete.io import (
     copy,
     get_best_zoom_level,
     path_exists,
+    rasterio_open,
     read_json,
     tile_to_zoom_level,
     tiles_exist,
-    rasterio_open,
 )
 from mapchete.tile import BufferedTilePyramid
 

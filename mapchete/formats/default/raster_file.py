@@ -18,10 +18,10 @@ from mapchete import io
 from mapchete.formats import base
 from mapchete.io.raster import (
     convert_raster,
+    rasterio_open,
     read_raster,
     read_raster_window,
     resample_from_array,
-    rasterio_open,
 )
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
