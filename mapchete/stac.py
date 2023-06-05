@@ -449,7 +449,6 @@ def create_prototype_files(mp):
         # if tile exists, skip
         if mp.config.output.tiles_exist(output_tile=prototype_tile):
             logger.debug("prototype tile %s already exists", tile_path)
-            pass
         # if not, write empty tile
         else:
             logger.debug("creating prototype tile %s", tile_path)

@@ -1,6 +1,3 @@
-from collections.abc import Iterable
-
-
 class Bounds(list):
     """
     Class to handle geographic bounds.
