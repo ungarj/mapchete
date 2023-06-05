@@ -86,6 +86,49 @@ granules, where bands are stored in separate files:
             green: path/to/B03.jp2
             blue: path/to/B02.jp2
 
+In case the inputs are stored on separate storages with individual access settings,
+they can be provided in a `storage_options` mapping:
+
+**Example:**
+
+.. code-block:: yaml
+
+    input:
+        foo:
+            format: raster_file
+            path: s3://bucket1/image.tif
+            storage_options:
+                AWS_ACCESS_KEY_ID: some_key_id
+                AWS_SECRET_ACCESS_KEY: some_key_secret
+        foo2:
+            format: raster_file
+            path: s3://bucket2/image.tif
+            storage_options:
+                AWS_ACCESS_KEY_ID: some_other_key_id
+                AWS_SECRET_ACCESS_KEY: some_other_key_secret
+
+
+It is not recommended to put in access credatials as plain text into the configuration.
+It is also possible to point to environment variables instead of values:
+
+**Example:**
+
+.. code-block:: yaml
+
+    input:
+        foo:
+            format: raster_file
+            path: s3://bucket1/image.tif
+            storage_options:
+                AWS_ACCESS_KEY_ID: ${SOME_KEY_ID}
+                AWS_SECRET_ACCESS_KEY: ${SOME_KEY_SECRET}
+        foo2:
+            format: raster_file
+            path: s3://bucket2/image.tif
+            storage_options:
+                AWS_ACCESS_KEY_ID: ${SOME_OTHER_KEY_ID}
+                AWS_SECRET_ACCESS_KEY: ${SOME_OTHER_KEY_SECRET}
+
 
 TileDirectory inputs
 --------------------

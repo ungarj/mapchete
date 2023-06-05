@@ -1,11 +1,11 @@
 from itertools import chain
 from typing import Type
+
 import pytest
 from shapely.geometry import shape
 
-
+from mapchete._tasks import Task, TaskBatch, TileTask, TileTaskBatch, to_dask_collection
 from mapchete.errors import NoTaskGeometry
-from mapchete._tasks import Task, TileTask, TaskBatch, TileTaskBatch, to_dask_collection
 
 
 def test_task_geo_interface():

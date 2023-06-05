@@ -1,36 +1,15 @@
 import logging
-import os
+
 import rasterio
 from rasterio.warp import calculate_default_transform
 from shapely.errors import TopologicalError
 from shapely.geometry import box
 
 from mapchete.io._geometry_operations import reproject_geometry, segmentize_geometry
+from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 
-
 logger = logging.getLogger(__name__)
-
-
-GDAL_HTTP_OPTS = dict(
-    GDAL_DISABLE_READDIR_ON_OPEN=os.environ.get(
-        "GDAL_DISABLE_READDIR_ON_OPEN", "TRUE"
-    ).upper()
-    == "TRUE",
-    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif, .ovr, .jp2, .png, .xml, .rpc",
-    GDAL_HTTP_TIMEOUT=int(os.environ.get("GDAL_HTTP_TIMEOUT", "30")),
-    GDAL_HTTP_MAX_RETRY=int(os.environ.get("GDAL_HTTP_MAX_RETRY", "3")),
-    GDAL_HTTP_MERGE_CONSECUTIVE_RANGES=os.environ.get(
-        "GDAL_HTTP_MERGE_CONSECUTIVE_RANGES", "TRUE"
-    ).upper()
-    == "TRUE",
-    GDAL_HTTP_RETRY_DELAY=int(os.environ.get("GDAL_HTTP_RETRY_DELAY", "5")),
-)
-MAPCHETE_IO_RETRY_SETTINGS = {
-    "tries": int(os.environ.get("MAPCHETE_IO_RETRY_TRIES", "3")),
-    "delay": float(os.environ.get("MAPCHETE_IO_RETRY_DELAY", "1")),
-    "backoff": float(os.environ.get("MAPCHETE_IO_RETRY_BACKOFF", "1")),
-}
 
 
 def get_best_zoom_level(input_file, tile_pyramid_type):
@@ -195,30 +174,21 @@ def get_boto3_bucket(bucket_name):  # pragma: no cover
     raise DeprecationWarning("get_boto3_bucket() is deprecated")
 
 
-def get_gdal_options(opts, is_remote=False, allowed_remote_extensions=[]):
-    """
-    Return a merged set of custom and default GDAL/rasterio Env options.
+def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
+    """Copy path from one place to the other."""
+    src_path = MPath(src_path, fs=src_fs)
+    dst_path = MPath(dst_path, fs=dst_fs)
 
-    If is_remote is set to True, the default GDAL_HTTP_OPTS are appended.
+    if not overwrite and dst_path.fs.exists(dst_path):
+        raise IOError(f"{dst_path} already exists")
 
-    Parameters
-    ----------
-    opts : dict or None
-        Explicit GDAL options.
-    is_remote : bool
-        Indicate whether Env is for a remote file.
+    # create parent directories on local filesystems
+    dst_path.makedirs()
 
-    Returns
-    -------
-    dictionary
-    """
-    user_opts = {} if opts is None else dict(**opts)
-    if is_remote:
-        gdal_opts = dict(GDAL_HTTP_OPTS)
-        if allowed_remote_extensions:
-            gdal_opts.update(CPL_VSIL_CURL_ALLOWED_EXTENSIONS=allowed_remote_extensions)
-        gdal_opts.update(user_opts)
+    # copy either within a filesystem or between filesystems
+    if src_path.fs == dst_path.fs:
+        src_path.fs.copy(str(src_path), str(dst_path))
     else:
-        gdal_opts = user_opts
-    logger.debug("using GDAL options: %s", gdal_opts)
-    return gdal_opts
+        with src_path.open("rb") as src:
+            with dst_path.open("wb") as dst:
+                dst.write(src.read())

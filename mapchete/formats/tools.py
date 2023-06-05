@@ -5,21 +5,18 @@ This module deserves a cleaner rewrite some day.
 """
 
 import datetime
-import dateutil.parser
-import fiona
 import logging
-import os
-from pprint import pformat
-import rasterio
-from rasterio.crs import CRS
-from typing import Dict, Type
 import warnings
+from pprint import pformat
+from typing import Dict
 
-from mapchete.errors import MapcheteConfigError, MapcheteDriverError
-from mapchete.io import read_json, write_json, path_exists
+import dateutil.parser
+from rasterio.crs import CRS
+
 from mapchete._registered import drivers
+from mapchete.errors import MapcheteConfigError, MapcheteDriverError
+from mapchete.io import MPath, fiona_open, read_json, write_json, rasterio_open
 from mapchete.tile import BufferedTilePyramid
-
 
 logger = logging.getLogger(__name__)
 
@@ -99,31 +96,31 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     driver : string
         driver name
     """
-    file_ext = os.path.splitext(input_file)[1].split(".")[1]
+    input_file = MPath(input_file)
 
     # mapchete files can immediately be returned:
-    if file_ext == "mapchete":
+    if input_file.suffix == ".mapchete":
         return "Mapchete"
 
     # use the most common file extensions to quickly determine input driver for file:
     if quick:
         try:
-            return driver_from_extension(file_ext)
+            return driver_from_extension(input_file.suffix)
         except ValueError:
             pass
 
     # brute force by trying to open file with rasterio and fiona:
     try:
         logger.debug("try to open %s with rasterio...", input_file)
-        with rasterio.open(input_file):  # pragma: no cover
+        with rasterio_open(input_file):  # pragma: no cover
             return "raster_file"
     except Exception as rio_exception:
         try:
             logger.debug("try to open %s with fiona...", input_file)
-            with fiona.open(input_file):  # pragma: no cover
+            with fiona_open(input_file):  # pragma: no cover
                 return "vector_file"
         except Exception as fio_exception:
-            if path_exists(input_file):
+            if input_file.exists():
                 logger.exception(f"fiona error: {fio_exception}")
                 logger.exception(f"rasterio error: {rio_exception}")
                 raise MapcheteDriverError(
@@ -148,6 +145,7 @@ def driver_from_extension(file_extension: str) -> str:
     driver : string
         driver name
     """
+    file_extension = file_extension.lstrip(".")
     all_drivers_extensions = {}
     for v in drivers:
         driver = v.load()
@@ -315,7 +313,7 @@ def write_output_metadata(output_params: Dict) -> None:
         Output parameters
     """
     if "path" in output_params:
-        metadata_path = os.path.join(output_params["path"], "metadata.json")
+        metadata_path = MPath.from_dict(output_params) / "metadata.json"
         logger.debug("check for output %s", metadata_path)
         try:
             existing_params = read_output_metadata(metadata_path)

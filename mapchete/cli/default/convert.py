@@ -1,9 +1,9 @@
 import click
+import tilematrix
+import tqdm
 from rasterio.dtypes import dtype_ranges
 from rasterio.enums import Resampling
 from rasterio.rio.options import creation_options
-import tilematrix
-import tqdm
 
 import mapchete
 from mapchete import commands

@@ -1,17 +1,16 @@
 """Mapchtete handling tiles."""
-from itertools import product
 import logging
+from itertools import product
 
+import numpy as np
 from affine import Affine
 from cached_property import cached_property
-import numpy as np
 from rasterio.enums import Resampling
 from rasterio.features import rasterize
 from rasterio.warp import reproject
 from shapely.geometry import box
 from tilematrix import Tile, TilePyramid
 from tilematrix._conf import ROUND
-
 
 logger = logging.getLogger(__name__)
 

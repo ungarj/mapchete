@@ -1,19 +1,20 @@
 import json
-from packaging import version
+
 import pytest
 import rasterio
+from packaging import version
 from rasterio.errors import RasterioIOError
 from shapely.geometry import box, shape
 
 from mapchete.commands import execute
-from mapchete.io import fs_from_path
+from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.vector import reproject_geometry
 from mapchete.stac import (
-    tile_directory_stac_item,
-    update_tile_directory_stac_item,
-    tile_pyramid_from_item,
-    zoom_levels_from_item,
     create_prototype_files,
+    tile_directory_stac_item,
+    tile_pyramid_from_item,
+    update_tile_directory_stac_item,
+    zoom_levels_from_item,
 )
 from mapchete.tile import BufferedTilePyramid
 
@@ -265,11 +266,13 @@ def test_create_prototype_file(example_mapchete):
     assert fs_from_path(stac_path).exists(stac_path)
 
     with pytest.raises(RasterioIOError):
-        rasterio.open(stac_path)
+        with rasterio_open(stac_path):
+            pass
 
     # create prototype file and assert reading is possible
     create_prototype_files(example_mapchete.mp())
-    rasterio.open(stac_path)
+    with rasterio_open(stac_path):
+        pass
 
 
 @pytest.mark.skipif(
@@ -282,8 +285,9 @@ def test_create_prototype_file_exists(cleantopo_tl):
 
     # read STACTA with rasterio and expect an exception
     stac_path = cleantopo_tl.mp().config.output.stac_path
-    assert fs_from_path(stac_path).exists(stac_path)
+    assert stac_path.exists()
 
     # create prototype file and assert reading is possible
     create_prototype_files(cleantopo_tl.mp())
-    rasterio.open(stac_path)
+    with rasterio_open(stac_path):
+        pass

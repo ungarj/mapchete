@@ -1,26 +1,25 @@
 """Test Mapchete config module."""
 
-from copy import deepcopy
-import fiona
-from fiona.errors import DriverError
 import os
-import pytest
-import rasterio
-from shapely.errors import WKTReadingError
-from shapely.geometry import box, mapping, Polygon, shape
-from shapely import wkt
+from copy import deepcopy
+
 import oyaml as yaml
+import pytest
+from fiona.errors import DriverError
+from shapely import wkt
+from shapely.errors import WKTReadingError
+from shapely.geometry import Polygon, box, mapping, shape
 
 import mapchete
 from mapchete.config import (
-    bounds_from_opts,
     MapcheteConfig,
-    snap_bounds,
     _guess_geometry,
+    bounds_from_opts,
+    snap_bounds,
 )
-from mapchete.errors import MapcheteDriverError, MapcheteConfigError
+from mapchete.errors import MapcheteConfigError
+from mapchete.io import fiona_open, rasterio_open
 from mapchete.types import Bounds
-
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -77,7 +76,7 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
     zoom7 = config.params_at_zoom(7)
     input_files = zoom7["input"]
     assert input_files["file1"] is None
-    assert input_files["file2"].path == dummy2_tif
+    assert str(input_files["file2"].path) == dummy2_tif
     assert zoom7["some_integer_parameter"] == 12
     assert zoom7["some_float_parameter"] == 5.3
     assert zoom7["some_string_parameter"] == "string1"
@@ -89,8 +88,8 @@ def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
     config = MapcheteConfig(example_mapchete.dict)
     zoom11 = config.params_at_zoom(11)
     input_files = zoom11["input"]
-    assert input_files["file1"].path == dummy1_tif
-    assert input_files["file2"].path == dummy2_tif
+    assert str(input_files["file1"].path) == dummy1_tif
+    assert str(input_files["file2"].path) == dummy2_tif
     assert zoom11["some_integer_parameter"] == 12
     assert zoom11["some_float_parameter"] == 5.3
     assert zoom11["some_string_parameter"] == "string2"
@@ -276,10 +275,10 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
     zoom = 7
 
     # read geojson geometry
-    with fiona.open(aoi_br_geojson) as src:
+    with fiona_open(aoi_br_geojson) as src:
         area = shape(next(iter(src))["geometry"])
     # read input tiff bounds
-    with rasterio.open(cleantopo_br_tif) as src:
+    with rasterio_open(cleantopo_br_tif) as src:
         raster = box(*src.bounds)
     aoi = area.intersection(raster)
 
@@ -311,7 +310,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
 
 
 def test_guess_geometry(aoi_br_geojson):
-    with fiona.open(aoi_br_geojson) as src:
+    with fiona_open(aoi_br_geojson) as src:
         area = shape(next(iter(src))["geometry"])
 
     # WKT
@@ -449,3 +448,11 @@ def test_init_overrides_config(example_mapchete):
 def test_custom_process(example_custom_process_mapchete):
     with mapchete.open(example_custom_process_mapchete.dict) as mp:
         assert callable(mp.config.process_func)
+
+
+# pytest-env must be installed
+def test_env_params(env_storage_options_mapchete):
+    with mapchete.open(env_storage_options_mapchete.dict) as mp:
+        inp = mp.config.params_at_zoom(5)
+        assert inp["input"]["file1"].storage_options.get("access_key") == "foo"
+        assert mp.config.output.storage_options.get("access_key") == "bar"

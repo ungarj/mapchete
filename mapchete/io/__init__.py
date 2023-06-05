@@ -1,28 +1,26 @@
 """Functions for reading and writing data."""
 
-from mapchete.io._json import (
-    write_json,
-    read_json,
-)
+from mapchete.io._json import read_json, write_json
 from mapchete.io._misc import (
-    GDAL_HTTP_OPTS,
+    copy,
     get_best_zoom_level,
+    get_boto3_bucket,
     get_segmentize_value,
     tile_to_zoom_level,
-    get_boto3_bucket,
-    get_gdal_options,
 )
-from mapchete.io._path import (
-    copy,
-    fs_from_path,
-    path_is_remote,
-    path_exists,
-    tiles_exist,
+from mapchete.io.raster import rasterio_open
+from mapchete.io.settings import GDAL_HTTP_OPTS
+from mapchete.io.vector import fiona_open
+from mapchete.path import (
+    MPath,
     absolute_path,
-    relative_path,
+    fs_from_path,
     makedirs,
+    path_exists,
+    path_is_remote,
+    relative_path,
+    tiles_exist,
 )
-
 
 __all__ = [
     "copy",
@@ -37,8 +35,11 @@ __all__ = [
     "absolute_path",
     "relative_path",
     "makedirs",
+    "Path",
     "write_json",
     "read_json",
     "get_boto3_bucket",
-    "get_gdal_options",
+    "MPath",
+    "fiona_open",
+    "rasterio_open",
 ]

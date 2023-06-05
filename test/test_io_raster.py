@@ -1,103 +1,47 @@
-import pytest
+import os
 import shutil
-import rasterio
 import tempfile
+from itertools import product
+
 import numpy as np
 import numpy.ma as ma
-import os
+import pytest
 from rasterio.enums import Compression
 from shapely.geometry import box
 from shapely.ops import unary_union
 from tilematrix import Bounds
-from itertools import product
-
 
 import mapchete
-from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteIOError
 from mapchete.formats.default.gtiff import DefaultGTiffProfile
-from mapchete.io import path_exists
+from mapchete.io import path_exists, rasterio_open
 from mapchete.io.raster import (
-    read_raster_window,
-    write_raster_window,
-    extract_from_array,
-    resample_from_array,
-    create_mosaic,
-    ReferencedRaster,
-    prepare_array,
     RasterWindowMemoryFile,
-    read_raster_no_crs,
+    ReferencedRaster,
     convert_raster,
+    create_mosaic,
+    extract_from_array,
+    prepare_array,
     rasterio_write,
+    read_raster,
+    read_raster_no_crs,
+    read_raster_window,
+    resample_from_array,
+    write_raster_window,
 )
+from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
 
-def test_read_raster_window(dummy1_tif, minmax_zoom):
-    """Read array with read_raster_window."""
-    zoom = 8
-    # without reproject
-    config = MapcheteConfig(minmax_zoom.dict)
-    rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
-    dummy1_bbox = rasterfile.bbox()
-
-    pixelbuffer = 5
-    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
-    # add edge tile
-    tiles.append(tile_pyramid.tile(8, 0, 0))
-    for tile in tiles:
-        width, height = tile.shape
-        for band in read_raster_window(dummy1_tif, tile):
-            assert isinstance(band, ma.MaskedArray)
-            assert band.shape == (width, height)
-        for index in range(1, 4):
-            band = read_raster_window(dummy1_tif, tile, index)
-            assert isinstance(band, ma.MaskedArray)
-            assert band.shape == (width, height)
-        for index in [None, [1, 2, 3]]:
-            band = read_raster_window(dummy1_tif, tile, index)
-            assert isinstance(band, ma.MaskedArray)
-            assert band.ndim == 3
-            assert band.shape == (3, width, height)
-
-
-def test_read_raster_window_reproject(dummy1_3857_tif, minmax_zoom):
-    """Read array with read_raster_window."""
-    zoom = 8
-    # with reproject
-    config_raw = minmax_zoom.dict
-    config_raw["input"].update(file1=dummy1_3857_tif)
-    config = MapcheteConfig(config_raw)
-    rasterfile = config.params_at_zoom(zoom)["input"]["file1"]
-    dummy1_bbox = rasterfile.bbox()
-
-    pixelbuffer = 5
-    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = list(tile_pyramid.tiles_from_geom(dummy1_bbox, zoom))
-    # target window out of CRS bounds
-    band = read_raster_window(dummy1_3857_tif, tile_pyramid.tile(12, 0, 0))
-    assert isinstance(band, ma.MaskedArray)
-    assert band.mask.all()
-    # not intersecting tile
-    tiles.append(tile_pyramid.tile(zoom, 1, 1))  # out of CRS bounds
-    tiles.append(tile_pyramid.tile(zoom, 16, 1))  # out of file bbox
-    for tile in tiles:
-        for band in read_raster_window(dummy1_3857_tif, tile):
-            assert isinstance(band, ma.MaskedArray)
-            assert band.shape == tile.shape
-        bands = read_raster_window(dummy1_3857_tif, tile, [1])
-        assert isinstance(bands, ma.MaskedArray)
-        assert bands.shape == (1, *tile.shape)
-    # errors
+def test_read_raster_window_nofile(raster_4band_tile):
     with pytest.raises(IOError):
-        read_raster_window("nonexisting_path", tile)
+        read_raster_window("nonexisting_path", raster_4band_tile)
 
 
 def test_read_raster_window_resampling(cleantopo_br_tif):
     """Assert various resampling options work."""
     tp = BufferedTilePyramid("geodetic")
-    with rasterio.open(cleantopo_br_tif, "r") as src:
+    with rasterio_open(cleantopo_br_tif, "r") as src:
         tiles = tp.tiles_from_bounds(src.bounds, 4)
     for tile in tiles:
         outputs = [
@@ -182,14 +126,14 @@ def test_read_raster_window_filenotfound():
 def test_read_raster_window_s3_filenotfound(mp_s3_tmpdir):
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(FileNotFoundError):
-        read_raster_window(f"{mp_s3_tmpdir}/not_existing.tif", tile)
+        read_raster_window(mp_s3_tmpdir / "not_existing.tif", tile)
 
 
 def test_read_raster_window_s3_filenotfound_gdalreaddir(mp_s3_tmpdir):
     tile = BufferedTilePyramid("geodetic").tile(zoom=13, row=1918, col=8905)
     with pytest.raises(FileNotFoundError):
         read_raster_window(
-            f"{mp_s3_tmpdir}/not_existing.tif",
+            mp_s3_tmpdir / "not_existing.tif",
             tile,
             gdal_opts=dict(GDAL_DISABLE_READDIR_ON_OPEN=False),
         )
@@ -257,7 +201,7 @@ def test_write_raster_window():
             write_raster_window(
                 in_tile=tile, in_data=data, out_profile=out_profile, out_path=path
             )
-            with rasterio.open(path, "r") as src:
+            with rasterio_open(path, "r") as src:
                 assert src.read().any()
                 assert src.meta["driver"] == out_profile["driver"]
                 assert src.transform == tile.affine
@@ -289,7 +233,7 @@ def test_write_raster_window():
             out_tile=out_tile,
             out_path=path,
         )
-        with rasterio.open(path, "r") as src:
+        with rasterio_open(path, "r") as src:
             assert src.shape == out_tile.shape
             assert src.read().any()
             assert src.meta["driver"] == out_profile["driver"]
@@ -777,18 +721,12 @@ def test_prepare_array_errors():
         pass
 
 
-@pytest.mark.remote
-def test_s3_read_raster_window(s2_band_remote):
-    tile = BufferedTilePyramid("geodetic").tile(10, 276, 1071)
-    assert read_raster_window(s2_band_remote, tile).any()
-
-
-def test_convert_raster_copy(cleantopo_br_tif, tmpdir):
-    out = os.path.join(tmpdir, "copied.tif")
+def test_convert_raster_copy(cleantopo_br_tif, mp_tmpdir):
+    out = mp_tmpdir / "copied.tif"
 
     # copy
     convert_raster(cleantopo_br_tif, out)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
     # raise error if output exists
@@ -797,28 +735,60 @@ def test_convert_raster_copy(cleantopo_br_tif, tmpdir):
 
     # do nothing if output exists
     convert_raster(cleantopo_br_tif, out)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
 
-def test_convert_raster_overwrite(cleantopo_br_tif, tmpdir):
-    out = os.path.join(tmpdir, "copied.tif")
+def test_convert_raster_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
+    out = mp_s3_tmpdir / "copied.tif"
+
+    # copy
+    convert_raster(cleantopo_br_tif_s3, out)
+    with out.rio_env():
+        with rasterio_open(out) as src:
+            assert not src.read(masked=True).mask.all()
+
+    # raise error if output exists
+    with pytest.raises(IOError):
+        convert_raster(cleantopo_br_tif_s3, out, exists_ok=False)
+
+    # do nothing if output exists
+    convert_raster(cleantopo_br_tif_s3, out)
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+
+def test_convert_raster_overwrite(cleantopo_br_tif, mp_tmpdir):
+    out = mp_tmpdir / "copied.tif"
 
     # write an invalid file
-    with open(out, "w") as dst:
+    with out.open("w") as dst:
         dst.write("invalid")
 
     # overwrite
     convert_raster(cleantopo_br_tif, out, overwrite=True)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
 
-def test_convert_raster_other_format_copy(cleantopo_br_tif, tmpdir):
-    out = os.path.join(tmpdir, "copied.jp2")
+def test_convert_raster_overwrite_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
+    out = mp_s3_tmpdir / "copied.tif"
+
+    # write an invalid file
+    with out.open("w") as dst:
+        dst.write("invalid")
+
+    # overwrite
+    convert_raster(cleantopo_br_tif_s3, out, overwrite=True)
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+
+def test_convert_raster_other_format_copy(cleantopo_br_tif, mp_tmpdir):
+    out = mp_tmpdir / "copied.jp2"
 
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG")
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
     # raise error if output exists
@@ -826,16 +796,41 @@ def test_convert_raster_other_format_copy(cleantopo_br_tif, tmpdir):
         convert_raster(cleantopo_br_tif, out, exists_ok=False)
 
 
-def test_convert_raster_other_format_overwrite(cleantopo_br_tif, tmpdir):
-    out = os.path.join(tmpdir, "copied.jp2")
+def test_convert_raster_other_format_copy_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
+    out = mp_s3_tmpdir / "copied.jp2"
+
+    convert_raster(cleantopo_br_tif_s3, out, driver="JP2OpenJPEG")
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+    # raise error if output exists
+    with pytest.raises(IOError):
+        convert_raster(cleantopo_br_tif_s3, out, exists_ok=False)
+
+
+def test_convert_raster_other_format_overwrite(cleantopo_br_tif, mp_tmpdir):
+    out = mp_tmpdir / "copied.jp2"
 
     # write an invalid file
-    with open(out, "w") as dst:
+    with out.open("w") as dst:
         dst.write("invalid")
 
     # overwrite
     convert_raster(cleantopo_br_tif, out, driver="JP2OpenJPEG", overwrite=True)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
+
+def test_convert_raster_other_format_overwrite_s3(cleantopo_br_tif_s3, mp_s3_tmpdir):
+    out = mp_s3_tmpdir / "copied.jp2"
+
+    # write an invalid file
+    with out.open("w") as dst:
+        dst.write("invalid")
+
+    # overwrite
+    convert_raster(cleantopo_br_tif_s3, out, driver="JP2OpenJPEG", overwrite=True)
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
 
@@ -875,8 +870,8 @@ def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
 def test_rasterio_write(path, dtype, in_memory):
     arr = np.ones((1, 256, 256)).astype(dtype)
     count, width, height = arr.shape
-    path = os.path.join(path, f"test_rasterio_write-{str(dtype)}-{in_memory}.tif")
-    with rasterio_write(
+    path = path / f"test_rasterio_write-{str(dtype)}-{in_memory}.tif"
+    with rasterio_open(
         path,
         "w",
         in_memory=in_memory,
@@ -888,14 +883,14 @@ def test_rasterio_write(path, dtype, in_memory):
     ) as dst:
         dst.write(arr)
     assert path_exists(path)
-    with rasterio.open(path) as src:
+    with rasterio_open(path) as src:
         written = src.read()
         assert np.array_equal(arr, written)
 
 
 @pytest.mark.parametrize("in_memory", [True, False])
 def test_rasterio_write_remote_exception(mp_s3_tmpdir, in_memory):
-    path = os.path.join(mp_s3_tmpdir, "temp.tif")
+    path = mp_s3_tmpdir / "temp.tif"
     with pytest.raises(ValueError):
         # raise exception on purpose
         with rasterio_write(
@@ -909,8 +904,6 @@ def test_rasterio_write_remote_exception(mp_s3_tmpdir, in_memory):
             **DefaultGTiffProfile(dtype="uint8"),
         ):
             raise ValueError()
-    # make sure no output has been written
-    assert not path_exists(path)
 
 
 def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
@@ -920,3 +913,82 @@ def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
             mp.execute(output_s3_single_gtiff_error.first_process_tile())
     # make sure no output has been written
     assert not path_exists(mp.config.output.path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+def test_read_raster_no_crs(path):
+    arr = read_raster_no_crs(path)
+    assert isinstance(arr, ma.MaskedArray)
+    assert not arr.mask.all()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+@pytest.mark.parametrize("grid", ["geodetic", "mercator"])
+@pytest.mark.parametrize("pixelbuffer", [0, 10, 500])
+@pytest.mark.parametrize("zoom", [8, 5])
+def test_read_raster_window(path, grid, pixelbuffer, zoom):
+    """Read array with read_raster_window."""
+    tile_pyramid = BufferedTilePyramid(grid, pixelbuffer=pixelbuffer)
+    with rasterio_open(path) as src:
+        bbox = reproject_geometry(box(*src.bounds), src.crs, tile_pyramid.crs)
+        bands = src.count
+
+    tiles = list(tile_pyramid.tiles_from_geom(bbox, zoom))
+
+    # add edge tile
+    tiles.append(tile_pyramid.tile(zoom, 0, 0))
+
+    for tile in tiles:
+        width, height = tile.shape
+
+        for band in read_raster_window(path, tile):
+            assert isinstance(band, ma.MaskedArray)
+            assert band.shape == (width, height)
+            if tile.row != 0 and tile.col != 0:
+                assert not band.mask.all()
+
+        for index in range(1, bands + 1):
+            band = read_raster_window(path, tile, index)
+            assert isinstance(band, ma.MaskedArray)
+            assert band.shape == (width, height)
+            if tile.row != 0 and tile.col != 0:
+                assert not band.mask.all()
+
+        for index in [None, list(range(1, bands + 1))]:
+            band = read_raster_window(path, tile, index)
+            assert isinstance(band, ma.MaskedArray)
+            assert band.ndim == 3
+            assert band.shape == (bands, width, height)
+            if tile.row != 0 and tile.col != 0:
+                assert not band.mask.all()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+def test_read_raster(path):
+    rr = read_raster(path)
+    assert isinstance(rr, ReferencedRaster)
+    assert not rr.data.mask.all()

@@ -61,13 +61,9 @@ class OutputDataReader(_fiona_base.OutputDataReader):
         self.path = output_params["path"]
         self.file_extension = ".geojson"
         self.output_params = output_params
-        self._bucket = (
-            self.path.split("/")[2] if self.path.startswith("s3://") else None
-        )
 
 
 class OutputDataWriter(_fiona_base.OutputDataWriter, OutputDataReader):
-
     METADATA = METADATA
 
 

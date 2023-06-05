@@ -3,7 +3,7 @@
 
 import numpy as np
 import numpy.ma as ma
-from shapely.geometry import Point, GeometryCollection
+from shapely.geometry import GeometryCollection, Point
 
 import mapchete
 from mapchete import MapcheteProcess

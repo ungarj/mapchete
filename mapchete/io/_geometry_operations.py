@@ -1,21 +1,22 @@
-import fiona
-from fiona.transform import transform_geom
 import logging
+
+import fiona
 import pyproj
+from fiona.transform import transform_geom
 from rasterio.crs import CRS
 from shapely.errors import TopologicalError
 from shapely.geometry import (
-    box,
     GeometryCollection,
-    shape,
-    mapping,
-    MultiPoint,
-    MultiLineString,
-    MultiPolygon,
-    Polygon,
     LinearRing,
     LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Polygon,
     base,
+    box,
+    mapping,
+    shape,
 )
 from shapely.validation import explain_validity
 

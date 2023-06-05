@@ -1,4 +1,5 @@
 import logging
+
 from shapely.geometry import mapping, shape
 from shapely.ops import unary_union
 

@@ -1,17 +1,18 @@
+import json
+import logging
+import os
+
 import click
 import fsspec
-import logging
-import json
-import os
 import oyaml as yaml
 
 import mapchete
 from mapchete.cli import options
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import read_output_metadata
-from mapchete.stac import tile_directory_stac_item, create_prototype_files
+from mapchete.io import MPath
+from mapchete.stac import create_prototype_files, tile_directory_stac_item
 from mapchete.validate import validate_zooms
-
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def create_item(
 
     item_id = item_id or metadata.get("id", default_id)
     logger.debug("use item ID %s", item_id)
-    item_path = item_path or os.path.join(default_basepath, f"{item_id}.json")
+    item_path = item_path or MPath(default_basepath) / f"{item_id}.json"
     item = tile_directory_stac_item(
         item_id=item_id,
         item_metadata=metadata,
@@ -106,24 +107,24 @@ def create_item(
 
 
 def output_info(inp):
-    if inp.endswith(".mapchete"):
-        conf = raw_conf(inp)
-        default_basepath = os.path.dirname(conf["output"]["path"].strip("/") + "/")
+    path = MPath(inp)
+    if path.suffix == ".mapchete":
+        conf = raw_conf(path)
+        default_basepath = MPath.from_dict(conf["output"])
         return (
             raw_conf_output_pyramid(conf),
             default_basepath,
-            os.path.basename(default_basepath),
+            default_basepath.name,
             conf.get("bounds"),
             conf.get("bounds_crs"),
             conf.get("zoom_levels"),
             conf["output"].get("stac"),
         )
 
-    default_basepath = inp.strip("/")
     return (
-        read_output_metadata(os.path.join(inp, "metadata.json"))["pyramid"],
-        default_basepath,
-        os.path.basename(default_basepath),
+        read_output_metadata(path / "metadata.json")["pyramid"],
+        path,
+        path.name,
         None,
         None,
         None,

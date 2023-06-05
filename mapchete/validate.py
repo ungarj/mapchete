@@ -1,11 +1,12 @@
 """Convenience validator functions for core and extension packages."""
 
 
+import warnings
 from collections.abc import Iterable
+from typing import Dict, List, Union
+
 import numpy.ma as ma
 from rasterio.crs import CRS
-from typing import Union, List, Dict
-import warnings
 
 from mapchete.tile import BufferedTile, BufferedTilePyramid
 from mapchete.types import Bounds, ZoomLevels

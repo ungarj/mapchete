@@ -33,10 +33,11 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+import math
+from itertools import product
+
 import numpy as np
 import numpy.ma as ma
-from itertools import product
-import math
 
 
 def calculate_slope_aspect(elevation, xres, yres, z=1.0, scale=1.0):

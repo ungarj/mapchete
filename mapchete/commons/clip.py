@@ -1,8 +1,8 @@
 """Clip array using vector data."""
 import numpy as np
 import numpy.ma as ma
-from shapely.ops import unary_union
 from rasterio.features import geometry_mask
+from shapely.ops import unary_union
 
 from mapchete.io.vector import to_shape
 

@@ -10,59 +10,58 @@ An invalid process configuration or an invalid process file cause an Exception
 when initializing the configuration.
 """
 
-from cached_property import cached_property
-from collections import OrderedDict
-from copy import deepcopy
-import fiona
-import fsspec
 import hashlib
 import importlib
 import inspect
 import logging
 import operator
 import os
-import oyaml as yaml
 import py_compile
+import sys
+import warnings
+from collections import OrderedDict
+from copy import deepcopy
+from tempfile import NamedTemporaryFile
+
+import fsspec
+import oyaml as yaml
+from cached_property import cached_property
 from shapely import wkt
-from shapely.geometry import box, Point, shape
+from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
-import sys
-from tempfile import NamedTemporaryFile
-import warnings
 
-from mapchete.validate import (
-    validate_bounds,
-    validate_zooms,
-    validate_values,
-    validate_bufferedtilepyramid,
-)
-from mapchete.errors import (
-    MapcheteConfigError,
-    MapcheteProcessSyntaxError,
-    MapcheteProcessImportError,
-    MapcheteDriverError,
-    GeometryTypeError,
-)
 from mapchete._executor import MULTIPROCESSING_DEFAULT_START_METHOD
+from mapchete.errors import (
+    GeometryTypeError,
+    MapcheteConfigError,
+    MapcheteDriverError,
+    MapcheteProcessImportError,
+    MapcheteProcessSyntaxError,
+)
 from mapchete.formats import (
-    load_output_reader,
-    load_output_writer,
     available_output_formats,
     load_input_reader,
+    load_output_reader,
+    load_output_writer,
 )
-from mapchete.io import absolute_path
+from mapchete.io import MPath, absolute_path, fiona_open
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import Bounds
-
+from mapchete.validate import (
+    validate_bounds,
+    validate_bufferedtilepyramid,
+    validate_values,
+    validate_zooms,
+)
 
 logger = logging.getLogger(__name__)
 
 # parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
-    ("process", (str, list, type(None))),  # path to .py file or module path
+    ("process", (str, list, type(None), MPath)),  # path to .py file or module path
     ("pyramid", dict),  # process pyramid definition
     ("input", (dict, type(None))),  # files & other types
     ("output", dict),  # process output parameters
@@ -428,7 +427,9 @@ class MapcheteConfig(object):
         )
         if "path" in output_params:
             output_params.update(
-                path=absolute_path(path=output_params["path"], base_dir=self.config_dir)
+                path=MPath.from_dict(output_params).absolute_path(
+                    base_dir=self.config_dir
+                )
             )
 
         if "format" not in output_params:
@@ -783,12 +784,6 @@ class MapcheteConfig(object):
         warnings.warn(DeprecationWarning("self.inputs renamed to self.input."))
         return self.input
 
-    @cached_property
-    def process_file(self):
-        """Deprecated."""
-        warnings.warn(DeprecationWarning("'self.process_file' is deprecated"))
-        return os.path.join(self._raw["config_dir"], self._raw["process"])
-
     def at_zoom(self, zoom):
         """Deprecated."""
         warnings.warn(
@@ -796,22 +791,16 @@ class MapcheteConfig(object):
         )
         return self.params_at_zoom(zoom)
 
-    def process_area(self, zoom=None):
-        """Deprecated."""
-        warnings.warn(DeprecationWarning("Method renamed to self.area_at_zoom(zoom)."))
-        return self.area_at_zoom(zoom)
-
-    def process_bounds(self, zoom=None):
-        """Deprecated."""
-        warnings.warn(
-            DeprecationWarning("Method renamed to self.bounds_at_zoom(zoom).")
-        )
-        return self.bounds_at_zoom(zoom)
-
 
 def get_hash(x, length=16):
     """Return hash of x."""
-    return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
+    if isinstance(x, MPath):
+        x = str(x)
+    try:
+        return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
+    except TypeError:  # pragma: no cover
+        # in case yaml.dump fails, we just try to get a string representation of object
+        return hashlib.sha224(str(x).encode()).hexdigest()[:length]
 
 
 def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
@@ -1029,7 +1018,7 @@ def initialize_inputs(
     initalized_inputs = OrderedDict()
     for k, v in raw_inputs.items():
         # for files and tile directories
-        if isinstance(v, str):
+        if isinstance(v, (str, MPath)):
             logger.debug("load input reader for simple input %s", v)
             try:
                 reader = load_input_reader(
@@ -1044,7 +1033,9 @@ def initialize_inputs(
                 )
             except Exception as e:
                 logger.exception(e)
-                raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
+                raise MapcheteDriverError(
+                    "error when loading input %s: %s" % (v, e)
+                ) from e
             logger.debug("input reader for simple input %s is %s", v, reader)
 
         # for abstract inputs
@@ -1052,9 +1043,10 @@ def initialize_inputs(
             logger.debug("load input reader for abstract input %s", v)
             try:
                 abstract = deepcopy(v)
+                # make path absolute and add filesystem options
                 if "path" in abstract:
                     abstract.update(
-                        path=absolute_path(path=abstract["path"], base_dir=config_dir)
+                        path=MPath.from_dict(abstract).absolute_path(config_dir)
                     )
                 reader = load_input_reader(
                     dict(
@@ -1086,6 +1078,7 @@ def initialize_inputs(
 
 def _load_process_module(process=None, config_dir=None, run_compile=False):
     tmpfile = None
+    process = MPath(process) if isinstance(process, str) else process
     try:
         if isinstance(process, list):
             tmpfile = NamedTemporaryFile(suffix=".py")
@@ -1093,17 +1086,19 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
             with open(tmpfile.name, "w") as dst:
                 for line in process:
                     dst.write(line + "\n")
-            process = tmpfile.name
-        if process.endswith(".py"):
+            process = MPath(tmpfile.name)
+        if process.suffix == ".py":
             module_path = absolute_path(path=process, base_dir=config_dir)
-            if not os.path.isfile(module_path):
+            if not module_path.exists():
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
                 if run_compile:
                     py_compile.compile(module_path, doraise=True)
-                module_name = os.path.splitext(os.path.basename(module_path))[0]
+                module_name = module_path.stem
                 # load module
-                spec = importlib.util.spec_from_file_location(module_name, module_path)
+                spec = importlib.util.spec_from_file_location(
+                    module_name, str(module_path)
+                )
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 # required to make imported module available using multiprocessing
@@ -1116,7 +1111,7 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
                 raise MapcheteProcessImportError(e)
         else:
             try:
-                module = importlib.import_module(process)
+                module = importlib.import_module(str(process))
             except ImportError as e:
                 raise MapcheteProcessImportError(e)
         logger.debug(f"return process func: {module}")
@@ -1141,20 +1136,35 @@ def _config_to_dict(input_config):
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
             raise MapcheteConfigError("config_dir parameter missing")
-        return OrderedDict(input_config, mapchete_file=None)
+        return OrderedDict(_include_env(input_config), mapchete_file=None)
     # from Mapchete file
-    elif os.path.splitext(input_config)[1] == ".mapchete":
-        with fsspec.open(input_config, "r") as config_file:
-            return OrderedDict(
-                yaml.safe_load(config_file.read()),
-                config_dir=os.path.dirname(os.path.realpath(input_config)),
-                mapchete_file=input_config,
-            )
+    elif input_config.suffix == ".mapchete":
+        config_dict = _include_env(yaml.safe_load(input_config.read_text()))
+        return OrderedDict(
+            config_dict,
+            config_dir=config_dict.get(
+                "config_dir", input_config.absolute_path().dirname or os.getcwd()
+            ),
+            mapchete_file=input_config,
+        )
     # throw error if unknown object
     else:  # pragma: no cover
         raise MapcheteConfigError(
             "Configuration has to be a dictionary or a .mapchete file."
         )
+
+
+def _include_env(d):
+    out = OrderedDict()
+    for k, v in d.items():
+        if isinstance(v, dict):
+            out[k] = _include_env(v)
+        elif isinstance(v, str) and v.startswith("${") and v.endswith("}"):
+            envvar = v.lstrip("${").rstrip("}")
+            out[k] = os.environ.get(envvar)
+        else:
+            out[k] = v
+    return out
 
 
 def _raw_at_zoom(config, zooms):
@@ -1363,13 +1373,15 @@ def _guess_geometry(i, base_dir=None):
     """
     crs = None
     # WKT or path:
-    if isinstance(i, str):
-        if i.upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
+    if isinstance(i, (str, MPath)):
+        if str(i).upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
             geom = wkt.loads(i)
         else:
-            with fiona.open(absolute_path(path=i, base_dir=base_dir)) as src:
-                geom = unary_union([shape(f["geometry"]) for f in src])
-                crs = src.crs
+            path = MPath(i)
+            with path.fio_env():
+                with fiona_open(str(path.absolute_path(base_dir))) as src:
+                    geom = unary_union([shape(f["geometry"]) for f in src])
+                    crs = src.crs
     # GeoJSON mapping
     elif isinstance(i, dict):
         geom = shape(i)

@@ -272,3 +272,20 @@ This works likewise for input data:
             # if the current tile zoom is 10 or lower, features from
             # land_polygons_simplified.shp are returned, if the tile zoom
             # is 11 or higher, features from land_polygons.shp are returned
+
+
+-------------------------------------
+Parameters from environment variables
+-------------------------------------
+
+It is also possible to point to environment variables when defining a value. This can be handy for secrets (e.g. filesystem access parameters) which should not end up in the mapchete config as plain text.
+
+.. code-block:: yaml
+
+    input:
+        mosaic2:
+            format: TileDirectory
+            path: https://example.com/foo/
+            storage_options:
+                username: ${FOO_USER}
+                password: ${FOO_PW}

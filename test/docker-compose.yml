@@ -1,0 +1,29 @@
+version: "3.6"
+services:
+  minio:
+    image: minio/minio
+    environment:
+      MINIO_ACCESS_KEY: eecang7G
+      MINIO_SECRET_KEY: Eashei2a
+    ports:
+     - "9000:9000"
+    command:
+      ['server', '/data']
+
+  nginx:
+    image: nginx
+    volumes:
+      - type: bind
+        source: ./testdata
+        target: /usr/share/nginx/html
+      - type: bind
+        source: ./testdata
+        target: /usr/share/nginx/html_secure
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/nginx.conf
+      - type: bind
+        source: ./.htpasswd
+        target: /etc/nginx/.htpasswd
+    ports:
+     - "80:80"

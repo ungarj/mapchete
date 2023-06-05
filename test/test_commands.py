@@ -1,17 +1,16 @@
-import fiona
-import geobuf
 import os
+import warnings
+
+import geobuf
 import pytest
-import rasterio
 from rio_cogeo.cogeo import cog_validate
 from shapely.geometry import box, shape
 from tilematrix import TilePyramid
-import warnings
 
 import mapchete
+from mapchete._executor import ConcurrentFuturesExecutor, SequentialExecutor
 from mapchete.commands import convert, cp, execute, index, rm
-from mapchete._executor import SequentialExecutor, ConcurrentFuturesExecutor
-
+from mapchete.io import fiona_open, rasterio_open
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -24,7 +23,6 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     ) as mp:
         mp.batch_process(zoom=5)
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
-
     # copy tiles and subset by bounds
     tiles = cp(
         out_path,
@@ -80,21 +78,23 @@ def test_rm(mp_tmpdir, cleantopo_br):
 def test_execute(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
     zoom = 5
     tp = TilePyramid("geodetic")
-    tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
+    with rasterio_open(cleantopo_br_tif) as src:
+        tiles = list(tp.tiles_from_bounds(src.bounds, zoom))
     job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom)
     for t in job:
         assert t
     assert len(tiles) == len(job)
     mp = cleantopo_br_metatiling_1.mp()
     for t in tiles:
-        with rasterio.open(mp.config.output.get_path(t)) as src:
+        with rasterio_open(mp.config.output.get_path(t)) as src:
             assert not src.read(masked=True).mask.all()
 
 
 def test_execute_set_executor(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
     zoom = 5
     tp = TilePyramid("geodetic")
-    tiles = list(tp.tiles_from_bounds(rasterio.open(cleantopo_br_tif).bounds, zoom))
+    with rasterio_open(cleantopo_br_tif) as src:
+        tiles = list(tp.tiles_from_bounds(src.bounds, zoom))
     job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom, as_iterator=True)
 
     # invalid concurrency
@@ -118,7 +118,7 @@ def test_execute_set_executor(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br
     assert len(tiles) == len(job)
     mp = cleantopo_br_metatiling_1.mp()
     for t in tiles:
-        with rasterio.open(mp.config.output.get_path(t)) as src:
+        with rasterio_open(mp.config.output.get_path(t)) as src:
             assert not src.read(masked=True).mask.all()
 
 
@@ -140,7 +140,7 @@ def test_execute_tile(mp_tmpdir, cleantopo_br_metatiling_1):
     assert len(job) == 1
 
     mp = cleantopo_br_metatiling_1.mp()
-    with rasterio.open(
+    with rasterio_open(
         mp.config.output.get_path(mp.config.output_pyramid.tile(*tile))
     ) as src:
         assert not src.read(masked=True).mask.all()
@@ -148,14 +148,23 @@ def test_execute_tile(mp_tmpdir, cleantopo_br_metatiling_1):
 
 def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
     """Using bounds from WKT."""
-    with rasterio.open(dummy2_tif) as src:
+    with rasterio_open(dummy2_tif) as src:
         g = box(*src.bounds)
     job = execute(example_mapchete.dict, point=[g.centroid.x, g.centroid.y], zoom=10)
     assert len(job) == 1
 
 
-def test_execute_preprocessing_tasks_dask(preprocess_cache_raster_vector):
-    job = execute(preprocess_cache_raster_vector.dict, concurrency="dask")
+@pytest.mark.parametrize(
+    "concurrency",
+    [
+        "threads",
+        "dask",
+        "processes",
+        None,
+    ],
+)
+def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector):
+    job = execute(preprocess_cache_raster_vector.path, concurrency=concurrency)
     assert len(job)
 
 
@@ -165,7 +174,7 @@ def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
     assert len(job)
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -178,7 +187,7 @@ def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
     assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -190,8 +199,8 @@ def test_convert_custom_grid(s2_band, mp_tmpdir, custom_grid_json):
     job = convert(s2_band, mp_tmpdir, output_pyramid=custom_grid_json)
     assert len(job)
     for zoom, row, col in [(0, 5298, 631)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -208,7 +217,7 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".png"])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            with rasterio.open(out_file, "r") as src:
+            with rasterio_open(out_file, "r") as src:
                 assert src.meta["driver"] == "PNG"
                 assert src.meta["dtype"] == "uint8"
                 data = src.read(masked=True)
@@ -222,7 +231,7 @@ def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
         cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=3, bidx=1
     )
     assert len(job)
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -235,7 +244,7 @@ def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
     job = convert(cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=3)
     assert len(job)
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -250,7 +259,7 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
         cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=5, cog=True
     )
     assert len(job)
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -270,7 +279,7 @@ def test_convert_single_gtiff_cog_dask(cleantopo_br_tif, mp_tmpdir):
         concurrency="dask",
     )
     assert len(job)
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -291,7 +300,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         concurrency=None,
     )
     assert len(job)
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -307,7 +316,7 @@ def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
         http_raster, single_gtiff, output_pyramid="geodetic", zoom=1, concurrency=None
     )
     assert len(job)
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -322,7 +331,7 @@ def test_convert_dtype(cleantopo_br_tif, mp_tmpdir):
     assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -341,7 +350,7 @@ def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
     assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -361,7 +370,7 @@ def test_convert_scale_offset(cleantopo_br_tif, mp_tmpdir):
     assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -419,7 +428,7 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
     assert len(job)
     for zoom, row, col in [(3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -442,7 +451,7 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
     assert len(job)
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -454,7 +463,7 @@ def test_convert_gcps(gcps_tif, mp_tmpdir):
     out_file = os.path.join(mp_tmpdir, "gcps_out.tif")
     job = convert(gcps_tif, out_file, output_pyramid="geodetic", zoom=8)
     assert len(job)
-    with rasterio.open(out_file, "r") as src:
+    with rasterio_open(out_file, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -468,7 +477,7 @@ def test_convert_geojson(landpoly, mp_tmpdir):
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col) + ".geojson"]
         )
-        with fiona.open(out_file, "r") as src:
+        with fiona_open(out_file, "r") as src:
             assert len(src) == control
             for f in src:
                 assert shape(f["geometry"]).is_valid
@@ -549,7 +558,7 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
         files = os.listdir(mp.config.output.path)
         assert len(files) == 4
         assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -571,7 +580,7 @@ def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         for f in src:
             assert "new_fieldname" in f["properties"]
         assert len(list(src)) == 1
@@ -590,7 +599,7 @@ def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         for f in src:
             assert f["properties"]["location"].startswith(basepath)
         assert len(list(src)) == 1
@@ -611,7 +620,7 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         for f in src:
             assert f["properties"]["location"].startswith("/vsicurl/" + basepath)
         assert len(list(src)) == 1
@@ -630,7 +639,7 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
         files = os.listdir(mp.config.output.path)
         assert len(files) == 4
         assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         assert len(list(src)) == 1
 
 
@@ -660,7 +669,7 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
+    with fiona_open(mp.config.output.path / "5.gpkg") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -671,7 +680,7 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
+    with fiona_open(mp.config.output.path / "5.gpkg") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -688,7 +697,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.shp")) as src:
+    with fiona_open(mp.config.output.path / "5.shp") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -699,7 +708,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.shp")) as src:
+    with fiona_open(mp.config.output.path / "5.shp") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1

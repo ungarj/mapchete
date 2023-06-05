@@ -23,7 +23,7 @@
         display: none !important;
     }
     </style>
-    <script src="http://www.openlayers.org/api/OpenLayers.js"></script>
+    <script src="https://www.openlayers.org/api/OpenLayers.js"></script>
     <script type="text/javascript">
         function extend(a, b){
             for(var key in b)
@@ -65,7 +65,7 @@
 
             // Terrain light
             var options = extend(defaults, {
-                url: "http://tiles.maps.eox.at/wmts/",
+                url: "https://s2maps-tiles.eu/wmts/",
                 name: "EOX::Maps Terrain Light",
                 {% if is_mercator %}
                 layer: 'terrain-light_3857',
@@ -73,14 +73,44 @@
                 layer: 'terrain-light',
                 {% endif %}
                 format: 'image/jpeg',
-                isBaseLayer:true,
+                isBaseLayer: true,
             });
             var terrain_light_wmts_layer = new OpenLayers.Layer.WMTS(options);
             map.addLayer(terrain_light_wmts_layer);
 
+            // Sentinel-2 Cloudless 2021
+            var options = extend(defaults, {
+                url: "https://s2maps-tiles.eu/wmts/",
+                name: "Sentinel-2 Cloudless 2021",
+                {% if is_mercator %}
+                layer: 's2cloudless-2021_3857',
+                {% else %}
+                layer: 's2cloudless-2021',
+                {% endif %}
+                format: 'image/jpeg',
+                isBaseLayer: true,
+            });
+            var s2cloudless2021_wmts_layer = new OpenLayers.Layer.WMTS(options);
+            map.addLayer(s2cloudless2021_wmts_layer);
+
+            // Sentinel-2 Cloudless 2020
+            var options = extend(defaults, {
+                url: "https://s2maps-tiles.eu/wmts/",
+                name: "Sentinel-2 Cloudless 2020",
+                {% if is_mercator %}
+                layer: 's2cloudless-2020_3857',
+                {% else %}
+                layer: 's2cloudless-2020',
+                {% endif %}
+                format: 'image/jpeg',
+                isBaseLayer: true,
+            });
+            var s2cloudless2020_wmts_layer = new OpenLayers.Layer.WMTS(options);
+            map.addLayer(s2cloudless2020_wmts_layer);
+
             // Sentinel-2 Cloudless 2019
             var options = extend(defaults, {
-                url: "http://tiles.maps.eox.at/wmts/",
+                url: "https://s2maps-tiles.eu/wmts/",
                 name: "Sentinel-2 Cloudless 2019",
                 {% if is_mercator %}
                 layer: 's2cloudless-2019_3857',
@@ -88,14 +118,14 @@
                 layer: 's2cloudless-2019',
                 {% endif %}
                 format: 'image/jpeg',
-                isBaseLayer:true,
+                isBaseLayer: true,
             });
             var s2cloudless2019_wmts_layer = new OpenLayers.Layer.WMTS(options);
             map.addLayer(s2cloudless2019_wmts_layer);
 
             // Sentinel-2 Cloudless 2018
             var options = extend(defaults, {
-                url: "http://tiles.maps.eox.at/wmts/",
+                url: "https://s2maps-tiles.eu/wmts/",
                 name: "Sentinel-2 Cloudless 2018",
                 {% if is_mercator %}
                 layer: 's2cloudless-2018_3857',
@@ -103,14 +133,14 @@
                 layer: 's2cloudless-2018',
                 {% endif %}
                 format: 'image/jpeg',
-                isBaseLayer:true,
+                isBaseLayer: true,
             });
             var s2cloudless2018_wmts_layer = new OpenLayers.Layer.WMTS(options);
             map.addLayer(s2cloudless2018_wmts_layer);
 
             // OSM
             var options = extend(defaults, {
-                url: "http://tiles.maps.eox.at/wmts/",
+                url: "https://s2maps-tiles.eu/wmts/",
                 name: "OpenStreetMap",
                 {% if is_mercator %}
                 layer: 'osm_3857',
@@ -118,14 +148,14 @@
                 layer: 'osm',
                 {% endif %}
                 format: 'image/jpeg',
-                isBaseLayer:true,
+                isBaseLayer: true,
             });
             var osm_wmts_layer = new OpenLayers.Layer.WMTS(options);
             map.addLayer(osm_wmts_layer);
 
             // Coastline
             var options = extend(defaults, {
-                url: "http://tiles.maps.eox.at/wmts/",
+                url: "https://s2maps-tiles.eu/wmts/",
                 name: "EOX::Maps Coastline",
                 {% if is_mercator %}
                 layer: 'coastline_3857',
@@ -133,7 +163,7 @@
                 layer: 'coastline',
                 {% endif %}
                 format: 'image/png',
-                isBaseLayer:true,
+                isBaseLayer: true,
             });
             var coastline_wmts_layer = new OpenLayers.Layer.WMTS(options);
             map.addLayer(coastline_wmts_layer);
@@ -146,7 +176,7 @@
                     layer: "{{process_name}}",
                     format: 'image/png',
                     requestEncoding: 'REST',
-                    isBaseLayer:false,
+                    isBaseLayer: false,
                 });
                 var {{process_name}}_layer = new OpenLayers.Layer.WMTS(options);
                 map.addLayer({{process_name}}_layer);
@@ -154,7 +184,7 @@
 
             // Overlay
             var options = extend(defaults, {
-                url: "http://tiles.maps.eox.at/wmts/",
+                url: "https://s2maps-tiles.eu/wmts/",
                 name: "EOX::Maps Base Overlay",
                 {% if is_mercator %}
                 layer: 'overlay_base_3857',

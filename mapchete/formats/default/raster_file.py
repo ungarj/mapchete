@@ -5,27 +5,26 @@ Currently limited by extensions .tif, .vrt., .png and .jp2 but could be
 extended easily.
 """
 
-from cached_property import cached_property
-from copy import deepcopy
 import logging
+import warnings
+from copy import deepcopy
+
 import numpy.ma as ma
-import os
-import rasterio
 from rasterio.crs import CRS
 from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
-import warnings
 
+from mapchete import io
 from mapchete.formats import base
-from mapchete.io.vector import reproject_geometry, segmentize_geometry
 from mapchete.io.raster import (
-    read_raster_window,
     convert_raster,
     read_raster,
+    read_raster_window,
     resample_from_array,
+    rasterio_open,
 )
-from mapchete import io
-
+from mapchete.io.vector import reproject_geometry, segmentize_geometry
+from mapchete.path import MPath
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +79,7 @@ class InputData(base.InputData):
             if "abstract" in input_params
             else input_params["path"]
         )
-        with rasterio.open(self.path, "r") as src:
+        with rasterio_open(self.path, "r") as src:
             self.profile = deepcopy(src.meta)
             # determine bounding box
             if src.transform.is_identity:
@@ -106,10 +105,13 @@ class InputData(base.InputData):
         if "abstract" in input_params and "cache" in input_params["abstract"]:
             if isinstance(input_params["abstract"]["cache"], dict):
                 if "path" in input_params["abstract"]["cache"]:
-                    self._cached_path = io.absolute_path(
-                        path=input_params["abstract"]["cache"]["path"],
-                        base_dir=input_params["conf_dir"],
-                    )
+                    cached_path = MPath.from_dict(input_params["abstract"]["cache"])
+                    if cached_path.is_absolute():
+                        self._cached_path = cached_path
+                    else:  # pragma: no cover
+                        self._cached_path = cached_path.absolute_path(
+                            base_dir=input_params["conf_dir"],
+                        )
                 else:  # pragma: no cover
                     raise ValueError("please provide a cache path")
                 # add preprocessing task to cache data
@@ -205,16 +207,13 @@ class InputData(base.InputData):
         -------
         file exists : bool
         """
-        return os.path.isfile(self.path)  # pragma: no cover
+        return self.path.exists()  # pragma: no cover
 
     def cleanup(self):
         """Cleanup when mapchete closes."""
-        if self._cached_path and not self._cache_keep:
+        if self._cached_path and not self._cache_keep:  # pragma: no cover
             logger.debug("remove cached file %s", self._cached_path)
-            try:
-                io.fs_from_path(self._cached_path).rm(self._cached_path)
-            except FileNotFoundError:
-                pass
+            self._cached_path.rm(ignore_errors=True)
 
 
 class InputTile(base.InputTile):

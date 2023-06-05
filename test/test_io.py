@@ -1,22 +1,22 @@
 """Test Mapchete io module."""
 
-import pytest
-import rasterio
 import os
+
+import pytest
 from shapely.errors import TopologicalError
 
 import mapchete
 from mapchete.io import (
+    absolute_path,
+    copy,
     get_best_zoom_level,
     path_exists,
-    absolute_path,
     read_json,
     tile_to_zoom_level,
     tiles_exist,
-    copy,
+    rasterio_open,
 )
 from mapchete.tile import BufferedTilePyramid
-
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -29,42 +29,57 @@ def test_best_zoom_level(dummy1_tif):
 
 
 @pytest.mark.remote
-def test_s3_path_exists(s2_band_remote):
-    assert path_exists(s2_band_remote)
+def test_s3_path_exists(raster_4band_s3):
+    assert path_exists(raster_4band_s3)
 
 
 @pytest.mark.remote
 def test_remote_path_exists(http_raster):
     assert path_exists(http_raster)
-    assert not path_exists("http://ungarj.github.io/invalid_file.tif")
+    assert not path_exists(http_raster / "non_existing.tif")
 
 
 def test_absolute_path():
-    assert absolute_path(path="file.tif", base_dir="/mnt/data") == "/mnt/data/file.tif"
     assert (
-        absolute_path(path="/mnt/data/file.tif", base_dir="/mnt/other_data")
+        str(absolute_path(path="file.tif", base_dir="/mnt/data"))
+        == "/mnt/data/file.tif"
+    )
+    assert (
+        str(absolute_path(path="/mnt/data/file.tif", base_dir="/mnt/other_data"))
         == "/mnt/data/file.tif"
     )
     with pytest.raises(TypeError):
-        absolute_path(path="file.tif", base_dir=None)
-    with pytest.raises(TypeError):
         absolute_path(path="file.tif", base_dir="no/abs/dir")
     assert (
-        absolute_path(path="https://file.tif", base_dir="/mnt/data")
-        == "https://file.tif"
+        str(absolute_path(path="https://example.com/file.tif", base_dir="/mnt/data"))
+        == "https://example.com/file.tif"
     )
 
 
 @pytest.mark.remote
-def test_read_remote_json(s3_metadata_json, http_metadata_json):
-    assert isinstance(read_json(s3_metadata_json), dict)
-    assert isinstance(read_json(http_metadata_json), dict)
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("s3_metadata_json"),
+        pytest.lazy_fixture("http_metadata_json"),
+    ],
+)
+def test_read_remote_json(path):
+    assert isinstance(read_json(path), dict)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("s3_metadata_json"),
+        pytest.lazy_fixture("http_metadata_json"),
+    ],
+)
+def test_read_remote_json_errors(path):
+    # keep access credentials but invalidate URI
+    path = path + "not_here"
     with pytest.raises(FileNotFoundError):
-        read_json("s3://mapchete-test/invalid_metadata.json")
-    with pytest.raises(FileNotFoundError):
-        read_json(
-            "https://ungarj.github.io/mapchete_testdata/tiled_data/raster/cleantopo/invalid_metadata.json"
-        )
+        read_json(path)
 
 
 def test_tile_to_zoom_level():
@@ -286,7 +301,7 @@ def test_copy(cleantopo_br_tif, tmpdir):
 
     # copy and verify file is valid
     copy(cleantopo_br_tif, out)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
     # try to copy again, catching the IOError
@@ -295,7 +310,7 @@ def test_copy(cleantopo_br_tif, tmpdir):
 
     # copy again but overwrite
     copy(cleantopo_br_tif, out, overwrite=True)
-    with rasterio.open(out) as src:
+    with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
 

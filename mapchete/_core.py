@@ -1,6 +1,5 @@
 """Main module managing processes."""
 
-from cachetools import LRUCache
 import json
 import logging
 import multiprocessing
@@ -8,22 +7,24 @@ import os
 import threading
 import warnings
 
-from mapchete.config import MapcheteConfig, MULTIPROCESSING_DEFAULT_START_METHOD
-from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
-from mapchete.formats import read_output_metadata
-from mapchete.io import fs_from_path, tiles_exist, read_json, makedirs
+from cachetools import LRUCache
+
 from mapchete._processing import (
-    compute,
-    _run_on_single_tile,
-    _run_area,
-    _preprocess,
     ProcessInfo,
+    _preprocess,
+    _run_area,
+    _run_on_single_tile,
+    compute,
     task_batches,
 )
-from mapchete.stac import update_tile_directory_stac_item
 from mapchete._tasks import TileTask
-from mapchete.tile import count_tiles
 from mapchete._timer import Timer
+from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD, MapcheteConfig
+from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
+from mapchete.formats import read_output_metadata
+from mapchete.io import MPath, fs_from_path, tiles_exist
+from mapchete.stac import update_tile_directory_stac_item
+from mapchete.tile import count_tiles
 from mapchete.validate import validate_tile, validate_zooms
 
 logger = logging.getLogger(__name__)
@@ -62,9 +63,13 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
     Mapchete
         a Mapchete process object
     """
-    if isinstance(some_input, str) and not some_input.endswith(".mapchete"):
+    # convert to MPath object if possible
+    if isinstance(some_input, str):
+        some_input = MPath(some_input)
+    # for TileDirectory inputs
+    if isinstance(some_input, MPath) and some_input.suffix == "":
         logger.debug("assuming TileDirectory")
-        metadata_json = os.path.join(some_input, "metadata.json")
+        metadata_json = MPath(some_input).joinpath("metadata.json")
         fs_kwargs = fs_kwargs or {}
         fs = fs or fs_from_path(metadata_json, **fs_kwargs)
         logger.debug("read metadata.json")
@@ -89,8 +94,19 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
         )
         kwargs.update(mode="readonly")
         return Mapchete(MapcheteConfig(config, **kwargs))
-
-    return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
+    # for dicts, .mapchete file paths or MpacheteConfig objects
+    elif (
+        isinstance(some_input, dict)
+        or isinstance(some_input, MPath)
+        and some_input.suffix == ".mapchete"
+        or isinstance(some_input, MapcheteConfig)
+    ):
+        return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
+    else:  # pragma: no cover
+        raise TypeError(
+            "can only open input in form of a mapchete file path, a TileDirectory path, "
+            f"a dictionary or a MapcheteConfig object, not {type(some_input)}"
+        )
 
 
 class Mapchete(object):
@@ -673,18 +689,16 @@ class Mapchete(object):
             "memory",
         ]:
             return
-
         # read existing STAC file
         try:
-            with self.config.output.fs.open(self.config.output.stac_path, "r") as src:
+            with self.config.output.stac_path.open("r") as src:
                 item = pystac.read_dict(json.loads(src.read()))
         except FileNotFoundError:
             item = None
-
         try:
             item = update_tile_directory_stac_item(
                 item=item,
-                item_path=self.config.output.stac_path,
+                item_path=str(self.config.output.stac_path),
                 item_id=self.config.output.stac_item_id,
                 zoom_levels=self.config.init_zoom_levels,
                 bounds=self.config.effective_bounds,
@@ -693,8 +707,8 @@ class Mapchete(object):
                 bands_type=self.config.output.stac_asset_type,
             )
             logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
-            makedirs(os.path.dirname(self.config.output.stac_path))
-            with self.config.output.fs.open(self.config.output.stac_path, "w") as dst:
+            self.config.output.stac_path.makedirs()
+            with self.config.output.stac_path.open("w") as dst:
                 dst.write(json.dumps(item.to_dict(), indent=indent))
         except ReprojectionFailed:
             logger.warning(

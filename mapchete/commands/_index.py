@@ -131,7 +131,6 @@ def index(
         area=area,
         area_crs=area_crs,
     ) as mp:
-
         return mapchete.Job(
             zoom_index_gen,
             fkwargs=dict(

@@ -5,10 +5,10 @@ This is necessary because if using the logging module directly, the namespace
 is not assigned properly and log levels & log handlers cannot be assigned
 correctly.
 """
-from itertools import chain
 import logging
 import sys
 import warnings
+from itertools import chain
 
 from mapchete._registered import drivers, processes
 

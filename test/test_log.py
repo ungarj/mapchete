@@ -1,9 +1,10 @@
 """Test for custom logging functions."""
 
 import logging
+
 import pytest
 
-from mapchete.log import user_process_logger, driver_logger
+from mapchete.log import driver_logger, user_process_logger
 
 
 def test_user_process_logger():

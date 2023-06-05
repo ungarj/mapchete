@@ -8,5 +8,4 @@ from mapchete.commands._execute import execute
 from mapchete.commands._index import index
 from mapchete.commands._rm import rm
 
-
 __all__ = ["convert", "cp", "execute", "index", "rm"]

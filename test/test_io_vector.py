@@ -1,11 +1,11 @@
-import pytest
-import fiona
-from fiona.errors import DriverError
 import os
+
+import pytest
+from fiona.errors import DriverError
 from rasterio.crs import CRS
 from shapely import wkt
 from shapely.errors import TopologicalError
-from shapely.geometry import shape, box, Polygon, MultiPolygon, LineString, mapping
+from shapely.geometry import LineString, MultiPolygon, Polygon, box, mapping, shape
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import (
@@ -15,33 +15,44 @@ from mapchete.errors import (
     ReprojectionFailed,
 )
 from mapchete.io.vector import (
+    IndexedFeatures,
+    _repair,
+    bounds_intersect,
+    clean_geometry_type,
+    convert_vector,
+    fiona_open,
+    fiona_write,
+    object_bounds,
     read_vector_window,
     reproject_geometry,
-    clean_geometry_type,
     segmentize_geometry,
     write_vector_window,
-    _repair,
-    convert_vector,
-    IndexedFeatures,
-    bounds_intersect,
-    object_bounds,
-    Bounds,
 )
 from mapchete.tile import BufferedTilePyramid
 
 
-def test_read_vector_window(geojson):
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("landpoly"),
+        pytest.lazy_fixture("landpoly_s3"),
+        pytest.lazy_fixture("landpoly_http"),
+        pytest.lazy_fixture("landpoly_secure_http"),
+    ],
+)
+@pytest.mark.parametrize("grid", ["geodetic", "mercator"])
+@pytest.mark.parametrize("pixelbuffer", [0, 10, 500])
+@pytest.mark.parametrize("zoom", [5, 3])
+def test_read_vector_window(path, grid, pixelbuffer, zoom):
     """Read vector data from read_vector_window."""
-    zoom = 4
-    config = MapcheteConfig(geojson.dict)
-    vectorfile = config.params_at_zoom(zoom)["input"]["file1"]
-    pixelbuffer = 5
-    tile_pyramid = BufferedTilePyramid("geodetic", pixelbuffer=pixelbuffer)
-    tiles = tile_pyramid.tiles_from_geom(
-        vectorfile.bbox(out_crs=tile_pyramid.crs), zoom
-    )
+    tile_pyramid = BufferedTilePyramid(grid, pixelbuffer=pixelbuffer)
+    with fiona_open(path) as src:
+        bbox = reproject_geometry(box(*src.bounds), src.crs, tile_pyramid.crs)
+
+    tiles = list(tile_pyramid.tiles_from_geom(bbox, zoom))
+
     for tile in tiles:
-        features = read_vector_window(vectorfile.path, tile)
+        features = read_vector_window(path, tile)
         if features:
             for feature in features:
                 assert "properties" in feature
@@ -86,9 +97,8 @@ def test_read_vector_window_errors(invalid_geojson):
 
 def test_reproject_geometry(landpoly):
     """Reproject geometry."""
-    with fiona.open(landpoly, "r") as src:
+    with fiona_open(str(landpoly), "r") as src:
         for feature in src:
-
             # WGS84 to Spherical Mercator
             out_geom = reproject_geometry(
                 shape(feature["geometry"]), CRS(src.crs), CRS().from_epsg(3857)
@@ -241,7 +251,7 @@ def test_repair_geometry():
 
 
 def test_write_vector_window_errors(landpoly):
-    with fiona.open(landpoly) as src:
+    with fiona_open(str(landpoly)) as src:
         feature = next(iter(src))
     with pytest.raises((DriverError, ValueError, TypeError)):
         write_vector_window(
@@ -307,7 +317,7 @@ def test_convert_vector_copy(aoi_br_geojson, tmpdir):
 
     # copy
     convert_vector(aoi_br_geojson, out)
-    with fiona.open(out) as src:
+    with fiona_open(str(out)) as src:
         assert list(iter(src))
 
     # raise error if output exists
@@ -316,7 +326,7 @@ def test_convert_vector_copy(aoi_br_geojson, tmpdir):
 
     # do nothing if output exists
     convert_vector(aoi_br_geojson, out)
-    with fiona.open(out) as src:
+    with fiona_open(str(out)) as src:
         assert list(iter(src))
 
 
@@ -329,7 +339,7 @@ def test_convert_vector_overwrite(aoi_br_geojson, tmpdir):
 
     # overwrite
     convert_vector(aoi_br_geojson, out, overwrite=True)
-    with fiona.open(out) as src:
+    with fiona_open(str(out)) as src:
         assert list(iter(src))
 
 
@@ -337,7 +347,7 @@ def test_convert_vector_other_format_copy(aoi_br_geojson, tmpdir):
     out = os.path.join(tmpdir, "copied.gpkg")
 
     convert_vector(aoi_br_geojson, out, driver="GPKG")
-    with fiona.open(out) as src:
+    with fiona_open(str(out)) as src:
         assert list(iter(src))
 
     # raise error if output exists
@@ -354,12 +364,12 @@ def test_convert_vector_other_format_overwrite(aoi_br_geojson, tmpdir):
 
     # overwrite
     convert_vector(aoi_br_geojson, out, driver="GPKG", overwrite=True)
-    with fiona.open(out) as src:
+    with fiona_open(str(out)) as src:
         assert list(iter(src))
 
 
 def test_indexed_features(landpoly):
-    with fiona.open(landpoly) as src:
+    with fiona_open(str(landpoly)) as src:
         some_id = next(iter(src))["id"]
         features = IndexedFeatures(src)
 
@@ -499,7 +509,7 @@ def test_bounds_not_intersect():
 
 
 def test_indexed_features_fakeindex(landpoly):
-    with fiona.open(landpoly) as src:
+    with fiona_open(str(landpoly)) as src:
         features = list(src)
         idx = IndexedFeatures(features)
         fake_idx = IndexedFeatures(features, index=None)
@@ -508,7 +518,7 @@ def test_indexed_features_fakeindex(landpoly):
 
 
 def test_indexed_features_polygon(aoi_br_geojson):
-    with fiona.open(aoi_br_geojson) as src:
+    with fiona_open(str(aoi_br_geojson)) as src:
         index = IndexedFeatures(src)
     tp = BufferedTilePyramid("geodetic")
     for tile in tp.tiles_from_bounds(bounds=index.bounds, zoom=5):
@@ -586,10 +596,23 @@ def test_object_bounds_key_bbox():
 
 
 def test_object_bounds_key_geometry():
-    # elif obj.get("geometry"):
-    #     return validate_bounds(to_shape(obj["geometry"]).bounds)
     control = (0, 1, 2, 3)
 
     foo = {"geometry": mapping(box(*control))}
 
     assert object_bounds(foo) == (0, 1, 2, 3)
+
+
+@pytest.mark.parametrize(
+    "path", [pytest.lazy_fixture("mp_s3_tmpdir"), pytest.lazy_fixture("mp_tmpdir")]
+)
+@pytest.mark.parametrize("in_memory", [True, False])
+def test_fiona_open_write(path, in_memory, landpoly):
+    path = path / f"test_fiona_write-{in_memory}.tif"
+    with fiona_open(landpoly) as src:
+        with fiona_open(path, "w", in_memory=in_memory, **src.profile) as dst:
+            dst.writerecords(src)
+    assert path.exists()
+    with fiona_open(path) as src:
+        written = list(src)
+        assert written

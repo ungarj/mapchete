@@ -1,13 +1,17 @@
 """Wrapper functions around rasterio and useful raster functions."""
 
-from affine import Affine
+from contextlib import contextmanager
 import itertools
 import logging
+import warnings
+from tempfile import NamedTemporaryFile
+from types import GeneratorType
+from typing import List, Tuple, Union
+
 import numpy as np
 import numpy.ma as ma
-import os
-from retry import retry
 import rasterio
+from affine import Affine
 from rasterio.enums import Resampling
 from rasterio.errors import RasterioIOError
 from rasterio.io import MemoryFile
@@ -15,29 +19,85 @@ from rasterio.transform import from_bounds as affine_from_bounds
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
+from retry import retry
 from shapely.geometry import box, mapping
-from tempfile import NamedTemporaryFile
-from tilematrix import clip_geometry_to_srs_bounds, Shape, Bounds
-from types import GeneratorType
-from typing import List, Tuple, Union
-import warnings
+from tilematrix import Bounds, Shape, clip_geometry_to_srs_bounds
 
-from mapchete.errors import MapcheteIOError
-from mapchete.io import (
-    path_is_remote,
-    get_gdal_options,
-    path_exists,
-    fs_from_path,
-    copy,
-    makedirs,
-)
-from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
-from mapchete.tile import BufferedTile
 from mapchete._timer import Timer
+from mapchete.errors import MapcheteIOError
+from mapchete.io import copy
+from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
+from mapchete.path import MPath, fs_from_path
+from mapchete.tile import BufferedTile
 from mapchete.validate import validate_write_window_params
 
-
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def rasterio_open(path, mode="r", **kwargs):
+    """Call rasterio.open but set environment correctly and return custom writer if needed."""
+    path = MPath(path)
+
+    if "w" in mode:
+        with rasterio_write(path, mode=mode, **kwargs) as dst:
+            yield dst
+
+    else:
+        with rasterio_read(path, mode=mode, **kwargs) as src:
+            yield src
+
+
+@contextmanager
+def rasterio_read(path, mode="r", **kwargs):
+    """
+    Wrapper around rasterio.open but rasterio.Env is set according to path properties.
+    """
+    with path.rio_env() as env:
+        logger.debug("reading %s with GDAL options %s", str(path), env.options)
+        with rasterio.open(path, mode=mode, **kwargs) as src:
+            yield src
+
+
+@contextmanager
+def rasterio_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
+    """
+    Wrap rasterio.open() but handle bucket upload if path is remote.
+
+    Parameters
+    ----------
+    path : str
+        Path to write to.
+    mode : str
+        One of the rasterio.open() modes.
+    fs : fsspec.FileSystem
+        Target filesystem.
+    in_memory : bool
+        On remote output store an in-memory file instead of writing to a tempfile.
+    args : list
+        Arguments to be passed on to rasterio.open()
+    kwargs : dict
+        Keyword arguments to be passed on to rasterio.open()
+
+    Returns
+    -------
+    RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
+    """
+    if path.is_remote():
+        if "s3" in path.protocols:  # pragma: no cover
+            try:
+                import boto3
+            except ImportError:
+                raise ImportError("please install [s3] extra to write remote files")
+        with RasterioRemoteWriter(
+            path, fs=fs, in_memory=in_memory, *args, **kwargs
+        ) as dst:
+            yield dst
+    else:
+        with path.rio_env() as env:
+            logger.debug("reading %s with GDAL options %s", str(path), env.options)
+            with rasterio.open(path, mode=mode, *args, **kwargs) as dst:
+                yield dst
 
 
 class ReferencedRaster:
@@ -144,7 +204,7 @@ class ReferencedRaster:
 
     @staticmethod
     def from_file(path, masked: bool = True) -> "ReferencedRaster":
-        with rasterio.open(path) as src:
+        with rasterio_open(path) as src:
             return ReferencedRaster.from_rasterio(src, masked=masked)
 
 
@@ -191,15 +251,16 @@ def read_raster_window(
     -------
     raster : MaskedArray
     """
-    input_files = input_files if isinstance(input_files, list) else [input_files]
+    input_files = [
+        MPath(input_file)
+        for input_file in (
+            input_files if isinstance(input_files, list) else [input_files]
+        )
+    ]
     if len(input_files) == 0:  # pragma: no cover
         raise ValueError("no input given")
     try:
-        with rasterio.Env(
-            **get_gdal_options(
-                gdal_opts, is_remote=path_is_remote(input_files[0], s3=True)
-            )
-        ) as env:
+        with input_files[0].rio_env(gdal_opts) as env:
             logger.debug(
                 "reading %s file(s) with GDAL options %s", len(input_files), env.options
             )
@@ -216,6 +277,7 @@ def read_raster_window(
     except FileNotFoundError:  # pragma: no cover
         raise
     except Exception as e:  # pragma: no cover
+        logger.exception(e)
         raise MapcheteIOError(e)
 
 
@@ -481,7 +543,7 @@ def _rasterio_read(
 
     try:
         with Timer() as t:
-            with rasterio.open(input_file, "r") as src:
+            with rasterio_open(input_file, "r") as src:
                 logger.debug("read from %s...", input_file)
                 out = _read(
                     src,
@@ -526,18 +588,8 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                with rasterio.Env(
-                    **get_gdal_options(
-                        gdal_opts,
-                        is_remote=path_is_remote(input_file, s3=True),
-                        allowed_remote_extensions=os.path.splitext(input_file)[1],
-                    ),
-                ) as env:
-                    logger.debug(
-                        "reading %s with GDAL options %s", input_file, env.options
-                    )
-                    with rasterio.open(input_file, "r") as src:
-                        return src.read(indexes=indexes, masked=True)
+                with rasterio_open(input_file, "r") as src:
+                    return src.read(indexes=indexes, masked=True)
             except RasterioIOError as rio_exc:
                 _extract_filenotfound_exception(rio_exc, input_file)
 
@@ -554,7 +606,9 @@ def _extract_filenotfound_exception(rio_exc, path):
     """
     Extracts and raises FileNotFoundError from RasterioIOError if applicable.
     """
-    filenotfound_msg = f"{path} not found and cannot be opened with rasterio"
+    filenotfound_msg = (
+        f"{str(path)} not found and cannot be opened with rasterio: {str(rio_exc)}"
+    )
     # rasterio errors which indicate file does not exist
     for i in (
         "does not exist in the file system",
@@ -566,7 +620,7 @@ def _extract_filenotfound_exception(rio_exc, path):
     else:
         try:
             # NOTE: this can cause addional S3 requests
-            exists = path_exists(path)
+            exists = path.exists()
         except Exception:  # pragma: no cover
             # in order not to mask the original rasterio exception, raise it as is
             raise rio_exc
@@ -636,7 +690,7 @@ def write_raster_window(
         output path to write to
     tags : optional tags to be added to GeoTIFF file
     """
-    if not isinstance(out_path, str):
+    if not isinstance(out_path, (str, MPath)):
         raise TypeError("out_path must be a string")
     logger.debug("write %s", out_path)
     if out_path == "memoryfile":
@@ -662,9 +716,8 @@ def write_raster_window(
 
     # write if there is any band with non-masked data
     if write_empty or (window_data.all() is not ma.masked):
-
         try:
-            with rasterio_write(out_path, "w", fs=fs, **out_profile) as dst:
+            with rasterio_open(out_path, "w", fs=fs, **out_profile) as dst:
                 logger.debug((out_tile.id, "write tile", out_path))
                 dst.write(window_data.astype(out_profile["dtype"], copy=False))
                 _write_tags(dst, tags)
@@ -684,39 +737,6 @@ def _write_tags(dst, tags):
             # for filewide tags
             else:
                 dst.update_tags(**{k: v})
-
-
-def rasterio_write(path, mode=None, fs=None, in_memory=True, *args, **kwargs):
-    """
-    Wrap rasterio.open() but handle bucket upload if path is remote.
-
-    Parameters
-    ----------
-    path : str
-        Path to write to.
-    mode : str
-        One of the rasterio.open() modes.
-    fs : fsspec.FileSystem
-        Target filesystem.
-    in_memory : bool
-        On remote output store an in-memory file instead of writing to a tempfile.
-    args : list
-        Arguments to be passed on to rasterio.open()
-    kwargs : dict
-        Keyword arguments to be passed on to rasterio.open()
-
-    Returns
-    -------
-    RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
-    """
-    if path.startswith("s3://"):
-        try:  # pragma: no cover
-            import boto3
-        except ImportError:  # pragma: no cover
-            raise ImportError("please install [s3] extra to write remote files")
-        return RasterioRemoteWriter(path, fs=fs, in_memory=in_memory, *args, **kwargs)
-    else:
-        return rasterio.open(path, mode=mode, *args, **kwargs)
 
 
 class RasterioRemoteMemoryWriter:
@@ -750,7 +770,7 @@ class RasterioRemoteTempFileWriter:
         logger.debug("open RasterioTempFileWriter for path %s", path)
         self.path = path
         self.fs = fs
-        self._dst = NamedTemporaryFile(suffix=".tif")
+        self._dst = NamedTemporaryFile(suffix=self.path.suffix)
         self._open_args = args
         self._open_kwargs = kwargs
         self._sink = None
@@ -1251,27 +1271,31 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs : mapping
         Creation parameters passed on to output file.
     """
-    if path_exists(out):
+    inp = MPath(inp)
+    out = MPath(out)
+    if out.exists():
         if not exists_ok:
-            raise OSError(f"{out} already exists")
+            raise OSError(f"{str(out)} already exists")
         elif not overwrite:
             logger.debug("output %s already exists and will not be overwritten")
             return
     kwargs = kwargs or {}
     if kwargs:
         logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
-        with rasterio.open(inp, "r") as src:
-            makedirs(os.path.dirname(out))
-            with rasterio_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
+        with rasterio_open(inp, "r") as src:
+            out.makedirs()
+            with rasterio_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.write(src.read())
     else:
-        logger.debug("copy %s to %s", inp, out)
+        logger.debug("copy %s to %s", inp, (out))
+        out.makedirs()
         copy(inp, out, overwrite=overwrite)
 
 
 def read_raster(inp, **kwargs):
-    logger.debug("reading {inp} into memory")
-    with rasterio.open(inp, "r") as src:
+    inp = MPath(inp)
+    logger.debug(f"reading {str(inp)} into memory")
+    with rasterio_open(inp, "r") as src:
         return ReferencedRaster(
             data=src.read(masked=True),
             affine=src.transform,

@@ -2,10 +2,11 @@
 """Test PNG_hillshade as process output."""
 
 import os
-import pytest
 import shutil
+
 import numpy as np
 import numpy.ma as ma
+import pytest
 
 from mapchete.formats.default import png_hillshade
 from mapchete.tile import BufferedTilePyramid

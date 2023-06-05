@@ -1,23 +1,23 @@
 """Test Mapchete main module and processing."""
 
-from click.testing import CliRunner
-import fiona
-import geobuf
 import os
-from packaging import version
+import warnings
+
+import geobuf
 import pytest
-from shapely import wkt
-from shapely.geometry import shape
 import rasterio
+import yaml
+from click.testing import CliRunner
+from packaging import version
 from rasterio.io import MemoryFile
 from rio_cogeo.cogeo import cog_validate
-import warnings
-import yaml
+from shapely import wkt
+from shapely.geometry import shape
 
 import mapchete
-from mapchete.cli.main import main as mapchete_cli
 from mapchete.cli import options
-
+from mapchete.cli.main import main as mapchete_cli
+from mapchete.io import fiona_open, rasterio_open
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -41,7 +41,7 @@ def version_is_greater_equal(a, b):
 
 def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
     result = CliRunner(env=dict(MAPCHETE_TEST="TRUE"), mix_stderr=True).invoke(
-        mapchete_cli, args
+        mapchete_cli, map(str, args)
     )
     if output_contains:
         assert output_contains in result.output or output_contains in str(
@@ -52,7 +52,7 @@ def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
     assert result.exit_code == expected_exit_code
 
 
-def test_main(mp_tmpdir):
+def test_main():
     # """Main CLI."""
     for command in ["create", "execute", "create"]:
         run_cli(
@@ -74,15 +74,15 @@ def test_main(mp_tmpdir):
 
 def test_create(mp_tmpdir, cleantopo_br_tif):
     """Run mapchete create and execute."""
-    temp_mapchete = os.path.join(mp_tmpdir, "temp.mapchete")
-    temp_process = os.path.join(mp_tmpdir, "temp.py")
+    temp_mapchete = mp_tmpdir / "temp.mapchete"
+    temp_process = mp_tmpdir / "temp.py"
     out_format = "GTiff"
     # create from template
     run_cli(
         [
             "create",
-            temp_mapchete,
-            temp_process,
+            str(temp_mapchete),
+            str(temp_process),
             out_format,
             "--pyramid-type",
             "geodetic",
@@ -90,17 +90,17 @@ def test_create(mp_tmpdir, cleantopo_br_tif):
         expected_exit_code=0,
     )
     # edit configuration
-    with open(temp_mapchete, "r") as config_file:
+    with temp_mapchete.open("r") as config_file:
         config = yaml.safe_load(config_file)
-        config["output"].update(bands=1, dtype="uint8", path=mp_tmpdir)
-    with open(temp_mapchete, "w") as config_file:
+        config["output"].update(bands=1, dtype="uint8", path=str(mp_tmpdir))
+    with temp_mapchete.open("w") as config_file:
         config_file.write(yaml.dump(config, default_flow_style=False))
 
 
 def test_create_existing(mp_tmpdir):
     """Run mapchete create and execute."""
-    temp_mapchete = os.path.join(mp_tmpdir, "temp.mapchete")
-    temp_process = os.path.join(mp_tmpdir, "temp.py")
+    temp_mapchete = mp_tmpdir / "temp.mapchete"
+    temp_process = mp_tmpdir / "temp.py"
     out_format = "GTiff"
     # create files from template
     args = [
@@ -189,8 +189,8 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
     """Using debug output."""
     run_cli(["execute", cleantopo_br.path, "-z", "5", "--vrt"])
     with mapchete.open(cleantopo_br.dict) as mp:
-        vrt_path = os.path.join(mp.config.output.path, "5.vrt")
-        with rasterio.open(vrt_path) as src:
+        vrt_path = mp.config.output.path / "5.vrt"
+        with rasterio_open(vrt_path) as src:
             assert src.read().any()
 
     # run again, this time with custom output directory
@@ -209,7 +209,7 @@ def test_execute_vrt(mp_tmpdir, cleantopo_br):
     )
     with mapchete.open(cleantopo_br.dict) as mp:
         vrt_path = os.path.join(mp_tmpdir, "5.vrt")
-        with rasterio.open(vrt_path) as src:
+        with rasterio_open(vrt_path) as src:
             assert src.read().any()
 
     # run with single tile
@@ -333,7 +333,7 @@ def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -355,7 +355,7 @@ def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -377,8 +377,8 @@ def test_convert_custom_grid(s2_band, mp_tmpdir, custom_grid_json):
     )
 
     for zoom, row, col in [(0, 5298, 631)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -401,10 +401,10 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
         ]
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".png"])
+        out_file = mp_tmpdir / zoom / row / col + ".png"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            with rasterio.open(out_file, "r") as src:
+            with rasterio_open(out_file, "r") as src:
                 assert src.meta["driver"] == "PNG"
                 assert src.meta["dtype"] == "uint8"
                 data = src.read(masked=True)
@@ -413,7 +413,7 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    single_gtiff = os.path.join(mp_tmpdir, "single_out_bidx.tif")
+    single_gtiff = mp_tmpdir / "single_out_bidx.tif"
     run_cli(
         [
             "convert",
@@ -429,7 +429,7 @@ def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -439,7 +439,7 @@ def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
+    single_gtiff = mp_tmpdir / "single_out.tif"
     run_cli(
         [
             "convert",
@@ -453,7 +453,7 @@ def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -463,7 +463,7 @@ def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    single_gtiff = os.path.join(mp_tmpdir, "single_out_cog.tif")
+    single_gtiff = mp_tmpdir / "single_out_cog.tif"
     run_cli(
         [
             "convert",
@@ -478,7 +478,7 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -488,7 +488,7 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
+    single_gtiff = mp_tmpdir / "single_out.tif"
     run_cli(
         [
             "convert",
@@ -507,7 +507,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -517,7 +517,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
+    single_gtiff = mp_tmpdir / "single_out.tif"
     run_cli(
         [
             "convert",
@@ -531,7 +531,7 @@ def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
             "none",
         ]
     )
-    with rasterio.open(single_gtiff, "r") as src:
+    with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
         data = src.read(masked=True)
@@ -554,8 +554,8 @@ def test_convert_dtype(cleantopo_br_tif, mp_tmpdir):
         ]
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -580,8 +580,8 @@ def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
         ]
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -607,8 +607,8 @@ def test_convert_scale_offset(cleantopo_br_tif, mp_tmpdir):
         ]
     )
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint8"
             data = src.read(masked=True)
@@ -635,7 +635,11 @@ def test_convert_clip(cleantopo_br_tif, mp_tmpdir, landpoly):
     )
 
 
-def test_convert_zoom(cleantopo_br_tif, mp_tmpdir):
+@pytest.mark.parametrize(
+    "zoom, tiles",
+    [("3", [(4, 15, 15), (2, 3, 0)]), ("3,4", [(2, 3, 0)]), ("4,3", [(2, 3, 0)])],
+)
+def test_convert_zoom(cleantopo_br_tif, mp_tmpdir, zoom, tiles):
     """Automatic tile pyramid creation using a specific zoom."""
     run_cli(
         [
@@ -650,49 +654,9 @@ def test_convert_zoom(cleantopo_br_tif, mp_tmpdir):
             "none",
         ]
     )
-    for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        assert not os.path.isfile(out_file)
-
-
-def test_convert_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
-    """Automatic tile pyramid creation using min max zoom."""
-    run_cli(
-        [
-            "convert",
-            cleantopo_br_tif,
-            mp_tmpdir,
-            "--output-pyramid",
-            "mercator",
-            "-z",
-            "3,4",
-            "--concurrency",
-            "none",
-        ]
-    )
-    for zoom, row, col in [(2, 3, 0)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        assert not os.path.isfile(out_file)
-
-
-def test_convert_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
-    """Automatic tile pyramid creation using max min zoom."""
-    run_cli(
-        [
-            "convert",
-            cleantopo_br_tif,
-            mp_tmpdir,
-            "--output-pyramid",
-            "mercator",
-            "-z",
-            "4,3",
-            "--concurrency",
-            "none",
-        ]
-    )
-    for zoom, row, col in [(2, 3, 0)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        assert not os.path.isfile(out_file)
+    for zoom, row, col in tiles:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        assert not out_file.exists()
 
 
 def test_convert_mapchete(cleantopo_br, mp_tmpdir):
@@ -719,8 +683,8 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
         ]
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -755,8 +719,8 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
         ]
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
-        with rasterio.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "GTiff"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -778,10 +742,8 @@ def test_convert_geojson(landpoly, mp_tmpdir):
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
-        out_file = os.path.join(
-            *[mp_tmpdir, str(zoom), str(row), str(col) + ".geojson"]
-        )
-        with fiona.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom / row / col + ".geojson"
+        with fiona_open(out_file, "r") as src:
             assert len(src) == control
             for f in src:
                 assert shape(f["geometry"]).is_valid
@@ -789,7 +751,7 @@ def test_convert_geojson(landpoly, mp_tmpdir):
 
 def test_convert_geobuf(landpoly, mp_tmpdir):
     # convert to geobuf
-    geobuf_outdir = os.path.join(mp_tmpdir, "geobuf")
+    geobuf_outdir = mp_tmpdir / "geobuf"
     run_cli(
         [
             "convert",
@@ -811,9 +773,7 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
-        out_file = os.path.join(
-            *[geobuf_outdir, str(zoom), str(row), str(col) + ".pbf"]
-        )
+        out_file = geobuf_outdir / zoom / row / col + ".pbf"
         with open(out_file, "rb") as src:
             features = geobuf.decode(src.read())["features"]
             assert len(features) == control
@@ -822,7 +782,7 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
                 assert shape(f["geometry"]).area
 
     # convert from geobuf
-    geojson_outdir = os.path.join(mp_tmpdir, "geojson")
+    geojson_outdir = mp_tmpdir / "geojson"
     run_cli(
         [
             "convert",
@@ -842,10 +802,8 @@ def test_convert_geobuf(landpoly, mp_tmpdir):
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, [31, 32]]):
-        out_file = os.path.join(
-            *[geojson_outdir, str(zoom), str(row), str(col) + ".geojson"]
-        )
-        with fiona.open(out_file, "r") as src:
+        out_file = geojson_outdir / zoom / row / col + ".geojson"
+        with fiona_open(out_file, "r") as src:
             if isinstance(control, list):
                 assert len(src) in control
             else:
@@ -874,7 +832,7 @@ def test_convert_geobuf_multipolygon(landpoly, mp_tmpdir):
         ]
     )
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [7, 30]):
-        out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".pbf"])
+        out_file = mp_tmpdir / zoom / row / col + ".pbf"
         with open(out_file, "rb") as src:
             features = geobuf.decode(src.read())["features"]
             assert len(features) == control
@@ -904,8 +862,8 @@ def test_convert_vrt(cleantopo_br_tif, mp_tmpdir):
         ]
     )
     for zoom in [4, 3, 2, 1]:
-        out_file = os.path.join(*[mp_tmpdir, str(zoom) + ".vrt"])
-        with rasterio.open(out_file, "r") as src:
+        out_file = mp_tmpdir / zoom + ".vrt"
+        with rasterio_open(out_file, "r") as src:
             assert src.meta["driver"] == "VRT"
             assert src.meta["dtype"] == "uint16"
             data = src.read(masked=True)
@@ -932,9 +890,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
     # prepare data for tiledir input
     with mapchete.open(cleantopo_br.path) as mp:
         mp.batch_process(zoom=[1, 4])
-    tiledir_path = os.path.join(
-        cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
-    )
+    tiledir_path = cleantopo_br.dict["config_dir"] / cleantopo_br.dict["output"]["path"]
 
     # zoom level required
     run_cli(
@@ -1066,10 +1022,9 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
     # generate index for zoom 3
     run_cli(["index", cleantopo_br.path, "-z", "3", "--geojson", "--debug"])
     with mapchete.open(cleantopo_br.dict) as mp:
-        files = os.listdir(mp.config.output.path)
+        files = mp.config.output.path.ls()
         assert len(files) == 4
-        assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1095,12 +1050,10 @@ def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
         ]
     )
     with mapchete.open(cleantopo_br.dict) as mp:
-        files = os.listdir(mp.config.output.path)
-        assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
-        for f in src:
-            assert "new_fieldname" in f["properties"]
-        assert len(list(src)) == 1
+        with fiona_open(mp.config.output.path / "3.geojson") as src:
+            for f in src:
+                assert "new_fieldname" in f["properties"]
+            assert len(list(src)) == 1
 
 
 def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
@@ -1124,12 +1077,10 @@ def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
         ]
     )
     with mapchete.open(cleantopo_br.dict) as mp:
-        files = os.listdir(mp.config.output.path)
-        assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
-        for f in src:
-            assert f["properties"]["location"].startswith(basepath)
-        assert len(list(src)) == 1
+        with fiona_open(mp.config.output.path / "3.geojson") as src:
+            for f in src:
+                assert f["properties"]["location"].startswith(basepath)
+            assert len(list(src)) == 1
 
 
 def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
@@ -1152,12 +1103,10 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
         ]
     )
     with mapchete.open(cleantopo_br.dict) as mp:
-        files = os.listdir(mp.config.output.path)
-        assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
-        for f in src:
-            assert f["properties"]["location"].startswith("/vsicurl/" + basepath)
-        assert len(list(src)) == 1
+        with fiona_open(mp.config.output.path / "3.geojson") as src:
+            for f in src:
+                assert f["properties"]["location"].startswith("/vsicurl/" + basepath)
+            assert len(list(src)) == 1
 
 
 def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
@@ -1180,8 +1129,7 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert len(files) == 4
-        assert "3.geojson" in files
-    with fiona.open(os.path.join(mp.config.output.path, "3.geojson")) as src:
+    with fiona_open(mp.config.output.path / "3.geojson") as src:
         assert len(list(src)) == 1
 
 
@@ -1219,7 +1167,7 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
+    with fiona_open(mp.config.output.path / "5.gpkg") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1229,7 +1177,7 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.gpkg")) as src:
+    with fiona_open(mp.config.output.path / "5.gpkg") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1246,7 +1194,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.shp")) as src:
+    with fiona_open(mp.config.output.path / "5.shp") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1256,7 +1204,7 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
-    with fiona.open(os.path.join(mp.config.output.path, "5.shp")) as src:
+    with fiona_open(mp.config.output.path / "5.shp") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
@@ -1417,7 +1365,7 @@ def test_cp_http(mp_tmpdir, http_tiledir):
         [
             "cp",
             http_tiledir,
-            os.path.join(mp_tmpdir, "http"),
+            mp_tmpdir / "http",
             "-z",
             "1",
             "-b",
@@ -1431,7 +1379,7 @@ def test_cp_http(mp_tmpdir, http_tiledir):
     )
 
 
-def test_rm(mp_tmpdir, cleantopo_br):
+def test_rm(cleantopo_br):
     run_cli(
         [
             "execute",
@@ -1447,12 +1395,12 @@ def test_rm(mp_tmpdir, cleantopo_br):
             "none",
         ]
     )
-    out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
-    assert os.path.exists(os.path.join(*[out_path, "5", "3", "7.tif"]))
+    out_path = cleantopo_br.dict["output"]["path"] / 5 / 3 / "7.tif"
+    assert out_path.exists()
     run_cli(
         [
             "rm",
-            out_path,
+            cleantopo_br.output_path,
             "-z",
             "5",
             "-b",
@@ -1463,7 +1411,7 @@ def test_rm(mp_tmpdir, cleantopo_br):
             "-f",
         ]
     )
-    assert not os.path.exists(os.path.join(*[out_path, "5", "3", "7.tif"]))
+    assert not out_path.exists()
 
 
 def test_rm_storage_option_errors(cleantopo_br):
@@ -1544,4 +1492,4 @@ def test_stac_tiledir(http_tiledir, mp_tmpdir):
 def test_stac_prototype_files(cleantopo_br):
     run_cli(["execute", cleantopo_br.path])
     run_cli(["stac", "create-prototype-files", cleantopo_br.path])
-    rasterio.open(cleantopo_br.mp().config.output.stac_path)
+    rasterio_open(cleantopo_br.mp().config.output.stac_path)

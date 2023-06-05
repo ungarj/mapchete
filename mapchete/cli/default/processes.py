@@ -1,7 +1,8 @@
 """CLI to list processes."""
 
-import click
 import logging
+
+import click
 
 from mapchete.cli import options
 from mapchete.processes import process_names_docstrings

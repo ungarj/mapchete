@@ -1,8 +1,8 @@
-import mapchete
-from mapchete.io import fs_from_path
-from mapchete._tasks import Task
 import pytest
-import rasterio
+
+import mapchete
+from mapchete._tasks import Task
+from mapchete.io import fs_from_path, rasterio_open
 
 
 def _trivial_func(arg, kwarg=None):
@@ -100,19 +100,19 @@ def test_preprocess_cache_raster_vector(preprocess_cache_raster_vector):
     # tile containing only features: 5 29 62
     mp = preprocess_cache_raster_vector.process_mp((5, 29, 62))
     with mp.open("clip") as clip:
-        assert clip.path.endswith("cache/aoi_br.fgb")
+        assert str(clip.path).endswith("cache/aoi_br.fgb")
         assert clip.read()
     with mp.open("inp") as raster:
-        assert raster.path.endswith("cache/cleantopo_br.tif")
+        assert str(raster.path).endswith("cache/cleantopo_br.tif")
         assert raster.read().mask.all()
 
     # tile containing features and raster: 5 30 62
     mp = preprocess_cache_raster_vector.process_mp((5, 30, 62))
     with mp.open("clip") as clip:
-        assert clip.path.endswith("cache/aoi_br.fgb")
+        assert str(clip.path).endswith("cache/aoi_br.fgb")
         assert clip.read()
     with mp.open("inp") as raster:
-        assert raster.path.endswith("cache/cleantopo_br.tif")
+        assert str(raster.path).endswith("cache/cleantopo_br.tif")
         assert not raster.read().mask.all()
 
 
@@ -180,7 +180,7 @@ def test_preprocessing_tasks_dependencies_single_tile(preprocess_cache_memory):
         out_path = mp.config.output_reader.get_path(
             mp.config.process_pyramid.tile(*tile)
         )
-        with rasterio.open(out_path) as src:
+        with rasterio_open(out_path) as src:
             assert not src.read(masked=True).mask.all()
 
         out_path = mp.config.output_reader.path
@@ -207,7 +207,7 @@ def test_preprocessing_tasks_dependencies_single_tile_dask(preprocess_cache_memo
         out_path = mp.config.output_reader.get_path(
             mp.config.process_pyramid.tile(*tile)
         )
-        with rasterio.open(out_path) as src:
+        with rasterio_open(out_path) as src:
             assert not src.read(masked=True).mask.all()
 
         out_path = mp.config.output_reader.path

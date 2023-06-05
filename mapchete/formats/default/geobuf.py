@@ -19,13 +19,13 @@ schema: key-value pairs
 """
 
 import logging
+
 from shapely.geometry import mapping, shape
 
 from mapchete.config import validate_values
 from mapchete.formats.default import geojson
-from mapchete.io import fs_from_path
+from mapchete.io import MPath, fs_from_path
 from mapchete.io._geometry_operations import _repair, reproject_geometry
-
 
 logger = logging.getLogger(__name__)
 METADATA = {"driver_name": "Geobuf", "data_type": "vector", "mode": "rw"}
@@ -103,7 +103,7 @@ class OutputDataReader(geojson.OutputDataReader):
         -------
         is_valid : bool
         """
-        validate_values(config, [("schema", dict), ("path", str)])
+        validate_values(config, [("schema", dict), ("path", (str, MPath))])
         validate_values(config["schema"], [("properties", dict), ("geometry", str)])
         if config["schema"]["geometry"] not in [
             "Geometry",

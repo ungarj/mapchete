@@ -1,12 +1,10 @@
 import logging
-import os
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import Dict, Optional
 
-# from mapchete.formats.base import OutputDataReader, OutputDataWriter, InputData
-from mapchete.formats.tools import driver_from_file
-from mapchete.errors import MapcheteDriverError
 from mapchete._registered import drivers
+from mapchete.errors import MapcheteDriverError
 
+from mapchete.formats.tools import driver_from_file
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +94,7 @@ def load_input_reader(
         driver_name = input_params["abstract"]["format"]
     elif "path" in input_params:
         # if path has a file extension it is considered a single file
-        if os.path.splitext(input_params["path"])[1]:
+        if input_params["path"].suffix:
             input_file = input_params["path"]
             driver_name = driver_from_file(input_file)
         # else a TileDirectory is assumed

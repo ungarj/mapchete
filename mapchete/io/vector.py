@@ -1,30 +1,32 @@
 """Functions handling vector data."""
 
-from contextlib import ExitStack
-import os
 import logging
+import warnings
+from contextlib import ExitStack, contextmanager
+from itertools import chain
+from tempfile import NamedTemporaryFile
+
 import fiona
 from fiona.errors import DriverError, FionaError, FionaValueError
 from fiona.io import MemoryFile
-from retry import retry
 from rasterio.crs import CRS
-from shapely.geometry import base, box, mapping
+from retry import retry
 from shapely.errors import TopologicalError
+from shapely.geometry import base, box, mapping
 from tilematrix import clip_geometry_to_srs_bounds
-from itertools import chain
-import warnings
 
-from mapchete.errors import NoGeoError, MapcheteIOError
-from mapchete.io._misc import MAPCHETE_IO_RETRY_SETTINGS
-from mapchete.io._path import fs_from_path, path_exists, makedirs, copy
+from mapchete.errors import MapcheteIOError, NoGeoError
+from mapchete.io import copy
 from mapchete.io._geometry_operations import (
+    _repair,
+    clean_geometry_type,
+    multipart_to_singleparts,
     reproject_geometry,
     segmentize_geometry,
     to_shape,
-    multipart_to_singleparts,
-    clean_geometry_type,
-    _repair,
 )
+from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
+from mapchete.path import MPath, fs_from_path, path_exists
 from mapchete.types import Bounds
 from mapchete.validate import validate_bounds
 
@@ -37,6 +39,72 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def fiona_open(path, mode="r", **kwargs):
+    """Call fiona.open but set environment correctly and return custom writer if needed."""
+    path = MPath(path)
+
+    if "w" in mode:
+        with fiona_write(path, mode=mode, **kwargs) as dst:
+            yield dst
+
+    else:
+        with fiona_read(path, mode=mode, **kwargs) as src:
+            yield src
+
+
+@contextmanager
+def fiona_read(path, mode="r", **kwargs):
+    """
+    Wrapper around fiona.open but fiona.Env is set according to path properties.
+    """
+    with path.fio_env() as env:
+        logger.debug("reading %s with GDAL options %s", str(path), env.options)
+        with fiona.open(str(path), mode=mode, **kwargs) as src:
+            yield src
+
+
+@contextmanager
+def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
+    """
+    Wrap fiona.open() but handle bucket upload if path is remote.
+
+    Parameters
+    ----------
+    path : str or MPath
+        Path to write to.
+    mode : str
+        One of the fiona.open() modes.
+    fs : fsspec.FileSystem
+        Target filesystem.
+    in_memory : bool
+        On remote output store an in-memory file instead of writing to a tempfile.
+    args : list
+        Arguments to be passed on to fiona.open()
+    kwargs : dict
+        Keyword arguments to be passed on to fiona.open()
+
+    Returns
+    -------
+    FionaRemoteWriter if target is remote, otherwise return fiona.open().
+    """
+    path = MPath(path)
+    if path.is_remote():
+        if "s3" in path.protocols:  # pragma: no cover
+            try:
+                import boto3
+            except ImportError:
+                raise ImportError("please install [s3] extra to write remote files")
+        with FionaRemoteWriter(
+            path, fs=fs, in_memory=in_memory, *args, **kwargs
+        ) as dst:
+            yield dst
+    else:
+        with path.fio_env():
+            with fiona.open(str(path), mode=mode, *args, **kwargs) as dst:
+                yield dst
 
 
 def read_vector_window(
@@ -145,11 +213,8 @@ def write_vector_window(
         output path for file
     """
     # Delete existing file.
-    try:
-        os.remove(out_path)
-    except OSError:
-        pass
-
+    out_path = MPath(out_path)
+    out_path.rm(ignore_errors=True)
     out_features = []
     for feature in in_data:
         try:
@@ -185,13 +250,10 @@ def write_vector_window(
                     driver=out_driver,
                 ) as memfile:
                     logger.debug((out_tile.id, "write tile", out_path))
-                    with fs_from_path(out_path).open(out_path, "wb") as dst:
+                    with out_path.open("wb") as dst:
                         dst.write(memfile)
             else:  # pragma: no cover
-                # write data to local file
-                # this part is not covered by tests as we now try to let fiona directly
-                # write to S3
-                with fiona.open(
+                with fiona_open(
                     out_path,
                     "w",
                     schema=out_schema,
@@ -261,9 +323,9 @@ def _get_reprojected_features(
 ):
     logger.debug("reading %s", inp)
     with ExitStack() as exit_stack:
-        if isinstance(inp, str):
+        if isinstance(inp, (str, MPath)):
             try:
-                src = exit_stack.enter_context(fiona.open(inp, "r"))
+                src = exit_stack.enter_context(fiona_open(inp, "r"))
                 src_crs = CRS(src.crs)
             except Exception as e:
                 # fiona errors which indicate file does not exist
@@ -305,7 +367,6 @@ def _get_reprojected_features(
                 validity_check=True,
             )
         for feature in src.filter(bbox=dst_bbox.bounds):
-
             try:
                 # check validity
                 original_geom = _repair(to_shape(feature["geometry"]))
@@ -527,7 +588,9 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs : mapping
         Creation parameters passed on to output file.
     """
-    if path_exists(out):
+    inp = MPath(inp)
+    out = MPath(out)
+    if out.exists():
         if not exists_ok:
             raise IOError(f"{out} already exists")
         elif not overwrite:
@@ -537,16 +600,76 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
             fs_from_path(out).rm(out)
     kwargs = kwargs or {}
     if kwargs:
-        logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
-        with fiona.open(inp, "r") as src:
-            makedirs(os.path.dirname(out))
-            with fiona.open(out, mode="w", **{**src.meta, **kwargs}) as dst:
+        logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
+        with fiona_open(inp, "r") as src:
+            out.makedirs()
+            with fiona_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
-        logger.debug("copy %s to %s", inp, out)
+        logger.debug("copy %s to %s", str(inp), str(out))
+        out.makedirs()
         copy(inp, out, overwrite=overwrite)
 
 
 def read_vector(inp, index="rtree"):
-    with fiona.open(inp, "r") as src:
+    with fiona_open(inp, "r") as src:
         return IndexedFeatures(src, index=index)
+
+
+class FionaRemoteMemoryWriter:
+    def __init__(self, path, *args, **kwargs):
+        logger.debug("open FionaRemoteMemoryWriter for path %s", path)
+        self.path = path
+        self._dst = MemoryFile()
+        self._open_args = args
+        self._open_kwargs = kwargs
+        self._sink = None
+
+    def __enter__(self):
+        self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
+        return self._sink
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        try:
+            self._sink.close()
+            if exc_value is None:
+                logger.debug("upload fiona MemoryFile to %s", self.path)
+                with self.path.open("wb") as dst:
+                    dst.write(self._dst.getbuffer())
+        finally:
+            logger.debug("close fiona MemoryFile")
+            self._dst.close()
+
+
+class FionaRemoteTempFileWriter:
+    def __init__(self, path, *args, **kwargs):
+        logger.debug("open FionaRemoteTempFileWriter for path %s", path)
+        self.path = path
+        self._dst = NamedTemporaryFile(suffix=self.path.suffix)
+        self._open_args = args
+        self._open_kwargs = kwargs
+        self._sink = None
+
+    def __enter__(self):
+        self._sink = fiona.open(
+            self._dst.name, "w", *self._open_args, **self._open_kwargs
+        )
+        return self._sink
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        try:
+            self._sink.close()
+            if exc_value is None:
+                logger.debug("upload TempFile %s to %s", self._dst.name, self.path)
+                self.path.fs.put_file(self._dst.name, self.path)
+        finally:
+            logger.debug("close and remove tempfile")
+            self._dst.close()
+
+
+class FionaRemoteWriter:
+    def __new__(self, path, *args, in_memory=True, **kwargs):
+        if in_memory:
+            return FionaRemoteMemoryWriter(path, *args, **kwargs)
+        else:
+            return FionaRemoteTempFileWriter(path, *args, **kwargs)

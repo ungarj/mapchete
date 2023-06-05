@@ -5,7 +5,6 @@ from mapchete.config import MapcheteConfig
 from mapchete.formats import base
 from mapchete.io.vector import reproject_geometry
 
-
 METADATA = {
     "driver_name": "Mapchete",
     "data_type": None,

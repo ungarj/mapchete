@@ -95,10 +95,13 @@ def test_s3_output_data_rw(flatgeobuf_s3):
         mp.write(tile, None)
         # write data
         raw_output = mp.execute(tile)
+        assert isinstance(raw_output, list)
+        assert len(raw_output)
         mp.write(tile, raw_output)
         # read data
         read_output = mp.get_raw_output(tile)
         assert isinstance(read_output, list)
+        mp.config.output
         assert len(read_output)
 
 

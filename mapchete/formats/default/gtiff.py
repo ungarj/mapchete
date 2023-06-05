@@ -30,14 +30,14 @@ compress: string
     CCITTFAX3, CCITTFAX4, lzma
 """
 
-from contextlib import ExitStack
 import logging
 import math
 import os
 import warnings
+from contextlib import ExitStack
 
-from affine import Affine
 import numpy as np
+from affine import Affine
 from numpy import ma
 from rasterio.enums import Resampling
 from rasterio.profiles import Profile
@@ -46,21 +46,20 @@ from rasterio.windows import from_bounds
 from shapely.geometry import box
 from tilematrix import Bounds
 
-from mapchete.config import validate_values, snap_bounds, _OUTPUT_PARAMETERS
+from mapchete.config import _OUTPUT_PARAMETERS, snap_bounds, validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import makedirs, path_exists, path_is_remote
+from mapchete.io import MPath, makedirs, path_exists, path_is_remote
 from mapchete.io.raster import (
-    write_raster_window,
-    prepare_array,
-    memory_file,
-    read_raster_no_crs,
     extract_from_array,
+    memory_file,
+    prepare_array,
     rasterio_write,
+    read_raster_no_crs,
+    write_raster_window,
 )
 from mapchete.tile import BufferedTile
 from mapchete.validate import deprecated_kwargs
-
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +153,7 @@ class OutputDataWriter:
         """Initialize."""
         self.path = output_params["path"]
         self.file_extension = ".tif"
-        if self.path.endswith(self.file_extension):
+        if self.path.suffix == self.file_extension:
             return GTiffSingleFileOutputWriter(output_params, **kwargs)
         else:
             return GTiffTileDirectoryOutputWriter(output_params, **kwargs)
@@ -240,7 +239,9 @@ class GTiffOutputReaderFunctions:
         -------
         is_valid : bool
         """
-        return validate_values(config, [("bands", int), ("path", str), ("dtype", str)])
+        return validate_values(
+            config, [("bands", int), ("path", (str, MPath)), ("dtype", str)]
+        )
 
     def _set_attributes(self, output_params):
         self.path = output_params["path"]
@@ -401,7 +402,6 @@ class GTiffTileDirectoryOutputWriter(
 class GTiffSingleFileOutputWriter(
     GTiffOutputReaderFunctions, base.SingleFileOutputWriter
 ):
-
     write_in_parent_process = True
 
     def __init__(self, output_params, **kwargs):
@@ -507,7 +507,7 @@ class GTiffSingleFileOutputWriter(
                 logger.debug("remove existing file: %s", self.path)
                 os.remove(self.path)
         # create output directory if necessary
-        makedirs(os.path.dirname(self.path))
+        self.path.makedirs()
         logger.debug("open output file: %s", self.path)
         self._ctx = ExitStack()
         self.dst = self._ctx.enter_context(

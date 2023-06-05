@@ -1,13 +1,14 @@
 """Test Mapchete default formats."""
 
-from copy import deepcopy
-import pytest
 import shutil
+from copy import deepcopy
+
+import pytest
 
 import mapchete
+from mapchete.errors import MapcheteDriverError
 from mapchete.formats import available_input_formats
 from mapchete.formats.default.tile_directory import InputData
-from mapchete.errors import MapcheteDriverError
 
 
 def test_driver_available():
@@ -38,8 +39,10 @@ def test_read_vector_data(mp_tmpdir, geojson, geojson_tiledir):
         bounds = mp.config.bounds_at_zoom()
         mp.batch_process(zoom=4)
     # read data
+    config = geojson_tiledir.dict.copy()
+    config["input"]["file1"]["path"] = mp.config.output.path
     for metatiling in [2, 4, 8]:
-        _run_tiledir_process_vector(geojson_tiledir.dict, metatiling, bounds)
+        _run_tiledir_process_vector(config, metatiling, bounds)
 
 
 def _run_tiledir_process_vector(conf_dict, metatiling, bounds):
@@ -59,9 +62,11 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     with mapchete.open(cleantopo_br.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
         mp.batch_process(zoom=4)
+    config = cleantopo_br_tiledir.dict.copy()
+    config["input"]["file1"]["path"] = mp.config.output.path
     for metatiling in [1, 2, 4, 8]:
         cleantopo_br_tiledir.clear_output()
-        _run_tiledir_process_raster(cleantopo_br_tiledir.dict, metatiling, bounds)
+        _run_tiledir_process_raster(config, metatiling, bounds)
 
 
 def _run_tiledir_process_raster(conf_dict, metatiling, bounds):
@@ -93,7 +98,9 @@ def test_read_reprojected_raster_data(
     with mapchete.open(cleantopo_br.dict) as mp:
         mp.batch_process(zoom=zoom)
 
-    with mapchete.open(cleantopo_br_tiledir_mercator.dict, mode="overwrite") as mp:
+    config = cleantopo_br_tiledir_mercator.dict.copy()
+    config["input"]["file1"] = mp.config.output.path
+    with mapchete.open(config, mode="overwrite") as mp:
         # read some data
         assert any(
             [
@@ -146,7 +153,7 @@ def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     with mapchete.open(cleantopo_br.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
         mp.batch_process(zoom=4)
-    config = dict(cleantopo_br_tiledir.dict, input=dict(file1="tmp/cleantopo_br"))
+    config = dict(cleantopo_br_tiledir.dict, input=dict(file1=mp.config.output.path))
     _run_tiledir_process_raster(config, 4, bounds)
 
 

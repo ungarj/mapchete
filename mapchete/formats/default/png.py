@@ -20,19 +20,20 @@ nodata: integer or float
 """
 
 import logging
+
 import numpy as np
 import numpy.ma as ma
 
 from mapchete.config import validate_values
 from mapchete.formats import base
 from mapchete.io.raster import (
-    write_raster_window,
-    prepare_array,
+    MPath,
     memory_file,
+    prepare_array,
     read_raster_no_crs,
+    write_raster_window,
 )
 from mapchete.tile import BufferedTile
-
 
 logger = logging.getLogger(__name__)
 METADATA = {"driver_name": "PNG", "data_type": "raster", "mode": "w"}
@@ -112,7 +113,7 @@ class OutputDataReader(base.TileDirectoryOutputReader):
         -------
         is_valid : bool
         """
-        return validate_values(config, [("path", str)])
+        return validate_values(config, [("path", (str, MPath))])
 
     def profile(self, tile=None):
         """
@@ -215,7 +216,6 @@ class OutputDataReader(base.TileDirectoryOutputReader):
 
 
 class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
-
     METADATA = METADATA
 
     def write(self, process_tile, data):

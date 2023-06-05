@@ -1,7 +1,8 @@
 """Example process file."""
 
-from mapchete.errors import MapcheteNodataTile
 from shapely.geometry import shape
+
+from mapchete.errors import MapcheteNodataTile
 
 
 def execute(mp):

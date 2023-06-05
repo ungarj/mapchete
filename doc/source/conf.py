@@ -46,7 +46,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Mapchete"
-copyright = "2015 - 2022 EOX IT Services"
+copyright = "2015 - 2023 EOX IT Services"
 author = "Joachim Ungar"
 
 # The version info for the project you're documenting, acts as replacement for

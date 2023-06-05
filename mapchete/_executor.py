@@ -1,19 +1,19 @@
 """Abstraction classes for multiprocessing and distributed processing."""
 
 import concurrent.futures
-from concurrent.futures._base import CancelledError
-from functools import partial
 import logging
 import multiprocessing
 import os
 import sys
 import warnings
+from concurrent.futures._base import CancelledError
+from functools import partial
 
 from cached_property import cached_property
 
+from mapchete._timer import Timer
 from mapchete.errors import JobCancelledError, MapcheteTaskFailed
 from mapchete.log import set_log_level
-from mapchete._timer import Timer
 
 MULTIPROCESSING_DEFAULT_START_METHOD = "spawn"
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
@@ -228,7 +228,7 @@ class DaskExecutor(_ExecutorBase):
         max_workers=None,
         **kwargs,
     ):
-        from dask.distributed import as_completed, Client, LocalCluster
+        from dask.distributed import Client, LocalCluster, as_completed
 
         self._executor_client = dask_client
         self._local_cluster = None
@@ -315,7 +315,6 @@ class DaskExecutor(_ExecutorBase):
             fkwargs = fkwargs or {}
             chunk = []
             for item in iterable:
-
                 # abort if execution is cancelled
                 if self.cancelled:  # pragma: no cover
                     logger.debug("executor cancelled")

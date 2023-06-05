@@ -1,18 +1,18 @@
 """
 Useful tools to facilitate testing.
 """
-from collections import OrderedDict
 import logging
-import os
+import uuid
+from collections import OrderedDict
+
 import oyaml as yaml
 from shapely.ops import unary_union
-import uuid
 
 import mapchete
 from mapchete.config import initialize_inputs, open_inputs
 from mapchete.io import fs_from_path
-from mapchete.tile import BufferedTile, BufferedTilePyramid
-
+from mapchete.path import MPath
+from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
 
@@ -22,29 +22,88 @@ def dict_from_mapchete(path):
     """
     Read mapchete configuration from file and return as dictionary.
     """
-    with open(path) as src:
-        return dict(yaml.safe_load(src.read()), config_dir=os.path.dirname(path))
+    path = MPath(path)
+    with path.open() as src:
+        out = dict(yaml.safe_load(src.read()), config_dir=path.dirname)
+        if "config_dir" in out:
+            out["config_dir"] = MPath(out["config_dir"])
+        elif "path" in out.get("output", {}):  # pragma: no cover
+            out["output"]["path"] = MPath.from_dict(out["output"])
+    return out
+
+
+def dict_to_yaml(dictionary):
+    def _convert(vv):
+        out = OrderedDict()
+        for k, v in vv.items():
+            if isinstance(v, MPath):
+                v = str(v)
+            elif isinstance(v, dict):
+                v = _convert(v)
+            out[k] = v
+        return out
+
+    return yaml.dump(_convert(dictionary))
 
 
 class ProcessFixture:
-    def __init__(self, path=None, output_tempdir=None, output_suffix=""):
-        self.path = path
+    def __init__(
+        self,
+        path=None,
+        tempdir=None,
+        inp_cache_tempdir=None,
+        output_suffix="",
+        **kwargs,
+    ):
+        self.path = MPath(path)
+        self.basepath = MPath.parent
+        self.output_path = None
         self.dict = None
-        if output_tempdir:
-            self._output_tempdir = (
-                os.path.join(output_tempdir, uuid.uuid4().hex) + output_suffix
-            )
+        tempdir = tempdir or kwargs.get("output_tempdir")
+        if tempdir:
+            self._tempdir = MPath(tempdir) / uuid.uuid4().hex
+        else:  # pragma: no cover
+            self._tempdir = None
+        if inp_cache_tempdir:
+            self._inp_cache_tempdir = inp_cache_tempdir / uuid.uuid4().hex
         else:
-            self._output_tempdir = None
+            self._inp_cache_tempdir = None
         self._out_fs = None
         self._mp = None
 
     def __enter__(self, *args):
         self.dict = dict_from_mapchete(self.path)
-        if self._output_tempdir:
-            # set output directory
-            self.dict["output"]["path"] = self._output_tempdir
 
+        # move all input/foo/cache/path paths to inp_cache_tempdir
+        if self._inp_cache_tempdir:
+            for key, val in self.dict.get("input", {}).items():
+                if isinstance(val, dict):
+                    if "cache" in val:
+                        if "path" in val["cache"]:
+                            path = MPath.from_dict(val["cache"])
+                            temp_path = (
+                                self._inp_cache_tempdir / key / "cache" / path.name
+                            )
+                            temp_path.makedirs()
+                            val["cache"]["path"] = temp_path
+        # replace output path with temporary path
+        if self._tempdir:
+            # set output directory
+            current_output_path = MPath.from_dict(self.dict["output"])
+            if current_output_path.suffix:
+                self.dict["output"]["path"] = self._tempdir / current_output_path.name
+            else:
+                self.dict["output"]["path"] = self._tempdir / "out"
+
+            self.path = self._tempdir / self.path.name
+
+            # dump modified mapchete config to temporary directory
+            self.path.makedirs()
+            with self.path.open("w") as dst:
+                dst.write(dict_to_yaml(self.dict))
+
+        # shortcut to output path
+        self.output_path = self.dict["output"]["path"]
         return self
 
     def __exit__(self, *args):
@@ -54,17 +113,16 @@ class ProcessFixture:
                 self._mp.__exit__(*args)
         finally:
             self.clear_output()
+        if self._tempdir:
+            self._tempdir.rm(recursive=True, ignore_errors=True)
 
     def clear_output(self):
         # delete written output if any
-        if self._output_tempdir:
-            out_dir = self._output_tempdir
-        else:
-            out_dir = os.path.join(self.dict["config_dir"], self.dict["output"]["path"])
-        try:
-            fs_from_path(out_dir).rm(out_dir, recursive=True)
-        except FileNotFoundError:
-            pass
+        out_dir = (
+            self._tempdir
+            or MPath(self.dict["config_dir"]) / self.dict["output"]["path"]
+        )
+        out_dir.rm(recursive=True, ignore_errors=True)
 
     def process_mp(self, tile=None, tile_zoom=None, batch_preprocess=True):
         """
