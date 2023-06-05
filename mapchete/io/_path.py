@@ -9,7 +9,7 @@ from mapchete.path import (
     path_is_remote,
     relative_path,
     tiles_exist,
-)
+)  # pragma: no cover
 
 __all__ = [
     "fs_from_path",
