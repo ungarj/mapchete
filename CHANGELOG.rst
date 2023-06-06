@@ -3,6 +3,20 @@ Changelog
 #########
 
 ---------------------
+2023.6.1 - 2023-06-06
+---------------------
+
+* core
+
+  * only try to generate endpoint URL for rio/fio Sessions if a custom endpoint URL was provided in the first place (#541)
+
+* testing
+
+  * add tests for AWS S3 raster file (#541)
+  * better catch pytest fixture errors if docker-compose is not running or AWS credentials are not set (#541)
+
+
+---------------------
 2023.6.0 - 2023-06-05
 ---------------------
 
