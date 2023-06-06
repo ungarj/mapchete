@@ -1,4 +1,3 @@
-import os
 import shutil
 import tempfile
 from itertools import product
@@ -920,6 +919,7 @@ def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
     [
         pytest.lazy_fixture("raster_4band"),
         pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_aws_s3"),
         pytest.lazy_fixture("raster_4band_http"),
         pytest.lazy_fixture("raster_4band_secure_http"),
     ],
@@ -935,6 +935,7 @@ def test_read_raster_no_crs(path):
     [
         pytest.lazy_fixture("raster_4band"),
         pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_aws_s3"),
         pytest.lazy_fixture("raster_4band_http"),
         pytest.lazy_fixture("raster_4band_secure_http"),
     ],
@@ -984,6 +985,7 @@ def test_read_raster_window(path, grid, pixelbuffer, zoom):
     [
         pytest.lazy_fixture("raster_4band"),
         pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_aws_s3"),
         pytest.lazy_fixture("raster_4band_http"),
         pytest.lazy_fixture("raster_4band_secure_http"),
     ],

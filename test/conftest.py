@@ -4,6 +4,7 @@ import datetime
 import os
 import uuid
 
+from aiohttp.client_exceptions import ClientConnectorError
 import pytest
 from minio import Minio
 from shapely import wkt
@@ -31,6 +32,7 @@ SECURE_HTTP_TESTDATA_DIR = MPath(
     "http://localhost/secure/",
     storage_options=dict(username=HTTP_USERNAME, password=HTTP_PASSWORD),
 )
+AWS_S3_TESTDATA_DIR = MPath("s3://mapchete-test/")
 TEMP_DIR = MPath(os.path.join(TESTDATA_DIR, "tmp/"))
 
 
@@ -46,28 +48,64 @@ def testdata_dir():
     return TESTDATA_DIR
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def http_testdata_dir():
+    try:
+        HTTP_TESTDATA_DIR.ls()
+    except ClientConnectorError:
+        raise ConnectionError(
+            "HTTP test endpoint is not available, please run "
+            "'docker-compose -f test/docker-compose.yml up --remove-orphans' "
+            "before running tests"
+        )
     return HTTP_TESTDATA_DIR
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def secure_http_testdata_dir():
+    try:
+        SECURE_HTTP_TESTDATA_DIR.ls()
+    except ClientConnectorError:
+        raise ConnectionError(
+            "HTTP test endpoint is not available, please run "
+            "'docker-compose -f test/docker-compose.yml up --remove-orphans' "
+            "before running tests"
+        )
     return SECURE_HTTP_TESTDATA_DIR
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def s3_testdata_dir(minio_testdata_bucket):
     return minio_testdata_bucket / MINIO_TESTDATA_BUCKET
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
+def aws_s3_testdata_dir():
+    from botocore.exceptions import NoCredentialsError
+
+    try:
+        AWS_S3_TESTDATA_DIR.ls()
+    except NoCredentialsError:
+        raise ConnectionError("credentials for s3://mapchete-test are not set")
+    return AWS_S3_TESTDATA_DIR
+
+
+@pytest.fixture(scope="session")
 def minio_testdata_bucket():
+    from urllib3.exceptions import MaxRetryError
+
     minio = Minio(
         S3_ENDPOINT_URL, access_key=S3_KEY, secret_key=S3_SECRET, secure=False
     )
-    if not minio.bucket_exists(MINIO_TESTDATA_BUCKET):
-        minio.make_bucket(MINIO_TESTDATA_BUCKET)
+    try:
+        if not minio.bucket_exists(MINIO_TESTDATA_BUCKET):
+            minio.make_bucket(MINIO_TESTDATA_BUCKET)
+    except MaxRetryError:
+        raise ConnectionError(
+            "minio S3 test endpoint is not available, please run "
+            "'docker-compose -f test/docker-compose.yml up --remove-orphans' "
+            "before running tests"
+        )
     s3_testdata = MPath(
         f"s3://{MINIO_TESTDATA_BUCKET}/",
         fs_options=dict(
@@ -134,27 +172,27 @@ def wkt_geom_tl():
 
 # example files
 @pytest.fixture
-def http_raster():
+def http_raster(http_testdata_dir):
     """Fixture for HTTP raster."""
-    return HTTP_TESTDATA_DIR / "cleantopo/1/0/0.tif"
+    return http_testdata_dir / "cleantopo/1/0/0.tif"
 
 
 @pytest.fixture
-def secure_http_raster():
+def secure_http_raster(secure_http_testdata_dir):
     """Fixture for HTTP raster."""
-    return SECURE_HTTP_TESTDATA_DIR / "cleantopo/1/0/0.tif"
+    return secure_http_testdata_dir / "cleantopo/1/0/0.tif"
 
 
 @pytest.fixture
-def http_tiledir():
+def http_tiledir(http_testdata_dir):
     """Fixture for HTTP TileDirectory."""
-    return HTTP_TESTDATA_DIR / "cleantopo"
+    return http_testdata_dir / "cleantopo"
 
 
 @pytest.fixture
-def secure_http_tiledir():
+def secure_http_tiledir(secure_http_testdata_dir):
     """Fixture for HTTP TileDirectory."""
-    return SECURE_HTTP_TESTDATA_DIR / "cleantopo"
+    return secure_http_testdata_dir / "cleantopo"
 
 
 @pytest.fixture
@@ -214,19 +252,27 @@ def raster_4band_s3(minio_testdata_bucket):
 
 
 @pytest.fixture
-def raster_4band_http():
+def raster_4band_http(http_testdata_dir):
     """
     Fixture for 4band_test.tif.
     """
-    return HTTP_TESTDATA_DIR / "4band_test.tif"
+    return http_testdata_dir / "4band_test.tif"
 
 
 @pytest.fixture
-def raster_4band_secure_http():
+def raster_4band_secure_http(secure_http_testdata_dir):
     """
     Fixture for 4band_test.tif.
     """
-    return SECURE_HTTP_TESTDATA_DIR / "4band_test.tif"
+    return secure_http_testdata_dir / "4band_test.tif"
+
+
+@pytest.fixture
+def raster_4band_aws_s3(aws_s3_testdata_dir):
+    """
+    Fixture for remote file on S3 bucket.
+    """
+    return aws_s3_testdata_dir / "4band_test.tif"
 
 
 @pytest.fixture
@@ -252,28 +298,28 @@ def s3_metadata_json(minio_testdata_bucket):
 
 
 @pytest.fixture
-def http_metadata_json():
+def http_metadata_json(http_testdata_dir):
     """
     Fixture for http://localhost/cleantopo/metadata.json.
     """
-    return HTTP_TESTDATA_DIR / "cleantopo" / "metadata.json"
+    return http_testdata_dir / "cleantopo" / "metadata.json"
 
 
 @pytest.fixture
-def secure_http_metadata_json():
+def secure_http_metadata_json(secure_http_testdata_dir):
     """
     Fixture for http://localhost/cleantopo/metadata.json.
     """
-    return SECURE_HTTP_TESTDATA_DIR / "cleantopo" / "metadata.json"
+    return secure_http_testdata_dir / "cleantopo" / "metadata.json"
 
 
 @pytest.fixture
-def vsicurl_metadata_json():
+def vsicurl_metadata_json(http_testdata_dir):
     """
     Fixture for http://localhost/cleantopo/metadata.json.
     """
-    return HTTP_TESTDATA_DIR.new(
-        f"/vsicurl/{HTTP_TESTDATA_DIR / 'cleantopo' / 'metadata.json'}"
+    return http_testdata_dir.new(
+        f"/vsicurl/{http_testdata_dir / 'cleantopo' / 'metadata.json'}"
     )
 
 
@@ -378,15 +424,15 @@ def landpoly_s3(minio_testdata_bucket):
 
 
 @pytest.fixture
-def landpoly_http():
+def landpoly_http(http_testdata_dir):
     """Fixture for landpoly.geojson."""
-    return HTTP_TESTDATA_DIR / "landpoly.geojson"
+    return http_testdata_dir / "landpoly.geojson"
 
 
 @pytest.fixture
-def landpoly_secure_http():
+def landpoly_secure_http(secure_http_testdata_dir):
     """Fixture for landpoly.geojson."""
-    return SECURE_HTTP_TESTDATA_DIR / "landpoly.geojson"
+    return secure_http_testdata_dir / "landpoly.geojson"
 
 
 @pytest.fixture
