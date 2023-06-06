@@ -97,7 +97,9 @@ def test_vrt(mp_tmpdir, cleantopo_br):
     # generate a VRT using GDAL and compare
     temp_vrt = mp.config.output.path / zoom + "_gdal.vrt"
     gdalbuildvrt = f"gdalbuildvrt {str(temp_vrt)} {str(mp.config.output.path)}/{str(zoom)}/*/*.tif > /dev/null"
-    os.system(gdalbuildvrt)
+    exitcode = os.system(gdalbuildvrt)
+    if exitcode != 0:
+        raise RuntimeError(f"command failed: {gdalbuildvrt}")
     with rasterio_open(temp_vrt, "r") as gdal_vrt:
         assert gdal_vrt.dtypes[0] == "uint16"
         assert gdal_vrt.meta["dtype"] == "uint16"
@@ -171,7 +173,9 @@ def test_vrt_mercator(cleantopo_br_mercator):
     # generate a VRT using GDAL and compare
     temp_vrt = mp.config.output.path / zoom + "_gdal.vrt"
     gdalbuildvrt = f"gdalbuildvrt {str(temp_vrt)} {str(mp.config.output.path)}/{str(zoom)}/*/*.tif > /dev/null"
-    os.system(gdalbuildvrt)
+    exitcode = os.system(gdalbuildvrt)
+    if exitcode != 0:
+        raise RuntimeError(f"command failed: {gdalbuildvrt}")
     with rasterio_open(temp_vrt, "r") as gdal_vrt:
         assert gdal_vrt.dtypes[0] == "uint16"
         assert gdal_vrt.meta["dtype"] == "uint16"

@@ -2,6 +2,7 @@
 
 import datetime
 import os
+from tempfile import TemporaryDirectory
 import uuid
 
 from aiohttp.client_exceptions import ClientConnectorError
@@ -33,7 +34,6 @@ SECURE_HTTP_TESTDATA_DIR = MPath(
     storage_options=dict(username=HTTP_USERNAME, password=HTTP_PASSWORD),
 )
 AWS_S3_TESTDATA_DIR = MPath("s3://mapchete-test/")
-TEMP_DIR = MPath(os.path.join(TESTDATA_DIR, "tmp/"))
 
 
 def prepare_s3_testfile(bucket, testfile):
@@ -138,10 +138,10 @@ def app(dem_to_hillshade, cleantopo_br, geobuf, geojson, mp_tmpdir):
 @pytest.fixture(autouse=True)
 def mp_tmpdir():
     """Setup and teardown temporary directory."""
-    tempdir = TEMP_DIR / uuid.uuid4().hex
-    tempdir.makedirs()
-    yield tempdir
-    TEMP_DIR.rm(recursive=True, ignore_errors=True)
+    with TemporaryDirectory() as tempdir_path:
+        tempdir = MPath(tempdir_path)
+        tempdir.makedirs()
+        yield tempdir
 
 
 # temporary directory for I/O tests
