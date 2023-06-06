@@ -358,7 +358,7 @@ class MPath(os.PathLike):
         # endpoint
         if hasattr(self.fs, "endpoint_url") and isinstance(self.fs.endpoint_url, str):
             return self.fs.endpoint_url.lstrip("http://").lstrip("https://")
-        else:  # pragma: no cover
+        else:
             return None
 
     @cached_property
