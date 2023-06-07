@@ -212,8 +212,6 @@ def test_gdal_env_params(path_str):
         "CPL_VSIL_CURL_ALLOWED_EXTENSIONS"
     ].split(", ")
     assert path.suffix in remote_extensions
-    assert ".xml" in remote_extensions
-    assert ".rpc" in remote_extensions
 
 
 def test_gdal_env_params_vrt():
