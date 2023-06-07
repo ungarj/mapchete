@@ -328,10 +328,13 @@ class MPath(os.PathLike):
             if self.suffix == ".vrt":
                 # we cannot know at this point which file types the VRT is pointing to,
                 # so in order to play safe, we remove the extensions constraint here
-                gdal_opts.pop("CPL_VSIL_CURL_ALLOWED_EXTENSIONS")
+                try:
+                    gdal_opts.pop("CPL_VSIL_CURL_ALLOWED_EXTENSIONS")
+                except KeyError:  # pragma: no cover
+                    pass
             else:
                 default_remote_extensions = gdal_opts.get(
-                    "CPL_VSIL_CURL_ALLOWED_EXTENSIONS", []
+                    "CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ""
                 ).split(", ")
                 if allowed_remote_extensions:
                     extensions = allowed_remote_extensions.split(",") + (
