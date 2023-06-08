@@ -507,7 +507,6 @@ class GTiffSingleFileOutputWriter(
                 logger.debug("remove existing file: %s", self.path)
                 os.remove(self.path)
         # create output directory if necessary
-        self.path.makedirs()
         logger.debug("open output file: %s", self.path)
         self._ctx = ExitStack()
         self.dst = self._ctx.enter_context(
@@ -734,4 +733,3 @@ class InputTile(base.InputTile):
 
     def __exit__(self, t, v, tb):
         """Clear cache on close."""
-        pass

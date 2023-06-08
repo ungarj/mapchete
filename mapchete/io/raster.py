@@ -99,7 +99,8 @@ def rasterio_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
             yield dst
     else:
         with path.rio_env() as env:
-            logger.debug("reading %s with GDAL options %s", str(path), env.options)
+            logger.debug("writing %s with GDAL options %s", str(path), env.options)
+            path.makedirs()
             with rasterio.open(path, mode=mode, *args, **kwargs) as dst:
                 yield dst
 
@@ -1287,7 +1288,6 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     if kwargs:
         logger.debug("convert raster file %s to %s using %s", inp, out, kwargs)
         with rasterio_open(inp, "r") as src:
-            out.makedirs()
             with rasterio_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.write(src.read())
     else:

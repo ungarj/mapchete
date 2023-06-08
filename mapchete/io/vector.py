@@ -105,7 +105,9 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
         ) as dst:
             yield dst
     else:
-        with path.fio_env():
+        with path.fio_env() as env:
+            logger.debug("writing %s with GDAL options %s", str(path), env.options)
+            path.makedirs()
             with fiona.open(str(path), mode=mode, *args, **kwargs) as dst:
                 yield dst
 
@@ -605,7 +607,6 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     if kwargs:
         logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
         with fiona_open(inp, "r") as src:
-            out.makedirs()
             with fiona_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
