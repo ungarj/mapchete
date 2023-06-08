@@ -109,7 +109,7 @@ def output_info(inp):
     path = MPath.from_inp(inp)
     if path.suffix == ".mapchete":
         conf = raw_conf(path)
-        default_basepath = MPath.from_dict(conf["output"])
+        default_basepath = MPath.from_inp(conf["output"])
         return (
             raw_conf_output_pyramid(conf),
             default_basepath,

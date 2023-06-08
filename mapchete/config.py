@@ -427,7 +427,7 @@ class MapcheteConfig(object):
         )
         if "path" in output_params:
             output_params.update(
-                path=MPath.from_dict(output_params).absolute_path(
+                path=MPath.from_inp(output_params).absolute_path(
                     base_dir=self.config_dir
                 )
             )
@@ -1046,7 +1046,7 @@ def initialize_inputs(
                 # make path absolute and add filesystem options
                 if "path" in abstract:
                     abstract.update(
-                        path=MPath.from_dict(abstract).absolute_path(config_dir)
+                        path=MPath.from_inp(abstract).absolute_path(config_dir)
                     )
                 reader = load_input_reader(
                     dict(

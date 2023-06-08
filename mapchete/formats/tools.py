@@ -313,7 +313,7 @@ def write_output_metadata(output_params: Dict) -> None:
         Output parameters
     """
     if "path" in output_params:
-        metadata_path = MPath.from_dict(output_params) / "metadata.json"
+        metadata_path = MPath.from_inp(output_params) / "metadata.json"
         logger.debug("check for output %s", metadata_path)
         try:
             existing_params = read_output_metadata(metadata_path)
