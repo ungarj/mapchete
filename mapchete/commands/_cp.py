@@ -1,7 +1,6 @@
 """Copy tiles between Tile Directories."""
 
 import logging
-import os
 import warnings
 from multiprocessing import cpu_count
 from typing import Callable, List, Tuple, Union
@@ -113,8 +112,8 @@ def cp(
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom level(s) required")
 
-    src_tiledir = MPath(src_tiledir, **src_fs_opts)
-    dst_tiledir = MPath(dst_tiledir, **dst_fs_opts)
+    src_tiledir = MPath.from_inp(src_tiledir, **src_fs_opts)
+    dst_tiledir = MPath.from_inp(dst_tiledir, **dst_fs_opts)
     src_fs = src_tiledir.fs
     dst_fs = dst_tiledir.fs
 

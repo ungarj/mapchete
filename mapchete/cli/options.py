@@ -1,6 +1,6 @@
 import logging
 import os
-from multiprocessing import cpu_count, get_all_start_methods
+from multiprocessing import get_all_start_methods
 
 import click
 import tilematrix
@@ -135,7 +135,7 @@ arg_tiledir = click.argument("tiledir", type=click.STRING)
 opt_out_path = click.option(
     "--out-path",
     type=click.Path(),
-    default=MPath(os.getcwd()) / "output",
+    default=MPath.from_inp(os.getcwd()) / "output",
     help="Output path.",
 )
 opt_idx_out_dir = click.option(

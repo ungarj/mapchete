@@ -96,7 +96,7 @@ def driver_from_file(input_file: str, quick: bool = True) -> str:
     driver : string
         driver name
     """
-    input_file = MPath(input_file)
+    input_file = MPath.from_inp(input_file)
 
     # mapchete files can immediately be returned:
     if input_file.suffix == ".mapchete":

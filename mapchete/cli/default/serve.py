@@ -81,7 +81,9 @@ def create_app(
 
     app = Flask(__name__)
     mapchete_processes = {
-        str(MPath(MPath(mapchete_file).name).without_suffix()): mapchete.open(
+        str(
+            MPath.from_inp(MPath.from_inp(mapchete_file).name).without_suffix()
+        ): mapchete.open(
             mapchete_file,
             zoom=zoom,
             bounds=bounds,

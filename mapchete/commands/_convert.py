@@ -176,8 +176,8 @@ def convert(
     workers = workers or multi or cpu_count()
     creation_options = creation_options or {}
     bidx = [bidx] if isinstance(bidx, int) else bidx
-    tiledir = MPath(tiledir) if isinstance(tiledir, str) else tiledir
-    output = MPath(output)
+    tiledir = MPath.from_inp(tiledir) if isinstance(tiledir, str) else tiledir
+    output = MPath.from_inp(output)
     try:
         input_info = _get_input_info(tiledir)
         logger.debug("input params: %s", input_info)
@@ -190,7 +190,7 @@ def convert(
         isinstance(output_pyramid, (str, MPath))
         and output_pyramid not in tilematrix._conf.PYRAMID_PARAMS.keys()
     ):
-        output_pyramid = json.loads(MPath(output_pyramid).read_text())
+        output_pyramid = json.loads(MPath.from_inp(output_pyramid).read_text())
 
     # collect mapchete configuration
     mapchete_config = dict(

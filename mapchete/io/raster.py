@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def rasterio_open(path, mode="r", **kwargs):
     """Call rasterio.open but set environment correctly and return custom writer if needed."""
-    path = MPath(path)
+    path = MPath.from_inp(path)
 
     if "w" in mode:
         with rasterio_write(path, mode=mode, **kwargs) as dst:
@@ -53,6 +53,8 @@ def rasterio_read(path, mode="r", **kwargs):
     """
     Wrapper around rasterio.open but rasterio.Env is set according to path properties.
     """
+    path = MPath.from_inp(path)
+
     with path.rio_env() as env:
         logger.debug("reading %s with GDAL options %s", str(path), env.options)
         with rasterio.open(path, mode=mode, **kwargs) as src:
@@ -83,6 +85,8 @@ def rasterio_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     -------
     RasterioRemoteWriter if target is remote, otherwise return rasterio.open().
     """
+    path = MPath.from_inp(path)
+
     if path.is_remote():
         if "s3" in path.protocols:  # pragma: no cover
             try:
@@ -252,7 +256,7 @@ def read_raster_window(
     raster : MaskedArray
     """
     input_files = [
-        MPath(input_file)
+        MPath.from_inp(input_file)
         for input_file in (
             input_files if isinstance(input_files, list) else [input_files]
         )
@@ -1271,8 +1275,8 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs : mapping
         Creation parameters passed on to output file.
     """
-    inp = MPath(inp)
-    out = MPath(out)
+    inp = MPath.from_inp(inp)
+    out = MPath.from_inp(out)
     if out.exists():
         if not exists_ok:
             raise OSError(f"{str(out)} already exists")
@@ -1293,7 +1297,7 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
 
 
 def read_raster(inp, **kwargs):
-    inp = MPath(inp)
+    inp = MPath.from_inp(inp)
     logger.debug(f"reading {str(inp)} into memory")
     with rasterio_open(inp, "r") as src:
         return ReferencedRaster(
