@@ -77,6 +77,19 @@ class MPath(os.PathLike):
             fs=dictionary.get("fs"),
         )
 
+    @staticmethod
+    def from_inp(inp, **kwargs):
+        if isinstance(inp, dict):
+            return MPath.from_dict(inp)
+        elif isinstance(inp, str):
+            return MPath(inp, **kwargs)
+        elif isinstance(inp, MPath):
+            if kwargs:
+                return MPath(inp, **kwargs)
+            return inp
+        else:  # pragma: no cover
+            raise TypeError(f"cannot construct MPath object from {inp}")
+
     def to_dict(self) -> dict:
         return dict(
             path=self._path_str,

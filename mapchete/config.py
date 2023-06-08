@@ -427,7 +427,7 @@ class MapcheteConfig(object):
         )
         if "path" in output_params:
             output_params.update(
-                path=MPath.from_dict(output_params).absolute_path(
+                path=MPath.from_inp(output_params).absolute_path(
                     base_dir=self.config_dir
                 )
             )
@@ -1046,7 +1046,7 @@ def initialize_inputs(
                 # make path absolute and add filesystem options
                 if "path" in abstract:
                     abstract.update(
-                        path=MPath.from_dict(abstract).absolute_path(config_dir)
+                        path=MPath.from_inp(abstract).absolute_path(config_dir)
                     )
                 reader = load_input_reader(
                     dict(
@@ -1078,7 +1078,7 @@ def initialize_inputs(
 
 def _load_process_module(process=None, config_dir=None, run_compile=False):
     tmpfile = None
-    process = MPath(process) if isinstance(process, str) else process
+    process = MPath.from_inp(process) if isinstance(process, str) else process
     try:
         if isinstance(process, list):
             tmpfile = NamedTemporaryFile(suffix=".py")
@@ -1086,7 +1086,7 @@ def _load_process_module(process=None, config_dir=None, run_compile=False):
             with open(tmpfile.name, "w") as dst:
                 for line in process:
                     dst.write(line + "\n")
-            process = MPath(tmpfile.name)
+            process = MPath.from_inp(tmpfile.name)
         if process.suffix == ".py":
             module_path = absolute_path(path=process, base_dir=config_dir)
             if not module_path.exists():
@@ -1377,7 +1377,7 @@ def _guess_geometry(i, base_dir=None):
         if str(i).upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
             geom = wkt.loads(i)
         else:
-            path = MPath(i)
+            path = MPath.from_inp(i)
             with path.fio_env():
                 with fiona_open(str(path.absolute_path(base_dir))) as src:
                     geom = unary_union([shape(f["geometry"]) for f in src])

@@ -189,14 +189,14 @@ def zoom_index_gen(
 
 
 def _index_file_path(out_dir, zoom, ext):
-    return MPath(out_dir) / f"{str(zoom)}.{ext}"
+    return MPath.from_inp(out_dir) / f"{str(zoom)}.{ext}"
 
 
 def _tile_path(orig_path=None, basepath=None, for_gdal=True):
     path = (
-        MPath(basepath).joinpath(*orig_path.elements[-3:])
+        MPath.from_inp(basepath).joinpath(*orig_path.elements[-3:])
         if basepath
-        else MPath(orig_path)
+        else MPath.from_inp(orig_path)
     )
     if for_gdal:
         return path.as_gdal_str()
@@ -208,7 +208,7 @@ class VectorFileWriter:
     """Writes GeoJSON or GeoPackage files."""
 
     def __init__(self, out_path=None, crs=None, fieldname=None, driver=None):
-        self.path = MPath(out_path)
+        self.path = MPath.from_inp(out_path)
         self._append = (
             "a" in fiona.supported_drivers[driver] and not self.path.is_remote()
         )
@@ -356,7 +356,7 @@ class VRTFileWriter:
         if path_exists(self.path):
             with self.fs.open(self.path) as src:
                 self._existing = {
-                    k: MPath(v) for k, v in self._xml_to_entries(src.read())
+                    k: MPath.from_inp(v) for k, v in self._xml_to_entries(src.read())
                 }
         else:
             self._existing = {}
@@ -374,10 +374,12 @@ class VRTFileWriter:
         self.close()
 
     def _path_to_tile(self, path):
-        return self._tp.tile(*map(int, MPath(path).without_suffix().elements[-3:]))
+        return self._tp.tile(
+            *map(int, MPath.from_inp(path).without_suffix().elements[-3:])
+        )
 
     def _add_entry(self, tile=None, path=None):
-        self._new[tile] = MPath(path)
+        self._new[tile] = MPath.from_inp(path)
 
     def _xml_to_entries(self, xml_string):
         for entry in next(

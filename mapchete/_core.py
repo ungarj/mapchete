@@ -65,11 +65,11 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
     """
     # convert to MPath object if possible
     if isinstance(some_input, str):
-        some_input = MPath(some_input)
+        some_input = MPath.from_inp(some_input)
     # for TileDirectory inputs
     if isinstance(some_input, MPath) and some_input.suffix == "":
         logger.debug("assuming TileDirectory")
-        metadata_json = MPath(some_input).joinpath("metadata.json")
+        metadata_json = MPath.from_inp(some_input).joinpath("metadata.json")
         fs_kwargs = fs_kwargs or {}
         fs = fs or fs_from_path(metadata_json, **fs_kwargs)
         logger.debug("read metadata.json")

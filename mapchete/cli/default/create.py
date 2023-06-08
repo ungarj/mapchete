@@ -46,18 +46,18 @@ def create(
     force=False,
 ):
     """Create an empty Mapchete and process file in a given directory."""
-    process_file = MPath(process_file)
-    mapchete_file = MPath(mapchete_file)
+    process_file = MPath.from_inp(process_file)
+    mapchete_file = MPath.from_inp(mapchete_file)
     if process_file.exists() or mapchete_file.exists():
         if not force:
             raise IOError("file(s) already exists")
 
-    out_path = out_path if out_path else MPath(os.getcwd()) / "output"
+    out_path = out_path if out_path else MPath.from_inp(os.getcwd()) / "output"
 
     # copy file template to target directory
     # Reads contents with UTF-8 encoding and returns str.
     process_template = str(files("mapchete.static").joinpath("process_template.py"))
-    process_file = MPath(os.getcwd()) / process_file
+    process_file = MPath.from_inp(os.getcwd()) / process_file
     copyfile(process_template, process_file)
 
     # modify and copy mapchete file template to target directory

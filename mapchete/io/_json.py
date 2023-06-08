@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def write_json(path, params, fs=None, **kwargs):
     """Write local or remote."""
     logger.debug(f"write {params} to {path}")
-    path = MPath(path, fs=fs, **kwargs)
+    path = MPath.from_inp(path, fs=fs, **kwargs)
     path.makedirs()
     with path.open(mode="w") as dst:
         json.dump(params, dst, sort_keys=True, indent=4)
@@ -17,7 +17,7 @@ def write_json(path, params, fs=None, **kwargs):
 
 def read_json(path, fs=None, **kwargs):
     """Read local or remote."""
-    path = MPath(path, fs=fs, **kwargs)
+    path = MPath.from_inp(path, fs=fs, **kwargs)
     try:
         with path.open(mode="r") as src:
             return json.loads(src.read())

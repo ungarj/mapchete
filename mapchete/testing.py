@@ -22,13 +22,13 @@ def dict_from_mapchete(path):
     """
     Read mapchete configuration from file and return as dictionary.
     """
-    path = MPath(path)
+    path = MPath.from_inp(path)
     with path.open() as src:
         out = dict(yaml.safe_load(src.read()), config_dir=path.dirname)
         if "config_dir" in out:
-            out["config_dir"] = MPath(out["config_dir"])
+            out["config_dir"] = MPath.from_inp(out["config_dir"])
         elif "path" in out.get("output", {}):  # pragma: no cover
-            out["output"]["path"] = MPath.from_dict(out["output"])
+            out["output"]["path"] = MPath.from_inp(out["output"])
     return out
 
 
@@ -55,13 +55,13 @@ class ProcessFixture:
         output_suffix="",
         **kwargs,
     ):
-        self.path = MPath(path)
+        self.path = MPath.from_inp(path)
         self.basepath = MPath.parent
         self.output_path = None
         self.dict = None
         tempdir = tempdir or kwargs.get("output_tempdir")
         if tempdir:
-            self._tempdir = MPath(tempdir) / uuid.uuid4().hex
+            self._tempdir = MPath.from_inp(tempdir) / uuid.uuid4().hex
         else:  # pragma: no cover
             self._tempdir = None
         if inp_cache_tempdir:
@@ -80,7 +80,7 @@ class ProcessFixture:
                 if isinstance(val, dict):
                     if "cache" in val:
                         if "path" in val["cache"]:
-                            path = MPath.from_dict(val["cache"])
+                            path = MPath.from_inp(val["cache"])
                             temp_path = (
                                 self._inp_cache_tempdir / key / "cache" / path.name
                             )
@@ -89,7 +89,7 @@ class ProcessFixture:
         # replace output path with temporary path
         if self._tempdir:
             # set output directory
-            current_output_path = MPath.from_dict(self.dict["output"])
+            current_output_path = MPath.from_inp(self.dict["output"])
             if current_output_path.suffix:
                 self.dict["output"]["path"] = self._tempdir / current_output_path.name
             else:
@@ -120,7 +120,7 @@ class ProcessFixture:
         # delete written output if any
         out_dir = (
             self._tempdir
-            or MPath(self.dict["config_dir"]) / self.dict["output"]["path"]
+            or MPath.from_inp(self.dict["config_dir"]) / self.dict["output"]["path"]
         )
         out_dir.rm(recursive=True, ignore_errors=True)
 

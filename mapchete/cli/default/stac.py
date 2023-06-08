@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 
 import click
 import fsspec
@@ -84,7 +83,7 @@ def create_item(
 
     item_id = item_id or metadata.get("id", default_id)
     logger.debug("use item ID %s", item_id)
-    item_path = item_path or MPath(default_basepath) / f"{item_id}.json"
+    item_path = item_path or MPath.from_inp(default_basepath) / f"{item_id}.json"
     item = tile_directory_stac_item(
         item_id=item_id,
         item_metadata=metadata,
@@ -107,10 +106,10 @@ def create_item(
 
 
 def output_info(inp):
-    path = MPath(inp)
+    path = MPath.from_inp(inp)
     if path.suffix == ".mapchete":
         conf = raw_conf(path)
-        default_basepath = MPath.from_dict(conf["output"])
+        default_basepath = MPath.from_inp(conf["output"])
         return (
             raw_conf_output_pyramid(conf),
             default_basepath,

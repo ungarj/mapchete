@@ -101,8 +101,8 @@ def tile_directory_stac_item(
     if tile_pyramid is None:
         raise ValueError("tile_pyramid must be set")
 
-    asset_basepath = MPath(asset_basepath) if asset_basepath else None
-    item_path = MPath(item_path) if item_path else None
+    asset_basepath = MPath.from_inp(asset_basepath) if asset_basepath else None
+    item_path = MPath.from_inp(item_path) if item_path else None
 
     item_metadata = _cleanup_datetime(item_metadata or {})
     timestamp = (
@@ -329,7 +329,7 @@ def update_tile_directory_stac_item(
     -------
     pystac.Item
     """
-    item_path = MPath(item_path) if item_path else None
+    item_path = MPath.from_inp(item_path) if item_path else None
     # from existing item
     if item is not None:
         zoom_levels = zoom_levels or []

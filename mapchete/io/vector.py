@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def fiona_open(path, mode="r", **kwargs):
     """Call fiona.open but set environment correctly and return custom writer if needed."""
-    path = MPath(path)
+    path = MPath.from_inp(path)
 
     if "w" in mode:
         with fiona_write(path, mode=mode, **kwargs) as dst:
@@ -60,6 +60,8 @@ def fiona_read(path, mode="r", **kwargs):
     """
     Wrapper around fiona.open but fiona.Env is set according to path properties.
     """
+    path = MPath.from_inp(path)
+
     with path.fio_env() as env:
         logger.debug("reading %s with GDAL options %s", str(path), env.options)
         with fiona.open(str(path), mode=mode, **kwargs) as src:
@@ -90,7 +92,8 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     -------
     FionaRemoteWriter if target is remote, otherwise return fiona.open().
     """
-    path = MPath(path)
+    path = MPath.from_inp(path)
+
     if path.is_remote():
         if "s3" in path.protocols:  # pragma: no cover
             try:
@@ -102,7 +105,9 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
         ) as dst:
             yield dst
     else:
-        with path.fio_env():
+        with path.fio_env() as env:
+            logger.debug("writing %s with GDAL options %s", str(path), env.options)
+            path.parent.makedirs(exist_ok=True)
             with fiona.open(str(path), mode=mode, *args, **kwargs) as dst:
                 yield dst
 
@@ -213,7 +218,7 @@ def write_vector_window(
         output path for file
     """
     # Delete existing file.
-    out_path = MPath(out_path)
+    out_path = MPath.from_inp(out_path)
     out_path.rm(ignore_errors=True)
     out_features = []
     for feature in in_data:
@@ -588,8 +593,8 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs : mapping
         Creation parameters passed on to output file.
     """
-    inp = MPath(inp)
-    out = MPath(out)
+    inp = MPath.from_inp(inp)
+    out = MPath.from_inp(out)
     if out.exists():
         if not exists_ok:
             raise IOError(f"{out} already exists")
@@ -602,7 +607,6 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     if kwargs:
         logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
         with fiona_open(inp, "r") as src:
-            out.makedirs()
             with fiona_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
