@@ -107,7 +107,7 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     else:
         with path.fio_env() as env:
             logger.debug("writing %s with GDAL options %s", str(path), env.options)
-            path.makedirs()
+            path.parent.makedirs(exist_ok=True)
             with fiona.open(str(path), mode=mode, *args, **kwargs) as dst:
                 yield dst
 

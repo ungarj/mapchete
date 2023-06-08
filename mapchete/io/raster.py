@@ -100,7 +100,7 @@ def rasterio_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     else:
         with path.rio_env() as env:
             logger.debug("writing %s with GDAL options %s", str(path), env.options)
-            path.makedirs()
+            path.parent.makedirs(exist_ok=True)
             with rasterio.open(path, mode=mode, *args, **kwargs) as dst:
                 yield dst
 
