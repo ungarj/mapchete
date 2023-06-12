@@ -88,6 +88,7 @@ class MPath(os.PathLike):
                 return MPath(inp, **kwargs)
             return inp
         else:  # pragma: no cover
+            breakpoint()
             raise TypeError(f"cannot construct MPath object from {inp}")
 
     def to_dict(self) -> dict:
