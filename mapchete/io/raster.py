@@ -108,7 +108,7 @@ class ReferencedRaster:
     """
     A loose in-memory representation of a rasterio dataset.
 
-    Useful to ship cached raster files between worker nodes.
+    Useful to ship cached raster files between dask worker nodes.
     """
 
     def __init__(
@@ -121,7 +121,7 @@ class ReferencedRaster:
         driver: str = None,
         **kwargs,
     ):
-        if data.ndim == 1:
+        if data.ndim == 1:  # pragma: no cover
             raise TypeError("input array must have at least 2 dimensions")
         elif data.ndim == 2:
             self.count = 1
