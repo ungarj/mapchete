@@ -6,7 +6,6 @@ respective interfaces.
 """
 
 import logging
-import os
 import types
 import warnings
 from itertools import chain
@@ -110,7 +109,6 @@ class InputData(object):
 
     def cleanup(self):
         """Optional cleanup function called when Mapchete exits."""
-        pass
 
     def add_preprocessing_task(
         self, func, fargs=None, fkwargs=None, key=None, geometry=None, bounds=None
@@ -230,7 +228,6 @@ class InputTile(object):
 
     def __exit__(self, t, v, tb):
         """Clean up."""
-        pass
 
 
 class OutputDataBaseFunctions:
@@ -447,7 +444,7 @@ class OutputDataWriter(OutputDataReader):
         tile : ``BufferedTile``
             must be member of output ``TilePyramid``
         """
-        self.get_path(tile).makedirs()
+        self.get_path(tile).parent.makedirs()
 
     def output_is_valid(self, process_data):
         """
@@ -508,7 +505,6 @@ class OutputDataWriter(OutputDataReader):
 
     def close(self, exc_type=None, exc_value=None, exc_traceback=None):
         """Gets called if process is closed."""
-        pass
 
 
 class TileDirectoryOutputReader(OutputDataReader):

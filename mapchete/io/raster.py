@@ -54,7 +54,6 @@ def rasterio_read(path, mode="r", **kwargs):
     Wrapper around rasterio.open but rasterio.Env is set according to path properties.
     """
     path = MPath.from_inp(path)
-
     with path.rio_env() as env:
         logger.debug("reading %s with GDAL options %s", str(path), env.options)
         with rasterio.open(path, mode=mode, **kwargs) as src:
@@ -1292,7 +1291,7 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
                 dst.write(src.read())
     else:
         logger.debug("copy %s to %s", inp, (out))
-        out.makedirs()
+        out.parent.makedirs()
         copy(inp, out, overwrite=overwrite)
 
 

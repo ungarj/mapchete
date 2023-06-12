@@ -183,7 +183,7 @@ def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
         raise IOError(f"{dst_path} already exists")
 
     # create parent directories on local filesystems
-    dst_path.makedirs()
+    dst_path.parent.makedirs()
 
     # copy either within a filesystem or between filesystems
     if src_path.fs == dst_path.fs:
