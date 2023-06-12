@@ -3,6 +3,19 @@ Changelog
 #########
 
 ---------------------
+2023.6.2 - 2023-06-12
+---------------------
+
+* core
+
+  * don't let MPath.makedirs() decide whether to only create parent directories or not (#546)
+
+* testing
+
+  * ProcessFixture now processes all preprocessing tasks using SequentialExecutor (#546)
+
+
+---------------------
 2023.6.1 - 2023-06-06
 ---------------------
 
