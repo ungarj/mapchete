@@ -121,13 +121,18 @@ class ReferencedRaster:
         driver: str = None,
         **kwargs,
     ):
-        if data.ndim == 2:
+        if data.ndim == 1:
+            raise TypeError("input array must have at least 2 dimensions")
+        elif data.ndim == 2:
             self.count = 1
             self.height, self.width = data.shape
         elif data.ndim == 3:
             self.count, self.height, self.width = data.shape
         else:  # pragma: no cover
-            raise TypeError("input array must be 2- or 3-dimensional")
+            # for arrays with more dimensions, the first axis is assumed to be
+            # the bands and the last two the width and height
+            self.count = data.shape[0]
+            self.height, self.width = data.shape[-2:]
         transform = transform or kwargs.get("affine")
         if transform is None:  # pragma: no cover
             raise ValueError("georeference given")
