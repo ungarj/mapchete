@@ -707,7 +707,7 @@ class Mapchete(object):
                 bands_type=self.config.output.stac_asset_type,
             )
             logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
-            self.config.output.stac_path.makedirs()
+            self.config.output.stac_path.parent.makedirs()
             with self.config.output.stac_path.open("w") as dst:
                 dst.write(json.dumps(item.to_dict(), indent=indent))
         except ReprojectionFailed:

@@ -279,10 +279,8 @@ class MPath(os.PathLike):
         # create parent directories on local filesystems
         if self.fs.protocol == "file":
             # if path has no suffix, assume a file path and only create parent directories
-            if self.suffix != "":
-                self.fs.makedirs(self.dirname, exist_ok=exist_ok)
-            else:
-                self.fs.makedirs(self, exist_ok=exist_ok)
+            logger.debug("create directory %s", str(self))
+            self.fs.makedirs(self, exist_ok=exist_ok)
 
     def ls(self, detail=False):
         if detail:

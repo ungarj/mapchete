@@ -84,7 +84,7 @@ class ProcessFixture:
                             temp_path = (
                                 self._inp_cache_tempdir / key / "cache" / path.name
                             )
-                            temp_path.makedirs()
+                            temp_path.parent.makedirs()
                             val["cache"]["path"] = temp_path
         # replace output path with temporary path
         if self._tempdir:
@@ -98,7 +98,7 @@ class ProcessFixture:
             self.path = self._tempdir / self.path.name
 
             # dump modified mapchete config to temporary directory
-            self.path.makedirs()
+            self.path.parent.makedirs()
             with self.path.open("w") as dst:
                 dst.write(dict_to_yaml(self.dict))
 
@@ -144,11 +144,15 @@ class ProcessFixture:
         """
         Return Mapchete object from mapchete.open().
         """
-        if not self._mp:
-            self._mp = mapchete.open(self.dict)
-            if batch_preprocess:
-                self._mp.batch_preprocess()
-        return self._mp
+        from mapchete._executor import SequentialExecutor
+
+        with SequentialExecutor() as executor:
+            if not self._mp:
+                self._mp = mapchete.open(self.dict)
+                if batch_preprocess:
+                    self._mp.batch_preprocess(executor=executor)
+
+            return self._mp
 
     def first_process_tile(self, zoom=None):
         zoom = zoom or max(self.mp().config.zoom_levels)

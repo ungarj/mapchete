@@ -353,7 +353,6 @@ def test_baselevels_output_buffer(mp_tmpdir, baselevels_output_buffer):
             )
             subset = src.read(window=window, masked=True)
             assert not subset.mask.any()
-            pass
 
 
 def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):
@@ -394,7 +393,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                 mosaic = create_mosaic(tiles)
                 try:
                     temp_vrt = mp_tmpdir / zoom + ".vrt"
-                    temp_vrt.makedirs()
+                    temp_vrt.parent.makedirs()
                     gdalbuildvrt = "gdalbuildvrt %s %s/%s/*/*.tif > /dev/null" % (
                         temp_vrt,
                         mp.config.output.path,

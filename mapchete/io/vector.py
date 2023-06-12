@@ -93,7 +93,6 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     FionaRemoteWriter if target is remote, otherwise return fiona.open().
     """
     path = MPath.from_inp(path)
-
     if path.is_remote():
         if "s3" in path.protocols:  # pragma: no cover
             try:
@@ -611,7 +610,7 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
                 dst.writerecords(src)
     else:
         logger.debug("copy %s to %s", str(inp), str(out))
-        out.makedirs()
+        out.parent.makedirs()
         copy(inp, out, overwrite=overwrite)
 
 

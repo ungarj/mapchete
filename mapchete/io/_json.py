@@ -10,7 +10,7 @@ def write_json(path, params, fs=None, **kwargs):
     """Write local or remote."""
     logger.debug(f"write {params} to {path}")
     path = MPath.from_inp(path, fs=fs, **kwargs)
-    path.makedirs()
+    path.parent.makedirs()
     with path.open(mode="w") as dst:
         json.dump(params, dst, sort_keys=True, indent=4)
 
