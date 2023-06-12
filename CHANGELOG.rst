@@ -3,6 +3,16 @@ Changelog
 #########
 
 ---------------------
+2023.6.3 - 2023-06-12
+---------------------
+
+* core
+
+  * allow `ReferencedRaster` to accept arrays with more dimensions than 3 (#548)
+  * `MPath.from_inp()`: allow parsing objects using `__fspath__` interface (#547)
+
+
+---------------------
 2023.6.2 - 2023-06-12
 ---------------------
 
