@@ -87,8 +87,9 @@ class MPath(os.PathLike):
             if kwargs:
                 return MPath(inp, **kwargs)
             return inp
+        elif hasattr(inp, "__fspath__"):  # pragma: no cover
+            return MPath(inp.__fspath__(), **kwargs)
         else:  # pragma: no cover
-            breakpoint()
             raise TypeError(f"cannot construct MPath object from {inp}")
 
     def to_dict(self) -> dict:
