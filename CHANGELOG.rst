@@ -2,6 +2,20 @@
 Changelog
 #########
 
+
+---------------------
+2023.6.4 - 2023-06-13
+---------------------
+
+* core
+
+  * `MPath`: don't store session objects; fix allowed extensions string (#549)
+
+* testing
+
+  * add pickling tests (#549)
+
+
 ---------------------
 2023.6.3 - 2023-06-12
 ---------------------
