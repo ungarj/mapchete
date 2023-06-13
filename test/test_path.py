@@ -1,3 +1,4 @@
+import pickle
 import pytest
 
 from mapchete.config import get_hash
@@ -268,3 +269,33 @@ def test_transfer_fs(secure_http_testdata_dir):
         str(secure_http_testdata_dir) + "aoi_br.geojson", fs=secure_http_testdata_dir.fs
     )
     assert path.exists()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+        pytest.lazy_fixture("raster_4band_aws_s3"),
+    ],
+)
+def test_pickle_path(path):
+    packed = pickle.dumps(path)
+    unpacked = pickle.loads(packed)
+    assert path == unpacked
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+        pytest.lazy_fixture("raster_4band_aws_s3"),
+    ],
+)
+def test_pickle_fs(path):
+    assert pickle.loads(pickle.dumps(path.fs))

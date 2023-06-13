@@ -62,7 +62,6 @@ class MPath(os.PathLike):
         self._storage_options = dict(
             DEFAULT_STORAGE_OPTIONS, **self._kwargs.get("storage_options") or {}
         )
-        self._fs_session = self._kwargs.get("fs_session")
 
     @staticmethod
     def from_dict(dictionary) -> "MPath":
@@ -145,7 +144,6 @@ class MPath(os.PathLike):
                     connect_timeout=self._storage_options.get("timeout"),
                     read_timeout=self._storage_options.get("timeout"),
                 ),
-                session=self._fs_session,
                 **{
                     k: v
                     for k, v in self._storage_options.items()
@@ -176,7 +174,6 @@ class MPath(os.PathLike):
         else:
             return fsspec.filesystem("file", **self._storage_options)
 
-    @cached_property
     def fs_session(self):
         if hasattr(self.fs, "session"):
             return self.fs.session
@@ -357,7 +354,9 @@ class MPath(os.PathLike):
                 extensions = default_remote_extensions + [self.suffix]
                 # make sure current path extension is added to allowed_remote_extensions
                 gdal_opts.update(
-                    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=", ".join(set(extensions))
+                    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=", ".join(
+                        set([ext for ext in extensions if ext != ""])
+                    )
                 )
             if self.fs.kwargs.get("auth"):
                 gdal_opts.update(
@@ -378,9 +377,8 @@ class MPath(os.PathLike):
         else:
             return None
 
-    @cached_property
     def rio_session(self) -> "rasterio.session.Session":
-        if self.fs_session:
+        if self.fs_session():
             # rasterio accepts a Session object but only a boto3.session.Session
             # object and not a aiobotocore.session.AioSession which we get from fsspec
             return RioSession.from_path(
@@ -401,7 +399,7 @@ class MPath(os.PathLike):
         )
         if self.is_remote():
             out.update(
-                session=self.rio_session, AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
+                session=self.rio_session(), AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
             )
         return out
 
@@ -413,9 +411,8 @@ class MPath(os.PathLike):
             )
         )
 
-    @cached_property
     def fio_session(self) -> "fiona.session.Session":
-        if self.fs_session:
+        if self.fs_session():
             # fiona accepts a Session object but only a boto3.session.Session
             # object and not a aiobotocore.session.AioSession which we get from fsspec
             return FioSession.from_path(
@@ -436,7 +433,7 @@ class MPath(os.PathLike):
         )
         if self.is_remote():
             out.update(
-                session=self.fio_session, AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
+                session=self.fio_session(), AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
             )
         return out
 
