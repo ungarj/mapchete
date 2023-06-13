@@ -353,12 +353,11 @@ class MPath(os.PathLike):
                     )
                 extensions = default_remote_extensions + [self.suffix]
                 # make sure current path extension is added to allowed_remote_extensions
-                extensions = set([ext for ext in extensions if ext != ""])
-                if len(extensions) == 1:
-                    extensions_string = list(extensions)[0]
-                else:
-                    extensions_string = ", ".join(extensions)
-                gdal_opts.update(CPL_VSIL_CURL_ALLOWED_EXTENSIONS=extensions_string)
+                gdal_opts.update(
+                    CPL_VSIL_CURL_ALLOWED_EXTENSIONS=", ".join(
+                        set([ext for ext in extensions if ext != ""])
+                    )
+                )
             if self.fs.kwargs.get("auth"):
                 gdal_opts.update(
                     GDAL_HTTP_USERPWD=f"{self.fs.kwargs['auth'].login}:{self.fs.kwargs['auth'].password}"
