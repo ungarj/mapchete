@@ -48,7 +48,8 @@ from mapchete.formats import (
 from mapchete.io import MPath, absolute_path, fiona_open
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
-from mapchete.tile import BufferedTilePyramid
+from mapchete.tile import BufferedTilePyramid, snap_geometry_to_tiles
+from mapchete._timer import Timer
 from mapchete.types import Bounds
 from mapchete.validate import (
     validate_bounds,
@@ -301,12 +302,7 @@ class MapcheteConfig(object):
         logger.debug(f"init bounds: {self.init_bounds}")
 
         # (7) the delimiters are used by some input drivers
-        self._delimiters = dict(
-            zoom=self.init_zoom_levels,
-            bounds=self.init_bounds,
-            process_bounds=self.bounds,
-            effective_bounds=self.effective_bounds,
-        )
+        self._delimiters
 
         # (8) initialize output
         logger.info("initializing output")
@@ -404,14 +400,48 @@ class MapcheteConfig(object):
         Process bounds sometimes have to be larger, because all intersecting process
         tiles have to be covered as well.
         """
+        # highest process (i.e. non-overview) zoom level
+        zoom = (
+            min(self.baselevels["zooms"])
+            if self.baselevels
+            else min(self.init_zoom_levels)
+        )
         return snap_bounds(
             bounds=clip_bounds(
                 bounds=self.init_bounds, clip=self.process_pyramid.bounds
             ),
             pyramid=self.process_pyramid,
-            zoom=min(self.baselevels["zooms"])
-            if self.baselevels
-            else min(self.init_zoom_levels),
+            zoom=zoom,
+        )
+
+    @cached_property
+    def effective_area(self):
+        """
+        Effective process area required to initialize inputs.
+
+        This area is the true process area of all process tiles combined.
+        """
+        with Timer() as timer:
+            # highest process (i.e. non-overview) zoom level
+            zoom = (
+                min(self.baselevels["zooms"])
+                if self.baselevels
+                else min(self.init_zoom_levels)
+            )
+            geom = snap_geometry_to_tiles(
+                self.area.intersection(self.init_area), self.process_pyramid, zoom
+            )
+        logger.debug("created effective area in %s", timer)
+        return geom
+
+    @cached_property
+    def _delimiters(self):
+        return dict(
+            zoom=self.init_zoom_levels,
+            bounds=self.init_bounds,
+            process_bounds=self.bounds,
+            effective_bounds=self.effective_bounds,
+            effective_area=self.effective_area,
         )
 
     @cached_property

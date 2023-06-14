@@ -9,6 +9,7 @@ from fiona.errors import DriverError
 from shapely import wkt
 from shapely.errors import WKTReadingError
 from shapely.geometry import Polygon, box, mapping, shape
+from shapely.ops import unary_union
 
 import mapchete
 from mapchete.config import (
@@ -161,6 +162,36 @@ def test_effective_bounds(files_bounds, baselevels):
                 baselevels=dict(lower="cubic", max=7),
             )
         )
+
+
+@pytest.mark.parametrize(
+    "example_config",
+    [
+        pytest.lazy_fixture("custom_grid"),
+        pytest.lazy_fixture("file_groups"),
+        pytest.lazy_fixture("overviews"),
+        pytest.lazy_fixture("baselevels"),
+        pytest.lazy_fixture("baselevels_output_buffer"),
+        pytest.lazy_fixture("baselevels_custom_nodata"),
+        pytest.lazy_fixture("mapchete_input"),
+        pytest.lazy_fixture("dem_to_hillshade"),
+        pytest.lazy_fixture("env_storage_options_mapchete"),
+        pytest.lazy_fixture("zoom_mapchete"),
+        pytest.lazy_fixture("cleantopo_br_mercator"),
+    ],
+)
+def test_effective_area(example_config):
+    config = MapcheteConfig(example_config.dict)
+    aoi = config.area.intersection(config.init_area)
+    control_area = unary_union(
+        [
+            tile.bbox
+            for tile in config.process_pyramid.tiles_from_geom(
+                aoi, config.zoom_levels.min
+            )
+        ]
+    )
+    assert config.effective_area.difference(control_area).area == 0
 
 
 def test_area_and_bounds(cleantopo_br_tiledir, sample_geojson):

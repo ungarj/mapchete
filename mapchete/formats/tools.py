@@ -12,6 +12,8 @@ from typing import Dict
 
 import dateutil.parser
 from rasterio.crs import CRS
+from shapely.geometry import mapping
+from shapely.geometry.base import BaseGeometry
 
 from mapchete._registered import drivers
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
@@ -224,8 +226,13 @@ def dump_metadata(params: Dict, parse_datetime=True) -> Dict:
     def _datetime_to_str(value):
         return value.isoformat()
 
+    def _geometry_to_none(value):
+        return None
+
     strategies = [
         ((datetime.date, datetime.datetime), _datetime_to_str),
+        (MPath, str),
+        (BaseGeometry, _geometry_to_none),
     ]
     return _unparse_dict(out, strategies=strategies) if parse_datetime else out
 
