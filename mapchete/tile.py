@@ -6,9 +6,11 @@ import numpy as np
 from affine import Affine
 from cached_property import cached_property
 from rasterio.enums import Resampling
-from rasterio.features import rasterize
+from rasterio.features import rasterize, shapes
 from rasterio.warp import reproject
-from shapely.geometry import box
+from shapely import clip_by_rect
+from shapely.geometry import box, shape
+from shapely.ops import unary_union
 from tilematrix import Tile, TilePyramid
 from tilematrix._conf import ROUND
 
@@ -511,3 +513,43 @@ def _count_cells(pyramid, geometry, minzoom, maxzoom):
 
     # return cell sum
     return int(count)
+
+
+def snap_geometry_to_tiles(geometry=None, pyramid=None, zoom=None):
+    if geometry.is_empty:
+        return geometry
+    # calculate everything using an unbuffered pyramid, because otherwise the Affine
+    # object cannot be calculated
+    unbuffered_pyramid = BufferedTilePyramid.from_dict(
+        dict(pyramid.to_dict(), pixelbuffer=0)
+    )
+    transform = unbuffered_pyramid.matrix_affine(zoom)
+    raster = rasterize(
+        [(geometry, 1)],
+        out_shape=(
+            unbuffered_pyramid.matrix_height(zoom),
+            unbuffered_pyramid.matrix_width(zoom),
+        ),
+        fill=0,
+        transform=transform,
+        dtype=np.uint8,
+        all_touched=True,
+    )
+    # recreate geometry again by extracting features from raster
+    out_geom = unary_union(
+        [
+            shape(feature)
+            for feature, _ in shapes(raster, mask=raster, transform=transform)
+        ]
+    )
+    # if original pyramid contained a pixelbuffer, add it to the output geometry
+    if pyramid.pixelbuffer:
+        buffer_distance = pyramid.pixelbuffer * pyramid.pixel_x_size(zoom)
+        return clip_by_rect(
+            out_geom.buffer(buffer_distance, join_style="mitre"),
+            pyramid.left - buffer_distance if pyramid.is_global else pyramid.left,
+            pyramid.bottom,
+            pyramid.right + buffer_distance if pyramid.is_global else pyramid.right,
+            pyramid.top,
+        )
+    return out_geom
