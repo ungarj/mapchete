@@ -89,7 +89,6 @@ class MPath(os.PathLike):
         elif hasattr(inp, "__fspath__"):  # pragma: no cover
             return MPath(inp.__fspath__(), **kwargs)
         else:  # pragma: no cover
-            breakpoint()
             raise TypeError(f"cannot construct MPath object from {inp}")
 
     def to_dict(self) -> dict:
@@ -334,15 +333,20 @@ class MPath(os.PathLike):
         dictionary
         """
         user_opts = {} if opts is None else dict(**opts)
+
+        # for remote paths, we need some special settings
         if self.is_remote():
             gdal_opts = GDAL_HTTP_OPTS.copy()
-            if self.suffix == ".vrt":
-                # we cannot know at this point which file types the VRT is pointing to,
-                # so in order to play safe, we remove the extensions constraint here
+
+            # we cannot know at this point which file types the VRT or STACTA JSON
+            # is pointing to, so in order to play safe, we remove the extensions constraint here
+            if self.suffix in (".vrt", ".json"):
                 try:
                     gdal_opts.pop("CPL_VSIL_CURL_ALLOWED_EXTENSIONS")
                 except KeyError:  # pragma: no cover
                     pass
+
+            # limit requests only to allowed extensions
             else:
                 default_remote_extensions = gdal_opts.get(
                     "CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ""
@@ -358,13 +362,24 @@ class MPath(os.PathLike):
                         set([ext for ext in extensions if ext != ""])
                     )
                 )
+
+            # secure HTTP credentials
             if self.fs.kwargs.get("auth"):
                 gdal_opts.update(
                     GDAL_HTTP_USERPWD=f"{self.fs.kwargs['auth'].login}:{self.fs.kwargs['auth'].password}"
                 )
+
+            # if a custom S3 endpoint is used, we need to deactivate these AWS options
+            if self._endpoint_url:
+                gdal_opts.update(AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False)
+
+            # merge everything with user options
             gdal_opts.update(user_opts)
+
+        # reading only locally, go with user options
         else:
             gdal_opts = user_opts
+
         logger.debug("using GDAL options: %s", gdal_opts)
         return gdal_opts
 
@@ -398,9 +413,7 @@ class MPath(os.PathLike):
             allowed_remote_extensions=allowed_remote_extensions,
         )
         if self.is_remote():
-            out.update(
-                session=self.rio_session(), AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
-            )
+            out.update(session=self.rio_session())
         return out
 
     def rio_env(self, opts=None, allowed_remote_extensions=None) -> rasterio.Env:
@@ -432,9 +445,7 @@ class MPath(os.PathLike):
             allowed_remote_extensions=allowed_remote_extensions,
         )
         if self.is_remote():
-            out.update(
-                session=self.fio_session(), AWS_VIRTUAL_HOSTING=False, AWS_HTTPS=False
-            )
+            out.update(session=self.fio_session())
         return out
 
     def fio_env(self, opts=None, allowed_remote_extensions=None) -> fiona.Env:

@@ -1,0 +1,103 @@
+{
+    "type": "Feature",
+    "stac_version": "1.0.0",
+    "id": "cleantopo",
+    "properties": {
+        "datetime": "2023-06-16T06:05:05.834780Z",
+        "collection": "cleantopo",
+        "tiles:tile_matrix_links": {
+            "WorldCRS84Quad": {
+                "url": "#WorldCRS84Quad",
+                "limits": {
+                    "1": {
+                        "min_tile_col": 0,
+                        "max_tile_col": 3,
+                        "min_tile_row": 0,
+                        "max_tile_row": 1
+                    }
+                }
+            }
+        },
+        "tiles:tile_matrix_sets": {
+            "WorldCRS84Quad": {
+                "type": "TileMatrixSetType",
+                "title": "CRS84 for the World",
+                "identifier": "WorldCRS84Quad",
+                "supportedCRS": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+                "wellKnownScaleSet": "http://www.opengis.net/def/wkss/OGC/1.0/GoogleCRS84Quad",
+                "tileMatrix": [
+                    {
+                        "type": "TileMatrixType",
+                        "identifier": "1",
+                        "scaleDenominator": 139770566.007179,
+                        "topLeftCorner": [
+                            -180.0,
+                            90.0
+                        ],
+                        "tileWidth": 256,
+                        "tileHeight": 256,
+                        "matrixWidth": 4,
+                        "matrixHeight": 2
+                    }
+                ],
+                "boundingBox": {
+                    "type": "BoundingBoxType",
+                    "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+                    "lowerCorner": [
+                        -180.0,
+                        -90.0
+                    ],
+                    "upperCorner": [
+                        180.0,
+                        90.0
+                    ]
+                }
+            }
+        }
+    },
+    "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [
+                    180.0,
+                    -90.0
+                ],
+                [
+                    -180.0,
+                    -90.0
+                ],
+                [
+                    -180.0,
+                    90.0
+                ],
+                [
+                    180.0,
+                    90.0
+                ],
+                [
+                    180.0,
+                    -90.0
+                ]
+            ]
+        ]
+    },
+    "links": [
+    ],
+    "assets": {},
+    "bbox": [
+        -180.0,
+        -90.0,
+        180.0,
+        90.0
+    ],
+    "stac_extensions": [
+        "tiled-assets"
+    ],
+    "asset_templates": {
+        "bands": {
+            "href": "{TileMatrix}/{TileRow}/{TileCol}.tif",
+            "type": null
+        }
+    }
+}

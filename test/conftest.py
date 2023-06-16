@@ -196,6 +196,36 @@ def secure_http_tiledir(secure_http_testdata_dir):
 
 
 @pytest.fixture
+def stacta(testdata_dir):
+    """Fixture for STACTA."""
+    return testdata_dir / "cleantopo" / "cleantopo.json"
+
+
+@pytest.fixture
+def http_stacta(http_testdata_dir):
+    """Fixture for HTTP STACTA."""
+    return http_testdata_dir / "cleantopo" / "cleantopo.json"
+
+
+@pytest.fixture
+def secure_http_stacta(secure_http_testdata_dir):
+    """Fixture for secure HTTP STACTA."""
+    return secure_http_testdata_dir / "cleantopo" / "cleantopo.json"
+
+
+@pytest.fixture
+def s3_stacta(minio_testdata_bucket):
+    """Fixture for S3 STACTA."""
+    return prepare_s3_testfile(minio_testdata_bucket, "cleantopo/cleantopo.json")
+
+
+@pytest.fixture
+def aws_s3_stacta(aws_s3_testdata_dir):
+    """Fixture for AWS S3 STACTA."""
+    return aws_s3_testdata_dir / "cleantopo" / "cleantopo.json"
+
+
+@pytest.fixture
 def s2_band():
     """
     Fixture for Sentinel-2 raster band.
