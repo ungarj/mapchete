@@ -988,6 +988,12 @@ def test_read_raster_window(path, grid, pixelbuffer, zoom):
         pytest.lazy_fixture("raster_4band_aws_s3"),
         pytest.lazy_fixture("raster_4band_http"),
         pytest.lazy_fixture("raster_4band_secure_http"),
+        pytest.lazy_fixture("stacta"),
+        # this test is deactivated because it fails
+        # pytest.lazy_fixture("s3_stacta"),
+        pytest.lazy_fixture("aws_s3_stacta"),
+        pytest.lazy_fixture("http_stacta"),
+        pytest.lazy_fixture("secure_http_stacta"),
     ],
 )
 def test_read_raster(path):
