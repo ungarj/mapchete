@@ -17,7 +17,7 @@ from mapchete.io.settings import GDAL_HTTP_OPTS
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_STORAGE_OPTIONS = {"asynchronous": False, "timeout": 5}
+DEFAULT_STORAGE_OPTIONS = {"asynchronous": False, "timeout": None}
 UNALLOWED_S3_KWARGS = ["timeout"]
 UNALLOWED_HTTP_KWARGS = ["username", "password"]
 

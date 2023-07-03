@@ -190,5 +190,6 @@ def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
         src_path.fs.copy(str(src_path), str(dst_path))
     else:
         with src_path.open("rb") as src:
-            with dst_path.open("wb") as dst:
-                dst.write(src.read())
+            content = src.read()
+        with dst_path.open("wb") as dst:
+            dst.write(content)
