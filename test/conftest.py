@@ -12,7 +12,11 @@ from shapely import wkt
 from shapely.geometry import box
 from tilematrix import Bounds, GridDefinition
 
-from mapchete._executor import DaskExecutor
+from mapchete._executor import (
+    DaskExecutor,
+    ConcurrentFuturesExecutor,
+    SequentialExecutor,
+)
 from mapchete.cli.default.serve import create_app
 from mapchete.io import MPath, copy, rasterio_open
 from mapchete.io.vector import reproject_geometry
@@ -1031,7 +1035,28 @@ def s3_example_tile(gtiff_s3):
 
 
 @pytest.fixture(scope="package")
+def sequential_executor():
+    """SequentialExecutor()"""
+    with SequentialExecutor() as executor:
+        yield executor
+
+
+@pytest.fixture(scope="package")
 def dask_executor():
     """DaskExecutor()"""
     with DaskExecutor() as executor:
+        yield executor
+
+
+@pytest.fixture(scope="package")
+def processes_executor():
+    """ConcurrentFuturesExecutor()"""
+    with ConcurrentFuturesExecutor(concurrency="processes") as executor:
+        yield executor
+
+
+@pytest.fixture(scope="package")
+def threads_executor():
+    """ConcurrentFuturesExecutor()"""
+    with ConcurrentFuturesExecutor(concurrency="threads") as executor:
         yield executor

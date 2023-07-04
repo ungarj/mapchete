@@ -76,6 +76,10 @@ class _ExecutorBase:
         **kwargs,
     ):
         """Submit tasks to executor and start yielding finished futures."""
+
+        # before running, make sure cancel signal is False
+        self.cancel_signal = False
+
         try:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
@@ -83,7 +87,7 @@ class _ExecutorBase:
             i = 0
             with Timer() as timer:
                 for i, item in enumerate(iterable, 1):
-                    if self.cancelled:  # pragma: no cover
+                    if self.cancel_signal:  # pragma: no cover
                         logger.debug("executor cancelled")
                         return
 
@@ -143,7 +147,7 @@ class _ExecutorBase:
         return self._map(func, iterable, fargs=fargs, fkwargs=fkwargs)
 
     def cancel(self):
-        self.cancelled = True
+        self.cancel_signal = True
         logger.debug("cancel %s futures...", len(self.running_futures))
         for future in self.running_futures:
             future.cancel()
@@ -310,13 +314,16 @@ class DaskExecutor(_ExecutorBase):
         max_submitted_tasks = max_submitted_tasks or 500
         chunksize = chunksize or 100
 
+        # before running, make sure cancel signal is False
+        self.cancel_signal = False
+
         try:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
             chunk = []
             for item in iterable:
                 # abort if execution is cancelled
-                if self.cancelled:  # pragma: no cover
+                if self.cancel_signal:  # pragma: no cover
                     logger.debug("executor cancelled")
                     return
 
@@ -400,7 +407,7 @@ class DaskExecutor(_ExecutorBase):
 
         for future, result in batch:
             self._submitted -= 1
-            if self.cancelled:  # pragma: no cover
+            if self.cancel_signal:  # pragma: no cover
                 logger.debug("executor cancelled")
                 raise JobCancelledError()
             try:
@@ -525,8 +532,11 @@ class SequentialExecutor(_ExecutorBase):
         fargs = fargs or []
         fkwargs = fkwargs or {}
 
+        # before running, make sure cancel signal is False
+        self.cancel_signal = False
+
         for item in iterable:
-            if self.cancelled:
+            if self.cancel_signal:
                 logger.debug("executor cancelled")
                 return
             # skip task submission if option is activated
@@ -545,7 +555,7 @@ class SequentialExecutor(_ExecutorBase):
         return list(map(partial(func, *fargs, **fkwargs), iterable))
 
     def cancel(self):
-        self.cancelled = True
+        self.cancel_signal = True
 
     def _wait(self):  # pragma: no cover
         return
@@ -689,16 +699,21 @@ def future_exception(future):
     return exception
 
 
-def future_raise_exception(future, raise_errors=True):
+def future_raise_exception(
+    future, raise_errors=True, keep_exceptions=(CancelledError,)
+):
     """
-    Checks whether future contains an exception and raises it.
+    Checks whether future contains an exception and raises it as MapcheteTaskFailed.
     """
     if raise_errors and future_is_failed_or_cancelled(future):
         future_name = (
             future.key.rstrip("_finished") if hasattr(future, "key") else str(future)
         )
+
         try:
             exception = future_exception(future)
+
+        # in case the exception cannot be retrieved
         except Exception as exc:  # pragma: no cover
             # dask futures
             if hasattr(future, "status"):
@@ -707,6 +722,10 @@ def future_raise_exception(future, raise_errors=True):
             else:
                 msg = f"{future_name} failed but its exception could not be recovered due to a {exc}"
             raise MapcheteTaskFailed(msg)
+
+        # keep some exceptions as they are
+        if isinstance(exception, keep_exceptions):
+            raise exception
 
         raise MapcheteTaskFailed(
             f"{future_name} raised a {repr(exception)}"
