@@ -189,6 +189,10 @@ def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
     if src_path.fs == dst_path.fs:
         src_path.fs.copy(str(src_path), str(dst_path))
     else:
+        # read source data first
         with src_path.open("rb") as src:
-            with dst_path.open("wb") as dst:
-                dst.write(src.read())
+            content = src.read()
+        # only write to destination if reading source data didn't raise errors,
+        # otherwise we can end up with empty objects on an object store
+        with dst_path.open("wb") as dst:
+            dst.write(content)
