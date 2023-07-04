@@ -1,3 +1,4 @@
+from concurrent.futures._base import CancelledError
 import time
 
 import pytest
@@ -13,198 +14,95 @@ def _dummy_process(i, sleep=0):
     return i + 1
 
 
-def test_sequential_executor_as_completed():
-    items = 10
+@pytest.mark.parametrize(
+    "executor_fixture",
+    ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
+)
+def test_as_completed(executor_fixture, request, items=10):
+    executor = request.getfixturevalue(executor_fixture)
+
     count = 0
-    with Executor(concurrency=None) as executor:
-        # process all
-        for future in executor.as_completed(_dummy_process, range(items)):
-            count += 1
-            assert future.result()
-        assert items == count
-
-        # abort
-        cancelled = False
-        for future in executor.as_completed(_dummy_process, range(items)):
-            if cancelled:
-                raise RuntimeError()
-            assert future.result()
-            cancelled = True
-            executor.cancel()
+    # process all
+    for future in executor.as_completed(_dummy_process, range(items)):
+        count += 1
+        assert future.result()
+    assert items == count
+    assert not executor.running_futures
 
 
-def test_sequential_executor_as_completed_skip():
-    items = 10
+@pytest.mark.parametrize(
+    "executor_fixture",
+    ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
+)
+def test_as_completed_cancel(executor_fixture, request, items=10):
+    executor = request.getfixturevalue(executor_fixture)
+
+    # abort
+    for future in executor.as_completed(_dummy_process, range(items)):
+        assert future.result()
+        executor.cancel()
+    assert not executor.running_futures
+
+
+@pytest.mark.parametrize(
+    "executor_fixture",
+    ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
+)
+def test_as_completed_skip(executor_fixture, request, items=10):
+    executor = request.getfixturevalue(executor_fixture)
+
     count = 0
     skip_info = "foo"
-    with Executor(concurrency=None) as executor:
-        # process all
-        for future in executor.as_completed(
-            _dummy_process,
-            [(i, True, skip_info) for i in range(items)],
-            item_skip_bool=True,
-        ):
-            assert isinstance(future, SkippedFuture)
-            assert future.skip_info == skip_info
-            count += 1
-        assert items == count
+    # process all
+    for future in executor.as_completed(
+        _dummy_process,
+        [(i, True, skip_info) for i in range(items)],
+        item_skip_bool=True,
+    ):
+        assert isinstance(future, SkippedFuture)
+        assert future.skip_info == skip_info
+        count += 1
+    assert not executor.running_futures
+    assert items == count
 
 
-def test_sequential_executor_map():
+@pytest.mark.parametrize(
+    "executor_fixture",
+    ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
+)
+@pytest.mark.parametrize(
+    "max_submitted_tasks",
+    [1, 2, 10],
+)
+def test_as_completed_max_tasks(
+    executor_fixture, max_submitted_tasks, request, items=100
+):
+    executor = request.getfixturevalue(executor_fixture)
+
+    count = 0
+    for future in executor.as_completed(
+        _dummy_process,
+        range(items),
+        max_submitted_tasks=max_submitted_tasks,
+        chunksize=items // 10,
+    ):
+        assert future.result()
+        count += 1
+
+    assert count == items
+    assert not executor.running_futures
+
+
+@pytest.mark.parametrize(
+    "executor_fixture",
+    ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
+)
+def test_map(executor_fixture, request):
+    executor = request.getfixturevalue(executor_fixture)
+
     items = list(range(10))
-    with Executor(concurrency=None) as executor:
-        result = executor.map(_dummy_process, items)
-        assert [i + 1 for i in items] == result
-
-
-def test_concurrent_futures_processes_executor_as_completed():
-    items = 10
-    with Executor(concurrency="processes") as executor:
-        # process all
-        count = 0
-        for future in executor.as_completed(_dummy_process, range(items)):
-            count += 1
-            assert future.result()
-        assert not executor.running_futures
-
-
-def test_concurrent_futures_processes_executor_as_completed_max_tasks():
-    items = 100
-    with Executor(concurrency="processes") as executor:
-        # abort
-        for future in executor.as_completed(
-            _dummy_process, range(items), max_submitted_tasks=1
-        ):
-            assert future.result()
-
-        assert not executor.running_futures
-
-
-def test_concurrent_futures_processes_executor_as_completed_skip():
-    items = 10
-    skip_info = "foo"
-    with Executor(concurrency="processes") as executor:
-        # process all
-        count = 0
-        for future in executor.as_completed(
-            _dummy_process,
-            [(i, True, skip_info) for i in range(items)],
-            item_skip_bool=True,
-        ):
-            count += 1
-            assert isinstance(future, SkippedFuture)
-            assert future.skip_info == skip_info
-        assert items == count
-
-
-def test_concurrent_futures_processes_executor_cancel_as_completed():
-    items = 100
-    with Executor(concurrency="processes", max_workers=2) as executor:
-        # abort
-        for future in executor.as_completed(
-            _dummy_process, range(items), fkwargs=dict(sleep=2)
-        ):
-            assert future.result()
-            executor.cancel()
-            break
-
-        assert not executor.running_futures
-
-
-def test_concurrent_futures_processes_executor_map():
-    items = list(range(10))
-    with Executor(concurrency="processes") as executor:
-        result = executor.map(_dummy_process, items)
-        assert [i + 1 for i in items] == result
-
-
-def test_concurrent_futures_threads_executor_as_completed():
-    items = 100
-    with Executor(concurrency="threads", max_workers=2) as executor:
-        # abort
-        for future in executor.as_completed(
-            _dummy_process, range(items), fkwargs=dict(sleep=2)
-        ):
-            assert future.result()
-            executor.cancel()
-            break
-
-        assert not executor.running_futures
-
-
-def test_concurrent_futures_threads_executor_as_completed_skip():
-    items = 100
-    skip_info = "foo"
-    with Executor(concurrency="threads", max_workers=2) as executor:
-        count = 0
-        for future in executor.as_completed(
-            _dummy_process,
-            [(i, True, skip_info) for i in range(items)],
-            item_skip_bool=True,
-            fkwargs=dict(sleep=2),
-        ):
-            count += 1
-            assert isinstance(future, SkippedFuture)
-            assert future.skip_info == skip_info
-        assert items == count
-
-
-def test_concurrent_futures_threads_executor_map():
-    items = list(range(10))
-    with Executor(concurrency="threads") as executor:
-        result = executor.map(_dummy_process, items)
-        assert [i + 1 for i in items] == result
-
-
-def test_dask_executor_as_completed():
-    items = 100
-    with Executor(concurrency="dask", max_workers=2) as executor:
-        # abort
-        for future in executor.as_completed(
-            _dummy_process, range(items), fkwargs=dict(sleep=2)
-        ):
-            assert future.result()
-            executor.cancel()
-            break
-
-        assert not executor.running_futures
-
-
-def test_dask_executor_as_completed_skip():
-    items = 100
-    skip_info = "foo"
-    with Executor(concurrency="dask", max_workers=2) as executor:
-        count = 0
-        for future in executor.as_completed(
-            _dummy_process,
-            [(i, True, skip_info) for i in range(items)],
-            item_skip_bool=True,
-            fkwargs=dict(sleep=2),
-        ):
-            count += 1
-            assert isinstance(future, SkippedFuture)
-            assert future.skip_info == skip_info
-        assert items == count
-
-
-@pytest.mark.parametrize("max_submitted_tasks", [1, None])
-def test_dask_executor_as_completed_max_tasks(max_submitted_tasks):
-    items = 100
-    with Executor(concurrency="dask") as executor:
-        # abort
-        for future in executor.as_completed(
-            _dummy_process, range(items), max_submitted_tasks=max_submitted_tasks
-        ):
-            assert future.result()
-
-        assert not executor.running_futures
-
-
-def test_concurrent_futures_dask_executor_map():
-    items = list(range(10))
-    with Executor(concurrency="dask") as executor:
-        result = executor.map(_dummy_process, items)
-        assert [i + 1 for i in items] == result
+    result = executor.map(_dummy_process, items)
+    assert [i + 1 for i in items] == result
 
 
 def test_fake_future():
@@ -280,3 +178,11 @@ def test_process_exception_zoom_dask_nograph(mp_tmpdir, cleantopo_br, process_er
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
             list(mp.compute(zoom=5, concurrency="dask", dask_compute_graph=False))
+
+
+def test_dask_cancellederror(dask_executor, items=10):
+    def raise_cancellederror(*args, **kwargs):
+        raise CancelledError()
+
+    with pytest.raises(CancelledError):
+        list(dask_executor.as_completed(raise_cancellederror, range(items)))

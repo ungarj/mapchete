@@ -76,6 +76,10 @@ class _ExecutorBase:
         **kwargs,
     ):
         """Submit tasks to executor and start yielding finished futures."""
+
+        # before running, make sure cancel signal is False
+        self.cancel_signal = False
+
         try:
             fargs = fargs or ()
             fkwargs = fkwargs or {}
@@ -83,7 +87,7 @@ class _ExecutorBase:
             i = 0
             with Timer() as timer:
                 for i, item in enumerate(iterable, 1):
-                    if self.cancelled:  # pragma: no cover
+                    if self.cancel_signal:  # pragma: no cover
                         logger.debug("executor cancelled")
                         return
 
@@ -127,6 +131,7 @@ class _ExecutorBase:
         finally:
             # reset so futures won't linger here for next call
             self.running_futures = set()
+            self.finished_futures = set()
 
     def _submit(self, func, *fargs, **fkwargs):
         future = self._executor.submit(func, *fargs, **fkwargs)
@@ -143,7 +148,7 @@ class _ExecutorBase:
         return self._map(func, iterable, fargs=fargs, fkwargs=fkwargs)
 
     def cancel(self):
-        self.cancelled = True
+        self.cancel_signal = True
         logger.debug("cancel %s futures...", len(self.running_futures))
         for future in self.running_futures:
             future.cancel()
@@ -189,11 +194,6 @@ class _ExecutorBase:
         # create minimal Future-like object with no references to the cluster
         finished_future = FinishedFuture(future, result=result)
 
-        # explicitly release future
-        try:
-            future.release()
-        except AttributeError:
-            pass
         return finished_future
 
     @cached_property
@@ -305,10 +305,11 @@ class DaskExecutor(_ExecutorBase):
         finished futures
 
         """
-        from dask.distributed import TimeoutError
-
         max_submitted_tasks = max_submitted_tasks or 500
         chunksize = chunksize or 100
+
+        # before running, make sure cancel signal is False
+        self.cancel_signal = False
 
         try:
             fargs = fargs or ()
@@ -316,7 +317,7 @@ class DaskExecutor(_ExecutorBase):
             chunk = []
             for item in iterable:
                 # abort if execution is cancelled
-                if self.cancelled:  # pragma: no cover
+                if self.cancel_signal:  # pragma: no cover
                     logger.debug("executor cancelled")
                     return
 
@@ -372,7 +373,6 @@ class DaskExecutor(_ExecutorBase):
                 fargs=fargs,
                 fkwargs=fkwargs,
             )
-            chunk = []
             # yield remaining futures as they finish
             if self._ac_iterator is not None:
                 logger.debug("yield %s remaining futures", self._submitted)
@@ -389,64 +389,19 @@ class DaskExecutor(_ExecutorBase):
             self._submitted = 0
 
     def _submit_chunk(self, chunk=None, func=None, fargs=None, fkwargs=None):
-        logger.debug("submit chunk of %s items to cluster", len(chunk))
-        futures = self._executor.map(partial(func, *fargs, **fkwargs), chunk)
-        self._ac_iterator.update(futures)
-        self._submitted += len(futures)
+        if chunk:
+            logger.debug("submit chunk of %s items to cluster", len(chunk))
+            futures = self._executor.map(partial(func, *fargs, **fkwargs), chunk)
+            self._ac_iterator.update(futures)
+            self._submitted += len(futures)
 
     def _yield_from_batch(self, batch):
-        from dask.distributed import TimeoutError
-        from distributed.comm.core import CommClosedError
-
-        cancelled_futures = []
-
         for future, result in batch:
             self._submitted -= 1
-            if self.cancelled:  # pragma: no cover
+            if self.cancel_signal:  # pragma: no cover
                 logger.debug("executor cancelled")
                 raise JobCancelledError()
-            try:
-                yield self._finished_future(future, result, _dask=True)
-            except TimeoutError:  # pragma: no cover
-                logger.error(
-                    "%s: couldn't fetch future result() or exception() in %ss",
-                    future,
-                    FUTURE_TIMEOUT,
-                )
-                self._retry(future)
-            except CancelledError as exc:  # pragma: no cover
-                logger.error("%s got cancelled: %s", future, exc)
-                cancelled_futures.append(future)
-
-        if cancelled_futures:  # pragma: no cover
-            logger.error("caught %s cancelled_futures", len(cancelled_futures))
-            try:
-                logger.debug("try to get scheduler logs...")
-                logger.debug(
-                    "scheduler logs: %s", self._executor.get_scheduler_logs(n=1000)
-                )
-            except Exception as e:
-                logger.exception(e)
-            status = self._executor.status
-            if status in ("running", "connecting"):
-                try:
-                    logger.debug("retry %s futures...", len(cancelled_futures))
-                    for future in cancelled_futures:
-                        self._retry(future)
-                except KeyError:
-                    raise RuntimeError(
-                        f"unable to retry {len(cancelled_futures)} cancelled futures {self._executor} ({status})"
-                    )
-            else:
-                raise RuntimeError(
-                    f"client lost connection to scheduler {self._executor} ({status})"
-                )
-
-    def _retry(self, future):  # pragma: no cover
-        logger.debug("retry future %s", future)
-        future.retry()
-        self._ac_iterator.add(future)
-        self._submitted += 1
+            yield self._finished_future(future, result, _dask=True)
 
     @cached_property
     def _executor(self):
@@ -554,8 +509,11 @@ class SequentialExecutor(_ExecutorBase):
         fargs = fargs or []
         fkwargs = fkwargs or {}
 
+        # before running, make sure cancel signal is False
+        self.cancel_signal = False
+
         for item in iterable:
-            if self.cancelled:
+            if self.cancel_signal:
                 logger.debug("executor cancelled")
                 return
             # skip task submission if option is activated
@@ -574,7 +532,7 @@ class SequentialExecutor(_ExecutorBase):
         return list(map(partial(func, *fargs, **fkwargs), iterable))
 
     def cancel(self):
-        self.cancelled = True
+        self.cancel_signal = True
 
     def _wait(self):  # pragma: no cover
         return
@@ -702,6 +660,7 @@ def future_exception(future):
     # dask futures
     if hasattr(future, "status"):
         if future.status == "cancelled":  # pragma: no cover
+            # dask CancelledErrors hide inside future.result(), so get it from here
             exception = future.result(timeout=FUTURE_TIMEOUT)
         elif future.status == "error":
             exception = future.exception(timeout=FUTURE_TIMEOUT)
@@ -720,14 +679,31 @@ def future_exception(future):
 
 def future_raise_exception(future, raise_errors=True):
     """
-    Checks whether future contains an exception and raises it.
+    Checks whether future contains an exception and raises it as MapcheteTaskFailed.
     """
+
+    # Some exception types such as dask exceptions or generic CancelledErrors indicate that
+    # there was an error around the Executor rather than from the future/task itself.
+    # Let's directly re-raise these to be more transparent.
+    try:
+        # when using dask, also directly raise specific dask errors
+        from distributed import CancelledError
+        from dask.distributed import TimeoutError
+        from distributed.comm.core import CommClosedError
+
+        keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
+    except ImportError:  # pragma: no cover
+        keep_exceptions = (CancelledError,)
+
     if raise_errors and future_is_failed_or_cancelled(future):
         future_name = (
             future.key.rstrip("_finished") if hasattr(future, "key") else str(future)
         )
+
         try:
             exception = future_exception(future)
+
+        # in case the exception cannot be retrieved
         except Exception as exc:  # pragma: no cover
             # dask futures
             if hasattr(future, "status"):
@@ -737,7 +713,12 @@ def future_raise_exception(future, raise_errors=True):
                 msg = f"{future_name} failed but its exception could not be recovered due to a {exc}"
             raise MapcheteTaskFailed(msg)
 
+        # keep some exceptions as they are
+        if isinstance(exception, keep_exceptions):
+            raise exception
+
         raise MapcheteTaskFailed(
             f"{future_name} raised a {repr(exception)}"
         ).with_traceback(exception.__traceback__)
+
     return future
