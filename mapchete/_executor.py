@@ -131,6 +131,7 @@ class _ExecutorBase:
         finally:
             # reset so futures won't linger here for next call
             self.running_futures = set()
+            self.finished_futures = set()
 
     def _submit(self, func, *fargs, **fkwargs):
         future = self._executor.submit(func, *fargs, **fkwargs)
@@ -372,7 +373,6 @@ class DaskExecutor(_ExecutorBase):
                 fargs=fargs,
                 fkwargs=fkwargs,
             )
-            chunk = []
             # yield remaining futures as they finish
             if self._ac_iterator is not None:
                 logger.debug("yield %s remaining futures", self._submitted)
@@ -389,10 +389,11 @@ class DaskExecutor(_ExecutorBase):
             self._submitted = 0
 
     def _submit_chunk(self, chunk=None, func=None, fargs=None, fkwargs=None):
-        logger.debug("submit chunk of %s items to cluster", len(chunk))
-        futures = self._executor.map(partial(func, *fargs, **fkwargs), chunk)
-        self._ac_iterator.update(futures)
-        self._submitted += len(futures)
+        if chunk:
+            logger.debug("submit chunk of %s items to cluster", len(chunk))
+            futures = self._executor.map(partial(func, *fargs, **fkwargs), chunk)
+            self._ac_iterator.update(futures)
+            self._submitted += len(futures)
 
     def _yield_from_batch(self, batch):
         for future, result in batch:
