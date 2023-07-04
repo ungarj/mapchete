@@ -193,11 +193,6 @@ class _ExecutorBase:
         # create minimal Future-like object with no references to the cluster
         finished_future = FinishedFuture(future, result=result)
 
-        # explicitly release future
-        try:
-            future.release()
-        except AttributeError:
-            pass
         return finished_future
 
     @cached_property
