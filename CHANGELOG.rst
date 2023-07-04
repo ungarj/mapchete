@@ -4,6 +4,21 @@ Changelog
 
 
 ---------------------
+2023.7.0 - 2023-07-04
+---------------------
+
+* core
+
+  * better handle dask CancelledErrors (#555) 
+  * fix copy() of larger files (#552) 
+  * fix STACTA read & add tests (#551)
+
+* packaging
+
+  * pin pystac version to 1.7.3 as it does not yet implement STAC version… 
+
+
+---------------------
 2023.6.5 - 2023-06-14
 ---------------------
 
