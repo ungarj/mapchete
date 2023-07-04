@@ -1,3 +1,4 @@
+from concurrent.futures._base import CancelledError
 import time
 
 import pytest
@@ -168,3 +169,11 @@ def test_process_exception_zoom_dask_nograph(mp_tmpdir, cleantopo_br, process_er
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
             list(mp.compute(zoom=5, concurrency="dask", dask_compute_graph=False))
+
+
+def test_dask_cancellederror(dask_executor, items=10):
+    def raise_cancellederror(*args, **kwargs):
+        raise CancelledError()
+
+    with pytest.raises(CancelledError):
+        list(dask_executor.as_completed(raise_cancellederror, range(items)))

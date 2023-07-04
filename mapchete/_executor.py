@@ -402,29 +402,12 @@ class DaskExecutor(_ExecutorBase):
         self._submitted += len(futures)
 
     def _yield_from_batch(self, batch):
-        from dask.distributed import TimeoutError
-        from distributed.comm.core import CommClosedError
-
         for future, result in batch:
             self._submitted -= 1
             if self.cancel_signal:  # pragma: no cover
                 logger.debug("executor cancelled")
                 raise JobCancelledError()
-            try:
-                yield self._finished_future(future, result, _dask=True)
-            except TimeoutError:  # pragma: no cover
-                logger.error(
-                    "%s: couldn't fetch future result() or exception() in %ss",
-                    future,
-                    FUTURE_TIMEOUT,
-                )
-                self._retry(future)
-
-    def _retry(self, future):  # pragma: no cover
-        logger.debug("retry future %s", future)
-        future.retry()
-        self._ac_iterator.add(future)
-        self._submitted += 1
+            yield self._finished_future(future, result, _dask=True)
 
     @cached_property
     def _executor(self):
@@ -683,6 +666,7 @@ def future_exception(future):
     # dask futures
     if hasattr(future, "status"):
         if future.status == "cancelled":  # pragma: no cover
+            # dask CancelledErrors hide inside future.result(), so get it from here
             exception = future.result(timeout=FUTURE_TIMEOUT)
         elif future.status == "error":
             exception = future.exception(timeout=FUTURE_TIMEOUT)
@@ -699,12 +683,24 @@ def future_exception(future):
     return exception
 
 
-def future_raise_exception(
-    future, raise_errors=True, keep_exceptions=(CancelledError,)
-):
+def future_raise_exception(future, raise_errors=True):
     """
     Checks whether future contains an exception and raises it as MapcheteTaskFailed.
     """
+
+    # Some exception types such as dask exceptions or generic CancelledErrors indicate that
+    # there was an error around the Executor rather than from the future/task itself.
+    # Let's directly re-raise these to be more transparent.
+    try:
+        # when using dask, also directly raise specific dask errors
+        from distributed import CancelledError
+        from dask.distributed import TimeoutError
+        from distributed.comm.core import CommClosedError
+
+        keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
+    except ImportError:
+        keep_exceptions = (CancelledError,)
+
     if raise_errors and future_is_failed_or_cancelled(future):
         future_name = (
             future.key.rstrip("_finished") if hasattr(future, "key") else str(future)
@@ -730,4 +726,5 @@ def future_raise_exception(
         raise MapcheteTaskFailed(
             f"{future_name} raised a {repr(exception)}"
         ).with_traceback(exception.__traceback__)
+
     return future
