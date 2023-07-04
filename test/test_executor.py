@@ -18,10 +18,9 @@ def _dummy_process(i, sleep=0):
     "executor_fixture",
     ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
 )
-def test_as_completed(executor_fixture, request):
+def test_as_completed(executor_fixture, request, items=10):
     executor = request.getfixturevalue(executor_fixture)
 
-    items = 10
     count = 0
     # process all
     for future in executor.as_completed(_dummy_process, range(items)):
@@ -35,10 +34,9 @@ def test_as_completed(executor_fixture, request):
     "executor_fixture",
     ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
 )
-def test_as_completed_cancel(executor_fixture, request):
+def test_as_completed_cancel(executor_fixture, request, items=10):
     executor = request.getfixturevalue(executor_fixture)
 
-    items = 10
     # abort
     for future in executor.as_completed(_dummy_process, range(items)):
         assert future.result()
@@ -76,15 +74,22 @@ def test_as_completed_skip(executor_fixture, request, items=10):
     "max_submitted_tasks",
     [1, 2, 10],
 )
-def test_as_completed_max_tasks(executor_fixture, max_submitted_tasks, request):
+def test_as_completed_max_tasks(
+    executor_fixture, max_submitted_tasks, request, items=100
+):
     executor = request.getfixturevalue(executor_fixture)
 
-    items = 100
+    count = 0
     for future in executor.as_completed(
-        _dummy_process, range(items), max_submitted_tasks=max_submitted_tasks
+        _dummy_process,
+        range(items),
+        max_submitted_tasks=max_submitted_tasks,
+        chunksize=items // 10,
     ):
         assert future.result()
+        count += 1
 
+    assert count == items
     assert not executor.running_futures
 
 
