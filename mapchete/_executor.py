@@ -698,7 +698,7 @@ def future_raise_exception(future, raise_errors=True):
         from distributed.comm.core import CommClosedError
 
         keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
-    except ImportError:
+    except ImportError:  # pragma: no cover
         keep_exceptions = (CancelledError,)
 
     if raise_errors and future_is_failed_or_cancelled(future):
