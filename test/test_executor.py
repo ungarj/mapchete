@@ -72,12 +72,16 @@ def test_as_completed_skip(executor_fixture, request, items=10):
     "executor_fixture",
     ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
 )
-def test_as_completed_max_tasks(executor_fixture, request):
+@pytest.mark.parametrize(
+    "max_submitted_tasks",
+    [1, 2, 10],
+)
+def test_as_completed_max_tasks(executor_fixture, max_submitted_tasks, request):
     executor = request.getfixturevalue(executor_fixture)
 
     items = 100
     for future in executor.as_completed(
-        _dummy_process, range(items), max_submitted_tasks=1
+        _dummy_process, range(items), max_submitted_tasks=max_submitted_tasks
     ):
         assert future.result()
 
