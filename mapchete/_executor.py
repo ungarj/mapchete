@@ -309,8 +309,6 @@ class DaskExecutor(_ExecutorBase):
         finished futures
 
         """
-        from dask.distributed import TimeoutError
-
         max_submitted_tasks = max_submitted_tasks or 500
         chunksize = chunksize or 100
 
