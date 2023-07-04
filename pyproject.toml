@@ -56,7 +56,7 @@ complete = [
     "lxml",
     "matplotlib",
     "protobuf<=3.20.1",
-    "pystac",
+    "pystac[urllib3]<=1.7.3",
     "requests",
     "rtree",
     "werkzeug>=0.15",
@@ -91,7 +91,7 @@ spatial-index = [
     "rtree",
 ]
 stac = [
-    "pystac",
+    "pystac[urllib3]<=1.7.3",
 ]
 vrt = [
     "lxml",
