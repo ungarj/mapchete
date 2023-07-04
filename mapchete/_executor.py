@@ -398,8 +398,6 @@ class DaskExecutor(_ExecutorBase):
         from dask.distributed import TimeoutError
         from distributed.comm.core import CommClosedError
 
-        cancelled_futures = []
-
         for future, result in batch:
             self._submitted -= 1
             if self.cancelled:  # pragma: no cover
@@ -414,33 +412,6 @@ class DaskExecutor(_ExecutorBase):
                     FUTURE_TIMEOUT,
                 )
                 self._retry(future)
-            except CancelledError as exc:  # pragma: no cover
-                logger.error("%s got cancelled: %s", future, exc)
-                cancelled_futures.append(future)
-
-        if cancelled_futures:  # pragma: no cover
-            logger.error("caught %s cancelled_futures", len(cancelled_futures))
-            try:
-                logger.debug("try to get scheduler logs...")
-                logger.debug(
-                    "scheduler logs: %s", self._executor.get_scheduler_logs(n=1000)
-                )
-            except Exception as e:
-                logger.exception(e)
-            status = self._executor.status
-            if status in ("running", "connecting"):
-                try:
-                    logger.debug("retry %s futures...", len(cancelled_futures))
-                    for future in cancelled_futures:
-                        self._retry(future)
-                except KeyError:
-                    raise RuntimeError(
-                        f"unable to retry {len(cancelled_futures)} cancelled futures {self._executor} ({status})"
-                    )
-            else:
-                raise RuntimeError(
-                    f"client lost connection to scheduler {self._executor} ({status})"
-                )
 
     def _retry(self, future):  # pragma: no cover
         logger.debug("retry future %s", future)
