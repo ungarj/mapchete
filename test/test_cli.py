@@ -54,7 +54,7 @@ def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
 
 def test_main():
     # """Main CLI."""
-    for command in ["create", "execute", "create"]:
+    for command in ["execute", "serve", "cp", "index"]:
         run_cli(
             [command],
             expected_exit_code=2,
@@ -81,8 +81,11 @@ def test_create(mp_tmpdir, cleantopo_br_tif):
     run_cli(
         [
             "create",
+            "--mapchete-file",
             str(temp_mapchete),
+            "--process-file",
             str(temp_process),
+            "--out-format",
             out_format,
             "--pyramid-type",
             "geodetic",
@@ -105,8 +108,11 @@ def test_create_existing(mp_tmpdir):
     # create files from template
     args = [
         "create",
+        "--mapchete-file",
         temp_mapchete,
+        "--process-file",
         temp_process,
+        "--out-format",
         out_format,
         "--pyramid-type",
         "geodetic",
