@@ -253,6 +253,7 @@ class OutputDataBaseFunctions:
             "fs", fs_from_path(output_params.get("path", ""))
         )
         self.fs_kwargs = self._fs_kwargs = output_params.get("fs_kwargs") or {}
+        self.data_type = self.METADATA["data_type"]
 
     @property
     def stac_path(self):
@@ -319,7 +320,7 @@ class OutputDataBaseFunctions:
         -------
         NumPy array or list of features.
         """
-        if self.METADATA["data_type"] == "raster":
+        if self.data_type == "raster":
             mosaic = create_mosaic(input_data_tiles)
             return extract_from_array(
                 in_raster=prepare_array(
@@ -330,7 +331,7 @@ class OutputDataBaseFunctions:
                 in_affine=mosaic.affine,
                 out_tile=out_tile,
             )
-        elif self.METADATA["data_type"] == "vector":
+        elif self.data_type == "vector":
             return [
                 feature
                 for feature in list(
@@ -458,11 +459,11 @@ class OutputDataWriter(OutputDataReader):
         -------
         True or False
         """
-        if self.METADATA["data_type"] == "raster":
+        if self.data_type == "raster":
             return is_numpy_or_masked_array(
                 process_data
             ) or is_numpy_or_masked_array_with_tags(process_data)
-        elif self.METADATA["data_type"] == "vector":
+        elif self.data_type == "vector":
             return is_feature_list(process_data)
 
     def output_cleaned(self, process_data):
@@ -477,7 +478,7 @@ class OutputDataWriter(OutputDataReader):
         -------
         NumPy array or list of features.
         """
-        if self.METADATA["data_type"] == "raster":
+        if self.data_type == "raster":
             if is_numpy_or_masked_array(process_data):
                 return prepare_array(
                     process_data,
@@ -488,7 +489,7 @@ class OutputDataWriter(OutputDataReader):
             elif is_numpy_or_masked_array_with_tags(process_data):
                 data, tags = process_data
                 return self.output_cleaned(data), tags
-        elif self.METADATA["data_type"] == "vector":
+        elif self.data_type == "vector":
             return list(process_data)
 
     def streamline_output(self, process_data):
@@ -575,7 +576,7 @@ class TileDirectoryOutputReader(OutputDataReader):
         data : list for vector files or numpy array for raster files
         """
         return _read_as_tiledir(
-            data_type=self.METADATA["data_type"],
+            data_type=self.data_type,
             out_tile=out_tile,
             td_crs=td_crs,
             tiles_paths=tiles_paths,

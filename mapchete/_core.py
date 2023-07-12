@@ -3,6 +3,7 @@
 import json
 import logging
 import multiprocessing
+import numpy as np
 import os
 import threading
 import warnings
@@ -717,6 +718,19 @@ class Mapchete(object):
         except Exception as exc:  # pragma: no cover
             logger.warning("cannot create or update STAC item: %s", str(exc))
 
+    def minimum_worker_memory_usage(self):
+        if self.config.output.data_type == "raster" and hasattr(
+            self.config.output, "profile"
+        ):
+            count = self.config.output.profile().get("count")
+            tile_size = self.config.process_pyramid.tile_size
+            itemsize = np.dtype(self.config.output.profile().get("dtype")).itemsize
+            mem_usage_bytes = count * tile_size * tile_size * itemsize
+            return mem_usage_bytes
+        raise ValueError(
+            f"cannot estimate minimum memory usage for output {self.config.output}"
+        )
+
     def _process_and_overwrite_output(self, tile, process_tile):
         if self.with_cache:
             output = self._execute_using_cache(process_tile)
@@ -794,7 +808,7 @@ class Mapchete(object):
             self.process_lock = None
 
     def __repr__(self):  # pragma: no cover
-        return f"Mapchete <process_name={self.process_name}>"
+        return f"Mapchete <process_name={self.process_name}, mode={self.config.mode}>"
 
 
 def _get_zoom_level(zoom, process):

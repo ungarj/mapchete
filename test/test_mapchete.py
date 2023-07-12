@@ -848,3 +848,8 @@ def test_write_stac(stac_metadata):
         item = json.loads(src.read())
 
     assert item
+
+
+def test_estimate_memory_usage(example_mapchete):
+    with example_mapchete.mp() as mp:
+        assert mp.minimum_worker_memory_usage()
