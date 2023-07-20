@@ -7,8 +7,10 @@ from string import Template
 import click
 from importlib_resources import files
 from oyaml import dump
+import tilematrix
 
 from mapchete.cli import options
+from mapchete.formats import available_output_formats
 from mapchete.io import MPath
 
 FORMAT_MANDATORY = {
@@ -30,12 +32,32 @@ FORMAT_MANDATORY = {
 }
 
 
+def _to_mpath(ctx, param, value):
+    if value:
+        return MPath.from_inp(value)
+
+
 @click.command(help="Create a new process.")
-@options.arg_create_mapchete_file
-@options.arg_process_file
-@options.arg_out_format
-@options.opt_out_path
-@options.opt_pyramid_type
+@click.option("--mapchete-file", type=click.Path(), callback=_to_mpath, prompt=True)
+@click.option("--process-file", type=click.STRING, callback=_to_mpath, prompt=True)
+@click.option(
+    "--out-format", type=click.Choice(available_output_formats()), prompt=True
+)
+@click.option(
+    "--out-path",
+    type=click.Path(),
+    default=MPath.from_inp("output"),
+    help="Output path.",
+    prompt=True,
+)
+@click.option(
+    "--pyramid-type",
+    "-pt",
+    type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
+    default="geodetic",
+    help="Output pyramid type. (default: geodetic)",
+    prompt=True,
+)
 @options.opt_force
 def create(
     mapchete_file,
@@ -46,8 +68,6 @@ def create(
     force=False,
 ):
     """Create an empty Mapchete and process file in a given directory."""
-    process_file = MPath.from_inp(process_file)
-    mapchete_file = MPath.from_inp(mapchete_file)
     if process_file.exists() or mapchete_file.exists():
         if not force:
             raise IOError("file(s) already exists")
@@ -57,12 +77,11 @@ def create(
     # copy file template to target directory
     # Reads contents with UTF-8 encoding and returns str.
     process_template = str(files("mapchete.static").joinpath("process_template.py"))
-    process_file = MPath.from_inp(os.getcwd()) / process_file
     copyfile(process_template, process_file)
 
     # modify and copy mapchete file template to target directory
-    mapchete_template = str(
-        files("mapchete.static").joinpath("mapchete_template.mapchete")
+    mapchete_template = (
+        MPath.from_inp(files("mapchete.static")) / "mapchete_template.mapchete"
     )
 
     output_options = dict(
@@ -76,8 +95,7 @@ def create(
         "output": dump({"output": output_options}, default_flow_style=False),
         "pyramid": dump({"pyramid": pyramid_options}, default_flow_style=False),
     }
-    with open(mapchete_template, "r") as config_template:
-        config = Template(config_template.read())
-        customized_config = config.substitute(substitute_elements)
-    with open(mapchete_file, "w") as target_config:
+    config = Template(mapchete_template.read_text())
+    customized_config = config.substitute(substitute_elements)
+    with mapchete_file.open("w") as target_config:
         target_config.write(customized_config)

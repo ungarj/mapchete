@@ -4,6 +4,16 @@ Changelog
 
 
 ---------------------
+2023.7.1 - 2023-07-18
+---------------------
+
+* core
+
+  * CLI: add promts to ease using mapchete create (#558)
+  * clip source tile to pyramid bounds before reprojecting to avoid bumping into antimeridian error (#561)
+
+
+---------------------
 2023.7.0 - 2023-07-04
 ---------------------
 

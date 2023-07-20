@@ -392,8 +392,12 @@ class InputTile(base.InputTile):
         matching_max_zoom=None,
     ):
         # determine tile bounds in TileDirectory CRS
+        # NOTE: because fiona/OGR cannot handle geometries crossing the antimeridian,
+        # we have to clip the source bounds to the CRS bounds.
         _geom = reproject_geometry(
-            self.tile.bbox, src_crs=self.tile.tp.crs, dst_crs=self._td_pyramid.crs
+            self.tile.bbox.intersection(box(*self.tile.buffered_tp.bounds)),
+            src_crs=self.tile.tp.crs,
+            dst_crs=self._td_pyramid.crs,
         )
         if _geom.is_empty:  # pragma: no cover
             logger.debug(
@@ -414,7 +418,6 @@ class InputTile(base.InputTile):
                 zoom = min([zoom, matching_max_zoom])
         else:
             zoom = tile_directory_zoom
-
         if fallback_to_higher_zoom:
             tiles_paths = []
             # check if tiles exist otherwise try higher zoom level

@@ -5,7 +5,15 @@ from fiona.errors import DriverError
 from rasterio.crs import CRS
 from shapely import wkt
 from shapely.errors import TopologicalError
-from shapely.geometry import LineString, MultiPolygon, Polygon, box, mapping, shape
+from shapely.geometry import (
+    LineString,
+    MultiPolygon,
+    Polygon,
+    box,
+    mapping,
+    shape,
+    Point,
+)
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import (
@@ -21,7 +29,6 @@ from mapchete.io.vector import (
     clean_geometry_type,
     convert_vector,
     fiona_open,
-    fiona_write,
     object_bounds,
     read_vector_window,
     reproject_geometry,
@@ -241,6 +248,25 @@ def test_reproject_geometry_clip_crs_bounds_proj():
         == pytest.approx(bbox_wgs84.area)
         == pytest.approx(bbox.area)
     )
+
+
+@pytest.mark.skip(reason="antimeridian cutting does not work")
+def test_reproject_geometry_over_antimeridian():
+    tp = BufferedTilePyramid("mercator", pixelbuffer=96, metatiling=16)
+    tile = tp.tile(5, 0, 0)
+
+    # reproject to lat/lon
+    tile_4326 = reproject_geometry(tile.bbox, src_crs=tile.crs, dst_crs="EPSG:4326")
+
+    # this point should lie within tile bounds
+    point = Point(-90, 45)
+    assert point.within(tile_4326)
+
+    # reproject again and make sure it is the same geometry as the original one
+    tile_4326_3857 = reproject_geometry(
+        tile_4326, src_crs="EPSG:4326", dst_crs="EPSG:3857"
+    )
+    assert tile.bbox == tile_4326_3857
 
 
 def test_repair_geometry():
