@@ -1,0 +1,15 @@
+process: ../example_process.py
+zoom_levels: 5
+pyramid:
+    grid: geodetic
+input:
+    file1:
+        format: TileDirectory
+        path: cleantopo/
+        max_zoom: 1
+        resampling: bilinear
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/cleantopo_read_zoom2
