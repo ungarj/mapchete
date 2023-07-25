@@ -147,6 +147,14 @@ def test_read_reprojected_raster_data(
         )
 
 
+def test_read_raster_data_from_lower_zoom(cleantopo_read_lower_zoom):
+    """Read raster data."""
+    mp = cleantopo_read_lower_zoom.process_mp()
+    with mp.open("file1") as src:
+        assert src._resampling == "bilinear"
+        assert src.read().any()
+
+
 def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     """Read raster data."""
     # prepare data
