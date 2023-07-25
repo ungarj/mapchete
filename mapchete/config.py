@@ -26,12 +26,13 @@ from tempfile import NamedTemporaryFile
 import fsspec
 import oyaml as yaml
 from cached_property import cached_property
+from pydantic import BaseModel, validator
 from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
+from typing import Union, List, Tuple
 
-from mapchete._executor import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.errors import (
     GeometryTypeError,
     MapcheteConfigError,
@@ -39,6 +40,7 @@ from mapchete.errors import (
     MapcheteProcessImportError,
     MapcheteProcessSyntaxError,
 )
+from mapchete._executor import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.formats import (
     available_output_formats,
     load_input_reader,
@@ -59,6 +61,60 @@ from mapchete.validate import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class OutputConfigBase(BaseModel):
+    format: str
+    metatiling: Union[int, None] = 1
+    pixelbuffer: Union[int, None] = 0
+
+    @validator("metatiling", always=True)
+    def _metatiling(cls, value: int) -> int:
+        _metatiling_opts = [2**x for x in range(10)]
+        if value not in _metatiling_opts:
+            raise ValueError(f"metatling must be one of {_metatiling_opts}")
+
+    @validator("pixelbuffer", always=True)
+    def _pixelbuffer(cls, value: int) -> int:
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("pixelbuffer must be 0 or a positive integer")
+
+
+# class GTiffConfig(OutputConfigBase):
+#     bands: int
+#     path: str
+
+
+class PyramidConfig(BaseModel):
+    grid: Union[str, dict]
+    metatiling: Union[int, None] = 1
+    pixelbuffer: Union[int, None] = 0
+
+    @validator("metatiling", always=True)
+    def _metatiling(cls, value: int) -> int:
+        _metatiling_opts = [2**x for x in range(10)]
+        if value not in _metatiling_opts:
+            raise ValueError(f"metatling must be one of {_metatiling_opts}")
+
+    @validator("pixelbuffer", always=True)
+    def _pixelbuffer(cls, value: int) -> int:
+        if not isinstance(value, int) or value < 0:
+            raise ValueError("pixelbuffer must be 0 or a positive integer")
+
+
+class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
+    process: Union[str, List[str]]
+    pyramid: PyramidConfig
+    output: dict
+    zoom_levels: Union[dict, int, list]
+    input: Union[dict, BaseGeometry, None]
+    area: Union[str, None]
+    area_crs: Union[dict, str, None]
+    baselevels: Union[dict, None]
+    bounds: Union[Tuple[float, float, float, float], None]
+    bounds_crs: Union[dict, str, None]
+    process_parameters: Union[dict, None]
+
 
 # parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
@@ -184,6 +240,7 @@ class MapcheteConfig(object):
     ):
         """Initialize configuration."""
         logger.debug(f"parsing {input_config}")
+        self._config = ProcessConfig(**_config_to_dict(input_config))
         # get dictionary representation of input_config and
         # (0) map deprecated params to new structure
         self._raw = _map_to_new_config(_config_to_dict(input_config))

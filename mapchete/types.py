@@ -1,3 +1,6 @@
+from shapely.geometry import shape
+
+
 class Bounds(list):
     """
     Class to handle geographic bounds.
@@ -78,6 +81,10 @@ class Bounds(list):
                 ]
             ],
         }
+
+    @property
+    def geometry(self):
+        return shape(self)
 
     @classmethod
     def from_inp(cls, inp, strict=True):
