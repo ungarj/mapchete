@@ -818,6 +818,15 @@ def cleantopo_br_mercator(mp_tmpdir):
 
 
 @pytest.fixture
+def cleantopo_read_lower_zoom(mp_tmpdir):
+    """Fixture for cleantopo_read_lower_zoom.mapchete."""
+    with ProcessFixture(
+        TESTDATA_DIR / "cleantopo_read_lower_zoom.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def geojson(mp_tmpdir):
     """Fixture for geojson.mapchete."""
     with ProcessFixture(
