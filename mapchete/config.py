@@ -73,11 +73,13 @@ class OutputConfigBase(BaseModel):
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
             raise ValueError(f"metatling must be one of {_metatiling_opts}")
+        return value
 
     @validator("pixelbuffer", always=True)
     def _pixelbuffer(cls, value: int) -> int:
         if not isinstance(value, int) or value < 0:
             raise ValueError("pixelbuffer must be 0 or a positive integer")
+        return value
 
 
 # class GTiffConfig(OutputConfigBase):
@@ -95,26 +97,31 @@ class PyramidConfig(BaseModel):
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
             raise ValueError(f"metatling must be one of {_metatiling_opts}")
+        return value
 
     @validator("pixelbuffer", always=True)
     def _pixelbuffer(cls, value: int) -> int:
         if not isinstance(value, int) or value < 0:
             raise ValueError("pixelbuffer must be 0 or a positive integer")
+        return value
 
 
 class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
-    process: Union[str, List[str]]
     pyramid: PyramidConfig
     output: dict
     zoom_levels: Union[dict, int, list]
-    input: Union[dict, BaseGeometry, None]
-    area: Union[str, None]
-    area_crs: Union[dict, str, None]
+    process: Union[str, MPath, List[str], None]
     baselevels: Union[dict, None]
+    input: Union[dict, None]
+    config_dir: Union[str, MPath, None]
+    area: Union[str, MPath, BaseGeometry, None]
+    area_crs: Union[dict, str, None]
     bounds: Union[Tuple[float, float, float, float], None]
     bounds_crs: Union[dict, str, None]
     process_parameters: Union[dict, None]
 
+
+_RESERVED_PARAMETERS = tuple(ProcessConfig.__fields__.keys())
 
 # parameters which have to be provided in the configuration and their types
 _MANDATORY_PARAMETERS = [
@@ -123,23 +130,6 @@ _MANDATORY_PARAMETERS = [
     ("input", (dict, type(None))),  # files & other types
     ("output", dict),  # process output parameters
     ("zoom_levels", (int, dict, list)),  # process zoom levels
-]
-
-# parameters with special functions which cannot be used for user parameters
-_RESERVED_PARAMETERS = [
-    "area",  # geometry limiting process area
-    "area_crs",  # optional CRS of area (default: process CRS)
-    "baselevels",  # enable interpolation from other zoom levels
-    "bounds",  # process bounds
-    "bounds_crs",  # optional CRS of bounds (default: process CRS)
-    "config_dir",  # configuration base directory
-    "metatiling",  # process metatile size (deprecated)
-    "pixelbuffer",  # buffer around each tile in pixels (deprecated)
-    "process",  # path to .py file or module path
-    "process_minzoom",  # minimum zoom where process is valid (deprecated)
-    "process_maxzoom",  # maximum zoom where process is valid (deprecated)
-    "process_zoom",  # single zoom where process is valid (deprecated)
-    "process_bounds",  # process boundaries (deprecated)
 ]
 
 # parameters for output configuration
@@ -239,16 +229,19 @@ class MapcheteConfig(object):
         **kwargs,
     ):
         """Initialize configuration."""
-        logger.debug(f"parsing {input_config}")
-        self._config = ProcessConfig(**_config_to_dict(input_config))
         # get dictionary representation of input_config and
         # (0) map deprecated params to new structure
-        self._raw = _map_to_new_config(_config_to_dict(input_config))
-        self._raw["init_zoom_levels"] = zoom
-        self._raw["init_bounds"] = bounds
-        self._raw["init_bounds_crs"] = bounds_crs
-        self._raw["init_area"] = area
-        self._raw["init_area_crs"] = area_crs
+        logger.debug(f"parsing {input_config}")
+        breakpoint()
+        try:
+            self.parsed_config = parse_config(input_config)
+        except Exception as exc:
+            raise MapcheteConfigError(exc)
+        self._init_zoom_levels = zoom
+        self._init_bounds = bounds
+        self._init_bounds_crs = bounds_crs
+        self._init_area = area
+        self._init_area_crs = area_crs
         self._cache_area_at_zoom = {}
         self._cache_full_process_area = None
 
@@ -258,25 +251,31 @@ class MapcheteConfig(object):
         self.preprocessing_tasks_finished = False
 
         # (1) assert mandatory params are available
-        try:
-            validate_values(self._raw, _MANDATORY_PARAMETERS)
-        except Exception as e:
-            raise MapcheteConfigError(e)
+        # try:
+        #     validate_values(self._raw, _MANDATORY_PARAMETERS)
+        # except Exception as e:
+        #     raise MapcheteConfigError(e)
 
         # (2) check user process
-        self.config_dir = self._raw["config_dir"]
-        self.process_name = self.process_path = self.process = self._raw["process"]
+        self.config_dir = self.parsed_config.config_dir
+        self.process_name = (
+            self.process_path
+        ) = self.process = self.parsed_config.process
         if self.mode != "readonly":
+            if self.parsed_config.process is None:
+                raise MapcheteConfigError(
+                    f"process must be provided on {self.mode} mode"
+                )
             logger.debug("validating process code")
             self.process_func
 
         # (3) set process and output pyramids
         logger.debug("initializing pyramids")
         try:
-            process_metatiling = self._raw["pyramid"].get("metatiling", 1)
+            process_metatiling = self.parsed_config.pyramid.metatiling
             # output metatiling defaults to process metatiling if not set
             # explicitly
-            output_metatiling = self._raw["output"].get(
+            output_metatiling = self.parsed_config.output.get(
                 "metatiling", process_metatiling
             )
             # we cannot properly handle output tiles which are bigger than
@@ -288,14 +287,12 @@ class MapcheteConfig(object):
             # these two BufferedTilePyramid instances will help us with all
             # the tile geometries etc.
             self.process_pyramid = BufferedTilePyramid(
-                self._raw["pyramid"]["grid"],
-                metatiling=process_metatiling,
-                pixelbuffer=self._raw["pyramid"].get("pixelbuffer", 0),
+                **self.parsed_config.pyramid.dict()
             )
             self.output_pyramid = BufferedTilePyramid(
-                self._raw["pyramid"]["grid"],
+                self.parsed_config.pyramid.grid,
                 metatiling=output_metatiling,
-                pixelbuffer=self._raw["output"].get("pixelbuffer", 0),
+                pixelbuffer=self.parsed_config.pyramid.pixelbuffer,
             )
         except Exception as e:
             logger.exception(e)
@@ -324,7 +321,7 @@ class MapcheteConfig(object):
         # (5) prepare process parameters per zoom level without initializing
         # input and output classes
         logger.debug("preparing process parameters")
-        self._params_at_zoom = _raw_at_zoom(self._raw, self.init_zoom_levels)
+        self._params_at_zoom = _raw_at_zoom(self.parsed_config, self.init_zoom_levels)
 
         # (6) determine process area and process boundaries both from config as well
         # as from initialization.
@@ -336,8 +333,8 @@ class MapcheteConfig(object):
         # To finally determine the process tiles, the intersection of process area and the
         # union of all inputs is considered.
         self.area = self._get_process_area(
-            area=self._raw.get("area"),
-            bounds=self._raw.get("bounds"),
+            area=self.parsed_config.area,
+            bounds=self.parsed_config.bounds,
             area_fallback=box(*self.process_pyramid.bounds),
             bounds_fallback=self.process_pyramid.bounds,
             area_crs=area_crs,
@@ -347,8 +344,8 @@ class MapcheteConfig(object):
         self.bounds = Bounds(*self.area.bounds)
         logger.debug(f"process bounds: {self.bounds}")
         self.init_area = self._get_process_area(
-            area=self._raw.get("init_area"),
-            bounds=self._raw.get("init_bounds"),
+            area=self._init_area,
+            bounds=self._init_bounds,
             area_fallback=self.area,
             bounds_fallback=self.bounds,
             area_crs=area_crs,
@@ -430,7 +427,7 @@ class MapcheteConfig(object):
     @cached_property
     def zoom_levels(self):
         """Process zoom levels as defined in the configuration."""
-        return validate_zooms(self._raw["zoom_levels"])
+        return validate_zooms(self.parsed_config.zoom_levels)
 
     @cached_property
     def init_zoom_levels(self):
@@ -442,8 +439,8 @@ class MapcheteConfig(object):
         """
         try:
             return get_zoom_levels(
-                process_zoom_levels=self._raw["zoom_levels"],
-                init_zoom_levels=self._raw["init_zoom_levels"],
+                process_zoom_levels=self.parsed_config.zoom_levels,
+                init_zoom_levels=self._init_zoom_levels,
             )
         except Exception as e:
             logger.exception(e)
@@ -505,7 +502,7 @@ class MapcheteConfig(object):
     def _output_params(self):
         """Output params of driver."""
         output_params = dict(
-            self._raw["output"],
+            self.parsed_config.output,
             grid=self.output_pyramid.grid,
             pixelbuffer=self.output_pyramid.pixelbuffer,
             metatiling=self.output_pyramid.metatiling,
@@ -602,9 +599,9 @@ class MapcheteConfig(object):
             lower: <resampling method>
             higher: <resampling method>
         """
-        if "baselevels" not in self._raw:
+        if self.parsed_config.baselevels is None:
             return {}
-        baselevels = self._raw["baselevels"]
+        baselevels = self.parsed_config.baselevels
         minmax = {k: v for k, v in baselevels.items() if k in ["min", "max"]}
 
         if not minmax:
@@ -654,8 +651,8 @@ class MapcheteConfig(object):
         """Return function kwargs."""
         return {
             k: v
-            for k, v in self.params_at_zoom(zoom).items()
-            if k in inspect.signature(self.process_func).parameters
+            for k, v in self.params_at_zoom(zoom).get("process_parameters", {}).items()
+            if k in inspect.signature(self.process_func).parameters and v is not None
         }
 
     def get_inputs_for_tile(self, tile):
@@ -1219,7 +1216,12 @@ def open_inputs(inputs, tile):
             yield (k, v.open(tile))
 
 
-def _config_to_dict(input_config):
+def parse_config(input_config: Union[dict, str, MPath]) -> ProcessConfig:
+    """Read config from file or dictionary and return validated configuration"""
+    return ProcessConfig(**_map_to_new_config(_config_to_dict(input_config)))
+
+
+def _config_to_dict(input_config: Union[dict, str, MPath]) -> dict:
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
             raise MapcheteConfigError("config_dir parameter missing")
@@ -1241,7 +1243,7 @@ def _config_to_dict(input_config):
         )
 
 
-def _include_env(d):
+def _include_env(d: dict) -> OrderedDict:
     out = OrderedDict()
     for k, v in d.items():
         if isinstance(v, dict):
@@ -1259,11 +1261,10 @@ def _raw_at_zoom(config, zooms):
     params_per_zoom = OrderedDict()
     for zoom in zooms:
         params = OrderedDict()
-        for name, element in config.items():
-            if name not in _RESERVED_PARAMETERS:
-                out_element = _element_at_zoom(name, element, zoom)
-                if out_element is not None:
-                    params[name] = out_element
+        for name, element in config.dict().items():
+            out_element = _element_at_zoom(name, element, zoom)
+            if out_element is not None:
+                params[name] = out_element
         params_per_zoom[zoom] = params
     return OrderedDict(params_per_zoom)
 
@@ -1283,34 +1284,41 @@ def _element_at_zoom(name, element, zoom):
     """
     # If element is a dictionary, analyze subitems.
     if isinstance(element, dict):
+        # we have an input or output driver here
         if "format" in element:
-            # we have an input or output driver here
             return element
+
+        # iterate through sub elements
         out_elements = OrderedDict()
         for sub_name, sub_element in element.items():
             out_element = _element_at_zoom(sub_name, sub_element, zoom)
-            if name == "input":
+            if name in ["input", "process_parameters"] or out_element is not None:
                 out_elements[sub_name] = out_element
-            elif out_element is not None:
-                out_elements[sub_name] = out_element
+
         # If there is only one subelement, collapse unless it is
         # input. In such case, return a dictionary.
-        if len(out_elements) == 1 and name != "input":
+        if name not in ["input", "process_parameters"] and len(out_elements) == 1:
             return next(iter(out_elements.values()))
+
         # If subelement is empty, return None
         if len(out_elements) == 0:
             return None
+
         return out_elements
+
     # If element is a zoom level statement, filter element.
     elif isinstance(name, str):
+        # filter out according to zoom filter definition
         if name.startswith("zoom"):
             return _filter_by_zoom(
                 conf_string=name.strip("zoom").strip(), zoom=zoom, element=element
             )
+
         # If element is a string but not a zoom level statement, return
         # element.
         else:
             return element
+
     # Return all other types as they are.
     else:  # pragma: no cover
         return element
@@ -1445,6 +1453,16 @@ def _map_to_new_config(config):
             DeprecationWarning("'process_file' is deprecated and renamed to 'process'")
         )
         config["process"] = config.pop("process_file")
+
+    process_parameters = config.get("process_parameters", {})
+    for key in list(config.keys()):
+        if key in _RESERVED_PARAMETERS:
+            continue
+        warnings.warn(
+            "it puts the process parameter in the 'process_parameters' section, or it gets the warning again"
+        )
+        process_parameters[key] = config.pop(key)
+    config["process_parameters"] = process_parameters
 
     return config
 
