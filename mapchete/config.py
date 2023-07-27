@@ -52,7 +52,7 @@ from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid, snap_geometry_to_tiles
 from mapchete._timer import Timer
-from mapchete.types import Bounds
+from mapchete.types import Bounds, ZoomLevels
 from mapchete.validate import (
     validate_bounds,
     validate_bufferedtilepyramid,
@@ -232,9 +232,9 @@ class MapcheteConfig(object):
         # get dictionary representation of input_config and
         # (0) map deprecated params to new structure
         logger.debug(f"parsing {input_config}")
-        breakpoint()
         try:
             self.parsed_config = parse_config(input_config)
+            self.parsed_config.dict()
         except Exception as exc:
             raise MapcheteConfigError(exc)
         self._init_zoom_levels = zoom
