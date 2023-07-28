@@ -1,15 +1,4 @@
-"""
-Configuration object required to rund a Mapchete process.
-
-Before running a process, a MapcheteConfig object has to be initialized by
-either using a Mapchete file or a dictionary holding the process parameters.
-Upon creation, all parameters are validated and the InputData objects are
-created which are then exposed to the user process.
-
-An invalid process configuration or an invalid process file cause an Exception
-when initializing the configuration.
-"""
-
+from enum import Enum
 import hashlib
 import importlib
 import inspect
@@ -31,7 +20,7 @@ from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Callable
 
 from mapchete.errors import (
     GeometryTypeError,
@@ -123,15 +112,7 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
 
 _RESERVED_PARAMETERS = tuple(ProcessConfig.__fields__.keys())
 
-# parameters which have to be provided in the configuration and their types
-_MANDATORY_PARAMETERS = [
-    ("process", (str, list, type(None), MPath)),  # path to .py file or module path
-    ("pyramid", dict),  # process pyramid definition
-    ("input", (dict, type(None))),  # files & other types
-    ("output", dict),  # process output parameters
-    ("zoom_levels", (int, dict, list)),  # process zoom levels
-]
-
+# TODO remove these
 # parameters for output configuration
 _OUTPUT_PARAMETERS = [
     "format",
@@ -143,6 +124,107 @@ _OUTPUT_PARAMETERS = [
     "mode",
     "stac",
 ]
+
+
+class Mode(str, Enum):
+    CONTINUE = "continue"
+    READONLY = "readonly"
+    OVERWRITE = "overwrite"
+    MEMORY = "memory"
+
+
+class Process:
+    """Abstraction class for a user process.
+
+    The user process can either be provided as a python module path, a file path
+    or the source code as a list of strings.
+    """
+
+    func: Callable
+    path: Union[MPath, str] = None
+    name: str = None
+
+    def __init__(self, process, config_dir=None, run_compile=True):
+        if isinstance(process, str):
+            self.path = MPath.from_inp(process) if process.endswith(".py") else process
+            self.name = self.path
+        else:
+            self.name = "custom_process"
+        self._process = self.path or process
+        self._root_dir = config_dir
+        self._run_compile = run_compile
+        self.func = self._load_func()
+
+    def filter_func_params(self, params):
+        """Return function kwargs."""
+        return {
+            k: v
+            for k, v in params.items()
+            if k in inspect.signature(self.func).parameters and v is not None
+        }
+
+    def _load_func(self):
+        """Import and return process function."""
+        logger.debug(f"get process function from {self._process}")
+        process_module = self._load_module()
+        try:
+            if hasattr(process_module, "Process"):
+                logger.error(
+                    """instanciating MapcheteProcess is deprecated, """
+                    """provide execute() function instead"""
+                )
+            if hasattr(process_module, "execute"):
+                return process_module.execute
+            else:
+                raise ImportError("No execute() function found in %s" % self._process)
+        except ImportError as e:
+            raise MapcheteProcessImportError(e)
+
+    def _load_module(self):
+        # path to python file or python module path
+        if self.path:
+            return self._import_path(self.path)
+        # source code as list of strings
+        else:
+            with NamedTemporaryFile(suffix=".py") as tmpfile:
+                logger.debug(f"writing process code to temporary file {tmpfile.name}")
+                with open(tmpfile.name, "w") as dst:
+                    for line in self._process:
+                        dst.write(line + "\n")
+                return self._import_path(MPath.from_inp(tmpfile.name))
+
+    def _import_path(self, path):
+        if path.endswith(".py"):
+            module_path = absolute_path(path=path, base_dir=self._root_dir)
+            if not module_path.exists():
+                raise MapcheteConfigError(f"{module_path} is not available")
+            try:
+                if self._run_compile:
+                    py_compile.compile(module_path, doraise=True)
+                module_name = module_path.stem
+                # load module
+                spec = importlib.util.spec_from_file_location(
+                    module_name, str(module_path)
+                )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                # required to make imported module available using multiprocessing
+                sys.modules[module_name] = module
+                # configure process file logger
+                add_module_logger(module.__name__)
+            except py_compile.PyCompileError as e:
+                raise MapcheteProcessSyntaxError(e)
+            except ImportError as e:
+                raise MapcheteProcessImportError(e)
+        else:
+            try:
+                module = importlib.import_module(str(path))
+            except ImportError as e:
+                raise MapcheteProcessImportError(e)
+
+        logger.debug(f"return process func: {module}")
+
+        return module
 
 
 class MapcheteConfig(object):
@@ -169,53 +251,13 @@ class MapcheteConfig(object):
         * ``continue``: (default) Don't overwrite existing output.
         * ``overwrite``: Overwrite existing output.
 
-    Attributes
-    ----------
-    mode : string
-        process mode
-    process : string
-        absolute path to process file
-    config_dir : string
-        path to configuration directory
-    process_pyramid : ``tilematrix.TilePyramid``
-        ``TilePyramid`` used to process data
-    output_pyramid : ``tilematrix.TilePyramid``
-        ``TilePyramid`` used to write output data
-    input : dictionary
-        inputs for process
-    output : ``OutputData``
-        driver specific output object
-    zoom_levels : list
-        process zoom levels
-    zoom : list or int
-        subset zoom levels provided in process configuration
-    bounds : tuple
-        override bounds or area provided in process configuration
-    bounds_crs : str or CRS
-        CRS of bounds (default: process CRS)
-    area : geometry
-        override bounds or area provided in process configuration
-    area_crs : str or CRS
-        CRS of area (default: process CRS)
-    baselevels : dictionary
-        base zoomlevels, where data is processed; zoom levels not included are
-        generated from baselevels
-
-    Deprecated Attributes
-    ---------------------
-    raw : dictionary
-        raw process configuration
-    mapchete_file : string
-        path to Mapchete file
-    output_type : string (moved to OutputData)
-        process output type (``raster`` or ``vector``)
-    crs : ``rasterio.crs.CRS`` (moved to process_pyramid)
-        object describing the process coordinate reference system
-    pixelbuffer : integer (moved to process_pyramid)
-        buffer around process tiles
-    metatiling : integer (moved to process_pyramid)
-        process metatiling
     """
+
+    parsed_config: ProcessConfig = None
+    mode: Mode = "continue"
+    preprocessing_tasks_finished: bool = False
+    config_dir: MPath = None
+    process: Union[Process, None] = None
 
     def __init__(
         self,
@@ -230,7 +272,7 @@ class MapcheteConfig(object):
     ):
         """Initialize configuration."""
         # get dictionary representation of input_config and
-        # (0) map deprecated params to new structure
+        # (1) map deprecated params to new structure
         logger.debug(f"parsing {input_config}")
         try:
             self.parsed_config = parse_config(input_config)
@@ -245,29 +287,21 @@ class MapcheteConfig(object):
         self._cache_area_at_zoom = {}
         self._cache_full_process_area = None
 
-        if mode not in ["memory", "continue", "readonly", "overwrite"]:
-            raise MapcheteConfigError("unknown mode %s" % mode)
-        self.mode = mode
+        self.mode = Mode(mode)
         self.preprocessing_tasks_finished = False
-
-        # (1) assert mandatory params are available
-        # try:
-        #     validate_values(self._raw, _MANDATORY_PARAMETERS)
-        # except Exception as e:
-        #     raise MapcheteConfigError(e)
 
         # (2) check user process
         self.config_dir = self.parsed_config.config_dir
-        self.process_name = (
-            self.process_path
-        ) = self.process = self.parsed_config.process
         if self.mode != "readonly":
             if self.parsed_config.process is None:
                 raise MapcheteConfigError(
                     f"process must be provided on {self.mode} mode"
                 )
             logger.debug("validating process code")
-            self.process_func
+            self.process = Process(
+                self.parsed_config.process, config_dir=self.config_dir
+            )
+            self.process_func = self.process.func
 
         # (3) set process and output pyramids
         logger.debug("initializing pyramids")
@@ -633,27 +667,11 @@ class MapcheteConfig(object):
             ),
         )
 
-    @cached_property
-    def process_func(self):
-        """Import process function and make syntax check."""
-        if self.mode == "readonly":
-            raise MapcheteConfigError(
-                "process function cannot be loaded in readonly mode."
-            )
-        else:
-            return get_process_func(
-                process=self.process,
-                config_dir=self.config_dir,
-                run_compile=True,
-            )
-
     def get_process_func_params(self, zoom):
         """Return function kwargs."""
-        return {
-            k: v
-            for k, v in self.params_at_zoom(zoom).get("process_parameters", {}).items()
-            if k in inspect.signature(self.process_func).parameters and v is not None
-        }
+        return self.process.filter_func_params(
+            self.params_at_zoom(zoom).get("process_parameters", {})
+        )
 
     def get_inputs_for_tile(self, tile):
         """Get and open all inputs for given tile."""
@@ -1070,26 +1088,6 @@ def bounds_from_opts(
         return bounds
     else:
         return
-
-
-def get_process_func(process=None, config_dir=None, run_compile=False):
-    """Import and return process function."""
-    logger.debug(f"get process function from {process}")
-    process_module = _load_process_module(
-        process=process, config_dir=config_dir, run_compile=run_compile
-    )
-    try:
-        if hasattr(process_module, "Process"):
-            logger.error(
-                """instanciating MapcheteProcess is deprecated, """
-                """provide execute() function instead"""
-            )
-        if hasattr(process_module, "execute"):
-            return process_module.execute
-        else:
-            raise ImportError("No execute() function found in %s" % process)
-    except ImportError as e:
-        raise MapcheteProcessImportError(e)
 
 
 def initialize_inputs(

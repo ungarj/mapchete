@@ -7,10 +7,9 @@ from shapely.geometry import box, mapping
 
 from mapchete._timer import Timer
 from mapchete._user_process import MapcheteProcess
-from mapchete.config import get_process_func
+from mapchete.config import Process
 from mapchete.errors import (
     MapcheteNodataTile,
-    MapcheteProcessException,
     MapcheteProcessOutputError,
     NoTaskGeometry,
 )
@@ -224,9 +223,7 @@ class TileTask(Task):
             elif self.tile.zoom > max(self.config_baselevels["zooms"]):
                 return self._interpolate_from_baselevel("higher", dependencies)
         # Otherwise, execute from process file.
-        process_func = get_process_func(
-            process=self.process, config_dir=self.config_dir
-        )
+        process_func = Process(process=self.process, config_dir=self.config_dir).func
         try:
             with Timer() as duration:
                 # append dependent preprocessing task results to input objects
