@@ -27,13 +27,13 @@ from mapchete.io.raster import _shift_required, create_mosaic
 from mapchete.tile import BufferedTilePyramid, count_tiles
 
 
-def test_empty_execute(mp_tmpdir, cleantopo_br):
+def test_empty_execute(cleantopo_br):
     """Execute process outside of defined zoom levels."""
     with mapchete.open(cleantopo_br.dict) as mp:
         assert mp.execute((6, 0, 0)).mask.all()
 
 
-def test_read_existing_output(mp_tmpdir, cleantopo_tl):
+def test_read_existing_output(cleantopo_tl):
     """Read existing process output."""
     # raster data
     with mapchete.open(cleantopo_tl.dict) as mp:
@@ -51,7 +51,7 @@ def test_read_existing_output(mp_tmpdir, cleantopo_tl):
         assert not data.mask.all()
 
 
-def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
+def test_read_existing_output_buffer(cleantopo_tl):
     """Read existing process output with process buffer."""
     # raster data process buffer > output buffer
     config = cleantopo_tl.dict
@@ -66,7 +66,7 @@ def test_read_existing_output_buffer(mp_tmpdir, cleantopo_tl):
         assert not data.mask.all()
 
 
-def test_read_existing_output_vector(mp_tmpdir, geojson):
+def test_read_existing_output_vector(geojson):
     """Read existing process output with process buffer."""
     with mapchete.open(geojson.dict) as mp:
         tile = next(mp.get_process_tiles(4))
@@ -98,20 +98,20 @@ def test_open_data_error(cleantopo_tl):
             user_process.open("invaild_input_id")
 
 
-def test_get_raw_output_outside(mp_tmpdir, cleantopo_br):
+def test_get_raw_output_outside(cleantopo_br):
     """Get raw process output outside of zoom levels."""
     with mapchete.open(cleantopo_br.dict) as mp:
         assert mp.get_raw_output((6, 0, 0)).mask.all()
 
 
-def test_get_raw_output_memory(mp_tmpdir, cleantopo_tl):
+def test_get_raw_output_memory(cleantopo_tl):
     """Get raw process output using memory flag."""
     with mapchete.open(cleantopo_tl.dict, mode="memory") as mp:
         assert mp.config.mode == "memory"
         assert not mp.get_raw_output((5, 0, 0)).mask.all()
 
 
-def test_get_raw_output_readonly(mp_tmpdir, cleantopo_tl):
+def test_get_raw_output_readonly(cleantopo_tl):
     """Get raw process output using readonly flag."""
     tile = (5, 0, 0)
     readonly_mp = mapchete.open(cleantopo_tl.dict, mode="readonly")
@@ -131,7 +131,7 @@ def test_get_raw_output_readonly(mp_tmpdir, cleantopo_tl):
     assert not readonly_mp.get_raw_output(tile).mask.all()
 
 
-def test_get_raw_output_continue_raster(mp_tmpdir, cleantopo_tl):
+def test_get_raw_output_continue_raster(cleantopo_tl):
     """Get raw process output using continue flag."""
     with mapchete.open(cleantopo_tl.dict) as mp:
         assert mp.config.mode == "continue"
@@ -142,7 +142,7 @@ def test_get_raw_output_continue_raster(mp_tmpdir, cleantopo_tl):
         assert not mp.get_raw_output(tile).mask.all()
 
 
-def test_get_raw_output_continue_vector(mp_tmpdir, geojson):
+def test_get_raw_output_continue_vector(geojson):
     """Get raw process output using continue flag."""
     with mapchete.open(geojson.dict) as mp:
         assert mp.config.mode == "continue"
@@ -153,7 +153,7 @@ def test_get_raw_output_continue_vector(mp_tmpdir, geojson):
         assert mp.get_raw_output(tile)
 
 
-def test_baselevels(mp_tmpdir, baselevels):
+def test_baselevels(baselevels):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.dict, mode="continue") as mp:
         # process data before getting baselevels
@@ -180,7 +180,7 @@ def test_baselevels(mp_tmpdir, baselevels):
         )
 
 
-def test_baselevels_dask(mp_tmpdir, baselevels, dask_executor):
+def test_baselevels_dask(baselevels, dask_executor):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.dict, mode="continue") as mp:
         # process data before getting baselevels
@@ -207,7 +207,7 @@ def test_baselevels_dask(mp_tmpdir, baselevels, dask_executor):
         )
 
 
-def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
+def test_baselevels_custom_nodata(baselevels_custom_nodata):
     """Baselevel interpolation."""
     fill_value = -32768.0
     with mapchete.open(baselevels_custom_nodata.dict, mode="continue") as mp:
@@ -256,7 +256,7 @@ def test_baselevels_custom_nodata(mp_tmpdir, baselevels_custom_nodata):
 
 
 @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
+def test_update_overviews(overviews, concurrency, dask_executor):
     """Baselevel interpolation."""
     compute_kwargs = (
         {"executor": dask_executor}
@@ -312,7 +312,7 @@ def test_update_overviews(mp_tmpdir, overviews, concurrency, dask_executor):
     assert not np.array_equal(overview_before, overview_after)
 
 
-def test_baselevels_buffer(mp_tmpdir, baselevels):
+def test_baselevels_buffer(baselevels):
     """Baselevel interpolation using buffers."""
     config = baselevels.dict
     config["pyramid"].update(pixelbuffer=10)
@@ -338,7 +338,7 @@ def test_baselevels_buffer(mp_tmpdir, baselevels):
         )
 
 
-def test_baselevels_output_buffer(mp_tmpdir, baselevels_output_buffer):
+def test_baselevels_output_buffer(baselevels_output_buffer):
     # it should not contain masked values within bounds
     # (171.46155, -87.27184, 174.45159, -84.31281)
     with mapchete.open(baselevels_output_buffer.dict) as mp:
@@ -355,7 +355,7 @@ def test_baselevels_output_buffer(mp_tmpdir, baselevels_output_buffer):
             assert not subset.mask.any()
 
 
-def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):
+def test_baselevels_buffer_antimeridian(baselevels):
     """Baselevel interpolation using buffers."""
     config = baselevels.dict
     config.update(input=None)
@@ -366,15 +366,17 @@ def test_baselevels_buffer_antimeridian(mp_tmpdir, baselevels):
         # write data left and right of antimeridian
         west = mp.config.process_pyramid.tile(zoom, row, 0)
         shape = (3,) + west.shape
+
         mp.write(west, np.ones(shape) * 0)
         east = mp.config.process_pyramid.tile(
             zoom, row, mp.config.process_pyramid.matrix_width(zoom) - 1
         )
         mp.write(east, np.ones(shape) * 10)
-        # use baselevel generation to interpolate tile and somehow
-        # assert no data from across the antimeridian is read.
+
+        # use baselevel generation to interpolate tile and
+        # assert data from across the antimeridian is read.
         lower_tile = mp.get_raw_output(west.get_parent())
-        assert np.where(lower_tile != 10, True, False).all()
+        assert np.where(lower_tile == 10, True, False).any()
 
 
 def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
@@ -413,7 +415,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
                     shutil.rmtree(mp_tmpdir, ignore_errors=True)
 
 
-def test_pickleability(mp_tmpdir, cleantopo_tl):
+def test_pickleability(cleantopo_tl):
     """Test parallel tile processing."""
     with mapchete.open(cleantopo_tl.dict) as mp:
         assert pickle_dumps(mp)
@@ -428,7 +430,7 @@ def _worker(mp, tile):
     return tile, mp.execute(tile)
 
 
-def test_write_empty(mp_tmpdir, cleantopo_tl):
+def test_write_empty(cleantopo_tl):
     """Test write function when passing an empty process_tile."""
     with mapchete.open(cleantopo_tl.dict) as mp:
         # process and save
@@ -502,7 +504,7 @@ def test_count_tiles_large_init_zoom(geometrycollection, zoom):
     assert raster_count == tile_count == tiles
 
 
-def test_batch_process(mp_tmpdir, cleantopo_tl):
+def test_batch_process(cleantopo_tl):
     """Test batch_process function."""
     with mapchete.open(cleantopo_tl.dict) as mp:
         # invalid parameters errors
@@ -516,7 +518,7 @@ def test_batch_process(mp_tmpdir, cleantopo_tl):
         mp.batch_process(zoom=2, multi=1)
 
 
-def test_skip_tiles(mp_tmpdir, cleantopo_tl):
+def test_skip_tiles(cleantopo_tl):
     """Test batch_process function."""
     zoom = 2
     with mapchete.open(cleantopo_tl.dict, mode="continue") as mp:
@@ -529,7 +531,7 @@ def test_skip_tiles(mp_tmpdir, cleantopo_tl):
             assert not skip
 
 
-def test_custom_grid(mp_tmpdir, custom_grid):
+def test_custom_grid(custom_grid):
     """Cutom grid processing."""
     # process and save
     with mapchete.open(custom_grid.dict) as mp:
