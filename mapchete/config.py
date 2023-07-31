@@ -145,15 +145,18 @@ class Process:
     name: str = None
 
     def __init__(self, process, config_dir=None, run_compile=True):
+        # for module paths and file paths
         if isinstance(process, (str, MPath)):
             self.path = MPath.from_inp(process) if process.endswith(".py") else process
             self.name = self.path
+            self._process = self.path
+
+        # for process code within configuration
         else:
             self.name = "custom_process"
-        self._process = self.path or process
-        self._root_dir = config_dir
-        self._run_compile = run_compile
-        self.func = self._load_func()
+            self.process = process
+
+        self.func = self._load_func(run_compile=run_compile, root_dir=config_dir)
 
     def __call__(self, *args, **kwargs: Any) -> Any:
         self.func(*args, **self.filter_parameters(kwargs))
@@ -189,7 +192,7 @@ class Process:
     def _load_module(self):
         # path to python file or python module path
         if self.path:
-            return self._import_path(self.path)
+            return self._import_module_from_path(self.path)
         # source code as list of strings
         else:
             with NamedTemporaryFile(suffix=".py") as tmpfile:
@@ -197,15 +200,15 @@ class Process:
                 with open(tmpfile.name, "w") as dst:
                     for line in self._process:
                         dst.write(line + "\n")
-                return self._import_path(MPath.from_inp(tmpfile.name))
+                return self._import_module_from_path(MPath.from_inp(tmpfile.name))
 
-    def _import_path(self, path):
+    def _import_module_from_path(self, path, run_compile=True, root_dir=None):
         if path.endswith(".py"):
-            module_path = absolute_path(path=path, base_dir=self._root_dir)
+            module_path = absolute_path(path=path, base_dir=root_dir)
             if not module_path.exists():
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
-                if self._run_compile:
+                if run_compile:
                     py_compile.compile(module_path, doraise=True)
                 module_name = module_path.stem
                 # load module
