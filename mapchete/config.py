@@ -154,7 +154,7 @@ class Process:
         # for process code within configuration
         else:
             self.name = "custom_process"
-            self.process = process
+            self._process = process
 
         self.func = self._load_func(run_compile=run_compile, root_dir=config_dir)
 
@@ -172,10 +172,10 @@ class Process:
             if k in self.function_parameters() and v is not None
         }
 
-    def _load_func(self):
+    def _load_func(self, run_compile=True, root_dir=None):
         """Import and return process function."""
-        logger.debug(f"get process function from {self._process}")
-        process_module = self._load_module()
+        logger.debug(f"get process function from {self.name}")
+        process_module = self._load_module(run_compile=run_compile, root_dir=root_dir)
         try:
             if hasattr(process_module, "Process"):
                 logger.error(
@@ -189,10 +189,12 @@ class Process:
         except ImportError as e:
             raise MapcheteProcessImportError(e)
 
-    def _load_module(self):
+    def _load_module(self, run_compile=False, root_dir=None):
         # path to python file or python module path
         if self.path:
-            return self._import_module_from_path(self.path)
+            return self._import_module_from_path(
+                self.path, run_compile=run_compile, root_dir=root_dir
+            )
         # source code as list of strings
         else:
             with NamedTemporaryFile(suffix=".py") as tmpfile:
@@ -200,7 +202,11 @@ class Process:
                 with open(tmpfile.name, "w") as dst:
                     for line in self._process:
                         dst.write(line + "\n")
-                return self._import_module_from_path(MPath.from_inp(tmpfile.name))
+                return self._import_module_from_path(
+                    MPath.from_inp(tmpfile.name),
+                    run_compile=run_compile,
+                    root_dir=root_dir,
+                )
 
     def _import_module_from_path(self, path, run_compile=True, root_dir=None):
         if path.endswith(".py"):
@@ -681,7 +687,7 @@ class MapcheteConfig(object):
 
     def get_process_func_params(self, zoom):
         """Return function kwargs."""
-        return self.process.filter_func_params(
+        return self.process.filter_parameters(
             self.params_at_zoom(zoom).get("process_parameters", {})
         )
 
