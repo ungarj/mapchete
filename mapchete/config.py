@@ -15,7 +15,7 @@ from tempfile import NamedTemporaryFile
 import fsspec
 import oyaml as yaml
 from cached_property import cached_property
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, NonNegativeInt
 from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
@@ -55,43 +55,26 @@ logger = logging.getLogger(__name__)
 class OutputConfigBase(BaseModel):
     format: str
     metatiling: Union[int, None] = 1
-    pixelbuffer: Union[int, None] = 0
+    pixelbuffer: Union[NonNegativeInt, None] = 0
 
     @validator("metatiling", always=True)
-    def _metatiling(cls, value: int) -> int:
+    def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
             raise ValueError(f"metatling must be one of {_metatiling_opts}")
         return value
-
-    @validator("pixelbuffer", always=True)
-    def _pixelbuffer(cls, value: int) -> int:
-        if not isinstance(value, int) or value < 0:
-            raise ValueError("pixelbuffer must be 0 or a positive integer")
-        return value
-
-
-# class GTiffConfig(OutputConfigBase):
-#     bands: int
-#     path: str
 
 
 class PyramidConfig(BaseModel):
     grid: Union[str, dict]
     metatiling: Union[int, None] = 1
-    pixelbuffer: Union[int, None] = 0
+    pixelbuffer: Union[NonNegativeInt, None] = 0
 
     @validator("metatiling", always=True)
-    def _metatiling(cls, value: int) -> int:
+    def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
             raise ValueError(f"metatling must be one of {_metatiling_opts}")
-        return value
-
-    @validator("pixelbuffer", always=True)
-    def _pixelbuffer(cls, value: int) -> int:
-        if not isinstance(value, int) or value < 0:
-            raise ValueError("pixelbuffer must be 0 or a positive integer")
         return value
 
 
