@@ -1,7 +1,6 @@
-"""Test Mapchete config module."""
-
-import os
 from copy import deepcopy
+import os
+import pickle
 
 import oyaml as yaml
 import pytest
@@ -17,13 +16,15 @@ from mapchete.config import (
     _guess_geometry,
     bounds_from_opts,
     snap_bounds,
+    Process,
 )
 from mapchete.errors import MapcheteConfigError
 from mapchete.io import fiona_open, rasterio_open
+from mapchete.path import MPath
 from mapchete.types import Bounds
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
+SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
+TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata/"))
 
 
 def test_config_errors(example_mapchete):
@@ -487,3 +488,20 @@ def test_env_params(env_storage_options_mapchete):
         inp = mp.config.params_at_zoom(5)
         assert inp["input"]["file1"].storage_options.get("access_key") == "foo"
         assert mp.config.output.storage_options.get("access_key") == "bar"
+
+
+@pytest.mark.parametrize(
+    "process_src",
+    [
+        "mapchete.processes.convert",
+        TESTDATA_DIR / "execute_kwargs.py",
+        ["def execute(mp):", "    return 'empty'"],
+    ],
+)
+def test_process(process_src):
+    process = Process(process_src)
+    assert process.name
+    # no parameters are provided, so a TypeError is raised
+    with pytest.raises(TypeError):
+        process()
+    assert pickle.dumps(process)

@@ -20,7 +20,7 @@ from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
-from typing import Union, List, Tuple, Callable
+from typing import Any, Union, List, Tuple, Callable
 
 from mapchete.errors import (
     GeometryTypeError,
@@ -145,7 +145,7 @@ class Process:
     name: str = None
 
     def __init__(self, process, config_dir=None, run_compile=True):
-        if isinstance(process, str):
+        if isinstance(process, (str, MPath)):
             self.path = MPath.from_inp(process) if process.endswith(".py") else process
             self.name = self.path
         else:
@@ -155,12 +155,18 @@ class Process:
         self._run_compile = run_compile
         self.func = self._load_func()
 
-    def filter_func_params(self, params):
+    def __call__(self, *args, **kwargs: Any) -> Any:
+        self.func(*args, **self.filter_parameters(kwargs))
+
+    def function_parameters(self):
+        return inspect.signature(self.func).parameters
+
+    def filter_parameters(self, params):
         """Return function kwargs."""
         return {
             k: v
             for k, v in params.items()
-            if k in inspect.signature(self.func).parameters and v is not None
+            if k in self.function_parameters() and v is not None
         }
 
     def _load_func(self):
@@ -287,7 +293,10 @@ class MapcheteConfig(object):
         self._cache_area_at_zoom = {}
         self._cache_full_process_area = None
 
-        self.mode = Mode(mode)
+        try:
+            self.mode = Mode(mode)
+        except Exception as exc:
+            raise MapcheteConfigError from exc
         self.preprocessing_tasks_finished = False
 
         # (2) check user process

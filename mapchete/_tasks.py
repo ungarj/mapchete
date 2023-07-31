@@ -223,7 +223,6 @@ class TileTask(Task):
             elif self.tile.zoom > max(self.config_baselevels["zooms"]):
                 return self._interpolate_from_baselevel("higher", dependencies)
         # Otherwise, execute from process file.
-        process_func = Process(process=self.process, config_dir=self.config_dir).func
         try:
             with Timer() as duration:
                 # append dependent preprocessing task results to input objects
@@ -241,7 +240,7 @@ class TileTask(Task):
                                         task_key=task_key, result=task_result.data
                                     )
                 # Actually run process.
-                process_data = process_func(
+                process_data = self.process.func(
                     MapcheteProcess(
                         tile=self.tile,
                         params=self.process_func_params,
