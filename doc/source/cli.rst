@@ -68,7 +68,7 @@ offsets to raster data.
                                       Resampling method used for overviews.
                                       (default: cubic_spline)
       --cog                           Write a valid COG. This will automatically
-                                      generate verviews. (GTiff only)
+                                      generate overviews. (GTiff only)
       -o, --overwrite                 Overwrite if tile(s) already exist(s).
       -v, --verbose                   Print info for each process tile.
       --no-pbar                       Deactivate progress bar.
