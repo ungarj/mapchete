@@ -273,6 +273,20 @@ class MapcheteConfig(object):
     preprocessing_tasks_finished: bool = False
     config_dir: MPath = None
     process: Union[Process, None] = None
+    process_pyramid: BufferedTilePyramid
+    output_pyramid: BufferedTilePyramid
+    baselevels: Union[dict, None]
+    area: BaseGeometry
+    bounds: Bounds
+    zoom_levels: ZoomLevels
+    init_area: BaseGeometry
+    init_bounds: Bounds
+    init_zoom_levels: ZoomLevels
+    effective_area: BaseGeometry
+    effective_bounds: Bounds
+    input: OrderedDict
+    output: "OutputDataWriter"
+    output_reader: "OutputDataReader"
 
     def __init__(
         self,
@@ -319,7 +333,6 @@ class MapcheteConfig(object):
             self.process = Process(
                 self.parsed_config.process, config_dir=self.config_dir
             )
-            self.process_func = self.process.func
 
         # (3) set process and output pyramids
         logger.debug("initializing pyramids")
@@ -1174,52 +1187,6 @@ def initialize_inputs(
         initalized_inputs.keys(),
     )
     return initalized_inputs
-
-
-def _load_process_module(process=None, config_dir=None, run_compile=False):
-    tmpfile = None
-    process = MPath.from_inp(process) if isinstance(process, str) else process
-    try:
-        if isinstance(process, list):
-            tmpfile = NamedTemporaryFile(suffix=".py")
-            logger.debug(f"writing process code to temporary file {tmpfile.name}")
-            with open(tmpfile.name, "w") as dst:
-                for line in process:
-                    dst.write(line + "\n")
-            process = MPath.from_inp(tmpfile.name)
-        if process.suffix == ".py":
-            module_path = absolute_path(path=process, base_dir=config_dir)
-            if not module_path.exists():
-                raise MapcheteConfigError(f"{module_path} is not available")
-            try:
-                if run_compile:
-                    py_compile.compile(module_path, doraise=True)
-                module_name = module_path.stem
-                # load module
-                spec = importlib.util.spec_from_file_location(
-                    module_name, str(module_path)
-                )
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                # required to make imported module available using multiprocessing
-                sys.modules[module_name] = module
-                # configure process file logger
-                add_module_logger(module.__name__)
-            except py_compile.PyCompileError as e:
-                raise MapcheteProcessSyntaxError(e)
-            except ImportError as e:
-                raise MapcheteProcessImportError(e)
-        else:
-            try:
-                module = importlib.import_module(str(process))
-            except ImportError as e:
-                raise MapcheteProcessImportError(e)
-        logger.debug(f"return process func: {module}")
-    finally:
-        if tmpfile:
-            logger.debug(f"removing {tmpfile.name}")
-            tmpfile.close()
-    return module
 
 
 def open_inputs(inputs, tile):
