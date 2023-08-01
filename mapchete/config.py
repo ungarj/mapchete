@@ -20,7 +20,7 @@ from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
-from typing import Any, Union, List, Tuple, Callable
+from typing import Any, Union, List, Tuple
 
 from mapchete.errors import (
     GeometryTypeError,
@@ -123,81 +123,78 @@ class Process:
     or the source code as a list of strings.
     """
 
-    func: Callable
     path: Union[MPath, str] = None
     name: str = None
 
-    def __init__(self, process, config_dir=None, run_compile=True):
+    def __init__(self, src, config_dir=None, run_compile=True):
+        self._src = src
         # for module paths and file paths
-        if isinstance(process, (str, MPath)):
-            self.path = MPath.from_inp(process) if process.endswith(".py") else process
-            self.name = self.path
-            self._process = self.path
+        if isinstance(src, (str, MPath)):
+            if src.endswith(".py"):
+                self.path = MPath.from_inp(src)
+                self.name = self.path.name.split(".")[0]
+            else:
+                self.path = src
+                self.name = self.path.split(".")[-1]
 
         # for process code within configuration
         else:
             self.name = "custom_process"
-            self._process = process
 
-        self.func = self._load_func(run_compile=run_compile, root_dir=config_dir)
+        self._run_compile = run_compile
+        self._root_dir = config_dir
+
+        # this also serves as a validation step for the function
+        logger.debug("validate process function")
+        func = self._load_func()
+
+        self.function_parameters = dict(**inspect.signature(func).parameters)
 
     def __call__(self, *args, **kwargs: Any) -> Any:
-        self.func(*args, **self.filter_parameters(kwargs))
-
-    def function_parameters(self):
-        return inspect.signature(self.func).parameters
+        return self._load_func()(*args, **self.filter_parameters(kwargs))
 
     def filter_parameters(self, params):
         """Return function kwargs."""
         return {
             k: v
             for k, v in params.items()
-            if k in self.function_parameters() and v is not None
+            if k in self.function_parameters and v is not None
         }
 
-    def _load_func(self, run_compile=True, root_dir=None):
+    def _load_func(self):
         """Import and return process function."""
         logger.debug(f"get process function from {self.name}")
-        process_module = self._load_module(run_compile=run_compile, root_dir=root_dir)
+        process_module = self._load_module()
         try:
-            if hasattr(process_module, "Process"):
-                logger.error(
-                    """instanciating MapcheteProcess is deprecated, """
-                    """provide execute() function instead"""
-                )
             if hasattr(process_module, "execute"):
                 return process_module.execute
             else:
-                raise ImportError("No execute() function found in %s" % self._process)
+                raise ImportError("No execute() function found in %s" % self._src)
         except ImportError as e:
             raise MapcheteProcessImportError(e)
 
-    def _load_module(self, run_compile=False, root_dir=None):
+    def _load_module(self):
         # path to python file or python module path
         if self.path:
-            return self._import_module_from_path(
-                self.path, run_compile=run_compile, root_dir=root_dir
-            )
+            return self._import_module_from_path(self.path)
         # source code as list of strings
         else:
             with NamedTemporaryFile(suffix=".py") as tmpfile:
                 logger.debug(f"writing process code to temporary file {tmpfile.name}")
                 with open(tmpfile.name, "w") as dst:
-                    for line in self._process:
+                    for line in self._src:
                         dst.write(line + "\n")
                 return self._import_module_from_path(
                     MPath.from_inp(tmpfile.name),
-                    run_compile=run_compile,
-                    root_dir=root_dir,
                 )
 
-    def _import_module_from_path(self, path, run_compile=True, root_dir=None):
+    def _import_module_from_path(self, path):
         if path.endswith(".py"):
-            module_path = absolute_path(path=path, base_dir=root_dir)
+            module_path = absolute_path(path=path, base_dir=self._root_dir)
             if not module_path.exists():
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
-                if run_compile:
+                if self._run_compile:
                     py_compile.compile(module_path, doraise=True)
                 module_name = module_path.stem
                 # load module

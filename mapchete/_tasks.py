@@ -240,7 +240,7 @@ class TileTask(Task):
                                         task_key=task_key, result=task_result.data
                                     )
                 # Actually run process.
-                process_data = self.process.func(
+                process_data = self.process(
                     MapcheteProcess(
                         tile=self.tile,
                         params=self.process_func_params,

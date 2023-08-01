@@ -481,7 +481,9 @@ def test_init_overrides_config(example_mapchete):
 
 def test_custom_process(example_custom_process_mapchete):
     with mapchete.open(example_custom_process_mapchete.dict) as mp:
-        assert callable(mp.config.process)
+        assert (
+            mp.execute(example_custom_process_mapchete.first_process_tile()) is not None
+        )
 
 
 # pytest-env must be installed
@@ -529,15 +531,29 @@ def test_process_config_pyramid_settings():
 @pytest.mark.parametrize(
     "process_src",
     [
-        "mapchete.processes.convert",
-        TESTDATA_DIR / "execute_kwargs.py",
-        ["def execute(mp):", "    return 'empty'"],
+        "mapchete.processes.examples.example_process",
+        SCRIPT_DIR / "example_process.py",
+        (SCRIPT_DIR / "example_process.py").read_text().split("\n"),
     ],
 )
-def test_process(process_src):
+def test_process(process_src, example_custom_process_mapchete):
+    mp = example_custom_process_mapchete.process_mp()
     process = Process(process_src)
     assert process.name
-    # no parameters are provided, so a TypeError is raised
-    with pytest.raises(TypeError):
-        process()
-    assert pickle.dumps(process)
+    assert process(mp) is not None
+
+
+@pytest.mark.parametrize(
+    "process_src",
+    [
+        "mapchete.processes.examples.example_process",
+        SCRIPT_DIR / "example_process.py",
+        (SCRIPT_DIR / "example_process.py").read_text().split("\n"),
+    ],
+)
+def test_process_pickle(process_src, example_custom_process_mapchete):
+    mp = example_custom_process_mapchete.process_mp()
+    process = Process(process_src)
+    # pickle and unpickle
+    reloaded = pickle.loads(pickle.dumps(process))
+    assert reloaded(mp) is not None
