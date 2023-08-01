@@ -49,7 +49,7 @@ class BufferedTilePyramid(TilePyramid):
         self.metatiling = metatiling
         if isinstance(pixelbuffer, int) and pixelbuffer >= 0:
             self.pixelbuffer = pixelbuffer
-        else:
+        else:  # pragma: no cover
             raise ValueError("pixelbuffer has to be a non-negative int")
 
     def tile(self, zoom, row, col):

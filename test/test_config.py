@@ -3,6 +3,7 @@ import os
 import pickle
 
 import oyaml as yaml
+from pydantic import ValidationError
 import pytest
 from fiona.errors import DriverError
 from shapely import wkt
@@ -17,6 +18,7 @@ from mapchete.config import (
     bounds_from_opts,
     snap_bounds,
     Process,
+    ProcessConfig,
 )
 from mapchete.errors import MapcheteConfigError
 from mapchete.io import fiona_open, rasterio_open
@@ -488,6 +490,40 @@ def test_env_params(env_storage_options_mapchete):
         inp = mp.config.params_at_zoom(5)
         assert inp["input"]["file1"].storage_options.get("access_key") == "foo"
         assert mp.config.output.storage_options.get("access_key") == "bar"
+
+
+def test_process_config_pyramid_settings():
+    conf = ProcessConfig(
+        pyramid=dict(
+            grid="geodetic",
+        ),
+        zoom_levels=5,
+        output={},
+    )
+    assert conf.pyramid.pixelbuffer == 0
+    assert conf.pyramid.metatiling == 1
+
+    conf = ProcessConfig(
+        pyramid=dict(grid="geodetic", pixelbuffer=5, metatiling=4),
+        zoom_levels=5,
+        output={},
+    )
+    assert conf.pyramid.pixelbuffer == 5
+    assert conf.pyramid.metatiling == 4
+
+    with pytest.raises(ValidationError):
+        ProcessConfig(
+            pyramid=dict(grid="geodetic", pixelbuffer=-1, metatiling=4),
+            zoom_levels=5,
+            output={},
+        )
+
+    with pytest.raises(ValidationError):
+        ProcessConfig(
+            pyramid=dict(grid="geodetic", pixelbuffer=5, metatiling=5),
+            zoom_levels=5,
+            output={},
+        )
 
 
 @pytest.mark.parametrize(
