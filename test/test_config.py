@@ -17,7 +17,7 @@ from mapchete.config import (
     _guess_geometry,
     bounds_from_opts,
     snap_bounds,
-    Process,
+    ProcessFunc,
     ProcessConfig,
 )
 from mapchete.errors import MapcheteConfigError
@@ -538,7 +538,7 @@ def test_process_config_pyramid_settings():
 )
 def test_process(process_src, example_custom_process_mapchete):
     mp = example_custom_process_mapchete.process_mp()
-    process = Process(process_src)
+    process = ProcessFunc(process_src)
     assert process.name
     assert process(mp) is not None
 
@@ -553,7 +553,7 @@ def test_process(process_src, example_custom_process_mapchete):
 )
 def test_process_pickle(process_src, example_custom_process_mapchete):
     mp = example_custom_process_mapchete.process_mp()
-    process = Process(process_src)
+    process = ProcessFunc(process_src)
     # pickle and unpickle
     reloaded = pickle.loads(pickle.dumps(process))
     assert reloaded(mp) is not None

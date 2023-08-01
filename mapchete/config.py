@@ -116,8 +116,8 @@ class Mode(str, Enum):
     MEMORY = "memory"
 
 
-class Process:
-    """Abstraction class for a user process.
+class ProcessFunc:
+    """Abstraction class for a user process function.
 
     The user process can either be provided as a python module path, a file path
     or the source code as a list of strings.
@@ -252,7 +252,7 @@ class MapcheteConfig(object):
     mode: Mode = "continue"
     preprocessing_tasks_finished: bool = False
     config_dir: MPath = None
-    process: Union[Process, None] = None
+    process: Union[ProcessFunc, None] = None
     process_pyramid: BufferedTilePyramid
     output_pyramid: BufferedTilePyramid
     baselevels: Union[dict, None]
@@ -311,7 +311,7 @@ class MapcheteConfig(object):
                     f"process must be provided on {self.mode} mode"
                 )
             logger.debug("validating process code")
-            self.process = Process(
+            self.process = ProcessFunc(
                 self.parsed_config.process, config_dir=self.config_dir
             )
 

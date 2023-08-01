@@ -7,7 +7,6 @@ from shapely.geometry import box, mapping
 
 from mapchete._timer import Timer
 from mapchete._user_process import MapcheteProcess
-from mapchete.config import Process
 from mapchete.errors import (
     MapcheteNodataTile,
     MapcheteProcessOutputError,
