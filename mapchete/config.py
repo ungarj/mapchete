@@ -277,6 +277,7 @@ class MapcheteConfig(object):
         bounds=None,
         bounds_crs=None,
         mode="continue",
+        stric_parsing=False,
         **kwargs,
     ):
         """Initialize configuration."""
@@ -284,7 +285,7 @@ class MapcheteConfig(object):
         # (1) map deprecated params to new structure
         logger.debug(f"parsing {input_config}")
         try:
-            self.parsed_config = parse_config(input_config)
+            self.parsed_config = parse_config(input_config, strict=stric_parsing)
             self.parsed_config.dict()
         except Exception as exc:
             raise MapcheteConfigError(exc)
@@ -1179,9 +1180,14 @@ def open_inputs(inputs, tile):
             yield (k, v.open(tile))
 
 
-def parse_config(input_config: Union[dict, str, MPath]) -> ProcessConfig:
+def parse_config(
+    input_config: Union[dict, str, MPath], strict: bool = False
+) -> ProcessConfig:
     """Read config from file or dictionary and return validated configuration"""
-    return ProcessConfig(**_map_to_new_config(_config_to_dict(input_config)))
+    if strict:  # pragma: no cover
+        return ProcessConfig(**_config_to_dict(input_config))
+    else:
+        return ProcessConfig(**_map_to_new_config(_config_to_dict(input_config)))
 
 
 def _config_to_dict(input_config: Union[dict, str, MPath]) -> dict:
