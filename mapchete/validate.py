@@ -87,7 +87,9 @@ def validate_values(config, values):
         if not isinstance(config[value], vtype):
             if config[value] is None:
                 raise ValueError("%s not given" % value)
-            raise TypeError("%s must be %s, not %s" % (value, vtype, config[value]))
+            raise TypeError(
+                "%s must be %s, not %s" % (value, vtype, config[value])
+            )  # pragma: no cover
     return True
 
 

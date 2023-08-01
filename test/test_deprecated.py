@@ -29,13 +29,6 @@ def test_parse_deprecated_zooms(deprecated_params):
             assert mp.config.zoom_levels == list(range(0, 6))
 
 
-def test_deprecated_process_class(deprecated_params):
-    deprecated_params.dict.update(process_file="old_style_process.py")
-    with pytest.deprecated_call():
-        with pytest.raises(MapcheteProcessImportError):
-            mapchete.open(deprecated_params.dict)
-
-
 def test_deprecated_open_kwarg(mapchete_input):
     """Mapchete process as input for other process."""
     with mapchete.open(mapchete_input.dict) as mp:

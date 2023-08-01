@@ -1,3 +1,6 @@
+from shapely.geometry import shape
+
+
 class Bounds(list):
     """
     Class to handle geographic bounds.
@@ -11,7 +14,7 @@ class Bounds(list):
     width: float = None
 
     def __init__(self, left=None, bottom=None, right=None, top=None, strict=True):
-        self.left, self.bottom, self.right, self.top = left, bottom, right, top
+        self._set_attributes(left, bottom, right, top)
         for value in self:
             if not isinstance(value, (int, float)):
                 raise TypeError(
@@ -79,6 +82,17 @@ class Bounds(list):
             ],
         }
 
+    def _set_attributes(self, left, bottom, right, top):
+        """This method is important when Bounds instances are passed on to the ProcessConfig schema."""
+        if hasattr(left, "__iter__"):
+            self.left, self.bottom, self.right, self.top = [i for i in left]
+        else:
+            self.left, self.bottom, self.right, self.top = left, bottom, right, top
+
+    @property
+    def geometry(self):
+        return shape(self)
+
     @classmethod
     def from_inp(cls, inp, strict=True):
         if isinstance(inp, (list, tuple)):
@@ -132,7 +146,7 @@ class ZoomLevels(list):
     max: int = None
 
     def __init__(self, min=None, max=None, descending=False):
-        self.min, self.max = min, max
+        self._set_attributes(min, max)
         # assert that min and max are positive integers
         for key, value in [("min", self.min), ("max", self.max)]:
             if not isinstance(value, int):
@@ -174,6 +188,15 @@ class ZoomLevels(list):
 
     def __contains__(self, value):
         return value in list(self)
+
+    def _set_attributes(self, minlevel, maxlevel):
+        """This method is important when ZoomLevel instances are passed on to the ProcessConfig schema."""
+        if hasattr(minlevel, "__iter__"):
+            zoom_list = [i for i in minlevel]
+            self.min = min(zoom_list)
+            self.max = max(zoom_list)
+        else:
+            self.min, self.max = minlevel, maxlevel
 
     @classmethod
     def from_inp(cls, min=None, max=None, descending=False):

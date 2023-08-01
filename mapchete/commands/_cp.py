@@ -10,7 +10,7 @@ from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
-from mapchete.io import MPath, copy, fs_from_path, tiles_exist
+from mapchete.io import MPath, copy, tiles_exist
 from mapchete.io.vector import reproject_geometry
 
 logger = logging.getLogger(__name__)

@@ -30,11 +30,10 @@ output:
     dtype: float32
     bands: 3
 
-# free parameters
-#################
-some_integer_parameter: 12
-some_float_parameter: 5.3
-some_string_parameter:
-    zoom<=7: string1
-    zoom>7: string2
-some_bool_parameter: true
+process_parameters:
+    some_integer_parameter: 12
+    some_float_parameter: 5.3
+    some_string_parameter:
+        zoom<=7: string1
+        zoom>7: string2
+    some_bool_parameter: true

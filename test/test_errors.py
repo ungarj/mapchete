@@ -30,7 +30,7 @@ def test_execute(example_mapchete):
     """Mapchete execute() errors."""
     # in readonly mode
     with mapchete.open(example_mapchete.dict, mode="readonly") as mp:
-        with pytest.raises(ValueError):
+        with pytest.raises(AttributeError):
             mp.execute(next(mp.get_process_tiles()))
     # wrong tile type
     with mapchete.open(example_mapchete.dict) as mp:

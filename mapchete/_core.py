@@ -145,7 +145,6 @@ class Mapchete(object):
         if not isinstance(config, MapcheteConfig):
             raise TypeError("config must be MapcheteConfig object")
         self.config = config
-        self.process_name = self.config.process_name
         self.with_cache = True if self.config.mode == "memory" else with_cache
         if self.with_cache:
             self.process_tile_cache = LRUCache(maxsize=512)
@@ -794,7 +793,7 @@ class Mapchete(object):
             self.process_lock = None
 
     def __repr__(self):  # pragma: no cover
-        return f"Mapchete <process_name={self.process_name}>"
+        return f"Mapchete <process_name={self.config.process.name}>"
 
 
 def _get_zoom_level(zoom, process):

@@ -18,8 +18,7 @@ from mapchete._executor import (
 )
 from mapchete._tasks import TaskBatch, TileTask, TileTaskBatch, to_dask_collection
 from mapchete._timer import Timer
-from mapchete.config import get_process_func
-from mapchete.errors import MapcheteNodataTile, MapcheteTaskFailed
+from mapchete.errors import MapcheteNodataTile
 from mapchete.types import Bounds, ZoomLevels
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))

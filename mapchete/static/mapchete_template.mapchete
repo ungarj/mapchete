@@ -15,5 +15,4 @@ zoom_levels:
     min: 0
     max: 12
 
-# free parameters
-#################
+# process_parameters:
