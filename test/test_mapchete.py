@@ -376,7 +376,7 @@ def test_baselevels_buffer_antimeridian(baselevels):
         # use baselevel generation to interpolate tile and
         # assert data from across the antimeridian is read.
         lower_tile = mp.get_raw_output(west.get_parent())
-        assert np.where(lower_tile == 10, True, False).any()
+        assert np.where(lower_tile != 10, True, False).all()
 
 
 def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):

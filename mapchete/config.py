@@ -340,7 +340,7 @@ class MapcheteConfig(object):
             self.output_pyramid = BufferedTilePyramid(
                 self.parsed_config.pyramid.grid,
                 metatiling=output_metatiling,
-                pixelbuffer=self.parsed_config.pyramid.pixelbuffer,
+                pixelbuffer=self.parsed_config.output.get("pixelbuffer", 0),
             )
         except Exception as e:
             logger.exception(e)
