@@ -138,6 +138,29 @@ mapchete process. This is very similar to provide a ``.mapchete`` file path but 
 convenience to just refer to the path.
 
 
+**Example:**
+
+.. code-block:: yaml
+
+    input:
+        foo: path_to_tiledirectory
+
+Sometimes it can be beneficial to pass on some default values to a TileDirectory, such
+as the maximum zoom level available. In that case Mapchete knows to read data from this
+zoom level in case a process runs on a higher zoom.
+
+**Example:**
+
+.. code-block:: yaml
+
+    input:
+        foo:
+            format: TileDirectory
+            path: path_to_tiledirectory
+            resampling: bilinear
+            max_zoom: 8  # now data can be read also from e.g. zoom 9 and will be resampled
+
+
 -------------------------
 Additional output formats
 -------------------------

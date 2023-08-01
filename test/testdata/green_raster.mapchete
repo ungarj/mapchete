@@ -11,7 +11,7 @@ output:
   format: GTiff
   path: tmp/green_raster
 baselevels:
-    min: 3
+  min: 3
 bounds: [-180, 0, 0, 90]
-
-color: [1, 255, 1]
+process_parameters:
+  color: [1, 255, 1]

@@ -13,5 +13,5 @@ output:
 baselevels:
     min: 3
 bounds: [-180, 0, 0, 90]
-
-color: [255, 1, 1]
+process_parameters:
+  color: [255, 1, 1]

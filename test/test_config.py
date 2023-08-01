@@ -1,9 +1,9 @@
-"""Test Mapchete config module."""
-
-import os
 from copy import deepcopy
+import os
+import pickle
 
 import oyaml as yaml
+from pydantic import ValidationError
 import pytest
 from fiona.errors import DriverError
 from shapely import wkt
@@ -17,13 +17,16 @@ from mapchete.config import (
     _guess_geometry,
     bounds_from_opts,
     snap_bounds,
+    ProcessFunc,
+    ProcessConfig,
 )
 from mapchete.errors import MapcheteConfigError
 from mapchete.io import fiona_open, rasterio_open
+from mapchete.path import MPath
 from mapchete.types import Bounds
 
-SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
-TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
+SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
+TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata/"))
 
 
 def test_config_errors(example_mapchete):
@@ -78,10 +81,10 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
     input_files = zoom7["input"]
     assert input_files["file1"] is None
     assert str(input_files["file2"].path) == dummy2_tif
-    assert zoom7["some_integer_parameter"] == 12
-    assert zoom7["some_float_parameter"] == 5.3
-    assert zoom7["some_string_parameter"] == "string1"
-    assert zoom7["some_bool_parameter"] is True
+    assert zoom7["process_parameters"]["some_integer_parameter"] == 12
+    assert zoom7["process_parameters"]["some_float_parameter"] == 5.3
+    assert zoom7["process_parameters"]["some_string_parameter"] == "string1"
+    assert zoom7["process_parameters"]["some_bool_parameter"] is True
 
 
 def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
@@ -91,10 +94,10 @@ def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
     input_files = zoom11["input"]
     assert str(input_files["file1"].path) == dummy1_tif
     assert str(input_files["file2"].path) == dummy2_tif
-    assert zoom11["some_integer_parameter"] == 12
-    assert zoom11["some_float_parameter"] == 5.3
-    assert zoom11["some_string_parameter"] == "string2"
-    assert zoom11["some_bool_parameter"] is True
+    assert zoom11["process_parameters"]["some_integer_parameter"] == 12
+    assert zoom11["process_parameters"]["some_float_parameter"] == 5.3
+    assert zoom11["process_parameters"]["some_string_parameter"] == "string2"
+    assert zoom11["process_parameters"]["some_bool_parameter"] is True
 
 
 def test_read_zoom_level(zoom_mapchete):
@@ -478,7 +481,9 @@ def test_init_overrides_config(example_mapchete):
 
 def test_custom_process(example_custom_process_mapchete):
     with mapchete.open(example_custom_process_mapchete.dict) as mp:
-        assert callable(mp.config.process_func)
+        assert (
+            mp.execute(example_custom_process_mapchete.first_process_tile()) is not None
+        )
 
 
 # pytest-env must be installed
@@ -487,3 +492,68 @@ def test_env_params(env_storage_options_mapchete):
         inp = mp.config.params_at_zoom(5)
         assert inp["input"]["file1"].storage_options.get("access_key") == "foo"
         assert mp.config.output.storage_options.get("access_key") == "bar"
+
+
+def test_process_config_pyramid_settings():
+    conf = ProcessConfig(
+        pyramid=dict(
+            grid="geodetic",
+        ),
+        zoom_levels=5,
+        output={},
+    )
+    assert conf.pyramid.pixelbuffer == 0
+    assert conf.pyramid.metatiling == 1
+
+    conf = ProcessConfig(
+        pyramid=dict(grid="geodetic", pixelbuffer=5, metatiling=4),
+        zoom_levels=5,
+        output={},
+    )
+    assert conf.pyramid.pixelbuffer == 5
+    assert conf.pyramid.metatiling == 4
+
+    with pytest.raises(ValidationError):
+        ProcessConfig(
+            pyramid=dict(grid="geodetic", pixelbuffer=-1, metatiling=4),
+            zoom_levels=5,
+            output={},
+        )
+
+    with pytest.raises(ValidationError):
+        ProcessConfig(
+            pyramid=dict(grid="geodetic", pixelbuffer=5, metatiling=5),
+            zoom_levels=5,
+            output={},
+        )
+
+
+@pytest.mark.parametrize(
+    "process_src",
+    [
+        "mapchete.processes.examples.example_process",
+        SCRIPT_DIR / "example_process.py",
+        (SCRIPT_DIR / "example_process.py").read_text().split("\n"),
+    ],
+)
+def test_process(process_src, example_custom_process_mapchete):
+    mp = example_custom_process_mapchete.process_mp()
+    process = ProcessFunc(process_src)
+    assert process.name
+    assert process(mp) is not None
+
+
+@pytest.mark.parametrize(
+    "process_src",
+    [
+        "mapchete.processes.examples.example_process",
+        SCRIPT_DIR / "example_process.py",
+        (SCRIPT_DIR / "example_process.py").read_text().split("\n"),
+    ],
+)
+def test_process_pickle(process_src, example_custom_process_mapchete):
+    mp = example_custom_process_mapchete.process_mp()
+    process = ProcessFunc(process_src)
+    # pickle and unpickle
+    reloaded = pickle.loads(pickle.dumps(process))
+    assert reloaded(mp) is not None

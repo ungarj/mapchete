@@ -68,6 +68,11 @@ def test_bounds_geo_interface():
     assert shape(bounds).is_valid
 
 
+def test_bounds_geometry():
+    bounds = Bounds(1, 2, 3, 4)
+    assert bounds.geometry.is_valid
+
+
 def test_bounds_width():
     assert Bounds(1, 2, 3, 4).width == 2
 

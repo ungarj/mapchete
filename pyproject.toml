@@ -18,6 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering :: GIS",
 ]
 dependencies = [
@@ -32,6 +33,7 @@ dependencies = [
     "importlib-resources",
     "numpy>=1.16",
     "oyaml",
+    "pydantic<2.0.0",
     "pyproj",
     "python-dateutil",
     "rasterio>1.2.10",

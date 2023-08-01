@@ -158,6 +158,9 @@ class InputData(base.InputData):
             }
         else:
             self._profile = None
+        self._min_zoom = self._params.get("min_zoom")
+        self._max_zoom = self._params.get("max_zoom")
+        self._resampling = self._params.get("resampling")
 
     @cached_property
     def _tiledir_metadata_json(self):
@@ -184,6 +187,9 @@ class InputData(base.InputData):
             profile=self._profile,
             td_pyramid=self.td_pyramid,
             read_as_tiledir_func=self._read_as_tiledir_func,
+            min_zoom=self._min_zoom,
+            max_zoom=self._max_zoom,
+            resampling=self._resampling,
             **kwargs,
         )
 
@@ -247,6 +253,9 @@ class InputTile(base.InputTile):
         td_crs=None,
         td_pyramid=None,
         read_as_tiledir_func=None,
+        min_zoom=None,
+        max_zoom=None,
+        resampling=None,
     ):
         """Initialize."""
         self.tile = tile
@@ -256,11 +265,14 @@ class InputTile(base.InputTile):
         self._profile = profile
         self._td_pyramid = td_pyramid
         self._read_as_tiledir = read_as_tiledir_func
+        self._min_zoom = min_zoom
+        self._max_zoom = max_zoom
+        self._resampling = resampling
 
     def read(
         self,
         indexes=None,
-        resampling="nearest",
+        resampling=None,
         tile_directory_zoom=None,
         matching_method="gdal",
         matching_max_zoom=None,
@@ -313,6 +325,10 @@ class InputTile(base.InputTile):
         -------
         data : list for vector files or numpy array for raster files
         """
+        if resampling:
+            _resampling = resampling
+        else:
+            _resampling = self._resampling or "nearest"
         return self._read_as_tiledir(
             data_type=self._data_type,
             out_tile=self.tile,
@@ -322,12 +338,14 @@ class InputTile(base.InputTile):
                 fallback_to_higher_zoom=fallback_to_higher_zoom,
                 matching_method=matching_method,
                 matching_precision=matching_precision,
-                matching_max_zoom=matching_max_zoom,
+                matching_max_zoom=self._max_zoom
+                if matching_max_zoom is None
+                else matching_max_zoom,
             ),
             profile=self._profile,
             validity_check=validity_check,
             indexes=indexes,
-            resampling=resampling,
+            resampling=_resampling,
             dst_nodata=dst_nodata,
             gdal_opts=gdal_opts,
             **{k: v for k, v in kwargs.items() if k != "data_type"},
