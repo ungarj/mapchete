@@ -8,6 +8,7 @@ from shapely.geometry.base import BaseGeometry
 
 import mapchete
 from mapchete.index import zoom_index_gen
+from mapchete.path import MPath
 
 logger = logging.getLogger(__name__)
 
@@ -115,14 +116,13 @@ def index(
         pass
 
     msg_callback = msg_callback or _empty_callback
-    fs_opts = fs_opts or {}
+    tiledir = MPath.from_inp(tiledir, storage_options=fs_opts)
 
     msg_callback(f"create index(es) for {tiledir}")
     # process single tile
     with mapchete.open(
         tiledir,
         mode="readonly",
-        fs_kwargs=fs_opts,
         zoom=tile[0] if tile else zoom,
         point=point,
         point_crs=point_crs,

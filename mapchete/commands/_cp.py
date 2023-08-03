@@ -27,14 +27,14 @@ def cp(
     point: Tuple[float, float] = None,
     point_crs: Tuple[float, float] = None,
     overwrite: bool = False,
-    workers: int = None,
-    multi: int = None,
-    concurrency: str = None,
-    dask_scheduler: str = None,
+    workers: Union[int, None] = None,
+    multi: Union[int, None] = None,
+    concurrency: Union[str, None] = None,
+    dask_scheduler: Union[str, None] = None,
     dask_client=None,
-    src_fs_opts: dict = None,
-    dst_fs_opts: dict = None,
-    msg_callback: Callable = None,
+    src_fs_opts: Union[dict, None] = None,
+    dst_fs_opts: Union[dict, None] = None,
+    msg_callback: Union[Callable, None] = None,
     as_iterator: bool = False,
 ) -> mapchete.Job:
     """
@@ -112,8 +112,8 @@ def cp(
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom level(s) required")
 
-    src_tiledir = MPath.from_inp(src_tiledir, **src_fs_opts)
-    dst_tiledir = MPath.from_inp(dst_tiledir, **dst_fs_opts)
+    src_tiledir = MPath.from_inp(src_tiledir, storage_options=src_fs_opts)
+    dst_tiledir = MPath.from_inp(dst_tiledir, storage_options=dst_fs_opts)
     src_fs = src_tiledir.fs
     dst_fs = dst_tiledir.fs
 
