@@ -226,9 +226,14 @@ def tile_directory_stac_item(
         },
     }
 
-    stac_extensions = ["tiled-assets"]
+    stac_extensions = [
+        # official schema since STAC 1.0.0
+        "https://stac-extensions.github.io/tiled-assets/v1.0.0/schema.json",
+    ]
     if "eo:bands" in item_metadata:
-        stac_extensions.append("eo")
+        stac_extensions.append(
+            "https://stac-extensions.github.io/eo/v1.1.0/schema.json"
+        )
 
     out = {
         "stac_version": get_stac_version(),
@@ -447,7 +452,7 @@ def create_prototype_files(mp):
         prototype_tile = mp.config.output_pyramid.tile(zoom, 0, 0)
         tile_path = mp.config.output.get_path(prototype_tile)
         # if tile exists, skip
-        if mp.config.output.tiles_exist(output_tile=prototype_tile):
+        if tile_path.exists():
             logger.debug("prototype tile %s already exists", tile_path)
         # if not, write empty tile
         else:

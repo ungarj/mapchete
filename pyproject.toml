@@ -93,7 +93,8 @@ spatial-index = [
     "rtree",
 ]
 stac = [
-    "pystac[urllib3]<=1.7.3",
+    "pystac[urllib3]>=1.8.2",
+    "pystac-client>=0.7.2",
 ]
 vrt = [
     "lxml",
