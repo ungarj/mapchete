@@ -708,7 +708,15 @@ class Mapchete(object):
             logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
             self.config.output.stac_path.parent.makedirs()
             with self.config.output.stac_path.open("w") as dst:
-                dst.write(json.dumps(item.to_dict(), indent=indent))
+                item_dict = item.to_dict()
+
+                # we have to add 'tiled-assets' to stac extensions in order to GDAL identify
+                # this file as STACTA dataset
+                stac_extensions = set(item_dict.get("stac_extensions", []))
+                stac_extensions.add("tiled-assets")
+                item_dict["stac_extensions"] = list(stac_extensions)
+
+                dst.write(json.dumps(item_dict, indent=indent))
         except ReprojectionFailed:
             logger.warning(
                 "cannot create STAC item because footprint cannot be reprojected into EPSG:4326"
