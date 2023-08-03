@@ -120,7 +120,7 @@ def rm(
             _rm,
             fargs=(
                 paths,
-                fs,
+                tiledir.fs,
                 msg_callback,
             ),
             as_iterator=as_iterator,

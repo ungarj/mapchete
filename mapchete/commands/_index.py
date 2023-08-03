@@ -116,13 +116,13 @@ def index(
         pass
 
     msg_callback = msg_callback or _empty_callback
-    tiledir = MPath.from_inp(tiledir, storage_options=fs_opts)
 
     msg_callback(f"create index(es) for {tiledir}")
     # process single tile
     with mapchete.open(
         tiledir,
         mode="readonly",
+        fs_kwargs=fs_opts,
         zoom=tile[0] if tile else zoom,
         point=point,
         point_crs=point_crs,
