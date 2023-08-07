@@ -89,8 +89,8 @@ def aws_s3_testdata_dir():
 
     try:
         AWS_S3_TESTDATA_DIR.ls()
-    except NoCredentialsError:
-        raise ConnectionError("credentials for s3://mapchete-test are not set")
+    except (NoCredentialsError, PermissionError):
+        raise PermissionError("credentials for s3://mapchete-test are not set")
     return AWS_S3_TESTDATA_DIR
 
 
