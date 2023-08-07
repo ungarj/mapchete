@@ -178,6 +178,19 @@ def test_io_read(path):
     assert path.read_text()
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("metadata_json"),
+        pytest.lazy_fixture("http_metadata_json"),
+        pytest.lazy_fixture("secure_http_metadata_json"),
+        pytest.lazy_fixture("s3_metadata_json"),
+    ],
+)
+def test_size(path):
+    assert path.size()
+
+
 def test_io_s3(mp_s3_tmpdir):
     testfile = mp_s3_tmpdir / "bar.txt"
     assert not testfile.exists()
