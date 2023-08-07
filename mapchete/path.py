@@ -302,6 +302,9 @@ class MPath(os.PathLike):
             else:  # pragma: no cover
                 raise
 
+    def size(self):
+        return self.fs.size(self._path_str)
+
     def joinpath(self, *other) -> "MPath":
         """Join path with other."""
         return self.new(os.path.join(self._path_str, *list(map(str, other))))
@@ -501,8 +504,7 @@ def path_is_remote(path, **kwargs):
     -------
     is_remote : bool
     """
-    path = path if isinstance(path, MPath) else MPath(path)
-    return path.is_remote()
+    return MPath.from_inp(path, **kwargs).is_remote()
 
 
 def path_exists(path, fs=None, **kwargs):
@@ -517,11 +519,10 @@ def path_exists(path, fs=None, **kwargs):
     -------
     exists : bool
     """
-    path = path if isinstance(path, MPath) else MPath(path)
-    return path.exists()
+    return MPath.from_inp(path, fs=fs, **kwargs).exists()
 
 
-def absolute_path(path=None, base_dir=None):
+def absolute_path(path=None, base_dir=None, **kwargs):
     """
     Return absolute path if path is local.
 
@@ -534,11 +535,10 @@ def absolute_path(path=None, base_dir=None):
     -------
     absolute path
     """
-    path = path if isinstance(path, MPath) else MPath(path)
-    return path.absolute_path(base_dir=base_dir)
+    return MPath.from_inp(path, **kwargs).absolute_path(base_dir=base_dir)
 
 
-def relative_path(path=None, base_dir=None):
+def relative_path(path=None, base_dir=None, **kwargs):
     """
     Return relative path if path is local.
 
@@ -551,11 +551,10 @@ def relative_path(path=None, base_dir=None):
     -------
     relative path
     """
-    path = path if isinstance(path, MPath) else MPath(path)
-    return path.relative_path(base_dir=base_dir)
+    return MPath.from_inp(path, **kwargs).relative_path(base_dir=base_dir)
 
 
-def makedirs(path, fs=None):  # pragma: no cover
+def makedirs(path, fs=None, **kwargs):  # pragma: no cover
     """
     Silently create all subdirectories of path if path is local.
 
@@ -563,8 +562,7 @@ def makedirs(path, fs=None):  # pragma: no cover
     ----------
     path : path
     """
-    path = path if isinstance(path, MPath) else MPath(path, fs=fs)
-    path.makedirs()
+    MPath.from_inp(path, fs=fs, **kwargs).makedirs()
 
 
 def tiles_exist(
