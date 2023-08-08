@@ -861,6 +861,14 @@ def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
     assert rr.read(indexes, tile=s2_band_tile).any()
 
 
+def test_referencedraster_to_file(s2_band, mp_tmpdir):
+    rr = ReferencedRaster.from_file(s2_band)
+    out_file = mp_tmpdir / "test.tif"
+    rr.to_file(out_file)
+    with rasterio_open(out_file) as src:
+        assert src.read(masked=True).any()
+
+
 @pytest.mark.parametrize(
     "path", [pytest.lazy_fixture("mp_s3_tmpdir"), pytest.lazy_fixture("mp_tmpdir")]
 )
@@ -998,5 +1006,29 @@ def test_read_raster_window(path, grid, pixelbuffer, zoom):
 )
 def test_read_raster(path):
     rr = read_raster(path)
+    assert isinstance(rr, ReferencedRaster)
+    assert not rr.data.mask.all()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_aws_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+        pytest.lazy_fixture("stacta"),
+        # this test is deactivated because it fails
+        # pytest.lazy_fixture("s3_stacta"),
+        pytest.lazy_fixture("aws_s3_stacta"),
+        pytest.lazy_fixture("http_stacta"),
+        pytest.lazy_fixture("secure_http_stacta"),
+    ],
+)
+def test_read_raster_tile(path):
+    tp = BufferedTilePyramid("geodetic")
+    tile = next(tp.tiles_from_bounds(read_raster(path).bounds, zoom=13))
+    rr = read_raster(path, tile=tile)
     assert isinstance(rr, ReferencedRaster)
     assert not rr.data.mask.all()

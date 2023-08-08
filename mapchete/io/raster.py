@@ -202,6 +202,20 @@ class ReferencedRaster:
             else np.stack(*args)
         )
 
+    def to_file(
+        self,
+        path: MPath,
+        indexes: Union[int, List[int]] = None,
+        tile: BufferedTile = None,
+        resampling: str = "nearest",
+        **kwargs,
+    ) -> MPath:
+        """Write raster to output."""
+        out_kwargs = dict(self.meta, **kwargs)
+        with rasterio_open(path, "w", **out_kwargs) as dst:
+            dst.write(self.read(indexes=indexes, tile=tile, resampling=resampling))
+        return path
+
     @staticmethod
     def from_rasterio(src, masked: bool = True) -> "ReferencedRaster":
         return ReferencedRaster(
@@ -1300,9 +1314,16 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
         copy(inp, out, overwrite=overwrite)
 
 
-def read_raster(inp, **kwargs):
+def read_raster(inp, tile=None, **kwargs) -> ReferencedRaster:
     inp = MPath.from_inp(inp)
     logger.debug(f"reading {str(inp)} into memory")
+    if tile:
+        return ReferencedRaster(
+            data=read_raster_window(inp, tile=tile, **kwargs),
+            affine=tile.affine,
+            bounds=tile.bounds,
+            crs=tile.crs,
+        )
     with rasterio_open(inp, "r") as src:
         return ReferencedRaster(
             data=src.read(masked=True),
