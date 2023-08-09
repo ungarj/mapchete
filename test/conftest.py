@@ -2,19 +2,19 @@
 
 import datetime
 import os
-from tempfile import TemporaryDirectory
 import uuid
+from tempfile import TemporaryDirectory
 
-from aiohttp.client_exceptions import ClientConnectorError
 import pytest
+from aiohttp.client_exceptions import ClientConnectorError
 from minio import Minio
 from shapely import wkt
 from shapely.geometry import box
 from tilematrix import Bounds, GridDefinition
 
 from mapchete._executor import (
-    DaskExecutor,
     ConcurrentFuturesExecutor,
+    DaskExecutor,
     SequentialExecutor,
 )
 from mapchete.cli.default.serve import create_app

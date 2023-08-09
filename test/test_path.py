@@ -1,4 +1,5 @@
 import pickle
+
 import pytest
 
 from mapchete.config import get_hash

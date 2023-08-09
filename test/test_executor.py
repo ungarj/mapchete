@@ -1,5 +1,5 @@
-from concurrent.futures._base import CancelledError
 import time
+from concurrent.futures._base import CancelledError
 
 import pytest
 

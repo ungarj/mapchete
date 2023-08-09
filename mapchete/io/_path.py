@@ -1,10 +1,10 @@
 """This module is deprecated and only here for backwards compatibility"""
 
 from mapchete.path import absolute_path  # pragma: no cover
+from mapchete.path import makedirs  # pragma: no cover
 from mapchete.path import (
     MPath,
     fs_from_path,
-    makedirs,  # pragma: no cover
     path_exists,
     path_is_remote,
     relative_path,

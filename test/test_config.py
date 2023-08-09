@@ -1,11 +1,11 @@
-from copy import deepcopy
 import os
 import pickle
+from copy import deepcopy
 
 import oyaml as yaml
-from pydantic import ValidationError
 import pytest
 from fiona.errors import DriverError
+from pydantic import ValidationError
 from shapely import wkt
 from shapely.errors import WKTReadingError
 from shapely.geometry import Polygon, box, mapping, shape
@@ -14,11 +14,11 @@ from shapely.ops import unary_union
 import mapchete
 from mapchete.config import (
     MapcheteConfig,
+    ProcessConfig,
+    ProcessFunc,
     _guess_geometry,
     bounds_from_opts,
     snap_bounds,
-    ProcessFunc,
-    ProcessConfig,
 )
 from mapchete.errors import MapcheteConfigError
 from mapchete.io import fiona_open, rasterio_open
