@@ -4,6 +4,21 @@ Changelog
 
 
 ---------------------
+2023.8.1 - 2023-08-09
+---------------------
+
+* packaging
+
+  * require `Shapely>=2.0.0` (#572)
+  * remmove `cached_property` package requirement (#573)
+  * add `isort` to pre-commit (#573)
+
+* core
+
+  * fix `ReferencedRaster.to_file()` on 2D arrays (#574)
+
+
+---------------------
 2023.8.0 - 2023-08-09
 ---------------------
 

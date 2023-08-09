@@ -19,7 +19,7 @@ __all__ = [
     "SkippedFuture",
     "Job",
 ]
-__version__ = "2023.8.0"
+__version__ = "2023.8.1"
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
