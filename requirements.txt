@@ -23,7 +23,7 @@ pyproj
 pydantic<2.0.0
 retry>=0.9.2
 rasterio>1.2.10
-Shapely>=1.7.1
+Shapely>=2.0.0
 tilematrix>=2022.12.0
 tqdm>=4.46.0
 werkzeug>=0.15
