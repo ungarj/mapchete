@@ -3,4 +3,3 @@
 
 def execute():
     """ "Function needs to have exactly one argument."""
-    pass

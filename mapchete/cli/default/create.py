@@ -5,9 +5,9 @@ from shutil import copyfile
 from string import Template
 
 import click
+import tilematrix
 from importlib_resources import files
 from oyaml import dump
-import tilematrix
 
 from mapchete.cli import options
 from mapchete.formats import available_output_formats

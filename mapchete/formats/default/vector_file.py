@@ -5,8 +5,8 @@ Currently limited by extensions .shp and .geojson but could be extended easily.
 """
 
 import logging
+from functools import cached_property
 
-from cached_property import cached_property
 from rasterio.crs import CRS
 from shapely.geometry import Point, box
 

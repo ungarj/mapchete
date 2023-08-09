@@ -1,5 +1,4 @@
 from itertools import chain
-from typing import Type
 
 import pytest
 from shapely.geometry import shape

@@ -8,11 +8,11 @@ from shapely.errors import TopologicalError
 from shapely.geometry import (
     LineString,
     MultiPolygon,
+    Point,
     Polygon,
     box,
     mapping,
     shape,
-    Point,
 )
 
 from mapchete.config import MapcheteConfig

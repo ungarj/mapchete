@@ -1,15 +1,15 @@
 """This module is deprecated and only here for backwards compatibility"""
 
-from mapchete.path import absolute_path  # pragma: no cover
-from mapchete.path import (
+from mapchete.path import (  # pragma: no cover
     MPath,
+    absolute_path,
     fs_from_path,
     makedirs,
     path_exists,
     path_is_remote,
     relative_path,
     tiles_exist,
-)  # pragma: no cover
+)
 
 __all__ = [
     "fs_from_path",
