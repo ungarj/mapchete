@@ -4,6 +4,35 @@ Changelog
 
 
 ---------------------
+2023.8.0 - 2023-08-09
+---------------------
+
+* packaging
+
+  * add `pydantic<2.0.0` as dependency
+
+
+* CI
+
+  * also test on Python 3.11 (#562)
+
+* core
+
+  * enable adding default read parameters to TileDirectory input (#565)
+  * configuration schema (#564)
+
+    * add `pydantic<2.0.0` as dependency
+    * `mapchete.config.ProcessConfig` now defines the mapchete process configuration schema
+    * process function parameters should now go into the `process_parameters` section of the configuration
+    * add `mapchete.config.ProcessFunc` abstraction class to load and handle user process functions
+
+  * CLI: fix passing on storage options; add storage options to convert command (#568)
+  * update STACTA file schema to STAC 1.0.0 (#569)
+  * added `ReferencedRaster.to_file()` (#570)
+  * added `read_raster(tile=...)` kwarg to resample incoming raster (#570)
+
+
+---------------------
 2023.7.1 - 2023-07-18
 ---------------------
 
