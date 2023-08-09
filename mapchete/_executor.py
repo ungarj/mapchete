@@ -9,7 +9,7 @@ import warnings
 from concurrent.futures._base import CancelledError
 from functools import partial
 
-from cached_property import cached_property
+from functools import cached_property
 
 from mapchete._timer import Timer
 from mapchete.errors import JobCancelledError, MapcheteTaskFailed
@@ -55,8 +55,6 @@ class _ExecutorBase:
     cancelled = False
     running_futures = None
     finished_futures = None
-    _as_completed = None
-    _executor = None
     _executor_cls = None
     _executor_args = ()
     _executor_kwargs = {}

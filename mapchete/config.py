@@ -14,7 +14,7 @@ from tempfile import NamedTemporaryFile
 
 import fsspec
 import oyaml as yaml
-from cached_property import cached_property
+from functools import cached_property
 from pydantic import BaseModel, validator, NonNegativeInt
 from shapely import wkt
 from shapely.geometry import Point, box, shape

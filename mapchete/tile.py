@@ -4,7 +4,7 @@ from itertools import product
 
 import numpy as np
 from affine import Affine
-from cached_property import cached_property
+from functools import cached_property
 from rasterio.enums import Resampling
 from rasterio.features import rasterize, shapes
 from rasterio.warp import reproject
