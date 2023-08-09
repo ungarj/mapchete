@@ -213,7 +213,16 @@ class ReferencedRaster:
         """Write raster to output."""
         out_kwargs = dict(self.meta, **kwargs)
         with rasterio_open(path, "w", **out_kwargs) as dst:
-            dst.write(self.read(indexes=indexes, tile=tile, resampling=resampling))
+            src_array = self.read(indexes=indexes, tile=tile, resampling=resampling)
+            if src_array.ndim == 2:
+                index = 1
+            elif src_array.ndim == 3:
+                index = None
+            else:  # pragma: no cover
+                raise TypeError(
+                    "dumping to file is only possible with 2 or 3-dimensional arrays"
+                )
+            dst.write(src_array, index)
         return path
 
     @staticmethod

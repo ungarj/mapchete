@@ -861,8 +861,11 @@ def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
     assert rr.read(indexes, tile=s2_band_tile).any()
 
 
-def test_referencedraster_to_file(s2_band, mp_tmpdir):
+@pytest.mark.parametrize("dims", [2, 3])
+def test_referencedraster_to_file(s2_band, mp_tmpdir, dims):
     rr = ReferencedRaster.from_file(s2_band)
+    if dims == 2:
+        rr.data = rr.data[0]
     out_file = mp_tmpdir / "test.tif"
     rr.to_file(out_file)
     with rasterio_open(out_file) as src:
