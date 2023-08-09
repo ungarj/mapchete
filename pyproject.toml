@@ -22,7 +22,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: GIS",
 ]
 dependencies = [
-    "cached_property",
     "cachetools",
     "click-plugins",
     "click-spinner",

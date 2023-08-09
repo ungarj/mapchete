@@ -7,9 +7,7 @@ import os
 import sys
 import warnings
 from concurrent.futures._base import CancelledError
-from functools import partial
-
-from cached_property import cached_property
+from functools import cached_property, partial
 
 from mapchete._timer import Timer
 from mapchete.errors import JobCancelledError, MapcheteTaskFailed
@@ -55,8 +53,6 @@ class _ExecutorBase:
     cancelled = False
     running_futures = None
     finished_futures = None
-    _as_completed = None
-    _executor = None
     _executor_cls = None
     _executor_args = ()
     _executor_kwargs = {}
@@ -687,8 +683,8 @@ def future_raise_exception(future, raise_errors=True):
     # Let's directly re-raise these to be more transparent.
     try:
         # when using dask, also directly raise specific dask errors
-        from distributed import CancelledError
         from dask.distributed import TimeoutError
+        from distributed import CancelledError
         from distributed.comm.core import CommClosedError
 
         keep_exceptions = (CancelledError, TimeoutError, CommClosedError)

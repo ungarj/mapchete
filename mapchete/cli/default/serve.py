@@ -168,7 +168,7 @@ def _tile_response(mp, web_tile, debug):
 
 
 def _valid_tile_response(mp, data):
-    from flask import make_response, jsonify
+    from flask import jsonify, make_response
     from flask_rangerequest import RangeRequest
 
     out_data, mime_type = mp.config.output.for_web(data)

@@ -81,5 +81,3 @@ class InputTile(_fiona_base.InputTile):
     tile : ``Tile``
     process : ``MapcheteProcess``
     """
-
-    pass
