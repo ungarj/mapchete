@@ -1,10 +1,10 @@
 """Mapchtete handling tiles."""
 import logging
+from functools import cached_property
 from itertools import product
 
 import numpy as np
 from affine import Affine
-from functools import cached_property
 from rasterio.enums import Resampling
 from rasterio.features import rasterize, shapes
 from rasterio.warp import reproject

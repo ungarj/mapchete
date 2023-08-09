@@ -1,4 +1,3 @@
-from enum import Enum
 import hashlib
 import importlib
 import inspect
@@ -10,18 +9,21 @@ import sys
 import warnings
 from collections import OrderedDict
 from copy import deepcopy
+from enum import Enum
+from functools import cached_property
 from tempfile import NamedTemporaryFile
+from typing import Any, List, Tuple, Union
 
 import fsspec
 import oyaml as yaml
-from functools import cached_property
-from pydantic import BaseModel, validator, NonNegativeInt
+from pydantic import BaseModel, NonNegativeInt, validator
 from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
-from typing import Any, Union, List, Tuple
 
+from mapchete._executor import MULTIPROCESSING_DEFAULT_START_METHOD
+from mapchete._timer import Timer
 from mapchete.errors import (
     GeometryTypeError,
     MapcheteConfigError,
@@ -29,7 +31,6 @@ from mapchete.errors import (
     MapcheteProcessImportError,
     MapcheteProcessSyntaxError,
 )
-from mapchete._executor import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.formats import (
     available_output_formats,
     load_input_reader,
@@ -40,7 +41,6 @@ from mapchete.io import MPath, absolute_path, fiona_open
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid, snap_geometry_to_tiles
-from mapchete._timer import Timer
 from mapchete.types import Bounds, ZoomLevels
 from mapchete.validate import (
     validate_bounds,

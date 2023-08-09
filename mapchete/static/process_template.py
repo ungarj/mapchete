@@ -20,4 +20,3 @@ def execute(mp):
     Please note the returned data type has to match the output type specified
     in the .mapchete file.
     """
-    pass

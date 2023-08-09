@@ -4,12 +4,12 @@ from mapchete.path import absolute_path  # pragma: no cover
 from mapchete.path import (
     MPath,
     fs_from_path,
-    makedirs,
+    makedirs,  # pragma: no cover
     path_exists,
     path_is_remote,
     relative_path,
     tiles_exist,
-)  # pragma: no cover
+)
 
 __all__ = [
     "fs_from_path",
