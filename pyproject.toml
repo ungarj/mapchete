@@ -37,7 +37,7 @@ dependencies = [
     "python-dateutil",
     "rasterio>1.2.10",
     "retry",
-    "shapely",
+    "Shapely>=2.0.0",
     "tilematrix>=2022.12.0",
     "tqdm",
 ]
