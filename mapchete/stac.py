@@ -474,3 +474,15 @@ def create_prototype_files(mp):
                 out_path=tile_path,
                 write_empty=True,
             )
+
+
+def tile_direcotry_item_to_dict(item) -> dict:
+    item_dict = item.to_dict()
+
+    # we have to add 'tiled-assets' to stac extensions in order to GDAL identify
+    # this file as STACTA dataset
+    stac_extensions = set(item_dict.get("stac_extensions", []))
+    stac_extensions.add("tiled-assets")
+    item_dict["stac_extensions"] = list(stac_extensions)
+
+    return item_dict

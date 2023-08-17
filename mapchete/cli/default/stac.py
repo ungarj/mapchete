@@ -10,7 +10,11 @@ from mapchete.cli import options
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import read_output_metadata
 from mapchete.io import MPath
-from mapchete.stac import create_prototype_files, tile_directory_stac_item
+from mapchete.stac import (
+    create_prototype_files,
+    tile_direcotry_item_to_dict,
+    tile_directory_stac_item,
+)
 from mapchete.validate import validate_zooms
 
 logger = logging.getLogger(__name__)
@@ -98,7 +102,7 @@ def create_item(
         crs_unit_to_meter=1,
     )
     logger.debug("item_path: %s", item_path)
-    item_json = json.dumps(item.to_dict(), indent=indent)
+    item_json = json.dumps(tile_direcotry_item_to_dict(item.to_dict()), indent=indent)
     click.echo(item_json)
     if force or click.confirm(f"Write output to {item_path}?", abort=True):
         with fsspec.open(item_path, "w") as dst:

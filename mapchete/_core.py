@@ -23,7 +23,7 @@ from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD, MapcheteConfig
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.formats import read_output_metadata
 from mapchete.io import MPath, fs_from_path, tiles_exist
-from mapchete.stac import update_tile_directory_stac_item
+from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
 from mapchete.tile import count_tiles
 from mapchete.validate import validate_tile, validate_zooms
 
@@ -708,15 +708,7 @@ class Mapchete(object):
             logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
             self.config.output.stac_path.parent.makedirs()
             with self.config.output.stac_path.open("w") as dst:
-                item_dict = item.to_dict()
-
-                # we have to add 'tiled-assets' to stac extensions in order to GDAL identify
-                # this file as STACTA dataset
-                stac_extensions = set(item_dict.get("stac_extensions", []))
-                stac_extensions.add("tiled-assets")
-                item_dict["stac_extensions"] = list(stac_extensions)
-
-                dst.write(json.dumps(item_dict, indent=indent))
+                dst.write(json.dumps(tile_direcotry_item_to_dict(item), indent=indent))
         except ReprojectionFailed:
             logger.warning(
                 "cannot create STAC item because footprint cannot be reprojected into EPSG:4326"
