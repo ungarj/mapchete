@@ -93,22 +93,29 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     FionaRemoteWriter if target is remote, otherwise return fiona.open().
     """
     path = MPath.from_inp(path)
-    if path.is_remote():
-        if "s3" in path.protocols:  # pragma: no cover
-            try:
-                import boto3
-            except ImportError:
-                raise ImportError("please install [s3] extra to write remote files")
-        with FionaRemoteWriter(
-            path, fs=fs, in_memory=in_memory, *args, **kwargs
-        ) as dst:
-            yield dst
-    else:
-        with path.fio_env() as env:
-            logger.debug("writing %s with GDAL options %s", str(path), env.options)
-            path.parent.makedirs(exist_ok=True)
-            with fiona.open(str(path), mode=mode, *args, **kwargs) as dst:
+
+    try:
+        if path.is_remote():
+            if "s3" in path.protocols:  # pragma: no cover
+                try:
+                    import boto3
+                except ImportError:
+                    raise ImportError("please install [s3] extra to write remote files")
+            with FionaRemoteWriter(
+                path, fs=fs, in_memory=in_memory, *args, **kwargs
+            ) as dst:
                 yield dst
+        else:
+            with path.fio_env() as env:
+                logger.debug("writing %s with GDAL options %s", str(path), env.options)
+                path.parent.makedirs(exist_ok=True)
+                with fiona.open(str(path), mode=mode, *args, **kwargs) as dst:
+                    yield dst
+    except Exception as exc:  # pragma: no cover
+        logger.exception(exc)
+        logger.debug("remove %s ...", str(path))
+        path.rm(ignore_errors=True)
+        raise
 
 
 def read_vector_window(
