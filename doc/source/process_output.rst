@@ -51,6 +51,18 @@ inserting the values or pointing to environment variables for increased security
             AWS_SECRET_ACCESS_KEY: ${SOME_KEY_SECRET}
 
 
+Also, the tile path schema can be edited if desired:
+
+.. code-block:: yaml
+
+    output:
+        type: geodetic
+        format: GTiff
+        metatiling: 4  # optional
+        pixelbuffer: 10  # optional
+        tile_path_schema: "{zoom}/{col}/{row}.{extension}"
+
+
 ----------------------
 Default output formats
 ----------------------
