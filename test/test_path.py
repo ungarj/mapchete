@@ -317,4 +317,4 @@ def test_pickle_fs(path):
 
 def test_batch_sort_property():
     assert batch_sort_property("{zoom}/{row}/{col}.{extension}") == "row"
-    assert batch_sort_property("{zoom}/{col}/{row}.{extension}") == "column"
+    assert batch_sort_property("{zoom}/{col}/{row}.{extension}") == "col"
