@@ -19,6 +19,7 @@ from mapchete._executor import (
 from mapchete._tasks import TaskBatch, TileTask, TileTaskBatch, to_dask_collection
 from mapchete._timer import Timer
 from mapchete.errors import MapcheteNodataTile
+from mapchete.path import batch_sort_property
 from mapchete.types import Bounds, ZoomLevels
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
@@ -179,7 +180,12 @@ def task_batches(
 
                 for tile, skip, _ in _filter_skipable(
                     process=process,
-                    tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                    tiles_batches=process.get_process_tiles(
+                        zoom,
+                        batch_by=batch_sort_property(
+                            process.config.output_reader.tile_path_schema
+                        ),
+                    ),
                     target_set=(
                         overview_parents if process.config.baselevels and i else None
                     ),
@@ -726,7 +732,12 @@ def _run_multi_overviews(
                 )
                 for tile, skip, process_msg in _filter_skipable(
                     process=process,
-                    tiles_batches=process.get_process_tiles(zoom, batch_by="row"),
+                    tiles_batches=process.get_process_tiles(
+                        zoom,
+                        batch_by=batch_sort_property(
+                            process.config.output_reader.tile_path_schema
+                        ),
+                    ),
                     target_set=(
                         overview_parents if process.config.baselevels and i else None
                     ),
@@ -810,7 +821,12 @@ def _run_multi_no_overviews(
                 tiles_batches=(
                     batch
                     for zoom in zoom_levels.descending()
-                    for batch in process.get_process_tiles(zoom, batch_by="row")
+                    for batch in process.get_process_tiles(
+                        zoom,
+                        batch_by=batch_sort_property(
+                            process.config.output_reader.tile_path_schema
+                        ),
+                    )
                 ),
                 target_set=None,
                 skip_output_check=skip_output_check,

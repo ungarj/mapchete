@@ -49,6 +49,7 @@ def tile_directory_stac_item(
     bounds=None,
     bounds_crs=None,
     bands_type="image/tiff; application=geotiff",
+    bands_schema="{TileMatrix}/{TileRow}/{TileCol}.tif",
     crs_unit_to_meter=1,
 ):
     """
@@ -111,7 +112,6 @@ def tile_directory_stac_item(
         or str(datetime.datetime.utcnow())
     )
     tp_grid = tile_pyramid.grid.type
-    bands_schema = "{TileMatrix}/{TileRow}/{TileCol}.tif"
     # thumbnail_href = thumbnail_href or "0/0/0.tif"
     # thumbnail_type = thumbnail_type or "image/tiff; application=geotiff"
     if asset_basepath:

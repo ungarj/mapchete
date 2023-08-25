@@ -3,7 +3,7 @@ import pickle
 import pytest
 
 from mapchete.config import get_hash
-from mapchete.io import MPath
+from mapchete.path import MPath, batch_sort_property
 
 
 @pytest.mark.parametrize(
@@ -313,3 +313,8 @@ def test_pickle_path(path):
 )
 def test_pickle_fs(path):
     assert pickle.loads(pickle.dumps(path.fs))
+
+
+def test_batch_sort_property():
+    assert batch_sort_property("{zoom}/{row}/{col}.{extension}") == "row"
+    assert batch_sort_property("{zoom}/{col}/{row}.{extension}") == "column"

@@ -1038,6 +1038,15 @@ def green_raster(mp_tmpdir):
 
 
 @pytest.fixture
+def tile_path_schema(mp_tmpdir):
+    """Fixture for tile_path_schema.mapchete."""
+    with ProcessFixture(
+        TESTDATA_DIR / "tile_path_schema.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)
