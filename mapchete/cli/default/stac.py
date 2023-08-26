@@ -99,7 +99,7 @@ def create_item(
         item_path=item_path,
         asset_basepath=asset_basepath,
         relative_paths=relative_paths,
-        band_asset_templates=band_asset_template,
+        band_asset_template=band_asset_template,
         bands_type=None,
         crs_unit_to_meter=1,
     )
