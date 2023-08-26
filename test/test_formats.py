@@ -1,6 +1,7 @@
 """Test Mapchete default formats."""
 
 import datetime
+import json
 
 import pytest
 from rasterio.crs import CRS
@@ -256,6 +257,12 @@ def test_tile_path_schema(tile_path_schema):
     tile = tile_path_schema.first_process_tile()
     control = [str(tile.zoom), str(tile.col), str(tile.row) + ".tif"]
     assert mp.config.output_reader.get_path(tile).elements[-3:] == control
+
+
+def test_tile_path_schema_metadata_json(tile_path_schema):
+    mp = tile_path_schema.mp()
+    mp.batch_process()
+    tile = tile_path_schema.first_process_tile()
     output_metadata = read_output_metadata(
         mp.config.output_reader.path / "metadata.json"
     )
@@ -267,3 +274,13 @@ def test_tile_path_schema(tile_path_schema):
     output_reader = load_output_reader(output_params)
     assert mp.config.output_reader.tile_path_schema == output_reader.tile_path_schema
     assert mp.config.output_reader.get_path(tile) == output_reader.get_path(tile)
+
+
+def test_tile_path_schema_stac_json(tile_path_schema):
+    mp = tile_path_schema.mp()
+    mp.batch_process()
+    mp.write_stac()
+    stac_json = json.loads((mp.config.output_reader.path / "out.json").read_text())
+    template = stac_json.get("asset_templates")["bands"]["href"]
+    assert template.split("/")[-2] == "{TileCol}"
+    assert template.split("/")[-1] == "{TileRow}.tif"

@@ -704,6 +704,7 @@ class Mapchete(object):
                 item_metadata=self.config.output.stac_item_metadata,
                 tile_pyramid=self.config.output_pyramid,
                 bands_type=self.config.output.stac_asset_type,
+                band_asset_template=self.config.output.tile_path_schema,
             )
             logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
             self.config.output.stac_path.parent.makedirs()

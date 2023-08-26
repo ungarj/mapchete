@@ -70,6 +70,7 @@ def create_item(
         default_bounds_crs,
         default_zoom,
         default_item_metadata,
+        band_asset_template,
     ) = output_info(input_)
 
     if default_zoom:
@@ -98,6 +99,7 @@ def create_item(
         item_path=item_path,
         asset_basepath=asset_basepath,
         relative_paths=relative_paths,
+        band_asset_templates=band_asset_template,
         bands_type=None,
         crs_unit_to_meter=1,
     )
@@ -122,16 +124,19 @@ def output_info(inp):
             conf.get("bounds_crs"),
             conf.get("zoom_levels"),
             conf["output"].get("stac"),
+            conf["output"].get("tile_path_schema", "{zoom}/{row}/{col}.{extension}"),
         )
 
+    output_metadata = read_output_metadata(path / "metadata.json")
     return (
-        read_output_metadata(path / "metadata.json")["pyramid"],
+        output_metadata["pyramid"],
         path,
         path.name,
         None,
         None,
         None,
         None,
+        output_metadata.get("tile_path_schema", "{zoom}/{row}/{col}.{extension}"),
     )
 
 
