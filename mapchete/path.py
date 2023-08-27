@@ -4,6 +4,7 @@ import logging
 import os
 from collections import defaultdict
 from functools import cached_property
+from typing import List
 
 import fiona
 import fsspec
@@ -14,6 +15,7 @@ from rasterio.session import Session as RioSession
 
 from mapchete._executor import Executor
 from mapchete.io.settings import GDAL_HTTP_OPTS
+from mapchete.tile import BufferedTile
 
 logger = logging.getLogger(__name__)
 
@@ -633,11 +635,15 @@ def tiles_exist(
 
     # for tile directory outputs:
     elif process_tiles:
-        logger.debug("sort process tiles by row, this could take a while")
-        process_tiles_batches = _batch_tiles_by_row(process_tiles)
+        sort_attribute = batch_sort_property(config.output_reader.tile_path_schema)
+        logger.debug(
+            "sort process tiles by %s, this could take a while", sort_attribute
+        )
+        process_tiles_batches = _batch_tiles_by_attribute(process_tiles, sort_attribute)
     elif output_tiles:
-        logger.debug("sort output tiles by row, this could take a while")
-        output_tiles_batches = _batch_tiles_by_row(output_tiles)
+        sort_attribute = batch_sort_property(config.output_reader.tile_path_schema)
+        logger.debug("sort output tiles by %s, this could take a while", sort_attribute)
+        output_tiles_batches = _batch_tiles_by_attribute(output_tiles, sort_attribute)
 
     # Some HTTP endpoints won't allow ls() on them, so we will have to
     # request tile by tile in order to determine whether they exist or not.
@@ -664,11 +670,11 @@ def tiles_exist(
         )
 
 
-def _batch_tiles_by_row(tiles):
+def _batch_tiles_by_attribute(tiles: List[BufferedTile], attribute: str = "row"):
     ordered = defaultdict(set)
     for tile in tiles:
-        ordered[tile.row].add(tile)
-    return ((t for t in ordered[row]) for row in sorted(list(ordered.keys())))
+        ordered[getattr(tile, attribute)].add(tile)
+    return ((t for t in ordered[key]) for key in sorted(list(ordered.keys())))
 
 
 def _output_tiles_batches_exist(output_tiles_batches, config, is_https_without_ls):
@@ -774,3 +780,16 @@ def fs_from_path(path, **kwargs):
     """Guess fsspec FileSystem from path and initialize using the desired options."""
     path = path if isinstance(path, MPath) else MPath(path, **kwargs)
     return path.fs
+
+
+def batch_sort_property(tile_path_schema: str):
+    # split into path elements
+    elements = tile_path_schema.split("/")
+    # reverse so we can start from the end
+    elements.reverse()
+    out = "row"
+    # start from the end and take the last (i.e. first from the original schema) element
+    for element in elements:
+        if element in ["{row}", "{col}"]:
+            out = element
+    return out.lstrip("{").rstrip("}")

@@ -91,6 +91,7 @@ class BufferedTilePyramid(TilePyramid):
         intersecting tiles : generator
             generates ``BufferedTiles``
         """
+        batch_by = "column" if batch_by == "col" else batch_by
         yield from self.tiles_from_bbox(box(*bounds), zoom=zoom, batch_by=batch_by)
 
     def tiles_from_bbox(self, geometry, zoom=None, batch_by=None):
@@ -108,6 +109,7 @@ class BufferedTilePyramid(TilePyramid):
         intersecting tiles : generator
             generates ``BufferedTiles``
         """
+        batch_by = "column" if batch_by == "col" else batch_by
         if batch_by:  # pragma: no cover
             for batch in self.tile_pyramid.tiles_from_bbox(
                 geometry, zoom=zoom, batch_by=batch_by
@@ -131,6 +133,7 @@ class BufferedTilePyramid(TilePyramid):
         ------
         intersecting tiles : ``BufferedTile``
         """
+        batch_by = "column" if batch_by == "col" else batch_by
         if batch_by:
             for batch in self.tile_pyramid.tiles_from_geom(
                 geometry, zoom=zoom, batch_by=batch_by, exact=exact

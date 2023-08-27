@@ -41,6 +41,7 @@ from mapchete.io import (
     tiles_exist,
     vector,
 )
+from mapchete.path import batch_sort_property
 
 logger = logging.getLogger(__name__)
 
@@ -156,11 +157,20 @@ def zoom_index_gen(
 
             if tile:
                 output_tiles_batches = mp.config.output_pyramid.tiles_from_bounds(
-                    mp.config.process_pyramid.tile(*tile).bounds, zoom, batch_by="row"
+                    mp.config.process_pyramid.tile(*tile).bounds,
+                    zoom,
+                    batch_by=batch_sort_property(
+                        mp.config.output_reader.tile_path_schema
+                    ),
                 )
             else:
                 output_tiles_batches = mp.config.output_pyramid.tiles_from_geom(
-                    mp.config.area_at_zoom(zoom), zoom, batch_by="row", exact=True
+                    mp.config.area_at_zoom(zoom),
+                    zoom,
+                    batch_by=batch_sort_property(
+                        mp.config.output_reader.tile_path_schema
+                    ),
+                    exact=True,
                 )
 
             for output_tile, exists in tiles_exist(

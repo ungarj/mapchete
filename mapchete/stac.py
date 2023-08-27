@@ -49,6 +49,7 @@ def tile_directory_stac_item(
     bounds=None,
     bounds_crs=None,
     bands_type="image/tiff; application=geotiff",
+    band_asset_template="{zoom}/{row}/{col}.tif",
     crs_unit_to_meter=1,
 ):
     """
@@ -93,7 +94,6 @@ def tile_directory_stac_item(
         raise ImportError(
             "dependencies for extra mapchete[stac] is required for this feature"
         )
-
     if item_id is None:
         raise ValueError("item_id must be set")
     if zoom_levels is None:
@@ -111,15 +111,22 @@ def tile_directory_stac_item(
         or str(datetime.datetime.utcnow())
     )
     tp_grid = tile_pyramid.grid.type
-    bands_schema = "{TileMatrix}/{TileRow}/{TileCol}.tif"
+
     # thumbnail_href = thumbnail_href or "0/0/0.tif"
     # thumbnail_type = thumbnail_type or "image/tiff; application=geotiff"
+    # replace zoom, row and col names with STAC tiled-assets definition
+    band_asset_template = (
+        band_asset_template.replace("{zoom}", "{TileMatrix}")
+        .replace("{row}", "{TileRow}")
+        .replace("{col}", "{TileCol}")
+        .replace("{extension}", "tif")
+    )
     if asset_basepath:
-        bands_schema = asset_basepath / bands_schema
+        band_asset_template = asset_basepath / band_asset_template
     elif not relative_paths:
         if item_path is None:
             raise ValueError("either alternative_basepath or item_path must be set")
-        bands_schema = item_path.parent / bands_schema
+        band_asset_template = item_path.parent / band_asset_template
 
     # use bounds provided or fall back to tile pyramid bounds
     bounds = bounds or tile_pyramid.bounds
@@ -249,7 +256,9 @@ def tile_directory_stac_item(
             "tiles:tile_matrix_links": {tile_matrix_set_identifier: tile_matrix_links},
             "tiles:tile_matrix_sets": {tile_matrix_set_identifier: tile_matrix_set},
         },
-        "asset_templates": {"bands": {"href": str(bands_schema), "type": bands_type}},
+        "asset_templates": {
+            "bands": {"href": str(band_asset_template), "type": bands_type}
+        },
         "assets": {
             # "thumbnail": {
             #     "href": thumbnail_href,
@@ -295,6 +304,7 @@ def update_tile_directory_stac_item(
     bounds=None,
     item_metadata=None,
     bands_type=None,
+    band_asset_template="{TileMatrix}/{TileRow}/{TileCol}.tif",
     crs_unit_to_meter=1,
 ):
     """
@@ -371,6 +381,7 @@ def update_tile_directory_stac_item(
         item_metadata=item_metadata,
         bounds=bounds,
         bands_type=bands_type,
+        band_asset_template=band_asset_template,
         crs_unit_to_meter=crs_unit_to_meter,
     )
 
