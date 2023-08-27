@@ -1,6 +1,8 @@
 import logging
 import os
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,8 +35,10 @@ GDAL_HTTP_DEFAULTS = dict(
     VSI_CACHE_SIZE=5_000_000,
 )
 GDAL_HTTP_OPTS = _merge_gdal_defaults_with_env()
-MAPCHETE_IO_RETRY_SETTINGS = {
-    "tries": int(os.environ.get("MAPCHETE_IO_RETRY_TRIES", "3")),
-    "delay": float(os.environ.get("MAPCHETE_IO_RETRY_DELAY", "1")),
-    "backoff": float(os.environ.get("MAPCHETE_IO_RETRY_BACKOFF", "1")),
-}
+
+
+class IORetrySettings(BaseSettings):
+    tries: int = 3
+    delay: float = 1.0
+    backoff: float = 1.0
+    model_config = SettingsConfigDict(env_prefix="MAPCHETE_IO_RETRY_")

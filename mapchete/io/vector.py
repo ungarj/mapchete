@@ -25,7 +25,7 @@ from mapchete.io._geometry_operations import (
     segmentize_geometry,
     to_shape,
 )
-from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
+from mapchete.io.settings import IORetrySettings
 from mapchete.path import MPath, fs_from_path, path_exists
 from mapchete.types import Bounds
 from mapchete.validate import validate_bounds
@@ -323,7 +323,7 @@ class VectorWindowMemoryFile:
 @retry(
     logger=logger,
     exceptions=(DriverError, FionaError, FionaValueError),
-    **MAPCHETE_IO_RETRY_SETTINGS,
+    **IORetrySettings(),
 )
 def _get_reprojected_features(
     inp=None,
