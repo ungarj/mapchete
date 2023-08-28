@@ -516,7 +516,7 @@ def _get_warped_array(
         raise
 
 
-@retry(logger=logger, exceptions=RasterioIOError, **IORetrySettings())
+@retry(logger=logger, exceptions=RasterioIOError, **dict(IORetrySettings()))
 def _rasterio_read(
     input_file=None,
     indexes=None,
@@ -621,7 +621,7 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
     FileNotFoundError if file cannot be found.
     """
 
-    @retry(logger=logger, exceptions=RasterioIOError, **IORetrySettings())
+    @retry(logger=logger, exceptions=RasterioIOError, **dict(IORetrySettings()))
     def _read():
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
