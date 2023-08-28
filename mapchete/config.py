@@ -81,16 +81,16 @@ class PyramidConfig(BaseModel):
 class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     pyramid: PyramidConfig
     output: dict
-    zoom_levels: Union[dict, int, list]
-    process: Union[str, MPath, List[str], None]
-    baselevels: Union[dict, None]
-    input: Union[dict, None]
-    config_dir: Union[str, MPath, None]
-    area: Union[str, MPath, BaseGeometry, None]
-    area_crs: Union[dict, str, None]
-    bounds: Union[Tuple[float, float, float, float], None]
-    bounds_crs: Union[dict, str, None]
-    process_parameters: Union[dict, None]
+    zoom_levels: Union[dict, int, list, ZoomLevels]
+    process: Union[str, MPath, List[str], None] = None
+    baselevels: Union[dict, None] = None
+    input: Union[dict, None] = None
+    config_dir: Union[str, MPath, None] = None
+    area: Union[str, MPath, BaseGeometry, None] = None
+    area_crs: Union[dict, str, None] = None
+    bounds: Union[Tuple[float, float, float, float], Bounds, None] = None
+    bounds_crs: Union[dict, str, None] = None
+    process_parameters: Union[dict, None] = None
 
 
 _RESERVED_PARAMETERS = tuple(ProcessConfig.__fields__.keys())
@@ -286,7 +286,7 @@ class MapcheteConfig(object):
         logger.debug(f"parsing {input_config}")
         try:
             self.parsed_config = parse_config(input_config, strict=stric_parsing)
-            self.parsed_config.dict()
+            self.parsed_config.model_dump()
         except Exception as exc:
             raise MapcheteConfigError(exc)
         self._init_zoom_levels = zoom
