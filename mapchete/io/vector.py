@@ -464,7 +464,7 @@ class IndexedFeatures:
                 id_ = self._get_feature_id(feature)
             self._items[id_] = feature
             try:
-                bounds = object_bounds(feature, dst_crs=self.crs)
+                bounds = object_bounds(feature, dst_crs=crs)
             except NoGeoError:
                 if allow_non_geo_objects:
                     bounds = None
