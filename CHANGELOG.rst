@@ -4,6 +4,22 @@ Changelog
 
 
 ---------------------
+2023.9.0 - 2023-09-05
+---------------------
+
+* packaging
+
+  * limit dependent versions to `"aiobotocore>=1.1.2,<=2.5.4"` and `"s3fs<2023.9.0"`
+
+* core
+
+  * make sure opened/written files are removed upon exception (#576)
+  * CLI: apply tiled-assets hack also to create-item CLI (#577)
+  * provide path schema to configure how tile paths are created (#581)
+  * `IndexedFeatures`: allow reprojection of object bounds to a target CRS (#585)
+
+
+---------------------
 2023.8.1 - 2023-08-09
 ---------------------
 
