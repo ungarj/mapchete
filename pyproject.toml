@@ -82,6 +82,7 @@ s3 = [
     "aiobotocore>=1.1.2",
     "boto3>=1.14.44",
     "fsspec[s3]",
+    "s3fs<2023.9.0",
 ]
 serve = [
     "Flask",
