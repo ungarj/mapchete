@@ -60,6 +60,7 @@ complete = [
     "pystac[urllib3]<=1.7.3",
     "requests",
     "rtree",
+    "s3fs<2023.9.0",
     "werkzeug>=0.15",
 ]
 contours = [

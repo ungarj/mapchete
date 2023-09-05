@@ -2,6 +2,7 @@ coverage>=5.1
 coveralls>=2.2.0
 flake8>=3.8.4
 minio
+morecantile<5.0.0
 pystac
 pytest>=5.4.1
 pytest-cov>=2.8.1
