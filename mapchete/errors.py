@@ -59,3 +59,7 @@ class ReprojectionFailed(RuntimeError):
 
 class NoGeoError(AttributeError):
     """Raised when object does not contain geographic information."""
+
+
+class NoCRSError(AttributeError):
+    """Raised when object does not contain a CRS."""

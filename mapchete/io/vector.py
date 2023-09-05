@@ -5,6 +5,7 @@ import warnings
 from contextlib import ExitStack, contextmanager
 from itertools import chain
 from tempfile import NamedTemporaryFile
+from typing import Any, Union
 
 import fiona
 from fiona.errors import DriverError, FionaError, FionaValueError
@@ -12,10 +13,10 @@ from fiona.io import MemoryFile
 from rasterio.crs import CRS
 from retry import retry
 from shapely.errors import TopologicalError
-from shapely.geometry import base, box, mapping
+from shapely.geometry import base, box, mapping, shape
 from tilematrix import clip_geometry_to_srs_bounds
 
-from mapchete.errors import MapcheteIOError, NoGeoError
+from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError
 from mapchete.io import copy
 from mapchete.io._geometry_operations import (
     _repair,
@@ -463,7 +464,7 @@ class IndexedFeatures:
                 id_ = self._get_feature_id(feature)
             self._items[id_] = feature
             try:
-                bounds = object_bounds(feature)
+                bounds = object_bounds(feature, dst_crs=self.crs)
             except NoGeoError:
                 if allow_non_geo_objects:
                     bounds = None
@@ -476,7 +477,7 @@ class IndexedFeatures:
                 self._index.insert(id_, bounds)
 
     def __repr__(self):  # pragma: no cover
-        return f"IndexedFeatures(features={len(self)}, index={self._index.__repr__()})"
+        return f"IndexedFeatures(features={len(self)}, index={self._index.__repr__()}, bounds={self.bounds})"
 
     def __len__(self):
         return len(self._items)
@@ -561,22 +562,45 @@ def object_geometry(obj) -> base.BaseGeometry:
         raise NoGeoError(f"cannot determine geometry from object: {obj}") from exc
 
 
-def object_bounds(obj) -> Bounds:
+def object_bounds(obj: Any, dst_crs: Union[CRS, None] = None) -> Bounds:
     """
     Determine geographic bounds from object if available.
+
+    If dst_crs is defined, bounds will be reprojected in case the object holds CRS information.
     """
     try:
         if hasattr(obj, "bounds"):
-            return validate_bounds(obj.bounds)
+            bounds = validate_bounds(obj.bounds)
         elif hasattr(obj, "bbox"):
-            return validate_bounds(obj.bbox)
+            bounds = validate_bounds(obj.bbox)
         elif hasattr(obj, "get") and obj.get("bounds"):
-            return validate_bounds(obj["bounds"])
+            bounds = validate_bounds(obj["bounds"])
         else:
-            return validate_bounds(object_geometry(obj).bounds)
+            bounds = validate_bounds(object_geometry(obj).bounds)
     except Exception as exc:
         logger.exception(exc)
         raise NoGeoError(f"cannot determine bounds from object: {obj}") from exc
+
+    if dst_crs:
+        return Bounds.from_inp(
+            reproject_geometry(shape(bounds), src_crs=object_crs(obj), dst_crs=dst_crs)
+        )
+
+    return bounds
+
+
+def object_crs(obj: Any) -> CRS:
+    """Determine CRS from an object."""
+    try:
+        if hasattr(obj, "crs"):
+            return CRS.from_user_input(obj.crs)
+        elif hasattr(obj, "get") and obj.get("crs"):
+            return CRS.from_user_input(obj["crs"])
+        else:
+            raise AttributeError(f"no crs attribute or key found in object: {obj}")
+    except Exception as exc:
+        logger.exception(exc)
+        raise NoCRSError(f"cannot determine CRS from object: {obj}") from exc
 
 
 def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
