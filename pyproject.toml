@@ -45,7 +45,7 @@ dependencies = [
 [project.optional-dependencies]
 complete = [
     "aiohttp",
-    "aiobotocore>=1.1.2",
+    "aiobotocore>=1.1.2,<=2.5.4",
     "boto3>=1.14.44",
     "dask",
     "distributed",
