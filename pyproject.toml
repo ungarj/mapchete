@@ -45,7 +45,7 @@ dependencies = [
 [project.optional-dependencies]
 complete = [
     "aiohttp",
-    "aiobotocore>=1.1.2",
+    "aiobotocore>=1.1.2,<=2.5.4",
     "boto3>=1.14.44",
     "dask",
     "distributed",
@@ -60,6 +60,7 @@ complete = [
     "pystac[urllib3]<=1.7.3",
     "requests",
     "rtree",
+    "s3fs<2023.9.0",
     "werkzeug>=0.15",
 ]
 contours = [
@@ -82,6 +83,7 @@ s3 = [
     "aiobotocore>=1.1.2",
     "boto3>=1.14.44",
     "fsspec[s3]",
+    "s3fs<2023.9.0",
 ]
 serve = [
     "Flask",
