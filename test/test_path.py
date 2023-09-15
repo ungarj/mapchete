@@ -155,8 +155,11 @@ def test_with_suffix():
     ],
 )
 def test_ls(path):
+    dir_is_remote = path.is_remote()
+    assert path.ls()
     for p in path.ls():
         assert isinstance(p, MPath)
+        assert p.is_remote() == dir_is_remote
     for p in path.ls(detail=True):
         assert isinstance(p.get("name"), MPath)
 

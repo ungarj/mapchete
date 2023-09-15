@@ -80,7 +80,10 @@ def secure_http_testdata_dir():
 
 @pytest.fixture(scope="session")
 def s3_testdata_dir(minio_testdata_bucket):
-    return minio_testdata_bucket / MINIO_TESTDATA_BUCKET
+    bucket_path = minio_testdata_bucket / MINIO_TESTDATA_BUCKET
+    # prepare at least one file for testing
+    prepare_s3_testfile(bucket_path, "cleantopo/cleantopo.json")
+    return bucket_path
 
 
 @pytest.fixture(scope="session")

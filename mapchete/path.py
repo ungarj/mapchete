@@ -1,10 +1,11 @@
 """Functions handling paths and file systems."""
+from __future__ import annotations
 
 import logging
 import os
 from collections import defaultdict
 from functools import cached_property
-from typing import List
+from typing import List, Union
 
 import fiona
 import fsspec
@@ -196,6 +197,20 @@ class MPath(os.PathLike):
         suffix = suffix.lstrip(".")
         return self.new(self.without_suffix() + f".{suffix}")
 
+    def without_protocol(self):
+        # Split the input string on "://"
+        parts = self._path_str.split("://", 1)
+
+        # Check if "://" was found in the string
+        if len(parts) == 2:
+            return self.new(parts[1])
+
+        # If "://" was not found, return the input string as-is
+        return self
+
+    def with_protocol(self, protocol):
+        return self.new(f"{protocol}://") / self._path_str
+
     def startswith(self, string):
         return self._path_str.startswith(string)
 
@@ -223,9 +238,11 @@ class MPath(os.PathLike):
 
     def is_absolute(self) -> bool:
         """Return whether path is absolute."""
+        if self.is_remote():
+            return True
         return os.path.isabs(self._path_str)
 
-    def absolute_path(self, base_dir=None) -> "MPath":
+    def absolute_path(self, base_dir: Union[MPath, None] = None) -> "MPath":
         """
         Return absolute path if path is local.
 
@@ -242,7 +259,7 @@ class MPath(os.PathLike):
             return self
         else:
             if base_dir:
-                if not os.path.isabs(base_dir):
+                if not MPath.from_inp(base_dir).is_absolute():
                     raise TypeError("base_dir must be an absolute path.")
                 return self.new(os.path.abspath(os.path.join(base_dir, self._path_str)))
             return self.new(os.path.abspath(self._path_str))
@@ -283,16 +300,26 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
-    def ls(self, detail=False):
+    def ls(self, detail=False, absolute_paths=True):
+        def _create_full_path(path):
+            # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
+            if absolute_paths and "s3" in self.protocols:
+                return self.new(path).with_protocol("s3")
+            return self.new(path)
+
         if detail:
             # return as is but convert "name" from string to MPath instead
             return [
-                {k: (self.new(v) if k == "name" else v) for k, v in path_info.items()}
+                {
+                    k: (_create_full_path(v) if k == "name" else v)
+                    for k, v in path_info.items()
+                }
                 for path_info in self.fs.ls(self._path_str, detail=detail)
             ]
         else:
             return [
-                self.new(path) for path in self.fs.ls(self._path_str, detail=detail)
+                _create_full_path(path)
+                for path in self.fs.ls(self._path_str, detail=detail)
             ]
 
     def rm(self, recursive=False, ignore_errors=False):
