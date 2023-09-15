@@ -843,13 +843,22 @@ def _existing_tiles(
     return existing_tiles
 
 
-def fs_from_path(path, **kwargs):
+def fs_from_path(path: MPathLike, **kwargs) -> fsspec.AbstractFileSystem:
     """Guess fsspec FileSystem from path and initialize using the desired options."""
     path = path if isinstance(path, MPath) else MPath(path, **kwargs)
     return path.fs
 
 
-def batch_sort_property(tile_path_schema: str):
+def batch_sort_property(tile_path_schema: str) -> str:
+    """
+    Determine by which property according to the schema batches should be sorted.
+
+    In order to reduce S3 requests this function determines the root directory name in a
+    TileDirectory structure on which MPath.ls() is to be called.
+
+    "{zoom}/{row}/{col}.{extension}" -> "row": batches should be collected by tile rows
+    "{zoom}/{col}/{row}.{extension}" -> "col": batches should be collected by tile columns
+    """
     # split into path elements
     elements = tile_path_schema.split("/")
     # reverse so we can start from the end
