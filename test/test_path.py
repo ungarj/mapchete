@@ -321,3 +321,33 @@ def test_pickle_fs(path):
 def test_batch_sort_property():
     assert batch_sort_property("{zoom}/{row}/{col}.{extension}") == "row"
     assert batch_sort_property("{zoom}/{col}/{row}.{extension}") == "col"
+
+
+def test_without_protocol_s3():
+    path = MPath("s3://foo/bar")
+    assert path.without_protocol() == "foo/bar"
+
+
+def test_without_protocol_http():
+    path = MPath("http://foo/bar")
+    assert path.without_protocol() == "foo/bar"
+
+
+def test_without_protocol_relative():
+    path = MPath("foo/bar")
+    assert path.without_protocol() == "foo/bar"
+
+
+def test_with_protocol_s3():
+    path = MPath("s3://foo/bar")
+    assert path.with_protocol("https") == "https://foo/bar"
+
+
+def test_with_protocol_http():
+    path = MPath("http://foo/bar")
+    assert path.with_protocol("https") == "https://foo/bar"
+
+
+def test_with_protocol_relative():
+    path = MPath("foo/bar")
+    assert path.with_protocol("https") == "https://foo/bar"

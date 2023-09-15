@@ -257,7 +257,7 @@ class MPath(os.PathLike):
         -------
         absolute path
         """
-        if self.is_remote() or self.is_absolute():
+        if self.is_absolute():
             return self
         else:
             if base_dir:
