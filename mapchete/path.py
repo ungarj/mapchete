@@ -1,9 +1,11 @@
 """Functions handling paths and file systems."""
+from __future__ import annotations
 
 import logging
 import os
 from collections import defaultdict
 from functools import cached_property
+from typing import IO, List, Set, TextIO, Union
 
 import fiona
 import fsspec
@@ -14,12 +16,15 @@ from rasterio.session import Session as RioSession
 
 from mapchete._executor import Executor
 from mapchete.io.settings import GDAL_HTTP_OPTS
+from mapchete.tile import BufferedTile
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_STORAGE_OPTIONS = {"asynchronous": False, "timeout": None}
 UNALLOWED_S3_KWARGS = ["timeout"]
 UNALLOWED_HTTP_KWARGS = ["username", "password"]
+
+MPathLike = Union[str, os.PathLike]
 
 
 class MPath(os.PathLike):
@@ -29,9 +34,9 @@ class MPath(os.PathLike):
 
     def __init__(
         self,
-        path,
+        path: Union[str, os.PathLike, MPath],
         fs: AbstractFileSystem = None,
-        storage_options=None,
+        storage_options: Union[dict, None] = None,
         **kwargs,
     ):
         self._kwargs = {}
@@ -64,7 +69,7 @@ class MPath(os.PathLike):
         )
 
     @staticmethod
-    def from_dict(dictionary) -> "MPath":
+    def from_dict(dictionary: dict) -> MPath:
         path_str = dictionary.get("path")
         if not path_str:
             raise ValueError(
@@ -77,7 +82,7 @@ class MPath(os.PathLike):
         )
 
     @staticmethod
-    def from_inp(inp, **kwargs):
+    def from_inp(inp: Union[dict, MPathLike], **kwargs) -> MPath:
         if isinstance(inp, dict):
             return MPath.from_dict(inp)
         elif isinstance(inp, str):
@@ -121,11 +126,11 @@ class MPath(os.PathLike):
         return os.path.dirname(self._path_str)
 
     @property
-    def parent(self) -> "MPath":
+    def parent(self) -> MPath:
         return self.new(self.dirname)
 
     @property
-    def elements(self) -> list:
+    def elements(self) -> List[str]:
         return self._path_str.split("/")
 
     @cached_property
@@ -180,33 +185,47 @@ class MPath(os.PathLike):
             return None
 
     @cached_property
-    def protocols(self) -> set:
+    def protocols(self) -> Set[str]:
         """Return set of filesystem protocols."""
         if isinstance(self.fs.protocol, str):
             return set([self.fs.protocol])
         else:
             return set(self.fs.protocol)
 
-    def without_suffix(self):
+    def without_suffix(self) -> MPath:
         return self.new(os.path.splitext(self._path_str)[0])
 
-    def with_suffix(self, suffix):
+    def with_suffix(self, suffix: str) -> MPath:
         suffix = suffix.lstrip(".")
         return self.new(self.without_suffix() + f".{suffix}")
 
-    def startswith(self, string):
+    def without_protocol(self) -> MPath:
+        # Split the input string on "://"
+        parts = self._path_str.split("://", 1)
+
+        # Check if "://" was found in the string
+        if len(parts) == 2:
+            return self.new(parts[1])
+
+        # If "://" was not found, return the input string as-is
+        return self
+
+    def with_protocol(self, protocol: str) -> MPath:
+        return self.new(f"{protocol}://") / self.without_protocol()
+
+    def startswith(self, string: str) -> bool:
         return self._path_str.startswith(string)
 
-    def endswith(self, string):
+    def endswith(self, string: str) -> bool:
         return self._path_str.endswith(string)
 
-    def split(self, by):  # pragma: no cover
+    def split(self, by: str) -> List[str]:  # pragma: no cover
         return self._path_str.split(by)
 
-    def crop(self, elements):
+    def crop(self, elements: int) -> MPath:
         return self.new("/".join(self.elements[elements:]))
 
-    def new(self, path) -> "MPath":
+    def new(self, path: MPathLike) -> "MPath":
         """Create a new MPath instance with given path."""
         return MPath(path, **self._kwargs)
 
@@ -221,9 +240,11 @@ class MPath(os.PathLike):
 
     def is_absolute(self) -> bool:
         """Return whether path is absolute."""
+        if self.is_remote():
+            return True
         return os.path.isabs(self._path_str)
 
-    def absolute_path(self, base_dir=None) -> "MPath":
+    def absolute_path(self, base_dir: Union[MPathLike, None] = None) -> MPath:
         """
         Return absolute path if path is local.
 
@@ -236,16 +257,20 @@ class MPath(os.PathLike):
         -------
         absolute path
         """
-        if self.is_remote() or self.is_absolute():
+        if self.is_absolute():
             return self
         else:
             if base_dir:
-                if not os.path.isabs(base_dir):
+                if not MPath.from_inp(base_dir).is_absolute():
                     raise TypeError("base_dir must be an absolute path.")
                 return self.new(os.path.abspath(os.path.join(base_dir, self._path_str)))
             return self.new(os.path.abspath(self._path_str))
 
-    def relative_path(self, start=None, base_dir=None) -> "MPath":
+    def relative_path(
+        self,
+        start: Union[MPathLike, None] = None,
+        base_dir: Union[MPathLike, None] = None,
+    ) -> MPath:
         """
         Return relative path if path is local.
 
@@ -264,7 +289,7 @@ class MPath(os.PathLike):
         else:
             return self.new(os.path.relpath(self._path_str, start=start))
 
-    def open(self, mode="r"):
+    def open(self, mode: str = "r") -> Union[IO, TextIO]:
         """Open file."""
         return self.fs.open(self._path_str, mode)
 
@@ -273,7 +298,7 @@ class MPath(os.PathLike):
         with self.open() as src:
             return src.read()
 
-    def makedirs(self, exist_ok=True) -> None:
+    def makedirs(self, exist_ok: bool = True) -> None:
         """Create all parent directories for path."""
         # create parent directories on local filesystems
         if self.fs.protocol == "file":
@@ -281,19 +306,31 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
-    def ls(self, detail=False):
+    def ls(
+        self, detail: bool = False, absolute_paths: bool = True
+    ) -> List[Union[MPath, dict]]:
+        def _create_full_path(path):
+            # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
+            if absolute_paths and "s3" in self.protocols:
+                return self.new(path).with_protocol("s3")
+            return self.new(path)
+
         if detail:
             # return as is but convert "name" from string to MPath instead
             return [
-                {k: (self.new(v) if k == "name" else v) for k, v in path_info.items()}
+                {
+                    k: (_create_full_path(v) if k == "name" else v)
+                    for k, v in path_info.items()
+                }
                 for path_info in self.fs.ls(self._path_str, detail=detail)
             ]
         else:
             return [
-                self.new(path) for path in self.fs.ls(self._path_str, detail=detail)
+                _create_full_path(path)
+                for path in self.fs.ls(self._path_str, detail=detail)
             ]
 
-    def rm(self, recursive=False, ignore_errors=False):
+    def rm(self, recursive: bool = False, ignore_errors: bool = False) -> None:
         try:
             self.fs.rm(str(self), recursive=recursive)
         except FileNotFoundError:
@@ -302,7 +339,10 @@ class MPath(os.PathLike):
             else:  # pragma: no cover
                 raise
 
-    def joinpath(self, *other) -> "MPath":
+    def size(self) -> int:
+        return self.fs.size(self._path_str)
+
+    def joinpath(self, *other: List[MPathLike]) -> MPath:
         """Join path with other."""
         return self.new(os.path.join(self._path_str, *list(map(str, other))))
 
@@ -315,7 +355,11 @@ class MPath(os.PathLike):
         else:
             return self._path_str
 
-    def gdal_env_params(self, opts=None, allowed_remote_extensions=None) -> dict:
+    def gdal_env_params(
+        self,
+        opts: Union[dict, None] = None,
+        allowed_remote_extensions: Union[List[str], None] = None,
+    ) -> dict:
         """
         Return a merged set of custom and default GDAL/rasterio Env options.
 
@@ -384,7 +428,7 @@ class MPath(os.PathLike):
         return gdal_opts
 
     @cached_property
-    def _endpoint_url(self):
+    def _endpoint_url(self) -> Union[str, None]:
         # GDAL parses the paths in a weird way, so we have to be careful with a custom
         # endpoint
         if hasattr(self.fs, "endpoint_url") and isinstance(self.fs.endpoint_url, str):
@@ -406,7 +450,11 @@ class MPath(os.PathLike):
         else:
             return RioSession.from_path(self._path_str)
 
-    def rio_env_config(self, opts=None, allowed_remote_extensions=None) -> dict:
+    def rio_env_config(
+        self,
+        opts: Union[dict, None] = None,
+        allowed_remote_extensions: Union[List[str], None] = None,
+    ) -> dict:
         """Return configuration parameters for rasterio.Env()."""
         out = self.gdal_env_params(
             opts=opts,
@@ -416,7 +464,11 @@ class MPath(os.PathLike):
             out.update(session=self.rio_session())
         return out
 
-    def rio_env(self, opts=None, allowed_remote_extensions=None) -> rasterio.Env:
+    def rio_env(
+        self,
+        opts: Union[dict, None] = None,
+        allowed_remote_extensions: Union[List[str], None] = None,
+    ) -> rasterio.Env:
         """Return preconfigured rasterio.Env context manager for path."""
         return rasterio.Env(
             **self.rio_env_config(
@@ -438,7 +490,11 @@ class MPath(os.PathLike):
         else:
             return FioSession.from_path(self._path_str)
 
-    def fio_env_config(self, opts=None, allowed_remote_extensions=None) -> dict:
+    def fio_env_config(
+        self,
+        opts: Union[dict, None] = None,
+        allowed_remote_extensions: Union[List[str], None] = None,
+    ) -> dict:
         """Return configuration parameters for fiona.Env()."""
         out = self.gdal_env_params(
             opts=opts,
@@ -448,7 +504,11 @@ class MPath(os.PathLike):
             out.update(session=self.fio_session())
         return out
 
-    def fio_env(self, opts=None, allowed_remote_extensions=None) -> fiona.Env:
+    def fio_env(
+        self,
+        opts: Union[dict, None] = None,
+        allowed_remote_extensions: Union[List[str], None] = None,
+    ) -> fiona.Env:
         """Return preconfigured fiona.Env context manager for path."""
         return fiona.Env(
             **self.fio_env_config(
@@ -456,30 +516,30 @@ class MPath(os.PathLike):
             )
         )
 
-    def __truediv__(self, other) -> "MPath":
+    def __truediv__(self, other: MPathLike) -> MPath:
         """Short for self.joinpath()."""
         return self.joinpath(other)
 
-    def __add__(self, other) -> "MPath":
+    def __add__(self, other: MPathLike) -> "MPath":
         """Short for self.joinpath()."""
         return self.new(str(self) + other)
 
-    def __eq__(self, other):
+    def __eq__(self, other: MPathLike):
         if isinstance(other, str):
             return str(self) == other
         else:
             return hash(self) == hash(MPath(other))
 
-    def __gt__(self, other):  # pragma: no cover
+    def __gt__(self, other: MPathLike):  # pragma: no cover
         return str(self) > str(MPath(other))
 
-    def __ge__(self, other):  # pragma: no cover
+    def __ge__(self, other: MPathLike):  # pragma: no cover
         return str(self) >= str(MPath(other))
 
-    def __lt__(self, other):  # pragma: no cover
+    def __lt__(self, other: MPathLike):  # pragma: no cover
         return str(self) < str(MPath(other))
 
-    def __le__(self, other):  # pragma: no cover
+    def __le__(self, other: MPathLike):  # pragma: no cover
         return str(self) <= str(MPath(other))
 
     def __repr__(self):
@@ -489,7 +549,7 @@ class MPath(os.PathLike):
         return hash(repr(self))
 
 
-def path_is_remote(path, **kwargs):
+def path_is_remote(path, **kwargs) -> bool:
     """
     Determine whether file path is remote or local.
 
@@ -501,11 +561,12 @@ def path_is_remote(path, **kwargs):
     -------
     is_remote : bool
     """
-    path = path if isinstance(path, MPath) else MPath(path)
-    return path.is_remote()
+    return MPath.from_inp(path, **kwargs).is_remote()
 
 
-def path_exists(path, fs=None, **kwargs):
+def path_exists(
+    path, fs: Union[fsspec.AbstractFileSystem, None] = None, **kwargs
+) -> bool:
     """
     Check if file exists either remote or local.
 
@@ -517,11 +578,14 @@ def path_exists(path, fs=None, **kwargs):
     -------
     exists : bool
     """
-    path = path if isinstance(path, MPath) else MPath(path)
-    return path.exists()
+    return MPath.from_inp(path, fs=fs, **kwargs).exists()
 
 
-def absolute_path(path=None, base_dir=None):
+def absolute_path(
+    path: Union[MPathLike, None] = None,
+    base_dir: Union[MPathLike, None] = None,
+    **kwargs,
+) -> MPath:
     """
     Return absolute path if path is local.
 
@@ -534,11 +598,14 @@ def absolute_path(path=None, base_dir=None):
     -------
     absolute path
     """
-    path = path if isinstance(path, MPath) else MPath(path)
-    return path.absolute_path(base_dir=base_dir)
+    return MPath.from_inp(path, **kwargs).absolute_path(base_dir=base_dir)
 
 
-def relative_path(path=None, base_dir=None):
+def relative_path(
+    path: Union[MPathLike, None] = None,
+    base_dir: Union[MPathLike, None] = None,
+    **kwargs,
+) -> MPath:
     """
     Return relative path if path is local.
 
@@ -551,11 +618,12 @@ def relative_path(path=None, base_dir=None):
     -------
     relative path
     """
-    path = path if isinstance(path, MPath) else MPath(path)
-    return path.relative_path(base_dir=base_dir)
+    return MPath.from_inp(path, **kwargs).relative_path(base_dir=base_dir)
 
 
-def makedirs(path, fs=None):  # pragma: no cover
+def makedirs(
+    path, fs: Union[fsspec.AbstractFileSystem, None] = None, **kwargs
+) -> None:  # pragma: no cover
     """
     Silently create all subdirectories of path if path is local.
 
@@ -563,8 +631,7 @@ def makedirs(path, fs=None):  # pragma: no cover
     ----------
     path : path
     """
-    path = path if isinstance(path, MPath) else MPath(path, fs=fs)
-    path.makedirs()
+    MPath.from_inp(path, fs=fs, **kwargs).makedirs()
 
 
 def tiles_exist(
@@ -635,11 +702,15 @@ def tiles_exist(
 
     # for tile directory outputs:
     elif process_tiles:
-        logger.debug("sort process tiles by row, this could take a while")
-        process_tiles_batches = _batch_tiles_by_row(process_tiles)
+        sort_attribute = batch_sort_property(config.output_reader.tile_path_schema)
+        logger.debug(
+            "sort process tiles by %s, this could take a while", sort_attribute
+        )
+        process_tiles_batches = _batch_tiles_by_attribute(process_tiles, sort_attribute)
     elif output_tiles:
-        logger.debug("sort output tiles by row, this could take a while")
-        output_tiles_batches = _batch_tiles_by_row(output_tiles)
+        sort_attribute = batch_sort_property(config.output_reader.tile_path_schema)
+        logger.debug("sort output tiles by %s, this could take a while", sort_attribute)
+        output_tiles_batches = _batch_tiles_by_attribute(output_tiles, sort_attribute)
 
     # Some HTTP endpoints won't allow ls() on them, so we will have to
     # request tile by tile in order to determine whether they exist or not.
@@ -666,11 +737,11 @@ def tiles_exist(
         )
 
 
-def _batch_tiles_by_row(tiles):
+def _batch_tiles_by_attribute(tiles: List[BufferedTile], attribute: str = "row"):
     ordered = defaultdict(set)
     for tile in tiles:
-        ordered[tile.row].add(tile)
-    return ((t for t in ordered[row]) for row in sorted(list(ordered.keys())))
+        ordered[getattr(tile, attribute)].add(tile)
+    return ((t for t in ordered[key]) for key in sorted(list(ordered.keys())))
 
 
 def _output_tiles_batches_exist(output_tiles_batches, config, is_https_without_ls):
@@ -772,7 +843,29 @@ def _existing_tiles(
     return existing_tiles
 
 
-def fs_from_path(path, **kwargs):
+def fs_from_path(path: MPathLike, **kwargs) -> fsspec.AbstractFileSystem:
     """Guess fsspec FileSystem from path and initialize using the desired options."""
     path = path if isinstance(path, MPath) else MPath(path, **kwargs)
     return path.fs
+
+
+def batch_sort_property(tile_path_schema: str) -> str:
+    """
+    Determine by which property according to the schema batches should be sorted.
+
+    In order to reduce S3 requests this function determines the root directory name in a
+    TileDirectory structure on which MPath.ls() is to be called.
+
+    "{zoom}/{row}/{col}.{extension}" -> "row": batches should be collected by tile rows
+    "{zoom}/{col}/{row}.{extension}" -> "col": batches should be collected by tile columns
+    """
+    # split into path elements
+    elements = tile_path_schema.split("/")
+    # reverse so we can start from the end
+    elements.reverse()
+    out = "row"
+    # start from the end and take the last (i.e. first from the original schema) element
+    for element in elements:
+        if element in ["{row}", "{col}"]:
+            out = element
+    return out.lstrip("{").rstrip("}")

@@ -24,7 +24,7 @@ from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD, MapcheteConfig
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.formats import read_output_metadata
 from mapchete.io import MPath, fs_from_path, tiles_exist
-from mapchete.stac import update_tile_directory_stac_item
+from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
 from mapchete.tile import count_tiles
 from mapchete.validate import validate_tile, validate_zooms
 
@@ -705,11 +705,12 @@ class Mapchete(object):
                 item_metadata=self.config.output.stac_item_metadata,
                 tile_pyramid=self.config.output_pyramid,
                 bands_type=self.config.output.stac_asset_type,
+                band_asset_template=self.config.output.tile_path_schema,
             )
             logger.debug("write STAC item JSON to %s", self.config.output.stac_path)
             self.config.output.stac_path.parent.makedirs()
             with self.config.output.stac_path.open("w") as dst:
-                dst.write(json.dumps(item.to_dict(), indent=indent))
+                dst.write(json.dumps(tile_direcotry_item_to_dict(item), indent=indent))
         except ReprojectionFailed:
             logger.warning(
                 "cannot create STAC item because footprint cannot be reprojected into EPSG:4326"

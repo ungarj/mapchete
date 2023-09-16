@@ -2,19 +2,19 @@
 
 import datetime
 import os
-from tempfile import TemporaryDirectory
 import uuid
+from tempfile import TemporaryDirectory
 
-from aiohttp.client_exceptions import ClientConnectorError
 import pytest
+from aiohttp.client_exceptions import ClientConnectorError
 from minio import Minio
 from shapely import wkt
 from shapely.geometry import box
 from tilematrix import Bounds, GridDefinition
 
 from mapchete._executor import (
-    DaskExecutor,
     ConcurrentFuturesExecutor,
+    DaskExecutor,
     SequentialExecutor,
 )
 from mapchete.cli.default.serve import create_app
@@ -80,7 +80,10 @@ def secure_http_testdata_dir():
 
 @pytest.fixture(scope="session")
 def s3_testdata_dir(minio_testdata_bucket):
-    return minio_testdata_bucket / MINIO_TESTDATA_BUCKET
+    bucket_path = minio_testdata_bucket / MINIO_TESTDATA_BUCKET
+    # prepare at least one file for testing
+    prepare_s3_testfile(bucket_path, "cleantopo/cleantopo.json")
+    return bucket_path
 
 
 @pytest.fixture(scope="session")
@@ -89,8 +92,8 @@ def aws_s3_testdata_dir():
 
     try:
         AWS_S3_TESTDATA_DIR.ls()
-    except NoCredentialsError:
-        raise ConnectionError("credentials for s3://mapchete-test are not set")
+    except (NoCredentialsError, PermissionError):
+        raise PermissionError("credentials for s3://mapchete-test are not set")
     return AWS_S3_TESTDATA_DIR
 
 
@@ -1033,6 +1036,15 @@ def green_raster(mp_tmpdir):
     """Fixture for green_raster.mapchete."""
     with ProcessFixture(
         TESTDATA_DIR / "green_raster.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
+def tile_path_schema(mp_tmpdir):
+    """Fixture for tile_path_schema.mapchete."""
+    with ProcessFixture(
+        TESTDATA_DIR / "tile_path_schema.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 

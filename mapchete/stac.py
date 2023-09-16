@@ -49,6 +49,7 @@ def tile_directory_stac_item(
     bounds=None,
     bounds_crs=None,
     bands_type="image/tiff; application=geotiff",
+    band_asset_template="{zoom}/{row}/{col}.tif",
     crs_unit_to_meter=1,
 ):
     """
@@ -93,7 +94,6 @@ def tile_directory_stac_item(
         raise ImportError(
             "dependencies for extra mapchete[stac] is required for this feature"
         )
-
     if item_id is None:
         raise ValueError("item_id must be set")
     if zoom_levels is None:
@@ -111,15 +111,22 @@ def tile_directory_stac_item(
         or str(datetime.datetime.utcnow())
     )
     tp_grid = tile_pyramid.grid.type
-    bands_schema = "{TileMatrix}/{TileRow}/{TileCol}.tif"
+
     # thumbnail_href = thumbnail_href or "0/0/0.tif"
     # thumbnail_type = thumbnail_type or "image/tiff; application=geotiff"
+    # replace zoom, row and col names with STAC tiled-assets definition
+    band_asset_template = (
+        band_asset_template.replace("{zoom}", "{TileMatrix}")
+        .replace("{row}", "{TileRow}")
+        .replace("{col}", "{TileCol}")
+        .replace("{extension}", "tif")
+    )
     if asset_basepath:
-        bands_schema = asset_basepath / bands_schema
+        band_asset_template = asset_basepath / band_asset_template
     elif not relative_paths:
         if item_path is None:
             raise ValueError("either alternative_basepath or item_path must be set")
-        bands_schema = item_path.parent / bands_schema
+        band_asset_template = item_path.parent / band_asset_template
 
     # use bounds provided or fall back to tile pyramid bounds
     bounds = bounds or tile_pyramid.bounds
@@ -226,9 +233,14 @@ def tile_directory_stac_item(
         },
     }
 
-    stac_extensions = ["tiled-assets"]
+    stac_extensions = [
+        # official schema since STAC 1.0.0
+        "https://stac-extensions.github.io/tiled-assets/v1.0.0/schema.json",
+    ]
     if "eo:bands" in item_metadata:
-        stac_extensions.append("eo")
+        stac_extensions.append(
+            "https://stac-extensions.github.io/eo/v1.1.0/schema.json"
+        )
 
     out = {
         "stac_version": get_stac_version(),
@@ -244,7 +256,9 @@ def tile_directory_stac_item(
             "tiles:tile_matrix_links": {tile_matrix_set_identifier: tile_matrix_links},
             "tiles:tile_matrix_sets": {tile_matrix_set_identifier: tile_matrix_set},
         },
-        "asset_templates": {"bands": {"href": str(bands_schema), "type": bands_type}},
+        "asset_templates": {
+            "bands": {"href": str(band_asset_template), "type": bands_type}
+        },
         "assets": {
             # "thumbnail": {
             #     "href": thumbnail_href,
@@ -290,6 +304,7 @@ def update_tile_directory_stac_item(
     bounds=None,
     item_metadata=None,
     bands_type=None,
+    band_asset_template="{TileMatrix}/{TileRow}/{TileCol}.tif",
     crs_unit_to_meter=1,
 ):
     """
@@ -366,6 +381,7 @@ def update_tile_directory_stac_item(
         item_metadata=item_metadata,
         bounds=bounds,
         bands_type=bands_type,
+        band_asset_template=band_asset_template,
         crs_unit_to_meter=crs_unit_to_meter,
     )
 
@@ -447,7 +463,7 @@ def create_prototype_files(mp):
         prototype_tile = mp.config.output_pyramid.tile(zoom, 0, 0)
         tile_path = mp.config.output.get_path(prototype_tile)
         # if tile exists, skip
-        if mp.config.output.tiles_exist(output_tile=prototype_tile):
+        if tile_path.exists():
             logger.debug("prototype tile %s already exists", tile_path)
         # if not, write empty tile
         else:
@@ -469,3 +485,15 @@ def create_prototype_files(mp):
                 out_path=tile_path,
                 write_empty=True,
             )
+
+
+def tile_direcotry_item_to_dict(item) -> dict:
+    item_dict = item.to_dict()
+
+    # we have to add 'tiled-assets' to stac extensions in order to GDAL identify
+    # this file as STACTA dataset
+    stac_extensions = set(item_dict.get("stac_extensions", []))
+    stac_extensions.add("tiled-assets")
+    item_dict["stac_extensions"] = list(stac_extensions)
+
+    return item_dict

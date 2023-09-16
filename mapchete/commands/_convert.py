@@ -65,6 +65,8 @@ def convert(
     cog: bool = False,
     msg_callback: Callable = None,
     as_iterator: bool = False,
+    src_fs_opts: Union[dict, None] = None,
+    dst_fs_opts: Union[dict, None] = None,
 ) -> mapchete.Job:
     """
     Convert mapchete outputs or other geodata.
@@ -176,8 +178,8 @@ def convert(
     workers = workers or multi or cpu_count()
     creation_options = creation_options or {}
     bidx = [bidx] if isinstance(bidx, int) else bidx
-    tiledir = MPath.from_inp(tiledir) if isinstance(tiledir, str) else tiledir
-    output = MPath.from_inp(output)
+    tiledir = MPath.from_inp(tiledir, storage_options=src_fs_opts)
+    output = MPath.from_inp(output, storage_options=dst_fs_opts)
     try:
         input_info = _get_input_info(tiledir)
         logger.debug("input params: %s", input_info)

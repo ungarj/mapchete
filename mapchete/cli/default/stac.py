@@ -10,7 +10,11 @@ from mapchete.cli import options
 from mapchete.config import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import read_output_metadata
 from mapchete.io import MPath
-from mapchete.stac import create_prototype_files, tile_directory_stac_item
+from mapchete.stac import (
+    create_prototype_files,
+    tile_direcotry_item_to_dict,
+    tile_directory_stac_item,
+)
 from mapchete.validate import validate_zooms
 
 logger = logging.getLogger(__name__)
@@ -66,6 +70,7 @@ def create_item(
         default_bounds_crs,
         default_zoom,
         default_item_metadata,
+        band_asset_template,
     ) = output_info(input_)
 
     if default_zoom:
@@ -94,11 +99,12 @@ def create_item(
         item_path=item_path,
         asset_basepath=asset_basepath,
         relative_paths=relative_paths,
+        band_asset_template=band_asset_template,
         bands_type=None,
         crs_unit_to_meter=1,
     )
     logger.debug("item_path: %s", item_path)
-    item_json = json.dumps(item.to_dict(), indent=indent)
+    item_json = json.dumps(tile_direcotry_item_to_dict(item), indent=indent)
     click.echo(item_json)
     if force or click.confirm(f"Write output to {item_path}?", abort=True):
         with fsspec.open(item_path, "w") as dst:
@@ -118,16 +124,19 @@ def output_info(inp):
             conf.get("bounds_crs"),
             conf.get("zoom_levels"),
             conf["output"].get("stac"),
+            conf["output"].get("tile_path_schema", "{zoom}/{row}/{col}.{extension}"),
         )
 
+    output_metadata = read_output_metadata(path / "metadata.json")
     return (
-        read_output_metadata(path / "metadata.json")["pyramid"],
+        output_metadata["pyramid"],
         path,
         path.name,
         None,
         None,
         None,
         None,
+        output_metadata.get("tile_path_schema", "{zoom}/{row}/{col}.{extension}"),
     )
 
 

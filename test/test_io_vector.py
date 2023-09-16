@@ -8,17 +8,18 @@ from shapely.errors import TopologicalError
 from shapely.geometry import (
     LineString,
     MultiPolygon,
+    Point,
     Polygon,
     box,
     mapping,
     shape,
-    Point,
 )
 
 from mapchete.config import MapcheteConfig
 from mapchete.errors import (
     GeometryTypeError,
     MapcheteIOError,
+    NoCRSError,
     NoGeoError,
     ReprojectionFailed,
 )
@@ -30,6 +31,7 @@ from mapchete.io.vector import (
     convert_vector,
     fiona_open,
     object_bounds,
+    object_crs,
     read_vector_window,
     reproject_geometry,
     segmentize_geometry,
@@ -627,6 +629,31 @@ def test_object_bounds_key_geometry():
     foo = {"geometry": mapping(box(*control))}
 
     assert object_bounds(foo) == (0, 1, 2, 3)
+
+
+def test_object_crs_obj():
+    class Foo:
+        crs = "EPSG:4326"
+
+    assert object_crs(Foo()) == CRS.from_epsg(4326)
+
+
+def test_object_crs_dict():
+    foo = dict(crs="EPSG:4326")
+
+    assert object_crs(foo) == CRS.from_epsg(4326)
+
+
+def test_object_crs_error():
+    with pytest.raises(NoCRSError):
+        object_crs("foo")
+
+
+def test_object_bounds_reproject():
+    obj = dict(bounds=(1, 2, 3, 4), crs="EPSG:4326")
+    out = object_bounds(obj, dst_crs="EPSG:3857")
+    control = reproject_geometry(box(1, 2, 3, 4), "EPSG:4326", "EPSG:3857")
+    assert out == control
 
 
 @pytest.mark.parametrize(

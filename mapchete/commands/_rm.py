@@ -7,7 +7,8 @@ from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
-from mapchete.io import fs_from_path, tiles_exist
+from mapchete.io import tiles_exist
+from mapchete.path import MPath
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +77,10 @@ def rm(
         pass
 
     msg_callback = msg_callback or _empty_callback
-    fs_opts = fs_opts or {}
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom level(s) required")
 
-    fs = fs_from_path(tiledir, **fs_opts)
+    tiledir = MPath.from_inp(tiledir, storage_options=fs_opts)
 
     with mapchete.open(
         tiledir,
@@ -89,8 +89,6 @@ def rm(
         area_crs=area_crs,
         bounds=bounds,
         bounds_crs=bounds_crs,
-        fs=fs,
-        fs_kwargs=fs_opts,
         mode="readonly",
     ) as mp:
         tp = mp.config.output_pyramid
@@ -122,7 +120,7 @@ def rm(
             _rm,
             fargs=(
                 paths,
-                fs,
+                tiledir.fs,
                 msg_callback,
             ),
             as_iterator=as_iterator,

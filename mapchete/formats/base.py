@@ -31,6 +31,9 @@ from mapchete.tile import BufferedTilePyramid
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_TILE_PATH_SCHEMA = "{zoom}/{row}/{col}.{extension}"
+
+
 class InputData(object):
     """
     Template class handling geographic input data.
@@ -254,6 +257,9 @@ class OutputDataBaseFunctions:
         )
         self.fs_kwargs = self._fs_kwargs = output_params.get("fs_kwargs") or {}
         self.data_type = self.METADATA["data_type"]
+        self.tile_path_schema = output_params.get(
+            "tile_path_schema", DEFAULT_TILE_PATH_SCHEMA
+        )
 
     @property
     def stac_path(self):
@@ -307,8 +313,11 @@ class OutputDataBaseFunctions:
         -------
         path : string
         """
-        return self.path.joinpath(
-            str(tile.zoom), str(tile.row), str(tile.col) + self.file_extension
+        return self.path / self.tile_path_schema.format(
+            zoom=str(tile.zoom),
+            row=str(tile.row),
+            col=str(tile.col),
+            extension=self.file_extension.lstrip("."),
         )
 
     def extract_subset(self, input_data_tiles=None, out_tile=None):

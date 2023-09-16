@@ -102,6 +102,8 @@ def _validate_bidx(ctx, param, bidx):
 @options.opt_logfile
 @options.opt_vrt
 @options.opt_idx_out_dir
+@options.opt_src_fs_opts
+@options.opt_dst_fs_opts
 def convert(
     tiledir,
     output,

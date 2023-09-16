@@ -1,8 +1,9 @@
 import pickle
+
 import pytest
 
 from mapchete.config import get_hash
-from mapchete.io import MPath
+from mapchete.path import MPath, batch_sort_property
 
 
 @pytest.mark.parametrize(
@@ -154,8 +155,11 @@ def test_with_suffix():
     ],
 )
 def test_ls(path):
+    dir_is_remote = path.is_remote()
+    assert path.ls()
     for p in path.ls():
         assert isinstance(p, MPath)
+        assert p.is_remote() == dir_is_remote
     for p in path.ls(detail=True):
         assert isinstance(p.get("name"), MPath)
 
@@ -176,6 +180,19 @@ def test_io_read(path):
         assert src.read()
 
     assert path.read_text()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("metadata_json"),
+        pytest.lazy_fixture("http_metadata_json"),
+        pytest.lazy_fixture("secure_http_metadata_json"),
+        pytest.lazy_fixture("s3_metadata_json"),
+    ],
+)
+def test_size(path):
+    assert path.size()
 
 
 def test_io_s3(mp_s3_tmpdir):
@@ -299,3 +316,38 @@ def test_pickle_path(path):
 )
 def test_pickle_fs(path):
     assert pickle.loads(pickle.dumps(path.fs))
+
+
+def test_batch_sort_property():
+    assert batch_sort_property("{zoom}/{row}/{col}.{extension}") == "row"
+    assert batch_sort_property("{zoom}/{col}/{row}.{extension}") == "col"
+
+
+def test_without_protocol_s3():
+    path = MPath("s3://foo/bar")
+    assert path.without_protocol() == "foo/bar"
+
+
+def test_without_protocol_http():
+    path = MPath("http://foo/bar")
+    assert path.without_protocol() == "foo/bar"
+
+
+def test_without_protocol_relative():
+    path = MPath("foo/bar")
+    assert path.without_protocol() == "foo/bar"
+
+
+def test_with_protocol_s3():
+    path = MPath("s3://foo/bar")
+    assert path.with_protocol("https") == "https://foo/bar"
+
+
+def test_with_protocol_http():
+    path = MPath("http://foo/bar")
+    assert path.with_protocol("https") == "https://foo/bar"
+
+
+def test_with_protocol_relative():
+    path = MPath("foo/bar")
+    assert path.with_protocol("https") == "https://foo/bar"

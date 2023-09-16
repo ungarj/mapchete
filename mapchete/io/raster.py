@@ -86,22 +86,28 @@ def rasterio_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
     """
     path = MPath.from_inp(path)
 
-    if path.is_remote():
-        if "s3" in path.protocols:  # pragma: no cover
-            try:
-                import boto3
-            except ImportError:
-                raise ImportError("please install [s3] extra to write remote files")
-        with RasterioRemoteWriter(
-            path, fs=fs, in_memory=in_memory, *args, **kwargs
-        ) as dst:
-            yield dst
-    else:
-        with path.rio_env() as env:
-            logger.debug("writing %s with GDAL options %s", str(path), env.options)
-            path.parent.makedirs(exist_ok=True)
-            with rasterio.open(path, mode=mode, *args, **kwargs) as dst:
+    try:
+        if path.is_remote():
+            if "s3" in path.protocols:  # pragma: no cover
+                try:
+                    import boto3
+                except ImportError:
+                    raise ImportError("please install [s3] extra to write remote files")
+            with RasterioRemoteWriter(
+                path, fs=fs, in_memory=in_memory, *args, **kwargs
+            ) as dst:
                 yield dst
+        else:
+            with path.rio_env() as env:
+                logger.debug("writing %s with GDAL options %s", str(path), env.options)
+                path.parent.makedirs(exist_ok=True)
+                with rasterio.open(path, mode=mode, *args, **kwargs) as dst:
+                    yield dst
+    except Exception as exc:  # pragma: no cover
+        logger.exception(exc)
+        logger.debug("remove %s ...", str(path))
+        path.rm(ignore_errors=True)
+        raise
 
 
 class ReferencedRaster:
@@ -201,6 +207,29 @@ class ReferencedRaster:
             if isinstance(self.data, ma.masked_array)
             else np.stack(*args)
         )
+
+    def to_file(
+        self,
+        path: MPath,
+        indexes: Union[int, List[int]] = None,
+        tile: BufferedTile = None,
+        resampling: str = "nearest",
+        **kwargs,
+    ) -> MPath:
+        """Write raster to output."""
+        out_kwargs = dict(self.meta, **kwargs)
+        with rasterio_open(path, "w", **out_kwargs) as dst:
+            src_array = self.read(indexes=indexes, tile=tile, resampling=resampling)
+            if src_array.ndim == 2:
+                index = 1
+            elif src_array.ndim == 3:
+                index = None
+            else:  # pragma: no cover
+                raise TypeError(
+                    "dumping to file is only possible with 2 or 3-dimensional arrays"
+                )
+            dst.write(src_array, index)
+        return path
 
     @staticmethod
     def from_rasterio(src, masked: bool = True) -> "ReferencedRaster":
@@ -1300,9 +1329,16 @@ def convert_raster(inp, out, overwrite=False, exists_ok=True, **kwargs):
         copy(inp, out, overwrite=overwrite)
 
 
-def read_raster(inp, **kwargs):
+def read_raster(inp, tile=None, **kwargs) -> ReferencedRaster:
     inp = MPath.from_inp(inp)
     logger.debug(f"reading {str(inp)} into memory")
+    if tile:
+        return ReferencedRaster(
+            data=read_raster_window(inp, tile=tile, **kwargs),
+            affine=tile.affine,
+            bounds=tile.bounds,
+            crs=tile.crs,
+        )
     with rasterio_open(inp, "r") as src:
         return ReferencedRaster(
             data=src.read(masked=True),

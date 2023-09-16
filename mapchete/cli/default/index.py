@@ -1,8 +1,6 @@
 """Create index for process output."""
 
 import logging
-import os
-import sys
 
 import click
 import click_spinner

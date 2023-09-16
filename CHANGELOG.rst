@@ -4,6 +4,66 @@ Changelog
 
 
 ---------------------
+2023.9.0 - 2023-09-05
+---------------------
+
+* packaging
+
+  * limit dependent versions to `"aiobotocore>=1.1.2,<=2.5.4"` and `"s3fs<2023.9.0"`
+
+* core
+
+  * make sure opened/written files are removed upon exception (#576)
+  * CLI: apply tiled-assets hack also to create-item CLI (#577)
+  * provide path schema to configure how tile paths are created (#581)
+  * `IndexedFeatures`: allow reprojection of object bounds to a target CRS (#585)
+
+
+---------------------
+2023.8.1 - 2023-08-09
+---------------------
+
+* packaging
+
+  * require `Shapely>=2.0.0` (#572)
+  * remmove `cached_property` package requirement (#573)
+  * add `isort` to pre-commit (#573)
+
+* core
+
+  * fix `ReferencedRaster.to_file()` on 2D arrays (#574)
+
+
+---------------------
+2023.8.0 - 2023-08-09
+---------------------
+
+* packaging
+
+  * add `pydantic<2.0.0` as dependency
+
+
+* CI
+
+  * also test on Python 3.11 (#562)
+
+* core
+
+  * enable adding default read parameters to TileDirectory input (#565)
+  * configuration schema (#564)
+
+    * add `pydantic<2.0.0` as dependency
+    * `mapchete.config.ProcessConfig` now defines the mapchete process configuration schema
+    * process function parameters should now go into the `process_parameters` section of the configuration
+    * add `mapchete.config.ProcessFunc` abstraction class to load and handle user process functions
+
+  * CLI: fix passing on storage options; add storage options to convert command (#568)
+  * update STACTA file schema to STAC 1.0.0 (#569)
+  * added `ReferencedRaster.to_file()` (#570)
+  * added `read_raster(tile=...)` kwarg to resample incoming raster (#570)
+
+
+---------------------
 2023.7.1 - 2023-07-18
 ---------------------
 
