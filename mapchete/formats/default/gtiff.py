@@ -49,7 +49,8 @@ from tilematrix import Bounds
 from mapchete.config import _OUTPUT_PARAMETERS, snap_bounds, validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
-from mapchete.io import MPath, makedirs, path_exists, path_is_remote
+from mapchete.io import MPath, path_exists, path_is_remote
+from mapchete.io.profiles import DEFAULT_PROFILES
 from mapchete.io.raster import (
     extract_from_array,
     memory_file,
@@ -64,24 +65,7 @@ from mapchete.validate import deprecated_kwargs
 logger = logging.getLogger(__name__)
 
 
-class DefaultGTiffProfile(Profile):
-    """Tiled, band-interleaved, DEFLATE-compressed, 8-bit GTiff."""
-
-    defaults = {
-        "driver": "GTiff",
-        "blockysize": 512,
-        "blockxsize": 512,
-        "tiled": True,
-        "dtype": "uint8",
-        "compress": "deflate",
-        "predictor": 2,
-        "interleave": "band",
-        "nodata": 0,
-    }
-
-
 METADATA = {"driver_name": "GTiff", "data_type": "raster", "mode": "rw"}
-GTIFF_DEFAULT_PROFILE = DefaultGTiffProfile()
 IN_MEMORY_THRESHOLD = int(os.environ.get("MP_IN_MEMORY_THRESHOLD", 20000 * 20000))
 
 
@@ -248,7 +232,7 @@ class GTiffOutputReaderFunctions:
         self.file_extension = ".tif"
         self.output_params = dict(
             output_params,
-            nodata=output_params.get("nodata", GTIFF_DEFAULT_PROFILE["nodata"]),
+            nodata=output_params.get("nodata", DEFAULT_PROFILES["COG"]()["nodata"]),
         )
 
 
@@ -319,7 +303,7 @@ class GTiffTileDirectoryOutputReader(
             output profile dictionary used for rasterio.
         """
         dst_metadata = dict(
-            GTIFF_DEFAULT_PROFILE,
+            DEFAULT_PROFILES["COG"](),
             count=self.output_params["bands"],
             **{
                 k: v
@@ -446,8 +430,7 @@ class GTiffSingleFileOutputWriter(
         creation_options = {
             k: v for k, v in self.output_params.items() if k not in _OUTPUT_PARAMETERS
         }
-        self._profile = dict(
-            DefaultGTiffProfile(driver="COG" if self.cog else "GTiff"),
+        self._profile = DEFAULT_PROFILES["COG" if self.cog else "GTiff"](
             transform=Affine(
                 self.pyramid.pixel_x_size(self.zoom),
                 0,
@@ -465,7 +448,7 @@ class GTiffSingleFileOutputWriter(
         for blocksize in ["blockxsize", "blockysize"]:
             if self._profile.get(blocksize) is not None:
                 self._profile[blocksize] = int(self._profile[blocksize])
-        logger.debug("single GTiff profile: %s", self._profile)
+        logger.debug("single GTiff profile: %s", str(self._profile))
         logger.debug(
             get_maximum_overview_level(
                 width, height, minsize=self._profile["blockxsize"]
