@@ -37,8 +37,8 @@ jobs:
           sudo apt-get -y update
           sudo apt-get install -y gdal-bin python-tk libgdal-dev libproj-dev libgeos-dev
           python -m pip install --upgrade pip wheel
-          pip install -r test/requirements.txt -r requirements.txt
           pip install -e .[complete]
+          pip install -r test/requirements.txt
           pip freeze
 
       - name: Lint with flake8

@@ -1,4 +1,5 @@
 from shapely.geometry import shape
+from shapely.geometry.base import BaseGeometry
 
 
 class Bounds(list):
@@ -101,6 +102,8 @@ class Bounds(list):
             return Bounds(*inp, strict=strict)
         elif isinstance(inp, dict):
             return Bounds.from_dict(inp, strict=strict)
+        elif isinstance(inp, BaseGeometry):
+            return Bounds(*inp.bounds, strict=strict)
         else:
             raise TypeError(f"cannot create Bounds using {inp}")
 

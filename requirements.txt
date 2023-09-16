@@ -1,4 +1,4 @@
-aiobotocore>=1.1.2
+aiobotocore>=1.1.2,<=2.5.4
 aiohttp>=3.6.2
 aioitertools>=0.7.0
 boto3>=1.14.44
@@ -23,6 +23,7 @@ pydantic>=2.0.0
 pydantic_settings>=2.0.0
 retry>=0.9.2
 rasterio>1.2.10
+s3fs<2023.9.0
 Shapely>=2.0.0
 tilematrix>=2022.12.0
 tqdm>=4.46.0
