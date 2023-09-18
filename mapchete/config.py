@@ -16,7 +16,7 @@ from typing import Any, List, Tuple, Union
 
 import fsspec
 import oyaml as yaml
-from pydantic import BaseModel, NonNegativeInt, field_validator
+from pydantic import BaseModel, NonNegativeInt, field_validator, model_validator
 from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
@@ -57,7 +57,7 @@ class OutputConfigBase(BaseModel):
     metatiling: Union[int, None] = 1
     pixelbuffer: Union[NonNegativeInt, None] = 0
 
-    @field_validator("metatiling", always=True)
+    @field_validator("metatiling")
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
@@ -70,7 +70,7 @@ class PyramidConfig(BaseModel):
     metatiling: Union[int, None] = 1
     pixelbuffer: Union[NonNegativeInt, None] = 0
 
-    @field_validator("metatiling", always=True)
+    @field_validator("metatiling")
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
@@ -287,7 +287,7 @@ class MapcheteConfig(object):
         logger.debug(f"parsing {input_config}")
         try:
             self.parsed_config = parse_config(input_config, strict=stric_parsing)
-            self.parsed_config.dict()
+            self.parsed_config.model_dump()
         except Exception as exc:
             raise MapcheteConfigError(exc)
         self._init_zoom_levels = zoom
@@ -334,7 +334,7 @@ class MapcheteConfig(object):
             # these two BufferedTilePyramid instances will help us with all
             # the tile geometries etc.
             self.process_pyramid = BufferedTilePyramid(
-                **self.parsed_config.pyramid.dict()
+                **self.parsed_config.pyramid.model_dump()
             )
             self.output_pyramid = BufferedTilePyramid(
                 self.parsed_config.pyramid.grid,
@@ -1231,7 +1231,7 @@ def _raw_at_zoom(config, zooms):
     params_per_zoom = OrderedDict()
     for zoom in zooms:
         params = OrderedDict()
-        for name, element in config.dict().items():
+        for name, element in config.model_dump().items():
             out_element = _element_at_zoom(name, element, zoom)
             if out_element is not None:
                 params[name] = out_element
