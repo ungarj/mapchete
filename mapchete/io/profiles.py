@@ -6,10 +6,9 @@ class COGDeflateProfile(Profile):
 
     defaults = {
         "driver": "COG",
-        "tiled": True,
-        "blockxsize": 512,
-        "blockysize": 512,
+        "blocksize": 512,
         "compress": "deflate",
+        "predictor": 2,
         "nodata": 0,
     }
 
