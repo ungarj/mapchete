@@ -445,13 +445,19 @@ class GTiffSingleFileOutputWriter(
             crs=self.pyramid.crs,
             **creation_options,
         )
-        for blocksize in ["blockxsize", "blockysize"]:
-            if self._profile.get(blocksize) is not None:
-                self._profile[blocksize] = int(self._profile[blocksize])
+        if self.cog:
+            if self._profile.get("blocksize") is not None:
+                self._profile["blocksize"] = int(self._profile.get("blocksize"))
+        else:
+            for blocksize in ["blockxsize", "blockysize"]:
+                if self._profile.get(blocksize) is not None:
+                    self._profile[blocksize] = int(self._profile[blocksize])
         logger.debug("single GTiff profile: %s", str(self._profile))
         logger.debug(
             get_maximum_overview_level(
-                width, height, minsize=self._profile["blockxsize"]
+                width,
+                height,
+                minsize=self._profile.get("blocksize", self._profile.get("blockxsize")),
             )
         )
         if self.cog or "overviews" in self.output_params:
@@ -466,7 +472,11 @@ class GTiffSingleFileOutputWriter(
                     for i in range(
                         1,
                         get_maximum_overview_level(
-                            width, height, minsize=self._profile["blockxsize"]
+                            width,
+                            height,
+                            minsize=self._profile.get(
+                                "blocksize", self._profile.get("blockxsize")
+                            ),
                         ),
                     )
                 ],
