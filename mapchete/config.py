@@ -16,7 +16,7 @@ from typing import Any, List, Tuple, Union
 
 import fsspec
 import oyaml as yaml
-from pydantic import BaseModel, NonNegativeInt, validator
+from pydantic import BaseModel, NonNegativeInt, field_validator
 from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
@@ -57,7 +57,7 @@ class OutputConfigBase(BaseModel):
     metatiling: Union[int, None] = 1
     pixelbuffer: Union[NonNegativeInt, None] = 0
 
-    @validator("metatiling", always=True)
+    @field_validator("metatiling", always=True)
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
@@ -70,7 +70,7 @@ class PyramidConfig(BaseModel):
     metatiling: Union[int, None] = 1
     pixelbuffer: Union[NonNegativeInt, None] = 0
 
-    @validator("metatiling", always=True)
+    @field_validator("metatiling", always=True)
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
@@ -82,16 +82,16 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     pyramid: PyramidConfig
     output: dict
     zoom_levels: Union[dict, int, list]
-    process: Union[str, MPath, List[str], None]
-    baselevels: Union[dict, None]
-    input: Union[dict, None]
-    config_dir: Union[str, MPath, None]
-    area: Union[str, MPath, BaseGeometry, None]
-    area_crs: Union[dict, str, None]
-    bounds: Union[Tuple[float, float, float, float], None]
-    bounds_crs: Union[dict, str, None]
-    process_parameters: Union[dict, None]
-    mapchete_file: Union[str, MPath, None]
+    process: Union[str, MPath, List[str], None] = None
+    baselevels: Union[dict, None] = None
+    input: Union[dict, None] = None
+    config_dir: Union[str, MPath, None] = None
+    area: Union[str, MPath, BaseGeometry, None] = None
+    area_crs: Union[dict, str, None] = None
+    bounds: Union[Tuple[float, float, float, float], None] = None
+    bounds_crs: Union[dict, str, None] = None
+    process_parameters: Union[dict, None] = None
+    mapchete_file: Union[str, MPath, None] = None
 
 
 _RESERVED_PARAMETERS = tuple(ProcessConfig.__fields__.keys())
