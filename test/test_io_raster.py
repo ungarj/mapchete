@@ -12,8 +12,8 @@ from tilematrix import Bounds
 
 import mapchete
 from mapchete.errors import MapcheteIOError
-from mapchete.formats.default.gtiff import DefaultGTiffProfile
 from mapchete.io import path_exists, rasterio_open
+from mapchete.io.profiles import COGDeflateProfile
 from mapchete.io.raster import (
     RasterWindowMemoryFile,
     ReferencedRaster,
@@ -889,7 +889,7 @@ def test_rasterio_write(path, dtype, in_memory):
         width=width,
         height=height,
         crs="EPSG:4326",
-        **DefaultGTiffProfile(dtype=dtype),
+        **COGDeflateProfile(dtype=dtype),
     ) as dst:
         dst.write(arr)
     assert path_exists(path)
@@ -911,7 +911,7 @@ def test_rasterio_write_remote_exception(mp_s3_tmpdir, in_memory):
             width=256,
             height=256,
             crs="EPSG:4326",
-            **DefaultGTiffProfile(dtype="uint8"),
+            **COGDeflateProfile(dtype="uint8"),
         ):
             raise ValueError()
 

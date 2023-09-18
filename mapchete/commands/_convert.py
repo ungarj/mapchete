@@ -238,10 +238,12 @@ def convert(
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info["zoom_levels"],
-        scale_ratio=scale_ratio,
-        scale_offset=scale_offset,
-        resampling=resampling_method,
-        band_indexes=bidx,
+        process_parameters=dict(
+            scale_ratio=scale_ratio,
+            scale_offset=scale_offset,
+            resampling=resampling_method,
+            band_indexes=bidx,
+        ),
     )
 
     # assert all required information is there
@@ -304,6 +306,8 @@ def convert(
     mapchete_config.update(
         bounds=(clip_intersection.bounds if clip_geometry else inp_bounds),
         bounds_crs=bounds_crs,
+    )
+    mapchete_config["process_parameters"].update(
         clip_to_output_dtype=mapchete_config["output"].get("dtype", None),
     )
     logger.debug(f"temporary config generated: {pformat(mapchete_config)}")
