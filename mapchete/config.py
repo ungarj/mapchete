@@ -91,6 +91,7 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     bounds: Union[Tuple[float, float, float, float], Bounds, None] = None
     bounds_crs: Union[dict, str, None] = None
     process_parameters: Union[dict, None] = None
+    mapchete_file: Union[str, MPath, None] = None
 
 
 _RESERVED_PARAMETERS = tuple(ProcessConfig.__fields__.keys())
