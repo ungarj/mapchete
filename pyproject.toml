@@ -57,6 +57,7 @@ complete = [
     "lxml",
     "matplotlib",
     "protobuf<=3.20.1",
+    "pydantic>=2.3.0",    
     "pystac[urllib3]<=1.7.3",
     "requests",
     "rtree",
