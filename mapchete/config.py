@@ -16,7 +16,7 @@ from typing import Any, List, Tuple, Union
 
 import fsspec
 import oyaml as yaml
-from pydantic import BaseModel, NonNegativeInt, field_validator, model_validator
+from pydantic import BaseModel, NonNegativeInt, field_validator
 from shapely import wkt
 from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
@@ -57,7 +57,7 @@ class OutputConfigBase(BaseModel):
     metatiling: Union[int, None] = 1
     pixelbuffer: Union[NonNegativeInt, None] = 0
 
-    @field_validator("metatiling")
+    @field_validator("metatiling", mode='before')
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
@@ -70,7 +70,7 @@ class PyramidConfig(BaseModel):
     metatiling: Union[int, None] = 1
     pixelbuffer: Union[NonNegativeInt, None] = 0
 
-    @field_validator("metatiling")
+    @field_validator("metatiling", mode='before')
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
@@ -81,7 +81,7 @@ class PyramidConfig(BaseModel):
 class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     pyramid: PyramidConfig
     output: dict
-    zoom_levels: Union[dict, int, list]
+    zoom_levels: Union[ZoomLevels, dict, list, int]
     process: Union[str, MPath, List[str], None] = None
     baselevels: Union[dict, None] = None
     input: Union[dict, None] = None
@@ -94,7 +94,7 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     mapchete_file: Union[str, MPath, None] = None
 
 
-_RESERVED_PARAMETERS = tuple(ProcessConfig.__fields__.keys())
+_RESERVED_PARAMETERS = tuple(ProcessConfig.model_fields.keys())
 
 # TODO remove these
 # parameters for output configuration
@@ -334,7 +334,7 @@ class MapcheteConfig(object):
             # these two BufferedTilePyramid instances will help us with all
             # the tile geometries etc.
             self.process_pyramid = BufferedTilePyramid(
-                **self.parsed_config.pyramid.model_dump()
+                **dict(self.parsed_config.pyramid)
             )
             self.output_pyramid = BufferedTilePyramid(
                 self.parsed_config.pyramid.grid,
