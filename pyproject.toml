@@ -32,7 +32,7 @@ dependencies = [
     "importlib-resources",
     "numpy>=1.16",
     "oyaml",
-    "pydantic<2.0.0",
+    "pydantic>=2.3.0",
     "pyproj",
     "python-dateutil",
     "rasterio>1.2.10",

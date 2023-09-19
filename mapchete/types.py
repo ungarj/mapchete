@@ -85,7 +85,7 @@ class Bounds(list):
 
     def _set_attributes(self, left, bottom, right, top):
         """This method is important when Bounds instances are passed on to the ProcessConfig schema."""
-        if hasattr(left, "__iter__"):
+        if hasattr(left, "__iter__"):  # pragma: no cover
             self.left, self.bottom, self.right, self.top = [i for i in left]
         else:
             self.left, self.bottom, self.right, self.top = left, bottom, right, top
@@ -194,7 +194,7 @@ class ZoomLevels(list):
 
     def _set_attributes(self, minlevel, maxlevel):
         """This method is important when ZoomLevel instances are passed on to the ProcessConfig schema."""
-        if hasattr(minlevel, "__iter__"):
+        if hasattr(minlevel, "__iter__"):  # pragma: no cover
             zoom_list = [i for i in minlevel]
             self.min = min(zoom_list)
             self.max = max(zoom_list)
