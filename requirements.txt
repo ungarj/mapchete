@@ -19,7 +19,7 @@ matplotlib>=3.2.1
 numpy>=1.16
 oyaml>=0.9
 pyproj
-pydantic>=2.0.0
+pydantic>=2.3.0
 retry>=0.9.2
 rasterio>1.2.10
 s3fs<2023.9.0
