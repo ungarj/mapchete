@@ -4,6 +4,24 @@ Changelog
 
 
 ---------------------
+2023.9.1 - 2023-09-19
+---------------------
+
+* packaging
+
+  * require `pydantic>=2.0.0` (#591)
+  * require `pydantic_basesettings` (#592)
+
+* core
+
+  * add `MPath.without_protocol()` and `MPath.with_protocol()` methods (#587)
+  * let `MPath.ls()` return full S3 paths (#587, fixes #583)
+  * add `mapchete.io.profiles` for rasterio profiles (#588, fixes #584)
+  * support `pydantic>=2.0.0` (#591)
+  * use `pydantic_basesettings` to combine environment variables with default values for `mapchete.io.settings` (#592)
+
+
+---------------------
 2023.9.0 - 2023-09-05
 ---------------------
 
