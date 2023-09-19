@@ -9,7 +9,7 @@ from mapchete.io._misc import (
     tile_to_zoom_level,
 )
 from mapchete.io.raster import rasterio_open
-from mapchete.io.settings import GDAL_HTTP_OPTS
+from mapchete.io.settings import GDALHTTPOptions
 from mapchete.io.vector import fiona_open
 from mapchete.path import (
     MPath,
@@ -25,7 +25,7 @@ from mapchete.path import (
 __all__ = [
     "copy",
     "fs_from_path",
-    "GDAL_HTTP_OPTS",
+    "GDALHTTPOptions",
     "get_best_zoom_level",
     "get_segmentize_value",
     "tile_to_zoom_level",

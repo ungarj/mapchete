@@ -26,7 +26,7 @@ from tilematrix import Bounds, Shape, clip_geometry_to_srs_bounds
 from mapchete._timer import Timer
 from mapchete.errors import MapcheteIOError
 from mapchete.io import copy
-from mapchete.io.settings import MAPCHETE_IO_RETRY_SETTINGS
+from mapchete.io.settings import IORetrySettings
 from mapchete.path import MPath, fs_from_path
 from mapchete.tile import BufferedTile
 from mapchete.validate import validate_write_window_params
@@ -516,7 +516,7 @@ def _get_warped_array(
         raise
 
 
-@retry(logger=logger, exceptions=RasterioIOError, **MAPCHETE_IO_RETRY_SETTINGS)
+@retry(logger=logger, exceptions=RasterioIOError, **dict(IORetrySettings()))
 def _rasterio_read(
     input_file=None,
     indexes=None,
@@ -621,7 +621,7 @@ def read_raster_no_crs(input_file, indexes=None, gdal_opts=None):
     FileNotFoundError if file cannot be found.
     """
 
-    @retry(logger=logger, exceptions=RasterioIOError, **MAPCHETE_IO_RETRY_SETTINGS)
+    @retry(logger=logger, exceptions=RasterioIOError, **dict(IORetrySettings()))
     def _read():
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

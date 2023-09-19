@@ -57,7 +57,7 @@ class OutputConfigBase(BaseModel):
     metatiling: Union[int, None] = 1
     pixelbuffer: Union[NonNegativeInt, None] = 0
 
-    @field_validator("metatiling", mode='before')
+    @field_validator("metatiling", mode="before")
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
@@ -70,7 +70,7 @@ class PyramidConfig(BaseModel):
     metatiling: Union[int, None] = 1
     pixelbuffer: Union[NonNegativeInt, None] = 0
 
-    @field_validator("metatiling", mode='before')
+    @field_validator("metatiling", mode="before")
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
         _metatiling_opts = [2**x for x in range(10)]
         if value not in _metatiling_opts:
@@ -91,7 +91,6 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     bounds: Union[Bounds, Tuple[float, float, float, float], None] = None
     bounds_crs: Union[dict, str, None] = None
     process_parameters: Union[dict, None] = None
-    mapchete_file: Union[str, MPath, None] = None
 
 
 _RESERVED_PARAMETERS = tuple(ProcessConfig.model_fields.keys())

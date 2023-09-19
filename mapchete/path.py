@@ -15,7 +15,7 @@ from fsspec import AbstractFileSystem
 from rasterio.session import Session as RioSession
 
 from mapchete._executor import Executor
-from mapchete.io.settings import GDAL_HTTP_OPTS
+from mapchete.io.settings import GDALHTTPOptions
 from mapchete.tile import BufferedTile
 
 logger = logging.getLogger(__name__)
@@ -380,7 +380,7 @@ class MPath(os.PathLike):
 
         # for remote paths, we need some special settings
         if self.is_remote():
-            gdal_opts = GDAL_HTTP_OPTS.copy()
+            gdal_opts = dict(GDALHTTPOptions())
 
             # we cannot know at this point which file types the VRT or STACTA JSON
             # is pointing to, so in order to play safe, we remove the extensions constraint here
