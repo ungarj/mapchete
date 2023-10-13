@@ -87,7 +87,7 @@ s3 = [
     "s3fs!=2023.9.0",
 ]
 serve = [
-    "Flask",
+    "Flask<3.0.0",
     "Flask-RangeRequest",
     "werkzeug>=0.15",
 ]
