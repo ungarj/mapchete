@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import threading
 import warnings
+from typing import Union
 
 from cachetools import LRUCache
 
@@ -19,10 +20,15 @@ from mapchete._processing import (
 )
 from mapchete._tasks import TileTask
 from mapchete._timer import Timer
-from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD, MapcheteConfig
+from mapchete.config import (
+    MULTIPROCESSING_DEFAULT_START_METHOD,
+    MapcheteConfig,
+    ProcessConfig,
+)
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.formats import read_output_metadata
-from mapchete.io import MPath, fs_from_path, tiles_exist
+from mapchete.io import fs_from_path, tiles_exist
+from mapchete.path import MPath, MPathLike
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
 from mapchete.tile import count_tiles
 from mapchete.validate import validate_tile, validate_zooms
@@ -30,7 +36,13 @@ from mapchete.validate import validate_tile, validate_zooms
 logger = logging.getLogger(__name__)
 
 
-def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
+def open(
+    some_input: Union[MPathLike, dict, MapcheteConfig, ProcessConfig],
+    with_cache=False,
+    fs=None,
+    fs_kwargs=None,
+    **kwargs,
+):
     """
     Open a Mapchete process.
 
@@ -99,7 +111,7 @@ def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
         isinstance(some_input, dict)
         or isinstance(some_input, MPath)
         and some_input.suffix == ".mapchete"
-        or isinstance(some_input, MapcheteConfig)
+        or isinstance(some_input, (MapcheteConfig, ProcessConfig))
     ):
         return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
     else:  # pragma: no cover

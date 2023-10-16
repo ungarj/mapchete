@@ -12,7 +12,7 @@ from copy import deepcopy
 from enum import Enum
 from functools import cached_property
 from tempfile import NamedTemporaryFile
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import fsspec
 import oyaml as yaml
@@ -37,9 +37,10 @@ from mapchete.formats import (
     load_output_reader,
     load_output_writer,
 )
-from mapchete.io import MPath, absolute_path, fiona_open
+from mapchete.io import absolute_path, fiona_open
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
+from mapchete.path import MPath, MPathLike
 from mapchete.tile import BufferedTilePyramid, snap_geometry_to_tiles
 from mapchete.types import Bounds, ZoomLevels
 from mapchete.validate import (
@@ -54,8 +55,8 @@ logger = logging.getLogger(__name__)
 
 class OutputConfigBase(BaseModel):
     format: str
-    metatiling: Union[int, None] = 1
-    pixelbuffer: Union[NonNegativeInt, None] = 0
+    metatiling: Optional[int] = 1
+    pixelbuffer: Optional[NonNegativeInt] = 0
 
     @field_validator("metatiling", mode="before")
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
@@ -67,8 +68,8 @@ class OutputConfigBase(BaseModel):
 
 class PyramidConfig(BaseModel):
     grid: Union[str, dict]
-    metatiling: Union[int, None] = 1
-    pixelbuffer: Union[NonNegativeInt, None] = 0
+    metatiling: Optional[int] = 1
+    pixelbuffer: Optional[NonNegativeInt] = 0
 
     @field_validator("metatiling", mode="before")
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
@@ -82,15 +83,15 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     pyramid: PyramidConfig
     output: dict
     zoom_levels: Union[ZoomLevels, dict, list, int]
-    process: Union[str, MPath, List[str], None] = None
-    baselevels: Union[dict, None] = None
-    input: Union[dict, None] = None
-    config_dir: Union[str, MPath, None] = None
-    area: Union[str, MPath, BaseGeometry, None] = None
-    area_crs: Union[dict, str, None] = None
-    bounds: Union[Bounds, Tuple[float, float, float, float], None] = None
-    bounds_crs: Union[dict, str, None] = None
-    process_parameters: Union[dict, None] = None
+    process: Optional[Union[MPathLike, List[str]]] = None
+    baselevels: Optional[dict] = None
+    input: Optional[dict] = None
+    config_dir: Optional[MPathLike] = None
+    area: Optional[Union[MPathLike, BaseGeometry]] = None
+    area_crs: Optional[Union[dict, str]] = None
+    bounds: Optional[Union[Bounds, Tuple[float, float, float, float]]] = None
+    bounds_crs: Optional[Union[dict, str]] = None
+    process_parameters: Optional[dict] = None
 
 
 _RESERVED_PARAMETERS = tuple(ProcessConfig.model_fields.keys())
@@ -123,13 +124,13 @@ class ProcessFunc:
     or the source code as a list of strings.
     """
 
-    path: Union[MPath, str] = None
+    path: Optional[MPathLike] = None
     name: str = None
 
     def __init__(self, src, config_dir=None, run_compile=True):
         self._src = src
         # for module paths and file paths
-        if isinstance(src, (str, MPath)):
+        if isinstance(src, (MPathLike)):
             if src.endswith(".py"):
                 self.path = MPath.from_inp(src)
                 self.name = self.path.name.split(".")[0]
@@ -252,10 +253,10 @@ class MapcheteConfig(object):
     mode: Mode = "continue"
     preprocessing_tasks_finished: bool = False
     config_dir: MPath = None
-    process: Union[ProcessFunc, None] = None
+    process: Optional[ProcessFunc] = None
     process_pyramid: BufferedTilePyramid
     output_pyramid: BufferedTilePyramid
-    baselevels: Union[dict, None]
+    baselevels: Optional[dict]
     area: BaseGeometry
     bounds: Bounds
     zoom_levels: ZoomLevels
@@ -975,24 +976,30 @@ def clip_bounds(bounds=None, clip=None):
     )
 
 
-def raw_conf(mapchete_file):
+def raw_conf(mapchete_config: Union[dict, ProcessConfig, MPathLike]) -> dict:
     """
     Load a mapchete_file into a dictionary.
 
     Parameters
     ----------
-    mapchete_file : str
+    mapchete_config : str
         Path to a Mapchete file.
 
     Returns
     -------
     dictionary
     """
-    if isinstance(mapchete_file, dict):
-        return _map_to_new_config(mapchete_file)
-    else:
-        with fsspec.open(mapchete_file, "r") as src:
+    if isinstance(mapchete_config, dict):
+        return _map_to_new_config(mapchete_config)
+    elif isinstance(mapchete_config, ProcessConfig):
+        return _map_to_new_config(dict(mapchete_config))
+    elif isinstance(mapchete_config, MPathLike):
+        with fsspec.open(mapchete_config, "r") as src:
             return _map_to_new_config(yaml.safe_load(src.read()))
+    else:
+        raise TypeError(
+            f"mapchete config must be a dict, ProcessConfig or MPath-like, not {mapchete_config}"
+        )
 
 
 def raw_conf_process_pyramid(raw_conf, reset_pixelbuffer=False):
@@ -1112,7 +1119,7 @@ def initialize_inputs(
     initalized_inputs = OrderedDict()
     for k, v in raw_inputs.items():
         # for files and tile directories
-        if isinstance(v, (str, MPath)):
+        if isinstance(v, (MPathLike)):
             logger.debug("load input reader for simple input %s", v)
             try:
                 reader = load_input_reader(
@@ -1181,7 +1188,7 @@ def open_inputs(inputs, tile):
 
 
 def parse_config(
-    input_config: Union[dict, str, MPath], strict: bool = False
+    input_config: Union[dict, MPathLike], strict: bool = False
 ) -> ProcessConfig:
     """Read config from file or dictionary and return validated configuration"""
     if strict:  # pragma: no cover
@@ -1190,13 +1197,15 @@ def parse_config(
         return ProcessConfig(**_map_to_new_config(_config_to_dict(input_config)))
 
 
-def _config_to_dict(input_config: Union[dict, str, MPath]) -> dict:
+def _config_to_dict(input_config: Union[dict, MPathLike, ProcessConfig]) -> dict:
+    if isinstance(input_config, ProcessConfig):
+        input_config = dict(input_config)
     if isinstance(input_config, dict):
         if "config_dir" not in input_config:
             raise MapcheteConfigError("config_dir parameter missing")
         return OrderedDict(_include_env(input_config), mapchete_file=None)
     # from Mapchete file
-    elif input_config.suffix == ".mapchete":
+    elif isinstance(input_config, MPath) and input_config.suffix == ".mapchete":
         config_dict = _include_env(yaml.safe_load(input_config.read_text()))
         return OrderedDict(
             config_dict,
@@ -1423,7 +1432,7 @@ def _map_to_new_config(config):
         )
         config["process"] = config.pop("process_file")
 
-    process_parameters = config.get("process_parameters", {})
+    process_parameters = config.get("process_parameters", {}) or {}
     for key in list(config.keys()):
         if key in _RESERVED_PARAMETERS:
             continue
@@ -1447,7 +1456,7 @@ def _guess_geometry(i, base_dir=None):
     """
     crs = None
     # WKT or path:
-    if isinstance(i, (str, MPath)):
+    if isinstance(i, (MPathLike)):
         if str(i).upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
             geom = wkt.loads(i)
         else:
