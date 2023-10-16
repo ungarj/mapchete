@@ -130,7 +130,7 @@ class ProcessFunc:
     def __init__(self, src, config_dir=None, run_compile=True):
         self._src = src
         # for module paths and file paths
-        if isinstance(src, (MPathLike)):
+        if isinstance(src, (MPath, str)):
             if src.endswith(".py"):
                 self.path = MPath.from_inp(src)
                 self.name = self.path.name.split(".")[0]
@@ -993,7 +993,7 @@ def raw_conf(mapchete_config: Union[dict, ProcessConfig, MPathLike]) -> dict:
         return _map_to_new_config(mapchete_config)
     elif isinstance(mapchete_config, ProcessConfig):
         return _map_to_new_config(dict(mapchete_config))
-    elif isinstance(mapchete_config, MPathLike):
+    elif isinstance(mapchete_config, (MPath, str)):
         with fsspec.open(mapchete_config, "r") as src:
             return _map_to_new_config(yaml.safe_load(src.read()))
     else:
@@ -1119,7 +1119,7 @@ def initialize_inputs(
     initalized_inputs = OrderedDict()
     for k, v in raw_inputs.items():
         # for files and tile directories
-        if isinstance(v, (MPathLike)):
+        if isinstance(v, (MPath, str)):
             logger.debug("load input reader for simple input %s", v)
             try:
                 reader = load_input_reader(
@@ -1456,7 +1456,7 @@ def _guess_geometry(i, base_dir=None):
     """
     crs = None
     # WKT or path:
-    if isinstance(i, (MPathLike)):
+    if isinstance(i, (MPath, str)):
         if str(i).upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
             geom = wkt.loads(i)
         else:
