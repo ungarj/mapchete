@@ -3,6 +3,22 @@ Changelog
 #########
 
 
+----------------------
+2023.10.0 - 2023-10-18
+----------------------
+
+* packaging
+
+  * require `flask<=3.0.0` (#600)
+  * exclude `aiobotocore` `2.7.0` (#602)
+  * allow `s3fs>2023.9.0` (#594)
+
+* test
+
+  * add pytest markers `integration` and `aws_s3` (#602)
+  * stop testing on ubuntu 20.04 (#600)
+
+
 ---------------------
 2023.9.1 - 2023-09-19
 ---------------------
