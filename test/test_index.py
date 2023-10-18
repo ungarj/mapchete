@@ -8,7 +8,7 @@ from mapchete.index import zoom_index_gen
 from mapchete.io import fiona_open, rasterio_open
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_remote_indexes(gtiff_s3):
     zoom = 7
     gtiff_s3.dict.update(zoom_levels=zoom)

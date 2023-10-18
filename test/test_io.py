@@ -28,12 +28,12 @@ def test_best_zoom_level(dummy1_tif):
     assert get_best_zoom_level(dummy1_tif, "mercator")
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_s3_path_exists(raster_4band_s3):
     assert path_exists(raster_4band_s3)
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_remote_path_exists(http_raster):
     assert path_exists(http_raster)
     assert not path_exists(http_raster / "non_existing.tif")
@@ -56,7 +56,7 @@ def test_absolute_path():
     )
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "path",
     [
@@ -68,6 +68,7 @@ def test_read_remote_json(path):
     assert isinstance(read_json(path), dict)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "path",
     [
@@ -242,6 +243,7 @@ def test_tiles_exist_local(example_mapchete):
         assert set(output_tiles) == existing.union(not_existing)
 
 
+@pytest.mark.integration
 def test_tiles_exist_s3(gtiff_s3):
     bounds = (0, 0, 10, 10)
     # bounds = (3, 1, 4, 2)

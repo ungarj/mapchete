@@ -521,6 +521,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         assert src.overviews(1)
 
 
+@pytest.mark.integration
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = mp_tmpdir / "single_out.tif"
@@ -1365,6 +1366,7 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     )
 
 
+@pytest.mark.integration
 def test_cp_http(mp_tmpdir, http_tiledir):
     # copy tiles and subset by bounds
     run_cli(
@@ -1476,6 +1478,7 @@ def test_stac_mapchete_file(cleantopo_br):
     run_cli(["stac", "create-item", cleantopo_br.path, "-z", "5", "--force"])
 
 
+@pytest.mark.integration
 def test_stac_tiledir(http_tiledir, mp_tmpdir):
     run_cli(
         [
