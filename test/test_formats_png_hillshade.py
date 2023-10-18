@@ -95,7 +95,7 @@ def test_output_data(mp_tmpdir):
     # TODO for_web
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_s3_write_output_data(mp_s3_tmpdir):
     """Write and read output."""
     output_params = dict(

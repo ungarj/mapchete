@@ -44,9 +44,6 @@ from mapchete.tile import BufferedTilePyramid
     "path",
     [
         pytest.lazy_fixture("landpoly"),
-        pytest.lazy_fixture("landpoly_s3"),
-        pytest.lazy_fixture("landpoly_http"),
-        pytest.lazy_fixture("landpoly_secure_http"),
     ],
 )
 @pytest.mark.parametrize("grid", ["geodetic", "mercator"])
@@ -69,6 +66,22 @@ def test_read_vector_window(path, grid, pixelbuffer, zoom):
             break
     else:
         raise RuntimeError("no features read!")
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("landpoly_s3"),
+        pytest.lazy_fixture("landpoly_http"),
+        pytest.lazy_fixture("landpoly_secure_http"),
+    ],
+)
+@pytest.mark.parametrize("grid", ["geodetic", "mercator"])
+@pytest.mark.parametrize("pixelbuffer", [0, 10, 500])
+@pytest.mark.parametrize("zoom", [5, 3])
+def test_read_vector_window_remote(path, grid, pixelbuffer, zoom):
+    test_read_vector_window(path, grid, pixelbuffer, zoom)
 
 
 def test_read_vector_window_reproject(geojson, landpoly_3857):
@@ -656,9 +669,7 @@ def test_object_bounds_reproject():
     assert out == control
 
 
-@pytest.mark.parametrize(
-    "path", [pytest.lazy_fixture("mp_s3_tmpdir"), pytest.lazy_fixture("mp_tmpdir")]
-)
+@pytest.mark.parametrize("path", [pytest.lazy_fixture("mp_tmpdir")])
 @pytest.mark.parametrize("in_memory", [True, False])
 def test_fiona_open_write(path, in_memory, landpoly):
     path = path / f"test_fiona_write-{in_memory}.tif"
@@ -669,3 +680,10 @@ def test_fiona_open_write(path, in_memory, landpoly):
     with fiona_open(path) as src:
         written = list(src)
         assert written
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("path", [pytest.lazy_fixture("mp_s3_tmpdir")])
+@pytest.mark.parametrize("in_memory", [True, False])
+def test_fiona_open_write_remote(path, in_memory, landpoly):
+    test_fiona_open_write(path, in_memory, landpoly)

@@ -183,7 +183,7 @@ def test_write_geotiff_tags(mp_tmpdir, cleantopo_br, write_rasterfile_tags_py):
                 assert src.tags(1)["band_tag"] == "True"
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_s3_write_output_data(gtiff_s3, s3_example_tile):
     """Write and read output."""
     with mapchete.open(gtiff_s3.dict) as mp:
@@ -331,7 +331,7 @@ def test_output_single_gtiff_overviews(output_single_gtiff):
             assert not a.mask.all()
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_output_single_gtiff_s3(output_single_gtiff_s3):
     tile_id = (5, 3, 7)
     with mapchete.open(output_single_gtiff_s3.dict) as mp:
@@ -359,7 +359,7 @@ def test_output_single_gtiff_s3(output_single_gtiff_s3):
     assert path_exists(mp.config.output.path)
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_output_single_gtiff_s3_tempfile(output_single_gtiff_s3):
     tile_id = (5, 3, 7)
     with mapchete.open(
@@ -462,7 +462,7 @@ def test_output_single_gtiff_cog_tempfile(output_single_gtiff_cog):
     assert cog_validate(mp.config.output.path, strict=True)
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 @pytest.mark.skipif(
     not GDAL_COG_AVAILABLE, reason="GDAL>=3.1 with COG driver is required"
 )

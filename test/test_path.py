@@ -27,6 +27,7 @@ def test_parse_error():
         MPath(None)
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "path",
     [
@@ -149,9 +150,6 @@ def test_with_suffix():
     "path",
     [
         pytest.lazy_fixture("testdata_dir"),
-        pytest.lazy_fixture("http_testdata_dir"),
-        pytest.lazy_fixture("secure_http_testdata_dir"),
-        pytest.lazy_fixture("s3_testdata_dir"),
     ],
 )
 def test_ls(path):
@@ -164,13 +162,23 @@ def test_ls(path):
         assert isinstance(p.get("name"), MPath)
 
 
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("http_testdata_dir"),
+        pytest.lazy_fixture("secure_http_testdata_dir"),
+        pytest.lazy_fixture("s3_testdata_dir"),
+    ],
+)
+def test_ls_remote(path):
+    test_ls(path)
+
+
 @pytest.mark.parametrize(
     "path",
     [
         pytest.lazy_fixture("metadata_json"),
-        pytest.lazy_fixture("http_metadata_json"),
-        pytest.lazy_fixture("secure_http_metadata_json"),
-        pytest.lazy_fixture("s3_metadata_json"),
     ],
 )
 def test_io_read(path):
@@ -182,19 +190,43 @@ def test_io_read(path):
     assert path.read_text()
 
 
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("http_metadata_json"),
+        pytest.lazy_fixture("secure_http_metadata_json"),
+        pytest.lazy_fixture("s3_metadata_json"),
+    ],
+)
+def test_io_read_remote(path):
+    test_io_read(path)
+
+
 @pytest.mark.parametrize(
     "path",
     [
         pytest.lazy_fixture("metadata_json"),
-        pytest.lazy_fixture("http_metadata_json"),
-        pytest.lazy_fixture("secure_http_metadata_json"),
-        pytest.lazy_fixture("s3_metadata_json"),
     ],
 )
 def test_size(path):
     assert path.size()
 
 
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("http_metadata_json"),
+        pytest.lazy_fixture("secure_http_metadata_json"),
+        pytest.lazy_fixture("s3_metadata_json"),
+    ],
+)
+def test_size_remote(path):
+    test_size(path)
+
+
+@pytest.mark.integration
 def test_io_s3(mp_s3_tmpdir):
     testfile = mp_s3_tmpdir / "bar.txt"
     assert not testfile.exists()
@@ -237,6 +269,7 @@ def test_gdal_env_params_vrt():
     assert "CPL_VSIL_CURL_ALLOWED_EXTENSIONS" not in path.gdal_env_params()
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "path_str",
     [
@@ -249,11 +282,13 @@ def test_http_ls(path_str):
     assert path.ls()
 
 
+@pytest.mark.integration
 def test_secure_http_tiledir(secure_http_tiledir):
     assert secure_http_tiledir.exists()
     assert secure_http_tiledir.ls()
 
 
+@pytest.mark.integration
 def test_secure_http_raster(secure_http_raster):
     assert secure_http_raster.exists()
 
@@ -263,6 +298,7 @@ def test_get_hash(obj):
     assert get_hash(obj)
 
 
+@pytest.mark.integration
 def test_dict_representation(secure_http_metadata_json):
     assert secure_http_metadata_json.exists()
 
@@ -281,6 +317,7 @@ def test_from_dict_error():
         MPath.from_dict(dict(storage_options=None))
 
 
+@pytest.mark.integration
 def test_transfer_fs(secure_http_testdata_dir):
     path = MPath(
         str(secure_http_testdata_dir) + "aoi_br.geojson", fs=secure_http_testdata_dir.fs
@@ -292,10 +329,6 @@ def test_transfer_fs(secure_http_testdata_dir):
     "path",
     [
         pytest.lazy_fixture("raster_4band"),
-        pytest.lazy_fixture("raster_4band_s3"),
-        pytest.lazy_fixture("raster_4band_http"),
-        pytest.lazy_fixture("raster_4band_secure_http"),
-        pytest.lazy_fixture("raster_4band_aws_s3"),
     ],
 )
 def test_pickle_path(path):
@@ -304,18 +337,63 @@ def test_pickle_path(path):
     assert path == unpacked
 
 
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+def test_pickle_path_remote(path):
+    test_pickle_path(path)
+
+
+@pytest.mark.aws_s3
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band_aws_s3"),
+    ],
+)
+def test_pickle_path_aws_s3(path):
+    test_pickle_path(path)
+
+
 @pytest.mark.parametrize(
     "path",
     [
         pytest.lazy_fixture("raster_4band"),
+    ],
+)
+def test_pickle_fs(path):
+    assert pickle.loads(pickle.dumps(path.fs))
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
         pytest.lazy_fixture("raster_4band_s3"),
         pytest.lazy_fixture("raster_4band_http"),
         pytest.lazy_fixture("raster_4band_secure_http"),
         pytest.lazy_fixture("raster_4band_aws_s3"),
     ],
 )
-def test_pickle_fs(path):
-    assert pickle.loads(pickle.dumps(path.fs))
+def test_pickle_fs_remote(path):
+    test_pickle_fs(path)
+
+
+@pytest.mark.aws_s3
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band_aws_s3"),
+    ],
+)
+def test_pickle_fs_aws_s3(path):
+    test_pickle_fs(path)
 
 
 def test_batch_sort_property():

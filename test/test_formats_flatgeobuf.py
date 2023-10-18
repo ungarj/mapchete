@@ -70,7 +70,7 @@ def test_output_data(mp_tmpdir, flatgeobuf):
         assert len(read_output)
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_s3_output_data(flatgeobuf_s3):
     """Check FlatGeobuf as output data."""
     output_params = dict(
@@ -87,7 +87,7 @@ def test_s3_output_data(flatgeobuf_s3):
     assert isinstance(output_params, dict)
 
 
-@pytest.mark.remote
+@pytest.mark.integration
 def test_s3_output_data_rw(flatgeobuf_s3):
     with mapchete.open(flatgeobuf_s3.dict) as mp:
         tile = mp.config.process_pyramid.tile(4, 3, 7)
