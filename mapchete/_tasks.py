@@ -251,8 +251,7 @@ class TileTask(Task):
         except MapcheteNodataTile:
             raise
         except Exception as e:
-            # Log process time
-            logger.exception(e)
+            # Log process time and tile
             logger.error((self.tile.id, "exception in user process", e, str(duration)))
             raise
 

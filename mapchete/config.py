@@ -22,7 +22,6 @@ from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from mapchete._executor import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete._timer import Timer
 from mapchete.errors import (
     GeometryTypeError,
@@ -31,6 +30,7 @@ from mapchete.errors import (
     MapcheteProcessImportError,
     MapcheteProcessSyntaxError,
 )
+from mapchete.executor import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.formats import (
     available_output_formats,
     load_input_reader,

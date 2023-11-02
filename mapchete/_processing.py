@@ -5,20 +5,14 @@ import multiprocessing
 import os
 from collections import namedtuple
 from contextlib import ExitStack
-from typing import Generator
+from typing import Generator, Iterator
 
 from shapely.geometry import mapping
 
-from mapchete._executor import (
-    DaskExecutor,
-    Executor,
-    FinishedFuture,
-    SkippedFuture,
-    future_raise_exception,
-)
 from mapchete._tasks import TaskBatch, TileTask, TileTaskBatch, to_dask_collection
 from mapchete._timer import Timer
 from mapchete.errors import MapcheteNodataTile
+from mapchete.executor import DaskExecutor, Executor, MFuture
 from mapchete.path import batch_sort_property
 from mapchete.types import Bounds, ZoomLevels
 
@@ -296,7 +290,9 @@ def compute(
                 1,
             ):
                 logger.debug("task %s finished: %s", num_processed, future)
-                yield future_raise_exception(future, raise_errors=raise_errors)
+                if raise_errors:
+                    future.raise_if_failed()
+                yield future
         else:
             for num_processed, future in enumerate(
                 _compute_tasks(
@@ -311,7 +307,8 @@ def compute(
                 1,
             ):
                 logger.debug("task %s finished: %s", num_processed, future)
-                yield future_raise_exception(future)
+                future.raise_if_failed()
+                yield future
 
     logger.info("computed %s tasks in %s", num_processed, duration)
 
@@ -566,7 +563,7 @@ def _compute_task_graph(
     propagate_results=False,
     raise_errors=False,
     **kwargs,
-):
+) -> Iterator[MFuture]:
     # TODO optimize memory management, e.g. delete preprocessing tasks from input
     # once the dask graph is ready.
     from distributed import as_completed
@@ -598,7 +595,7 @@ def _compute_task_graph(
     ).batches():
         for future in batch:
             if process.config.output.write_in_parent_process:
-                yield FinishedFuture(
+                yield MFuture.from_result(
                     result=_write(
                         process_info=future.result(),
                         output_writer=process.config.output,
@@ -606,7 +603,7 @@ def _compute_task_graph(
                     )
                 )
             else:
-                yield future
+                yield MFuture.from_future(future)
             futures.remove(future)
 
 
@@ -620,7 +617,7 @@ def _compute_tasks(
     dask_max_submitted_tasks=None,
     dask_chunksize=None,
     **kwargs,
-):
+) -> Iterator[MFuture]:
     if not process.config.preprocessing_tasks_finished:
         tasks = process.config.preprocessing_tasks()
         logger.info(
@@ -635,7 +632,7 @@ def _compute_tasks(
             chunksize=dask_chunksize,
             **kwargs,
         ):
-            future = future_raise_exception(future)
+            future.raise_if_failed()
             result = future.result()
             process.config.set_preprocessing_task_result(result.task_key, result.data)
             yield future
@@ -657,7 +654,8 @@ def _compute_tasks(
             ],
             fkwargs=dict(output_writer=process.config.output),
         ):
-            yield future_raise_exception(future)
+            future.raise_if_failed()
+            yield future
 
     else:
         # for output drivers requiring writing data in parent process
@@ -691,7 +689,8 @@ def _compute_tasks(
             dask_chunksize=dask_chunksize,
             **kwargs,
         ):
-            yield future_raise_exception(future)
+            future.raise_if_failed()
+            yield future
 
 
 def _run_multi_overviews(
@@ -704,7 +703,7 @@ def _run_multi_overviews(
     dask_max_submitted_tasks=None,
     dask_chunksize=None,
     write_in_parent_process=None,
-):
+) -> Iterator[MFuture]:
     # here we store the parents of processed tiles so we can update overviews
     # also in "continue" mode in case there were updates at the baselevel
     overview_parents = set()
@@ -750,7 +749,7 @@ def _run_multi_overviews(
             item_skip_bool=True,
         ):
             # tiles which were not processed
-            if isinstance(future, SkippedFuture):
+            if future.skipped:
                 process_info = TileProcessInfo(
                     tile=future.result().tile,
                     processed=False,
@@ -782,7 +781,7 @@ def _run_multi_overviews(
                     ):
                         overview_parents.add(process_info.tile.get_parent())
             overview_parents.discard(process_info.tile)
-            yield FinishedFuture(result=process_info)
+            yield MFuture.from_result(result=process_info)
 
 
 def _run_multi_no_overviews(
@@ -795,7 +794,7 @@ def _run_multi_no_overviews(
     dask_max_submitted_tasks=None,
     dask_chunksize=None,
     write_in_parent_process=None,
-):
+) -> Iterator[MFuture]:
     logger.debug("sending tasks to executor %s...", executor)
     # get generator list of tiles, whether they are to be skipped and skip_info
     # from _filter_skipable and pass on to executor
@@ -838,7 +837,7 @@ def _run_multi_no_overviews(
         item_skip_bool=True,
     ):
         # tiles which were not processed
-        if isinstance(future, SkippedFuture):
+        if future.skipped:
             process_info = TileProcessInfo(
                 tile=future.result().tile,
                 processed=False,
@@ -858,7 +857,7 @@ def _run_multi_no_overviews(
             # output already has been written, so just use task process info
             else:
                 process_info = future.result()
-        yield FinishedFuture(result=process_info)
+        yield MFuture.from_result(result=process_info)
 
 
 ###############################
@@ -866,7 +865,9 @@ def _run_multi_no_overviews(
 ###############################
 
 
-def _execute(tile_process=None, dependencies=None, append_data=True, **_):
+def _execute(
+    tile_process=None, dependencies=None, append_data=True, **_
+) -> TileProcessInfo:
     logger.debug(
         (tile_process.tile.id, "running on %s" % multiprocessing.current_process().name)
     )
@@ -901,7 +902,9 @@ def _execute(tile_process=None, dependencies=None, append_data=True, **_):
     )
 
 
-def _write(process_info=None, output_writer=None, append_data=False, **_):
+def _write(
+    process_info=None, output_writer=None, append_data=False, **_
+) -> TileProcessInfo:
     if process_info.processed:
         try:
             output_data = output_writer.streamline_output(process_info.data)
@@ -935,7 +938,7 @@ def _write(process_info=None, output_writer=None, append_data=False, **_):
 
 def _execute_and_write(
     tile_process=None, output_writer=None, dependencies=None, append_data=False, **_
-):
+) -> TileProcessInfo:
     return _write(
         process_info=_execute(tile_process=tile_process, dependencies=dependencies),
         output_writer=output_writer,

@@ -144,7 +144,7 @@ class ProcessFixture:
         """
         Return Mapchete object from mapchete.open().
         """
-        from mapchete._executor import SequentialExecutor
+        from mapchete.executor import SequentialExecutor
 
         with SequentialExecutor() as executor:
             if not self._mp:

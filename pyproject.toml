@@ -57,11 +57,13 @@ complete = [
     "geobuf",
     "lxml",
     "matplotlib",
+    "memray",
     "protobuf<=3.20.1",
     "pystac[urllib3]<=1.7.3",
     "requests",
     "rtree",
     "s3fs!=2023.9.0",
+    "tilebench",
     "werkzeug>=0.15",
 ]
 contours = [
@@ -79,6 +81,10 @@ http = [
     "aiohttp",
     "fsspec[http]",
     "requests",
+]
+profiling = [
+    "memray",
+    "tilebench"
 ]
 s3 = [
     "aiobotocore>=1.1.2,!=2.7.0",

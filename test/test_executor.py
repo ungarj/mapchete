@@ -4,9 +4,8 @@ from concurrent.futures._base import CancelledError
 import pytest
 
 import mapchete
-from mapchete import Executor, SkippedFuture
-from mapchete._executor import FakeFuture
 from mapchete.errors import MapcheteTaskFailed
+from mapchete.executor import MFuture
 
 
 def _dummy_process(i, sleep=0):
@@ -59,7 +58,7 @@ def test_as_completed_skip(executor_fixture, request, items=10):
         [(i, True, skip_info) for i in range(items)],
         item_skip_bool=True,
     ):
-        assert isinstance(future, SkippedFuture)
+        assert future.skipped
         assert future.skip_info == skip_info
         count += 1
     assert not executor.running_futures
@@ -105,18 +104,18 @@ def test_map(executor_fixture, request):
     assert [i + 1 for i in items] == result
 
 
-def test_fake_future():
+def test_mfuture():
     def task(*args, **kwargs):
         return True
 
     def failing_task(*args, **kwargs):
         raise RuntimeError()
 
-    future = FakeFuture(task, fargs=[1, True], fkwargs=dict(foo="bar"))
+    future = MFuture.from_func(task, fargs=[1, True], fkwargs=dict(foo="bar"))
     assert future.result()
     assert not future.exception()
 
-    future = FakeFuture(failing_task, fargs=[1, True], fkwargs=dict(foo="bar"))
+    future = MFuture.from_func(failing_task, fargs=[1, True], fkwargs=dict(foo="bar"))
     with pytest.raises(RuntimeError):
         future.result()
     assert future.exception()

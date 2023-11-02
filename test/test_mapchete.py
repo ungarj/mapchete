@@ -850,3 +850,26 @@ def test_write_stac(stac_metadata):
         item = json.loads(src.read())
 
     assert item
+
+
+# @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
+@pytest.mark.parametrize("concurrency", [None])
+def test_compute_request_count(preprocess_cache_memory, concurrency, dask_executor):
+    compute_kwargs = (
+        {"executor": dask_executor}
+        if concurrency == "dask"
+        else {"concurrency": concurrency}
+    )
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(**compute_kwargs, dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 20
+    assert preprocessing_tasks == 2

@@ -301,7 +301,7 @@ def test_finished_task():
     assert task.exception()
     with pytest.raises(ZeroDivisionError):
         task.result()
-    assert "FakeFuture" in str(task)
+    assert "MFuture" in str(task)
 
 
 def test_strip_zoom_error(files_zooms):

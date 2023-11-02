@@ -14,7 +14,7 @@ from fiona.session import Session as FioSession
 from fsspec import AbstractFileSystem
 from rasterio.session import Session as RioSession
 
-from mapchete._executor import Executor
+from mapchete.executor import Executor
 from mapchete.io.settings import GDALHTTPOptions
 from mapchete.tile import BufferedTile
 

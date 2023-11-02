@@ -8,8 +8,8 @@ from shapely.geometry import box, shape
 from tilematrix import TilePyramid
 
 import mapchete
-from mapchete._executor import ConcurrentFuturesExecutor, SequentialExecutor
 from mapchete.commands import convert, cp, execute, index, rm
+from mapchete.executor import ConcurrentFuturesExecutor, SequentialExecutor
 from mapchete.io import fiona_open, rasterio_open
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
