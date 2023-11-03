@@ -10,8 +10,8 @@ from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
-from mapchete._processing import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.config import bounds_from_opts, raw_conf, raw_conf_process_pyramid
+from mapchete.processing.job import PreprocessingProcessInfo, TileProcessInfo
 
 logger = logging.getLogger(__name__)
 

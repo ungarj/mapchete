@@ -8,8 +8,8 @@ import pytest
 
 import mapchete
 from mapchete import errors
-from mapchete._processing import Executor
 from mapchete.config import MapcheteConfig, validate_values
+from mapchete.executor import Executor
 from mapchete.tile import BufferedTilePyramid
 
 

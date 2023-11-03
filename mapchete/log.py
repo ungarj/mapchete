@@ -10,7 +10,7 @@ import sys
 import warnings
 from itertools import chain
 
-from mapchete._registered import drivers, processes
+from mapchete.registered import drivers, processes
 
 all_mapchete_packages = set(v.value.split(".")[0] for v in chain(drivers, processes))
 

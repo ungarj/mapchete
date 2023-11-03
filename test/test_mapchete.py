@@ -20,10 +20,10 @@ from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
 import mapchete
-from mapchete._processing import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.raster import _shift_required, create_mosaic
+from mapchete.processing.job import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.tile import BufferedTilePyramid, count_tiles
 
 

@@ -8,10 +8,10 @@ from concurrent.futures._base import CancelledError
 from functools import partial
 from typing import Any, Iterator
 
-from mapchete._timer import Timer
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
 from mapchete.log import set_log_level
+from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
 

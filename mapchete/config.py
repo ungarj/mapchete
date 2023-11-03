@@ -22,7 +22,6 @@ from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from mapchete._timer import Timer
 from mapchete.errors import (
     GeometryTypeError,
     MapcheteConfigError,
@@ -41,6 +40,7 @@ from mapchete.io import MPath, absolute_path, fiona_open
 from mapchete.io.vector import clean_geometry_type, reproject_geometry
 from mapchete.log import add_module_logger
 from mapchete.tile import BufferedTilePyramid, snap_geometry_to_tiles
+from mapchete.timer import Timer
 from mapchete.types import Bounds, ZoomLevels
 from mapchete.validate import (
     validate_bounds,
