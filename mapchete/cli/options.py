@@ -10,7 +10,8 @@ from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.formats import available_output_formats
 from mapchete.io import MPath
 from mapchete.log import set_log_level, setup_logfile
-from mapchete.validate import validate_bounds, validate_crs, validate_zooms
+from mapchete.types import Bounds, ZoomLevels
+from mapchete.validate import validate_crs
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +30,14 @@ def _validate_zoom(ctx, param, zoom):
         try:
             if len(zoom_levels) > 2:
                 raise ValueError("zooms can be maximum two items")
-            return validate_zooms(zoom_levels, expand=False)
+            return ZoomLevels.from_inp(zoom_levels, expand=False)
         except Exception as e:
             raise click.BadParameter(e)
 
 
 def _validate_bounds(ctx, param, bounds):
-    return validate_bounds(bounds) if bounds else None
+    if bounds:
+        return Bounds.from_inp(bounds)
 
 
 def _validate_crs(ctx, param, crs):

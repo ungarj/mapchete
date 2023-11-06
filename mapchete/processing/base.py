@@ -24,7 +24,8 @@ from mapchete.processing.tasks import TileTask
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
 from mapchete.tile import count_tiles
 from mapchete.timer import Timer
-from mapchete.validate import validate_tile, validate_zooms
+from mapchete.types import ZoomLevels
+from mapchete.validate import validate_tile
 
 logger = logging.getLogger(__name__)
 
@@ -360,7 +361,7 @@ class Mapchete(object):
                 process=self,
                 zoom_levels=self.config.zoom_levels
                 if zoom is None
-                else validate_zooms(zoom),
+                else ZoomLevels.from_inp(zoom),
                 dask_scheduler=dask_scheduler,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,

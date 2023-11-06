@@ -41,6 +41,8 @@ from mapchete.validate import (
 
 logger = logging.getLogger(__name__)
 
+__all__ = [validate_bounds, validate_zooms, validate_values]
+
 # TODO remove these
 # parameters for output configuration
 _OUTPUT_PARAMETERS = [
@@ -673,7 +675,7 @@ class MapcheteConfig(object):
 
             elif area is None:
                 return reproject_geometry(
-                    box(*validate_bounds(bounds)),
+                    box(*Bounds.from_inp(bounds)),
                     src_crs=bounds_crs or dst_crs,
                     dst_crs=dst_crs,
                 )
@@ -683,14 +685,14 @@ class MapcheteConfig(object):
                 # in case vector file has no CRS use manually provided CRS
                 area_crs = crs or area_crs
 
-                bounds = validate_bounds(bounds)
+                bounds = Bounds.from_inp(bounds)
 
                 # reproject area and bounds to process CRS and return intersection
                 return reproject_geometry(
                     area, src_crs=area_crs or dst_crs, dst_crs=dst_crs
                 ).intersection(
                     reproject_geometry(
-                        box(*validate_bounds(bounds)),
+                        box(*Bounds.from_inp(bounds)),
                         src_crs=bounds_crs or dst_crs,
                         dst_crs=dst_crs,
                     ),
@@ -770,7 +772,7 @@ def snap_bounds(
     -------
     Bounds(left, bottom, right, top)
     """
-    bounds = validate_bounds(bounds)
+    bounds = Bounds.from_inp(bounds)
     pyramid = validate_bufferedtilepyramid(pyramid)
     lb = pyramid.tile_from_xy(bounds.left, bounds.bottom, zoom, on_edge_use="rt").bounds
     rt = pyramid.tile_from_xy(bounds.right, bounds.top, zoom, on_edge_use="lb").bounds
@@ -790,8 +792,8 @@ def clip_bounds(bounds: BoundsLike = None, clip: BoundsLike = None) -> Bounds:
     -------
     Bounds(left, bottom, right, top)
     """
-    bounds = validate_bounds(bounds)
-    clip = validate_bounds(clip)
+    bounds = Bounds.from_inp(bounds)
+    clip = Bounds.from_inp(clip)
     return Bounds(
         max(bounds.left, clip.left),
         max(bounds.bottom, clip.bottom),

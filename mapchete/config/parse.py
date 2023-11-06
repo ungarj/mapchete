@@ -17,7 +17,7 @@ from mapchete.io.vector import clean_geometry_type, fiona_open, reproject_geomet
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import Bounds, MPathLike, ZoomLevels, ZoomLevelsLike
-from mapchete.validate import validate_bounds, validate_values, validate_zooms
+from mapchete.validate import validate_values
 
 _RESERVED_PARAMETERS = tuple(ProcessConfig.model_fields.keys())
 
@@ -280,7 +280,7 @@ def bounds_from_opts(
         )
         return Bounds(*tp.tile_from_xy(x, y, max(zoom_levels)).bounds)
     elif bounds:
-        bounds = validate_bounds(bounds)
+        bounds = Bounds.from_inp(bounds)
         if bounds_crs:
             tp = raw_conf_process_pyramid(raw_conf)
             bounds = Bounds(
@@ -298,11 +298,11 @@ def get_zoom_levels(
     init_zoom_levels: Optional[ZoomLevelsLike] = None,
 ) -> ZoomLevels:
     """Validate and return zoom levels."""
-    process_zoom_levels = validate_zooms(process_zoom_levels)
+    process_zoom_levels = ZoomLevels.from_inp(process_zoom_levels)
     if init_zoom_levels is None:
         return process_zoom_levels
     else:
-        init_zoom_levels = validate_zooms(init_zoom_levels)
+        init_zoom_levels = ZoomLevels.from_inp(init_zoom_levels)
         if not set(init_zoom_levels).issubset(
             set(process_zoom_levels)
         ):  # pragma: no cover
