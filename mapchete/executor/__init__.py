@@ -1,5 +1,4 @@
-from typing import Union
-
+from mapchete.executor.base import ExecutorBase
 from mapchete.executor.concurrent_futures import (
     MULTIPROCESSING_DEFAULT_START_METHOD,
     ConcurrentFuturesExecutor,
@@ -14,13 +13,9 @@ __all__ = ["MULTIPROCESSING_DEFAULT_START_METHOD", "MFuture"]
 class Executor:
     """
     Executor factory for dask and concurrent.futures executor
-
-    Will move into the mapchete core package.
     """
 
-    def __new__(
-        cls, *args, concurrency=None, **kwargs
-    ) -> Union[ConcurrentFuturesExecutor, DaskExecutor, SequentialExecutor]:
+    def __new__(cls, *args, concurrency=None, **kwargs) -> ExecutorBase:
         if concurrency == "dask":
             try:
                 return DaskExecutor(*args, **kwargs)

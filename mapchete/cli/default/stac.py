@@ -7,7 +7,7 @@ import oyaml as yaml
 
 import mapchete
 from mapchete.cli import options
-from mapchete.config import raw_conf, raw_conf_output_pyramid
+from mapchete.config.parse import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import read_output_metadata
 from mapchete.io import MPath
 from mapchete.stac import (

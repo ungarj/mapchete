@@ -40,13 +40,12 @@ import numpy as np
 from affine import Affine
 from numpy import ma
 from rasterio.enums import Resampling
-from rasterio.profiles import Profile
 from rasterio.rio.overview import get_maximum_overview_level
 from rasterio.windows import from_bounds
 from shapely.geometry import box
 from tilematrix import Bounds
 
-from mapchete.config import _OUTPUT_PARAMETERS, snap_bounds, validate_values
+from mapchete.config.base import _OUTPUT_PARAMETERS, snap_bounds
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
 from mapchete.io import MPath, path_exists, path_is_remote
@@ -60,7 +59,7 @@ from mapchete.io.raster import (
     write_raster_window,
 )
 from mapchete.tile import BufferedTile
-from mapchete.validate import deprecated_kwargs
+from mapchete.validate import deprecated_kwargs, validate_values
 
 logger = logging.getLogger(__name__)
 

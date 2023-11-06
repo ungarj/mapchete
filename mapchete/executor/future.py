@@ -20,7 +20,7 @@ class FutureProtocol(Protocol):
     def exception(self, **kwargs) -> Union[Exception, None]:
         ...
 
-    def cancelled(self) -> bool:  # pragma: no cover
+    def cancelled(self) -> bool:
         ...
 
 

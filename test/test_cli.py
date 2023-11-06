@@ -1,5 +1,5 @@
 """Test Mapchete main module and processing."""
-
+import logging
 import os
 import warnings
 
@@ -18,6 +18,8 @@ import mapchete
 from mapchete.cli import options
 from mapchete.cli.main import main as mapchete_cli
 from mapchete.io import fiona_open, rasterio_open
+
+logger = logging.getLogger(__name__)
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -41,15 +43,17 @@ def version_is_greater_equal(a, b):
 
 def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
     result = CliRunner(env=dict(MAPCHETE_TEST="TRUE"), mix_stderr=True).invoke(
-        mapchete_cli, map(str, args)
+        mapchete_cli, map(str, args), catch_exceptions=True, standalone_mode=True
     )
     if output_contains:
         assert output_contains in result.output or output_contains in str(
             result.exception
         )
     if raise_exc and result.exception:
+        logger.error(result.exception)
         raise result.exception
     assert result.exit_code == expected_exit_code
+    return result
 
 
 def test_main():

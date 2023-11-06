@@ -5,12 +5,10 @@ from functools import cached_property
 
 from shapely.geometry import box
 
-from mapchete.config import validate_values
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import (
     base,
     data_type_from_extension,
-    driver_from_extension,
     driver_metadata,
     load_output_writer,
     read_output_metadata,
@@ -18,6 +16,7 @@ from mapchete.formats import (
 from mapchete.io import MPath, tile_to_zoom_level
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
+from mapchete.validate import validate_values
 
 logger = logging.getLogger(__name__)
 METADATA = {

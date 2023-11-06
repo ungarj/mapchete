@@ -12,7 +12,6 @@ from typing import Dict
 
 import dateutil.parser
 from rasterio.crs import CRS
-from shapely.geometry import mapping
 from shapely.geometry.base import BaseGeometry
 
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError

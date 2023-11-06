@@ -1,5 +1,14 @@
+from __future__ import annotations
+
+import os
+from typing import Iterable, List, Optional, Tuple, Union
+
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
+
+MPathLike = Union[str, os.PathLike]
+BoundsLike = Union[List[float], Tuple[float], dict, BaseGeometry]
+ZoomLevelsLike = Union[Iterable[int], int, dict]
 
 
 class Bounds(list):
@@ -14,7 +23,14 @@ class Bounds(list):
     height: float = None
     width: float = None
 
-    def __init__(self, left=None, bottom=None, right=None, top=None, strict=True):
+    def __init__(
+        self,
+        left: Union[Iterable[float], float],
+        bottom: Optional[float],
+        right: Optional[float],
+        top: Optional[float],
+        strict: bool = True,
+    ):
         self._set_attributes(left, bottom, right, top)
         for value in self:
             if not isinstance(value, (int, float)):
@@ -83,7 +99,13 @@ class Bounds(list):
             ],
         }
 
-    def _set_attributes(self, left, bottom, right, top):
+    def _set_attributes(
+        self,
+        left: Union[Iterable[float], float],
+        bottom: Optional[float],
+        right: Optional[float],
+        top: Optional[float],
+    ) -> None:
         """This method is important when Bounds instances are passed on to the ProcessConfig schema."""
         if hasattr(left, "__iter__"):  # pragma: no cover
             self.left, self.bottom, self.right, self.top = [i for i in left]
@@ -91,11 +113,11 @@ class Bounds(list):
             self.left, self.bottom, self.right, self.top = left, bottom, right, top
 
     @property
-    def geometry(self):
+    def geometry(self) -> BaseGeometry:
         return shape(self)
 
     @classmethod
-    def from_inp(cls, inp, strict=True):
+    def from_inp(cls, inp: BoundsLike, strict: bool = True) -> Bounds:
         if isinstance(inp, (list, tuple)):
             if len(inp) != 4:
                 raise ValueError("Bounds must be initialized with exactly four values.")
@@ -108,7 +130,7 @@ class Bounds(list):
             raise TypeError(f"cannot create Bounds using {inp}")
 
     @staticmethod
-    def from_dict(inp, strict=True):
+    def from_dict(inp: dict, strict: bool = True) -> Bounds:
         return Bounds(**inp, strict=strict)
 
     def to_dict(self) -> dict:
@@ -120,7 +142,7 @@ class Bounds(list):
             "top": self.top,
         }
 
-    def intersects(self, other) -> bool:
+    def intersects(self, other: BoundsLike) -> bool:
         """Indicate whether bounds intersect spatially."""
         other = other if isinstance(other, Bounds) else Bounds.from_inp(other)
         horizontal = (
@@ -148,7 +170,12 @@ class ZoomLevels(list):
     min: int = None
     max: int = None
 
-    def __init__(self, min=None, max=None, descending=False):
+    def __init__(
+        self,
+        min: Union[Iterable[int], int],
+        max: Optional[int] = None,
+        descending: bool = False,
+    ):
         self._set_attributes(min, max)
         # assert that min and max are positive integers
         for key, value in [("min", self.min), ("max", self.max)]:
@@ -192,7 +219,9 @@ class ZoomLevels(list):
     def __contains__(self, value):
         return value in list(self)
 
-    def _set_attributes(self, minlevel, maxlevel):
+    def _set_attributes(
+        self, minlevel: Union[Iterable[int], int], maxlevel: Optional[int] = None
+    ) -> None:
         """This method is important when ZoomLevel instances are passed on to the ProcessConfig schema."""
         if hasattr(minlevel, "__iter__"):  # pragma: no cover
             zoom_list = [i for i in minlevel]
@@ -202,7 +231,9 @@ class ZoomLevels(list):
             self.min, self.max = minlevel, maxlevel
 
     @classmethod
-    def from_inp(cls, min=None, max=None, descending=False):
+    def from_inp(
+        cls, min: ZoomLevelsLike, max: Optional[int] = None, descending: bool = False
+    ) -> ZoomLevels:
         """Constructs ZoomLevels from various input forms"""
         if isinstance(min, int) and max is None:
             return cls.from_int(min, descending=descending)
@@ -219,11 +250,11 @@ class ZoomLevels(list):
             raise TypeError(f"cannot create ZoomLevels with min={min}, max={max}")
 
     @staticmethod
-    def from_int(inp, **kwargs):
+    def from_int(inp: int, **kwargs) -> ZoomLevels:
         return ZoomLevels(min=inp, max=inp, **kwargs)
 
     @staticmethod
-    def from_list(inp, **kwargs):
+    def from_list(inp: List[int], **kwargs) -> ZoomLevels:
         if len(inp) == 0:
             raise ValueError("zoom level list is empty")
         elif len(inp) == 1:
@@ -238,7 +269,7 @@ class ZoomLevels(list):
             return ZoomLevels(min=min(inp), max=max(inp), **kwargs)
 
     @staticmethod
-    def from_dict(inp, **kwargs):
+    def from_dict(inp: dict, **kwargs) -> ZoomLevels:
         try:
             return ZoomLevels(min=inp["min"], max=inp["max"], **kwargs)
         except KeyError:
@@ -250,19 +281,19 @@ class ZoomLevels(list):
             "max": self.max,
         }
 
-    def intersection(self, other) -> "ZoomLevels":
+    def intersection(self, other: ZoomLevelsLike) -> ZoomLevels:
         other = other if isinstance(other, ZoomLevels) else ZoomLevels(other)
         intersection = set(self).intersection(set(other))
         if len(intersection) == 0:
             raise ValueError("ZoomLevels do not intersect")
         return ZoomLevels(min(intersection), max(intersection))
 
-    def intersects(self, other) -> bool:
+    def intersects(self, other: ZoomLevelsLike) -> bool:
         other = other if isinstance(other, ZoomLevels) else ZoomLevels(other)
         try:
             return len(self.intersection(other)) > 0
         except ValueError:
             return False
 
-    def descending(self) -> "ZoomLevels":
+    def descending(self) -> ZoomLevels:
         return ZoomLevels(min=self.min, max=self.max, descending=True)

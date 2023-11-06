@@ -8,8 +8,9 @@ import warnings
 
 from cachetools import LRUCache
 
-from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD, MapcheteConfig
+from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
+from mapchete.executor import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.path import tiles_exist
 from mapchete.processing.job import (
     ProcessInfo,
@@ -357,7 +358,9 @@ class Mapchete(object):
         else:
             for future in _run_area(
                 process=self,
-                zoom_levels=_get_zoom_level(zoom, self),
+                zoom_levels=self.config.zoom_levels
+                if zoom is None
+                else validate_zooms(zoom),
                 dask_scheduler=dask_scheduler,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
@@ -714,8 +717,3 @@ class Mapchete(object):
 
     def __repr__(self):  # pragma: no cover
         return f"Mapchete <process_name={self.config.process.name}>"
-
-
-def _get_zoom_level(zoom, process):
-    """Determine zoom levels."""
-    return process.config.zoom_levels if zoom is None else validate_zooms(zoom)

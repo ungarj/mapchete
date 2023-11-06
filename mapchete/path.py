@@ -15,16 +15,15 @@ from fsspec import AbstractFileSystem
 from rasterio.session import Session as RioSession
 
 from mapchete.executor import Executor
-from mapchete.io.settings import GDALHTTPOptions
+from mapchete.settings import GDALHTTPOptions
 from mapchete.tile import BufferedTile
+from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_STORAGE_OPTIONS = {"asynchronous": False, "timeout": None}
 UNALLOWED_S3_KWARGS = ["timeout"]
 UNALLOWED_HTTP_KWARGS = ["username", "password"]
-
-MPathLike = Union[str, os.PathLike]
 
 
 class MPath(os.PathLike):

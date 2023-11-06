@@ -1,47 +1,37 @@
 import hashlib
-import importlib
-import inspect
 import logging
-import operator
-import os
-import py_compile
-import sys
 import warnings
 from collections import OrderedDict
 from copy import deepcopy
-from enum import Enum
 from functools import cached_property
-from tempfile import NamedTemporaryFile
-from typing import Any, List, Tuple, Union
+from typing import Any, Iterator, Optional, Tuple, Union
 
-import fsspec
 import oyaml as yaml
-from pydantic import BaseModel, NonNegativeInt, field_validator
-from shapely import wkt
-from shapely.geometry import Point, box, shape
+from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from mapchete.errors import (
-    GeometryTypeError,
-    MapcheteConfigError,
-    MapcheteDriverError,
-    MapcheteProcessImportError,
-    MapcheteProcessSyntaxError,
+from mapchete.config.models import ProcessConfig
+from mapchete.config.parse import (
+    get_zoom_levels,
+    guess_geometry,
+    parse_config,
+    raw_conf_at_zoom,
 )
-from mapchete.executor import MULTIPROCESSING_DEFAULT_START_METHOD
+from mapchete.config.process_func import ProcessFunc
+from mapchete.enums import ProcessingMode
+from mapchete.errors import MapcheteConfigError, MapcheteDriverError
 from mapchete.formats import (
     available_output_formats,
     load_input_reader,
     load_output_reader,
     load_output_writer,
 )
-from mapchete.io import MPath, absolute_path, fiona_open
-from mapchete.io.vector import clean_geometry_type, reproject_geometry
-from mapchete.log import add_module_logger
-from mapchete.tile import BufferedTilePyramid, snap_geometry_to_tiles
+from mapchete.io import MPath, absolute_path
+from mapchete.io.vector import reproject_geometry
+from mapchete.tile import BufferedTile, BufferedTilePyramid, snap_geometry_to_tiles
 from mapchete.timer import Timer
-from mapchete.types import Bounds, ZoomLevels
+from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels
 from mapchete.validate import (
     validate_bounds,
     validate_bufferedtilepyramid,
@@ -50,50 +40,6 @@ from mapchete.validate import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class OutputConfigBase(BaseModel):
-    format: str
-    metatiling: Union[int, None] = 1
-    pixelbuffer: Union[NonNegativeInt, None] = 0
-
-    @field_validator("metatiling", mode="before")
-    def _metatiling(cls, value: int) -> int:  # pragma: no cover
-        _metatiling_opts = [2**x for x in range(10)]
-        if value not in _metatiling_opts:
-            raise ValueError(f"metatling must be one of {_metatiling_opts}")
-        return value
-
-
-class PyramidConfig(BaseModel):
-    grid: Union[str, dict]
-    metatiling: Union[int, None] = 1
-    pixelbuffer: Union[NonNegativeInt, None] = 0
-
-    @field_validator("metatiling", mode="before")
-    def _metatiling(cls, value: int) -> int:  # pragma: no cover
-        _metatiling_opts = [2**x for x in range(10)]
-        if value not in _metatiling_opts:
-            raise ValueError(f"metatling must be one of {_metatiling_opts}")
-        return value
-
-
-class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
-    pyramid: PyramidConfig
-    output: dict
-    zoom_levels: Union[ZoomLevels, dict, list, int]
-    process: Union[str, MPath, List[str], None] = None
-    baselevels: Union[dict, None] = None
-    input: Union[dict, None] = None
-    config_dir: Union[str, MPath, None] = None
-    area: Union[str, MPath, BaseGeometry, None] = None
-    area_crs: Union[dict, str, None] = None
-    bounds: Union[Bounds, Tuple[float, float, float, float], None] = None
-    bounds_crs: Union[dict, str, None] = None
-    process_parameters: Union[dict, None] = None
-
-
-_RESERVED_PARAMETERS = tuple(ProcessConfig.model_fields.keys())
 
 # TODO remove these
 # parameters for output configuration
@@ -107,119 +53,6 @@ _OUTPUT_PARAMETERS = [
     "mode",
     "stac",
 ]
-
-
-class Mode(str, Enum):
-    CONTINUE = "continue"
-    READONLY = "readonly"
-    OVERWRITE = "overwrite"
-    MEMORY = "memory"
-
-
-class ProcessFunc:
-    """Abstraction class for a user process function.
-
-    The user process can either be provided as a python module path, a file path
-    or the source code as a list of strings.
-    """
-
-    path: Union[MPath, str] = None
-    name: str = None
-
-    def __init__(self, src, config_dir=None, run_compile=True):
-        self._src = src
-        # for module paths and file paths
-        if isinstance(src, (str, MPath)):
-            if src.endswith(".py"):
-                self.path = MPath.from_inp(src)
-                self.name = self.path.name.split(".")[0]
-            else:
-                self.path = src
-                self.name = self.path.split(".")[-1]
-
-        # for process code within configuration
-        else:
-            self.name = "custom_process"
-
-        self._run_compile = run_compile
-        self._root_dir = config_dir
-
-        # this also serves as a validation step for the function
-        logger.debug("validate process function")
-        func = self._load_func()
-
-        self.function_parameters = dict(**inspect.signature(func).parameters)
-
-    def __call__(self, *args, **kwargs: Any) -> Any:
-        return self._load_func()(*args, **self.filter_parameters(kwargs))
-
-    def filter_parameters(self, params):
-        """Return function kwargs."""
-        return {
-            k: v
-            for k, v in params.items()
-            if k in self.function_parameters and v is not None
-        }
-
-    def _load_func(self):
-        """Import and return process function."""
-        logger.debug(f"get process function from {self.name}")
-        process_module = self._load_module()
-        try:
-            if hasattr(process_module, "execute"):
-                return process_module.execute
-            else:
-                raise ImportError("No execute() function found in %s" % self._src)
-        except ImportError as e:
-            raise MapcheteProcessImportError(e)
-
-    def _load_module(self):
-        # path to python file or python module path
-        if self.path:
-            return self._import_module_from_path(self.path)
-        # source code as list of strings
-        else:
-            with NamedTemporaryFile(suffix=".py") as tmpfile:
-                logger.debug(f"writing process code to temporary file {tmpfile.name}")
-                with open(tmpfile.name, "w") as dst:
-                    for line in self._src:
-                        dst.write(line + "\n")
-                return self._import_module_from_path(
-                    MPath.from_inp(tmpfile.name),
-                )
-
-    def _import_module_from_path(self, path):
-        if path.endswith(".py"):
-            module_path = absolute_path(path=path, base_dir=self._root_dir)
-            if not module_path.exists():
-                raise MapcheteConfigError(f"{module_path} is not available")
-            try:
-                if self._run_compile:
-                    py_compile.compile(module_path, doraise=True)
-                module_name = module_path.stem
-                # load module
-                spec = importlib.util.spec_from_file_location(
-                    module_name, str(module_path)
-                )
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                # required to make imported module available using multiprocessing
-                sys.modules[module_name] = module
-                # configure process file logger
-                add_module_logger(module.__name__)
-            except py_compile.PyCompileError as e:
-                raise MapcheteProcessSyntaxError(e)
-            except ImportError as e:
-                raise MapcheteProcessImportError(e)
-        else:
-            try:
-                module = importlib.import_module(str(path))
-            except ImportError as e:
-                raise MapcheteProcessImportError(e)
-
-        logger.debug(f"return process func: {module}")
-
-        return module
 
 
 class MapcheteConfig(object):
@@ -249,7 +82,7 @@ class MapcheteConfig(object):
     """
 
     parsed_config: ProcessConfig = None
-    mode: Mode = "continue"
+    mode: ProcessingMode = ProcessingMode.CONTINUE
     preprocessing_tasks_finished: bool = False
     config_dir: MPath = None
     process: Union[ProcessFunc, None] = None
@@ -270,7 +103,7 @@ class MapcheteConfig(object):
 
     def __init__(
         self,
-        input_config,
+        input_config: Union[dict, MPathLike],
         zoom=None,
         area=None,
         area_crs=None,
@@ -298,7 +131,7 @@ class MapcheteConfig(object):
         self._cache_full_process_area = None
 
         try:
-            self.mode = Mode(mode)
+            self.mode = ProcessingMode(mode)
         except Exception as exc:
             raise MapcheteConfigError from exc
         self.preprocessing_tasks_finished = False
@@ -367,7 +200,9 @@ class MapcheteConfig(object):
         # (5) prepare process parameters per zoom level without initializing
         # input and output classes
         logger.debug("preparing process parameters")
-        self._params_at_zoom = _raw_at_zoom(self.parsed_config, self.init_zoom_levels)
+        self._params_at_zoom = raw_conf_at_zoom(
+            self.parsed_config, self.init_zoom_levels
+        )
 
         # (6) determine process area and process boundaries both from config as well
         # as from initialization.
@@ -828,7 +663,7 @@ class MapcheteConfig(object):
                 return area_fallback
 
             elif bounds is None:
-                area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                area, crs = guess_geometry(area, base_dir=self.config_dir)
                 # in case vector file has no CRS use manually provided CRS
                 area_crs = crs or area_crs
 
@@ -844,7 +679,7 @@ class MapcheteConfig(object):
                 )
 
             else:
-                area, crs = _guess_geometry(area, base_dir=self.config_dir)
+                area, crs = guess_geometry(area, base_dir=self.config_dir)
                 # in case vector file has no CRS use manually provided CRS
                 area_crs = crs or area_crs
 
@@ -906,32 +741,22 @@ class MapcheteConfig(object):
         return self.params_at_zoom(zoom)
 
 
-def get_hash(x, length=16):
-    """Return hash of x."""
-    if isinstance(x, MPath):
-        x = str(x)
+def get_hash(some_object: Any, length: int = 16) -> str:
+    """Return hash of some_object."""
+    if isinstance(some_object, MPath):
+        some_object = str(some_object)
     try:
-        return hashlib.sha224(yaml.dump(dict(key=x)).encode()).hexdigest()[:length]
+        return hashlib.sha224(yaml.dump(dict(key=some_object)).encode()).hexdigest()[
+            :length
+        ]
     except TypeError:  # pragma: no cover
         # in case yaml.dump fails, we just try to get a string representation of object
-        return hashlib.sha224(str(x).encode()).hexdigest()[:length]
+        return hashlib.sha224(str(some_object).encode()).hexdigest()[:length]
 
 
-def get_zoom_levels(process_zoom_levels=None, init_zoom_levels=None):
-    """Validate and return zoom levels."""
-    process_zoom_levels = validate_zooms(process_zoom_levels)
-    if init_zoom_levels is None:
-        return process_zoom_levels
-    else:
-        init_zoom_levels = validate_zooms(init_zoom_levels)
-        if not set(init_zoom_levels).issubset(
-            set(process_zoom_levels)
-        ):  # pragma: no cover
-            raise ValueError("init zooms must be a subset of process zoom")
-        return init_zoom_levels
-
-
-def snap_bounds(bounds=None, pyramid=None, zoom=None):
+def snap_bounds(
+    bounds: BoundsLike = None, pyramid: BufferedTilePyramid = None, zoom: int = None
+) -> Bounds:
     """
     Snap bounds to tiles boundaries of specific zoom level.
 
@@ -952,7 +777,7 @@ def snap_bounds(bounds=None, pyramid=None, zoom=None):
     return Bounds(lb.left, lb.bottom, rt.right, rt.top)
 
 
-def clip_bounds(bounds=None, clip=None):
+def clip_bounds(bounds: BoundsLike = None, clip: BoundsLike = None) -> Bounds:
     """
     Clip bounds by clip.
 
@@ -975,140 +800,13 @@ def clip_bounds(bounds=None, clip=None):
     )
 
 
-def raw_conf(mapchete_file):
-    """
-    Load a mapchete_file into a dictionary.
-
-    Parameters
-    ----------
-    mapchete_file : str
-        Path to a Mapchete file.
-
-    Returns
-    -------
-    dictionary
-    """
-    if isinstance(mapchete_file, dict):
-        return _map_to_new_config(mapchete_file)
-    else:
-        with fsspec.open(mapchete_file, "r") as src:
-            return _map_to_new_config(yaml.safe_load(src.read()))
-
-
-def raw_conf_process_pyramid(raw_conf, reset_pixelbuffer=False):
-    """
-    Load the process pyramid of a raw configuration.
-
-    Parameters
-    ----------
-    raw_conf : dict
-        Raw mapchete configuration as dictionary.
-
-    Returns
-    -------
-    BufferedTilePyramid
-    """
-    pixelbuffer = 0 if reset_pixelbuffer else raw_conf["pyramid"].get("pixelbuffer", 0)
-    return BufferedTilePyramid(
-        raw_conf["pyramid"]["grid"],
-        metatiling=raw_conf["pyramid"].get("metatiling", 1),
-        pixelbuffer=pixelbuffer,
-    )
-
-
-def raw_conf_output_pyramid(raw_conf):
-    """
-    Load the process pyramid of a raw configuration.
-
-    Parameters
-    ----------
-    raw_conf : dict
-        Raw mapchete configuration as dictionary.
-
-    Returns
-    -------
-    BufferedTilePyramid
-    """
-    return BufferedTilePyramid(
-        raw_conf["pyramid"]["grid"],
-        metatiling=raw_conf["output"].get(
-            "metatiling", raw_conf["pyramid"].get("metatiling", 1)
-        ),
-        pixelbuffer=raw_conf["pyramid"].get(
-            "pixelbuffer", raw_conf["pyramid"].get("pixelbuffer", 0)
-        ),
-    )
-
-
-def bounds_from_opts(
-    wkt_geometry=None,
-    point=None,
-    point_crs=None,
-    zoom=None,
-    bounds=None,
-    bounds_crs=None,
-    raw_conf=None,
-):
-    """
-    Return process bounds depending on given inputs.
-
-    Parameters
-    ----------
-    wkt_geometry : string
-        WKT geometry used to generate bounds.
-    point : iterable
-        x and y coordinates of point whose corresponding process tile bounds shall be
-        returned.
-    point_crs : str or CRS
-        CRS of point (default: process pyramid CRS)
-    zoom : int
-        Mandatory zoom level if point is provided.
-    bounds : iterable
-        Bounding coordinates to be used
-    bounds_crs : str or CRS
-        CRS of bounds (default: process pyramid CRS)
-
-    raw_conf : dict
-        Raw mapchete configuration as dictionary.
-
-    Returns
-    -------
-    BufferedTilePyramid
-    """
-    if wkt_geometry:
-        return Bounds(*wkt.loads(wkt_geometry).bounds)
-    elif point:
-        x, y = point
-        tp = raw_conf_process_pyramid(raw_conf)
-        if point_crs:
-            reproj = reproject_geometry(Point(x, y), src_crs=point_crs, dst_crs=tp.crs)
-            x = reproj.x
-            y = reproj.y
-        zoom_levels = get_zoom_levels(
-            process_zoom_levels=raw_conf["zoom_levels"], init_zoom_levels=zoom
-        )
-        return Bounds(*tp.tile_from_xy(x, y, max(zoom_levels)).bounds)
-    elif bounds:
-        bounds = validate_bounds(bounds)
-        if bounds_crs:
-            tp = raw_conf_process_pyramid(raw_conf)
-            bounds = Bounds(
-                *reproject_geometry(
-                    box(*bounds), src_crs=bounds_crs, dst_crs=tp.crs
-                ).bounds
-            )
-        return bounds
-    else:
-        return
-
-
 def initialize_inputs(
-    raw_inputs,
-    config_dir=None,
-    pyramid=None,
-    delimiters=None,
-    readonly=False,
-):
+    raw_inputs: dict,
+    config_dir: Optional[MPathLike] = None,
+    pyramid: BufferedTilePyramid = None,
+    delimiters: dict = None,
+    readonly: bool = False,
+) -> OrderedDict:
     initalized_inputs = OrderedDict()
     for k, v in raw_inputs.items():
         # for files and tile directories
@@ -1170,7 +868,7 @@ def initialize_inputs(
     return initalized_inputs
 
 
-def open_inputs(inputs, tile):
+def open_inputs(inputs: dict, tile: BufferedTile) -> Iterator[Tuple]:
     for k, v in inputs.items():
         if v is None:
             continue
@@ -1178,144 +876,6 @@ def open_inputs(inputs, tile):
             yield (k, list(open_inputs(v, tile)))
         else:
             yield (k, v.open(tile))
-
-
-def parse_config(
-    input_config: Union[dict, str, MPath], strict: bool = False
-) -> ProcessConfig:
-    """Read config from file or dictionary and return validated configuration"""
-    if strict:  # pragma: no cover
-        return ProcessConfig(**_config_to_dict(input_config))
-    else:
-        return ProcessConfig(**_map_to_new_config(_config_to_dict(input_config)))
-
-
-def _config_to_dict(input_config: Union[dict, str, MPath]) -> dict:
-    if isinstance(input_config, dict):
-        if "config_dir" not in input_config:
-            raise MapcheteConfigError("config_dir parameter missing")
-        return OrderedDict(_include_env(input_config), mapchete_file=None)
-    # from Mapchete file
-    elif input_config.suffix == ".mapchete":
-        config_dict = _include_env(yaml.safe_load(input_config.read_text()))
-        return OrderedDict(
-            config_dict,
-            config_dir=config_dict.get(
-                "config_dir", input_config.absolute_path().dirname or os.getcwd()
-            ),
-            mapchete_file=input_config,
-        )
-    # throw error if unknown object
-    else:  # pragma: no cover
-        raise MapcheteConfigError(
-            "Configuration has to be a dictionary or a .mapchete file."
-        )
-
-
-def _include_env(d: dict) -> OrderedDict:
-    out = OrderedDict()
-    for k, v in d.items():
-        if isinstance(v, dict):
-            out[k] = _include_env(v)
-        elif isinstance(v, str) and v.startswith("${") and v.endswith("}"):
-            envvar = v.lstrip("${").rstrip("}")
-            out[k] = os.environ.get(envvar)
-        else:
-            out[k] = v
-    return out
-
-
-def _raw_at_zoom(config, zooms):
-    """Return parameter dictionary per zoom level."""
-    params_per_zoom = OrderedDict()
-    for zoom in zooms:
-        params = OrderedDict()
-        for name, element in config.model_dump().items():
-            out_element = _element_at_zoom(name, element, zoom)
-            if out_element is not None:
-                params[name] = out_element
-        params_per_zoom[zoom] = params
-    return OrderedDict(params_per_zoom)
-
-
-def _element_at_zoom(name, element, zoom):
-    """
-    Return the element filtered by zoom level.
-
-    - An input integer or float gets returned as is.
-    - An input string is checked whether it starts with "zoom". Then, the
-      provided zoom level gets parsed and compared with the actual zoom
-      level. If zoom levels match, the element gets returned.
-    TODOs/gotchas:
-    - Provided zoom levels for one element in config file are not allowed
-      to "overlap", i.e. there is not yet a decision mechanism implemented
-      which handles this case.
-    """
-    # If element is a dictionary, analyze subitems.
-    if isinstance(element, dict):
-        # we have an input or output driver here
-        if "format" in element:
-            return element
-
-        # iterate through sub elements
-        out_elements = OrderedDict()
-        for sub_name, sub_element in element.items():
-            out_element = _element_at_zoom(sub_name, sub_element, zoom)
-            if name in ["input", "process_parameters"] or out_element is not None:
-                out_elements[sub_name] = out_element
-
-        # If there is only one subelement, collapse unless it is
-        # input. In such case, return a dictionary.
-        if name not in ["input", "process_parameters"] and len(out_elements) == 1:
-            return next(iter(out_elements.values()))
-
-        # If subelement is empty, return None
-        if len(out_elements) == 0:
-            return None
-
-        return out_elements
-
-    # If element is a zoom level statement, filter element.
-    elif isinstance(name, str):
-        # filter out according to zoom filter definition
-        if name.startswith("zoom"):
-            return _filter_by_zoom(
-                conf_string=name.strip("zoom").strip(), zoom=zoom, element=element
-            )
-
-        # If element is a string but not a zoom level statement, return
-        # element.
-        else:
-            return element
-
-    # Return all other types as they are.
-    else:  # pragma: no cover
-        return element
-
-
-def _filter_by_zoom(element=None, conf_string=None, zoom=None):
-    """Return element only if zoom condition matches with config string."""
-    for op_str, op_func in [
-        # order of operators is important:
-        # prematurely return in cases of "<=" or ">=", otherwise
-        # _strip_zoom() cannot parse config strings starting with "<"
-        # or ">"
-        ("=", operator.eq),
-        ("<=", operator.le),
-        (">=", operator.ge),
-        ("<", operator.lt),
-        (">", operator.gt),
-    ]:
-        if conf_string.startswith(op_str):
-            return element if op_func(zoom, _strip_zoom(conf_string, op_str)) else None
-
-
-def _strip_zoom(input_string, strip_string):
-    """Return zoom level as integer or throw error."""
-    try:
-        return int(input_string.strip(strip_string))
-    except Exception as e:
-        raise MapcheteConfigError("zoom level could not be determined: %s" % e)
 
 
 def _flatten_tree(tree, old_path=None):
@@ -1351,128 +911,3 @@ def _unflatten_tree(flat):
                 else:
                     tree[path[0]][path[1]].update(branch[path[1]])
     return tree
-
-
-def _map_to_new_config(config):
-    try:
-        validate_values(config, [("output", dict)])
-    except Exception as e:
-        raise MapcheteConfigError(e)
-
-    if "type" in config["output"]:  # pragma: no cover
-        warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
-        if "grid" not in config["output"]:
-            config["output"]["grid"] = config["output"].pop("type")
-
-    if "pyramid" not in config:
-        warnings.warn(
-            DeprecationWarning("'pyramid' needs to be defined in root config element.")
-        )
-        config["pyramid"] = dict(
-            grid=config["output"]["grid"],
-            metatiling=config.get("metatiling", 1),
-            pixelbuffer=config.get("pixelbuffer", 0),
-        )
-
-    if "zoom_levels" not in config:
-        warnings.warn(
-            DeprecationWarning(
-                "use new config element 'zoom_levels' instead of 'process_zoom', "
-                "'process_minzoom' and 'process_maxzoom'"
-            )
-        )
-        if "process_zoom" in config:
-            config["zoom_levels"] = config["process_zoom"]
-        elif all([i in config for i in ["process_minzoom", "process_maxzoom"]]):
-            config["zoom_levels"] = dict(
-                min=config["process_minzoom"], max=config["process_maxzoom"]
-            )
-        else:
-            raise MapcheteConfigError("process zoom levels not provided in config")
-
-    if "bounds" not in config:
-        if "process_bounds" in config:
-            warnings.warn(
-                DeprecationWarning(
-                    "'process_bounds' are deprecated and renamed to 'bounds'"
-                )
-            )
-            config["bounds"] = config["process_bounds"]
-        else:
-            config["bounds"] = None
-
-    if "input" not in config:
-        if "input_files" in config:
-            warnings.warn(
-                DeprecationWarning(
-                    "'input_files' are deprecated and renamed to 'input'"
-                )
-            )
-            config["input"] = config["input_files"]
-        else:
-            raise MapcheteConfigError("no 'input' found")
-
-    elif "input_files" in config:
-        raise MapcheteConfigError(
-            "'input' and 'input_files' are not allowed at the same time"
-        )
-
-    if "process_file" in config:
-        warnings.warn(
-            DeprecationWarning("'process_file' is deprecated and renamed to 'process'")
-        )
-        config["process"] = config.pop("process_file")
-
-    process_parameters = config.get("process_parameters", {})
-    for key in list(config.keys()):
-        if key in _RESERVED_PARAMETERS:
-            continue
-        warnings.warn(
-            "it puts the process parameter in the 'process_parameters' section, or it gets the warning again"
-        )
-        process_parameters[key] = config.pop(key)
-    config["process_parameters"] = process_parameters
-
-    return config
-
-
-def _guess_geometry(i, base_dir=None):
-    """
-    Guess and parse geometry if possible.
-
-    - a WKT string
-    - a GeoJSON mapping
-    - a shapely geometry
-    - a path to a Fiona-readable file
-    """
-    crs = None
-    # WKT or path:
-    if isinstance(i, (str, MPath)):
-        if str(i).upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
-            geom = wkt.loads(i)
-        else:
-            path = MPath.from_inp(i)
-            with path.fio_env():
-                with fiona_open(str(path.absolute_path(base_dir))) as src:
-                    geom = unary_union([shape(f["geometry"]) for f in src])
-                    crs = src.crs
-    # GeoJSON mapping
-    elif isinstance(i, dict):
-        geom = shape(i)
-    # shapely geometry
-    elif isinstance(i, BaseGeometry):
-        geom = i
-    else:
-        raise TypeError(
-            "area must be either WKT, GeoJSON mapping, shapely geometry or a "
-            "Fiona-readable path."
-        )
-    if not geom.is_valid:  # pragma: no cover
-        raise TypeError("area is not a valid geometry")
-    try:
-        geom = clean_geometry_type(geom, "Polygon", allow_multipart=True)
-    except GeometryTypeError:
-        raise GeometryTypeError(
-            f"area must either be a Polygon or a MultiPolygon, not {geom.geom_type}"
-        )
-    return geom, crs

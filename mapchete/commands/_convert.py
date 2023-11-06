@@ -14,7 +14,7 @@ from shapely.geometry.base import BaseGeometry
 
 import mapchete
 from mapchete.commands._execute import execute
-from mapchete.config import raw_conf, raw_conf_output_pyramid
+from mapchete.config.parse import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import (
     available_input_formats,
     available_output_formats,

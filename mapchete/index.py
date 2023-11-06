@@ -30,7 +30,7 @@ import fiona
 from rasterio.dtypes import _gdal_typename
 from shapely.geometry import mapping
 
-from mapchete.config import get_zoom_levels
+from mapchete.config.parse import get_zoom_levels
 from mapchete.io import (
     MPath,
     fiona_open,
