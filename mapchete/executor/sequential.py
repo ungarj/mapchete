@@ -1,5 +1,4 @@
 import logging
-from functools import partial
 from typing import Any, Iterator, List
 
 from mapchete.executor.base import ExecutorBase
@@ -38,12 +37,19 @@ class SequentialExecutor(ExecutorBase):
                     continue
 
             # run task and yield future
-            yield MFuture.from_func(func, fargs=(item, *fargs), fkwargs=fkwargs)
+            yield MFuture.from_func_partial(
+                self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
+            )
 
     def map(self, func, iterable, fargs=None, fkwargs=None) -> List[Any]:
         fargs = fargs or []
         fkwargs = fkwargs or {}
-        return list(map(partial(func, *fargs, **fkwargs), iterable))
+        return [
+            result.output
+            for result in map(
+                self.func_partial(func, fargs=fargs, fkwargs=fkwargs), iterable
+            )
+        ]
 
     def cancel(self):
         self.cancel_signal = True

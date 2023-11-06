@@ -5,6 +5,7 @@ import os
 from typing import Any, Callable, Dict, Optional, Protocol, Tuple, Union
 
 from mapchete.errors import MapcheteTaskFailed
+from mapchete.executor.types import Result
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
 
@@ -33,6 +34,7 @@ class MFuture:
     skip_info: Optional[Any] = None
     status: Optional[str] = None
     name: Optional[str] = None
+    profiling: Optional[dict] = None
 
     def __init__(
         self,
@@ -44,9 +46,11 @@ class MFuture:
         skip_info: Optional[Any] = None,
         status: Optional[str] = None,
         name: Optional[str] = None,
+        profiling: Optional[dict] = None,
     ):
         self._future = future
-        self._result = result
+        self._set_result(result)
+        self.profiling = self.profiling or profiling or dict()
         self._exception = exception
         self._cancelled = cancelled
         self.skipped = skipped
@@ -56,9 +60,7 @@ class MFuture:
 
     def __repr__(self):  # pragma: no cover
         """Return string representation."""
-        return (
-            f"<MFuture: type: {type(self._result)}, exception: {type(self._exception)})"
-        )
+        return f"<MFuture: type: {type(self._result)}, exception: {type(self._exception)}, profiling: {self.profiling})"
 
     @staticmethod
     def from_future(
@@ -117,6 +119,14 @@ class MFuture:
         except Exception as exc:  # pragma: no cover
             return MFuture(exception=exc)
 
+    @staticmethod
+    def from_func_partial(func: Callable, item: Any) -> MFuture:
+        try:
+            result = func(item)
+            return MFuture(result=result.output, profiling=result.profiling)
+        except Exception as exc:  # pragma: no cover
+            return MFuture(exception=exc)
+
     def result(self, timeout: int = FUTURE_TIMEOUT, **kwargs) -> Any:
         """Return task result."""
         self._populate_from_future(timeout=timeout)
@@ -146,9 +156,21 @@ class MFuture:
             and self._exception is None
         ):
             try:
-                self._result = self._future.result(timeout=timeout, **kwargs)
+                self._set_result(self._future.result(timeout=timeout, **kwargs))
             except Exception as exc:
                 self._exception = exc
+
+            # delete reference to future so it can be released from the dask cluster
+            self._future = None
+
+    def _set_result(self, result: Any) -> None:
+        """Look into result and extract task metadata if available."""
+        if isinstance(result, Result):
+            self._result = result.output
+            self._exception = result.exception
+            self.profiling = result.profiling
+        else:
+            self._result = result
 
     def failed_or_cancelled(self) -> bool:
         """

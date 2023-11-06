@@ -4,8 +4,10 @@ from concurrent.futures._base import CancelledError
 import pytest
 
 import mapchete
+from mapchete import Timer
 from mapchete.errors import MapcheteTaskFailed
 from mapchete.executor import MFuture
+from mapchete.executor.base import Profiler, Result, run_with_profilers
 
 
 def _dummy_process(i, sleep=0):
@@ -185,3 +187,36 @@ def test_dask_cancellederror(dask_executor, items=10):
 
     with pytest.raises(CancelledError):
         list(dask_executor.as_completed(raise_cancellederror, range(items)))
+
+
+def test_profile_wrapper():
+    elapsed_time = 0.2
+    result = run_with_profilers(
+        _dummy_process,
+        1,
+        fkwargs=dict(sleep=elapsed_time),
+        profilers=[Profiler(name="time", ctx=Timer)],
+    )
+    assert isinstance(result, Result)
+    assert result.output == 2
+    assert isinstance(result.profiling, dict)
+    assert len(result.profiling) == 1
+    assert result.profiling["time"].elapsed > elapsed_time
+
+
+@pytest.mark.parametrize(
+    "executor_fixture",
+    ["sequential_executor", "dask_executor", "processes_executor", "threads_executor"],
+)
+def test_profiling(executor_fixture, request):
+    executor = request.getfixturevalue(executor_fixture)
+
+    # add profiler
+    executor.add_profiler("time", Timer)
+
+    items = list(range(10))
+    for future in executor.as_completed(_dummy_process, items):
+        assert isinstance(future, MFuture)
+        output = future.result()
+        assert not isinstance(output, Result)
+        assert "time" in future.profiling

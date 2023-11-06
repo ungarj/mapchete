@@ -5,8 +5,7 @@ import os
 import sys
 import warnings
 from concurrent.futures._base import CancelledError
-from functools import partial
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
@@ -108,7 +107,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
                             continue
 
                     # submit task to workers
-                    self._submit(func, *[item, *fargs], **fkwargs)
+                    self._submit(func, item, fargs, fkwargs)
 
                     # yield finished tasks if any
                     ready = self._ready()
@@ -145,7 +144,12 @@ class ConcurrentFuturesExecutor(ExecutorBase):
     def map(self, func, iterable, fargs=None, fkwargs=None) -> Iterator[Any]:
         fargs = fargs or []
         fkwargs = fkwargs or {}
-        return list(self._executor.map(partial(func, *fargs, **fkwargs), iterable))
+        return [
+            result.output
+            for result in map(
+                self.func_partial(func, fargs=fargs, fkwargs=fkwargs), iterable
+            )
+        ]
 
     def _wait(self):
         concurrent.futures.wait(self.running_futures)
@@ -154,3 +158,10 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         """Yield finished tasks."""
         for future in concurrent.futures.as_completed(futures):
             yield future
+
+    def _submit(self, func: Callable, item: Any, fargs: tuple, fkwargs: dict) -> None:
+        future = self._executor.submit(
+            self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
+        )
+        self.running_futures.add(future)
+        future.add_done_callback(self._add_to_finished)

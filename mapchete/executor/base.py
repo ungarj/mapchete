@@ -2,11 +2,15 @@
 
 import logging
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from concurrent.futures._base import CancelledError
-from functools import cached_property
-from typing import Any, Iterator, List
+from contextlib import AbstractContextManager, ExitStack
+from functools import cached_property, partial
+from typing import Any, Callable, Iterator, List, Optional
 
 from mapchete.executor.future import FutureProtocol, MFuture
+from mapchete.executor.profiling import Profiler
+from mapchete.executor.types import Result
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +18,10 @@ logger = logging.getLogger(__name__)
 class ExecutorBase(ABC):
     """Define base methods and properties of executors."""
 
-    cancelled = False
-    running_futures = None
-    finished_futures = None
+    cancelled: bool = False
+    running_futures: set = None
+    finished_futures: set = None
+    profilers: list = None
     _executor_cls = None
     _executor_args = ()
     _executor_kwargs = {}
@@ -24,6 +29,7 @@ class ExecutorBase(ABC):
     def __init__(self, *args, **kwargs):
         self.running_futures = set()
         self.finished_futures = set()
+        self.profilers = []
 
     @abstractmethod
     def as_completed(
@@ -47,10 +53,16 @@ class ExecutorBase(ABC):
     def _wait(self, *args, **kwargs) -> None:
         ...
 
-    def _submit(self, func, *fargs, **fkwargs) -> None:
-        future = self._executor.submit(func, *fargs, **fkwargs)
-        self.running_futures.add(future)
-        future.add_done_callback(self._add_to_finished)
+    def add_profiler(
+        self,
+        name: str,
+        ctx: AbstractContextManager,
+        args: Optional[tuple] = None,
+        kwargs: Optional[dict] = None,
+    ) -> None:
+        self.profilers.append(
+            Profiler(name=name, ctx=ctx, args=args or (), kwargs=kwargs or {})
+        )
 
     def _ready(self) -> List[MFuture]:
         return list(self.finished_futures)
@@ -82,15 +94,30 @@ class ExecutorBase(ABC):
     def close(self):  # pragma: no cover
         self.__exit__(None, None, None)
 
+    def func_partial(
+        self,
+        func: Callable,
+        fargs: Optional[tuple] = None,
+        fkwargs: Optional[dict] = None,
+    ) -> Callable:
+        return partial(
+            run_with_profilers,
+            func,
+            fargs=fargs,
+            fkwargs=fkwargs,
+            profilers=self.profilers,
+        )
+
     def _finished_future(
         self, future: FutureProtocol, result: Any = None, _dask: bool = False
     ) -> MFuture:
         """
-        Release future from cluster explicitly and wrap result around FinishedFuture object.
+        Release future from cluster explicitly and wrap result around MFuture object.
         """
         if not _dask:
             self.running_futures.discard(future)
         self.finished_futures.discard(future)
+
         # create minimal Future-like object with no references to the cluster
         mfuture = MFuture.from_future(future, lazy=False, result=result)
 
@@ -118,3 +145,39 @@ class ExecutorBase(ABC):
 
     def __repr__(self):  # pragma: no cover
         return f"<Executor ({self._executor_cls})>"
+
+
+def run_with_profilers(
+    func: Callable,
+    item: Any,
+    fargs: Optional[tuple] = None,
+    fkwargs: Optional[dict] = None,
+    profilers: Optional[Iterator[Profiler]] = None,
+) -> Result:
+    """Run function but wrap execution in provided profiler context managers."""
+    fargs = fargs or ()
+    fkwargs = fkwargs or dict()
+    profilers = profilers or []
+    profilers_output = OrderedDict()
+    with ExitStack() as stack:
+        # enter contexts of all profilers
+        for profiler in profilers:
+            profilers_output[profiler.name] = stack.enter_context(
+                profiler.ctx(*profiler.args, **profiler.kwargs)
+            )
+
+        # actually run function
+        try:
+            output = func(item, *fargs, **fkwargs)
+            exception = None
+        except Exception as exc:
+            output = None
+            exception = exc
+
+    for profiler_name, profiler_output in profilers_output.items():
+        logger.debug("profiler '%s' returned %s", profiler_name, profiler_output)
+
+    if exception:
+        raise exception
+
+    return Result(output=output, exception=exception, profiling=dict(profilers_output))

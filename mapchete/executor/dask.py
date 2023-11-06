@@ -187,7 +187,9 @@ class DaskExecutor(ExecutorBase):
     def _submit_chunk(self, chunk=None, func=None, fargs=None, fkwargs=None):
         if chunk:
             logger.debug("submit chunk of %s items to cluster", len(chunk))
-            futures = self._executor.map(partial(func, *fargs, **fkwargs), chunk)
+            futures = self._executor.map(
+                self.func_partial(func, fargs=fargs, fkwargs=fkwargs), chunk
+            )
             self._ac_iterator.update(futures)
             self._submitted += len(futures)
 
