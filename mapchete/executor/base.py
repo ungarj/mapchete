@@ -9,8 +9,7 @@ from functools import cached_property, partial
 from typing import Any, Callable, Iterator, List, Optional
 
 from mapchete.executor.future import FutureProtocol, MFuture
-from mapchete.executor.profiling import Profiler
-from mapchete.executor.types import Result
+from mapchete.executor.types import Profiler, Result
 
 logger = logging.getLogger(__name__)
 
