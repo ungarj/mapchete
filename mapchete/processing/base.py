@@ -12,8 +12,8 @@ from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.executor import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.path import tiles_exist
-from mapchete.processing.job import (
-    ProcessInfo,
+from mapchete.processing.compute import (
+    TileProcessInfo,
     _preprocess,
     _run_area,
     _run_on_single_tile,
@@ -494,7 +494,7 @@ class Mapchete(object):
         ):
             message = "output exists, not overwritten"
             logger.debug((process_tile.id, message))
-            return ProcessInfo(
+            return TileProcessInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -504,7 +504,7 @@ class Mapchete(object):
         elif data is None:
             message = "output empty, nothing written"
             logger.debug((process_tile.id, message))
-            return ProcessInfo(
+            return TileProcessInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -516,7 +516,7 @@ class Mapchete(object):
                 self.config.output.write(process_tile=process_tile, data=data)
             message = "output written in %s" % t
             logger.debug((process_tile.id, message))
-            return ProcessInfo(
+            return TileProcessInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,

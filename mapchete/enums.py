@@ -6,3 +6,10 @@ class ProcessingMode(str, Enum):
     READONLY = "readonly"
     OVERWRITE = "overwrite"
     MEMORY = "memory"
+
+
+class Concurrency(str, Enum):
+    none = "none"
+    threads = "threads"
+    processes = "processes"
+    dask = "dask"

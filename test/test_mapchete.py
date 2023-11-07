@@ -23,7 +23,7 @@ import mapchete
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.raster import _shift_required, create_mosaic
-from mapchete.processing.job import PreprocessingProcessInfo, TileProcessInfo
+from mapchete.processing.types import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.tile import BufferedTilePyramid, count_tiles
 
 

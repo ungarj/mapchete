@@ -145,7 +145,7 @@ class MFuture:
 
     def cancelled(self) -> bool:  # pragma: no cover
         """Sequential futures cannot be cancelled."""
-        return False
+        return self._cancelled
 
     def _populate_from_future(self, timeout: int = FUTURE_TIMEOUT, **kwargs):
         """Fill internal cache with future.result() if future was provided."""
@@ -179,7 +179,9 @@ class MFuture:
         This is a workaround between the slightly different APIs of dask and concurrent.futures.
         It also tries to avoid potentially expensive calls to the dask scheduler.
         """
-        if self.status:
+        if self.cancelled():
+            return True
+        elif self.status:
             return self.status in ["error", "cancelled"]
         # concurrent.futures futures
         else:

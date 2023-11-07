@@ -15,6 +15,7 @@ from mapchete.io._geometry_operations import to_shape
 from mapchete.io.vector import IndexedFeatures
 from mapchete.processing.mp import MapcheteProcess
 from mapchete.timer import Timer
+from mapchete.types import ZoomLevels
 from mapchete.validate import validate_bounds
 
 logger = logging.getLogger(__name__)
