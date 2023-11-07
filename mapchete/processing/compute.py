@@ -1,7 +1,9 @@
 import logging
 import multiprocessing
 from contextlib import ExitStack
-from typing import Iterator, Optional
+from typing import Any, Iterator, Optional, Union
+
+from distributed import as_completed
 
 from mapchete.enums import Concurrency
 from mapchete.errors import MapcheteNodataTile
@@ -63,16 +65,30 @@ def compute(
             raise ValueError("either tile or zoom_levels has to be provided")
 
         if dask_compute_graph and isinstance(executor, DaskExecutor):
+            # TODO optimize memory management, e.g. delete preprocessing tasks from input
+            # once the dask graph is ready.
+            # materialize all tasks including dependencies
+            with Timer() as t:
+                dask_collection = to_dask_collection(
+                    process.task_batches(
+                        zoom=zoom_levels,
+                        tile=tile,
+                        skip_output_check=skip_output_check,
+                        propagate_results=process.config.output.write_in_parent_process
+                        or dask_propagate_results,
+                    )
+                )
+            logger.debug(
+                "dask collection with %s tasks generated in %s", len(dask_collection), t
+            )
             for num_processed, future in enumerate(
                 _compute_task_graph(
+                    dask_collection=dask_collection,
                     executor=executor,
-                    process=process,
-                    zoom_levels=zoom_levels,
-                    tile=tile,
-                    skip_output_check=skip_output_check,
                     with_results=with_results,
-                    propagate_results=dask_propagate_results,
+                    write_in_parent_process=process.config.output.write_in_parent_process,
                     raise_errors=raise_errors,
+                    output_writer=process.config.output,
                 ),
                 1,
             ):
@@ -102,7 +118,7 @@ def compute(
 
 def task_batches(
     process, zoom=None, tile=None, skip_output_check=False, propagate_results=True
-):
+) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
     """Create task batches for each processing stage."""
     with Timer() as duration:
         # preprocessing tasks
@@ -191,36 +207,19 @@ def task_batches(
 
 
 def _compute_task_graph(
+    dask_collection=None,
     executor=None,
-    process=None,
-    skip_output_check=False,
-    zoom_levels=None,
-    tile=None,
     with_results=False,
-    propagate_results=False,
+    write_in_parent_process: bool = False,
     raise_errors=False,
+    output_writer: Optional[Any] = None,
     **kwargs,
 ) -> Iterator[MFuture]:
-    # TODO optimize memory management, e.g. delete preprocessing tasks from input
-    # once the dask graph is ready.
-    from distributed import as_completed
-
-    # materialize all tasks including dependencies
-    with Timer() as t:
-        coll = to_dask_collection(
-            process.task_batches(
-                zoom=zoom_levels,
-                tile=tile,
-                skip_output_check=skip_output_check,
-                propagate_results=True
-                if process.config.output.write_in_parent_process
-                else propagate_results,
-            )
-        )
-    logger.debug("dask collection with %s tasks generated in %s", len(coll), t)
     # send to scheduler
     with Timer() as t:
-        futures = executor._executor.compute(coll, optimize_graph=True, traverse=True)
+        futures = executor._executor.compute(
+            dask_collection, optimize_graph=True, traverse=True
+        )
     logger.debug("%s tasks sent to scheduler in %s", len(futures), t)
 
     logger.debug("wait for tasks to finish...")
@@ -231,11 +230,11 @@ def _compute_task_graph(
         loop=executor._executor.loop,
     ).batches():
         for future in batch:
-            if process.config.output.write_in_parent_process:
+            if write_in_parent_process:
                 yield MFuture.from_result(
                     result=_write(
                         process_info=future.result(),
-                        output_writer=process.config.output,
+                        output_writer=output_writer,
                         append_output=True,
                     )
                 )
@@ -586,7 +585,9 @@ def _run_multi_overviews(
             yield MFuture.from_result(result=process_info)
 
 
-def _preprocess_task_wrapper(task, append_data=True, **kwargs):
+def _preprocess_task_wrapper(
+    task, append_data=True, **kwargs
+) -> PreprocessingProcessInfo:
     data = task.execute(**kwargs)
     return PreprocessingProcessInfo(
         task_key=task.id, data=data if append_data else None
@@ -602,7 +603,7 @@ def _preprocess(
     workers=None,
     multiprocessing_start_method=None,
     executor=None,
-):
+) -> Iterator[MFuture]:
     # If preprocessing tasks already finished, don't run them again.
     if process.config.preprocessing_tasks_finished:  # pragma: no cover
         return
@@ -749,13 +750,11 @@ def _execute(
             data=None,
         )
 
-    # execute on process tile
-    with Timer() as duration:
-        try:
-            output = tile_process.execute(dependencies=dependencies)
-        except MapcheteNodataTile:  # pragma: no cover
-            output = "empty"
-    processor_message = "processed in %s" % duration
+    try:
+        output = tile_process.execute(dependencies=dependencies)
+    except MapcheteNodataTile:  # pragma: no cover
+        output = "empty"
+    processor_message = "processed successfully"
     logger.debug((tile_process.tile.id, processor_message))
     return TileProcessInfo(
         tile=tile_process.tile,

@@ -362,3 +362,8 @@ opt_dask_no_task_graph = click.option(
     is_flag=True,
     help="Don't compute task graph when using dask.",
 )
+opt_profiling = click.option(
+    "--profiling",
+    is_flag=True,
+    help="Add profiling information to executed tasks.",
+)

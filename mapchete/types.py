@@ -6,9 +6,12 @@ from typing import Iterable, List, Optional, Tuple, Union
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 
+from mapchete.tile import BufferedTile
+
 MPathLike = Union[str, os.PathLike]
 BoundsLike = Union[List[float], Tuple[float], dict, BaseGeometry]
 ZoomLevelsLike = Union[Iterable[int], int, dict]
+TileLike = Union[BufferedTile, Tuple[int, int, int]]
 
 
 class Bounds(list):

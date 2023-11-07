@@ -17,12 +17,7 @@ class Executor:
 
     def __new__(cls, *args, concurrency=None, **kwargs) -> ExecutorBase:
         if concurrency == "dask":
-            try:
-                return DaskExecutor(*args, **kwargs)
-            except ImportError as exc:  # pragma: no cover
-                raise ImportError(
-                    "this feature requires the mapchete[dask] extra"
-                ) from exc
+            return DaskExecutor(*args, **kwargs)
 
         elif concurrency is None or kwargs.get("max_workers") == 1:
             return SequentialExecutor(*args, **kwargs)

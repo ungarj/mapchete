@@ -41,6 +41,7 @@ def execute(
     dask_propagate_results=True,
     msg_callback: Callable = None,
     as_iterator: bool = False,
+    profiling: bool = False,
 ) -> mapchete.Job:
     """
     Execute a Mapchete process.
@@ -191,6 +192,7 @@ def execute(
                 dask_client=dask_client,
                 multiprocessing_start_method=multiprocessing_start_method,
                 max_workers=workers,
+                profiling=profiling,
             ),
             as_iterator=as_iterator,
             preprocessing_tasks=preprocessing_tasks,
@@ -212,6 +214,7 @@ def _process_everything(
 ):
     try:
         for future in mp.compute(**kwargs):
+            msg_callback(str(future))
             if print_task_details:
                 process_info = future.result()
                 if isinstance(

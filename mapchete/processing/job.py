@@ -7,6 +7,8 @@ from typing import Generator
 from shapely.geometry import mapping
 
 from mapchete.executor import Executor
+from mapchete.executor.types import Profiler
+from mapchete.timer import Timer
 from mapchete.types import Bounds
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
@@ -37,6 +39,7 @@ class Job:
         executor_kwargs: dict = None,
         process_area=None,
         stac_item_path: str = None,
+        profiling: bool = False,
     ):
         self.func = func
         self.fargs = fargs or ()
@@ -45,6 +48,8 @@ class Job:
         self.executor = None
         self.executor_concurrency = executor_concurrency
         self.executor_kwargs = executor_kwargs or {}
+        if profiling:
+            self.executor_kwargs.update(profilers=[Profiler(name="time", ctx=Timer)])
         self.tiles_tasks = tiles_tasks or 0
         self.preprocessing_tasks = preprocessing_tasks or 0
         self._total = self.preprocessing_tasks + self.tiles_tasks
@@ -67,6 +72,7 @@ class Job:
         if self._total == 0:
             return
         logger.debug("opening executor for job %s", repr(self))
+
         with Executor(
             concurrency=self.executor_concurrency, **self.executor_kwargs
         ) as self.executor:

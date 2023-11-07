@@ -25,10 +25,10 @@ class ExecutorBase(ABC):
     _executor_args = ()
     _executor_kwargs = {}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, profilers=None, **kwargs):
         self.running_futures = set()
         self.finished_futures = set()
-        self.profilers = []
+        self.profilers = profilers or []
 
     @abstractmethod
     def as_completed(
