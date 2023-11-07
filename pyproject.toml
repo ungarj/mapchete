@@ -26,6 +26,8 @@ dependencies = [
     "click-plugins",
     "click-spinner",
     "click>=7.1.1",
+    "dask",
+    "distributed",
     "fiona>=1.8.13.post1",
     "fsspec",
     "importlib-metadata",
@@ -68,10 +70,6 @@ complete = [
 ]
 contours = [
     "matplotlib",
-]
-dask = [
-    "dask",
-    "distributed",
 ]
 geobuf = [
     "geobuf",

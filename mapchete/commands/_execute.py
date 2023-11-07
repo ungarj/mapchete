@@ -11,6 +11,7 @@ from shapely.geometry.base import BaseGeometry
 
 import mapchete
 from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
+from mapchete.enums import Concurrency, ProcessingMode
 from mapchete.processing.types import PreprocessingProcessInfo, TileProcessInfo
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,8 @@ def execute(
     point_crs: Tuple[float, float] = None,
     tile: Tuple[int, int, int] = None,
     overwrite: bool = False,
-    mode: str = "continue",
-    concurrency: str = "processes",
+    mode: ProcessingMode = ProcessingMode.CONTINUE,
+    concurrency: Concurrency = Concurrency.processes,
     workers: int = None,
     multi: int = None,
     multiprocessing_start_method: str = None,

@@ -6,6 +6,8 @@ cachetools>=4.1.0
 click>=7.1.1
 click-plugins>=1.1.1
 click-spinner>=0.1.10
+dask
+distributed
 python-dateutil
 fiona>=1.8.13.post1
 Flask>=1.1.2,<=3.0.0

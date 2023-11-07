@@ -4,6 +4,10 @@ import logging
 import os
 from typing import Any, Callable, Dict, Optional, Protocol, Tuple, Union
 
+from dask.distributed import TimeoutError
+from distributed import CancelledError
+from distributed.comm.core import CommClosedError
+
 from mapchete.errors import MapcheteTaskFailed
 from mapchete.executor.types import Result
 
@@ -195,15 +199,7 @@ class MFuture:
         # Some exception types such as dask exceptions or generic CancelledErrors indicate that
         # there was an error around the Executor rather than from the future/task itself.
         # Let's directly re-raise these to be more transparent.
-        try:
-            # when using dask, also directly raise specific dask errors
-            from dask.distributed import TimeoutError
-            from distributed import CancelledError
-            from distributed.comm.core import CommClosedError
-
-            keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
-        except ImportError:  # pragma: no cover
-            keep_exceptions = (CancelledError,)
+        keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
 
         if self.failed_or_cancelled():
             exception = self.exception(timeout=FUTURE_TIMEOUT)
