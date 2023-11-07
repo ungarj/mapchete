@@ -5,12 +5,14 @@ import logging
 import multiprocessing
 import threading
 import warnings
+from typing import Optional, Tuple, Union
 
 from cachetools import LRUCache
 
 from mapchete.config import MapcheteConfig
+from mapchete.enums import Concurrency
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
-from mapchete.executor import MULTIPROCESSING_DEFAULT_START_METHOD
+from mapchete.executor import MULTIPROCESSING_DEFAULT_START_METHOD, ExecutorBase
 from mapchete.path import tiles_exist
 from mapchete.processing.compute import (
     TileProcessInfo,
@@ -22,9 +24,9 @@ from mapchete.processing.compute import (
 )
 from mapchete.processing.tasks import TileTask
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
-from mapchete.tile import count_tiles
+from mapchete.tile import BufferedTile, count_tiles
 from mapchete.timer import Timer
-from mapchete.types import ZoomLevels
+from mapchete.types import ZoomLevels, ZoomLevelsLike
 from mapchete.validate import validate_tile
 
 logger = logging.getLogger(__name__)
@@ -150,9 +152,43 @@ class Mapchete(object):
             self, zoom=zoom, tile=tile, skip_output_check=skip_output_check, **kwargs
         )
 
-    def compute(self, **kwargs):
+    def compute(
+        self,
+        zoom: Optional[ZoomLevelsLike] = None,
+        tile: Optional[Union[BufferedTile, Tuple[int, int, int]]] = None,
+        executor: Optional[ExecutorBase] = None,
+        concurrency: Concurrency = Concurrency.processes,
+        workers: int = multiprocessing.cpu_count(),
+        multiprocessing_start_method: Optional[str] = None,
+        skip_output_check: bool = False,
+        dask_scheduler: Optional[str] = None,
+        dask_compute_graph: bool = True,
+        dask_propagate_results: bool = True,
+        dask_max_submitted_tasks: bool = 500,
+        raise_errors: bool = True,
+        with_results: bool = False,
+        **kwargs,
+    ):
         """Compute preprocessing tasks and tile tasks in one go."""
-        yield from compute(self, **kwargs)
+        yield from compute(
+            self,
+            zoom_levels=(
+                self.config.zoom_levels if zoom is None else ZoomLevels.from_inp(zoom)
+            ),
+            tile=self.config.process_pyramid.tile(*tile) if tile else None,
+            executor=executor,
+            concurrency=concurrency,
+            workers=workers,
+            multiprocessing_start_method=multiprocessing_start_method,
+            skip_output_check=skip_output_check,
+            dask_scheduler=dask_scheduler,
+            dask_compute_graph=dask_compute_graph,
+            dask_propagate_results=dask_propagate_results,
+            dask_max_submitted_tasks=dask_max_submitted_tasks,
+            raise_errors=raise_errors,
+            with_results=with_results,
+            **kwargs,
+        )
 
     def batch_preprocessor(
         self,
@@ -237,7 +273,6 @@ class Mapchete(object):
         dask_chunksize=100,
         multi=None,
         workers=None,
-        multiprocessing_module=None,
         multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check=False,
         executor=None,
@@ -263,9 +298,6 @@ class Mapchete(object):
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
         dask_chunksize : int
             Number of tasks submitted to the scheduler at once. (default: 100)
-        multiprocessing_module : module
-            either Python's standard 'multiprocessing' or Celery's 'billiard' module
-            (default: multiprocessing)
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
             (default: "spawn")
@@ -284,7 +316,6 @@ class Mapchete(object):
                 dask_chunksize=dask_chunksize,
                 workers=workers,
                 multi=multi,
-                multiprocessing_module=multiprocessing_module,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
                 executor=executor,
@@ -300,7 +331,6 @@ class Mapchete(object):
         dask_chunksize=100,
         multi=None,
         workers=None,
-        multiprocessing_module=None,
         multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check=False,
         executor=None,
@@ -324,9 +354,6 @@ class Mapchete(object):
             Number of tasks submitted to the scheduler at once. (default: 100)
         multi : int
             number of workers (default: number of CPU cores)
-        multiprocessing_module : module
-            either Python's standard 'multiprocessing' or Celery's 'billiard' module
-            (default: multiprocessing)
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
             (default: "spawn")
@@ -366,7 +393,6 @@ class Mapchete(object):
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
                 workers=workers or multiprocessing.cpu_count(),
-                multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
                 executor=executor,

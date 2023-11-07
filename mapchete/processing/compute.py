@@ -1,10 +1,11 @@
 import logging
 import multiprocessing
 from contextlib import ExitStack
-from typing import Iterator
+from typing import Iterator, Optional
 
+from mapchete.enums import Concurrency
 from mapchete.errors import MapcheteNodataTile
-from mapchete.executor import DaskExecutor, Executor
+from mapchete.executor import DaskExecutor, Executor, ExecutorBase
 from mapchete.executor.future import MFuture
 from mapchete.path import batch_sort_property
 from mapchete.processing.tasks import (
@@ -14,28 +15,28 @@ from mapchete.processing.tasks import (
     to_dask_collection,
 )
 from mapchete.processing.types import PreprocessingProcessInfo, TileProcessInfo
+from mapchete.tile import BufferedTile
 from mapchete.timer import Timer
-from mapchete.types import ZoomLevels
+from mapchete.types import ZoomLevels, ZoomLevelsLike
 
 logger = logging.getLogger(__name__)
 
 
 def compute(
     process,
-    zoom=None,
-    tile=None,
-    executor=None,
-    concurrency="processes",
-    workers=None,
-    dask_scheduler=None,
-    multiprocessing_start_method=None,
-    multiprocessing_module=None,
-    skip_output_check=False,
-    dask_compute_graph=True,
-    dask_propagate_results=True,
-    dask_max_submitted_tasks=500,
-    raise_errors=True,
-    with_results=False,
+    zoom_levels: Optional[ZoomLevelsLike] = None,
+    tile: Optional[BufferedTile] = None,
+    executor: Optional[ExecutorBase] = None,
+    concurrency: Concurrency = Concurrency.processes,
+    workers: int = multiprocessing.cpu_count(),
+    multiprocessing_start_method: Optional[str] = None,
+    skip_output_check: bool = False,
+    dask_scheduler: Optional[str] = None,
+    dask_compute_graph: bool = True,
+    dask_propagate_results: bool = True,
+    dask_max_submitted_tasks: bool = 500,
+    raise_errors: bool = True,
+    with_results: bool = False,
     **kwargs,
 ) -> Iterator[MFuture]:
     """Computes all tasks and yields progress."""
@@ -49,22 +50,18 @@ def compute(
                     max_workers=workers,
                     concurrency=concurrency,
                     start_method=multiprocessing_start_method,
-                    multiprocessing_module=multiprocessing_module,
                     dask_scheduler=dask_scheduler,
                 )
             )
 
         logger.info("run process on area")
         duration = exit_stack.enter_context(Timer())
+
         if tile:
-            tile = process.config.process_pyramid.tile(*tile)
             zoom_levels = ZoomLevels.from_inp(tile.zoom)
-        else:
-            zoom_levels = (
-                process.config.zoom_levels
-                if zoom is None
-                else ZoomLevels.from_inp(zoom)
-            )
+        elif zoom_levels is None:
+            raise ValueError("either tile or zoom_levels has to be provided")
+
         if dask_compute_graph and isinstance(executor, DaskExecutor):
             for num_processed, future in enumerate(
                 _compute_task_graph(
@@ -380,7 +377,6 @@ def _run_area(
     dask_max_submitted_tasks=None,
     dask_chunksize=None,
     workers=None,
-    multiprocessing_module=None,
     multiprocessing_start_method=None,
     skip_output_check=False,
 ):
@@ -397,7 +393,6 @@ def _run_area(
             dask_chunksize=dask_chunksize,
             workers=workers,
             multiprocessing_start_method=multiprocessing_start_method,
-            multiprocessing_module=multiprocessing_module,
             write_in_parent_process=True,
             skip_output_check=skip_output_check,
         ):
@@ -416,7 +411,6 @@ def _run_area(
             dask_chunksize=dask_chunksize,
             workers=workers,
             multiprocessing_start_method=multiprocessing_start_method,
-            multiprocessing_module=multiprocessing_module,
             write_in_parent_process=False,
             skip_output_check=skip_output_check,
         ):
@@ -449,7 +443,6 @@ def _run_multi(
     dask_chunksize=None,
     workers=None,
     multiprocessing_start_method=None,
-    multiprocessing_module=None,
     write_in_parent_process=False,
     fkwargs=None,
     skip_output_check=False,
@@ -468,7 +461,6 @@ def _run_multi(
                     max_workers=workers,
                     concurrency="dask" if dask_scheduler else "processes",
                     start_method=multiprocessing_start_method,
-                    multiprocessing_module=multiprocessing_module,
                     dask_scheduler=dask_scheduler,
                 )
             )
@@ -608,7 +600,6 @@ def _preprocess(
     dask_max_submitted_tasks=None,
     dask_chunksize=None,
     workers=None,
-    multiprocessing_module=None,
     multiprocessing_start_method=None,
     executor=None,
 ):
@@ -627,7 +618,6 @@ def _preprocess(
                     max_workers=workers,
                     concurrency="dask" if dask_scheduler else "processes",
                     start_method=multiprocessing_start_method,
-                    multiprocessing_module=multiprocessing_module,
                     dask_scheduler=dask_scheduler,
                 )
             )

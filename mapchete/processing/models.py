@@ -1,3 +1,5 @@
+import multiprocessing
+from enum import Enum
 from typing import Optional
 
 from distributed import Client
@@ -11,3 +13,18 @@ class DaskConfiguration(BaseModel):
     dask_client: Optional[Client] = None
     dask_compute_graph: bool = True
     dask_propagate_results: bool = True
+
+
+# TODO: from multiprocessing import get_all_start_methods
+class MultiProcessingStartMethod(str, Enum):
+    spawn = "spawn"
+    fork = "fork"
+
+
+class MultiprocessingConfiguration(BaseModel):
+    start_method: MultiProcessingStartMethod = MultiProcessingStartMethod.spawn
+
+
+class ProcessingConfiguration(BaseModel):
+    dask: DaskConfiguration = DaskConfiguration()
+    workers: int = multiprocessing.cpu_count()
