@@ -192,13 +192,13 @@ def execute(
                 dask_client=dask_client,
                 multiprocessing_start_method=multiprocessing_start_method,
                 max_workers=workers,
-                profiling=profiling,
             ),
             as_iterator=as_iterator,
             preprocessing_tasks=preprocessing_tasks,
             tiles_tasks=tiles_tasks,
             process_area=mp.config.init_area,
             stac_item_path=stac_item_path,
+            profiling=profiling,
         )
     # explicitly exit the mp object on failure
     except Exception as exc:  # pragma: no cover

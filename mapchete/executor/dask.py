@@ -1,11 +1,15 @@
 import logging
 import os
-from functools import cached_property, partial
+from functools import cached_property
 from typing import Any, Iterator, List
+
+from dask.distributed import Client, LocalCluster, as_completed, wait
 
 from mapchete.errors import JobCancelledError
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
+from mapchete.executor.types import Result
+from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +25,7 @@ class DaskExecutor(ExecutorBase):
         max_workers=None,
         **kwargs,
     ):
-        from dask.distributed import Client, LocalCluster, as_completed
-
+        self.cancel_signal = False
         self._executor_client = dask_client
         self._local_cluster = None
         if self._executor_client:  # pragma: no cover
@@ -47,14 +50,21 @@ class DaskExecutor(ExecutorBase):
     def map(self, func, iterable, fargs=None, fkwargs=None) -> List[Any]:
         fargs = fargs or []
         fkwargs = fkwargs or {}
+
+        def _extract_result(future):
+            result = future.result()
+            if isinstance(result, Result):
+                return result.output
+            return result
+
         return [
-            f.result()
-            for f in self._executor.map(partial(func, *fargs, **fkwargs), iterable)
+            _extract_result(f)
+            for f in self._executor.map(
+                self.func_partial(func, *fargs, **fkwargs), iterable
+            )
         ]
 
     def _wait(self):
-        from dask.distributed import wait
-
         wait(self.running_futures)
 
     def _as_completed(self, *args, **kwargs) -> Iterator[MFuture]:
@@ -183,6 +193,39 @@ class DaskExecutor(ExecutorBase):
             self.running_futures = set()
             self._ac_iterator.clear()
             self._submitted = 0
+
+    def compute_task_graph(
+        self,
+        dask_collection=None,
+        with_results=False,
+        raise_errors=False,
+    ) -> Iterator[MFuture]:
+        # send to scheduler
+
+        with Timer() as t:
+            futures = self._executor.compute(
+                dask_collection, optimize_graph=True, traverse=True
+            )
+        logger.debug("%s tasks sent to scheduler in %s", len(futures), t)
+        self._submitted += len(futures)
+
+        logger.debug("wait for tasks to finish...")
+        for batch in as_completed(
+            futures,
+            with_results=with_results,
+            raise_errors=raise_errors,
+            loop=self._executor.loop,
+        ).batches():
+            for item in batch:
+                self._submitted -= 1
+                if with_results:
+                    future, result = item
+                else:
+                    future, result = item, None
+                if self.cancel_signal:  # pragma: no cover
+                    logger.debug("executor cancelled")
+                    raise JobCancelledError()
+                yield self._finished_future(future, result, _dask=True)
 
     def _submit_chunk(self, chunk=None, func=None, fargs=None, fkwargs=None):
         if chunk:

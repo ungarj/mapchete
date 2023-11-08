@@ -513,9 +513,9 @@ def test_batch_process(cleantopo_tl):
         # process single tile
         mp.batch_process(tile=(2, 0, 0))
         # process using multiprocessing
-        mp.batch_process(zoom=2, multi=2)
+        mp.batch_process(zoom=2, workers=2)
         # process without multiprocessing
-        mp.batch_process(zoom=2, multi=1)
+        mp.batch_process(zoom=2, workers=1)
 
 
 def test_skip_tiles(cleantopo_tl):

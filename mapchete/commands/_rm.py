@@ -106,7 +106,7 @@ def rm(
                     # this is required to omit tiles touching the config area
                     if mp.config.area_at_zoom(zoom).intersection(t.bbox).area
                 ],
-                multi=multi,
+                workers=multi,
             ):
                 if exists:
                     tiles[zoom].append(tile)

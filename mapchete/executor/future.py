@@ -87,6 +87,11 @@ class MFuture:
         else:
             name = str(future)
 
+        if hasattr(future, "profiling"):
+            profiling = future.profiling
+        else:
+            profiling = {}
+
         if lazy:
             # keep around Future for later and don't call Future.result()
             return MFuture(
@@ -95,6 +100,7 @@ class MFuture:
                 cancelled=future.cancelled(),
                 status=status,
                 name=name,
+                profiling=profiling,
             )
         else:
             # immediately fetch Future.result() or use provided result
@@ -102,13 +108,20 @@ class MFuture:
                 result = result or future.result(timeout=timeout)
                 exception = future.exception(timeout=timeout)
             except Exception as exc:
-                return MFuture(exception=exc, status=status, name=name)
-
-            return MFuture(result=result, exception=exception, status=status, name=name)
+                return MFuture(
+                    exception=exc, status=status, name=name, profiling=profiling
+                )
+            return MFuture(
+                result=result,
+                exception=exception,
+                status=status,
+                name=name,
+                profiling=profiling,
+            )
 
     @staticmethod
-    def from_result(result: Any) -> MFuture:
-        return MFuture(result=result)
+    def from_result(result: Any, profiling: Optional[dict] = None) -> MFuture:
+        return MFuture(result=result, profiling=profiling)
 
     @staticmethod
     def skip(skip_info: Optional[Any] = None, result: Optional[Any] = None) -> MFuture:
@@ -127,9 +140,9 @@ class MFuture:
     def from_func_partial(func: Callable, item: Any) -> MFuture:
         try:
             result = func(item)
-            return MFuture(result=result.output, profiling=result.profiling)
         except Exception as exc:  # pragma: no cover
             return MFuture(exception=exc)
+        return MFuture(result=result.output, profiling=result.profiling)
 
     def result(self, timeout: int = FUTURE_TIMEOUT, **kwargs) -> Any:
         """Return task result."""

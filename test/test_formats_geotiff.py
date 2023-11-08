@@ -215,7 +215,7 @@ def test_output_single_gtiff(output_single_gtiff):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(multi=2)
+        mp.batch_process(workers=2)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -343,7 +343,7 @@ def test_output_single_gtiff_s3(output_single_gtiff_s3):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(multi=2)
+        mp.batch_process(workers=2)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -379,7 +379,7 @@ def test_output_single_gtiff_s3_tempfile(output_single_gtiff_s3):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(multi=2)
+        mp.batch_process(workers=2)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -409,7 +409,7 @@ def test_output_single_gtiff_cog(output_single_gtiff_cog):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(multi=2)
+        mp.batch_process(workers=2)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -445,7 +445,7 @@ def test_output_single_gtiff_cog_tempfile(output_single_gtiff_cog):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(multi=2)
+        mp.batch_process(workers=2)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -477,7 +477,7 @@ def test_output_single_gtiff_cog_s3(output_single_gtiff_cog_s3):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(multi=2)
+        mp.batch_process(workers=2)
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data

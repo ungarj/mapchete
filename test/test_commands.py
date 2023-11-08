@@ -168,6 +168,29 @@ def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector
     assert len(job)
 
 
+@pytest.mark.parametrize(
+    "concurrency",
+    [
+        "threads",
+        "dask",
+        "processes",
+        None,
+    ],
+)
+def test_execute_profiling(cleantopo_br_metatiling_1, concurrency):
+    zoom = 5
+    job = execute(
+        cleantopo_br_metatiling_1.dict,
+        zoom=zoom,
+        as_iterator=True,
+        profiling=True,
+        concurrency=concurrency,
+        dask_compute_graph=False,
+    )
+    for t in job:
+        assert t.profiling
+
+
 def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     job = convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="geodetic")

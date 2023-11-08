@@ -3,8 +3,6 @@ import multiprocessing
 from contextlib import ExitStack
 from typing import Any, Iterator, Optional, Union
 
-from distributed import as_completed
-
 from mapchete.enums import Concurrency
 from mapchete.errors import MapcheteNodataTile
 from mapchete.executor import DaskExecutor, Executor, ExecutorBase
@@ -24,6 +22,7 @@ from mapchete.types import ZoomLevels, ZoomLevelsLike
 logger = logging.getLogger(__name__)
 
 
+# TODO: this function probably better goes to base
 def compute(
     process,
     zoom_levels: Optional[ZoomLevelsLike] = None,
@@ -116,6 +115,7 @@ def compute(
     logger.info("computed %s tasks in %s", num_processed, duration)
 
 
+# TODO: this function has a better place in the base module
 def task_batches(
     process, zoom=None, tile=None, skip_output_check=False, propagate_results=True
 ) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
@@ -207,40 +207,29 @@ def task_batches(
 
 
 def _compute_task_graph(
-    dask_collection=None,
-    executor=None,
-    with_results=False,
+    dask_collection,
+    executor: DaskExecutor,
+    with_results: bool = False,
     write_in_parent_process: bool = False,
-    raise_errors=False,
+    raise_errors: bool = False,
     output_writer: Optional[Any] = None,
     **kwargs,
 ) -> Iterator[MFuture]:
-    # send to scheduler
-    with Timer() as t:
-        futures = executor._executor.compute(
-            dask_collection, optimize_graph=True, traverse=True
-        )
-    logger.debug("%s tasks sent to scheduler in %s", len(futures), t)
-
-    logger.debug("wait for tasks to finish...")
-    for batch in as_completed(
-        futures,
-        with_results=with_results,
-        raise_errors=raise_errors,
-        loop=executor._executor.loop,
-    ).batches():
-        for future in batch:
-            if write_in_parent_process:
-                yield MFuture.from_result(
-                    result=_write(
-                        process_info=future.result(),
-                        output_writer=output_writer,
-                        append_output=True,
-                    )
-                )
-            else:
-                yield MFuture.from_future(future)
-            futures.remove(future)
+    # send task graph to executor and yield as ready
+    for future in executor.compute_task_graph(
+        dask_collection, with_results=with_results, raise_errors=raise_errors
+    ):
+        if write_in_parent_process:
+            yield MFuture.from_result(
+                result=_write(
+                    process_info=future.result(),
+                    output_writer=output_writer,
+                    append_output=True,
+                ),
+                profiling=future.profiling,
+            )
+        else:
+            yield MFuture.from_future(future)
 
 
 def _compute_tasks(
@@ -508,7 +497,6 @@ def _run_multi_overviews(
     # here we store the parents of processed tiles so we can update overviews
     # also in "continue" mode in case there were updates at the baselevel
     overview_parents = set()
-
     for i, zoom in enumerate(zoom_levels.descending()):
         logger.debug("sending tasks to executor %s...", executor)
         # get generator list of tiles, whether they are to be skipped and skip_info
@@ -723,7 +711,7 @@ def _run_multi_no_overviews(
             # output already has been written, so just use task process info
             else:
                 process_info = future.result()
-        yield MFuture.from_result(result=process_info)
+        yield MFuture.from_result(result=process_info, profiling=future.profiling)
 
 
 ###############################
