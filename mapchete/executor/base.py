@@ -54,14 +54,20 @@ class ExecutorBase(ABC):
 
     def add_profiler(
         self,
-        name: str,
-        ctx: AbstractContextManager,
+        name: Optional[str] = None,
+        ctx: Optional[AbstractContextManager] = None,
         args: Optional[tuple] = None,
         kwargs: Optional[dict] = None,
+        profiler: Optional[Profiler] = None,
     ) -> None:
-        self.profilers.append(
-            Profiler(name=name, ctx=ctx, args=args or (), kwargs=kwargs or {})
-        )
+        if profiler:
+            self.profilers.append(profiler)
+        elif isinstance(name, Profiler):
+            self.profilers.append(name)
+        else:
+            self.profilers.append(
+                Profiler(name=name, ctx=ctx, args=args or (), kwargs=kwargs or {})
+            )
 
     def _ready(self) -> List[MFuture]:
         return list(self.finished_futures)
@@ -99,8 +105,7 @@ class ExecutorBase(ABC):
         fargs: Optional[tuple] = None,
         fkwargs: Optional[dict] = None,
     ) -> Callable:
-        return partial(
-            run_with_profilers,
+        return func_partial(
             func,
             fargs=fargs,
             fkwargs=fkwargs,
@@ -146,16 +151,19 @@ class ExecutorBase(ABC):
         return f"<Executor ({self._executor_cls})>"
 
 
-def run_with_profilers(
+def run_func_with_profilers(
     func: Callable,
-    item: Any,
+    *args,
     fargs: Optional[tuple] = None,
     fkwargs: Optional[dict] = None,
     profilers: Optional[Iterator[Profiler]] = None,
+    **kwargs,
 ) -> Result:
     """Run function but wrap execution in provided profiler context managers."""
     fargs = fargs or ()
+    fargs = args + fargs
     fkwargs = fkwargs or dict()
+    fkwargs.update(kwargs)
     profilers = profilers or []
     profilers_output = OrderedDict()
     with ExitStack() as stack:
@@ -167,7 +175,7 @@ def run_with_profilers(
 
         # actually run function
         try:
-            output = func(item, *fargs, **fkwargs)
+            output = func(*fargs, **fkwargs)
             exception = None
         except Exception as exc:
             output = None
@@ -180,3 +188,19 @@ def run_with_profilers(
         raise exception
 
     return Result(output=output, exception=exception, profiling=dict(profilers_output))
+
+
+def func_partial(
+    func: Callable,
+    fargs: Optional[tuple] = None,
+    fkwargs: Optional[dict] = None,
+    profilers: Optional[Iterator[Profiler]] = None,
+) -> Callable:
+    """Return function parial with activated profilers."""
+    return partial(
+        run_func_with_profilers,
+        func,
+        fargs=fargs,
+        fkwargs=fkwargs,
+        profilers=profilers,
+    )

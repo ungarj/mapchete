@@ -4,7 +4,7 @@ import logging
 import traceback
 import warnings
 from multiprocessing import cpu_count
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Iterator, List, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
@@ -12,7 +12,11 @@ from shapely.geometry.base import BaseGeometry
 import mapchete
 from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
 from mapchete.enums import Concurrency, ProcessingMode
-from mapchete.processing.types import PreprocessingProcessInfo, TileProcessInfo
+from mapchete.processing.types import (
+    PreprocessingProcessInfo,
+    TaskResult,
+    TileProcessInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,7 @@ def execute(
     msg_callback: Callable = None,
     as_iterator: bool = False,
     profiling: bool = False,
+    **kwargs,
 ) -> mapchete.Job:
     """
     Execute a Mapchete process.
@@ -185,6 +190,7 @@ def execute(
                 dask_chunksize=dask_chunksize,
                 dask_compute_graph=dask_compute_graph,
                 dask_propagate_results=dask_propagate_results,
+                profiling=profiling,
             ),
             executor_concurrency=concurrency,
             executor_kwargs=dict(
@@ -198,7 +204,6 @@ def execute(
             tiles_tasks=tiles_tasks,
             process_area=mp.config.init_area,
             stac_item_path=stac_item_path,
-            profiling=profiling,
         )
     # explicitly exit the mp object on failure
     except Exception as exc:  # pragma: no cover
@@ -211,23 +216,13 @@ def _process_everything(
     mp,
     print_task_details=True,
     **kwargs,
-):
+) -> Iterator[TaskResult]:
     try:
         for future in mp.compute(**kwargs):
-            msg_callback(str(future))
+            result = TaskResult.from_future(future)
             if print_task_details:
-                process_info = future.result()
-                if isinstance(
-                    process_info, PreprocessingProcessInfo
-                ):  # pragma: no cover
-                    msg_callback(f"Task {process_info.task_key} finished")
-                elif isinstance(process_info, TileProcessInfo):
-                    msg_callback(
-                        f"Task {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
-                    )
-                else:  # pragma: no cover
-                    raise TypeError(f"unknown process info type: {type(process_info)}")
-            yield future
+                msg_callback(str(result))
+            yield result
         # explicitly exit the mp object on success
         mp.__exit__(None, None, None)
     except Exception as exc:  # pragma: no cover

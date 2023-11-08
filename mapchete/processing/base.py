@@ -4,7 +4,7 @@ import json
 import logging
 import multiprocessing
 import threading
-from typing import Any, Iterator, Optional, Tuple, Union
+from typing import Any, Iterator, List, Optional, Tuple, Union
 
 from cachetools import LRUCache
 
@@ -16,15 +16,20 @@ from mapchete.executor import (
     ExecutorBase,
     MFuture,
 )
-from mapchete.path import tiles_exist
+from mapchete.executor.base import func_partial
+from mapchete.executor.types import Profiler
+from mapchete.path import batch_sort_property, tiles_exist
 from mapchete.processing.compute import (
     PreprocessingProcessInfo,
     TileProcessInfo,
+    _execute,
+    _execute_and_write,
+    _filter_skipable,
     _preprocess,
+    _preprocess_task_wrapper,
     _run_area,
     _run_on_single_tile,
     compute,
-    task_batches,
 )
 from mapchete.processing.tasks import TaskBatch, TileTask, TileTaskBatch
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
@@ -155,13 +160,23 @@ class Mapchete(object):
                     yield (tile, False)
 
     def task_batches(
-        self, zoom=None, tile=None, skip_output_check=False, **kwargs
+        self,
+        zoom: Optional[ZoomLevelsLike] = None,
+        tile: Optional[TileLike] = None,
+        skip_output_check: bool = False,
+        propagate_results: bool = True,
+        profilers: Optional[List[Profiler]] = None,
     ) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
         """
         Generate task batches from preprocessing tasks and tile tasks.
         """
-        yield from task_batches(
-            self, zoom=zoom, tile=tile, skip_output_check=skip_output_check, **kwargs
+        yield from _task_batches(
+            self,
+            zoom=zoom,
+            tile=tile,
+            skip_output_check=skip_output_check,
+            propagate_results=propagate_results,
+            profilers=profilers,
         )
 
     def compute(
@@ -753,3 +768,100 @@ class Mapchete(object):
 
     def __repr__(self):  # pragma: no cover
         return f"Mapchete <process_name={self.config.process.name}>"
+
+
+def _task_batches(
+    process: Mapchete,
+    zoom: Optional[ZoomLevelsLike] = None,
+    tile: Optional[TileLike] = None,
+    skip_output_check: bool = False,
+    propagate_results: bool = True,
+    profilers: Optional[List[Profiler]] = None,
+) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
+    """Create task batches for each processing stage."""
+    profilers = profilers or []
+    with Timer() as duration:
+        # preprocessing tasks
+        yield TaskBatch(
+            id="preprocessing_tasks",
+            tasks=process.config.preprocessing_tasks().values(),
+            func=_preprocess_task_wrapper,
+            profilers=profilers,
+        )
+    logger.debug("preprocessing tasks batch generated in %s", duration)
+    with Timer() as duration:
+        if tile:
+            zoom_levels = ZoomLevels.from_inp(tile.zoom)
+            skip_output_check = True
+            tiles = {tile.zoom: [(tile, False)]}
+        else:
+            zoom_levels = (
+                process.config.zoom_levels
+                if zoom is None
+                else ZoomLevels.from_inp(zoom)
+            )
+            tiles = {}
+
+            # here we store the parents of tiles about to be processed so we can update overviews
+            # also in "continue" mode in case there were updates at the baselevel
+            overview_parents = set()
+            for i, zoom in enumerate(zoom_levels.descending()):
+                tiles[zoom] = []
+
+                for tile, skip, _ in _filter_skipable(
+                    process=process,
+                    tiles_batches=process.get_process_tiles(
+                        zoom,
+                        batch_by=batch_sort_property(
+                            process.config.output_reader.tile_path_schema
+                        ),
+                    ),
+                    target_set=(
+                        overview_parents if process.config.baselevels and i else None
+                    ),
+                    skip_output_check=skip_output_check,
+                ):
+                    tiles[zoom].append((tile, skip))
+                    # in case of building overviews from baselevels, remember which parent
+                    # tile needs to be updated later on
+                    if (
+                        not skip_output_check
+                        and process.config.baselevels
+                        and tile.zoom > 0
+                    ):
+                        # add parent tile
+                        overview_parents.add(tile.get_parent())
+                        # we don't need the current tile anymore
+                    overview_parents.discard(tile)
+
+        if process.config.output.write_in_parent_process:
+            func = func_partial(_execute, profilers=profilers)
+            fkwargs = dict(append_data=propagate_results)
+        else:
+            func = func_partial(_execute_and_write, profilers=profilers)
+            fkwargs = dict(
+                append_data=propagate_results, output_writer=process.config.output
+            )
+
+        # tile tasks
+        for zoom in zoom_levels.descending():
+            yield TileTaskBatch(
+                id=f"zoom_{zoom}",
+                tasks=(
+                    TileTask(
+                        tile=tile,
+                        config=process.config,
+                        skip=(
+                            process.config.mode == "continue"
+                            and process.config.output_reader.tiles_exist(tile)
+                        )
+                        if skip_output_check
+                        else skip,
+                    )
+                    for tile, skip in tiles[zoom]
+                ),
+                func=func,
+                fkwargs=fkwargs,
+                profilers=profilers,
+            )
+    logger.debug("tile task batches generated in %s", duration)

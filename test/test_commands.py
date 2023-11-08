@@ -11,6 +11,8 @@ import mapchete
 from mapchete.commands import convert, cp, execute, index, rm
 from mapchete.executor import ConcurrentFuturesExecutor, SequentialExecutor
 from mapchete.io import fiona_open, rasterio_open
+from mapchete.processing.job import Status
+from mapchete.processing.types import TaskResult
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -129,7 +131,7 @@ def test_execute_cancel(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
         job.cancel()
         break
     assert i == 0
-    assert job.status == "cancelled"
+    assert job.status == Status.cancelled
 
 
 def test_execute_tile(mp_tmpdir, cleantopo_br_metatiling_1):
@@ -169,26 +171,27 @@ def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector
 
 
 @pytest.mark.parametrize(
-    "concurrency",
+    "concurrency,dask_compute_graph",
     [
-        "threads",
-        "dask",
-        "processes",
-        None,
+        ("threads", False),
+        ("dask", False),
+        ("dask", True),
+        ("processes", False),
+        (None, False),
     ],
 )
-def test_execute_profiling(cleantopo_br_metatiling_1, concurrency):
+def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_graph):
     zoom = 5
-    job = execute(
+    for task_result in execute(
         cleantopo_br_metatiling_1.dict,
         zoom=zoom,
         as_iterator=True,
         profiling=True,
         concurrency=concurrency,
-        dask_compute_graph=False,
-    )
-    for t in job:
-        assert t.profiling
+        dask_compute_graph=dask_compute_graph,
+    ):
+        assert isinstance(task_result, TaskResult)
+        assert task_result.profiling
 
 
 def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):

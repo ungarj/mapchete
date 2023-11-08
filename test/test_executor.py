@@ -7,7 +7,7 @@ import mapchete
 from mapchete import Timer
 from mapchete.errors import MapcheteTaskFailed
 from mapchete.executor import MFuture
-from mapchete.executor.base import Profiler, Result, run_with_profilers
+from mapchete.executor.base import Profiler, Result, run_func_with_profilers
 
 
 def _dummy_process(i, sleep=0):
@@ -191,7 +191,7 @@ def test_dask_cancellederror(dask_executor, items=10):
 
 def test_profile_wrapper():
     elapsed_time = 0.2
-    result = run_with_profilers(
+    result = run_func_with_profilers(
         _dummy_process,
         1,
         fkwargs=dict(sleep=elapsed_time),

@@ -1,19 +1,15 @@
 import logging
 import multiprocessing
 from contextlib import ExitStack
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Iterator, Optional
 
 from mapchete.enums import Concurrency
 from mapchete.errors import MapcheteNodataTile
 from mapchete.executor import DaskExecutor, Executor, ExecutorBase
 from mapchete.executor.future import MFuture
+from mapchete.executor.types import Profiler
 from mapchete.path import batch_sort_property
-from mapchete.processing.tasks import (
-    TaskBatch,
-    TileTask,
-    TileTaskBatch,
-    to_dask_collection,
-)
+from mapchete.processing.tasks import TileTask, to_dask_collection
 from mapchete.processing.types import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.tile import BufferedTile
 from mapchete.timer import Timer
@@ -38,6 +34,7 @@ def compute(
     dask_max_submitted_tasks: bool = 500,
     raise_errors: bool = True,
     with_results: bool = False,
+    profiling: bool = False,
     **kwargs,
 ) -> Iterator[MFuture]:
     """Computes all tasks and yields progress."""
@@ -54,7 +51,6 @@ def compute(
                     dask_scheduler=dask_scheduler,
                 )
             )
-
         logger.info("run process on area")
         duration = exit_stack.enter_context(Timer())
 
@@ -62,6 +58,12 @@ def compute(
             zoom_levels = ZoomLevels.from_inp(tile.zoom)
         elif zoom_levels is None:
             raise ValueError("either tile or zoom_levels has to be provided")
+
+        profilers = []
+        if profiling:
+            profilers = [Profiler(name="time", ctx=Timer)]
+            for profiler in profilers:
+                executor.add_profiler(profiler)
 
         if dask_compute_graph and isinstance(executor, DaskExecutor):
             # TODO optimize memory management, e.g. delete preprocessing tasks from input
@@ -75,6 +77,7 @@ def compute(
                         skip_output_check=skip_output_check,
                         propagate_results=process.config.output.write_in_parent_process
                         or dask_propagate_results,
+                        profilers=profilers,
                     )
                 )
             logger.debug(
@@ -113,97 +116,6 @@ def compute(
                 yield future
 
     logger.info("computed %s tasks in %s", num_processed, duration)
-
-
-# TODO: this function has a better place in the base module
-def task_batches(
-    process, zoom=None, tile=None, skip_output_check=False, propagate_results=True
-) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
-    """Create task batches for each processing stage."""
-    with Timer() as duration:
-        # preprocessing tasks
-        yield TaskBatch(
-            id="preprocessing_tasks",
-            tasks=process.config.preprocessing_tasks().values(),
-            func=_preprocess_task_wrapper,
-        )
-    logger.debug("preprocessing tasks batch generated in %s", duration)
-
-    with Timer() as duration:
-        if tile:
-            zoom_levels = ZoomLevels.from_inp(tile.zoom)
-            skip_output_check = True
-            tiles = {tile.zoom: [(tile, False)]}
-        else:
-            zoom_levels = (
-                process.config.zoom_levels
-                if zoom is None
-                else ZoomLevels.from_inp(zoom)
-            )
-            tiles = {}
-
-            # here we store the parents of tiles about to be processed so we can update overviews
-            # also in "continue" mode in case there were updates at the baselevel
-            overview_parents = set()
-            for i, zoom in enumerate(zoom_levels.descending()):
-                tiles[zoom] = []
-
-                for tile, skip, _ in _filter_skipable(
-                    process=process,
-                    tiles_batches=process.get_process_tiles(
-                        zoom,
-                        batch_by=batch_sort_property(
-                            process.config.output_reader.tile_path_schema
-                        ),
-                    ),
-                    target_set=(
-                        overview_parents if process.config.baselevels and i else None
-                    ),
-                    skip_output_check=skip_output_check,
-                ):
-                    tiles[zoom].append((tile, skip))
-                    # in case of building overviews from baselevels, remember which parent
-                    # tile needs to be updated later on
-                    if (
-                        not skip_output_check
-                        and process.config.baselevels
-                        and tile.zoom > 0
-                    ):
-                        # add parent tile
-                        overview_parents.add(tile.get_parent())
-                        # we don't need the current tile anymore
-                    overview_parents.discard(tile)
-
-        if process.config.output.write_in_parent_process:
-            func = _execute
-            fkwargs = dict(append_data=propagate_results)
-        else:
-            func = _execute_and_write
-            fkwargs = dict(
-                append_data=propagate_results, output_writer=process.config.output
-            )
-
-        # tile tasks
-        for zoom in zoom_levels.descending():
-            yield TileTaskBatch(
-                id=f"zoom_{zoom}",
-                tasks=(
-                    TileTask(
-                        tile=tile,
-                        config=process.config,
-                        skip=(
-                            process.config.mode == "continue"
-                            and process.config.output_reader.tiles_exist(tile)
-                        )
-                        if skip_output_check
-                        else skip,
-                    )
-                    for tile, skip in tiles[zoom]
-                ),
-                func=func,
-                fkwargs=fkwargs,
-            )
-    logger.debug("tile task batches generated in %s", duration)
 
 
 def _compute_task_graph(
@@ -577,9 +489,7 @@ def _preprocess_task_wrapper(
     task, append_data=True, **kwargs
 ) -> PreprocessingProcessInfo:
     data = task.execute(**kwargs)
-    return PreprocessingProcessInfo(
-        task_key=task.id, data=data if append_data else None
-    )
+    return PreprocessingProcessInfo.from_inp(task.id, data, append_data=append_data)
 
 
 def _preprocess(

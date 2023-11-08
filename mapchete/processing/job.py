@@ -2,19 +2,27 @@
 
 import logging
 import os
-from typing import Generator
+from enum import Enum
+from typing import Callable, Iterator, Optional
 
-from shapely.geometry import mapping
+from shapely.geometry import base, mapping
 
-from mapchete.executor import Executor
-from mapchete.executor.types import Profiler
-from mapchete.timer import Timer
-from mapchete.types import Bounds
+from mapchete.enums import Concurrency
+from mapchete.executor import Executor, ExecutorBase
+from mapchete.processing.types import TaskResult
+from mapchete.types import Bounds, MPathLike
 
 FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
 
 
 logger = logging.getLogger(__name__)
+
+
+class Status(Enum):
+    pending = "pending"
+    running = "running"
+    finished = "finished"
+    cancelled = "cancelled"
 
 
 class Job:
@@ -27,29 +35,36 @@ class Job:
     Will move into the mapchete core package.
     """
 
+    func: Callable[..., Iterator[TaskResult]]
+    fargs: tuple
+    fkwargs: dict
+    status: Status
+    executor: ExecutorBase
+    executor_concurrency: Concurrency
+    executor_kwargs: dict
+    tiles_tasks: int
+    bounds: Optional[Bounds]
+    stac_item_path: Optional[MPathLike]
+
     def __init__(
         self,
-        func: Generator,
+        func: Callable[..., Iterator[TaskResult]],
         fargs: tuple = None,
         fkwargs: dict = None,
         as_iterator: bool = False,
         tiles_tasks: int = None,
         preprocessing_tasks: int = None,
-        executor_concurrency: str = "processes",
+        executor_concurrency: Concurrency = Concurrency.processes,
         executor_kwargs: dict = None,
-        process_area=None,
-        stac_item_path: str = None,
-        profiling: bool = False,
+        process_area: Optional[base.BaseGeometry] = None,
+        stac_item_path: Optional[MPathLike] = None,
     ):
         self.func = func
         self.fargs = fargs or ()
         self.fkwargs = fkwargs or {}
-        self.status = "pending"
-        self.executor = None
+        self.status = Status.pending
         self.executor_concurrency = executor_concurrency
         self.executor_kwargs = executor_kwargs or {}
-        if profiling:
-            self.executor_kwargs.update(profilers=[Profiler(name="time", ctx=Timer)])
         self.tiles_tasks = tiles_tasks or 0
         self.preprocessing_tasks = preprocessing_tasks or 0
         self._total = self.preprocessing_tasks + self.tiles_tasks
@@ -58,16 +73,16 @@ class Job:
         self.bounds = Bounds(*process_area.bounds) if process_area is not None else None
         self.stac_item_path = stac_item_path
         if not as_iterator:
-            self._results = list(self._run())
+            self._results: Iterator[TaskResult] = list(self._run())
 
     @property
-    def __geo_interface__(self):  # pragma: no cover
+    def __geo_interface__(self) -> dict:  # pragma: no cover
         if self._process_area is not None:
             return mapping(self._process_area)
         else:
             raise AttributeError(f"{self} has no geo information assigned")
 
-    def _run(self):
+    def _run(self) -> Iterator[TaskResult]:
         if self._total == 0:
             return
         logger.debug("opening executor for job %s", repr(self))
@@ -75,10 +90,10 @@ class Job:
         with Executor(
             concurrency=self.executor_concurrency, **self.executor_kwargs
         ) as self.executor:
-            self.status = "running"
+            self.status = Status.running
             logger.debug("change of job status: %s", self)
             yield from self.func(*self.fargs, executor=self.executor, **self.fkwargs)
-            self.status = "finished"
+            self.status = Status.finished
             logger.debug("change of job status: %s", self)
 
     def set_executor_kwargs(self, executor_kwargs):
@@ -104,12 +119,12 @@ class Job:
             if self.executor is None:  # pragma: no cover
                 raise ValueError("nothing to cancel because no executor is running")
             self.executor.cancel()
-            self.status = "cancelled"
+            self.status = Status.cancelled
 
     def __len__(self):
         return self._total
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[TaskResult]:
         if self._as_iterator:
             yield from self._run()
         else:

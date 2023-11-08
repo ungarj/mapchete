@@ -38,7 +38,6 @@ def execute(
     debug=False,
     no_pbar=False,
     verbose=False,
-    logfile=None,
     input_file=None,
     dask_no_task_graph=False,
     profiling=False,

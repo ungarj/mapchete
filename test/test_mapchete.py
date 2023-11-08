@@ -255,11 +255,20 @@ def test_baselevels_custom_nodata(baselevels_custom_nodata):
         )
 
 
-@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_update_overviews(overviews, concurrency, dask_executor):
+@pytest.mark.parametrize(
+    "concurrency,dask_compute_graph",
+    [
+        ("threads", False),
+        ("dask", False),
+        ("dask", True),
+        ("processes", False),
+        (None, False),
+    ],
+)
+def test_update_overviews(overviews, concurrency, dask_compute_graph, dask_executor):
     """Baselevel interpolation."""
     compute_kwargs = (
-        {"executor": dask_executor}
+        {"executor": dask_executor, "dask_compute_graph": dask_compute_graph}
         if concurrency == "dask"
         else {"concurrency": concurrency}
     )
