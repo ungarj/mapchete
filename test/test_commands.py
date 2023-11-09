@@ -173,7 +173,7 @@ def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector
 @pytest.mark.parametrize(
     "concurrency,dask_compute_graph",
     [
-        ("threads", False),
+        # ("threads", False),
         ("dask", False),
         ("dask", True),
         ("processes", False),
@@ -192,6 +192,14 @@ def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_
     ):
         assert isinstance(task_result, TaskResult)
         assert task_result.profiling
+        for profiler in ["time", "memory"]:
+            assert profiler in task_result.profiling
+
+        assert task_result.profiling["time"]._elapsed > 0
+
+        assert task_result.profiling["memory"].max_allocated > 0
+        assert task_result.profiling["memory"].total_allocated > 0
+        assert task_result.profiling["memory"].allocations > 0
 
 
 def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):

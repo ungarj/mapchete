@@ -9,6 +9,7 @@ from mapchete.executor import DaskExecutor, Executor, ExecutorBase
 from mapchete.executor.future import MFuture
 from mapchete.executor.types import Profiler
 from mapchete.path import batch_sort_property
+from mapchete.processing.profilers import preconfigured_profilers
 from mapchete.processing.tasks import TileTask, to_dask_collection
 from mapchete.processing.types import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.tile import BufferedTile
@@ -61,7 +62,7 @@ def compute(
 
         profilers = []
         if profiling:
-            profilers = [Profiler(name="time", ctx=Timer)]
+            profilers = preconfigured_profilers
             for profiler in profilers:
                 executor.add_profiler(profiler)
 
