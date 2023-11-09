@@ -210,7 +210,7 @@ def test_profile_wrapper(path):
     assert isinstance(result, Result)
     assert isinstance(result.output, ma.MaskedArray)
     assert isinstance(result.profiling, dict)
-    assert len(result.profiling) == 3
+    assert len(result.profiling) == 2
     assert result.profiling["time"].elapsed > 0
     assert result.profiling["memory"].max_allocated > 0
     assert result.profiling["memory"].total_allocated > 0
