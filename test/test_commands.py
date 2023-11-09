@@ -195,7 +195,7 @@ def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_
         for profiler in ["time", "memory"]:
             assert profiler in task_result.profiling
 
-        assert task_result.profiling["time"]._elapsed > 0
+        assert task_result.profiling["time"].elapsed > 0
 
         assert task_result.profiling["memory"].max_allocated > 0
         assert task_result.profiling["memory"].total_allocated > 0

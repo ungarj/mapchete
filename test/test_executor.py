@@ -1,13 +1,14 @@
 import time
 from concurrent.futures._base import CancelledError
 
+import numpy.ma as ma
 import pytest
 
 import mapchete
-from mapchete import Timer
 from mapchete.errors import MapcheteTaskFailed
 from mapchete.executor import MFuture
 from mapchete.executor.base import Profiler, Result, run_func_with_profilers
+from mapchete.io.raster import read_raster_no_crs
 from mapchete.processing.profilers import measure_memory, measure_requests, measure_time
 
 
@@ -191,12 +192,44 @@ def test_dask_cancellederror(dask_executor, items=10):
         list(dask_executor.as_completed(raise_cancellederror, range(items)))
 
 
-def test_profile_wrapper():
-    elapsed_time = 0.2
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band"),
+    ],
+)
+def test_profile_wrapper(path):
     result = run_func_with_profilers(
-        _dummy_process,
-        1,
-        fkwargs=dict(sleep=elapsed_time),
+        read_raster_no_crs,
+        path,
+        profilers=[
+            Profiler(name="time", decorator=measure_time),
+            Profiler(name="memory", decorator=measure_memory),
+        ],
+    )
+    assert isinstance(result, Result)
+    assert isinstance(result.output, ma.MaskedArray)
+    assert isinstance(result.profiling, dict)
+    assert len(result.profiling) == 3
+    assert result.profiling["time"].elapsed > 0
+    assert result.profiling["memory"].max_allocated > 0
+    assert result.profiling["memory"].total_allocated > 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("raster_4band_s3"),
+        pytest.lazy_fixture("raster_4band_aws_s3"),
+        pytest.lazy_fixture("raster_4band_http"),
+        pytest.lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+def test_profile_wrapper_requests(path):
+    result = run_func_with_profilers(
+        read_raster_no_crs,
+        path,
         profilers=[
             Profiler(name="time", decorator=measure_time),
             Profiler(name="requests", decorator=measure_requests),
@@ -204,12 +237,14 @@ def test_profile_wrapper():
         ],
     )
     assert isinstance(result, Result)
-    assert result.output == 2
+    assert isinstance(result.output, ma.MaskedArray)
     assert isinstance(result.profiling, dict)
     assert len(result.profiling) == 3
-    assert result.profiling["time"].elapsed > elapsed_time
+    assert result.profiling["time"].elapsed > 0
     assert result.profiling["memory"].max_allocated > 0
-    assert result.profiling["requests"].head_count == 0
+    assert result.profiling["memory"].total_allocated > 0
+    assert result.profiling["requests"].get_count > 0
+    assert result.profiling["requests"].get_bytes > 0
 
 
 @pytest.mark.parametrize(
@@ -220,7 +255,7 @@ def test_profiling(executor_fixture, request):
     executor = request.getfixturevalue(executor_fixture)
 
     # add profiler
-    executor.add_profiler("time", Timer)
+    executor.add_profiler("time", measure_time)
 
     items = list(range(10))
     for future in executor.as_completed(_dummy_process, items):

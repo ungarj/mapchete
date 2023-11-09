@@ -4,7 +4,6 @@ import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from concurrent.futures._base import CancelledError
-from contextlib import AbstractContextManager
 from functools import cached_property, partial
 from typing import Any, Callable, Iterator, List, Optional
 
@@ -55,7 +54,7 @@ class ExecutorBase(ABC):
     def add_profiler(
         self,
         name: Optional[str] = None,
-        ctx: Optional[AbstractContextManager] = None,
+        decorator: Optional[Callable] = None,
         args: Optional[tuple] = None,
         kwargs: Optional[dict] = None,
         profiler: Optional[Profiler] = None,
@@ -66,7 +65,9 @@ class ExecutorBase(ABC):
             self.profilers.append(name)
         else:
             self.profilers.append(
-                Profiler(name=name, ctx=ctx, args=args or (), kwargs=kwargs or {})
+                Profiler(
+                    name=name, decorator=decorator, args=args or (), kwargs=kwargs or {}
+                )
             )
 
     def _ready(self) -> List[MFuture]:
