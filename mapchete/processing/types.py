@@ -63,8 +63,9 @@ class TaskResult:
                 profiling=process_info.profiling or future.profiling,
             )
         elif isinstance(process_info, TileProcessInfo):
+            tile = process_info.tile
             return TaskResult(
-                id=process_info.tile,
+                id=f"tile-{tile.zoom}-{tile.row}-{tile.col}",
                 processed=process_info.processed,
                 process_msg=process_info.process_msg,
                 profiling=process_info.profiling or future.profiling,

@@ -221,7 +221,17 @@ def _process_everything(
         for future in mp.compute(**kwargs):
             result = TaskResult.from_future(future)
             if print_task_details:
-                msg_callback(str(result))
+                msg = f"task {result.id}: {result.process_msg}"
+                if result.profiling:
+                    max_allocated = (
+                        result.profiling["memory"].max_allocated / 1024 / 1024
+                    )
+                    head_requests = result.profiling["requests"].head_count
+                    get_requests = result.profiling["requests"].get_count
+                    requests = head_requests + get_requests
+                    transfer = result.profiling["requests"].get_bytes / 1024 / 1024
+                    msg += f" (max memory usage: {max_allocated:.2f}MB, {requests} GET and HEAD requests, {transfer:.2f}MB transferred)"
+                msg_callback(msg)
             yield result
         # explicitly exit the mp object on success
         mp.__exit__(None, None, None)

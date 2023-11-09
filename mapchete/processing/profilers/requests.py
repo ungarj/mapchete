@@ -26,7 +26,7 @@ def measure_requests(add_to_return: bool = True) -> Callable:
                     "please install tilebench if you want to use this feature."
                 )
 
-            @profile(add_to_return=True)
+            @profile(add_to_return=True, quiet=True)
             def _decorated(func, fargs, fkwargs) -> Any:
                 return func(*fargs, **fkwargs)
 
