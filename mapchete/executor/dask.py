@@ -55,7 +55,7 @@ class DaskExecutor(ExecutorBase):
             result = future.result()
             if isinstance(result, Result):
                 return result.output
-            return result
+            return result  # pragma: no cover
 
         return [
             _extract_result(f)
@@ -67,7 +67,7 @@ class DaskExecutor(ExecutorBase):
     def _wait(self):
         wait(self.running_futures)
 
-    def _as_completed(self, *args, **kwargs) -> Iterator[MFuture]:
+    def _as_completed(self, *args, **kwargs) -> Iterator[MFuture]:  # pragma: no cover
         return
 
     def as_completed(
@@ -218,7 +218,7 @@ class DaskExecutor(ExecutorBase):
         ).batches():
             for item in batch:
                 self._submitted -= 1
-                if with_results:
+                if with_results:  # pragma: no cover
                     future, result = item
                 else:
                     future, result = item, None

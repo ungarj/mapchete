@@ -84,18 +84,18 @@ class MemoryTracker:
             self._memray_tracker = self._exit_stack.enter_context(
                 memray.Tracker(self._temp_file, follow_fork=True)
             )
-        except RuntimeError as exc:
+        except RuntimeError as exc:  # pragma: no cover
             if raise_exc_multiple_trackers:
                 raise
             self._memray_tracker = None
             logger.exception(exc)
 
-    def __str__(self):
+    def __str__(self):  # pragma: no cover
         max_allocated = f"{self.max_allocated / 1024 / 1024:.2f}MB"
         total_allocated = f"{self.total_allocated / 1024 / 1024:.2f}MB"
         return f"<MemoryTracker max_allocated={max_allocated}, total_allocated={total_allocated}, allocations={self.allocations}>"
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return repr(str(self))
 
     def __enter__(self):

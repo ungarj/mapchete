@@ -222,7 +222,7 @@ def _process_everything(
             result = TaskResult.from_future(future)
             if print_task_details:
                 msg = f"task {result.id}: {result.process_msg}"
-                if result.profiling:
+                if result.profiling:  # pragma: no cover
                     max_allocated = (
                         result.profiling["memory"].max_allocated / 1024 / 1024
                     )

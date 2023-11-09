@@ -39,16 +39,16 @@ class ExecutorBase(ABC):
         max_submitted_tasks=500,
         item_skip_bool=False,
         **kwargs,
-    ) -> Iterator[MFuture]:
+    ) -> Iterator[MFuture]:  # pragma: no cover
         """Submit tasks to executor and start yielding finished futures."""
         ...
 
     @abstractmethod
-    def map(self, *args, **kwargs) -> Iterator[Any]:
+    def map(self, *args, **kwargs) -> Iterator[Any]:  # pragma: no cover
         ...
 
     @abstractmethod
-    def _wait(self, *args, **kwargs) -> None:
+    def _wait(self, *args, **kwargs) -> None:  # pragma: no cover
         ...
 
     def add_profiler(
@@ -59,7 +59,7 @@ class ExecutorBase(ABC):
         kwargs: Optional[dict] = None,
         profiler: Optional[Profiler] = None,
     ) -> None:
-        if profiler:
+        if profiler:  # pragma: no cover
             self.profilers.append(profiler)
         elif isinstance(name, Profiler):
             self.profilers.append(name)

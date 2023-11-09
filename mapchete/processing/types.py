@@ -36,10 +36,8 @@ class PreprocessingProcessInfo:
         if isinstance(inp, Result):
             profiling = inp.profiling
             data = inp.output
-        if not append_data:
-            data = None
         return PreprocessingProcessInfo(
-            task_key=task_key, data=data, profiling=profiling
+            task_key=task_key, data=data if append_data else None, profiling=profiling
         )
 
 

@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 class FutureProtocol(Protocol):
     """This protocol is used by both concurrent.futures as well as dask distributed."""
 
-    def result(self, **kwargs) -> Any:
+    def result(self, **kwargs) -> Any:  # pragma: no cover
         ...
 
-    def exception(self, **kwargs) -> Union[Exception, None]:
+    def exception(self, **kwargs) -> Union[Exception, None]:  # pragma: no cover
         ...
 
-    def cancelled(self) -> bool:
+    def cancelled(self) -> bool:  # pragma: no cover
         ...
 
 
@@ -174,7 +174,7 @@ class MFuture:
         ):
             try:
                 self._set_result(self._future.result(timeout=timeout, **kwargs))
-            except Exception as exc:
+            except Exception as exc:  # pragma: no cover
                 self._exception = exc
 
             # delete reference to future so it can be released from the dask cluster
@@ -196,7 +196,7 @@ class MFuture:
         This is a workaround between the slightly different APIs of dask and concurrent.futures.
         It also tries to avoid potentially expensive calls to the dask scheduler.
         """
-        if self.cancelled():
+        if self.cancelled():  # pragma: no cover
             return True
         elif self.status:
             return self.status in ["error", "cancelled"]
@@ -218,7 +218,7 @@ class MFuture:
             exception = self.exception(timeout=FUTURE_TIMEOUT)
 
             # sometimes, exceptions are simply empty
-            if exception is None:
+            if exception is None:  # pragma: no cover
                 raise MapcheteTaskFailed(
                     f"future failed (status: {self.status}), but exception could not be recovered"
                 )

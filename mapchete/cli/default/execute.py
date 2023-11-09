@@ -43,8 +43,8 @@ def execute(
     profiling=False,
     **kwargs,
 ):
-    if profiling:
-        verbose = True
+    # activate verbose if profiling is active
+    verbose = verbose or profiling
 
     if input_file is not None:  # pragma: no cover
         raise click.BadOptionUsage(

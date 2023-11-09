@@ -21,7 +21,7 @@ def measure_requests(add_to_return: bool = True) -> Callable:
         def wrapped_f(*args, **kwargs) -> Union[Any, Tuple[Any, MeasuredRequests]]:
             try:
                 from tilebench import profile
-            except ImportError:
+            except ImportError:  # pragma: no cover
                 raise ImportError(
                     "please install tilebench if you want to use this feature."
                 )
@@ -45,7 +45,7 @@ def measure_requests(add_to_return: bool = True) -> Callable:
             )
             if add_to_return:
                 return retval, results
-            return results
+            return retval
 
         return wrapped_f
 

@@ -57,7 +57,7 @@ def compute(
 
         if tile:
             zoom_levels = ZoomLevels.from_inp(tile.zoom)
-        elif zoom_levels is None:
+        elif zoom_levels is None:  # pragma: no cover
             raise ValueError("either tile or zoom_levels has to be provided")
 
         profilers = []

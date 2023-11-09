@@ -193,12 +193,11 @@ def test_dask_cancellederror(dask_executor, items=10):
 
 
 @pytest.mark.parametrize(
-    "path",
-    [
-        pytest.lazy_fixture("raster_4band"),
-    ],
+    "path_fixture",
+    ["raster_4band"],
 )
-def test_profile_wrapper(path):
+def test_profile_wrapper(request, path_fixture):
+    path = request.getfixturevalue(path_fixture)
     result = run_func_with_profilers(
         read_raster_no_crs,
         path,
@@ -218,15 +217,16 @@ def test_profile_wrapper(path):
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "path",
+    "path_fixture",
     [
-        pytest.lazy_fixture("raster_4band_s3"),
-        pytest.lazy_fixture("raster_4band_aws_s3"),
-        pytest.lazy_fixture("raster_4band_http"),
-        pytest.lazy_fixture("raster_4band_secure_http"),
+        "raster_4band_s3",
+        "raster_4band_aws_s3",
+        "raster_4band_http",
+        "raster_4band_secure_http",
     ],
 )
-def test_profile_wrapper_requests(path):
+def test_profile_wrapper_requests(request, path_fixture):
+    path = request.getfixturevalue(path_fixture)
     result = run_func_with_profilers(
         read_raster_no_crs,
         path,

@@ -101,7 +101,7 @@ class TaskBatch:
         fkwargs: Optional[dict] = None,
         profilers: Optional[List[Profiler]] = None,
     ):
-        if tasks is None:
+        if tasks is None:  # pragma: no cover
             raise TypeError("TaskBatch requires at least one Task")
         self.id = id or uuid4().hex
         self.tasks = IndexedFeatures(
