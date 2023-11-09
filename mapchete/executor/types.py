@@ -1,12 +1,11 @@
-from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 
 @dataclass
 class Profiler:
     name: str
-    ctx: AbstractContextManager
+    decorator: Callable
     args: tuple = field(default_factory=tuple)
     kwargs: dict = field(default_factory=dict)
 

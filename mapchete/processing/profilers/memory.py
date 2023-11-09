@@ -2,14 +2,59 @@ import logging
 import os
 import uuid
 from contextlib import ExitStack
+from dataclasses import dataclass
 from tempfile import TemporaryDirectory
-from typing import Optional
+from typing import Any, Callable, Optional, Tuple, Union
 
 from mapchete.io import copy
 from mapchete.path import MPath
 from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MeasuredMemory:
+    max_allocated: int = 0
+    total_allocated: int = 0
+    allocations: int = 0
+
+
+def measure_memory(
+    add_to_return: bool = True,
+    output_file: Optional[MPathLike] = None,
+    raise_exc_multiple_trackers: bool = True,
+) -> Callable:
+    """Memory tracking decorator."""
+
+    def wrapper(func: Callable) -> Callable:
+        """Wrap a function."""
+
+        def wrapped_f(*args, **kwargs) -> Union[Any, Tuple[Any, MeasuredMemory]]:
+            with MemoryTracker(
+                output_file=output_file,
+                raise_exc_multiple_trackers=raise_exc_multiple_trackers,
+            ) as tracker:
+                retval = func(*args, **kwargs)
+
+            result = MeasuredMemory(
+                max_allocated=tracker.max_allocated,
+                total_allocated=tracker.total_allocated,
+                allocations=tracker.allocations,
+            )
+
+            logger.info(
+                "function %s consumed a maximum of %sMB",
+                func,
+                round(tracker.max_allocated / 1024 / 1024, 2),
+            )
+            if add_to_return:
+                return (retval, result)
+            return retval
+
+        return wrapped_f
+
+    return wrapper
 
 
 class MemoryTracker:

@@ -8,9 +8,11 @@ from mapchete import Timer
 from mapchete.errors import MapcheteTaskFailed
 from mapchete.executor import MFuture
 from mapchete.executor.base import Profiler, Result, run_func_with_profilers
+from mapchete.processing.profilers import measure_memory, measure_requests, measure_time
 
 
 def _dummy_process(i, sleep=0):
+    list(range(1_000_000))
     time.sleep(sleep)
     return i + 1
 
@@ -195,13 +197,19 @@ def test_profile_wrapper():
         _dummy_process,
         1,
         fkwargs=dict(sleep=elapsed_time),
-        profilers=[Profiler(name="time", ctx=Timer)],
+        profilers=[
+            Profiler(name="time", decorator=measure_time),
+            Profiler(name="requests", decorator=measure_requests),
+            Profiler(name="memory", decorator=measure_memory),
+        ],
     )
     assert isinstance(result, Result)
     assert result.output == 2
     assert isinstance(result.profiling, dict)
-    assert len(result.profiling) == 1
+    assert len(result.profiling) == 3
     assert result.profiling["time"].elapsed > elapsed_time
+    assert result.profiling["memory"].max_allocated > 0
+    assert result.profiling["requests"].head_count == 0
 
 
 @pytest.mark.parametrize(

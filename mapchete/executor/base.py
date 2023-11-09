@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from concurrent.futures._base import CancelledError
-from contextlib import AbstractContextManager, ExitStack
+from contextlib import AbstractContextManager
 from functools import cached_property, partial
 from typing import Any, Callable, Iterator, List, Optional
 
@@ -166,28 +166,20 @@ def run_func_with_profilers(
     fkwargs.update(kwargs)
     profilers = profilers or []
     profilers_output = OrderedDict()
-    with ExitStack() as stack:
-        # enter contexts of all profilers
-        for profiler in profilers:
-            profilers_output[profiler.name] = stack.enter_context(
-                profiler.ctx(*profiler.args, **profiler.kwargs)
-            )
+    # append decorators from all profilers
+    for profiler in profilers:
+        func = profiler.decorator(*profiler.args, **profiler.kwargs)(func)
 
-        # actually run function
-        try:
-            output = func(*fargs, **fkwargs)
-            exception = None
-        except Exception as exc:
-            output = None
-            exception = exc
+    # actually run function
+    func_output = func(*fargs, **fkwargs)
 
-    for profiler_name, profiler_output in profilers_output.items():
-        logger.debug("profiler '%s' returned %s", profiler_name, profiler_output)
+    # extract profiler results from output
+    for idx in list(reversed(range(len(profilers)))):
+        profiler = profilers[idx]
+        func_output, profiler_output = func_output
+        profilers_output[profiler.name] = profiler_output
 
-    if exception:
-        raise exception
-
-    return Result(output=output, exception=exception, profiling=dict(profilers_output))
+    return Result(output=func_output, profiling=dict(profilers_output))
 
 
 def func_partial(
