@@ -43,13 +43,14 @@ def measure_memory(
                 allocations=tracker.allocations,
             )
 
+            if add_to_return:
+                return (retval, result)
+
             logger.info(
                 "function %s consumed a maximum of %sMB",
                 func,
                 round(tracker.max_allocated / 1024 / 1024, 2),
             )
-            if add_to_return:
-                return (retval, result)
             return retval
 
         return wrapped_f

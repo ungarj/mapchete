@@ -36,6 +36,10 @@ def measure_requests(add_to_return: bool = True) -> Callable:
                 get_count=raw_results["GET"]["count"],
                 get_bytes=raw_results["GET"]["bytes"],
             )
+
+            if add_to_return:
+                return retval, results
+
             logger.info(
                 "function %s caused %s HEAD requests, %s GET requests and retreived %sMB of data",
                 func,
@@ -43,8 +47,6 @@ def measure_requests(add_to_return: bool = True) -> Callable:
                 results.get_count,
                 round(results.get_bytes / 1024 / 1024, 2),
             )
-            if add_to_return:
-                return retval, results
             return retval
 
         return wrapped_f

@@ -27,9 +27,12 @@ def measure_time(add_to_return: bool = True) -> Callable:
             result = MeasuredTime(
                 elapsed=timed.elapsed, start=timed.start, end=timed.end
             )
-            logger.info("function %s took %s", func, str(timed))
+
             if add_to_return:
                 return (retval, result)
+
+            logger.info("function %s took %s", func, str(timed))
+            return
 
         return wrapped_f
 
