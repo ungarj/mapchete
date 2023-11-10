@@ -28,6 +28,7 @@ class GDALHTTPOptions(BaseSettings):
     VSI_CACHE: bool = True
     # 5MB cache per file
     VSI_CACHE_SIZE: int = 5_000_000
+    # read from environment
     model_config = SettingsConfigDict()
 
 
@@ -35,4 +36,5 @@ class IORetrySettings(BaseSettings):
     tries: int = 3
     delay: float = 1.0
     backoff: float = 1.0
+    # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_IO_RETRY_")

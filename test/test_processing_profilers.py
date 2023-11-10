@@ -2,6 +2,7 @@ import numpy.ma as ma
 import pytest
 
 from mapchete.io.raster import read_raster_no_crs
+from mapchete.path import MPath
 from mapchete.processing.profilers.memory import (
     MeasuredMemory,
     MemoryTracker,
@@ -48,26 +49,33 @@ def test_memory_context_manager(raster_4band, mp_tmpdir):
 
 
 @pytest.mark.integration
-def test_requests_return_result(raster_4band_s3):
-    @measure_requests()
-    def _decorated(path):
-        return read_raster_no_crs(path)
+def test_requests_return_result(raster_4band_http):
+    # this is just to make sure, GDAL already has seen this file, so this
+    # test would not behave differently when run within the whole test suite
+    read_raster_no_crs(raster_4band_http)
 
-    retval, result = _decorated(raster_4band_s3)
+    @measure_requests()
+    def _decorated(path: MPath):
+        # setting this is important, otherwise GDAL will cache the file
+        # and thus measure_requests will not be able to count requests
+        # if the file has already been opened in a prior tests
+        with path.rio_env(opts=dict(CPL_VSIL_CURL_NON_CACHED=path.as_gdal_str())):
+            return read_raster_no_crs(path)
+
+    retval, result = _decorated(raster_4band_http)
     assert isinstance(retval, ma.MaskedArray)
     assert isinstance(result, MeasuredRequests)
 
-    # no heads given?
-    # assert result.head_count > 0
+    assert result.head_count > 0
     assert result.get_count > 0
     assert result.get_bytes > 0
 
 
 @pytest.mark.integration
-def test_requests_not_return_result(raster_4band_s3):
+def test_requests_not_return_result(raster_4band_http):
     @measure_requests(add_to_return=False)
     def _decorated(path):
         return read_raster_no_crs(path)
 
-    retval = _decorated(raster_4band_s3)
+    retval = _decorated(raster_4band_http)
     assert isinstance(retval, ma.MaskedArray)
