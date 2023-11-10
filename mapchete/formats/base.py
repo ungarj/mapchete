@@ -14,11 +14,10 @@ import numpy as np
 import numpy.ma as ma
 from shapely.geometry import shape
 
-from mapchete._tasks import Task
 from mapchete.config import get_hash
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessOutputError
 from mapchete.formats import write_output_metadata
-from mapchete.io import fs_from_path, makedirs, path_exists
+from mapchete.io import fs_from_path, path_exists
 from mapchete.io.raster import (
     create_mosaic,
     extract_from_array,
@@ -26,6 +25,7 @@ from mapchete.io.raster import (
     read_raster_window,
 )
 from mapchete.io.vector import read_vector_window
+from mapchete.processing.tasks import Task
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)

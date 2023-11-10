@@ -24,7 +24,6 @@ import logging
 import numpy as np
 import numpy.ma as ma
 
-from mapchete.config import validate_values
 from mapchete.formats import base
 from mapchete.io.raster import (
     MPath,
@@ -34,6 +33,7 @@ from mapchete.io.raster import (
     write_raster_window,
 )
 from mapchete.tile import BufferedTile
+from mapchete.validate import validate_values
 
 logger = logging.getLogger(__name__)
 METADATA = {"driver_name": "PNG", "data_type": "raster", "mode": "w"}

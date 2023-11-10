@@ -216,13 +216,13 @@ def _copy_tiles(
         # check which source tiles exist
         logger.debug("looking for existing source tiles...")
         src_tiles_exist = dict(
-            tiles_exist(config=src_mp.config, output_tiles=tiles, multi=workers)
+            tiles_exist(config=src_mp.config, output_tiles=tiles, workers=workers)
         )
 
         # check which destination tiles exist
         logger.debug("looking for existing destination tiles...")
         dst_tiles_exist = dict(
-            tiles_exist(config=dst_mp.config, output_tiles=tiles, multi=workers)
+            tiles_exist(config=dst_mp.config, output_tiles=tiles, workers=workers)
         )
 
         # copy

@@ -26,8 +26,8 @@ from mapchete.io._geometry_operations import (
     segmentize_geometry,
     to_shape,
 )
-from mapchete.io.settings import IORetrySettings
 from mapchete.path import MPath, fs_from_path, path_exists
+from mapchete.settings import IORetrySettings
 from mapchete.types import Bounds
 from mapchete.validate import validate_bounds
 

@@ -23,12 +23,12 @@ from retry import retry
 from shapely.geometry import box, mapping
 from tilematrix import Bounds, Shape, clip_geometry_to_srs_bounds
 
-from mapchete._timer import Timer
 from mapchete.errors import MapcheteIOError
 from mapchete.io import copy
-from mapchete.io.settings import IORetrySettings
 from mapchete.path import MPath, fs_from_path
+from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile
+from mapchete.timer import Timer
 from mapchete.validate import validate_write_window_params
 
 logger = logging.getLogger(__name__)

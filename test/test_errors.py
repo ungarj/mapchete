@@ -8,8 +8,8 @@ import pytest
 
 import mapchete
 from mapchete import errors
-from mapchete._processing import Executor
 from mapchete.config import MapcheteConfig, validate_values
+from mapchete.executor import Executor
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -301,7 +301,7 @@ def test_finished_task():
     assert task.exception()
     with pytest.raises(ZeroDivisionError):
         task.result()
-    assert "FakeFuture" in str(task)
+    assert "MFuture" in str(task)
 
 
 def test_strip_zoom_error(files_zooms):

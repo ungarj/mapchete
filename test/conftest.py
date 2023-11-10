@@ -12,12 +12,12 @@ from shapely import wkt
 from shapely.geometry import box
 from tilematrix import Bounds, GridDefinition
 
-from mapchete._executor import (
+from mapchete.cli.default.serve import create_app
+from mapchete.executor import (
     ConcurrentFuturesExecutor,
     DaskExecutor,
     SequentialExecutor,
 )
-from mapchete.cli.default.serve import create_app
 from mapchete.io import MPath, copy, rasterio_open
 from mapchete.io.vector import reproject_geometry
 from mapchete.testing import ProcessFixture

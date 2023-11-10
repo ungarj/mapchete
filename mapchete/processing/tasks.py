@@ -1,30 +1,23 @@
 import logging
-from collections import namedtuple
-from itertools import chain
+from typing import Callable, Iterator, List, Optional
 from uuid import uuid4
 
 from shapely.geometry import box, mapping
 
-from mapchete._timer import Timer
-from mapchete._user_process import MapcheteProcess
 from mapchete.errors import (
     MapcheteNodataTile,
     MapcheteProcessOutputError,
     NoTaskGeometry,
 )
+from mapchete.executor.base import Profiler, func_partial
 from mapchete.io import raster
 from mapchete.io._geometry_operations import to_shape
 from mapchete.io.vector import IndexedFeatures
+from mapchete.processing.mp import MapcheteProcess
+from mapchete.timer import Timer
 from mapchete.validate import validate_bounds
 
 logger = logging.getLogger(__name__)
-
-
-TaskResult = namedtuple(
-    "TaskResult",
-    "task_id tile processed process_msg result",
-    defaults=(None, None, None, None, None),
-)
 
 
 class Task:
@@ -82,7 +75,7 @@ class Task:
         self.dependencies.update(dependencies)
 
     def execute(self, dependencies=None):
-        return self.func(*self.fargs, **self.fkwargs)
+        return func_partial(self.func, self.fargs, self.fkwargs, profilers=None)()
 
     def has_geometry(self):
         return self.geometry is not None
@@ -100,8 +93,15 @@ def _execute_task_wrapper(task, **kwargs):
 
 
 class TaskBatch:
-    def __init__(self, tasks=None, id=None, func=None, fkwargs=None):
-        if tasks is None:
+    def __init__(
+        self,
+        tasks: Iterator[Task],
+        id: Optional[str] = None,
+        func: Optional[Callable] = None,
+        fkwargs: Optional[dict] = None,
+        profilers: Optional[List[Profiler]] = None,
+    ):
+        if tasks is None:  # pragma: no cover
             raise TypeError("TaskBatch requires at least one Task")
         self.id = id or uuid4().hex
         self.tasks = IndexedFeatures(
@@ -251,8 +251,7 @@ class TileTask(Task):
         except MapcheteNodataTile:
             raise
         except Exception as e:
-            # Log process time
-            logger.exception(e)
+            # Log process time and tile
             logger.error((self.tile.id, "exception in user process", e, str(duration)))
             raise
 
@@ -286,7 +285,8 @@ class TileTask(Task):
             # resample from children tiles
             elif baselevel == "lower":
                 src_tiles = {}
-                for process_info in dependencies.values():
+                for result in dependencies.values():
+                    process_info = result.output
                     logger.debug("reading output from dependend tasks")
                     process_tile = process_info.tile
                     for output_tile in self.output_reader.pyramid.intersecting(
@@ -333,13 +333,21 @@ class TileTask(Task):
 class TileTaskBatch(TaskBatch):
     """Combines TileTask instances of same pyramid and zoom level into one batch."""
 
-    def __init__(self, tasks=None, id=None, func=None, fkwargs=None):
+    def __init__(
+        self,
+        tasks=None,
+        id=None,
+        func=None,
+        fkwargs=None,
+        profilers: Optional[List[Profiler]] = None,
+    ):
         self.id = id or uuid4().hex
         self.bounds = None, None, None, None
         self.tasks = {tile: item for tile, item in self._validate(tasks)}
         self._update_bounds()
         self.func = func or _execute_task_wrapper
         self.fkwargs = fkwargs or {}
+        self.profilers = profilers or []
 
     def _update_bounds(self):
         for tile in self.tasks.keys():

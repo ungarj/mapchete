@@ -7,11 +7,11 @@ import types
 
 from fiona.errors import DriverError
 
-from mapchete.config import validate_values
 from mapchete.formats import base
 from mapchete.io import MPath, fiona_open
 from mapchete.io.vector import write_vector_window
 from mapchete.tile import BufferedTile
+from mapchete.validate import validate_values
 
 logger = logging.getLogger(__name__)
 

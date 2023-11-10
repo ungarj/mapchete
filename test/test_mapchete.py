@@ -20,10 +20,10 @@ from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
 import mapchete
-from mapchete._processing import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.raster import _shift_required, create_mosaic
+from mapchete.processing.types import PreprocessingProcessInfo, TileProcessInfo
 from mapchete.tile import BufferedTilePyramid, count_tiles
 
 
@@ -255,11 +255,20 @@ def test_baselevels_custom_nodata(baselevels_custom_nodata):
         )
 
 
-@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_update_overviews(overviews, concurrency, dask_executor):
+@pytest.mark.parametrize(
+    "concurrency,dask_compute_graph",
+    [
+        ("threads", False),
+        ("dask", False),
+        ("dask", True),
+        ("processes", False),
+        (None, False),
+    ],
+)
+def test_update_overviews(overviews, concurrency, dask_compute_graph, dask_executor):
     """Baselevel interpolation."""
     compute_kwargs = (
-        {"executor": dask_executor}
+        {"executor": dask_executor, "dask_compute_graph": dask_compute_graph}
         if concurrency == "dask"
         else {"concurrency": concurrency}
     )
@@ -513,9 +522,9 @@ def test_batch_process(cleantopo_tl):
         # process single tile
         mp.batch_process(tile=(2, 0, 0))
         # process using multiprocessing
-        mp.batch_process(zoom=2, multi=2)
+        mp.batch_process(zoom=2, workers=2)
         # process without multiprocessing
-        mp.batch_process(zoom=2, multi=1)
+        mp.batch_process(zoom=2, workers=1)
 
 
 def test_skip_tiles(cleantopo_tl):
@@ -850,3 +859,26 @@ def test_write_stac(stac_metadata):
         item = json.loads(src.read())
 
     assert item
+
+
+# @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
+@pytest.mark.parametrize("concurrency", [None])
+def test_compute_request_count(preprocess_cache_memory, concurrency, dask_executor):
+    compute_kwargs = (
+        {"executor": dask_executor}
+        if concurrency == "dask"
+        else {"concurrency": concurrency}
+    )
+    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
+        preprocessing_tasks = 0
+        tile_tasks = 0
+        for future in mp.compute(**compute_kwargs, dask_compute_graph=False):
+            result = future.result()
+            if isinstance(result, PreprocessingProcessInfo):
+                preprocessing_tasks += 1
+            else:
+                assert isinstance(result, TileProcessInfo)
+                tile_tasks += 1
+                assert result.data is None
+    assert tile_tasks == 20
+    assert preprocessing_tasks == 2

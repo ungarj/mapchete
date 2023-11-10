@@ -4,14 +4,19 @@ import logging
 import traceback
 import warnings
 from multiprocessing import cpu_count
-from typing import Callable, List, Tuple, Union
+from typing import Callable, Iterator, List, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
-from mapchete._processing import PreprocessingProcessInfo, TileProcessInfo
-from mapchete.config import bounds_from_opts, raw_conf, raw_conf_process_pyramid
+from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
+from mapchete.enums import Concurrency, ProcessingMode
+from mapchete.processing.types import (
+    PreprocessingProcessInfo,
+    TaskResult,
+    TileProcessInfo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +32,8 @@ def execute(
     point_crs: Tuple[float, float] = None,
     tile: Tuple[int, int, int] = None,
     overwrite: bool = False,
-    mode: str = "continue",
-    concurrency: str = "processes",
+    mode: ProcessingMode = ProcessingMode.CONTINUE,
+    concurrency: Concurrency = Concurrency.processes,
     workers: int = None,
     multi: int = None,
     multiprocessing_start_method: str = None,
@@ -40,6 +45,8 @@ def execute(
     dask_propagate_results=True,
     msg_callback: Callable = None,
     as_iterator: bool = False,
+    profiling: bool = False,
+    **kwargs,
 ) -> mapchete.Job:
     """
     Execute a Mapchete process.
@@ -183,6 +190,7 @@ def execute(
                 dask_chunksize=dask_chunksize,
                 dask_compute_graph=dask_compute_graph,
                 dask_propagate_results=dask_propagate_results,
+                profiling=profiling,
             ),
             executor_concurrency=concurrency,
             executor_kwargs=dict(
@@ -208,22 +216,23 @@ def _process_everything(
     mp,
     print_task_details=True,
     **kwargs,
-):
+) -> Iterator[TaskResult]:
     try:
         for future in mp.compute(**kwargs):
+            result = TaskResult.from_future(future)
             if print_task_details:
-                process_info = future.result()
-                if isinstance(
-                    process_info, PreprocessingProcessInfo
-                ):  # pragma: no cover
-                    msg_callback(f"Task {process_info.task_key} finished")
-                elif isinstance(process_info, TileProcessInfo):
-                    msg_callback(
-                        f"Task {process_info.tile.id}: {process_info.process_msg}, {process_info.write_msg}"
+                msg = f"task {result.id}: {result.process_msg}"
+                if result.profiling:  # pragma: no cover
+                    max_allocated = (
+                        result.profiling["memory"].max_allocated / 1024 / 1024
                     )
-                else:  # pragma: no cover
-                    raise TypeError(f"unknown process info type: {type(process_info)}")
-            yield future
+                    head_requests = result.profiling["requests"].head_count
+                    get_requests = result.profiling["requests"].get_count
+                    requests = head_requests + get_requests
+                    transfer = result.profiling["requests"].get_bytes / 1024 / 1024
+                    msg += f" (max memory usage: {max_allocated:.2f}MB, {requests} GET and HEAD requests, {transfer:.2f}MB transferred)"
+                msg_callback(msg)
+            yield result
         # explicitly exit the mp object on success
         mp.__exit__(None, None, None)
     except Exception as exc:  # pragma: no cover

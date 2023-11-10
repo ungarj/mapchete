@@ -7,7 +7,7 @@ import oyaml as yaml
 
 import mapchete
 from mapchete.cli import options
-from mapchete.config import raw_conf, raw_conf_output_pyramid
+from mapchete.config.parse import raw_conf, raw_conf_output_pyramid
 from mapchete.formats import read_output_metadata
 from mapchete.io import MPath
 from mapchete.stac import (
@@ -15,7 +15,7 @@ from mapchete.stac import (
     tile_direcotry_item_to_dict,
     tile_directory_stac_item,
 )
-from mapchete.validate import validate_zooms
+from mapchete.types import ZoomLevels
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ def create_item(
 
     if default_zoom:
         zoom = zoom or default_zoom
-    zoom = validate_zooms(zoom)
+    zoom = ZoomLevels.from_inp(zoom)
 
     if zoom is None:  # pragma: no cover
         raise ValueError("zoom must be set")

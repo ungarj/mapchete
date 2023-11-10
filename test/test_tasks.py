@@ -3,8 +3,14 @@ from itertools import chain
 import pytest
 from shapely.geometry import shape
 
-from mapchete._tasks import Task, TaskBatch, TileTask, TileTaskBatch, to_dask_collection
 from mapchete.errors import NoTaskGeometry
+from mapchete.processing.tasks import (
+    Task,
+    TaskBatch,
+    TileTask,
+    TileTaskBatch,
+    to_dask_collection,
+)
 
 
 def test_task_geo_interface():

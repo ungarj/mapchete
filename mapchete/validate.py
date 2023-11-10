@@ -36,6 +36,11 @@ def validate_zooms(
     -------
     List of zoom levels.
     """
+    warnings.warn(
+        DeprecationWarning(
+            "'validate_zooms()' is deprecated and replaced 'ZoomLevels.from_inp()'"
+        )
+    )
     return ZoomLevels.from_inp(zooms)
 
 
@@ -57,6 +62,11 @@ def validate_bounds(bounds: Iterable) -> Bounds:
     ------
     TypeError if type is invalid.
     """
+    warnings.warn(
+        DeprecationWarning(
+            "'validate_bounds()' is deprecated and replaced 'Bounds.from_inp()'"
+        )
+    )
     return Bounds.from_inp(bounds)
 
 

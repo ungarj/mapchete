@@ -9,8 +9,7 @@ import oyaml as yaml
 from shapely.ops import unary_union
 
 import mapchete
-from mapchete.config import initialize_inputs, open_inputs
-from mapchete.io import fs_from_path
+from mapchete.config.base import initialize_inputs, open_inputs
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 
@@ -144,7 +143,7 @@ class ProcessFixture:
         """
         Return Mapchete object from mapchete.open().
         """
-        from mapchete._executor import SequentialExecutor
+        from mapchete.executor import SequentialExecutor
 
         with SequentialExecutor() as executor:
             if not self._mp:

@@ -3,110 +3,42 @@
 import json
 import logging
 import multiprocessing
-import os
 import threading
-import warnings
+from typing import Any, Iterator, List, Optional, Tuple, Union
 
 from cachetools import LRUCache
 
-from mapchete._processing import (
-    ProcessInfo,
+from mapchete.config import MapcheteConfig
+from mapchete.enums import Concurrency
+from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
+from mapchete.executor import (
+    MULTIPROCESSING_DEFAULT_START_METHOD,
+    ExecutorBase,
+    MFuture,
+)
+from mapchete.executor.base import func_partial
+from mapchete.executor.types import Profiler
+from mapchete.path import batch_sort_property, tiles_exist
+from mapchete.processing.compute import (
+    PreprocessingProcessInfo,
+    TileProcessInfo,
+    _execute,
+    _execute_and_write,
+    _filter_skipable,
     _preprocess,
+    _preprocess_task_wrapper,
     _run_area,
     _run_on_single_tile,
     compute,
-    task_batches,
 )
-from mapchete._tasks import TileTask
-from mapchete._timer import Timer
-from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD, MapcheteConfig
-from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
-from mapchete.formats import read_output_metadata
-from mapchete.io import MPath, fs_from_path, tiles_exist
+from mapchete.processing.tasks import TaskBatch, TileTask, TileTaskBatch
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
-from mapchete.tile import count_tiles
-from mapchete.validate import validate_tile, validate_zooms
+from mapchete.tile import BufferedTile, count_tiles
+from mapchete.timer import Timer
+from mapchete.types import TileLike, ZoomLevels, ZoomLevelsLike
+from mapchete.validate import validate_tile
 
 logger = logging.getLogger(__name__)
-
-
-def open(some_input, with_cache=False, fs=None, fs_kwargs=None, **kwargs):
-    """
-    Open a Mapchete process.
-
-    Parameters
-    ----------
-    some_input : MapcheteConfig object, config dict, path to mapchete file or path to
-        TileDirectory
-        Mapchete process configuration
-    mode : string
-        * ``memory``: Generate process output on demand without reading
-          pre-existing data or writing new data.
-        * ``readonly``: Just read data without processing new data.
-        * ``continue``: (default) Don't overwrite existing output.
-        * ``overwrite``: Overwrite existing output.
-    zoom : list or integer
-        process zoom level or a pair of minimum and maximum zoom level
-    bounds : tuple
-        left, bottom, right, top process boundaries in output pyramid
-    single_input_file : string
-        single input file if supported by process
-    with_cache : bool
-        process output data cached in memory
-    fs : fsspec FileSystem
-        Any FileSystem object for the mapchete output.
-    fs_kwargs : dict
-        Special configuration parameters if FileSystem object has to be created.
-
-    Returns
-    -------
-    Mapchete
-        a Mapchete process object
-    """
-    # convert to MPath object if possible
-    if isinstance(some_input, str):
-        some_input = MPath.from_inp(some_input)
-    # for TileDirectory inputs
-    if isinstance(some_input, MPath) and some_input.suffix == "":
-        logger.debug("assuming TileDirectory")
-        metadata_json = MPath.from_inp(some_input).joinpath("metadata.json")
-        fs_kwargs = fs_kwargs or {}
-        fs = fs or fs_from_path(metadata_json, **fs_kwargs)
-        logger.debug("read metadata.json")
-        metadata = read_output_metadata(metadata_json, fs=fs)
-        config = dict(
-            process=None,
-            input=None,
-            pyramid=metadata["pyramid"].to_dict(),
-            output=dict(
-                {
-                    k: v
-                    for k, v in metadata["driver"].items()
-                    if k not in ["delimiters", "mode"]
-                },
-                path=some_input,
-                fs=fs,
-                fs_kwargs=fs_kwargs,
-                **kwargs,
-            ),
-            config_dir=os.getcwd(),
-            zoom_levels=kwargs.get("zoom"),
-        )
-        kwargs.update(mode="readonly")
-        return Mapchete(MapcheteConfig(config, **kwargs))
-    # for dicts, .mapchete file paths or MpacheteConfig objects
-    elif (
-        isinstance(some_input, dict)
-        or isinstance(some_input, MPath)
-        and some_input.suffix == ".mapchete"
-        or isinstance(some_input, MapcheteConfig)
-    ):
-        return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
-    else:  # pragma: no cover
-        raise TypeError(
-            "can only open input in form of a mapchete file path, a TileDirectory path, "
-            f"a dictionary or a MapcheteConfig object, not {type(some_input)}"
-        )
 
 
 class Mapchete(object):
@@ -130,7 +62,7 @@ class Mapchete(object):
         process output data cached in memory
     """
 
-    def __init__(self, config, with_cache=False):
+    def __init__(self, config: MapcheteConfig, with_cache: bool = False):
         """
         Initialize Mapchete processing endpoint.
 
@@ -152,7 +84,9 @@ class Mapchete(object):
             self.process_lock = threading.Lock()
         self._count_tiles_cache = {}
 
-    def get_process_tiles(self, zoom=None, batch_by=None):
+    def get_process_tiles(
+        self, zoom: Optional[int] = None, batch_by: Optional[str] = None
+    ) -> Iterator[BufferedTile]:
         """
         Yield process tiles.
 
@@ -188,7 +122,11 @@ class Mapchete(object):
                 ):
                     yield tile
 
-    def skip_tiles(self, tiles=None, tiles_batches=None):
+    def skip_tiles(
+        self,
+        tiles: Iterator[BufferedTile] = None,
+        tiles_batches: Iterator[Iterator[BufferedTile]] = None,
+    ) -> Iterator[Tuple[BufferedTile, bool]]:
         """
         Quickly determine whether tiles can be skipped for processing.
 
@@ -221,26 +159,72 @@ class Mapchete(object):
                 for tile in tiles:
                     yield (tile, False)
 
-    def task_batches(self, zoom=None, tile=None, skip_output_check=False, **kwargs):
+    def task_batches(
+        self,
+        zoom: Optional[ZoomLevelsLike] = None,
+        tile: Optional[TileLike] = None,
+        skip_output_check: bool = False,
+        propagate_results: bool = True,
+        profilers: Optional[List[Profiler]] = None,
+    ) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
         """
         Generate task batches from preprocessing tasks and tile tasks.
         """
-        yield from task_batches(
-            self, zoom=zoom, tile=tile, skip_output_check=skip_output_check, **kwargs
+        yield from _task_batches(
+            self,
+            zoom=zoom,
+            tile=tile,
+            skip_output_check=skip_output_check,
+            propagate_results=propagate_results,
+            profilers=profilers,
         )
 
-    def compute(self, **kwargs):
+    def compute(
+        self,
+        zoom: Optional[ZoomLevelsLike] = None,
+        tile: Optional[TileLike] = None,
+        executor: Optional[ExecutorBase] = None,
+        concurrency: Concurrency = Concurrency.processes,
+        workers: int = multiprocessing.cpu_count(),
+        multiprocessing_start_method: Optional[str] = None,
+        skip_output_check: bool = False,
+        dask_scheduler: Optional[str] = None,
+        dask_compute_graph: bool = True,
+        dask_propagate_results: bool = True,
+        dask_max_submitted_tasks: bool = 500,
+        raise_errors: bool = True,
+        with_results: bool = False,
+        **kwargs,
+    ) -> Iterator[MFuture]:
         """Compute preprocessing tasks and tile tasks in one go."""
-        yield from compute(self, **kwargs)
+        yield from compute(
+            self,
+            zoom_levels=(
+                self.config.zoom_levels if zoom is None else ZoomLevels.from_inp(zoom)
+            ),
+            tile=self.config.process_pyramid.tile(*tile) if tile else None,
+            executor=executor,
+            concurrency=concurrency,
+            workers=workers,
+            multiprocessing_start_method=multiprocessing_start_method,
+            skip_output_check=skip_output_check,
+            dask_scheduler=dask_scheduler,
+            dask_compute_graph=dask_compute_graph,
+            dask_propagate_results=dask_propagate_results,
+            dask_max_submitted_tasks=dask_max_submitted_tasks,
+            raise_errors=raise_errors,
+            with_results=with_results,
+            **kwargs,
+        )
 
     def batch_preprocessor(
         self,
-        dask_scheduler=None,
-        dask_max_submitted_tasks=500,
-        dask_chunksize=100,
-        workers=None,
-        executor=None,
-    ):
+        dask_scheduler: Optional[str] = None,
+        dask_max_submitted_tasks: int = 500,
+        dask_chunksize: int = 100,
+        workers: Optional[int] = None,
+        executor: Optional[ExecutorBase] = None,
+    ) -> Iterator[MFuture]:
         """
         Run all required preprocessing steps and yield over results.
 
@@ -274,12 +258,12 @@ class Mapchete(object):
 
     def batch_preprocess(
         self,
-        dask_scheduler=None,
-        dask_max_submitted_tasks=500,
-        dask_chunksize=100,
-        workers=None,
-        executor=None,
-    ):
+        dask_scheduler: Optional[str] = None,
+        dask_max_submitted_tasks: int = 500,
+        dask_chunksize: int = 100,
+        workers: Optional[int] = None,
+        executor: Optional[ExecutorBase] = None,
+    ) -> None:
         """
         Run all required preprocessing steps.
 
@@ -309,18 +293,16 @@ class Mapchete(object):
 
     def batch_process(
         self,
-        zoom=None,
-        tile=None,
-        dask_scheduler=None,
-        dask_max_submitted_tasks=500,
-        dask_chunksize=100,
-        multi=None,
-        workers=None,
-        multiprocessing_module=None,
-        multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
-        skip_output_check=False,
-        executor=None,
-    ):
+        zoom: Optional[ZoomLevelsLike] = None,
+        tile: Optional[TileLike] = None,
+        dask_scheduler: Optional[str] = None,
+        dask_max_submitted_tasks: int = 500,
+        dask_chunksize: int = 100,
+        workers: Optional[int] = None,
+        multiprocessing_start_method: str = MULTIPROCESSING_DEFAULT_START_METHOD,
+        skip_output_check: bool = False,
+        executor: Optional[ExecutorBase] = None,
+    ) -> None:
         """
         Process a large batch of tiles.
 
@@ -342,9 +324,6 @@ class Mapchete(object):
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
         dask_chunksize : int
             Number of tasks submitted to the scheduler at once. (default: 100)
-        multiprocessing_module : module
-            either Python's standard 'multiprocessing' or Celery's 'billiard' module
-            (default: multiprocessing)
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
             (default: "spawn")
@@ -362,8 +341,6 @@ class Mapchete(object):
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
                 workers=workers,
-                multi=multi,
-                multiprocessing_module=multiprocessing_module,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
                 executor=executor,
@@ -372,18 +349,16 @@ class Mapchete(object):
 
     def batch_processor(
         self,
-        zoom=None,
-        tile=None,
-        dask_scheduler=None,
-        dask_max_submitted_tasks=500,
-        dask_chunksize=100,
-        multi=None,
-        workers=None,
-        multiprocessing_module=None,
-        multiprocessing_start_method=MULTIPROCESSING_DEFAULT_START_METHOD,
-        skip_output_check=False,
-        executor=None,
-    ):
+        zoom: Optional[ZoomLevelsLike] = None,
+        tile: Optional[TileLike] = None,
+        dask_scheduler: Optional[str] = None,
+        dask_max_submitted_tasks: int = 500,
+        dask_chunksize: int = 100,
+        workers: Optional[int] = None,
+        multiprocessing_start_method: str = MULTIPROCESSING_DEFAULT_START_METHOD,
+        skip_output_check: bool = False,
+        executor: Optional[ExecutorBase] = None,
+    ) -> Union[PreprocessingProcessInfo, TileProcessInfo]:
         """
         Process a large batch of tiles and yield report messages per tile.
 
@@ -401,11 +376,6 @@ class Mapchete(object):
             Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
         dask_chunksize : int
             Number of tasks submitted to the scheduler at once. (default: 100)
-        multi : int
-            number of workers (default: number of CPU cores)
-        multiprocessing_module : module
-            either Python's standard 'multiprocessing' or Celery's 'billiard' module
-            (default: multiprocessing)
         multiprocessing_start_method : str
             "fork", "forkserver" or "spawn"
             (default: "spawn")
@@ -415,14 +385,6 @@ class Mapchete(object):
         executor : mapchete.Executor
             optional executor class to be used for processing
         """
-        if multi is not None:  # pragma: no cover
-            warnings.warn(
-                DeprecationWarning(
-                    "the 'multi' keyword is deprecated and should be called 'workers'"
-                )
-            )
-            workers = workers or multi
-
         if zoom and tile:
             raise ValueError("use either zoom or tile")
 
@@ -438,19 +400,25 @@ class Mapchete(object):
         else:
             for future in _run_area(
                 process=self,
-                zoom_levels=_get_zoom_level(zoom, self),
+                zoom_levels=self.config.zoom_levels
+                if zoom is None
+                else ZoomLevels.from_inp(zoom),
                 dask_scheduler=dask_scheduler,
                 dask_max_submitted_tasks=dask_max_submitted_tasks,
                 dask_chunksize=dask_chunksize,
                 workers=workers or multiprocessing.cpu_count(),
-                multiprocessing_module=multiprocessing_module or multiprocessing,
                 multiprocessing_start_method=multiprocessing_start_method,
                 skip_output_check=skip_output_check,
                 executor=executor,
             ):
                 yield future.result()
 
-    def count_tasks(self, minzoom=None, maxzoom=None, init_zoom=0):
+    def count_tasks(
+        self,
+        minzoom: Optional[int] = None,
+        maxzoom: Optional[int] = None,
+        init_zoom: int = 0,
+    ) -> int:
         """
         Count all preprocessing tasks and tiles at given zoom levels.
 
@@ -468,10 +436,15 @@ class Mapchete(object):
         number of tasks
         """
         return self.config.preprocessing_tasks_count() + self.count_tiles(
-            minzoom=minzoom, maxzoom=maxzoom, init_zoom=0
+            minzoom=minzoom, maxzoom=maxzoom, init_zoom=init_zoom
         )
 
-    def count_tiles(self, minzoom=None, maxzoom=None, init_zoom=0):
+    def count_tiles(
+        self,
+        minzoom: Optional[int] = None,
+        maxzoom: Optional[int] = None,
+        init_zoom: int = 0,
+    ) -> int:
         """
         Count number of tiles intersecting with process area at given zoom levels.
 
@@ -503,7 +476,7 @@ class Mapchete(object):
             logger.debug("tiles counted in %s", t)
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
-    def execute(self, process_tile, raise_nodata=False):
+    def execute(self, process_tile: BufferedTile, raise_nodata: bool = False) -> Any:
         """
         Run Mapchete process on a tile.
 
@@ -531,7 +504,7 @@ class Mapchete(object):
                 raise
             return self.config.output.empty(process_tile)
 
-    def read(self, output_tile):
+    def read(self, output_tile: TileLike) -> Any:
         """
         Read from written process output.
 
@@ -551,7 +524,7 @@ class Mapchete(object):
             raise ValueError("process mode must be readonly, continue or overwrite")
         return self.config.output.read(output_tile)
 
-    def write(self, process_tile, data):
+    def write(self, process_tile: TileLike, data: Any):
         """
         Write data into output format.
 
@@ -571,7 +544,7 @@ class Mapchete(object):
         ):
             message = "output exists, not overwritten"
             logger.debug((process_tile.id, message))
-            return ProcessInfo(
+            return TileProcessInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -581,7 +554,7 @@ class Mapchete(object):
         elif data is None:
             message = "output empty, nothing written"
             logger.debug((process_tile.id, message))
-            return ProcessInfo(
+            return TileProcessInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -593,7 +566,7 @@ class Mapchete(object):
                 self.config.output.write(process_tile=process_tile, data=data)
             message = "output written in %s" % t
             logger.debug((process_tile.id, message))
-            return ProcessInfo(
+            return TileProcessInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -601,7 +574,7 @@ class Mapchete(object):
                 write_msg=message,
             )
 
-    def get_raw_output(self, tile, _baselevel_readonly=False):
+    def get_raw_output(self, tile: TileLike, _baselevel_readonly: bool = False) -> Any:
         """
         Get output raw data.
 
@@ -670,7 +643,7 @@ class Mapchete(object):
         elif self.config.mode == "overwrite" and not _baselevel_readonly:
             return self._process_and_overwrite_output(tile, process_tile)
 
-    def write_stac(self, indent=4):
+    def write_stac(self, indent: int = 4) -> None:
         """
         Create or update existing STAC JSON file.
 
@@ -797,6 +770,98 @@ class Mapchete(object):
         return f"Mapchete <process_name={self.config.process.name}>"
 
 
-def _get_zoom_level(zoom, process):
-    """Determine zoom levels."""
-    return process.config.zoom_levels if zoom is None else validate_zooms(zoom)
+def _task_batches(
+    process: Mapchete,
+    zoom: Optional[ZoomLevelsLike] = None,
+    tile: Optional[TileLike] = None,
+    skip_output_check: bool = False,
+    propagate_results: bool = True,
+    profilers: Optional[List[Profiler]] = None,
+) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
+    """Create task batches for each processing stage."""
+    profilers = profilers or []
+    with Timer() as duration:
+        # preprocessing tasks
+        yield TaskBatch(
+            id="preprocessing_tasks",
+            tasks=process.config.preprocessing_tasks().values(),
+            func=_preprocess_task_wrapper,
+            profilers=profilers,
+        )
+    logger.debug("preprocessing tasks batch generated in %s", duration)
+    with Timer() as duration:
+        if tile:
+            zoom_levels = ZoomLevels.from_inp(tile.zoom)
+            skip_output_check = True
+            tiles = {tile.zoom: [(tile, False)]}
+        else:
+            zoom_levels = (
+                process.config.zoom_levels
+                if zoom is None
+                else ZoomLevels.from_inp(zoom)
+            )
+            tiles = {}
+
+            # here we store the parents of tiles about to be processed so we can update overviews
+            # also in "continue" mode in case there were updates at the baselevel
+            overview_parents = set()
+            for i, zoom in enumerate(zoom_levels.descending()):
+                tiles[zoom] = []
+
+                for tile, skip, _ in _filter_skipable(
+                    process=process,
+                    tiles_batches=process.get_process_tiles(
+                        zoom,
+                        batch_by=batch_sort_property(
+                            process.config.output_reader.tile_path_schema
+                        ),
+                    ),
+                    target_set=(
+                        overview_parents if process.config.baselevels and i else None
+                    ),
+                    skip_output_check=skip_output_check,
+                ):
+                    tiles[zoom].append((tile, skip))
+                    # in case of building overviews from baselevels, remember which parent
+                    # tile needs to be updated later on
+                    if (
+                        not skip_output_check
+                        and process.config.baselevels
+                        and tile.zoom > 0
+                    ):
+                        # add parent tile
+                        overview_parents.add(tile.get_parent())
+                        # we don't need the current tile anymore
+                    overview_parents.discard(tile)
+
+        if process.config.output.write_in_parent_process:
+            func = func_partial(_execute, profilers=profilers)
+            fkwargs = dict(append_data=propagate_results)
+        else:
+            func = func_partial(_execute_and_write, profilers=profilers)
+            fkwargs = dict(
+                append_data=propagate_results, output_writer=process.config.output
+            )
+
+        # tile tasks
+        for zoom in zoom_levels.descending():
+            yield TileTaskBatch(
+                id=f"zoom_{zoom}",
+                tasks=(
+                    TileTask(
+                        tile=tile,
+                        config=process.config,
+                        skip=(
+                            process.config.mode == "continue"
+                            and process.config.output_reader.tiles_exist(tile)
+                        )
+                        if skip_output_check
+                        else skip,
+                    )
+                    for tile, skip in tiles[zoom]
+                ),
+                func=func,
+                fkwargs=fkwargs,
+                profilers=profilers,
+            )
+    logger.debug("tile task batches generated in %s", duration)

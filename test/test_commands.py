@@ -8,9 +8,11 @@ from shapely.geometry import box, shape
 from tilematrix import TilePyramid
 
 import mapchete
-from mapchete._executor import ConcurrentFuturesExecutor, SequentialExecutor
 from mapchete.commands import convert, cp, execute, index, rm
+from mapchete.executor import ConcurrentFuturesExecutor, SequentialExecutor
 from mapchete.io import fiona_open, rasterio_open
+from mapchete.processing.job import Status
+from mapchete.processing.types import TaskResult
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -129,7 +131,7 @@ def test_execute_cancel(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
         job.cancel()
         break
     assert i == 0
-    assert job.status == "cancelled"
+    assert job.status == Status.cancelled
 
 
 def test_execute_tile(mp_tmpdir, cleantopo_br_metatiling_1):
@@ -166,6 +168,38 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
 def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector):
     job = execute(preprocess_cache_raster_vector.path, concurrency=concurrency)
     assert len(job)
+
+
+@pytest.mark.parametrize(
+    "concurrency,dask_compute_graph",
+    [
+        # ("threads", False),
+        ("dask", False),
+        ("dask", True),
+        ("processes", False),
+        (None, False),
+    ],
+)
+def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_graph):
+    zoom = 5
+    for task_result in execute(
+        cleantopo_br_metatiling_1.dict,
+        zoom=zoom,
+        as_iterator=True,
+        profiling=True,
+        concurrency=concurrency,
+        dask_compute_graph=dask_compute_graph,
+    ):
+        assert isinstance(task_result, TaskResult)
+        assert task_result.profiling
+        for profiler in ["time", "memory"]:
+            assert profiler in task_result.profiling
+
+        assert task_result.profiling["time"].elapsed > 0
+
+        assert task_result.profiling["memory"].max_allocated > 0
+        assert task_result.profiling["memory"].total_allocated > 0
+        assert task_result.profiling["memory"].allocations > 0
 
 
 def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):

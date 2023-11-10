@@ -27,6 +27,7 @@ from mapchete.cli import options
 @options.opt_verbose
 @options.opt_no_pbar
 @options.opt_debug
+@options.opt_profiling
 @options.opt_vrt
 @options.opt_idx_out_dir
 def execute(
@@ -37,11 +38,14 @@ def execute(
     debug=False,
     no_pbar=False,
     verbose=False,
-    logfile=None,
     input_file=None,
     dask_no_task_graph=False,
+    profiling=False,
     **kwargs,
 ):
+    # activate verbose if profiling is active
+    verbose = verbose or profiling
+
     if input_file is not None:  # pragma: no cover
         raise click.BadOptionUsage(
             "input-file",
@@ -56,6 +60,7 @@ def execute(
                 as_iterator=True,
                 msg_callback=tqdm.tqdm.write if verbose else None,
                 dask_compute_graph=not dask_no_task_graph,
+                profiling=profiling,
                 **kwargs,
             )
             list(

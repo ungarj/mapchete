@@ -12,12 +12,11 @@ from typing import Dict
 
 import dateutil.parser
 from rasterio.crs import CRS
-from shapely.geometry import mapping
 from shapely.geometry.base import BaseGeometry
 
-from mapchete._registered import drivers
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
 from mapchete.io import MPath, fiona_open, rasterio_open, read_json, write_json
+from mapchete.registered import drivers
 from mapchete.tile import BufferedTilePyramid
 
 logger = logging.getLogger(__name__)

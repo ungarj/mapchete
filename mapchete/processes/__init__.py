@@ -1,6 +1,6 @@
 import logging
 
-from mapchete._registered import processes
+from mapchete.registered import processes
 
 logger = logging.getLogger(__name__)
 

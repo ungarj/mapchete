@@ -12,14 +12,9 @@ from shapely.geometry import Polygon, box, mapping, shape
 from shapely.ops import unary_union
 
 import mapchete
-from mapchete.config import (
-    MapcheteConfig,
-    ProcessConfig,
-    ProcessFunc,
-    _guess_geometry,
-    bounds_from_opts,
-    snap_bounds,
-)
+from mapchete.config import MapcheteConfig, ProcessConfig, snap_bounds
+from mapchete.config.parse import bounds_from_opts, guess_geometry
+from mapchete.config.process_func import ProcessFunc
 from mapchete.errors import MapcheteConfigError
 from mapchete.io import fiona_open, rasterio_open
 from mapchete.path import MPath
@@ -343,46 +338,46 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
         mapchete.open(dict(aoi_br.dict, area=None), area="/invalid_path.geojson")
 
 
-def test_guess_geometry(aoi_br_geojson):
+def testguess_geometry(aoi_br_geojson):
     with fiona_open(aoi_br_geojson) as src:
         area = shape(next(iter(src))["geometry"])
 
     # WKT
-    geom, crs = _guess_geometry(area.wkt)
+    geom, crs = guess_geometry(area.wkt)
     assert geom.is_valid
     assert crs is None
 
     # GeoJSON mapping
-    geom, crs = _guess_geometry(mapping(area))
+    geom, crs = guess_geometry(mapping(area))
     assert geom.is_valid
     assert crs is None
 
     # shapely Geometry
-    geom, crs = _guess_geometry(area)
+    geom, crs = guess_geometry(area)
     assert geom.is_valid
     assert crs is None
 
     # path
-    geom, crs = _guess_geometry(aoi_br_geojson)
+    geom, crs = guess_geometry(aoi_br_geojson)
     assert geom.is_valid
     assert crs
 
     # Errors
     # malformed WKT
     with pytest.raises(WKTReadingError):
-        _guess_geometry(area.wkt.rstrip(")"))
+        guess_geometry(area.wkt.rstrip(")"))
     # non-existent path
     with pytest.raises(DriverError):
-        _guess_geometry("/invalid_path.geojson")
+        guess_geometry("/invalid_path.geojson")
     # malformed GeoJSON mapping
     with pytest.raises(AttributeError):
-        _guess_geometry(dict(mapping(area), type=None))
+        guess_geometry(dict(mapping(area), type=None))
     # unknown type
     with pytest.raises(TypeError):
-        _guess_geometry(1)
+        guess_geometry(1)
     # wrong geometry type
     with pytest.raises(TypeError):
-        _guess_geometry(area.centroid)
+        guess_geometry(area.centroid)
 
 
 def test_bounds_from_opts(example_mapchete, wkt_geom):

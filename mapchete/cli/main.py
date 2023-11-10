@@ -4,7 +4,7 @@ import click
 from click_plugins import with_plugins
 
 from mapchete import __version__
-from mapchete._registered import commands
+from mapchete.registered import commands
 
 
 @with_plugins(commands)
