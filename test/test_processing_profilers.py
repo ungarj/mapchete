@@ -9,6 +9,7 @@ from mapchete.processing.profilers.memory import (
     measure_memory,
 )
 from mapchete.processing.profilers.requests import MeasuredRequests, measure_requests
+from mapchete.processing.profilers.time import MeasuredTime, measure_time
 
 
 def test_memory_return_result(raster_4band):
@@ -78,4 +79,24 @@ def test_requests_not_return_result(raster_4band_http):
         return read_raster_no_crs(path)
 
     retval = _decorated(raster_4band_http)
+    assert isinstance(retval, ma.MaskedArray)
+
+
+def test_time_return_result(raster_4band):
+    @measure_time()
+    def _decorated(path):
+        return read_raster_no_crs(path)
+
+    retval, result = _decorated(raster_4band)
+    assert isinstance(retval, ma.MaskedArray)
+    assert isinstance(result, MeasuredTime)
+    assert result.elapsed > 0
+
+
+def test_time_not_return_result(raster_4band):
+    @measure_time(add_to_return=False)
+    def _decorated(path):
+        return read_raster_no_crs(path)
+
+    retval = _decorated(raster_4band)
     assert isinstance(retval, ma.MaskedArray)
