@@ -25,6 +25,7 @@ from mapchete.formats import (
 from mapchete.io import MPath, fiona_open, get_best_zoom_level, rasterio_open, read_json
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
+from mapchete.types import MPathLike
 from mapchete.validate import validate_zooms
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,8 @@ OUTPUT_FORMATS = available_output_formats()
 
 
 def convert(
-    tiledir: Union[str, dict, MPath],
-    output: Union[str, MPath],
+    tiledir: MPathLike,
+    output: MPathLike,
     zoom: Union[int, List[int]] = None,
     area: Union[BaseGeometry, str, dict] = None,
     area_crs: Union[CRS, str] = None,

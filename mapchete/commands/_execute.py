@@ -13,14 +13,15 @@ from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_p
 from mapchete.enums import Concurrency, ProcessingMode, Status
 from mapchete.errors import JobCancelledError
 from mapchete.executor import Executor
+from mapchete.processing.profilers import pretty_bytes
 from mapchete.processing.types import TaskResult
-from mapchete.types import Progress
+from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
 
 
 def execute(
-    mapchete_config: Union[str, dict],
+    mapchete_config: Union[dict, MPathLike],
     zoom: Union[int, List[int]] = None,
     area: Union[BaseGeometry, str, dict] = None,
     area_crs: Union[CRS, str] = None,
@@ -202,18 +203,16 @@ def execute(
                         if print_task_details:
                             msg = f"task {result.id}: {result.process_msg}"
                             if result.profiling:  # pragma: no cover
-                                max_allocated = (
-                                    result.profiling["memory"].max_allocated
-                                    / 1024
-                                    / 1024
-                                )
+                                max_allocated = result.profiling["memory"].max_allocated
                                 head_requests = result.profiling["requests"].head_count
                                 get_requests = result.profiling["requests"].get_count
                                 requests = head_requests + get_requests
-                                transfer = (
-                                    result.profiling["requests"].get_bytes / 1024 / 1024
+                                transferred = result.profiling["requests"].get_bytes
+                                msg += (
+                                    f" (max memory usage: {pretty_bytes(max_allocated)}"
                                 )
-                                msg += f" (max memory usage: {max_allocated:.2f}MB, {requests} GET and HEAD requests, {transfer:.2f}MB transferred)"
+                                msg += f", {requests} GET and HEAD requests"
+                                msg += f", {pretty_bytes(transferred)} transferred)"
                             all_observers.notify(message=msg)
 
                         all_observers.notify(
