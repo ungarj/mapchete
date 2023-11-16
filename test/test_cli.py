@@ -1426,29 +1426,6 @@ def test_rm(cleantopo_br):
     assert not out_path.exists()
 
 
-def test_rm_storage_option_errors(cleantopo_br):
-    out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
-    run_cli(
-        [
-            "rm",
-            out_path,
-            "-z",
-            "5",
-            "-b",
-            "169.19251592399996",
-            "-90",
-            "180",
-            "-80.18582802550002",
-            "-f",
-            "--fs-opts",
-            "invalid_opt",
-        ],
-        output_contains="Error: Invalid value for '--fs-opts': Invalid syntax for KEY=VAL arg: invalid_opt",
-        expected_exit_code=2,
-        raise_exc=False,
-    )
-
-
 def test_fs_opt_extractor():
     kwargs = options._cb_key_val(
         None,

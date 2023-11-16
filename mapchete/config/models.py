@@ -1,15 +1,15 @@
-from typing import List, Tuple, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel, NonNegativeInt, field_validator
 from shapely.geometry.base import BaseGeometry
 
-from mapchete.types import Bounds, MPathLike, ZoomLevels
+from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
 
 
 class OutputConfigBase(BaseModel):
     format: str
-    metatiling: Union[int, None] = 1
-    pixelbuffer: Union[NonNegativeInt, None] = 0
+    metatiling: Optional[int] = 1
+    pixelbuffer: Optional[NonNegativeInt] = 0
 
     @field_validator("metatiling", mode="before")
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
@@ -21,8 +21,8 @@ class OutputConfigBase(BaseModel):
 
 class PyramidConfig(BaseModel):
     grid: Union[str, dict]
-    metatiling: Union[int, None] = 1
-    pixelbuffer: Union[NonNegativeInt, None] = 0
+    metatiling: Optional[int] = 1
+    pixelbuffer: Optional[NonNegativeInt] = 0
 
     @field_validator("metatiling", mode="before")
     def _metatiling(cls, value: int) -> int:  # pragma: no cover
@@ -35,13 +35,14 @@ class PyramidConfig(BaseModel):
 class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     pyramid: PyramidConfig
     output: dict
-    zoom_levels: Union[ZoomLevels, dict, list, int]
-    process: Union[MPathLike, List[str], None] = None
-    baselevels: Union[dict, None] = None
-    input: Union[dict, None] = None
-    config_dir: Union[MPathLike, None] = None
-    area: Union[MPathLike, BaseGeometry, None] = None
-    area_crs: Union[dict, str, None] = None
-    bounds: Union[Bounds, Tuple[float, float, float, float], None] = None
-    bounds_crs: Union[dict, str, None] = None
-    process_parameters: Union[dict, None] = None
+    zoom_levels: Union[ZoomLevels, ZoomLevelsLike]
+    process: Optional[Union[MPathLike, List[str]]] = None
+    baselevels: Optional[dict] = None
+    input: Optional[dict] = None
+    config_dir: Optional[MPathLike] = None
+    mapchete_file: Optional[MPathLike] = None
+    area: Optional[Union[MPathLike, BaseGeometry]] = None
+    area_crs: Optional[Union[dict, str]] = None
+    bounds: Optional[Union[Bounds, BoundsLike]] = None
+    bounds_crs: Optional[Union[dict, str]] = None
+    process_parameters: Optional[dict] = None

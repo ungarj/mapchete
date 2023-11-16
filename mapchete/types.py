@@ -11,7 +11,7 @@ from mapchete.tile import BufferedTile
 
 MPathLike = Union[str, os.PathLike]
 BoundsLike = Union[List[float], Tuple[float], dict, BaseGeometry]
-ZoomLevelsLike = Union[Iterable[int], int, dict]
+ZoomLevelsLike = Union[List[int], int, dict]
 TileLike = Union[BufferedTile, Tuple[int, int, int]]
 
 
@@ -176,7 +176,7 @@ class ZoomLevels(list):
 
     def __init__(
         self,
-        min: Union[Iterable[int], int],
+        min: Union[List[int], int],
         max: Optional[int] = None,
         descending: bool = False,
     ):
@@ -224,7 +224,7 @@ class ZoomLevels(list):
         return value in list(self)
 
     def _set_attributes(
-        self, minlevel: Union[Iterable[int], int], maxlevel: Optional[int] = None
+        self, minlevel: Union[List[int], int], maxlevel: Optional[int] = None
     ) -> None:
         """This method is important when ZoomLevel instances are passed on to the ProcessConfig schema."""
         if hasattr(minlevel, "__iter__"):  # pragma: no cover
