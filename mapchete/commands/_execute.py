@@ -2,7 +2,7 @@
 import logging
 from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import List, Optional, Tuple, Type, Union, Any
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
@@ -143,6 +143,8 @@ def execute(
         while retries + 1:
             attempt += 1
 
+            # simulating that with every retry, probably less tasks have to be
+            # executed
             if attempt > 1:
                 retries_str = "retry" if retries == 1 else "retries"
                 all_observers.notify(
