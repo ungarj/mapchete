@@ -20,7 +20,6 @@ from mapchete.cli.progress_bar import PBar
 @options.opt_overwrite
 @options.opt_concurrency
 @options.opt_workers
-@options.opt_multi
 @options.opt_dask_scheduler
 @options.opt_dask_no_task_graph
 @options.opt_input_file

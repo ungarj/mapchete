@@ -96,7 +96,6 @@ def _validate_bidx(ctx, param, bidx):
 @options.opt_no_pbar
 @options.opt_debug
 @options.opt_workers
-@options.opt_multi
 @options.opt_concurrency
 @options.opt_dask_no_task_graph
 @options.opt_logfile
