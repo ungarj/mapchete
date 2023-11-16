@@ -2,7 +2,7 @@
 import logging
 from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
-from typing import List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
@@ -35,18 +35,17 @@ def execute(
     workers: int = None,
     multiprocessing_start_method: str = None,
     dask_scheduler: str = None,
-    dask_max_submitted_tasks=1000,
-    dask_chunksize=100,
-    dask_client=None,
-    dask_compute_graph=True,
-    dask_propagate_results=True,
+    dask_max_submitted_tasks: int = 1000,
+    dask_chunksize: int = 100,
+    dask_client: Optional[Any] = None,
+    dask_compute_graph: bool = True,
+    dask_propagate_results: bool = True,
     executor_getter: AbstractContextManager = Executor,
     profiling: bool = False,
     observers: Optional[List[ObserverProtocol]] = None,
     retry_on_exception: Tuple[Type[Exception], Type[Exception]] = Exception,
     cancel_on_exception: Type[Exception] = JobCancelledError,
     retries: int = 0,
-    **kwargs,
 ):
     """
     Execute a Mapchete process.
@@ -139,17 +138,14 @@ def execute(
         while retries + 1:
             attempt += 1
 
-            # simulating that with every retry, probably less tasks have to be
-            # executed
             if attempt > 1:
                 retries_str = "retry" if retries == 1 else "retries"
                 all_observers.notify(
                     message=f"attempt {attempt}, {retries} {retries_str} left"
                 )
 
-            # simulating how long it takes to determine which outputs have to be
-            # processed
             all_observers.notify(status=Status.initializing)
+
             # determine tasks
             preprocessing_tasks = mp.config.preprocessing_tasks_count()
             tiles_tasks = 1 if tile else mp.count_tiles()
@@ -164,6 +160,7 @@ def execute(
             # automatically use dask Executor if dask scheduler is defined
             if dask_scheduler or dask_client or concurrency == "dask":
                 concurrency = "dask"
+
             # use sequential Executor if only one tile or only one worker is defined
             elif total_tasks == 1 or workers == 1:
                 logger.debug(
@@ -171,6 +168,7 @@ def execute(
                     "task" if total_tasks == 1 else "worker",
                 )
                 concurrency = None
+
             all_observers.notify(message="waiting for executor ...")
 
             with executor_getter(
@@ -180,12 +178,12 @@ def execute(
                 multiprocessing_start_method=multiprocessing_start_method,
                 max_workers=workers,
             ) as executor:
-                # run
                 all_observers.notify(
                     status=Status.running,
                     progress=Progress(total=total_tasks),
                     message=f"sending {total_tasks} tasks to {executor} ...",
                 )
+
                 try:
                     for ii, future in enumerate(
                         mp.compute(
@@ -217,20 +215,23 @@ def execute(
                                 )
                                 msg += f" (max memory usage: {max_allocated:.2f}MB, {requests} GET and HEAD requests, {transfer:.2f}MB transferred)"
                             all_observers.notify(message=msg)
+
                         all_observers.notify(
                             progress=Progress(total=total_tasks, current=ii),
                             task_result=result,
                         )
+
+                    all_observers.notify(status=Status.done)
                     return
 
                 except cancel_on_exception:
+                    # special exception indicating job was cancelled from the outside
                     all_observers.notify(status=Status.cancelled)
-                    raise
+                    return
 
-                except retry_on_exception:
-                    all_observers.notify(
-                        status=Status.failed,
-                    )
+                except retry_on_exception as exception:
+                    all_observers.notify(status=Status.failed, exception=exception)
+
                     if retries:
                         retries -= 1
                         all_observers.notify(status=Status.retrying)

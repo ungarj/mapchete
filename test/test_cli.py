@@ -511,7 +511,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
             "--overviews",
             "--overviews-resampling-method",
             "bilinear",
-            "--multi",
+            "--workers",
             "1",
             "--concurrency",
             "none",

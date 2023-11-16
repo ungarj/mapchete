@@ -209,7 +209,6 @@ def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_
     execute(
         cleantopo_br_metatiling_1.dict,
         zoom=zoom,
-        as_iterator=True,
         profiling=True,
         concurrency=concurrency,
         dask_compute_graph=dask_compute_graph,

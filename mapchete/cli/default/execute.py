@@ -41,6 +41,7 @@ def execute(
     input_file=None,
     dask_no_task_graph=False,
     profiling=False,
+    logfile=None,
     **kwargs,
 ):
     # activate verbose if profiling is active
