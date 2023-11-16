@@ -16,7 +16,7 @@ class Concurrency(str, Enum):
 
 
 class Status(str, Enum):
-    """
+    r"""
     Status describin life cycle of a Job.
 
            parsing --> cancelled|failed
@@ -24,7 +24,7 @@ class Status(str, Enum):
     /--> initializing --> cancelled|failed
     |         |
     |      running --> cancelled|failed
-     '\'    /     |
+     \    /     |
       retrying  post_processing --> cancelled|failed
                    |
                   done
