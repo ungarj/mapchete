@@ -30,7 +30,7 @@ from mapchete.tile import BufferedTilePyramid, count_tiles
 def test_empty_execute(cleantopo_br):
     """Execute process outside of defined zoom levels."""
     with mapchete.open(cleantopo_br.dict) as mp:
-        assert mp.execute((6, 0, 0)).mask.all()
+        assert mp.execute_tile((6, 0, 0)).mask.all()
 
 
 def test_read_existing_output(cleantopo_tl):
@@ -395,7 +395,7 @@ def test_processing(mp_tmpdir, cleantopo_br, cleantopo_tl):
             for zoom in range(6):
                 tiles = []
                 for tile in mp.get_process_tiles(zoom):
-                    output = mp.execute(tile)
+                    output = mp.execute_tile(tile)
                     tiles.append((tile, output))
                     assert isinstance(output, ma.MaskedArray)
                     assert output.shape == output.shape
@@ -436,7 +436,7 @@ def test_pickleability(cleantopo_tl):
 
 def _worker(mp, tile):
     """Multiprocessing worker processing a tile."""
-    return tile, mp.execute(tile)
+    return tile, mp.execute_tile(tile)
 
 
 def test_write_empty(cleantopo_tl):
@@ -464,7 +464,7 @@ def test_process_template(dummy1_tif, mp_tmpdir):
     process_tile = next(mp.get_process_tiles(zoom=4))
     # Mapchete throws a RuntimeError if process output is empty
     with pytest.raises(MapcheteProcessOutputError):
-        mp.execute(process_tile)
+        mp.execute_tile(process_tile)
 
 
 @pytest.mark.parametrize("minzoom", range(0, 14))
@@ -558,7 +558,7 @@ def test_execute_kwargs(example_mapchete, execute_kwargs_py):
     config = example_mapchete.dict
     config.update(process=execute_kwargs_py)
     with mapchete.open(config) as mp:
-        mp.execute((7, 61, 129))
+        mp.execute_tile((7, 61, 129))
 
 
 @pytest.mark.parametrize("pixelbuffer", [0, 5, 10])

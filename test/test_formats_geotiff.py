@@ -170,7 +170,7 @@ def test_write_geotiff_tags(mp_tmpdir, cleantopo_br, write_rasterfile_tags_py):
     conf.update(process=write_rasterfile_tags_py)
     with mapchete.open(conf) as mp:
         for tile in mp.get_process_tiles():
-            data, tags = mp.execute(tile)
+            data, tags = mp.execute_tile(tile)
             assert data.any()
             assert isinstance(tags, dict)
             mp.write(process_tile=tile, data=(data, tags))

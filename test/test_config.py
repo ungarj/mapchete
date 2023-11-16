@@ -477,7 +477,8 @@ def test_init_overrides_config(example_mapchete):
 def test_custom_process(example_custom_process_mapchete):
     with mapchete.open(example_custom_process_mapchete.dict) as mp:
         assert (
-            mp.execute(example_custom_process_mapchete.first_process_tile()) is not None
+            mp.execute_tile(example_custom_process_mapchete.first_process_tile())
+            is not None
         )
 
 

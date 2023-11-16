@@ -117,7 +117,7 @@ def test_s3_output_data_rw(geobuf_s3):
         # write empty
         mp.write(tile, None)
         # write data
-        raw_output = mp.execute(tile)
+        raw_output = mp.execute_tile(tile)
         mp.write(tile, raw_output)
         # read data
         read_output = mp.get_raw_output(tile)

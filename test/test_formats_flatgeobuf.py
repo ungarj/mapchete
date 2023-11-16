@@ -94,7 +94,7 @@ def test_s3_output_data_rw(flatgeobuf_s3):
         # write empty
         mp.write(tile, None)
         # write data
-        raw_output = mp.execute(tile)
+        raw_output = mp.execute_tile(tile)
         assert isinstance(raw_output, list)
         assert len(raw_output)
         mp.write(tile, raw_output)

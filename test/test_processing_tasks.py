@@ -7,6 +7,7 @@ from mapchete.errors import NoTaskGeometry
 from mapchete.processing.tasks import (
     Task,
     TaskBatch,
+    TaskBatches,
     TileTask,
     TileTaskBatch,
     to_dask_collection,
@@ -121,7 +122,7 @@ def test_task_batches_to_dask_graph(dem_to_hillshade):
                 for process_tile in dem_to_hillshade.mp().get_process_tiles(zoom=zoom)
             )
         )
-        for zoom in reversed(dem_to_hillshade.mp().config.zoom_levels)
+        for zoom in dem_to_hillshade.mp().config.zoom_levels.descending()
     )
     collection = to_dask_collection((preprocessing_batch, *zoom_batches))
     import dask
@@ -152,3 +153,60 @@ def test_task_batches_mixed_geometries():
     other_task = Task(bounds=(3, 4, 5, 6))
     assert len(batch.intersection(other_task)) == 10
     assert len(batch.intersection((3, 4, 5, 6))) == 10
+
+
+def test_task_batches_as_dask_graph(dem_to_hillshade):
+    def task_batches_generator():
+        yield TaskBatch(
+            (Task(func=str, fargs=(i,), bounds=(0, 1, 2, 3)) for i in range(10))
+        )
+        for zoom in dem_to_hillshade.mp().config.zoom_levels:
+            yield TileTaskBatch(
+                (
+                    TileTask(tile=process_tile, config=dem_to_hillshade.mp().config)
+                    for process_tile in dem_to_hillshade.mp().get_process_tiles(
+                        zoom=zoom
+                    )
+                ),
+                id=f"zoom-{zoom}",
+            )
+
+    task_batches = TaskBatches(task_batches_generator())
+    assert len(task_batches.preprocessing_batches) == 1
+    assert len(task_batches.tile_batches) == len(
+        dem_to_hillshade.mp().config.zoom_levels
+    )
+    graph = task_batches.as_dask_graph()
+    assert graph
+
+    import dask
+
+    dask.compute(graph)
+
+
+def test_task_batches_as_layered_batches(dem_to_hillshade):
+    def task_batches_generator():
+        yield TaskBatch(
+            (Task(func=str, fargs=(i,), bounds=(0, 1, 2, 3)) for i in range(10))
+        )
+        for zoom in dem_to_hillshade.mp().config.zoom_levels:
+            yield TileTaskBatch(
+                (
+                    TileTask(tile=process_tile, config=dem_to_hillshade.mp().config)
+                    for process_tile in dem_to_hillshade.mp().get_process_tiles(
+                        zoom=zoom
+                    )
+                ),
+                id=f"zoom-{zoom}",
+            )
+
+    task_batches = TaskBatches(task_batches_generator())
+    assert len(task_batches.preprocessing_batches) == 1
+    assert len(task_batches.tile_batches) == len(
+        dem_to_hillshade.mp().config.zoom_levels
+    )
+    batches = task_batches.as_layered_batches()
+    assert batches
+    for batch in batches:
+        for tile_task in batch:
+            assert isinstance(tile_task, TileTask)

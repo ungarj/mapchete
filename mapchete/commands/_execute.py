@@ -122,6 +122,10 @@ def execute(
             raw_conf=raw_conf(mapchete_config),
         )
 
+    # automatically use dask Executor if dask scheduler is defined
+    if dask_scheduler or dask_client or concurrency == "dask":
+        concurrency = "dask"
+
     # be careful opening mapchete not as context manager
     with mapchete.open(
         mapchete_config,
@@ -148,30 +152,14 @@ def execute(
             all_observers.notify(status=Status.initializing)
 
             # determine tasks
-            preprocessing_tasks = mp.config.preprocessing_tasks_count()
-            tiles_tasks = 1 if tile else mp.count_tiles()
-            total_tasks = preprocessing_tasks + tiles_tasks
-            all_observers.notify(
-                message=f"processing {preprocessing_tasks} preprocessing tasks and {tiles_tasks} tile tasks on {workers} worker(s)"
-            )
-            if total_tasks == 0:
+            tasks = mp._task_batches(zoom=zoom, tile=tile, concurrency=concurrency)
+
+            if len(tasks) == 0:
                 all_observers.notify(status=Status.done)
                 return
-
-            # automatically use dask Executor if dask scheduler is defined
-            if dask_scheduler or dask_client or concurrency == "dask":
-                concurrency = "dask"
-
-            # use sequential Executor if only one tile or only one worker is defined
-            elif total_tasks == 1 or workers == 1:
-                logger.debug(
-                    "using sequential Executor because there is only one %s",
-                    "task" if total_tasks == 1 else "worker",
-                )
-                concurrency = None
+            all_observers.notify(message=f"processing X tasks on {workers} worker(s)")
 
             all_observers.notify(message="waiting for executor ...")
-
             with executor_getter(
                 concurrency=concurrency,
                 dask_scheduler=dask_scheduler,
@@ -181,10 +169,10 @@ def execute(
             ) as executor:
                 all_observers.notify(
                     status=Status.running,
-                    progress=Progress(total=total_tasks),
-                    message=f"sending {total_tasks} tasks to {executor} ...",
+                    progress=Progress(total=len(tasks)),
+                    message=f"sending {len(tasks)} tasks to {executor} ...",
                 )
-
+                # TODO it would be nice to track the time it took sending tasks to the executor
                 try:
                     for ii, future in enumerate(
                         mp.compute(
@@ -197,6 +185,7 @@ def execute(
                             dask_propagate_results=dask_propagate_results,
                             profiling=profiling,
                         ),
+                        # executor.compute(tasks),
                         1,
                     ):
                         result = TaskResult.from_future(future)
@@ -216,7 +205,7 @@ def execute(
                             all_observers.notify(message=msg)
 
                         all_observers.notify(
-                            progress=Progress(total=total_tasks, current=ii),
+                            progress=Progress(total=len(tasks), current=ii),
                             task_result=result,
                         )
 

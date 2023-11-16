@@ -31,7 +31,7 @@ from mapchete.processing.compute import (
     _run_on_single_tile,
     compute,
 )
-from mapchete.processing.tasks import TaskBatch, TileTask, TileTaskBatch
+from mapchete.processing.tasks import TaskBatch, TaskBatches, TileTask, TileTaskBatch
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
 from mapchete.tile import BufferedTile, count_tiles
 from mapchete.timer import Timer
@@ -177,6 +177,81 @@ class Mapchete(object):
             skip_output_check=skip_output_check,
             propagate_results=propagate_results,
             profilers=profilers,
+        )
+
+    def _task_batches(
+        self,
+        zoom: Optional[ZoomLevelsLike] = None,
+        tile: Optional[TileLike] = None,
+        concurrency: Concurrency = Concurrency.processes,
+        no_task_graph: bool = False,
+    ) -> TaskBatches:
+        """
+        Determine work todo and return as collection of tasks.
+
+        Depending on the settings, this will return either a task graph or
+        task batches in case layers have dependencies, or a single large
+        batch of tasks.
+
+        TODO: streaming?
+        """
+        profilers = []
+        skip_output_check = False
+        dask_propagate_results = True
+
+        # if no_task_graph:
+        #     graph = False
+        # else:
+        #     graph = concurrency == Concurrency.dask
+
+        # first, get task batches
+        task_batches = self.task_batches(
+            zoom=zoom,
+            tile=tile,
+            skip_output_check=skip_output_check,
+            propagate_results=self.config.output.write_in_parent_process
+            or dask_propagate_results,
+            profilers=profilers,
+        )
+
+        # better to materialize them now, because we have to see what can be thrown away
+        # this depends on the process mode
+        task_collection = TaskBatches(
+            task_batches=task_batches,
+            mode=self.config.mode,
+        )
+
+        # under certain conditions, we can avoid preserving dependencies between tasks
+        # and even don't bother doing graph processing:
+        # - no baselevels and no preprocessing tasks
+        # - only one zoom level and no preprocessing tasks
+        # preserve_dependencies = True
+
+        return task_collection
+
+    def execute_task_collection(
+        self,
+        executor: ExecutorBase,
+        task_collection: TaskBatches,
+    ):
+        raise NotImplementedError
+
+    def execute(
+        self,
+        executor: ExecutorBase,
+        zoom: Optional[ZoomLevelsLike] = None,
+        tile: Optional[TileLike] = None,
+        concurrency: Concurrency = Concurrency.processes,
+        no_task_graph: bool = False,
+    ) -> None:
+        self.execute_task_collection(
+            self.task_batches(
+                zoom=zoom,
+                tile=tile,
+                concurrency=concurrency,
+                no_task_graph=no_task_graph,
+            ),
+            executor=executor,
         )
 
     def compute(
@@ -476,7 +551,9 @@ class Mapchete(object):
             logger.debug("tiles counted in %s", t)
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
-    def execute(self, process_tile: BufferedTile, raise_nodata: bool = False) -> Any:
+    def execute_tile(
+        self, process_tile: BufferedTile, raise_nodata: bool = False
+    ) -> Any:
         """
         Run Mapchete process on a tile.
 
@@ -694,7 +771,7 @@ class Mapchete(object):
         if self.with_cache:
             output = self._execute_using_cache(process_tile)
         else:
-            output = self.execute(process_tile)
+            output = self.execute_tile(process_tile)
 
         self.write(process_tile, output)
         return self._extract(in_tile=process_tile, in_data=output, out_tile=tile)
@@ -723,7 +800,7 @@ class Mapchete(object):
                 return self.process_tile_cache[process_tile.id]
             else:
                 try:
-                    output = self.execute(process_tile)
+                    output = self.execute_tile(process_tile)
                     self.process_tile_cache[process_tile.id] = output
                     if self.config.mode in ["continue", "overwrite"]:
                         self.write(process_tile, output)

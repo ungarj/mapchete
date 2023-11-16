@@ -1,9 +1,11 @@
 import logging
-from typing import Callable, Iterator, List, Optional
+from typing import Callable, Iterator, List, Optional, Union
 from uuid import uuid4
 
+from dask.delayed import Delayed, DelayedLeaf, delayed
 from shapely.geometry import box, mapping
 
+from mapchete.enums import ProcessingMode
 from mapchete.errors import (
     MapcheteNodataTile,
     MapcheteProcessOutputError,
@@ -403,9 +405,70 @@ class TileTaskBatch(TaskBatch):
             yield item.tile, item
 
 
-def to_dask_collection(batches):
-    from dask.delayed import delayed
+class TaskBatches:
+    _len: int = None
+    _task_batches_generator: Iterator[Union[TaskBatch, TileTaskBatch]]
+    preprocessing_batches: List[TaskBatch]
+    tile_batches: List[TileTaskBatch]
+    materialized: bool = False
 
+    def __init__(
+        self,
+        task_batches: Iterator[Union[TaskBatch, TileTaskBatch]],
+        mode: ProcessingMode = ProcessingMode.CONTINUE,
+    ):
+        self._task_batches_generator = task_batches
+
+    def __len__(self):
+        return 1
+        if self._len is None:
+            raise AttributeError("cannot determine size of TaskCollection yet")
+        return self._len
+
+    def materialize(self):
+        if self.materialized:
+            return
+        self._preprocessing_batches = []
+        self._tile_batches = []
+        for batch in self._task_batches_generator:
+            if isinstance(batch, TileTaskBatch):
+                self.tile_batches.append(batch)
+            else:
+                self.preprocessing_batches.append(batch)
+        self.materialized = True
+
+    @property
+    def preprocessing_batches(self) -> List[TaskBatch]:
+        self.materialize()
+        return self._preprocessing_batches
+
+    @property
+    def tile_batches(self) -> List[TileTaskBatch]:
+        self.materialize()
+        return self._tile_batches
+
+    def clean_up(self) -> None:
+        raise NotImplementedError
+
+    def as_dask_graph(self) -> List[Union[Delayed, DelayedLeaf]]:
+        return to_dask_collection(
+            (
+                batch
+                for phase in (self.preprocessing_batches, self.tile_batches)
+                for batch in phase
+            )
+        )
+
+    def as_one_batch(self) -> List[Task]:
+        raise NotImplementedError
+
+    def as_layered_batches(self) -> List[List[Task]]:
+        raise NotImplementedError
+
+
+def to_dask_collection(
+    batches: Iterator[Union[TaskBatch, TileTaskBatch]],
+) -> List[Union[Delayed, DelayedLeaf]]:
     tasks = {}
     previous_batch = None
     for batch in batches:
