@@ -1,10 +1,10 @@
 import json
 import logging
 import os
-import warnings
+from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
 from pprint import pformat
-from typing import Callable, List, Tuple, Union
+from typing import List, Optional, Tuple, Type, Union
 
 import tilematrix
 from rasterio.crs import CRS
@@ -12,9 +12,11 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 
-import mapchete
 from mapchete.commands._execute import execute
+from mapchete.commands.observer import ObserverProtocol, Observers
 from mapchete.config.parse import raw_conf, raw_conf_output_pyramid
+from mapchete.errors import JobCancelledError
+from mapchete.executor import Executor
 from mapchete.formats import (
     available_input_formats,
     available_output_formats,
@@ -63,11 +65,14 @@ def convert(
     overviews: bool = False,
     overviews_resampling_method: str = "cubic_spline",
     cog: bool = False,
-    msg_callback: Callable = None,
-    as_iterator: bool = False,
     src_fs_opts: Union[dict, None] = None,
     dst_fs_opts: Union[dict, None] = None,
-) -> mapchete.Job:
+    executor_getter: AbstractContextManager = Executor,
+    observers: Optional[List[ObserverProtocol]] = None,
+    retry_on_exception: Tuple[Type[Exception], Type[Exception]] = Exception,
+    cancel_on_exception: Type[Exception] = JobCancelledError,
+    retries: int = 0,
+) -> None:
     """
     Convert mapchete outputs or other geodata.
 
@@ -144,38 +149,10 @@ def convert(
         Resampling method used for overviews. (default: cubic_spline)
     cog : bool
         Write a valid COG. This will automatically generate verviews. (GTiff only)
-    msg_callback : Callable
-        Optional callback function for process messages.
-    as_iterator : bool
-        Returns as generator but with a __len__() property.
-
-    Returns
-    -------
-    mapchete.Job instance either with already processed items or a generator with known length.
-
-    Examples
-    --------
-    >>> convert("foo", "bar")
-
-    This will run the whole conversion process.
-
-    >>> for i in convert("foo", "bar", as_iterator=True):
-    >>>     print(i)
-
-    This will return a generator where through iteration, tiles are copied.
-
-    >>> list(tqdm.tqdm(convert("foo", "bar", as_iterator=True)))
-
-    Usage within a process bar.
     """
 
-    def _empty_callback(*args, **kwargs):
-        pass
-
-    msg_callback = msg_callback or _empty_callback
-    if multi is not None:  # pragma: no cover
-        warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
-    workers = workers or multi or cpu_count()
+    all_observers = Observers(observers)
+    workers = workers or cpu_count()
     creation_options = creation_options or {}
     bidx = [bidx] if isinstance(bidx, int) else bidx
     tiledir = MPath.from_inp(tiledir, storage_options=src_fs_opts)
@@ -297,11 +274,10 @@ def convert(
             clip_geometry, dst_crs=out_pyramid.crs
         ).intersection(box(*inp_bounds))
         if clip_intersection.is_empty:
-            msg_callback(
-                "Process area is empty: clip bounds don't intersect with input bounds."
+            all_observers.notify(
+                message="Process area is empty: clip bounds don't intersect with input bounds."
             )
-            # this returns a Job with an empty iterator
-            return mapchete.Job(None, (), as_iterator=as_iterator)
+            return
     # add process bounds and output type
     mapchete_config.update(
         bounds=(clip_intersection.bounds if clip_geometry else inp_bounds),
@@ -329,8 +305,11 @@ def convert(
         dask_client=dask_client,
         dask_compute_graph=dask_compute_graph,
         workers=workers,
-        as_iterator=as_iterator,
-        msg_callback=msg_callback,
+        executor_getter=executor_getter,
+        observers=observers,
+        retry_on_exception=retry_on_exception,
+        cancel_on_exception=cancel_on_exception,
+        retries=retries,
     )
 
 

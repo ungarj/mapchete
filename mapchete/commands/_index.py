@@ -1,14 +1,15 @@
 """Create indexes of Tile Directories."""
 
 import logging
-from typing import Callable, List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
+from mapchete.commands.observer import ObserverProtocol, Observers
 from mapchete.index import zoom_index_gen
-from mapchete.path import MPath
+from mapchete.types import Progress
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,9 @@ def index(
     point_crs: Tuple[float, float] = None,
     tile: Tuple[int, int, int] = None,
     fs_opts: dict = None,
-    msg_callback: Callable = None,
-    as_iterator: bool = False,
+    observers: Optional[List[ObserverProtocol]] = None,
     **_,
-) -> mapchete.Job:
+):
     """
     Create one or more indexes from a TileDirectory.
 
@@ -81,29 +81,6 @@ def index(
         Zoom, row and column of tile to be processed (cannot be used with zoom)
     fs_opts : dict
         Configuration options for fsspec filesystem.
-    msg_callback : Callable
-        Optional callback function for process messages.
-    as_iterator : bool
-        Returns as generator but with a __len__() property.
-
-    Returns
-    -------
-    mapchete.Job instance either with already processed items or a generator with known length.
-
-    Examples
-    --------
-    >>> index("foo", vrt=True, zoom=5)
-
-    This will run the whole index process.
-
-    >>> for i in index("foo", vrt=True, zoom=5, as_iterator=True):
-    >>>     print(i)
-
-    This will return a generator where through iteration, tiles are copied.
-
-    >>> list(tqdm.tqdm(index("foo", vrt=True, zoom=5, as_iterator=True)))
-
-    Usage within a process bar.
     """
 
     if not any([geojson, gpkg, shp, txt, vrt]):
@@ -112,12 +89,9 @@ def index(
             """must be provided."""
         )
 
-    def _empty_callback(*_):
-        pass
+    all_observers = Observers(observers)
 
-    msg_callback = msg_callback or _empty_callback
-
-    msg_callback(f"create index(es) for {tiledir}")
+    all_observers.notify(message=f"create index(es) for {tiledir}")
     # process single tile
     with mapchete.open(
         tiledir,
@@ -131,9 +105,10 @@ def index(
         area=area,
         area_crs=area_crs,
     ) as mp:
-        return mapchete.Job(
-            zoom_index_gen,
-            fkwargs=dict(
+        total = 1 if tile else mp.count_tiles()
+        all_observers.notify(progress=Progress(total=total))
+        for ii, tile in enumerate(
+            zoom_index_gen(
                 mp=mp,
                 zoom=None if tile else mp.config.init_zoom_levels,
                 tile=tile,
@@ -147,6 +122,8 @@ def index(
                 basepath=basepath,
                 for_gdal=for_gdal,
             ),
-            as_iterator=as_iterator,
-            tiles_tasks=1 if tile else mp.count_tiles(),
-        )
+            1,
+        ):
+            all_observers.notify(
+                progress=Progress(current=ii, total=total), message=f"{tile.id} indexed"
+            )

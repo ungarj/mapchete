@@ -3,6 +3,7 @@ import tqdm
 
 from mapchete import commands
 from mapchete.cli import options
+from mapchete.cli.progress_bar import PBar
 
 
 def _cb_none_concurrency(ctx, param, value):
@@ -47,16 +48,13 @@ def cp(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwargs)
                 f"'--{x} foo' is deprecated. You should use '--src-fs-opts {x}=foo' instead.",
             )
         kwargs.pop(x)
-    # copy
-    list(
-        tqdm.tqdm(
-            commands.cp(
-                *args,
-                as_iterator=True,
-                msg_callback=tqdm.tqdm.write if verbose else None,
-                **kwargs,
-            ),
-            unit="tile",
-            disable=debug or no_pbar,
+
+    with PBar(
+        total=100, desc="tiles", disable=debug or no_pbar, print_messages=verbose
+    ) as pbar:
+        # copy
+        commands.cp(
+            *args,
+            observers=[pbar],
+            **kwargs,
         )
-    )

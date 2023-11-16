@@ -1,22 +1,20 @@
 """Execute a process."""
-
 import logging
-import traceback
-import warnings
+from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
-from typing import Callable, Iterator, List, Tuple, Union
+from typing import List, Optional, Tuple, Type, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
+from mapchete.commands.observer import ObserverProtocol, Observers
 from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
-from mapchete.enums import Concurrency, ProcessingMode
-from mapchete.processing.types import (
-    PreprocessingProcessInfo,
-    TaskResult,
-    TileProcessInfo,
-)
+from mapchete.enums import Concurrency, ProcessingMode, Status
+from mapchete.errors import JobCancelledError
+from mapchete.executor import Executor
+from mapchete.processing.types import TaskResult
+from mapchete.types import Progress
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +33,6 @@ def execute(
     mode: ProcessingMode = ProcessingMode.CONTINUE,
     concurrency: Concurrency = Concurrency.processes,
     workers: int = None,
-    multi: int = None,
     multiprocessing_start_method: str = None,
     dask_scheduler: str = None,
     dask_max_submitted_tasks=1000,
@@ -43,11 +40,14 @@ def execute(
     dask_client=None,
     dask_compute_graph=True,
     dask_propagate_results=True,
-    msg_callback: Callable = None,
-    as_iterator: bool = False,
+    executor_getter: AbstractContextManager = Executor,
     profiling: bool = False,
+    observers: Optional[List[ObserverProtocol]] = None,
+    retry_on_exception: Tuple[Type[Exception], Type[Exception]] = Exception,
+    cancel_on_exception: Type[Exception] = JobCancelledError,
+    retries: int = 0,
     **kwargs,
-) -> mapchete.Job:
+):
     """
     Execute a Mapchete process.
 
@@ -98,40 +98,16 @@ def execute(
         Propagate results between tasks. This helps to minimize read calls when building overviews
         but can lead to a much higher memory consumption on the cluster. Only with effect if
         dask_compute_graph is activated. (default: True)
-    msg_callback : Callable
-        Optional callback function for process messages.
-    as_iterator : bool
-        Returns as generator but with a __len__() property.
-
-    Returns
-    -------
-    mapchete.Job instance either with already processed items or a generator with known length.
-
-    Examples
-    --------
-    >>> execute("foo")
-
-    This will run the whole execute process.
-
-    >>> for i in execute("foo", as_iterator=True):
-    >>>     print(i)
-
-    This will return a generator where through iteration, tiles are copied.
-
-    >>> list(tqdm.tqdm(execute("foo", as_iterator=True)))
-
-    Usage within a process bar.
     """
+    print_task_details = True
     mode = "overwrite" if overwrite else mode
+    all_observers = Observers(observers)
 
-    def _empty_callback(_):
-        pass
+    if not isinstance(retry_on_exception, tuple):
+        retry_on_exception = (retry_on_exception,)
+    workers = workers or cpu_count()
 
-    print_task_details = msg_callback is not None
-    msg_callback = msg_callback or _empty_callback
-    if multi is not None:  # pragma: no cover
-        warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
-    workers = workers or multi or cpu_count()
+    all_observers.notify(status=Status.parsing)
 
     if tile:
         tile = raw_conf_process_pyramid(raw_conf(mapchete_config)).tile(*tile)
@@ -147,94 +123,116 @@ def execute(
         )
 
     # be careful opening mapchete not as context manager
-    with mapchete.Timer() as t:
-        mp = mapchete.open(
-            mapchete_config,
-            mode=mode,
-            bounds=bounds,
-            zoom=zoom,
-            area=area,
-            area_crs=area_crs,
-        )
-    logger.debug("initialized process in %s", t)
-    try:
-        preprocessing_tasks = mp.config.preprocessing_tasks_count()
-        tiles_tasks = 1 if tile else mp.count_tiles()
-        total_tasks = preprocessing_tasks + tiles_tasks
-        msg_callback(
-            f"processing {preprocessing_tasks} preprocessing tasks and {tiles_tasks} tile tasks on {workers} worker(s)"
-        )
-        # automatically use dask Executor if dask scheduler is defined
-        if dask_scheduler or dask_client or concurrency == "dask":
-            concurrency = "dask"
-        # use sequential Executor if only one tile or only one worker is defined
-        elif total_tasks == 1 or workers == 1:
-            logger.debug(
-                "using sequential Executor because there is only one %s",
-                "task" if total_tasks == 1 else "worker",
+    with mapchete.open(
+        mapchete_config,
+        mode=mode,
+        bounds=bounds,
+        zoom=zoom,
+        area=area,
+        area_crs=area_crs,
+    ) as mp:
+        attempt = 0
+
+        # the part below can be retried n times #
+        #########################################
+
+        while retries + 1:
+            attempt += 1
+
+            # simulating that with every retry, probably less tasks have to be
+            # executed
+            if attempt > 1:
+                retries_str = "retry" if retries == 1 else "retries"
+                all_observers.notify(
+                    message=f"attempt {attempt}, {retries} {retries_str} left"
+                )
+
+            # simulating how long it takes to determine which outputs have to be
+            # processed
+            all_observers.notify(status=Status.initializing)
+            # determine tasks
+            preprocessing_tasks = mp.config.preprocessing_tasks_count()
+            tiles_tasks = 1 if tile else mp.count_tiles()
+            total_tasks = preprocessing_tasks + tiles_tasks
+            all_observers.notify(
+                message=f"processing {preprocessing_tasks} preprocessing tasks and {tiles_tasks} tile tasks on {workers} worker(s)"
             )
-            concurrency = None
-        stac_item_path = mp.config.output.stac_path
-        return mapchete.Job(
-            _process_everything,
-            fargs=(
-                msg_callback,
-                mp,
-            ),
-            fkwargs=dict(
-                tile=tile,
-                workers=workers,
-                zoom=None if tile else zoom,
-                print_task_details=print_task_details,
-                dask_max_submitted_tasks=dask_max_submitted_tasks,
-                dask_chunksize=dask_chunksize,
-                dask_compute_graph=dask_compute_graph,
-                dask_propagate_results=dask_propagate_results,
-                profiling=profiling,
-            ),
-            executor_concurrency=concurrency,
-            executor_kwargs=dict(
+            if total_tasks == 0:
+                all_observers.notify(status=Status.done)
+                return
+
+            # automatically use dask Executor if dask scheduler is defined
+            if dask_scheduler or dask_client or concurrency == "dask":
+                concurrency = "dask"
+            # use sequential Executor if only one tile or only one worker is defined
+            elif total_tasks == 1 or workers == 1:
+                logger.debug(
+                    "using sequential Executor because there is only one %s",
+                    "task" if total_tasks == 1 else "worker",
+                )
+                concurrency = None
+            all_observers.notify(message="waiting for executor ...")
+
+            with executor_getter(
+                concurrency=concurrency,
                 dask_scheduler=dask_scheduler,
                 dask_client=dask_client,
                 multiprocessing_start_method=multiprocessing_start_method,
                 max_workers=workers,
-            ),
-            as_iterator=as_iterator,
-            preprocessing_tasks=preprocessing_tasks,
-            tiles_tasks=tiles_tasks,
-            process_area=mp.config.init_area,
-            stac_item_path=stac_item_path,
-        )
-    # explicitly exit the mp object on failure
-    except Exception as exc:  # pragma: no cover
-        mp.__exit__(exc, repr(exc), traceback.format_exc())
-        raise
+            ) as executor:
+                # run
+                all_observers.notify(
+                    status=Status.running,
+                    progress=Progress(total=total_tasks),
+                    message=f"sending {total_tasks} tasks to {executor} ...",
+                )
+                try:
+                    for ii, future in enumerate(
+                        mp.compute(
+                            tile=tile,
+                            workers=workers,
+                            zoom=None if tile else zoom,
+                            dask_max_submitted_tasks=dask_max_submitted_tasks,
+                            dask_chunksize=dask_chunksize,
+                            dask_compute_graph=dask_compute_graph,
+                            dask_propagate_results=dask_propagate_results,
+                            profiling=profiling,
+                        ),
+                        1,
+                    ):
+                        result = TaskResult.from_future(future)
+                        if print_task_details:
+                            msg = f"task {result.id}: {result.process_msg}"
+                            if result.profiling:  # pragma: no cover
+                                max_allocated = (
+                                    result.profiling["memory"].max_allocated
+                                    / 1024
+                                    / 1024
+                                )
+                                head_requests = result.profiling["requests"].head_count
+                                get_requests = result.profiling["requests"].get_count
+                                requests = head_requests + get_requests
+                                transfer = (
+                                    result.profiling["requests"].get_bytes / 1024 / 1024
+                                )
+                                msg += f" (max memory usage: {max_allocated:.2f}MB, {requests} GET and HEAD requests, {transfer:.2f}MB transferred)"
+                            all_observers.notify(message=msg)
+                        all_observers.notify(
+                            progress=Progress(total=total_tasks, current=ii),
+                            task_result=result,
+                        )
+                    return
 
+                except cancel_on_exception:
+                    all_observers.notify(status=Status.cancelled)
+                    raise
 
-def _process_everything(
-    msg_callback,
-    mp,
-    print_task_details=True,
-    **kwargs,
-) -> Iterator[TaskResult]:
-    try:
-        for future in mp.compute(**kwargs):
-            result = TaskResult.from_future(future)
-            if print_task_details:
-                msg = f"task {result.id}: {result.process_msg}"
-                if result.profiling:  # pragma: no cover
-                    max_allocated = (
-                        result.profiling["memory"].max_allocated / 1024 / 1024
+                except retry_on_exception:
+                    all_observers.notify(
+                        status=Status.failed,
                     )
-                    head_requests = result.profiling["requests"].head_count
-                    get_requests = result.profiling["requests"].get_count
-                    requests = head_requests + get_requests
-                    transfer = result.profiling["requests"].get_bytes / 1024 / 1024
-                    msg += f" (max memory usage: {max_allocated:.2f}MB, {requests} GET and HEAD requests, {transfer:.2f}MB transferred)"
-                msg_callback(msg)
-            yield result
-        # explicitly exit the mp object on success
-        mp.__exit__(None, None, None)
-    except Exception as exc:  # pragma: no cover
-        mp.__exit__(exc, repr(exc), traceback.format_exc())
-        raise
+                    if retries:
+                        retries -= 1
+                        all_observers.notify(status=Status.retrying)
+                    else:
+                        raise

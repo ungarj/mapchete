@@ -1163,7 +1163,7 @@ def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_br, wkt_geom):
 
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 7
+        assert len(files) == 8  # was 7 before doing the observer pattern
         assert "3.geojson" in files
 
 

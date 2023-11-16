@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Iterable, List, Optional, Tuple, Union
 
+from pydantic import BaseModel
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 
@@ -300,3 +301,8 @@ class ZoomLevels(list):
 
     def descending(self) -> ZoomLevels:
         return ZoomLevels(min=self.min, max=self.max, descending=True)
+
+
+class Progress(BaseModel):
+    current: int = 0
+    total: Optional[int] = None

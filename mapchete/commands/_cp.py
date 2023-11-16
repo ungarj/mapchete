@@ -2,16 +2,20 @@
 
 import logging
 import warnings
+from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
-from typing import Callable, List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely.geometry import Point
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
+from mapchete.commands.observer import ObserverProtocol, Observers
+from mapchete.executor import Executor
 from mapchete.io import MPath, copy, tiles_exist
 from mapchete.io.vector import reproject_geometry
+from mapchete.types import Progress
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +38,9 @@ def cp(
     dask_client=None,
     src_fs_opts: Union[dict, None] = None,
     dst_fs_opts: Union[dict, None] = None,
-    msg_callback: Union[Callable, None] = None,
-    as_iterator: bool = False,
-) -> mapchete.Job:
+    executor_getter: AbstractContextManager = Executor,
+    observers: Optional[List[ObserverProtocol]] = None,
+):
     """
     Copy TileDirectory from source to destination.
 
@@ -75,35 +79,8 @@ def cp(
         Configuration options for source fsspec filesystem.
     dst_fs_opts : dict
         Configuration options for destination fsspec filesystem.
-    msg_callback : Callable
-        Optional callback function for process messages.
-    as_iterator : bool
-        Returns as generator but with a __len__() property.
-
-    Returns
-    -------
-    mapchete.Job instance either with already processed items or a generator with known length.
-
-    Examples
-    --------
-    >>> cp("foo", "bar", zoom=5)
-
-    This will run the whole copy process.
-
-    >>> for i in cp("foo", "bar", zoom=5, as_iterator=True):
-    >>>     print(i)
-
-    This will return a generator where through iteration, tiles are copied.
-
-    >>> list(tqdm.tqdm(cp("foo", "bar", zoom=5, as_iterator=True)))
-
-    Usage within a process bar.
     """
 
-    def _empty_callback(*_):
-        pass
-
-    msg_callback = msg_callback or _empty_callback
     if multi is not None:  # pragma: no cover
         warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
     workers = workers or multi or cpu_count()
@@ -116,6 +93,7 @@ def cp(
     dst_tiledir = MPath.from_inp(dst_tiledir, storage_options=dst_fs_opts)
     src_fs = src_tiledir.fs
     dst_fs = dst_tiledir.fs
+    all_observers = Observers(observers)
 
     # open source tile directory
     with mapchete.open(
@@ -137,7 +115,7 @@ def cp(
         if not dst_fs.exists(dst_metadata):
             msg = f"copy {src_metadata} to {dst_metadata}"
             logger.debug(msg)
-            msg_callback(msg)
+            all_observers.notify(message=msg)
             copy(
                 src_metadata,
                 dst_metadata,
@@ -157,94 +135,74 @@ def cp(
             fs_kwargs=dst_fs_opts,
             mode="readonly",
         ) as dst_mp:
-            return mapchete.Job(
-                _copy_tiles,
-                fargs=(
-                    msg_callback,
-                    src_mp,
-                    dst_mp,
-                    tp,
-                    workers,
-                    src_fs,
-                    dst_fs,
-                    point,
-                    point_crs,
-                    overwrite,
-                ),
-                executor_concurrency=concurrency,
-                executor_kwargs=dict(
-                    max_workers=workers,
-                    dask_scheduler=dask_scheduler,
-                    dask_client=dask_client,
-                ),
-                as_iterator=as_iterator,
-                tiles_tasks=1 if point else src_mp.count_tiles(),
-            )
+            with executor_getter(
+                concurrency=concurrency,
+                max_workers=workers,
+                dask_scheduler=dask_scheduler,
+                dask_client=dask_client,
+            ) as executor:
+                for zoom in src_mp.config.init_zoom_levels:
+                    all_observers.notify(message=f"copy tiles for zoom {zoom}...")
 
+                    # materialize all tiles
+                    if point:
+                        point_geom = reproject_geometry(
+                            Point(point), src_crs=point_crs or tp.crs, dst_crs=tp.crs
+                        )
+                        tiles = [tp.tile_from_xy(point_geom.x, point_geom.y, zoom)]
+                    else:
+                        aoi_geom = src_mp.config.area_at_zoom(zoom)
+                        tiles = [
+                            t
+                            for t in tp.tiles_from_geom(aoi_geom, zoom)
+                            # this is required to omit tiles touching the config area
+                            if aoi_geom.intersection(t.bbox).area
+                        ]
 
-def _copy_tiles(
-    msg_callback,
-    src_mp,
-    dst_mp,
-    tp,
-    workers,
-    src_fs,
-    dst_fs,
-    point,
-    point_crs,
-    overwrite,
-    executor=None,
-):
-    for zoom in src_mp.config.init_zoom_levels:
-        msg_callback(f"copy tiles for zoom {zoom}...")
+                    all_observers.notify(progress=Progress(current=0, total=len(tiles)))
 
-        # materialize all tiles
-        if point:
-            point_geom = reproject_geometry(
-                Point(point), src_crs=point_crs or tp.crs, dst_crs=tp.crs
-            )
-            tiles = [tp.tile_from_xy(point_geom.x, point_geom.y, zoom)]
-        else:
-            aoi_geom = src_mp.config.area_at_zoom(zoom)
-            tiles = [
-                t
-                for t in tp.tiles_from_geom(aoi_geom, zoom)
-                # this is required to omit tiles touching the config area
-                if aoi_geom.intersection(t.bbox).area
-            ]
+                    # check which source tiles exist
+                    logger.debug("looking for existing source tiles...")
+                    src_tiles_exist = dict(
+                        tiles_exist(
+                            config=src_mp.config, output_tiles=tiles, workers=workers
+                        )
+                    )
 
-        # check which source tiles exist
-        logger.debug("looking for existing source tiles...")
-        src_tiles_exist = dict(
-            tiles_exist(config=src_mp.config, output_tiles=tiles, workers=workers)
-        )
+                    # check which destination tiles exist
+                    logger.debug("looking for existing destination tiles...")
+                    dst_tiles_exist = dict(
+                        tiles_exist(
+                            config=dst_mp.config, output_tiles=tiles, workers=workers
+                        )
+                    )
 
-        # check which destination tiles exist
-        logger.debug("looking for existing destination tiles...")
-        dst_tiles_exist = dict(
-            tiles_exist(config=dst_mp.config, output_tiles=tiles, workers=workers)
-        )
+                    # copy
+                    total_copied = 0
+                    for ii, future in enumerate(
+                        executor.as_completed(
+                            _copy_tile,
+                            tiles,
+                            fargs=(
+                                src_mp,
+                                dst_mp,
+                                src_tiles_exist,
+                                dst_tiles_exist,
+                                src_fs,
+                                dst_fs,
+                                overwrite,
+                            ),
+                        ),
+                        1,
+                    ):
+                        copied, message = future.result()
+                        total_copied += copied
+                        all_observers.notify(
+                            progress=Progress(current=ii, total=len(tiles)),
+                            message=message,
+                        )
 
-        # copy
-        total_copied = 0
-        for future in executor.as_completed(
-            _copy_tile,
-            tiles,
-            fargs=(
-                src_mp,
-                dst_mp,
-                src_tiles_exist,
-                dst_tiles_exist,
-                src_fs,
-                dst_fs,
-                overwrite,
-            ),
-        ):
-            copied, msg = future.result()
-            total_copied += copied
-            yield msg
-
-        msg_callback(f"{total_copied} tiles copied")
+                    all_observers.notify(message=f"{total_copied} tiles copied")
 
 
 def _copy_tile(
