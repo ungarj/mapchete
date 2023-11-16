@@ -1,7 +1,6 @@
 """Copy tiles between Tile Directories."""
 
 import logging
-import warnings
 from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
 from typing import List, Optional, Tuple, Union
@@ -81,9 +80,7 @@ def cp(
         Configuration options for destination fsspec filesystem.
     """
 
-    if multi is not None:  # pragma: no cover
-        warnings.warn("The 'multi' parameter is deprecated and is now named 'workers'")
-    workers = workers or multi or cpu_count()
+    workers = workers or cpu_count()
     src_fs_opts = src_fs_opts or {}
     dst_fs_opts = dst_fs_opts or {}
     if zoom is None:  # pragma: no cover

@@ -45,8 +45,6 @@ def rm(
         Override bounds or area provided in process configuration.
     bounds_crs : CRS or str
         CRS of area (default: process CRS).
-    multi : int
-        Number of threads used to check whether tiles exist.
     fs_opts : dict
         Configuration options for fsspec filesystem.
     """

@@ -204,12 +204,6 @@ opt_tile = click.option(
 opt_overwrite = click.option(
     "--overwrite", "-o", is_flag=True, help="Overwrite if tile(s) already exist(s)."
 )
-opt_multi = click.option(
-    "--multi",
-    "-m",
-    type=click.INT,
-    help="Number of workers when processing concurrently.",
-)
 opt_workers = click.option(
     "--workers",
     "-w",
