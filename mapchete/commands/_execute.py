@@ -14,7 +14,7 @@ from mapchete.enums import Concurrency, ProcessingMode, Status
 from mapchete.errors import JobCancelledError
 from mapchete.executor import Executor
 from mapchete.processing.profilers import pretty_bytes
-from mapchete.processing.types import TaskResult
+from mapchete.processing.types import TaskInfo
 from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
@@ -150,14 +150,15 @@ def execute(
                 )
 
             all_observers.notify(status=Status.initializing)
-
             # determine tasks
-            tasks = mp._task_batches(zoom=zoom, tile=tile, concurrency=concurrency)
+            tasks = mp.tasks(zoom=zoom, tile=tile, mode=mode)
 
             if len(tasks) == 0:
                 all_observers.notify(status=Status.done)
                 return
-            all_observers.notify(message=f"processing X tasks on {workers} worker(s)")
+            all_observers.notify(
+                message=f"processing {len(tasks)} tasks on {workers} worker(s)"
+            )
 
             all_observers.notify(message="waiting for executor ...")
             with executor_getter(
@@ -174,29 +175,21 @@ def execute(
                 )
                 # TODO it would be nice to track the time it took sending tasks to the executor
                 try:
-                    for ii, future in enumerate(
-                        mp.compute(
-                            tile=tile,
-                            workers=workers,
-                            zoom=None if tile else zoom,
-                            dask_max_submitted_tasks=dask_max_submitted_tasks,
-                            dask_chunksize=dask_chunksize,
-                            dask_compute_graph=dask_compute_graph,
-                            dask_propagate_results=dask_propagate_results,
-                            profiling=profiling,
-                        ),
-                        # executor.compute(tasks),
-                        1,
-                    ):
-                        result = TaskResult.from_future(future)
+                    count = 0
+                    for task_info in mp.execute(executor=executor, tasks=tasks):
+                        count += 1
                         if print_task_details:
-                            msg = f"task {result.id}: {result.process_msg}"
-                            if result.profiling:  # pragma: no cover
-                                max_allocated = result.profiling["memory"].max_allocated
-                                head_requests = result.profiling["requests"].head_count
-                                get_requests = result.profiling["requests"].get_count
+                            msg = f"task {task_info.id}: {task_info.process_msg}"
+                            if task_info.profiling:  # pragma: no cover
+                                max_allocated = task_info.profiling[
+                                    "memory"
+                                ].max_allocated
+                                head_requests = task_info.profiling[
+                                    "requests"
+                                ].head_count
+                                get_requests = task_info.profiling["requests"].get_count
                                 requests = head_requests + get_requests
-                                transferred = result.profiling["requests"].get_bytes
+                                transferred = task_info.profiling["requests"].get_bytes
                                 msg += (
                                     f" (max memory usage: {pretty_bytes(max_allocated)}"
                                 )
@@ -205,8 +198,8 @@ def execute(
                             all_observers.notify(message=msg)
 
                         all_observers.notify(
-                            progress=Progress(total=len(tasks), current=ii),
-                            task_result=result,
+                            progress=Progress(total=len(tasks), current=count),
+                            task_result=task_info,
                         )
 
                     all_observers.notify(status=Status.done)

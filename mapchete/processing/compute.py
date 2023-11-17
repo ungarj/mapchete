@@ -11,7 +11,7 @@ from mapchete.executor.types import Profiler
 from mapchete.path import batch_sort_property
 from mapchete.processing.profilers import preconfigured_profilers
 from mapchete.processing.tasks import TileTask, to_dask_collection
-from mapchete.processing.types import PreprocessingProcessInfo, TileProcessInfo
+from mapchete.processing.types import PreprocessingTaskInfo, TileTaskInfo
 from mapchete.tile import BufferedTile
 from mapchete.timer import Timer
 from mapchete.types import ZoomLevels, ZoomLevelsLike
@@ -452,7 +452,7 @@ def _run_multi_overviews(
         ):
             # tiles which were not processed
             if future.skipped:
-                process_info = TileProcessInfo(
+                process_info = TileTaskInfo(
                     tile=future.result().tile,
                     processed=False,
                     process_msg=future.skip_info,
@@ -486,11 +486,9 @@ def _run_multi_overviews(
             yield MFuture.from_result(result=process_info)
 
 
-def _preprocess_task_wrapper(
-    task, append_data=True, **kwargs
-) -> PreprocessingProcessInfo:
+def _preprocess_task_wrapper(task, append_data=True, **kwargs) -> PreprocessingTaskInfo:
     data = task.execute(**kwargs)
-    return PreprocessingProcessInfo.from_inp(task.id, data, append_data=append_data)
+    return PreprocessingTaskInfo.from_inp(task.id, data, append_output=append_data)
 
 
 def _preprocess(
@@ -603,7 +601,7 @@ def _run_multi_no_overviews(
     ):
         # tiles which were not processed
         if future.skipped:
-            process_info = TileProcessInfo(
+            process_info = TileTaskInfo(
                 tile=future.result().tile,
                 processed=False,
                 process_msg=future.skip_info,
@@ -632,7 +630,7 @@ def _run_multi_no_overviews(
 
 def _execute(
     tile_process=None, dependencies=None, append_data=True, **_
-) -> TileProcessInfo:
+) -> TileTaskInfo:
     logger.debug(
         (tile_process.tile.id, "running on %s" % multiprocessing.current_process().name)
     )
@@ -640,13 +638,13 @@ def _execute(
     # skip execution if overwrite is disabled and tile exists
     if tile_process.skip:
         logger.debug((tile_process.tile.id, "tile exists, skipping"))
-        return TileProcessInfo(
+        return TileTaskInfo(
             tile=tile_process.tile,
             processed=False,
             process_msg="output already exists",
             written=False,
             write_msg="nothing written",
-            data=None,
+            output=None,
         )
 
     try:
@@ -655,28 +653,28 @@ def _execute(
         output = "empty"
     processor_message = "processed successfully"
     logger.debug((tile_process.tile.id, processor_message))
-    return TileProcessInfo(
+    return TileTaskInfo(
         tile=tile_process.tile,
         processed=True,
         process_msg=processor_message,
         written=None,
         write_msg=None,
-        data=output if append_data else None,
+        output=output if append_data else None,
     )
 
 
 def _write(
     process_info=None, output_writer=None, append_data=False, **_
-) -> TileProcessInfo:
+) -> TileTaskInfo:
     if process_info.processed:
         try:
-            output_data = output_writer.streamline_output(process_info.data)
+            output_data = output_writer.streamline_output(process_info.output)
         except MapcheteNodataTile:
             output_data = None
         if output_data is None:
             message = "output empty, nothing written"
             logger.debug((process_info.tile.id, message))
-            return TileProcessInfo(
+            return TileTaskInfo(
                 tile=process_info.tile,
                 processed=process_info.processed,
                 process_msg=process_info.process_msg,
@@ -687,13 +685,13 @@ def _write(
             output_writer.write(process_tile=process_info.tile, data=output_data)
         message = "output written in %s" % duration
         logger.debug((process_info.tile.id, message))
-        return TileProcessInfo(
+        return TileTaskInfo(
             tile=process_info.tile,
             processed=process_info.processed,
             process_msg=process_info.process_msg,
             written=True,
             write_msg=message,
-            data=output_data if append_data else None,
+            output=output_data if append_data else None,
         )
 
     return process_info
@@ -701,7 +699,7 @@ def _write(
 
 def _execute_and_write(
     tile_process=None, output_writer=None, dependencies=None, append_data=False, **_
-) -> TileProcessInfo:
+) -> TileTaskInfo:
     return _write(
         process_info=_execute(tile_process=tile_process, dependencies=dependencies),
         output_writer=output_writer,

@@ -11,7 +11,7 @@ import mapchete
 from mapchete.commands import convert, cp, execute, index, rm
 from mapchete.errors import JobCancelledError
 from mapchete.io import fiona_open, rasterio_open
-from mapchete.processing.types import TaskResult
+from mapchete.processing.types import TaskInfo
 from mapchete.protocols import ObserverProtocol
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
@@ -105,12 +105,21 @@ def test_rm(mp_tmpdir, cleantopo_br):
     assert task_counter.tasks == 0
 
 
-def test_execute(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
+@pytest.mark.parametrize(
+    "concurrency",
+    [
+        "threads",
+        "dask",
+        "processes",
+        None,
+    ],
+)
+def test_execute(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif, concurrency):
     zoom = 5
     tp = TilePyramid("geodetic")
     with rasterio_open(cleantopo_br_tif) as src:
         tiles = list(tp.tiles_from_bounds(src.bounds, zoom))
-    execute(cleantopo_br_metatiling_1.dict, zoom=zoom)
+    execute(cleantopo_br_metatiling_1.dict, zoom=zoom, concurrency=concurrency)
     mp = cleantopo_br_metatiling_1.mp()
     for t in tiles:
         with rasterio_open(mp.config.output.get_path(t)) as src:
@@ -195,7 +204,7 @@ def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_
     class TaskResultObserver(ObserverProtocol):
         def update(self, *args, task_result=None, **kwargs):
             if task_result:
-                assert isinstance(task_result, TaskResult)
+                assert isinstance(task_result, TaskInfo)
                 assert task_result.profiling
                 for profiler in ["time", "memory"]:
                     assert profiler in task_result.profiling

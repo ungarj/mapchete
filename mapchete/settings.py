@@ -33,6 +33,13 @@ class GDALHTTPOptions(BaseSettings):
 
 
 class IORetrySettings(BaseSettings):
+    """Combine default retry settings with env variables.
+
+    MAPCHETE_IO_RETRY_TRIES
+    MAPCHETE_IO_RETRY_DELAY
+    MAPCHETE_IO_RETRY_BACKOFF
+    """
+
     tries: int = 3
     delay: float = 1.0
     backoff: float = 1.0

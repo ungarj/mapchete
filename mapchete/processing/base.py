@@ -9,10 +9,11 @@ from typing import Any, Iterator, List, Optional, Tuple, Union
 from cachetools import LRUCache
 
 from mapchete.config import MapcheteConfig
-from mapchete.enums import Concurrency
+from mapchete.enums import Concurrency, ProcessingMode
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.executor import (
     MULTIPROCESSING_DEFAULT_START_METHOD,
+    DaskExecutor,
     ExecutorBase,
     MFuture,
 )
@@ -20,8 +21,8 @@ from mapchete.executor.base import func_partial
 from mapchete.executor.types import Profiler
 from mapchete.path import batch_sort_property, tiles_exist
 from mapchete.processing.compute import (
-    PreprocessingProcessInfo,
-    TileProcessInfo,
+    PreprocessingTaskInfo,
+    TileTaskInfo,
     _execute,
     _execute_and_write,
     _filter_skipable,
@@ -31,7 +32,14 @@ from mapchete.processing.compute import (
     _run_on_single_tile,
     compute,
 )
-from mapchete.processing.tasks import TaskBatch, TaskBatches, TileTask, TileTaskBatch
+from mapchete.processing.execute import batches, dask_graph, single_batch
+from mapchete.processing.tasks import (
+    TaskBatch,
+    TaskInfo,
+    Tasks,
+    TileTask,
+    TileTaskBatch,
+)
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
 from mapchete.tile import BufferedTile, count_tiles
 from mapchete.timer import Timer
@@ -159,100 +167,85 @@ class Mapchete(object):
                 for tile in tiles:
                     yield (tile, False)
 
-    def task_batches(
+    def tasks(
         self,
         zoom: Optional[ZoomLevelsLike] = None,
         tile: Optional[TileLike] = None,
+        mode: Optional[ProcessingMode] = None,
         skip_output_check: bool = False,
         propagate_results: bool = True,
         profilers: Optional[List[Profiler]] = None,
-    ) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
+    ) -> Tasks:
         """
-        Generate task batches from preprocessing tasks and tile tasks.
+        Generate tasks from preprocessing tasks and tile tasks.
         """
-        yield from _task_batches(
-            self,
-            zoom=zoom,
-            tile=tile,
-            skip_output_check=skip_output_check,
-            propagate_results=propagate_results,
-            profilers=profilers,
+        return Tasks(
+            _task_batches(
+                self,
+                zoom=zoom,
+                tile=tile,
+                skip_output_check=skip_output_check,
+                propagate_results=propagate_results,
+                profilers=profilers,
+            ),
+            mode=mode or self.config.mode,
         )
-
-    def _task_batches(
-        self,
-        zoom: Optional[ZoomLevelsLike] = None,
-        tile: Optional[TileLike] = None,
-        concurrency: Concurrency = Concurrency.processes,
-        no_task_graph: bool = False,
-    ) -> TaskBatches:
-        """
-        Determine work todo and return as collection of tasks.
-
-        Depending on the settings, this will return either a task graph or
-        task batches in case layers have dependencies, or a single large
-        batch of tasks.
-
-        TODO: streaming?
-        """
-        profilers = []
-        skip_output_check = False
-        dask_propagate_results = True
-
-        # if no_task_graph:
-        #     graph = False
-        # else:
-        #     graph = concurrency == Concurrency.dask
-
-        # first, get task batches
-        task_batches = self.task_batches(
-            zoom=zoom,
-            tile=tile,
-            skip_output_check=skip_output_check,
-            propagate_results=self.config.output.write_in_parent_process
-            or dask_propagate_results,
-            profilers=profilers,
-        )
-
-        # better to materialize them now, because we have to see what can be thrown away
-        # this depends on the process mode
-        task_collection = TaskBatches(
-            task_batches=task_batches,
-            mode=self.config.mode,
-        )
-
-        # under certain conditions, we can avoid preserving dependencies between tasks
-        # and even don't bother doing graph processing:
-        # - no baselevels and no preprocessing tasks
-        # - only one zoom level and no preprocessing tasks
-        # preserve_dependencies = True
-
-        return task_collection
-
-    def execute_task_collection(
-        self,
-        executor: ExecutorBase,
-        task_collection: TaskBatches,
-    ):
-        raise NotImplementedError
 
     def execute(
         self,
         executor: ExecutorBase,
+        tasks: Optional[Tasks] = None,
         zoom: Optional[ZoomLevelsLike] = None,
         tile: Optional[TileLike] = None,
-        concurrency: Concurrency = Concurrency.processes,
         no_task_graph: bool = False,
-    ) -> None:
-        self.execute_task_collection(
-            self.task_batches(
-                zoom=zoom,
-                tile=tile,
-                concurrency=concurrency,
-                no_task_graph=no_task_graph,
-            ),
-            executor=executor,
+    ) -> Iterator[TaskInfo]:
+        """
+        Execute all tasks on given executor and yield TaskInfo as they finish.
+        """
+
+        # determine tasks if not provided extra
+        tasks = tasks or self.tasks(
+            zoom=zoom,
+            tile=tile,
         )
+
+        # TODO: write output in parent process
+        # TODO: profiling
+
+        # tasks have no dependencies with each other and can be executed in
+        # any arbitrary order
+        if (
+            self.config.preprocessing_tasks_count == 0 and not self.config.baselevels
+        ) or (
+            self.config.preprocessing_tasks_count == 0
+            and len(self.config.init_zoom_levels) == 1
+        ):
+            logger.debug("decided to process tasks in single batch")
+            yield from single_batch(
+                executor,
+                tasks,
+                output_writer=self.config.output,
+            )
+
+        # tasks are sorted into batches which have to be executed in a
+        # particular order
+        elif no_task_graph or not isinstance(executor, DaskExecutor):
+            logger.debug("decided to process tasks in batches")
+            yield from batches(
+                executor,
+                tasks,
+                output_writer=self.config.output,
+            )
+
+        # tasks are connected via a dependency graph and will be sent to the
+        # executor all at once
+        else:
+            logger.debug("decided to use dask graph processing")
+            yield from dask_graph(
+                executor,
+                tasks,
+                output_writer=self.config.output,
+            )
 
     def compute(
         self,
@@ -272,6 +265,9 @@ class Mapchete(object):
         **kwargs,
     ) -> Iterator[MFuture]:
         """Compute preprocessing tasks and tile tasks in one go."""
+
+        # TODO: DEPRECATED
+
         yield from compute(
             self,
             zoom_levels=(
@@ -433,7 +429,7 @@ class Mapchete(object):
         multiprocessing_start_method: str = MULTIPROCESSING_DEFAULT_START_METHOD,
         skip_output_check: bool = False,
         executor: Optional[ExecutorBase] = None,
-    ) -> Union[PreprocessingProcessInfo, TileProcessInfo]:
+    ) -> Union[PreprocessingTaskInfo, TileTaskInfo]:
         """
         Process a large batch of tiles and yield report messages per tile.
 
@@ -601,7 +597,7 @@ class Mapchete(object):
             raise ValueError("process mode must be readonly, continue or overwrite")
         return self.config.output.read(output_tile)
 
-    def write(self, process_tile: TileLike, data: Any):
+    def write(self, process_tile: TileLike, data: Any) -> TileTaskInfo:
         """
         Write data into output format.
 
@@ -621,7 +617,7 @@ class Mapchete(object):
         ):
             message = "output exists, not overwritten"
             logger.debug((process_tile.id, message))
-            return TileProcessInfo(
+            return TileTaskInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -631,7 +627,7 @@ class Mapchete(object):
         elif data is None:
             message = "output empty, nothing written"
             logger.debug((process_tile.id, message))
-            return TileProcessInfo(
+            return TileTaskInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -643,7 +639,7 @@ class Mapchete(object):
                 self.config.output.write(process_tile=process_tile, data=data)
             message = "output written in %s" % t
             logger.debug((process_tile.id, message))
-            return TileProcessInfo(
+            return TileTaskInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -859,12 +855,14 @@ def _task_batches(
     profilers = profilers or []
     with Timer() as duration:
         # preprocessing tasks
-        yield TaskBatch(
+        preprocessing_batch = TaskBatch(
             id="preprocessing_tasks",
             tasks=process.config.preprocessing_tasks().values(),
             func=_preprocess_task_wrapper,
             profilers=profilers,
         )
+        if len(preprocessing_batch):
+            yield preprocessing_batch
     logger.debug("preprocessing tasks batch generated in %s", duration)
     with Timer() as duration:
         if tile:
@@ -923,7 +921,7 @@ def _task_batches(
         # tile tasks
         for zoom in zoom_levels.descending():
             yield TileTaskBatch(
-                id=f"zoom_{zoom}",
+                id=f"zoom-{zoom}",
                 tasks=(
                     TileTask(
                         tile=tile,
@@ -936,6 +934,7 @@ def _task_batches(
                         else skip,
                     )
                     for tile, skip in tiles[zoom]
+                    if not skip  # TODO: this deviates from previous version!
                 ),
                 func=func,
                 fkwargs=fkwargs,
