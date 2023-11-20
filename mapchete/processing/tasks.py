@@ -1,7 +1,7 @@
 import logging
 from abc import ABC
 from enum import Enum
-from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 from uuid import uuid4
 
 import numpy.ma as ma
@@ -42,7 +42,7 @@ class Task(ABC):
     func: Callable
     fargs: Tuple
     fkwargs: Tuple
-    dependencies: dict
+    dependencies: Dict[str, TaskInfo]
     result_key_name: str
     geometry: Optional[Union[base.BaseGeometry, dict]] = None
     bounds: Optional[Bounds] = None
@@ -53,7 +53,7 @@ class Task(ABC):
         func: Optional[Callable] = None,
         fargs: Optional[Tuple] = None,
         fkwargs: Optional[Tuple] = None,
-        dependencies: Optional[dict] = None,
+        dependencies: Optional[Dict[str, TaskInfo]] = None,
         result_key_name: Optional[str] = None,
         geometry: Optional[Union[base.BaseGeometry, dict]] = None,
         bounds: Optional[BoundsLike] = None,
@@ -86,7 +86,7 @@ class Task(ABC):
             "properties": {},
         }
 
-    def add_dependencies(self, dependencies: dict) -> None:
+    def add_dependencies(self, dependencies: Dict[str, TaskInfo]) -> None:
         dependencies = dependencies or {}
         if not isinstance(dependencies, dict):
             raise TypeError(
@@ -94,11 +94,12 @@ class Task(ABC):
             )
         self.dependencies.update(dependencies)
 
-    def execute(self, dependencies: Optional[dict] = None) -> TaskInfo:
-        result = func_partial(self.func, self.fargs, self.fkwargs, profilers=None)()
-        if isinstance(result, TaskInfo):
-            return result
-        return TaskInfo(id=self.id, processed=True, output=result)
+    def execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> TaskInfo:
+        output = self.func(*self.fargs, **self.fkwargs)
+        return TaskInfo(
+            output=output,
+            processed=True,
+        )
 
     def has_geometry(self) -> bool:
         return self.geometry is not None
@@ -229,7 +230,7 @@ class TileTask(Task):
         )
         super().__init__(id=self.id, geometry=tile.bbox)
 
-    def execute(self, dependencies: Optional[dict] = None) -> Any:
+    def execute(self, dependencies: Optional[dict] = None) -> TaskInfo:
         """
         Run the Mapchete process and return the result.
 
@@ -259,9 +260,9 @@ class TileTask(Task):
             raise MapcheteNodataTile
         elif process_output is None:
             raise MapcheteProcessOutputError("process output is empty")
-        return process_output
+        return TaskInfo(output=process_output, processed=True, tile=self.tile)
 
-    def _execute(self, dependencies: Optional[dict] = None) -> Any:
+    def _execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> Any:
         # If baselevel is active and zoom is outside of baselevel,
         # interpolate from other zoom levels.
         if self.config_baselevels:
@@ -306,7 +307,9 @@ class TileTask(Task):
         return process_data
 
     def _interpolate_from_baselevel(
-        self, baselevel: InterpolateFrom, dependencies: Optional[dict] = None
+        self,
+        baselevel: InterpolateFrom,
+        dependencies: Optional[Dict[str, TaskInfo]] = None,
     ) -> ma.MaskedArray:
         # This is a special tile derived from a pyramid which has the pixelbuffer setting
         # from the output pyramid but metatiling from the process pyramid. This is due to
@@ -335,17 +338,15 @@ class TileTask(Task):
             # resample from children tiles
             elif baselevel == InterpolateFrom.lower:
                 src_tiles = {}
-                for result in dependencies.values():
-                    process_info = result.output
+                for task_info in dependencies.values():
                     logger.debug("reading output from dependend tasks")
-                    process_tile = process_info.tile
                     for output_tile in self.output_reader.pyramid.intersecting(
-                        process_tile
+                        task_info.tile
                     ):
-                        if process_info.data is not None:
+                        if task_info.output is not None:
                             src_tiles[output_tile] = raster.extract_from_array(
-                                in_raster=process_info.data,
-                                in_affine=process_tile.affine,
+                                in_raster=task_info.output,
+                                in_affine=task_info.tile.affine,
                                 out_tile=output_tile,
                             )
                 if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
@@ -456,6 +457,8 @@ class TileTaskBatch(TaskBatch):
 class Tasks:
     _len: int = None
     _task_batches_generator: Iterator[Union[TaskBatch, TileTaskBatch]]
+    _preprocessing_batches: List[TaskBatch]
+    _tile_batches: List[TileTaskBatch]
     preprocessing_batches: List[TaskBatch]
     tile_batches: List[TileTaskBatch]
     materialized: bool = False
@@ -485,9 +488,9 @@ class Tasks:
             self._tile_batches = []
             for batch in self._task_batches_generator:
                 if isinstance(batch, TileTaskBatch):
-                    self.tile_batches.append(batch)
+                    self._tile_batches.append(batch)
                 else:
-                    self.preprocessing_batches.append(batch)
+                    self._preprocessing_batches.append(batch)
             self.materialized = True
         logger.debug("task batches materialized in %s", tt)
 

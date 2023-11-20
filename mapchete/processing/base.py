@@ -4,6 +4,7 @@ import json
 import logging
 import multiprocessing
 import threading
+from functools import cached_property
 from typing import Any, Iterator, List, Optional, Tuple, Union
 
 from cachetools import LRUCache
@@ -14,24 +15,13 @@ from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.executor import (
     MULTIPROCESSING_DEFAULT_START_METHOD,
     DaskExecutor,
+    Executor,
     ExecutorBase,
     MFuture,
 )
 from mapchete.executor.base import func_partial
 from mapchete.executor.types import Profiler
 from mapchete.path import batch_sort_property, tiles_exist
-from mapchete.processing.compute import (
-    PreprocessingTaskInfo,
-    TileTaskInfo,
-    _execute,
-    _execute_and_write,
-    _filter_skipable,
-    _preprocess,
-    _preprocess_task_wrapper,
-    _run_area,
-    _run_on_single_tile,
-    compute,
-)
 from mapchete.processing.execute import batches, dask_graph, single_batch
 from mapchete.processing.tasks import (
     TaskBatch,
@@ -70,7 +60,15 @@ class Mapchete(object):
         process output data cached in memory
     """
 
-    def __init__(self, config: MapcheteConfig, with_cache: bool = False):
+    _default_executor: Optional[ExecutorBase] = None
+    default_executore_concurrency: Concurrency = Concurrency.threads
+
+    def __init__(
+        self,
+        config: MapcheteConfig,
+        with_cache: bool = False,
+        # default_executor_concurrency: Concurrency = Concurrency.processes,
+    ):
         """
         Initialize Mapchete processing endpoint.
 
@@ -91,6 +89,14 @@ class Mapchete(object):
             self.current_processes = {}
             self.process_lock = threading.Lock()
         self._count_tiles_cache = {}
+        # self.default_executore_concurrency = default_executor_concurrency
+
+    @cached_property
+    def default_executor(self):
+        self._default_executor = Executor(
+            concurrency=self.default_executore_concurrency
+        ).__enter__()
+        return self._default_executor
 
     def get_process_tiles(
         self, zoom: Optional[int] = None, batch_by: Optional[str] = None
@@ -191,23 +197,41 @@ class Mapchete(object):
             mode=mode or self.config.mode,
         )
 
+    def preprocessing_tasks(
+        self,
+        mode: Optional[ProcessingMode] = None,
+        profilers: Optional[List[Profiler]] = None,
+    ) -> Tasks:
+        """
+        Generate tasks from preprocessing tasks and tile tasks.
+        """
+        return Tasks(
+            _preprocessing_task_batches(
+                self,
+                profilers=profilers,
+            ),
+            mode=mode or self.config.mode,
+        )
+
     def execute(
         self,
-        executor: ExecutorBase,
+        executor: Optional[ExecutorBase] = None,
         tasks: Optional[Tasks] = None,
         zoom: Optional[ZoomLevelsLike] = None,
         tile: Optional[TileLike] = None,
         no_task_graph: bool = False,
+        profiling: bool = False,
     ) -> Iterator[TaskInfo]:
         """
         Execute all tasks on given executor and yield TaskInfo as they finish.
         """
-
         # determine tasks if not provided extra
-        tasks = tasks or self.tasks(
-            zoom=zoom,
-            tile=tile,
-        )
+        tasks = self.tasks(zoom=zoom, tile=tile) if tasks is None else tasks
+
+        if len(tasks) == 0:
+            return
+
+        executor = executor or self.default_executor
 
         # TODO: write output in parent process
         # TODO: profiling
@@ -265,36 +289,11 @@ class Mapchete(object):
         **kwargs,
     ) -> Iterator[MFuture]:
         """Compute preprocessing tasks and tile tasks in one go."""
-
-        # TODO: DEPRECATED
-
-        yield from compute(
-            self,
-            zoom_levels=(
-                self.config.zoom_levels if zoom is None else ZoomLevels.from_inp(zoom)
-            ),
-            tile=self.config.process_pyramid.tile(*tile) if tile else None,
-            executor=executor,
-            concurrency=concurrency,
-            workers=workers,
-            multiprocessing_start_method=multiprocessing_start_method,
-            skip_output_check=skip_output_check,
-            dask_scheduler=dask_scheduler,
-            dask_compute_graph=dask_compute_graph,
-            dask_propagate_results=dask_propagate_results,
-            dask_max_submitted_tasks=dask_max_submitted_tasks,
-            raise_errors=raise_errors,
-            with_results=with_results,
-            **kwargs,
-        )
+        raise DeprecationWarning("Mapchete.compute() is deprecated")
 
     def batch_preprocessor(
         self,
-        dask_scheduler: Optional[str] = None,
-        dask_max_submitted_tasks: int = 500,
-        dask_chunksize: int = 100,
-        workers: Optional[int] = None,
-        executor: Optional[ExecutorBase] = None,
+        executor: ExecutorBase,
     ) -> Iterator[MFuture]:
         """
         Run all required preprocessing steps and yield over results.
@@ -316,23 +315,21 @@ class Mapchete(object):
             optional executor class to be used for processing
 
         """
-        # process everything using executor and yield from results
-        yield from _preprocess(
-            self.config.preprocessing_tasks(),
-            process=self,
-            dask_scheduler=dask_scheduler,
-            dask_max_submitted_tasks=dask_max_submitted_tasks,
-            dask_chunksize=dask_chunksize,
-            workers=workers,
+        # If preprocessing tasks already finished, don't run them again.
+        if self.config.preprocessing_tasks_finished:  # pragma: no cover
+            return
+
+        for task_info in self.execute(
+            tasks=self.preprocessing_tasks(),
             executor=executor,
-        )
+        ):
+            self.config.set_preprocessing_task_result(task_info.id, task_info.output)
+            yield task_info
+
+        self.config.preprocessing_tasks_finished = True
 
     def batch_preprocess(
         self,
-        dask_scheduler: Optional[str] = None,
-        dask_max_submitted_tasks: int = 500,
-        dask_chunksize: int = 100,
-        workers: Optional[int] = None,
         executor: Optional[ExecutorBase] = None,
     ) -> None:
         """
@@ -352,137 +349,7 @@ class Mapchete(object):
         executor : mapchete.Executor
             optional executor class to be used for processing
         """
-        list(
-            self.batch_preprocessor(
-                dask_scheduler=dask_scheduler,
-                dask_max_submitted_tasks=dask_max_submitted_tasks,
-                dask_chunksize=dask_chunksize,
-                workers=workers,
-                executor=executor,
-            )
-        )
-
-    def batch_process(
-        self,
-        zoom: Optional[ZoomLevelsLike] = None,
-        tile: Optional[TileLike] = None,
-        dask_scheduler: Optional[str] = None,
-        dask_max_submitted_tasks: int = 500,
-        dask_chunksize: int = 100,
-        workers: Optional[int] = None,
-        multiprocessing_start_method: str = MULTIPROCESSING_DEFAULT_START_METHOD,
-        skip_output_check: bool = False,
-        executor: Optional[ExecutorBase] = None,
-    ) -> None:
-        """
-        Process a large batch of tiles.
-
-        Parameters
-        ----------
-        process : MapcheteProcess
-            process to be run
-        zoom : list or int
-            either single zoom level or list of minimum and maximum zoom level;
-            None processes all (default: None)
-        tile : tuple
-            zoom, row and column of tile to be processed (cannot be used with
-            zoom)
-        workers : int
-            number of workers (default: number of CPU cores)
-        dask_schedulter : str
-            URL to a dask scheduler if distributed execution is desired
-        dask_max_submitted_tasks : int
-            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
-        dask_chunksize : int
-            Number of tasks submitted to the scheduler at once. (default: 100)
-        multiprocessing_start_method : str
-            "fork", "forkserver" or "spawn"
-            (default: "spawn")
-        skip_output_check : bool
-            skip checking whether process tiles already have existing output before
-            starting to process;
-        executor : mapchete.Executor
-            optional executor class to be used for processing
-        """
-        list(
-            self.batch_processor(
-                zoom=zoom,
-                tile=tile,
-                dask_scheduler=dask_scheduler,
-                dask_max_submitted_tasks=dask_max_submitted_tasks,
-                dask_chunksize=dask_chunksize,
-                workers=workers,
-                multiprocessing_start_method=multiprocessing_start_method,
-                skip_output_check=skip_output_check,
-                executor=executor,
-            )
-        )
-
-    def batch_processor(
-        self,
-        zoom: Optional[ZoomLevelsLike] = None,
-        tile: Optional[TileLike] = None,
-        dask_scheduler: Optional[str] = None,
-        dask_max_submitted_tasks: int = 500,
-        dask_chunksize: int = 100,
-        workers: Optional[int] = None,
-        multiprocessing_start_method: str = MULTIPROCESSING_DEFAULT_START_METHOD,
-        skip_output_check: bool = False,
-        executor: Optional[ExecutorBase] = None,
-    ) -> Union[PreprocessingTaskInfo, TileTaskInfo]:
-        """
-        Process a large batch of tiles and yield report messages per tile.
-
-        Parameters
-        ----------
-        zoom : list or int
-            either single zoom level or list of minimum and maximum zoom level;
-            None processes all (default: None)
-        tile : tuple
-            zoom, row and column of tile to be processed (cannot be used with
-            zoom)
-        dask_schedulter : str
-            URL to a dask scheduler if distributed execution is desired
-        dask_max_submitted_tasks : int
-            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
-        dask_chunksize : int
-            Number of tasks submitted to the scheduler at once. (default: 100)
-        multiprocessing_start_method : str
-            "fork", "forkserver" or "spawn"
-            (default: "spawn")
-        skip_output_check : bool
-            skip checking whether process tiles already have existing output before
-            starting to process;
-        executor : mapchete.Executor
-            optional executor class to be used for processing
-        """
-        if zoom and tile:
-            raise ValueError("use either zoom or tile")
-
-        # run single tile
-        if tile:
-            yield _run_on_single_tile(
-                executor=executor,
-                dask_scheduler=dask_scheduler,
-                process=self,
-                tile=self.config.process_pyramid.tile(*tuple(tile)),
-            ).result()
-        # run area
-        else:
-            for future in _run_area(
-                process=self,
-                zoom_levels=self.config.zoom_levels
-                if zoom is None
-                else ZoomLevels.from_inp(zoom),
-                dask_scheduler=dask_scheduler,
-                dask_max_submitted_tasks=dask_max_submitted_tasks,
-                dask_chunksize=dask_chunksize,
-                workers=workers or multiprocessing.cpu_count(),
-                multiprocessing_start_method=multiprocessing_start_method,
-                skip_output_check=skip_output_check,
-                executor=executor,
-            ):
-                yield future.result()
+        list(self.batch_preprocessor(executor=executor))
 
     def count_tasks(
         self,
@@ -567,10 +434,11 @@ class Mapchete(object):
             process output
         """
         process_tile = validate_tile(process_tile, self.config.process_pyramid)
+        # make sure preprocessing tasks are finished
         self.batch_preprocess()
         try:
             return self.config.output.streamline_output(
-                TileTask(tile=process_tile, config=self.config).execute()
+                TileTask(tile=process_tile, config=self.config).execute().output
             )
         except MapcheteNodataTile:
             if raise_nodata:  # pragma: no cover
@@ -597,7 +465,7 @@ class Mapchete(object):
             raise ValueError("process mode must be readonly, continue or overwrite")
         return self.config.output.read(output_tile)
 
-    def write(self, process_tile: TileLike, data: Any) -> TileTaskInfo:
+    def write(self, process_tile: TileLike, data: Any) -> TaskInfo:
         """
         Write data into output format.
 
@@ -617,7 +485,7 @@ class Mapchete(object):
         ):
             message = "output exists, not overwritten"
             logger.debug((process_tile.id, message))
-            return TileTaskInfo(
+            return TaskInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -627,7 +495,7 @@ class Mapchete(object):
         elif data is None:
             message = "output empty, nothing written"
             logger.debug((process_tile.id, message))
-            return TileTaskInfo(
+            return TaskInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -639,7 +507,7 @@ class Mapchete(object):
                 self.config.output.write(process_tile=process_tile, data=data)
             message = "output written in %s" % t
             logger.debug((process_tile.id, message))
-            return TileTaskInfo(
+            return TaskInfo(
                 tile=process_tile,
                 processed=False,
                 process_msg=None,
@@ -768,7 +636,6 @@ class Mapchete(object):
             output = self._execute_using_cache(process_tile)
         else:
             output = self.execute_tile(process_tile)
-
         self.write(process_tile, output)
         return self._extract(in_tile=process_tile, in_data=output, out_tile=tile)
 
@@ -839,6 +706,9 @@ class Mapchete(object):
             self.current_processes = None
             self.process_lock = None
 
+        if self._default_executor:
+            self._default_executor.__exit__(exc_type, exc_value, exc_traceback)
+
     def __repr__(self):  # pragma: no cover
         return f"Mapchete <process_name={self.config.process.name}>"
 
@@ -853,17 +723,42 @@ def _task_batches(
 ) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
     """Create task batches for each processing stage."""
     profilers = profilers or []
+    if tile:
+        tile = process.config.process_pyramid.tile(*tile)
+    yield from _preprocessing_task_batches(process=process, profilers=profilers)
+    yield from _tile_task_batches(
+        process=process,
+        zoom=zoom,
+        tile=tile,
+        skip_output_check=skip_output_check,
+        profilers=profilers,
+    )
+
+
+def _preprocessing_task_batches(
+    process: Mapchete,
+    profilers: Optional[List[Profiler]] = None,
+) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
     with Timer() as duration:
         # preprocessing tasks
         preprocessing_batch = TaskBatch(
             id="preprocessing_tasks",
             tasks=process.config.preprocessing_tasks().values(),
-            func=_preprocess_task_wrapper,
             profilers=profilers,
         )
         if len(preprocessing_batch):
             yield preprocessing_batch
     logger.debug("preprocessing tasks batch generated in %s", duration)
+
+
+def _tile_task_batches(
+    process: Mapchete,
+    zoom: Optional[ZoomLevelsLike] = None,
+    tile: Optional[TileLike] = None,
+    skip_output_check: bool = False,
+    propagate_results: bool = True,
+    profilers: Optional[List[Profiler]] = None,
+) -> Iterator[Union[TaskBatch, TileTaskBatch]]:
     with Timer() as duration:
         if tile:
             zoom_levels = ZoomLevels.from_inp(tile.zoom)
@@ -876,7 +771,6 @@ def _task_batches(
                 else ZoomLevels.from_inp(zoom)
             )
             tiles = {}
-
             # here we store the parents of tiles about to be processed so we can update overviews
             # also in "continue" mode in case there were updates at the baselevel
             overview_parents = set()
@@ -909,15 +803,6 @@ def _task_batches(
                         # we don't need the current tile anymore
                     overview_parents.discard(tile)
 
-        if process.config.output.write_in_parent_process:
-            func = func_partial(_execute, profilers=profilers)
-            fkwargs = dict(append_data=propagate_results)
-        else:
-            func = func_partial(_execute_and_write, profilers=profilers)
-            fkwargs = dict(
-                append_data=propagate_results, output_writer=process.config.output
-            )
-
         # tile tasks
         for zoom in zoom_levels.descending():
             yield TileTaskBatch(
@@ -936,8 +821,25 @@ def _task_batches(
                     for tile, skip in tiles[zoom]
                     if not skip  # TODO: this deviates from previous version!
                 ),
-                func=func,
-                fkwargs=fkwargs,
                 profilers=profilers,
             )
     logger.debug("tile task batches generated in %s", duration)
+
+
+def _filter_skipable(
+    process: Mapchete,
+    tiles_batches: Iterator[Iterator[BufferedTile]],
+    target_set: Optional[set] = None,
+    skip_output_check: bool = False,
+) -> Iterator[Tuple[BufferedTile, bool, Optional[str]]]:
+    if skip_output_check:  # pragma: no cover
+        for batch in tiles_batches:
+            for tile in batch:
+                yield (tile, False, None)
+    else:
+        target_set = target_set or set()
+        for tile, skip in process.skip_tiles(tiles_batches=tiles_batches):
+            if skip and tile not in target_set:
+                yield (tile, True, "output already exists")
+            else:
+                yield (tile, False, None)

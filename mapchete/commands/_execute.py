@@ -2,7 +2,7 @@
 import logging
 from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
-from typing import List, Optional, Tuple, Type, Union, Any
+from typing import Any, List, Optional, Tuple, Type, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
@@ -13,7 +13,7 @@ from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_p
 from mapchete.enums import Concurrency, ProcessingMode, Status
 from mapchete.errors import JobCancelledError
 from mapchete.executor import Executor
-from mapchete.processing.profilers import pretty_bytes
+from mapchete.processing.profilers import preconfigured_profilers, pretty_bytes
 from mapchete.processing.types import TaskInfo
 from mapchete.types import MPathLike, Progress
 
@@ -170,6 +170,9 @@ def execute(
                 multiprocessing_start_method=multiprocessing_start_method,
                 max_workers=workers,
             ) as executor:
+                if profiling:
+                    for profiler in preconfigured_profilers:
+                        executor.add_profiler(profiler)
                 all_observers.notify(
                     status=Status.running,
                     progress=Progress(total=len(tasks)),
@@ -178,7 +181,9 @@ def execute(
                 # TODO it would be nice to track the time it took sending tasks to the executor
                 try:
                     count = 0
-                    for task_info in mp.execute(executor=executor, tasks=tasks):
+                    for task_info in mp.execute(
+                        executor=executor, tasks=tasks, profiling=profiling
+                    ):
                         count += 1
                         if print_task_details:
                             msg = f"task {task_info.id}: {task_info.process_msg}"

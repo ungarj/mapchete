@@ -5,8 +5,8 @@ from typing import Iterator, Optional
 from mapchete.errors import MapcheteNodataTile
 from mapchete.executor import DaskExecutor, ExecutorBase
 from mapchete.formats.base import OutputDataWriter
-from mapchete.processing.tasks import Tasks, TileTask
-from mapchete.processing.types import PreprocessingTaskInfo, TaskInfo, TileTaskInfo
+from mapchete.processing.tasks import Task, Tasks
+from mapchete.processing.types import TaskInfo, default_tile_task_id
 from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ def single_batch(
         tasks.to_batch(),
         fkwargs=dict(output_writer=output_writer),
     ):
-        yield future.result()
+        yield TaskInfo.from_future(future)
 
 
 def batches(
@@ -37,7 +37,7 @@ def batches(
         for future in executor.as_completed(
             _execute_and_write_wrapper, batch, fkwargs=dict(output_writer=output_writer)
         ):
-            yield future.result()
+            yield TaskInfo.from_future(future)
 
 
 def dask_graph(
@@ -48,39 +48,49 @@ def dask_graph(
     for future in executor.compute_task_graph(
         tasks.to_dask_graph(),
     ):
-        yield future.result()
+        yield TaskInfo.from_future(future)
 
 
 def _execute_wrapper(
-    task: TileTask, dependencies: Optional[dict] = None, append_data: bool = True
+    task: Task, dependencies: Optional[dict] = None, append_data: bool = True
 ) -> TaskInfo:
     """
     Executes tasks and wraps output in a TaskInfo object.
     """
-    logger.debug((task.tile.id, "running on %s" % current_process().name))
+    logger.debug((task.id, "running on %s" % current_process().name))
 
     try:
         output = task.execute(dependencies=dependencies)
     except MapcheteNodataTile:  # pragma: no cover
         output = "empty"
     processor_message = "processed successfully"
-    logger.debug((task.tile.id, processor_message))
-    return TaskInfo(
-        tile=task.tile,
-        processed=True,
-        process_msg=processor_message,
-        written=None,
-        write_msg=None,
-        output=output if append_data else None,
-    )
+    if isinstance(output, TaskInfo):
+        return output
+    logger.debug((task.id, processor_message))
+    if hasattr(task, "tile"):
+        return TaskInfo(
+            id=task.id,
+            tile=task.tile,
+            processed=True,
+            process_msg=processor_message,
+            written=None,
+            write_msg=None,
+            output=output if append_data else None,
+        )
+    else:
+        return TaskInfo(
+            id=task.id,
+            processed=True,
+            process_msg=processor_message,
+            written=None,
+            write_msg=None,
+            output=output if append_data else None,
+        )
 
 
 def _write_wrapper(
-    task_info: TileTaskInfo,
-    output_writer: OutputDataWriter,
-    append_data: bool = False,
-    **_
-) -> TileTaskInfo:
+    task_info: TaskInfo, output_writer: OutputDataWriter, append_data: bool = False, **_
+) -> TaskInfo:
     """Write output from previous step and return updated TileTaskInfo object."""
     if task_info.processed:
         try:
@@ -90,7 +100,8 @@ def _write_wrapper(
         if output_data is None:
             message = "output empty, nothing written"
             logger.debug((task_info.tile.id, message))
-            return TileTaskInfo(
+            return TaskInfo(
+                id=default_tile_task_id(task_info.tile),
                 tile=task_info.tile,
                 processed=task_info.processed,
                 process_msg=task_info.process_msg,
@@ -101,7 +112,8 @@ def _write_wrapper(
             output_writer.write(process_tile=task_info.tile, data=output_data)
         message = "output written in %s" % duration
         logger.debug((task_info.tile.id, message))
-        return TileTaskInfo(
+        return TaskInfo(
+            id=default_tile_task_id(task_info.tile),
             tile=task_info.tile,
             processed=task_info.processed,
             process_msg=task_info.process_msg,
@@ -114,17 +126,21 @@ def _write_wrapper(
 
 
 def _execute_and_write_wrapper(
-    task: TileTask,
+    task: Task,
     output_writer: Optional[OutputDataWriter] = None,
     dependencies: Optional[dict] = None,
     append_data: bool = False,
     **_
-) -> TileTaskInfo:
+) -> TaskInfo:
     """
     Execute tile task and write output in one step.
     """
-    return _write_wrapper(
-        task_info=_execute_wrapper(task, dependencies=dependencies),
-        output_writer=output_writer,
-        append_data=append_data,
-    )
+    task_info = _execute_wrapper(task, dependencies=dependencies)
+    if task_info.tile:
+        return _write_wrapper(
+            task_info=task_info,
+            output_writer=output_writer,
+            append_data=append_data,
+        )
+    else:
+        return task_info

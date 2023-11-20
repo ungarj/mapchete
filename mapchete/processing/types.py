@@ -23,53 +23,30 @@ class TaskInfo:
     tile: Optional[BufferedTile] = None
     profiling: dict = field(default_factory=dict)
 
-    # @staticmethod
-    # def from_future(future: MFuture) -> TaskResult:
-    #     process_info = future.result()
-    #     if isinstance(process_info, PreprocessingTaskResult):
-    #         return TaskResult(
-    #             id=process_info.task_key,
-    #             processed=process_info.processed,
-    #             process_msg=process_info.process_msg,
-    #             profiling=process_info.profiling or future.profiling,
-    #         )
-    #     elif isinstance(process_info, TileTaskResult):
-    #         tile = process_info.tile
-    #         return TaskResult(
-    #             id=f"tile-{tile.zoom}-{tile.row}-{tile.col}",
-    #             processed=process_info.processed,
-    #             process_msg=process_info.process_msg,
-    #             profiling=process_info.profiling or future.profiling,
-    #         )
-    #     else:  # pragma: no cover
-    #         raise TypeError(f"unknown process info type: {type(process_info)}")
-
-
-class TileTaskInfo(TaskInfo):
-    tile: BufferedTile
-
-    def __new__(cls, *args, **kwargs):
-        # set id property to default if not set
-        if kwargs.get("id") is None:
-            kwargs.update(id=default_tile_task_id(kwargs.get("tile")))
-        obj = object.__new__(cls)
-        TaskInfo.__init__(obj, *args, **kwargs)
-        return obj
-
-
-@dataclass
-class PreprocessingTaskInfo(TaskInfo):
     @staticmethod
-    def from_inp(
-        task_key: str, inp: Any, append_output: bool = True
-    ) -> PreprocessingTaskInfo:
+    def from_inp(task_key: str, inp: Any, append_output: bool = True) -> TaskInfo:
         if isinstance(inp, TaskInfo):
-            return PreprocessingTaskInfo(**inp.__dict__)
+            return TaskInfo(**inp.__dict__)
         elif isinstance(inp, Result):
             profiling = inp.profiling
             output = inp.output
-        return PreprocessingTaskInfo(
+        return TaskInfo(
             task_key=task_key,
             output=output if append_output else None,
             profiling=profiling,
         )
+
+    @staticmethod
+    def from_future(future: MFuture) -> TaskInfo:
+        result = future.result()
+        if isinstance(result, TaskInfo):
+            task_info = result
+            if future.profiling:
+                task_info.profiling = future.profiling
+        else:
+            task_info = TaskInfo(
+                id=future.key if hasattr(future, "key") else future.name,
+                processed=True,
+                profiling=future.profiling,
+            )
+        return task_info

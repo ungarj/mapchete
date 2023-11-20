@@ -23,7 +23,7 @@ import mapchete
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.raster import _shift_required, create_mosaic
-from mapchete.processing.types import PreprocessingTaskInfo, TileTaskInfo
+from mapchete.processing.types import TaskInfo
 from mapchete.tile import BufferedTilePyramid, count_tiles
 
 
@@ -157,7 +157,7 @@ def test_baselevels(baselevels):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.dict, mode="continue") as mp:
         # process data before getting baselevels
-        mp.batch_process()
+        list(mp.execute())
 
         # get tile from lower zoom level
         for tile in mp.get_process_tiles(4):
@@ -184,7 +184,7 @@ def test_baselevels_dask(baselevels, dask_executor):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.dict, mode="continue") as mp:
         # process data before getting baselevels
-        mp.batch_process(executor=dask_executor)
+        list(mp.execute(executor=dask_executor))
 
         # get tile from lower zoom level
         for tile in mp.get_process_tiles(4):
@@ -212,7 +212,7 @@ def test_baselevels_custom_nodata(baselevels_custom_nodata):
     fill_value = -32768.0
     with mapchete.open(baselevels_custom_nodata.dict, mode="continue") as mp:
         # process data before getting baselevels
-        mp.batch_process()
+        list(mp.execute())
 
         # get tile from lower zoom level
         for tile in mp.get_process_tiles(4):
@@ -352,7 +352,7 @@ def test_baselevels_output_buffer(baselevels_output_buffer):
     # (171.46155, -87.27184, 174.45159, -84.31281)
     with mapchete.open(baselevels_output_buffer.dict) as mp:
         # process all
-        mp.batch_process()
+        list(mp.execute())
         # read tile 6/62/125.tif
         with rasterio_open(
             mp.config.output.output_params["path"] / 6 / 62 / 125 + ".tif"
@@ -518,20 +518,20 @@ def test_batch_process(cleantopo_tl):
     with mapchete.open(cleantopo_tl.dict) as mp:
         # invalid parameters errors
         with pytest.raises(ValueError):
-            mp.batch_process(zoom=1, tile=(1, 0, 0))
+            list(mp.execute(zoom=1, tile=(1, 0, 0)))
         # process single tile
-        mp.batch_process(tile=(2, 0, 0))
+        list(mp.execute(tile=(2, 0, 0)))
         # process using multiprocessing
-        mp.batch_process(zoom=2, workers=2)
+        list(mp.execute(zoom=2, workers=2))
         # process without multiprocessing
-        mp.batch_process(zoom=2, workers=1)
+        list(mp.execute(zoom=2, workers=1))
 
 
 def test_skip_tiles(cleantopo_tl):
     """Test batch_process function."""
     zoom = 2
     with mapchete.open(cleantopo_tl.dict, mode="continue") as mp:
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
         for tile, skip in mp.skip_tiles(tiles=mp.get_process_tiles(zoom=zoom)):
             assert skip
 
@@ -544,7 +544,7 @@ def test_custom_grid(custom_grid):
     """Cutom grid processing."""
     # process and save
     with mapchete.open(custom_grid.dict) as mp:
-        mp.batch_process()
+        list(mp.execute())
     # read written output
     with mapchete.open(custom_grid.dict) as mp:
         for tile in mp.get_process_tiles(5):
@@ -650,10 +650,10 @@ def test_compute(preprocess_cache_memory, concurrency, dask_executor):
         tile_tasks = 0
         for future in mp.compute(**compute_kwargs, dask_compute_graph=False):
             result = future.result()
-            if isinstance(result, PreprocessingTaskInfo):
+            assert isinstance(result, TaskInfo)
+            if result.tile is None:
                 preprocessing_tasks += 1
             else:
-                assert isinstance(result, TileTaskInfo)
                 tile_tasks += 1
                 assert result.output is None
     assert tile_tasks == 20
@@ -666,11 +666,11 @@ def test_compute_dask_graph(preprocess_cache_memory, dask_executor):
         tile_tasks = 0
         for future in mp.compute(executor=dask_executor, dask_compute_graph=True):
             result = future.result()
-            if isinstance(result, PreprocessingTaskInfo):
+            assert isinstance(result, TaskInfo)
+            if result.tile is None:
                 assert result.output is not None
                 preprocessing_tasks += 1
             else:
-                assert isinstance(result, TileTaskInfo)
                 tile_tasks += 1
                 if result.written:
                     assert result.output is not None
@@ -784,11 +784,11 @@ def test_compute_dask_graph_single_file(
         tile_tasks = 0
         for future in mp.compute(executor=dask_executor, dask_compute_graph=True):
             result = future.result()
-            if isinstance(result, PreprocessingTaskInfo):
+            assert isinstance(result, TaskInfo)
+            if result.tile is None:
                 assert result.output is not None
                 preprocessing_tasks += 1
             else:
-                assert isinstance(result, TileTaskInfo)
                 tile_tasks += 1
                 assert result.output is None
     assert tile_tasks == 12
@@ -803,10 +803,10 @@ def test_compute_dask_single_file(preprocess_cache_memory_single_file, dask_exec
         tile_tasks = 0
         for future in mp.compute(executor=dask_executor, dask_compute_graph=False):
             result = future.result()
-            if isinstance(result, PreprocessingTaskInfo):
+            assert isinstance(result, TaskInfo)
+            if result.tile is None:
                 preprocessing_tasks += 1
             else:
-                assert isinstance(result, TileTaskInfo)
                 tile_tasks += 1
                 assert result.output is None
     assert tile_tasks == 12
@@ -821,10 +821,10 @@ def test_compute_threads_single_file(preprocess_cache_memory_single_file):
         tile_tasks = 0
         for future in mp.compute(concurrency="threads", dask_compute_graph=False):
             result = future.result()
-            if isinstance(result, PreprocessingTaskInfo):
+            assert isinstance(result, TaskInfo)
+            if result.tile is None:
                 preprocessing_tasks += 1
             else:
-                assert isinstance(result, TileTaskInfo)
                 tile_tasks += 1
                 assert result.output is None
     assert tile_tasks == 12
@@ -874,10 +874,10 @@ def test_compute_request_count(preprocess_cache_memory, concurrency, dask_execut
         tile_tasks = 0
         for future in mp.compute(**compute_kwargs, dask_compute_graph=False):
             result = future.result()
-            if isinstance(result, PreprocessingTaskInfo):
+            assert isinstance(result, TaskInfo)
+            if result.tile is None:
                 preprocessing_tasks += 1
             else:
-                assert isinstance(result, TileTaskInfo)
                 tile_tasks += 1
                 assert result.output is None
     assert tile_tasks == 20

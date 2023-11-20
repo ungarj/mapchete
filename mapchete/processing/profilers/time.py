@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MeasuredTime:
-    start: int
-    end: int
-    elapsed: int
+    start: int = 0
+    end: int = 0
+    elapsed: int = 0
 
 
 def measure_time(add_to_return: bool = True) -> Callable:
