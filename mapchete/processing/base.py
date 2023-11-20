@@ -2,8 +2,9 @@
 
 import json
 import logging
+import os
 import threading
-from functools import cached_property
+from contextlib import ExitStack
 from typing import Any, Iterator, List, Optional, Tuple, Union
 
 from cachetools import LRUCache
@@ -59,14 +60,10 @@ class Mapchete(object):
         process output data cached in memory
     """
 
-    _default_executor: Optional[ExecutorBase] = None
-    default_executore_concurrency: Concurrency = Concurrency.threads
-
     def __init__(
         self,
         config: MapcheteConfig,
         with_cache: bool = False,
-        # default_executor_concurrency: Concurrency = Concurrency.processes,
     ):
         """
         Initialize Mapchete processing endpoint.
@@ -88,14 +85,6 @@ class Mapchete(object):
             self.current_processes = {}
             self.process_lock = threading.Lock()
         self._count_tiles_cache = {}
-        # self.default_executore_concurrency = default_executor_concurrency
-
-    @cached_property
-    def default_executor(self):
-        self._default_executor = Executor(
-            concurrency=self.default_executore_concurrency
-        ).__enter__()
-        return self._default_executor
 
     def get_process_tiles(
         self, zoom: Optional[int] = None, batch_by: Optional[str] = None
@@ -214,11 +203,13 @@ class Mapchete(object):
 
     def execute(
         self,
-        executor: Optional[ExecutorBase] = None,
         tasks: Optional[Tasks] = None,
         zoom: Optional[ZoomLevelsLike] = None,
         tile: Optional[TileLike] = None,
         no_task_graph: bool = False,
+        executor: Optional[ExecutorBase] = None,
+        concurrency: Concurrency = Concurrency.processes,
+        workers: int = os.cpu_count(),
         profiling: bool = False,
     ) -> Iterator[TaskInfo]:
         """
@@ -230,45 +221,54 @@ class Mapchete(object):
         if len(tasks) == 0:
             return
 
-        executor = executor or self.default_executor
+        with ExitStack() as exit_stack:
+            # create a default executor if not available
+            if executor is None:
+                executor = exit_stack.enter_context(
+                    Executor(concurrency=concurrency, workers=workers),
+                )
 
-        # TODO: write output in parent process
-        # TODO: profiling
+            # TODO: write output in parent process
+            # TODO: profiling
 
-        # tasks have no dependencies with each other and can be executed in
-        # any arbitrary order
-        if (
-            self.config.preprocessing_tasks_count == 0 and not self.config.baselevels
-        ) or (
-            self.config.preprocessing_tasks_count == 0
-            and len(self.config.init_zoom_levels) == 1
-        ):
-            logger.debug("decided to process tasks in single batch")
-            yield from single_batch(
-                executor,
-                tasks,
-                output_writer=self.config.output,
-            )
+            # tasks have no dependencies with each other and can be executed in
+            # any arbitrary order
+            if (
+                self.config.preprocessing_tasks_count == 0
+                and not self.config.baselevels
+            ) or (
+                self.config.preprocessing_tasks_count == 0
+                and len(self.config.init_zoom_levels) == 1
+            ):
+                logger.debug("decided to process tasks in single batch")
+                yield from single_batch(
+                    executor,
+                    tasks,
+                    output_writer=self.config.output,
+                    write_in_parent_process=self.config.output.write_in_parent_process,
+                )
 
-        # tasks are sorted into batches which have to be executed in a
-        # particular order
-        elif no_task_graph or not isinstance(executor, DaskExecutor):
-            logger.debug("decided to process tasks in batches")
-            yield from batches(
-                executor,
-                tasks,
-                output_writer=self.config.output,
-            )
+            # tasks are sorted into batches which have to be executed in a
+            # particular order
+            elif no_task_graph or not isinstance(executor, DaskExecutor):
+                logger.debug("decided to process tasks in batches")
+                yield from batches(
+                    executor,
+                    tasks,
+                    output_writer=self.config.output,
+                    write_in_parent_process=self.config.output.write_in_parent_process,
+                )
 
-        # tasks are connected via a dependency graph and will be sent to the
-        # executor all at once
-        else:
-            logger.debug("decided to use dask graph processing")
-            yield from dask_graph(
-                executor,
-                tasks,
-                output_writer=self.config.output,
-            )
+            # tasks are connected via a dependency graph and will be sent to the
+            # executor all at once
+            else:
+                logger.debug("decided to use dask graph processing")
+                yield from dask_graph(
+                    executor,
+                    tasks,
+                    output_writer=self.config.output,
+                    write_in_parent_process=self.config.output.write_in_parent_process,
+                )
 
     def batch_preprocessor(
         self,
@@ -684,9 +684,6 @@ class Mapchete(object):
             self.process_tile_cache = None
             self.current_processes = None
             self.process_lock = None
-
-        if self._default_executor:
-            self._default_executor.__exit__(exc_type, exc_value, exc_traceback)
 
     def __repr__(self):  # pragma: no cover
         return f"Mapchete <process_name={self.config.process.name}>"

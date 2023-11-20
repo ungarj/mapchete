@@ -3,7 +3,7 @@ from multiprocessing import current_process
 from typing import Iterator, Optional
 
 from mapchete.errors import MapcheteNodataTile
-from mapchete.executor import DaskExecutor, ExecutorBase
+from mapchete.executor import DaskExecutor, ExecutorBase, MFuture
 from mapchete.formats.base import OutputDataWriter
 from mapchete.processing.tasks import Task, Tasks
 from mapchete.processing.types import TaskInfo, default_tile_task_id
@@ -19,32 +19,66 @@ def single_batch(
     executor: ExecutorBase,
     tasks: Tasks,
     output_writer: Optional[OutputDataWriter] = None,
+    write_in_parent_process: bool = False,
 ) -> Iterator[TaskInfo]:
-    for future in executor.as_completed(
-        _execute_and_write_wrapper,
-        tasks.to_batch(),
-        fkwargs=dict(output_writer=output_writer),
-    ):
-        yield TaskInfo.from_future(future)
+    """
+    Treat all tasks as from a single batch, i.e. they don't have dependencies.
+    """
+    if write_in_parent_process:
+        for future in executor.as_completed(
+            _execute_wrapper,
+            tasks.to_batch(),
+        ):
+            yield _write_wrapper(
+                TaskInfo.from_future(future),
+                output_writer=output_writer,
+                append_data=True,
+            )
+    else:
+        for future in executor.as_completed(
+            _execute_and_write_wrapper,
+            tasks.to_batch(),
+            fkwargs=dict(output_writer=output_writer),
+        ):
+            yield TaskInfo.from_future(future)
 
 
 def batches(
     executor: ExecutorBase,
     tasks: Tasks,
     output_writer: Optional[OutputDataWriter] = None,
+    write_in_parent_process: bool = False,
 ) -> Iterator[TaskInfo]:
-    for batch in tasks.to_batches():
-        for future in executor.as_completed(
-            _execute_and_write_wrapper, batch, fkwargs=dict(output_writer=output_writer)
-        ):
-            yield TaskInfo.from_future(future)
+    """
+    Execute batches in sequential order but tasks within batches don't have any order.
+    """
+    if write_in_parent_process:
+        for batch in tasks.to_batches():
+            for future in executor.as_completed(_execute_wrapper, batch):
+                yield _write_wrapper(
+                    TaskInfo.from_future(future),
+                    output_writer=output_writer,
+                    append_data=True,
+                )
+    else:
+        for batch in tasks.to_batches():
+            for future in executor.as_completed(
+                _execute_and_write_wrapper,
+                batch,
+                fkwargs=dict(output_writer=output_writer),
+            ):
+                yield TaskInfo.from_future(future)
 
 
 def dask_graph(
     executor: DaskExecutor,
     tasks: Tasks,
     output_writer: Optional[OutputDataWriter] = None,
+    write_in_parent_process: bool = False,
 ) -> Iterator[TaskInfo]:
+    """
+    Tasks share dependencies with each other.
+    """
     for future in executor.compute_task_graph(
         tasks.to_dask_graph(),
     ):
