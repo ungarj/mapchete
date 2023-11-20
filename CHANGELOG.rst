@@ -4,6 +4,26 @@ Changelog
 
 
 ----------------------
+2023.11.0 - 2023-11-20
+----------------------
+
+* core
+
+  * add task profiling capabilities (measure memory consumption, S3 requests) (#603)
+  * split up `config.py` and create a better structured `mapchete.config` module (#603)
+  * split up `_executor.py` and create a better structured `mapchete.executor` module (#603)
+  * split up `_core.py` and create a better structured `mapchete.processing` module (#603)
+
+* CLI
+
+  * add `--profiling` flag to `mapchete execute` (#603)
+
+* packaging
+
+  * `dask` is now a required dependency
+
+
+----------------------
 2023.10.0 - 2023-10-18
 ----------------------
 

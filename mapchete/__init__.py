@@ -21,7 +21,7 @@ __all__ = [
     "Executor",
     "MFuture",
 ]
-__version__ = "2023.10.0"
+__version__ = "2023.11.0"
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
