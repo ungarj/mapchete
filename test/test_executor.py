@@ -141,9 +141,7 @@ def test_process_exception_tile_dask(mp_tmpdir, cleantopo_br, process_error_py):
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
-            list(
-                mp.execute(tile=(5, 0, 0), concurrency="dask", dask_compute_graph=True)
-            )
+            list(mp.execute(tile=(5, 0, 0), concurrency="dask", no_task_graph=False))
 
 
 def test_process_exception_tile_dask_nograph(mp_tmpdir, cleantopo_br, process_error_py):
@@ -152,9 +150,7 @@ def test_process_exception_tile_dask_nograph(mp_tmpdir, cleantopo_br, process_er
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
-            list(
-                mp.execute(tile=(5, 0, 0), concurrency="dask", dask_compute_graph=False)
-            )
+            list(mp.execute(tile=(5, 0, 0), concurrency="dask", no_task_graph=False))
 
 
 def test_process_exception_zoom(mp_tmpdir, cleantopo_br, process_error_py):
@@ -172,7 +168,7 @@ def test_process_exception_zoom_dask(mp_tmpdir, cleantopo_br, process_error_py):
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
-            list(mp.execute(zoom=5, concurrency="dask", dask_compute_graph=True))
+            list(mp.execute(zoom=5, concurrency="dask", no_task_graph=False))
 
 
 def test_process_exception_zoom_dask_nograph(mp_tmpdir, cleantopo_br, process_error_py):
@@ -181,7 +177,7 @@ def test_process_exception_zoom_dask_nograph(mp_tmpdir, cleantopo_br, process_er
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
-            list(mp.execute(zoom=5, concurrency="dask", dask_compute_graph=False))
+            list(mp.execute(zoom=5, concurrency="dask", no_task_graph=True))
 
 
 def test_dask_cancellederror(dask_executor, items=10):

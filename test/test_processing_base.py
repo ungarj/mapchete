@@ -256,7 +256,7 @@ def test_baselevels_custom_nodata(baselevels_custom_nodata):
 
 
 @pytest.mark.parametrize(
-    "concurrency,dask_compute_graph",
+    "concurrency,no_task_graph",
     [
         ("threads", False),
         ("dask", False),
@@ -265,10 +265,10 @@ def test_baselevels_custom_nodata(baselevels_custom_nodata):
         (None, False),
     ],
 )
-def test_update_overviews(overviews, concurrency, dask_compute_graph, dask_executor):
+def test_update_overviews(overviews, concurrency, no_task_graph, dask_executor):
     """Baselevel interpolation."""
     compute_kwargs = (
-        {"executor": dask_executor, "dask_compute_graph": dask_compute_graph}
+        {"executor": dask_executor, "no_task_graph": no_task_graph}
         if concurrency == "dask"
         else {"concurrency": concurrency}
     )
@@ -634,7 +634,7 @@ def test_execute(preprocess_cache_memory, concurrency, dask_executor):
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(**compute_kwargs, dask_compute_graph=False):
+        for task_info in mp.execute(**compute_kwargs, no_task_graph=True):
             assert isinstance(task_info, TaskInfo)
             if task_info.tile is None:
                 preprocessing_tasks += 1
@@ -645,30 +645,29 @@ def test_execute(preprocess_cache_memory, concurrency, dask_executor):
     assert preprocessing_tasks == 2
 
 
-def test_compute_dask_graph(preprocess_cache_memory, dask_executor):
+def test_execute_dask_graph(preprocess_cache_memory, dask_executor):
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.execute(executor=dask_executor, dask_compute_graph=True):
-            result = future.result()
-            assert isinstance(result, TaskInfo)
-            if result.tile is None:
-                assert result.output is not None
+        for task_info in mp.execute(executor=dask_executor, no_task_graph=False):
+            assert isinstance(task_info, TaskInfo)
+            if task_info.tile is None:
+                assert task_info.output is not None
                 preprocessing_tasks += 1
             else:
                 tile_tasks += 1
-                if result.written:
-                    assert result.output is not None
+                if task_info.written:
+                    assert task_info.output is not None
                 else:
-                    assert result.output is None
+                    assert task_info.output is None
     assert tile_tasks == 20
     assert preprocessing_tasks == 2
 
 
 @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
+def test_execute_continue(red_raster, green_raster, dask_executor, concurrency):
     compute_kwargs = (
-        {"executor": dask_executor, "dask_compute_graph": True}
+        {"executor": dask_executor}
         if concurrency == "dask"
         else {"concurrency": concurrency}
     )
@@ -737,12 +736,12 @@ def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
                 )
 
 
-def test_compute_dask_without_results(baselevels, dask_executor):
+def test_execute_dask_without_results(baselevels, dask_executor):
     # make sure task results are appended to tasks
     with baselevels.mp() as mp:
         tile_tasks = 0
         for task_info in mp.execute(
-            executor=dask_executor, dask_compute_graph=True, dask_propagate_results=True
+            executor=dask_executor, dask_propagate_results=True
         ):
             assert task_info.output is not None
             tile_tasks += 1
@@ -751,21 +750,21 @@ def test_compute_dask_without_results(baselevels, dask_executor):
     # make sure task results are None
     with baselevels.mp() as mp:
         tile_tasks = 0
-        for task_info in mp.execute(
-            concurrency="dask", dask_compute_graph=True, dask_propagate_results=False
-        ):
+        for task_info in mp.execute(concurrency="dask", dask_propagate_results=False):
             assert task_info.output is None
             tile_tasks += 1
     assert tile_tasks == 6
 
 
-def test_compute_dask_graph_single_file(
+def test_execute_dask_graph_single_file(
     preprocess_cache_memory_single_file, dask_executor
 ):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(executor=dask_executor, dask_compute_graph=True):
+        for task_info in mp.execute(
+            executor=dask_executor,
+        ):
             assert isinstance(task_info, TaskInfo)
             if task_info.tile is None:
                 assert task_info.output is not None
@@ -779,11 +778,11 @@ def test_compute_dask_graph_single_file(
         assert not src.read(masked=True).mask.all()
 
 
-def test_compute_dask_single_file(preprocess_cache_memory_single_file, dask_executor):
+def test_execute_dask_single_file(preprocess_cache_memory_single_file, dask_executor):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(executor=dask_executor, dask_compute_graph=False):
+        for task_info in mp.execute(executor=dask_executor):
             assert isinstance(task_info, TaskInfo)
             if task_info.tile is None:
                 preprocessing_tasks += 1
@@ -796,11 +795,11 @@ def test_compute_dask_single_file(preprocess_cache_memory_single_file, dask_exec
         assert not src.read(masked=True).mask.all()
 
 
-def test_compute_threads_single_file(preprocess_cache_memory_single_file):
+def test_execute_threads_single_file(preprocess_cache_memory_single_file):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(concurrency="threads", dask_compute_graph=False):
+        for task_info in mp.execute(concurrency="threads"):
             assert isinstance(task_info, TaskInfo)
             if task_info.tile is None:
                 preprocessing_tasks += 1
@@ -811,11 +810,11 @@ def test_compute_threads_single_file(preprocess_cache_memory_single_file):
     assert preprocessing_tasks == 2
 
 
-def test_compute_processes_single_file(preprocess_cache_memory_single_file):
+def test_execute_processes_single_file(preprocess_cache_memory_single_file):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(concurrency="processes", dask_compute_graph=False):
+        for task_info in mp.execute(concurrency="processes"):
             assert isinstance(task_info, TaskInfo)
             if task_info.tile is None:
                 preprocessing_tasks += 1
@@ -842,7 +841,7 @@ def test_write_stac(stac_metadata):
 
 # @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
 @pytest.mark.parametrize("concurrency", [None])
-def test_compute_request_count(preprocess_cache_memory, concurrency, dask_executor):
+def test_execute_request_count(preprocess_cache_memory, concurrency, dask_executor):
     compute_kwargs = (
         {"executor": dask_executor}
         if concurrency == "dask"
@@ -851,7 +850,7 @@ def test_compute_request_count(preprocess_cache_memory, concurrency, dask_execut
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(**compute_kwargs, dask_compute_graph=False):
+        for task_info in mp.execute(**compute_kwargs):
             if task_info.tile is None:
                 preprocessing_tasks += 1
             else:

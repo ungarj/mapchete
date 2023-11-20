@@ -20,25 +20,25 @@ def single_batch(
     tasks: Tasks,
     output_writer: Optional[OutputDataWriter] = None,
     write_in_parent_process: bool = False,
+    propagate_results: bool = False,
 ) -> Iterator[TaskInfo]:
     """
     Treat all tasks as from a single batch, i.e. they don't have dependencies.
     """
     if write_in_parent_process:
         for future in executor.as_completed(
-            _execute_wrapper,
-            tasks.to_batch(),
+            _execute_wrapper, tasks.to_batch(), fkwargs=dict(append_data=True)
         ):
             yield _write_wrapper(
                 TaskInfo.from_future(future),
                 output_writer=output_writer,
-                append_data=True,
+                append_data=propagate_results,
             )
     else:
         for future in executor.as_completed(
             _execute_and_write_wrapper,
             tasks.to_batch(),
-            fkwargs=dict(output_writer=output_writer),
+            fkwargs=dict(output_writer=output_writer, append_data=propagate_results),
         ):
             yield TaskInfo.from_future(future)
 
@@ -48,24 +48,30 @@ def batches(
     tasks: Tasks,
     output_writer: Optional[OutputDataWriter] = None,
     write_in_parent_process: bool = False,
+    propagate_results: bool = False,
 ) -> Iterator[TaskInfo]:
     """
     Execute batches in sequential order but tasks within batches don't have any order.
     """
     if write_in_parent_process:
         for batch in tasks.to_batches():
-            for future in executor.as_completed(_execute_wrapper, batch):
+            for future in executor.as_completed(
+                _execute_wrapper, batch, fkwargs=dict(append_data=True)
+            ):
                 yield _write_wrapper(
                     TaskInfo.from_future(future),
                     output_writer=output_writer,
-                    append_data=True,
+                    append_data=propagate_results,
                 )
     else:
         for batch in tasks.to_batches():
             for future in executor.as_completed(
                 _execute_and_write_wrapper,
                 batch,
-                fkwargs=dict(output_writer=output_writer),
+                fkwargs=dict(
+                    output_writer=output_writer,
+                    fkwargs=dict(append_data=propagate_results),
+                ),
             ):
                 yield TaskInfo.from_future(future)
 
@@ -75,6 +81,7 @@ def dask_graph(
     tasks: Tasks,
     output_writer: Optional[OutputDataWriter] = None,
     write_in_parent_process: bool = False,
+    propagate_results: bool = False,
 ) -> Iterator[TaskInfo]:
     """
     Tasks share dependencies with each other.
@@ -103,7 +110,7 @@ def _execute_wrapper(
     logger.debug((task.id, processor_message))
     if hasattr(task, "tile"):
         return TaskInfo(
-            id=task.id,
+            id=default_tile_task_id(task.tile),
             tile=task.tile,
             processed=True,
             process_msg=processor_message,

@@ -210,6 +210,7 @@ class Mapchete(object):
         executor: Optional[ExecutorBase] = None,
         concurrency: Concurrency = Concurrency.processes,
         workers: int = os.cpu_count(),
+        propagate_results: bool = False,
         profiling: bool = False,
     ) -> Iterator[TaskInfo]:
         """
@@ -246,6 +247,7 @@ class Mapchete(object):
                     tasks,
                     output_writer=self.config.output,
                     write_in_parent_process=self.config.output.write_in_parent_process,
+                    propagate_results=propagate_results,
                 )
 
             # tasks are sorted into batches which have to be executed in a
@@ -257,6 +259,7 @@ class Mapchete(object):
                     tasks,
                     output_writer=self.config.output,
                     write_in_parent_process=self.config.output.write_in_parent_process,
+                    propagate_results=propagate_results,
                 )
 
             # tasks are connected via a dependency graph and will be sent to the
@@ -268,6 +271,7 @@ class Mapchete(object):
                     tasks,
                     output_writer=self.config.output,
                     write_in_parent_process=self.config.output.write_in_parent_process,
+                    propagate_results=propagate_results,
                 )
 
     def batch_preprocessor(
