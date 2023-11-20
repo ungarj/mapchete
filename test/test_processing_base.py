@@ -284,7 +284,7 @@ def test_update_overviews(overviews, concurrency, dask_compute_graph, dask_execu
         )
 
         # process baselevel (zoom 7)
-        list(mp.compute(**compute_kwargs, zoom=7))
+        list(mp.execute(**compute_kwargs, zoom=7))
 
     # make sure baselevel tile has content
     with rasterio_open(baselevel_tile_path) as src:
@@ -296,7 +296,7 @@ def test_update_overviews(overviews, concurrency, dask_compute_graph, dask_execu
 
     with overviews.mp() as mp:
         # process overviews
-        list(mp.compute(**compute_kwargs, zoom=[0, 6]))
+        list(mp.execute(**compute_kwargs, zoom=[0, 6]))
     assert not baselevel_tile_path.exists()
 
     # read overview tile which is half empty
@@ -308,7 +308,7 @@ def test_update_overviews(overviews, concurrency, dask_compute_graph, dask_execu
     # the overview tiles
     with overviews.mp() as mp:
         # process data before getting baselevels
-        list(mp.compute(concurrency=concurrency))
+        list(mp.execute(concurrency=concurrency))
 
     assert baselevel_tile_path.exists()
     with rasterio_open(
@@ -513,20 +513,6 @@ def test_count_tiles_large_init_zoom(geometrycollection, zoom):
     assert raster_count == tile_count == tiles
 
 
-def test_batch_process(cleantopo_tl):
-    """Test batch_process function."""
-    with mapchete.open(cleantopo_tl.dict) as mp:
-        # invalid parameters errors
-        with pytest.raises(ValueError):
-            list(mp.execute(zoom=1, tile=(1, 0, 0)))
-        # process single tile
-        list(mp.execute(tile=(2, 0, 0)))
-        # process using multiprocessing
-        list(mp.execute(zoom=2, workers=2))
-        # process without multiprocessing
-        list(mp.execute(zoom=2, workers=1))
-
-
 def test_skip_tiles(cleantopo_tl):
     """Test batch_process function."""
     zoom = 2
@@ -639,7 +625,7 @@ def test_bufferedtiles():
 
 
 @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_compute(preprocess_cache_memory, concurrency, dask_executor):
+def test_execute(preprocess_cache_memory, concurrency, dask_executor):
     compute_kwargs = (
         {"executor": dask_executor}
         if concurrency == "dask"
@@ -648,14 +634,13 @@ def test_compute(preprocess_cache_memory, concurrency, dask_executor):
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(**compute_kwargs, dask_compute_graph=False):
-            result = future.result()
-            assert isinstance(result, TaskInfo)
-            if result.tile is None:
+        for task_info in mp.execute(**compute_kwargs, dask_compute_graph=False):
+            assert isinstance(task_info, TaskInfo)
+            if task_info.tile is None:
                 preprocessing_tasks += 1
             else:
                 tile_tasks += 1
-                assert result.output is None
+                assert task_info.output is None
     assert tile_tasks == 20
     assert preprocessing_tasks == 2
 
@@ -664,7 +649,7 @@ def test_compute_dask_graph(preprocess_cache_memory, dask_executor):
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(executor=dask_executor, dask_compute_graph=True):
+        for future in mp.execute(executor=dask_executor, dask_compute_graph=True):
             result = future.result()
             assert isinstance(result, TaskInfo)
             if result.tile is None:
@@ -691,7 +676,7 @@ def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
 
     # run red_raster on tile 1, 0, 0
     with red_raster.mp() as mp_red:
-        list(mp_red.compute(tile=(zoom, 0, 0), **compute_kwargs))
+        list(mp_red.execute(tile=(zoom, 0, 0), **compute_kwargs))
     fs_red = fs_from_path(mp_red.config.output.path)
     assert len(fs_red.glob(f"{mp_red.config.output.path}/*/*/*.tif")) == 1
     with rasterio_open(f"{mp_red.config.output.path}/{zoom}/0/0.tif") as src:
@@ -709,7 +694,7 @@ def test_compute_continue(red_raster, green_raster, dask_executor, concurrency):
             str(mp_green.config.output.path / f"{zoom}/0/0.tif"),
         )
         # run green_raster on zoom 1
-        list(mp_green.compute(zoom=[0, zoom], **compute_kwargs))
+        list(mp_green.execute(zoom=[0, zoom], **compute_kwargs))
 
     # assert red tile is still there and other tiles were written and are green
     assert len(
@@ -756,22 +741,20 @@ def test_compute_dask_without_results(baselevels, dask_executor):
     # make sure task results are appended to tasks
     with baselevels.mp() as mp:
         tile_tasks = 0
-        for future in mp.compute(
+        for task_info in mp.execute(
             executor=dask_executor, dask_compute_graph=True, dask_propagate_results=True
         ):
-            result = future.result()
-            assert result.data is not None
+            assert task_info.output is not None
             tile_tasks += 1
     assert tile_tasks == 6
 
     # make sure task results are None
     with baselevels.mp() as mp:
         tile_tasks = 0
-        for future in mp.compute(
+        for task_info in mp.execute(
             concurrency="dask", dask_compute_graph=True, dask_propagate_results=False
         ):
-            result = future.result()
-            assert result.data is None
+            assert task_info.output is None
             tile_tasks += 1
     assert tile_tasks == 6
 
@@ -782,15 +765,14 @@ def test_compute_dask_graph_single_file(
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(executor=dask_executor, dask_compute_graph=True):
-            result = future.result()
-            assert isinstance(result, TaskInfo)
-            if result.tile is None:
-                assert result.output is not None
+        for task_info in mp.execute(executor=dask_executor, dask_compute_graph=True):
+            assert isinstance(task_info, TaskInfo)
+            if task_info.tile is None:
+                assert task_info.output is not None
                 preprocessing_tasks += 1
             else:
                 tile_tasks += 1
-                assert result.output is None
+                assert task_info.output is None
     assert tile_tasks == 12
     assert preprocessing_tasks == 2
     with rasterio_open(mp.config.output.path) as src:
@@ -801,14 +783,13 @@ def test_compute_dask_single_file(preprocess_cache_memory_single_file, dask_exec
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(executor=dask_executor, dask_compute_graph=False):
-            result = future.result()
-            assert isinstance(result, TaskInfo)
-            if result.tile is None:
+        for task_info in mp.execute(executor=dask_executor, dask_compute_graph=False):
+            assert isinstance(task_info, TaskInfo)
+            if task_info.tile is None:
                 preprocessing_tasks += 1
             else:
                 tile_tasks += 1
-                assert result.output is None
+                assert task_info.output is None
     assert tile_tasks == 12
     assert preprocessing_tasks == 2
     with rasterio_open(mp.config.output.path) as src:
@@ -819,14 +800,13 @@ def test_compute_threads_single_file(preprocess_cache_memory_single_file):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(concurrency="threads", dask_compute_graph=False):
-            result = future.result()
-            assert isinstance(result, TaskInfo)
-            if result.tile is None:
+        for task_info in mp.execute(concurrency="threads", dask_compute_graph=False):
+            assert isinstance(task_info, TaskInfo)
+            if task_info.tile is None:
                 preprocessing_tasks += 1
             else:
                 tile_tasks += 1
-                assert result.output is None
+                assert task_info.output is None
     assert tile_tasks == 12
     assert preprocessing_tasks == 2
 
@@ -835,14 +815,13 @@ def test_compute_processes_single_file(preprocess_cache_memory_single_file):
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(concurrency="processes", dask_compute_graph=False):
-            result = future.result()
-            if isinstance(result, PreprocessingTaskInfo):
+        for task_info in mp.execute(concurrency="processes", dask_compute_graph=False):
+            assert isinstance(task_info, TaskInfo)
+            if task_info.tile is None:
                 preprocessing_tasks += 1
             else:
-                assert isinstance(result, TileTaskInfo)
                 tile_tasks += 1
-                assert result.output is None
+                assert task_info.output is None
     assert tile_tasks == 12
     assert preprocessing_tasks == 2
 
@@ -872,13 +851,11 @@ def test_compute_request_count(preprocess_cache_memory, concurrency, dask_execut
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for future in mp.compute(**compute_kwargs, dask_compute_graph=False):
-            result = future.result()
-            assert isinstance(result, TaskInfo)
-            if result.tile is None:
+        for task_info in mp.execute(**compute_kwargs, dask_compute_graph=False):
+            if task_info.tile is None:
                 preprocessing_tasks += 1
             else:
                 tile_tasks += 1
-                assert result.output is None
+                assert task_info.output is None
     assert tile_tasks == 20
     assert preprocessing_tasks == 2

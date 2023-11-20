@@ -54,7 +54,7 @@ def test_run_preprocessing_task(example_mapchete):
         )
         with pytest.raises(ValueError):
             inp.get_preprocessing_task_result("test_task")
-        mp.batch_preprocess()
+        list(mp.execute())
         assert inp.get_preprocessing_task_result("test_task") == "foofoobar"
 
 
@@ -85,7 +85,7 @@ def test_run_preprocessing_tasks(example_mapchete):
 
         assert mp.config.preprocessing_tasks_count() == 3
 
-        mp.batch_preprocess()
+        list(mp.execute())
         assert mp.config.preprocessing_task_finished(f"{inp1.input_key}:test_task")
         assert inp1.get_preprocessing_task_result("test_task") == "foofoobar"
         assert mp.config.preprocessing_task_finished(

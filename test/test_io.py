@@ -196,7 +196,7 @@ def test_tiles_exist_local(example_mapchete):
         bounds=bounds,
     ) as mp:
         # generate tile directory
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
         process_tiles = list(mp.config.process_pyramid.tiles_from_bounds(bounds, zoom))
         output_tiles = list(mp.config.output_pyramid.tiles_from_bounds(bounds, zoom))
 
@@ -258,7 +258,7 @@ def test_tiles_exist_s3(gtiff_s3):
         mode="overwrite",
     ) as mp:
         # generate tile directory
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
         process_tiles = list(mp.config.process_pyramid.tiles_from_bounds(bounds, zoom))
         output_tiles = list(mp.config.output_pyramid.tiles_from_bounds(bounds, zoom))
 

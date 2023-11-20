@@ -31,7 +31,7 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     with mapchete.open(
         cleantopo_br.dict, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
     ) as mp:
-        mp.batch_process(zoom=5)
+        list(mp.execute(zoom=5))
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
     # copy tiles and subset by bounds
     task_counter = TaskCounter()
@@ -91,7 +91,7 @@ def test_rm(mp_tmpdir, cleantopo_br):
     with mapchete.open(
         cleantopo_br.dict, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
     ) as mp:
-        mp.batch_process(zoom=5)
+        list(mp.execute(zoom=5))
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
 
     # remove tiles
@@ -477,7 +477,7 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
 def test_convert_tiledir(cleantopo_br, mp_tmpdir):
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
-        mp.batch_process(zoom=[1, 4])
+        list(mp.execute(zoom=[1, 4]))
     convert(
         os.path.join(
             cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
@@ -552,7 +552,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
 
     # prepare data for tiledir input
     with mapchete.open(cleantopo_br.dict) as mp:
-        mp.batch_process(zoom=[1, 4])
+        list(mp.execute(zoom=[1, 4]))
     tiledir_path = os.path.join(
         cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
     )

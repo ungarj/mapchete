@@ -673,7 +673,7 @@ def test_convert_zoom(cleantopo_br_tif, mp_tmpdir, zoom, tiles):
 def test_convert_mapchete(cleantopo_br, mp_tmpdir):
     # prepare data
     with mapchete.open(cleantopo_br.path) as mp:
-        mp.batch_process(zoom=[1, 4])
+        list(mp.execute(zoom=[1, 4]))
     run_cli(
         [
             "convert",
@@ -705,7 +705,7 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
 def test_convert_tiledir(cleantopo_br, mp_tmpdir):
     # prepare data
     with mapchete.open(cleantopo_br.path) as mp:
-        mp.batch_process(zoom=[1, 4])
+        list(mp.execute(zoom=[1, 4]))
     run_cli(
         [
             "convert",
@@ -900,7 +900,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
 
     # prepare data for tiledir input
     with mapchete.open(cleantopo_br.path) as mp:
-        mp.batch_process(zoom=[1, 4])
+        list(mp.execute(zoom=[1, 4]))
     tiledir_path = cleantopo_br.dict["config_dir"] / cleantopo_br.dict["output"]["path"]
 
     # zoom level required

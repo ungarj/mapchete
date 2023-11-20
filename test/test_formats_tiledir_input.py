@@ -37,7 +37,7 @@ def test_read_vector_data(mp_tmpdir, geojson, geojson_tiledir):
     # prepare data
     with mapchete.open(geojson.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
-        mp.batch_process(zoom=4)
+        list(mp.execute(zoom=4))
     # read data
     config = geojson_tiledir.dict.copy()
     config["input"]["file1"]["path"] = mp.config.output.path
@@ -61,7 +61,7 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
-        mp.batch_process(zoom=4)
+        list(mp.execute(zoom=4))
     config = cleantopo_br_tiledir.dict.copy()
     config["input"]["file1"]["path"] = mp.config.output.path
     for metatiling in [1, 2, 4, 8]:
@@ -96,7 +96,7 @@ def test_read_reprojected_raster_data(
     zoom = 4
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
 
     config = cleantopo_br_tiledir_mercator.dict.copy()
     config["input"]["file1"] = mp.config.output.path
@@ -160,7 +160,7 @@ def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
-        mp.batch_process(zoom=4)
+        list(mp.execute(zoom=4))
     config = dict(cleantopo_br_tiledir.dict, input=dict(file1=mp.config.output.path))
     _run_tiledir_process_raster(config, 4, bounds)
 
