@@ -168,7 +168,7 @@ def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
 def test_read_indexes_shape(cleantopo_br_tiledir):
     mp = cleantopo_br_tiledir.mp()
     # create local TileDirectory
-    list(mp.compute())
+    list(mp.execute())
     input_data = InputData({"path": mp.config.output_reader.path})
     input_tile = input_data.open(cleantopo_br_tiledir.first_process_tile())
 

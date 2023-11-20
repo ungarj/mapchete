@@ -132,7 +132,7 @@ def test_preprocessing_tasks_dependencies(preprocess_cache_memory):
             for task in input_data.preprocessing_tasks.values():
                 assert isinstance(task, Task)
                 assert task.has_geometry()
-        list(mp.compute())
+        list(mp.execute())
 
         out_path = mp.config.output_reader.path
         total_tifs = len(
@@ -154,7 +154,7 @@ def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory):
                 assert isinstance(task, Task)
                 assert task.has_geometry()
 
-        list(mp.compute(concurrency="dask"))
+        list(mp.execute(concurrency="dask"))
 
         out_path = mp.config.output_reader.path
         total_tifs = [
@@ -175,7 +175,7 @@ def test_preprocessing_tasks_dependencies_single_tile(preprocess_cache_memory):
                 assert task.has_geometry()
 
         tile = (5, 31, 63)
-        list(mp.compute(tile=tile))
+        list(mp.execute(tile=tile))
 
         out_path = mp.config.output_reader.get_path(
             mp.config.process_pyramid.tile(*tile)
@@ -202,7 +202,7 @@ def test_preprocessing_tasks_dependencies_single_tile_dask(preprocess_cache_memo
                 assert task.has_geometry()
 
         tile = (5, 31, 63)
-        list(mp.compute(concurrency="dask", tile=tile))
+        list(mp.execute(concurrency="dask", tile=tile))
 
         out_path = mp.config.output_reader.get_path(
             mp.config.process_pyramid.tile(*tile)

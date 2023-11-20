@@ -2,7 +2,6 @@
 
 import json
 import logging
-import multiprocessing
 import threading
 from functools import cached_property
 from typing import Any, Iterator, List, Optional, Tuple, Union
@@ -270,26 +269,6 @@ class Mapchete(object):
                 tasks,
                 output_writer=self.config.output,
             )
-
-    def compute(
-        self,
-        zoom: Optional[ZoomLevelsLike] = None,
-        tile: Optional[TileLike] = None,
-        executor: Optional[ExecutorBase] = None,
-        concurrency: Concurrency = Concurrency.processes,
-        workers: int = multiprocessing.cpu_count(),
-        multiprocessing_start_method: Optional[str] = None,
-        skip_output_check: bool = False,
-        dask_scheduler: Optional[str] = None,
-        dask_compute_graph: bool = True,
-        dask_propagate_results: bool = True,
-        dask_max_submitted_tasks: bool = 500,
-        raise_errors: bool = True,
-        with_results: bool = False,
-        **kwargs,
-    ) -> Iterator[MFuture]:
-        """Compute preprocessing tasks and tile tasks in one go."""
-        raise DeprecationWarning("Mapchete.compute() is deprecated")
 
     def batch_preprocessor(
         self,
