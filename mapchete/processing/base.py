@@ -241,7 +241,7 @@ class Mapchete(object):
 
             # tasks have no dependencies with each other and can be executed in
             # any arbitrary order
-            if self.config.preprocessing_tasks_count == 0 and (
+            if self.config.preprocessing_tasks_count() == 0 and (
                 not self.config.baselevels or len(self.config.init_zoom_levels) == 1
             ):
                 logger.debug("decided to process tasks in single batch")

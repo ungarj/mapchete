@@ -53,18 +53,31 @@ def batches(
     """
     Execute batches in sequential order but tasks within batches don't have any order.
     """
-    if write_in_parent_process:
-        for batch in tasks.to_batches():
+    preprocessing_tasks_results = {}
+
+    for batch in tasks.to_batches():
+        # preprocessing task results have to be appended to each tile task batch:
+        if batch.id != "preprocessing_tasks":
+            for task in batch:
+                for id, result in preprocessing_tasks_results.items():
+                    task.set_preprocessing_task_result(id, result)
+
+        # only execute first on workers and write result here in parent process
+        if write_in_parent_process:
             for future in executor.as_completed(
                 _execute_wrapper, batch, fkwargs=dict(append_data=True)
             ):
+                task_info = TaskInfo.from_future(future)
+                if task_info.tile is None:  # this is a preprocessing task
+                    preprocessing_tasks_results[task_info.id] = task_info.output
                 yield _write_wrapper(
-                    TaskInfo.from_future(future),
+                    task_info,
                     output_writer=output_writer,
                     append_data=propagate_results,
                 )
-    else:
-        for batch in tasks.to_batches():
+
+        # execute and write on workers
+        else:
             for future in executor.as_completed(
                 _execute_and_write_wrapper,
                 batch,
@@ -73,7 +86,10 @@ def batches(
                     fkwargs=dict(append_data=propagate_results),
                 ),
             ):
-                yield TaskInfo.from_future(future)
+                task_info = TaskInfo.from_future(future)
+                if task_info.tile is None:  # this is a preprocessing task
+                    preprocessing_tasks_results[task_info.id] = task_info.output
+                yield task_info
 
 
 def dask_graph(

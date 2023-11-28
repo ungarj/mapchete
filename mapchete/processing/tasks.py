@@ -95,9 +95,9 @@ class Task(ABC):
         self.dependencies.update(dependencies)
 
     def execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> TaskInfo:
-        output = self.func(*self.fargs, **self.fkwargs)
         return TaskInfo(
-            output=output,
+            id=self.id,
+            output=self.func(*self.fargs, **self.fkwargs),
             processed=True,
         )
 
@@ -261,6 +261,24 @@ class TileTask(Task):
         elif process_output is None:
             raise MapcheteProcessOutputError("process output is empty")
         return TaskInfo(output=process_output, processed=True, tile=self.tile)
+
+    def set_preprocessing_task_result(self, task_key: str, result: Any):
+        """Append preprocessing task result to input."""
+        if ":" in task_key:
+            inp_key, inp_task_key = task_key.split(":")[:2]
+        else:
+            raise KeyError(
+                "preprocessing task cannot be assigned to an input "
+                f"because of a malformed task key: {task_key}"
+            )
+        for inp in self.input.values():
+            if inp_key == inp.input_key:
+                break
+        else:  # pragma: no cover
+            raise KeyError(
+                f"task {inp_task_key} cannot be assigned to input with key {inp_key}"
+            )
+        inp.set_preprocessing_task_result(inp_task_key, result)
 
     def _execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> Any:
         # If baselevel is active and zoom is outside of baselevel,
