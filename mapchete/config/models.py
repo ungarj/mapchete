@@ -46,3 +46,11 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     bounds: Optional[Union[Bounds, BoundsLike]] = None
     bounds_crs: Optional[Union[dict, str]] = None
     process_parameters: Optional[dict] = None
+
+
+class DaskSettings(BaseModel):
+    process_graph: bool = True
+    propagate_results: bool = False
+    max_submitted_tasks: int = 500
+    chunksize: int = 100
+    scheduler: Optional[str] = None

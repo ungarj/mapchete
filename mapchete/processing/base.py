@@ -9,7 +9,7 @@ from typing import Any, Iterator, List, Optional, Tuple, Union
 
 from cachetools import LRUCache
 
-from mapchete.config import MapcheteConfig
+from mapchete.config import DaskSettings, MapcheteConfig
 from mapchete.enums import Concurrency, ProcessingMode
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
 from mapchete.executor import (
@@ -173,6 +173,9 @@ class Mapchete(object):
         """
         Generate tasks from preprocessing tasks and tile tasks.
         """
+        # profiling?
+        # single file output?
+        # write output in extra tasks?
         return Tasks(
             _task_batches(
                 self,
@@ -206,18 +209,22 @@ class Mapchete(object):
         tasks: Optional[Tasks] = None,
         zoom: Optional[ZoomLevelsLike] = None,
         tile: Optional[TileLike] = None,
-        no_task_graph: bool = False,
         executor: Optional[ExecutorBase] = None,
         concurrency: Concurrency = Concurrency.processes,
         workers: int = os.cpu_count(),
         propagate_results: bool = False,
+        dask_settings: DaskSettings = DaskSettings(),
         profiling: bool = False,
     ) -> Iterator[TaskInfo]:
         """
         Execute all tasks on given executor and yield TaskInfo as they finish.
         """
         # determine tasks if not provided extra
+        # we have to do this before it can be decided which type of processing can be applied
         tasks = self.tasks(zoom=zoom, tile=tile) if tasks is None else tasks
+
+        # TODO: check this again
+        propagate_results = propagate_results or dask_settings.propagate_results
 
         if len(tasks) == 0:
             return
@@ -234,12 +241,8 @@ class Mapchete(object):
 
             # tasks have no dependencies with each other and can be executed in
             # any arbitrary order
-            if (
-                self.config.preprocessing_tasks_count == 0
-                and not self.config.baselevels
-            ) or (
-                self.config.preprocessing_tasks_count == 0
-                and len(self.config.init_zoom_levels) == 1
+            if self.config.preprocessing_tasks_count == 0 and (
+                not self.config.baselevels or len(self.config.init_zoom_levels) == 1
             ):
                 logger.debug("decided to process tasks in single batch")
                 yield from single_batch(
@@ -250,21 +253,11 @@ class Mapchete(object):
                     propagate_results=propagate_results,
                 )
 
-            # tasks are sorted into batches which have to be executed in a
-            # particular order
-            elif no_task_graph or not isinstance(executor, DaskExecutor):
-                logger.debug("decided to process tasks in batches")
-                yield from batches(
-                    executor,
-                    tasks,
-                    output_writer=self.config.output,
-                    write_in_parent_process=self.config.output.write_in_parent_process,
-                    propagate_results=propagate_results,
-                )
-
             # tasks are connected via a dependency graph and will be sent to the
             # executor all at once
-            else:
+            elif dask_settings.process_graph and hasattr(
+                executor, "compute_task_graph"
+            ):
                 logger.debug("decided to use dask graph processing")
                 yield from dask_graph(
                     executor,
@@ -274,29 +267,24 @@ class Mapchete(object):
                     propagate_results=propagate_results,
                 )
 
-    def batch_preprocessor(
+            # tasks are sorted into batches which have to be executed in a
+            # particular order
+            else:
+                logger.debug("decided to process tasks in batches")
+                yield from batches(
+                    executor,
+                    tasks,
+                    output_writer=self.config.output,
+                    write_in_parent_process=self.config.output.write_in_parent_process,
+                    propagate_results=propagate_results,
+                )
+
+    def execute_preprocessing_tasks(
         self,
-        executor: ExecutorBase,
+        executor: Optional[ExecutorBase] = None,
     ) -> Iterator[MFuture]:
         """
-        Run all required preprocessing steps and yield over results.
-
-        The task count can be determined by self.config.preprocessing_tasks_count().
-
-        Parameters
-        ----------
-
-        dask_schedulter : str
-            URL to a dask scheduler if distributed execution is desired
-        dask_max_submitted_tasks : int
-            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
-        dask_chunksize : int
-            Number of tasks submitted to the scheduler at once. (default: 100)
-        workers : int
-            number of workers to be used for local processing
-        executor : mapchete.Executor
-            optional executor class to be used for processing
-
+        Run all required preprocessing steps.
         """
         # If preprocessing tasks already finished, don't run them again.
         if self.config.preprocessing_tasks_finished:  # pragma: no cover
@@ -307,32 +295,8 @@ class Mapchete(object):
             executor=executor,
         ):
             self.config.set_preprocessing_task_result(task_info.id, task_info.output)
-            yield task_info
 
         self.config.preprocessing_tasks_finished = True
-
-    def batch_preprocess(
-        self,
-        executor: Optional[ExecutorBase] = None,
-    ) -> None:
-        """
-        Run all required preprocessing steps.
-
-        Parameters
-        ----------
-
-        dask_schedulter : str
-            URL to a dask scheduler if distributed execution is desired
-        dask_max_submitted_tasks : int
-            Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
-        dask_chunksize : int
-            Number of tasks submitted to the scheduler at once. (default: 100)
-        workers : int
-            number of workers to be used for local processing
-        executor : mapchete.Executor
-            optional executor class to be used for processing
-        """
-        list(self.batch_preprocessor(executor=executor))
 
     def count_tasks(
         self,
@@ -418,7 +382,7 @@ class Mapchete(object):
         """
         process_tile = validate_tile(process_tile, self.config.process_pyramid)
         # make sure preprocessing tasks are finished
-        self.batch_preprocess()
+        self.execute_preprocessing_tasks()
         try:
             return self.config.output.streamline_output(
                 TileTask(tile=process_tile, config=self.config).execute().output

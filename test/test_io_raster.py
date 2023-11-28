@@ -84,7 +84,7 @@ def test_read_raster_window_input_list(cleantopo_br):
     conf = dict(**cleantopo_br.dict)
     conf["output"].update(metatiling=1)
     with mapchete.open(conf) as mp:
-        list(mp.execute(process_zoom))
+        list(mp.execute(zoom=process_zoom))
         tiles = [
             (tile, mp.config.output.get_path(tile))
             for tile in mp.config.output_pyramid.tiles_from_bounds(

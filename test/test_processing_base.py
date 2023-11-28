@@ -20,6 +20,7 @@ from shapely.geometry import box, shape
 from shapely.ops import unary_union
 
 import mapchete
+from mapchete.config import DaskSettings
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.raster import _shift_required, create_mosaic
@@ -256,22 +257,24 @@ def test_baselevels_custom_nodata(baselevels_custom_nodata):
 
 
 @pytest.mark.parametrize(
-    "concurrency,no_task_graph",
+    "concurrency,process_graph",
     [
-        ("threads", False),
-        ("dask", False),
+        ("threads", None),
         ("dask", True),
-        ("processes", False),
-        (None, False),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
     ],
 )
-def test_update_overviews(overviews, concurrency, no_task_graph, dask_executor):
+def test_update_overviews(overviews, concurrency, process_graph, dask_executor):
     """Baselevel interpolation."""
-    compute_kwargs = (
-        {"executor": dask_executor, "no_task_graph": no_task_graph}
-        if concurrency == "dask"
-        else {"concurrency": concurrency}
-    )
+    if concurrency == "dask":
+        execute_kwargs = dict(
+            executor=dask_executor,
+            dask_settings=DaskSettings(process_graph=process_graph),
+        )
+    else:
+        execute_kwargs = dict(concurrency=concurrency)
     # process everything and make sure output was written
     with overviews.mp() as mp:
         baselevel_tile = overviews.first_process_tile()
@@ -284,7 +287,7 @@ def test_update_overviews(overviews, concurrency, no_task_graph, dask_executor):
         )
 
         # process baselevel (zoom 7)
-        list(mp.execute(**compute_kwargs, zoom=7))
+        list(mp.execute(**execute_kwargs, zoom=7))
 
     # make sure baselevel tile has content
     with rasterio_open(baselevel_tile_path) as src:
@@ -296,7 +299,7 @@ def test_update_overviews(overviews, concurrency, no_task_graph, dask_executor):
 
     with overviews.mp() as mp:
         # process overviews
-        list(mp.execute(**compute_kwargs, zoom=[0, 6]))
+        list(mp.execute(**execute_kwargs, zoom=[0, 6]))
     assert not baselevel_tile_path.exists()
 
     # read overview tile which is half empty
@@ -624,17 +627,28 @@ def test_bufferedtiles():
     assert a.get_neighbors() != a.get_neighbors(connectedness=4)
 
 
-@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_execute(preprocess_cache_memory, concurrency, dask_executor):
-    compute_kwargs = (
-        {"executor": dask_executor}
-        if concurrency == "dask"
-        else {"concurrency": concurrency}
-    )
+@pytest.mark.parametrize(
+    "concurrency,process_graph",
+    [
+        ("threads", None),
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
+    ],
+)
+def test_execute(preprocess_cache_memory, concurrency, process_graph, dask_executor):
+    if concurrency == "dask":
+        execute_kwargs = dict(
+            executor=dask_executor,
+            dask_settings=DaskSettings(process_graph=process_graph),
+        )
+    else:
+        execute_kwargs = dict(concurrency=concurrency)
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(**compute_kwargs, no_task_graph=True):
+        for task_info in mp.execute(**execute_kwargs):
             assert isinstance(task_info, TaskInfo)
             if task_info.tile is None:
                 preprocessing_tasks += 1
@@ -645,37 +659,31 @@ def test_execute(preprocess_cache_memory, concurrency, dask_executor):
     assert preprocessing_tasks == 2
 
 
-def test_execute_dask_graph(preprocess_cache_memory, dask_executor):
-    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
-        preprocessing_tasks = 0
-        tile_tasks = 0
-        for task_info in mp.execute(executor=dask_executor, no_task_graph=False):
-            assert isinstance(task_info, TaskInfo)
-            if task_info.tile is None:
-                assert task_info.output is not None
-                preprocessing_tasks += 1
-            else:
-                tile_tasks += 1
-                if task_info.written:
-                    assert task_info.output is not None
-                else:
-                    assert task_info.output is None
-    assert tile_tasks == 20
-    assert preprocessing_tasks == 2
-
-
-@pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-def test_execute_continue(red_raster, green_raster, dask_executor, concurrency):
-    compute_kwargs = (
-        {"executor": dask_executor}
-        if concurrency == "dask"
-        else {"concurrency": concurrency}
-    )
+@pytest.mark.parametrize(
+    "concurrency,process_graph",
+    [
+        ("threads", None),
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
+    ],
+)
+def test_execute_continue(
+    red_raster, green_raster, dask_executor, concurrency, process_graph
+):
+    if concurrency == "dask":
+        execute_kwargs = dict(
+            executor=dask_executor,
+            dask_settings=DaskSettings(process_graph=process_graph),
+        )
+    else:
+        execute_kwargs = dict(concurrency=concurrency)
     zoom = 3
 
     # run red_raster on tile 1, 0, 0
     with red_raster.mp() as mp_red:
-        list(mp_red.execute(tile=(zoom, 0, 0), **compute_kwargs))
+        list(mp_red.execute(tile=(zoom, 0, 0), **execute_kwargs))
     fs_red = fs_from_path(mp_red.config.output.path)
     assert len(fs_red.glob(f"{mp_red.config.output.path}/*/*/*.tif")) == 1
     with rasterio_open(f"{mp_red.config.output.path}/{zoom}/0/0.tif") as src:
@@ -693,7 +701,7 @@ def test_execute_continue(red_raster, green_raster, dask_executor, concurrency):
             str(mp_green.config.output.path / f"{zoom}/0/0.tif"),
         )
         # run green_raster on zoom 1
-        list(mp_green.execute(zoom=[0, zoom], **compute_kwargs))
+        list(mp_green.execute(zoom=[0, zoom], **execute_kwargs))
 
     # assert red tile is still there and other tiles were written and are green
     assert len(
@@ -741,7 +749,7 @@ def test_execute_dask_without_results(baselevels, dask_executor):
     with baselevels.mp() as mp:
         tile_tasks = 0
         for task_info in mp.execute(
-            executor=dask_executor, dask_propagate_results=True
+            executor=dask_executor, dask_settings=DaskSettings(propagate_results=True)
         ):
             assert task_info.output is not None
             tile_tasks += 1
@@ -750,7 +758,9 @@ def test_execute_dask_without_results(baselevels, dask_executor):
     # make sure task results are None
     with baselevels.mp() as mp:
         tile_tasks = 0
-        for task_info in mp.execute(concurrency="dask", dask_propagate_results=False):
+        for task_info in mp.execute(
+            concurrency="dask", dask_settings=DaskSettings(propagate_results=True)
+        ):
             assert task_info.output is None
             tile_tasks += 1
     assert tile_tasks == 6
@@ -839,18 +849,30 @@ def test_write_stac(stac_metadata):
     assert item
 
 
-# @pytest.mark.parametrize("concurrency", ["processes", "dask", "threads", None])
-@pytest.mark.parametrize("concurrency", [None])
-def test_execute_request_count(preprocess_cache_memory, concurrency, dask_executor):
-    compute_kwargs = (
-        {"executor": dask_executor}
-        if concurrency == "dask"
-        else {"concurrency": concurrency}
-    )
+@pytest.mark.parametrize(
+    "concurrency,process_graph",
+    [
+        # ("threads", None),  --> request count does not work on threads
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
+    ],
+)
+def test_execute_request_count(
+    preprocess_cache_memory, concurrency, process_graph, dask_executor
+):
+    if concurrency == "dask":
+        execute_kwargs = dict(
+            executor=dask_executor,
+            dask_settings=DaskSettings(process_graph=process_graph),
+        )
+    else:
+        execute_kwargs = dict(concurrency=concurrency)
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(**compute_kwargs):
+        for task_info in mp.execute(**execute_kwargs):
             if task_info.tile is None:
                 preprocessing_tasks += 1
             else:

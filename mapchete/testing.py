@@ -149,7 +149,7 @@ class ProcessFixture:
             if not self._mp:
                 self._mp = mapchete.open(self.dict)
                 if batch_preprocess:
-                    self._mp.batch_preprocess(executor=executor)
+                    self._mp.execute_preprocessing_tasks(executor=executor)
 
             return self._mp
 
