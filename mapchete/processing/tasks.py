@@ -182,6 +182,13 @@ class InterpolateFrom(str, Enum):
     higher = "higher"
 
 
+def _execute_tile_task_wrapper(task, **kwargs) -> Any:
+    try:
+        return task.execute(**kwargs)
+    except MapcheteNodataTile:
+        return "empty"
+
+
 class TileTask(Task):
     """
     Class to process on a specific process tile.
@@ -200,6 +207,7 @@ class TileTask(Task):
         tile: TileLike,
         id: Optional[str] = None,
         config: Optional[MapcheteConfig] = None,
+        func: Optional[Callable] = None,
         skip: bool = False,
         dependencies: Optional[dict] = None,
     ):
@@ -210,6 +218,7 @@ class TileTask(Task):
         _default_id = default_tile_task_id(tile)
         self.id = id or _default_id
         self.skip = skip
+        self.func = func or _execute_tile_task_wrapper
         self.config_zoom_levels = None if skip else config.zoom_levels
         self.config_baselevels = None if skip else config.baselevels
         self.process = None if skip else config.process
@@ -229,6 +238,9 @@ class TileTask(Task):
             None if skip or not config.baselevels else config.output_reader
         )
         super().__init__(id=self.id, geometry=tile.bbox)
+
+    def __repr__(self):  # pragma: no cover
+        return f"TileTask(id={self.id}, tile={self.tile}, bounds={self.bounds})"
 
     def execute(self, dependencies: Optional[dict] = None) -> TaskInfo:
         """
@@ -414,9 +426,12 @@ class TileTaskBatch(TaskBatch):
         self.bounds = None, None, None, None
         self.tasks = {item.tile: item for item in self._validate(tasks)}
         self._update_bounds()
-        self.func = func or _execute_task_wrapper
+        self.func = func or _execute_tile_task_wrapper
         self.fkwargs = fkwargs or {}
         self.profilers = profilers or []
+
+    def __repr__(self):  # pragma: no cover
+        return f"TileTaskBatch(id={self.id}, bounds={self.bounds}, tasks={len(self.tasks)})"
 
     def _update_bounds(self):
         for tile in self.tasks.keys():
@@ -525,9 +540,17 @@ class Tasks:
     def clean_up(self) -> None:
         raise NotImplementedError
 
-    def to_dask_graph(self) -> List[Union[Delayed, DelayedLeaf]]:
+    def to_dask_graph(
+        self,
+        preprocessing_task_wrapper: Optional[Callable] = None,
+        tile_task_wrapper: Optional[Callable] = None,
+    ) -> List[Union[Delayed, DelayedLeaf]]:
         """Return task graph to use with dask Executor."""
-        return to_dask_collection(self._batches_generator())
+        return to_dask_collection(
+            self._batches_generator(),
+            preprocessing_task_wrapper=preprocessing_task_wrapper,
+            tile_task_wrapper=tile_task_wrapper,
+        )
 
     def to_batch(self) -> Iterator[Task]:
         """Return all tasks as one batch."""
@@ -542,11 +565,17 @@ class Tasks:
 
 def to_dask_collection(
     batches: Iterator[Union[TaskBatch, TileTaskBatch]],
+    preprocessing_task_wrapper: Optional[Callable] = None,
+    tile_task_wrapper: Optional[Callable] = None,
 ) -> List[Union[Delayed, DelayedLeaf]]:
     tasks = {}
     previous_batch = None
     for batch in batches:
         logger.debug("converting batch %s", batch)
+        if batch.id == "preprocessing_tasks":
+            task_func = preprocessing_task_wrapper or batch.func
+        else:
+            task_func = tile_task_wrapper or batch.func
         if previous_batch:
             logger.debug("previous batch had %s tasks", len(previous_batch))
         for task in batch.values():
@@ -563,7 +592,7 @@ def to_dask_collection(
             else:
                 dependencies = {}
             tasks[task] = delayed(
-                batch.func,
+                task_func,
                 pure=True,
                 name=f"{task.id}",
                 traverse=len(dependencies) > 0,

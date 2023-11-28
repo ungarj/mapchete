@@ -766,15 +766,32 @@ def test_execute_dask_without_results(baselevels, dask_executor):
     assert tile_tasks == 6
 
 
-def test_execute_dask_graph_single_file(
-    preprocess_cache_memory_single_file, dask_executor
+@pytest.mark.parametrize(
+    "concurrency,process_graph",
+    [
+        ("threads", None),
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
+    ],
+)
+def test_execute_single_file(
+    preprocess_cache_memory_single_file, concurrency, process_graph, dask_executor
 ):
+    """Baselevel interpolation."""
+    if concurrency == "dask":
+        execute_kwargs = dict(
+            executor=dask_executor,
+            dask_settings=DaskSettings(process_graph=process_graph),
+        )
+    else:
+        execute_kwargs = dict(concurrency=concurrency)
+
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
-        for task_info in mp.execute(
-            executor=dask_executor,
-        ):
+        for task_info in mp.execute(**execute_kwargs):
             assert isinstance(task_info, TaskInfo)
             if task_info.tile is None:
                 assert task_info.output is not None
@@ -786,53 +803,6 @@ def test_execute_dask_graph_single_file(
     assert preprocessing_tasks == 2
     with rasterio_open(mp.config.output.path) as src:
         assert not src.read(masked=True).mask.all()
-
-
-def test_execute_dask_single_file(preprocess_cache_memory_single_file, dask_executor):
-    with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
-        preprocessing_tasks = 0
-        tile_tasks = 0
-        for task_info in mp.execute(executor=dask_executor):
-            assert isinstance(task_info, TaskInfo)
-            if task_info.tile is None:
-                preprocessing_tasks += 1
-            else:
-                tile_tasks += 1
-                assert task_info.output is None
-    assert tile_tasks == 12
-    assert preprocessing_tasks == 2
-    with rasterio_open(mp.config.output.path) as src:
-        assert not src.read(masked=True).mask.all()
-
-
-def test_execute_threads_single_file(preprocess_cache_memory_single_file):
-    with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
-        preprocessing_tasks = 0
-        tile_tasks = 0
-        for task_info in mp.execute(concurrency="threads"):
-            assert isinstance(task_info, TaskInfo)
-            if task_info.tile is None:
-                preprocessing_tasks += 1
-            else:
-                tile_tasks += 1
-                assert task_info.output is None
-    assert tile_tasks == 12
-    assert preprocessing_tasks == 2
-
-
-def test_execute_processes_single_file(preprocess_cache_memory_single_file):
-    with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
-        preprocessing_tasks = 0
-        tile_tasks = 0
-        for task_info in mp.execute(concurrency="processes"):
-            assert isinstance(task_info, TaskInfo)
-            if task_info.tile is None:
-                preprocessing_tasks += 1
-            else:
-                tile_tasks += 1
-                assert task_info.output is None
-    assert tile_tasks == 12
-    assert preprocessing_tasks == 2
 
 
 def test_write_stac(stac_metadata):

@@ -3,7 +3,7 @@ from multiprocessing import current_process
 from typing import Iterator, Optional
 
 from mapchete.errors import MapcheteNodataTile
-from mapchete.executor import DaskExecutor, ExecutorBase, MFuture
+from mapchete.executor import DaskExecutor, ExecutorBase
 from mapchete.formats.base import OutputDataWriter
 from mapchete.processing.tasks import Task, Tasks
 from mapchete.processing.types import TaskInfo, default_tile_task_id
@@ -68,13 +68,19 @@ def batches(
                 _execute_wrapper, batch, fkwargs=dict(append_data=True)
             ):
                 task_info = TaskInfo.from_future(future)
-                if task_info.tile is None:  # this is a preprocessing task
+
+                # this is a preprocessing task
+                if task_info.tile is None:
                     preprocessing_tasks_results[task_info.id] = task_info.output
-                yield _write_wrapper(
-                    task_info,
-                    output_writer=output_writer,
-                    append_data=propagate_results,
-                )
+                    yield task_info
+
+                # tile is a tile task
+                else:
+                    yield _write_wrapper(
+                        task_info,
+                        output_writer=output_writer,
+                        append_data=propagate_results,
+                    )
 
         # execute and write on workers
         else:
@@ -87,8 +93,11 @@ def batches(
                 ),
             ):
                 task_info = TaskInfo.from_future(future)
-                if task_info.tile is None:  # this is a preprocessing task
+
+                # this is a preprocessing task
+                if task_info.tile is None:
                     preprocessing_tasks_results[task_info.id] = task_info.output
+
                 yield task_info
 
 
@@ -102,8 +111,15 @@ def dask_graph(
     """
     Tasks share dependencies with each other.
     """
+    if write_in_parent_process:
+        task_wrapper = _execute_wrapper
+    else:
+        task_wrapper = _execute_and_write_wrapper
     for future in executor.compute_task_graph(
-        tasks.to_dask_graph(),
+        tasks.to_dask_graph(
+            preprocessing_task_wrapper=task_wrapper,
+            tile_task_wrapper=task_wrapper,
+        ),
     ):
         yield TaskInfo.from_future(future)
 
