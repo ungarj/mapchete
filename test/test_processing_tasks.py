@@ -171,7 +171,7 @@ def task_batches_generator(process: ProcessFixture, preprocessing_tasks_count=10
                 for i in range(preprocessing_tasks_count)
             )
         )
-    for zoom in process.mp().config.zoom_levels:
+    for zoom in process.mp().config.zoom_levels.descending():
         yield TileTaskBatch(
             (
                 TileTask(tile=process_tile, config=process.mp().config)
