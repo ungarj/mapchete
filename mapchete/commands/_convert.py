@@ -14,6 +14,7 @@ from shapely.geometry.base import BaseGeometry
 
 from mapchete.commands._execute import execute
 from mapchete.commands.observer import ObserverProtocol, Observers
+from mapchete.config import DaskSettings
 from mapchete.config.parse import raw_conf, raw_conf_output_pyramid
 from mapchete.errors import JobCancelledError
 from mapchete.executor import Executor
@@ -45,13 +46,8 @@ def convert(
     tile: Tuple[int, int, int] = None,
     overwrite: bool = False,
     concurrency: str = "processes",
-    dask_scheduler: str = None,
-    dask_max_submitted_tasks: int = 500,
-    dask_chunksize: int = 100,
-    dask_client=None,
-    dask_compute_graph=True,
+    dask_settings: DaskSettings = DaskSettings(),
     workers: int = None,
-    multi: int = None,
     clip_geometry: str = None,
     bidx: List[int] = None,
     output_pyramid: str = None,
@@ -300,11 +296,7 @@ def convert(
         area=area,
         area_crs=area_crs,
         concurrency=concurrency,
-        dask_scheduler=dask_scheduler,
-        dask_max_submitted_tasks=dask_max_submitted_tasks,
-        dask_chunksize=dask_chunksize,
-        dask_client=dask_client,
-        dask_compute_graph=dask_compute_graph,
+        dask_settings=dask_settings,
         workers=workers,
         executor_getter=executor_getter,
         observers=observers,

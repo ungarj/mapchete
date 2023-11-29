@@ -5,6 +5,7 @@ import mapchete
 from mapchete import commands
 from mapchete.cli import options
 from mapchete.cli.progress_bar import PBar
+from mapchete.config import DaskSettings
 
 
 @click.command(help="Execute a process.")
@@ -42,6 +43,7 @@ def execute(
     dask_no_task_graph=False,
     profiling=False,
     logfile=None,
+    dask_scheduler=None,
     **kwargs,
 ):
     # activate verbose if profiling is active
@@ -65,7 +67,9 @@ def execute(
                     mapchete_file,
                     *args,
                     observers=[pbar],
-                    dask_compute_graph=not dask_no_task_graph,
+                    dask_settings=DaskSettings(
+                        process_graph=not dask_no_task_graph, scheduler=dask_scheduler
+                    ),
                     profiling=profiling,
                     **kwargs,
                 )

@@ -1,5 +1,6 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Type, Union
 
+from distributed import Client
 from pydantic import BaseModel, NonNegativeInt, field_validator
 from shapely.geometry.base import BaseGeometry
 
@@ -53,3 +54,4 @@ class DaskSettings(BaseModel):
     max_submitted_tasks: int = 500
     chunksize: int = 100
     scheduler: Optional[str] = None
+    client: Optional[Type[Client]] = None
