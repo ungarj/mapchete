@@ -1,6 +1,7 @@
 import logging
+from functools import partial
 from multiprocessing import current_process
-from typing import Iterator, Optional
+from typing import Callable, Iterator, Optional
 
 from mapchete.errors import MapcheteNodataTile
 from mapchete.executor import DaskExecutor, ExecutorBase
@@ -10,9 +11,6 @@ from mapchete.processing.types import TaskInfo, default_tile_task_id
 from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
-
-
-# TODO: writing in parent process
 
 
 def single_batch(
@@ -25,22 +23,23 @@ def single_batch(
     """
     Treat all tasks as from a single batch, i.e. they don't have dependencies.
     """
-    if write_in_parent_process:
-        for future in executor.as_completed(
-            _execute_wrapper, tasks.to_batch(), fkwargs=dict(append_data=True)
-        ):
-            yield _write_wrapper(
-                TaskInfo.from_future(future),
+    task_wrapper = get_task_wrapper(
+        write_in_parent_process=write_in_parent_process,
+        output_writer=output_writer,
+        propagate_results=propagate_results,
+    )
+
+    for future in executor.as_completed(task_wrapper, tasks.to_batch()):
+        task_info = TaskInfo.from_future(future)
+
+        if write_in_parent_process:
+            task_info = write_wrapper(
+                task_info,
                 output_writer=output_writer,
                 append_data=propagate_results,
             )
-    else:
-        for future in executor.as_completed(
-            _execute_and_write_wrapper,
-            tasks.to_batch(),
-            fkwargs=dict(output_writer=output_writer, append_data=propagate_results),
-        ):
-            yield TaskInfo.from_future(future)
+
+        yield task_info
 
 
 def batches(
@@ -55,6 +54,12 @@ def batches(
     """
     preprocessing_tasks_results = {}
 
+    task_wrapper = get_task_wrapper(
+        write_in_parent_process=write_in_parent_process,
+        output_writer=output_writer,
+        propagate_results=propagate_results,
+    )
+
     for batch in tasks.to_batches():
         # preprocessing task results have to be appended to each tile task batch:
         if batch.id != "preprocessing_tasks":
@@ -62,43 +67,21 @@ def batches(
                 for id, result in preprocessing_tasks_results.items():
                     task.set_preprocessing_task_result(id, result)
 
-        # only execute first on workers and write result here in parent process
-        if write_in_parent_process:
-            for future in executor.as_completed(
-                _execute_wrapper, batch, fkwargs=dict(append_data=True)
-            ):
-                task_info = TaskInfo.from_future(future)
+        for future in executor.as_completed(task_wrapper, batch):
+            task_info = TaskInfo.from_future(future)
 
-                # this is a preprocessing task
-                if task_info.tile is None:
-                    preprocessing_tasks_results[task_info.id] = task_info.output
-                    yield task_info
-
-                # tile is a tile task
-                else:
-                    yield _write_wrapper(
-                        task_info,
-                        output_writer=output_writer,
-                        append_data=propagate_results,
-                    )
-
-        # execute and write on workers
-        else:
-            for future in executor.as_completed(
-                _execute_and_write_wrapper,
-                batch,
-                fkwargs=dict(
+            if write_in_parent_process:
+                task_info = write_wrapper(
+                    task_info,
                     output_writer=output_writer,
-                    fkwargs=dict(append_data=propagate_results),
-                ),
-            ):
-                task_info = TaskInfo.from_future(future)
+                    append_data=propagate_results,
+                )
 
-                # this is a preprocessing task
-                if task_info.tile is None:
-                    preprocessing_tasks_results[task_info.id] = task_info.output
+            # remember preprocessing task result
+            if task_info.tile is None:
+                preprocessing_tasks_results[task_info.id] = task_info.output
 
-                yield task_info
+            yield task_info
 
 
 def dask_graph(
@@ -111,20 +94,46 @@ def dask_graph(
     """
     Tasks share dependencies with each other.
     """
-    if write_in_parent_process:
-        task_wrapper = _execute_wrapper
-    else:
-        task_wrapper = _execute_and_write_wrapper
+    task_wrapper = get_task_wrapper(
+        write_in_parent_process=write_in_parent_process,
+        output_writer=output_writer,
+        propagate_results=propagate_results,
+    )
+
     for future in executor.compute_task_graph(
         tasks.to_dask_graph(
             preprocessing_task_wrapper=task_wrapper,
             tile_task_wrapper=task_wrapper,
         ),
     ):
-        yield TaskInfo.from_future(future)
+        task_info = TaskInfo.from_future(future)
+        if write_in_parent_process:
+            yield write_wrapper(
+                task_info,
+                output_writer=output_writer,
+                append_data=propagate_results,
+            )
+        else:
+            yield task_info
 
 
-def _execute_wrapper(
+def get_task_wrapper(
+    write_in_parent_process: bool = False,
+    output_writer: Optional[OutputDataWriter] = None,
+    propagate_results: bool = False,
+) -> Callable:
+    """Return a partially initialized wrapper function for task."""
+    if write_in_parent_process:
+        return partial(execute_wrapper, append_data=True)
+    else:
+        return partial(
+            execute_and_write_wrapper,
+            output_writer=output_writer,
+            append_data=propagate_results,
+        )
+
+
+def execute_wrapper(
     task: Task, dependencies: Optional[dict] = None, append_data: bool = True
 ) -> TaskInfo:
     """
@@ -140,7 +149,7 @@ def _execute_wrapper(
     if isinstance(output, TaskInfo):
         return output
     logger.debug((task.id, processor_message))
-    if hasattr(task, "tile"):
+    if task.tile:
         return TaskInfo(
             id=default_tile_task_id(task.tile),
             tile=task.tile,
@@ -161,11 +170,11 @@ def _execute_wrapper(
         )
 
 
-def _write_wrapper(
+def write_wrapper(
     task_info: TaskInfo, output_writer: OutputDataWriter, append_data: bool = False, **_
 ) -> TaskInfo:
     """Write output from previous step and return updated TileTaskInfo object."""
-    if task_info.processed:
+    if task_info.processed and task_info.tile:
         try:
             output_data = output_writer.streamline_output(task_info.output)
         except MapcheteNodataTile:
@@ -198,7 +207,7 @@ def _write_wrapper(
     return task_info
 
 
-def _execute_and_write_wrapper(
+def execute_and_write_wrapper(
     task: Task,
     output_writer: Optional[OutputDataWriter] = None,
     dependencies: Optional[dict] = None,
@@ -208,12 +217,8 @@ def _execute_and_write_wrapper(
     """
     Execute tile task and write output in one step.
     """
-    task_info = _execute_wrapper(task, dependencies=dependencies)
-    if task_info.tile:
-        return _write_wrapper(
-            task_info=task_info,
-            output_writer=output_writer,
-            append_data=append_data,
-        )
-    else:
-        return task_info
+    return write_wrapper(
+        task_info=execute_wrapper(task, dependencies=dependencies),
+        output_writer=output_writer,
+        append_data=append_data,
+    )
