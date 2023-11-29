@@ -1,6 +1,14 @@
 mapchete.commands package
 =========================
 
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 4
+
+   mapchete.commands.observer
+
 Module contents
 ---------------
 
