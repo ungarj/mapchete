@@ -274,8 +274,11 @@ class TileTask(Task):
             raise MapcheteProcessOutputError("process output is empty")
         return TaskInfo(output=process_output, processed=True, tile=self.tile)
 
-    def set_preprocessing_task_result(self, task_key: str, result: Any):
+    def set_preprocessing_task_result(
+        self, task_key: str, result: Any, raise_error: bool = False
+    ):
         """Append preprocessing task result to input."""
+        # TODO: if result has geo information, only add if it intersects with task!
         if ":" in task_key:
             inp_key, inp_task_key = task_key.split(":")[:2]
         else:
@@ -283,13 +286,18 @@ class TileTask(Task):
                 "preprocessing task cannot be assigned to an input "
                 f"because of a malformed task key: {task_key}"
             )
+        input_keys = {inp.input_key for inp in self.input.values()}
         for inp in self.input.values():
             if inp_key == inp.input_key:
                 break
         else:  # pragma: no cover
-            raise KeyError(
-                f"task {inp_task_key} cannot be assigned to input with key {inp_key}"
-            )
+            if raise_error:
+                raise KeyError(
+                    f"task {inp_task_key} cannot be assigned to input with key {inp_key} "
+                    f"(available keys: {input_keys})"
+                )
+            else:
+                return
         inp.set_preprocessing_task_result(inp_task_key, result)
 
     def _execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> Any:

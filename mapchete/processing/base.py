@@ -173,9 +173,6 @@ class Mapchete(object):
         """
         Generate tasks from preprocessing tasks and tile tasks.
         """
-        # profiling?
-        # single file output?
-        # write output in extra tasks?
         return Tasks(
             _task_batches(
                 self,
@@ -215,6 +212,7 @@ class Mapchete(object):
         propagate_results: bool = False,
         dask_settings: DaskSettings = DaskSettings(),
         profiling: bool = False,
+        remember_preprocessing_results: bool = False,
     ) -> Iterator[TaskInfo]:
         """
         Execute all tasks on given executor and yield TaskInfo as they finish.
@@ -236,9 +234,6 @@ class Mapchete(object):
                     Executor(concurrency=concurrency, workers=workers),
                 )
 
-            # TODO: write output in parent process
-            # TODO: profiling
-
             # tasks have no dependencies with each other and can be executed in
             # any arbitrary order
             if self.config.preprocessing_tasks_count() == 0 and (
@@ -259,25 +254,39 @@ class Mapchete(object):
                 executor, "compute_task_graph"
             ):
                 logger.debug("decided to use dask graph processing")
-                yield from dask_graph(
+                for task_info in dask_graph(
                     executor,
                     tasks,
                     output_writer=self.config.output,
                     write_in_parent_process=self.config.output.write_in_parent_process,
                     propagate_results=propagate_results,
-                )
+                ):
+                    # TODO: is this really necessary?
+                    if remember_preprocessing_results and task_info.tile is None:
+                        self.config.set_preprocessing_task_result(
+                            task_info.id, task_info.output
+                        )
+
+                    yield task_info
 
             # tasks are sorted into batches which have to be executed in a
             # particular order
             else:
                 logger.debug("decided to process tasks in batches")
-                yield from batches(
+                for task_info in batches(
                     executor,
                     tasks,
                     output_writer=self.config.output,
                     write_in_parent_process=self.config.output.write_in_parent_process,
                     propagate_results=propagate_results,
-                )
+                ):
+                    # TODO: is this really necessary?
+                    if remember_preprocessing_results and task_info.tile is None:
+                        self.config.set_preprocessing_task_result(
+                            task_info.id, task_info.output
+                        )
+
+                    yield task_info
 
     def execute_preprocessing_tasks(
         self,

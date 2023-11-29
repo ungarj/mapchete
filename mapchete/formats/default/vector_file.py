@@ -259,7 +259,11 @@ class InputTile(base.InputTile):
                 or self.preprocessing_tasks_results.get(self.cache_task_key)
             )
             if self._in_memory_features is None:  # pragma: no cover
-                raise RuntimeError("preprocessing tasks have not yet been run")
+                raise RuntimeError(
+                    "preprocessing tasks have not yet been run "
+                    f"(task key {self.cache_task_key} not found in "
+                    f"{list(self.preprocessing_tasks_results.keys())})"
+                )
         return (
             []
             if self.is_empty()
