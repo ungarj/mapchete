@@ -1,4 +1,4 @@
-aiobotocore>=1.1.2,!=2.7.0
+aiobotocore>=1.1.2,!=2.7.0,!=2.8.0
 aiohttp>=3.6.2
 aioitertools>=0.7.0
 boto3>=1.14.44
