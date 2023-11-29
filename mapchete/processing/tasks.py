@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import numpy.ma as ma
 from dask.delayed import Delayed, DelayedLeaf, delayed
-from shapely.geometry import base, box, mapping
+from shapely.geometry import base, box, mapping, shape
 
 from mapchete.config import MapcheteConfig
 from mapchete.config.process_func import ProcessFunc
@@ -46,6 +46,7 @@ class Task(ABC):
     result_key_name: str
     geometry: Optional[Union[base.BaseGeometry, dict]] = None
     bounds: Optional[Bounds] = None
+    tile: Optional[BufferedTile] = None
 
     def __init__(
         self,
@@ -94,12 +95,8 @@ class Task(ABC):
             )
         self.dependencies.update(dependencies)
 
-    def execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> TaskInfo:
-        return TaskInfo(
-            id=self.id,
-            output=self.func(*self.fargs, **self.fkwargs),
-            processed=True,
-        )
+    def execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> Any:
+        return self.func(*self.fargs, **self.fkwargs)
 
     def has_geometry(self) -> bool:
         return self.geometry is not None
@@ -201,6 +198,8 @@ class TileTask(Task):
     config_baselevels: ZoomLevels
     process = Optional[ProcessFunc]
     config_dir = Optional[MPath]
+    tile: BufferedTile
+    _dependencies: dict
 
     def __init__(
         self,
@@ -237,12 +236,44 @@ class TileTask(Task):
         self.output_reader = (
             None if skip or not config.baselevels else config.output_reader
         )
+        self._dependencies = dict()
         super().__init__(id=self.id, geometry=tile.bbox)
 
     def __repr__(self):  # pragma: no cover
         return f"TileTask(id={self.id}, tile={self.tile}, bounds={self.bounds})"
 
-    def execute(self, dependencies: Optional[dict] = None) -> TaskInfo:
+    def add_dependency(self, task_key: str, result: Any, raise_error: bool = True):
+        """Append preprocessing task result to input."""
+        # if dependency has geo information, only add if it intersects with task!
+        try:
+            if not shape(result).intersects(shape(self)):
+                logger.debug("dependency does not intersect with task")
+                return
+        except AttributeError:
+            pass
+
+        if ":" in task_key:
+            inp_key, inp_task_key = task_key.split(":")[:2]
+        else:
+            raise KeyError(
+                "preprocessing task cannot be assigned to an input "
+                f"because of a malformed task key: {task_key}"
+            )
+
+        input_keys = {inp.input_key for inp in self.input.values()}
+        if inp_key not in input_keys:
+            if raise_error:
+                raise KeyError(
+                    f"task {inp_task_key} cannot be assigned to input with key {inp_key} "
+                    f"(available keys: {input_keys})"
+                )
+            else:
+                return
+
+        logger.debug("remember preprocessing task (%s) result for execution", task_key)
+        self._dependencies[task_key] = result
+
+    def execute(self, dependencies: Optional[dict] = None) -> Any:
         """
         Run the Mapchete process and return the result.
 
@@ -272,33 +303,7 @@ class TileTask(Task):
             raise MapcheteNodataTile
         elif process_output is None:
             raise MapcheteProcessOutputError("process output is empty")
-        return TaskInfo(output=process_output, processed=True, tile=self.tile)
-
-    def set_preprocessing_task_result(
-        self, task_key: str, result: Any, raise_error: bool = False
-    ):
-        """Append preprocessing task result to input."""
-        # TODO: if result has geo information, only add if it intersects with task!
-        if ":" in task_key:
-            inp_key, inp_task_key = task_key.split(":")[:2]
-        else:
-            raise KeyError(
-                "preprocessing task cannot be assigned to an input "
-                f"because of a malformed task key: {task_key}"
-            )
-        input_keys = {inp.input_key for inp in self.input.values()}
-        for inp in self.input.values():
-            if inp_key == inp.input_key:
-                break
-        else:  # pragma: no cover
-            if raise_error:
-                raise KeyError(
-                    f"task {inp_task_key} cannot be assigned to input with key {inp_key} "
-                    f"(available keys: {input_keys})"
-                )
-            else:
-                return
-        inp.set_preprocessing_task_result(inp_task_key, result)
+        return process_output
 
     def _execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> Any:
         # If baselevel is active and zoom is outside of baselevel,
@@ -311,9 +316,13 @@ class TileTask(Task):
         # Otherwise, execute from process file.
         try:
             with Timer() as duration:
+                if self._dependencies:
+                    dependencies.update(self._dependencies)
                 # append dependent preprocessing task results to input objects
                 if dependencies:
                     for task_key, task_result in dependencies.items():
+                        if isinstance(task_result, TaskInfo):
+                            task_result = task_result.output
                         if not task_key.startswith("tile_task"):
                             inp_key, task_key = task_key.split(":")[0], ":".join(
                                 task_key.split(":")[1:]
@@ -323,7 +332,7 @@ class TileTask(Task):
                             for inp in self.input.values():
                                 if inp.input_key == inp_key:
                                     inp.set_preprocessing_task_result(
-                                        task_key=task_key, result=task_result.output
+                                        task_key=task_key, result=task_result
                                     )
                 # Actually run process.
                 process_data = self.process(

@@ -19,7 +19,7 @@ class Executor:
         if concurrency == "dask":
             return DaskExecutor(*args, **kwargs)
 
-        elif concurrency is None or kwargs.get("max_workers") == 1:
+        elif concurrency is None:
             return SequentialExecutor(*args, **kwargs)
 
         elif concurrency in ["processes", "threads"]:

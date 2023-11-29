@@ -367,11 +367,7 @@ class BufferedTile(Tile):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return "BufferedTile(%s, tile_pyramid=%s, pixelbuffer=%s)" % (
-            self.id,
-            self.tp,
-            self.pixelbuffer,
-        )
+        return f"BufferedTile(zoom={self.zoom}, row={self.row}, col={self.col})"
 
     def __hash__(self):
         return hash(repr(self))

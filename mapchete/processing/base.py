@@ -221,9 +221,6 @@ class Mapchete(object):
         # we have to do this before it can be decided which type of processing can be applied
         tasks = self.tasks(zoom=zoom, tile=tile) if tasks is None else tasks
 
-        # TODO: check this again
-        propagate_results = propagate_results or dask_settings.propagate_results
-
         if len(tasks) == 0:
             return
 
@@ -394,7 +391,7 @@ class Mapchete(object):
         self.execute_preprocessing_tasks()
         try:
             return self.config.output.streamline_output(
-                TileTask(tile=process_tile, config=self.config).execute().output
+                TileTask(tile=process_tile, config=self.config).execute()
             )
         except MapcheteNodataTile:
             if raise_nodata:  # pragma: no cover

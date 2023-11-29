@@ -277,6 +277,10 @@ class InputTile(base.InputTile):
         data : array
         """
         if self._memory_cache_active:
+            logger.debug(
+                "available preprocessing tasks results: %s",
+                self.preprocessing_tasks_results,
+            )
             self._in_memory_raster = (
                 self._in_memory_raster
                 or self.preprocessing_tasks_results.get(self.cache_task_key)

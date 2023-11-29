@@ -4,6 +4,7 @@ import pytest
 from shapely.geometry import shape
 
 from mapchete.errors import NoTaskGeometry
+from mapchete.executor import Executor
 from mapchete.processing.tasks import (
     Task,
     TaskBatch,

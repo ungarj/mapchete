@@ -158,7 +158,7 @@ def test_baselevels(baselevels):
     """Baselevel interpolation."""
     with mapchete.open(baselevels.dict, mode="continue") as mp:
         # process data before getting baselevels
-        list(mp.execute())
+        list(mp.execute(concurrency=None))
 
         # get tile from lower zoom level
         for tile in mp.get_process_tiles(4):
@@ -679,6 +679,7 @@ def test_execute_continue(
         )
     else:
         execute_kwargs = dict(concurrency=concurrency)
+
     zoom = 3
 
     # run red_raster on tile 1, 0, 0
@@ -744,13 +745,29 @@ def test_execute_continue(
                 )
 
 
-def test_execute_dask_without_results(baselevels, dask_executor):
+@pytest.mark.parametrize(
+    "concurrency,process_graph",
+    [
+        ("threads", None),
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
+    ],
+)
+def test_execute_without_results(baselevels, dask_executor, concurrency, process_graph):
+    if concurrency == "dask":
+        execute_kwargs = dict(
+            executor=dask_executor,
+            dask_settings=DaskSettings(process_graph=process_graph),
+        )
+    else:
+        execute_kwargs = dict(concurrency=concurrency)
+
     # make sure task results are appended to tasks
     with baselevels.mp() as mp:
         tile_tasks = 0
-        for task_info in mp.execute(
-            executor=dask_executor, dask_settings=DaskSettings(propagate_results=True)
-        ):
+        for task_info in mp.execute(**execute_kwargs, propagate_results=True):
             assert task_info.output is not None
             tile_tasks += 1
     assert tile_tasks == 6
@@ -758,9 +775,7 @@ def test_execute_dask_without_results(baselevels, dask_executor):
     # make sure task results are None
     with baselevels.mp() as mp:
         tile_tasks = 0
-        for task_info in mp.execute(
-            concurrency="dask", dask_settings=DaskSettings(propagate_results=True)
-        ):
+        for task_info in mp.execute(**execute_kwargs, propagate_results=False):
             assert task_info.output is None
             tile_tasks += 1
     assert tile_tasks == 6

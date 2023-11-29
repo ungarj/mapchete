@@ -65,7 +65,7 @@ def batches(
         if batch.id != "preprocessing_tasks":
             for task in batch:
                 for id, result in preprocessing_tasks_results.items():
-                    task.set_preprocessing_task_result(id, result)
+                    task.add_dependency(id, result)
 
         for future in executor.as_completed(task_wrapper, batch):
             task_info = TaskInfo.from_future(future)
@@ -149,6 +149,7 @@ def execute_wrapper(
     if isinstance(output, TaskInfo):
         return output
     logger.debug((task.id, processor_message))
+
     if task.tile:
         return TaskInfo(
             id=default_tile_task_id(task.tile),
@@ -159,6 +160,7 @@ def execute_wrapper(
             write_msg=None,
             output=output if append_data else None,
         )
+
     else:
         return TaskInfo(
             id=task.id,

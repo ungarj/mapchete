@@ -50,7 +50,6 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
 
 class DaskSettings(BaseModel):
     process_graph: bool = True
-    propagate_results: bool = False
     max_submitted_tasks: int = 500
     chunksize: int = 100
     scheduler: Optional[str] = None
