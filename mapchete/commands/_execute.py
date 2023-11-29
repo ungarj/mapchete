@@ -9,6 +9,7 @@ from shapely.geometry.base import BaseGeometry
 
 import mapchete
 from mapchete.commands.observer import ObserverProtocol, Observers
+from mapchete.config import DaskSettings
 from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
 from mapchete.enums import Concurrency, ProcessingMode, Status
 from mapchete.errors import JobCancelledError
@@ -36,11 +37,8 @@ def execute(
     workers: int = None,
     multiprocessing_start_method: str = None,
     dask_scheduler: str = None,
-    dask_max_submitted_tasks: int = 1000,
-    dask_chunksize: int = 100,
     dask_client: Optional[Any] = None,
-    dask_compute_graph: bool = True,
-    dask_propagate_results: bool = True,
+    dask_settings: Optional[DaskSettings] = None,
     executor_getter: AbstractContextManager = Executor,
     profiling: bool = False,
     observers: Optional[List[ObserverProtocol]] = None,
@@ -182,7 +180,10 @@ def execute(
                 try:
                     count = 0
                     for task_info in mp.execute(
-                        executor=executor, tasks=tasks, profiling=profiling
+                        executor=executor,
+                        tasks=tasks,
+                        profiling=profiling,
+                        dask_settings=dask_settings,
                     ):
                         count += 1
                         if print_task_details:

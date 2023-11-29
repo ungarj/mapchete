@@ -189,11 +189,8 @@ def _execute_tile_task_wrapper(task, **kwargs) -> Any:
 class TileTask(Task):
     """
     Class to process on a specific process tile.
-
-    If skip is set to True, all attributes will be set to None.
     """
 
-    skip: bool = False
     config_zoom_levels: ZoomLevels
     config_baselevels: ZoomLevels
     process = Optional[ProcessFunc]
@@ -207,7 +204,6 @@ class TileTask(Task):
         id: Optional[str] = None,
         config: Optional[MapcheteConfig] = None,
         func: Optional[Callable] = None,
-        skip: bool = False,
         dependencies: Optional[dict] = None,
     ):
         """Set attributes depending on baselevels or not."""
@@ -216,15 +212,13 @@ class TileTask(Task):
         )
         _default_id = default_tile_task_id(tile)
         self.id = id or _default_id
-        self.skip = skip
         self.func = func or _execute_tile_task_wrapper
-        self.config_zoom_levels = None if skip else config.zoom_levels
-        self.config_baselevels = None if skip else config.baselevels
-        self.process = None if skip else config.process
-        self.config_dir = None if skip else config.config_dir
+        self.config_zoom_levels = config.zoom_levels
+        self.config_baselevels = config.baselevels
+        self.process = config.process
+        self.config_dir = config.config_dir
         if (
-            skip
-            or self.tile.zoom not in self.config_zoom_levels
+            self.tile.zoom not in self.config_zoom_levels
             or self.tile.zoom in self.config_baselevels
         ):
             self.input, self.process_func_params, self.output_params = {}, {}, {}
@@ -232,10 +226,8 @@ class TileTask(Task):
             self.input = config.get_inputs_for_tile(tile)
             self.process_func_params = config.get_process_func_params(tile.zoom)
             self.output_params = config.output_reader.output_params
-        self.mode = None if skip else config.mode
-        self.output_reader = (
-            None if skip or not config.baselevels else config.output_reader
-        )
+        self.mode = config.mode
+        self.output_reader = config.output_reader if config.baselevels else None
         self._dependencies = dict()
         super().__init__(id=self.id, geometry=tile.bbox)
 
@@ -292,7 +284,9 @@ class TileTask(Task):
             process output
         """
         if self.mode not in ["memory", "continue", "overwrite"]:  # pragma: no cover
-            raise ValueError("process mode must be memory, continue or overwrite")
+            raise ValueError(
+                f"process mode must be memory, continue or overwrite, not {self.mode}"
+            )
 
         if self.tile.zoom not in self.config_zoom_levels:
             raise MapcheteNodataTile

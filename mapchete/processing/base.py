@@ -761,15 +761,13 @@ def _tile_task_batches(
                     TileTask(
                         tile=tile,
                         config=process.config,
-                        skip=(
-                            process.config.mode == "continue"
-                            and process.config.output_reader.tiles_exist(tile)
-                        )
-                        if skip_output_check
-                        else skip,
                     )
                     for tile, skip in tiles[zoom]
-                    if not skip  # TODO: this deviates from previous version!
+                    if not skip
+                    or not (
+                        process.config.mode == "continue"
+                        and process.config.output_reader.tiles_exist(tile)
+                    )
                 ),
                 profilers=profilers,
             )

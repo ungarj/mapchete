@@ -9,6 +9,7 @@ from tilematrix import TilePyramid
 
 import mapchete
 from mapchete.commands import convert, cp, execute, index, rm
+from mapchete.config import DaskSettings
 from mapchete.errors import JobCancelledError
 from mapchete.io import fiona_open, rasterio_open
 from mapchete.processing.types import TaskInfo
@@ -106,20 +107,27 @@ def test_rm(mp_tmpdir, cleantopo_br):
 
 
 @pytest.mark.parametrize(
-    "concurrency",
+    "concurrency,process_graph",
     [
-        "threads",
-        "dask",
-        "processes",
-        None,
+        ("threads", None),
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
     ],
 )
-def test_execute(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif, concurrency):
+def test_execute(
+    cleantopo_br_metatiling_1, cleantopo_br_tif, concurrency, process_graph
+):
+    execute_kwargs = dict(concurrency=concurrency)
+    if concurrency == "dask":
+        execute_kwargs.update(dask_settings=DaskSettings(process_graph=process_graph))
+
     zoom = 5
     tp = TilePyramid("geodetic")
     with rasterio_open(cleantopo_br_tif) as src:
         tiles = list(tp.tiles_from_bounds(src.bounds, zoom))
-    execute(cleantopo_br_metatiling_1.dict, zoom=zoom, concurrency=concurrency)
+    execute(cleantopo_br_metatiling_1.dict, zoom=zoom, **execute_kwargs)
     mp = cleantopo_br_metatiling_1.mp()
     for t in tiles:
         with rasterio_open(mp.config.output.get_path(t)) as src:
@@ -170,35 +178,46 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
 
 
 @pytest.mark.parametrize(
-    "concurrency",
+    "concurrency,process_graph",
     [
-        "threads",
-        "dask",
-        "processes",
-        None,
+        ("threads", None),
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
     ],
 )
-def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector):
+def test_execute_preprocessing_tasks(
+    concurrency, preprocess_cache_raster_vector, dask_executor, process_graph
+):
+    execute_kwargs = dict(concurrency=concurrency)
+    if concurrency == "dask":
+        execute_kwargs.update(dask_settings=DaskSettings(process_graph=process_graph))
+
     task_counter = TaskCounter()
     execute(
-        preprocess_cache_raster_vector.path,
-        concurrency=concurrency,
-        observers=[task_counter],
+        preprocess_cache_raster_vector.path, observers=[task_counter], **execute_kwargs
     )
     assert task_counter.tasks
 
 
 @pytest.mark.parametrize(
-    "concurrency,dask_compute_graph",
+    "concurrency,process_graph",
     [
-        # ("threads", False),
+        # ("threads", False),  # profiling does not work with threads
         ("dask", False),
         ("dask", True),
         ("processes", False),
         (None, False),
     ],
 )
-def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_graph):
+def test_execute_profiling(
+    cleantopo_br_metatiling_1, concurrency, process_graph, dask_executor
+):
+    execute_kwargs = dict(concurrency=concurrency)
+    if concurrency == "dask":
+        execute_kwargs.update(dask_settings=DaskSettings(process_graph=process_graph))
+
     zoom = 5
 
     class TaskResultObserver(ObserverProtocol):
@@ -219,9 +238,8 @@ def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_
         cleantopo_br_metatiling_1.dict,
         zoom=zoom,
         profiling=True,
-        concurrency=concurrency,
-        dask_compute_graph=dask_compute_graph,
         observers=[TaskResultObserver()],
+        **execute_kwargs
     )
 
 

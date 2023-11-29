@@ -645,6 +645,7 @@ def test_execute(preprocess_cache_memory, concurrency, process_graph, dask_execu
         )
     else:
         execute_kwargs = dict(concurrency=concurrency)
+
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
