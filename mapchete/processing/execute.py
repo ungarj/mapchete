@@ -146,8 +146,7 @@ def execute_wrapper(
     except MapcheteNodataTile:  # pragma: no cover
         output = "empty"
     processor_message = "processed successfully"
-    if isinstance(output, TaskInfo):
-        return output
+
     logger.debug((task.id, processor_message))
 
     if task.tile:

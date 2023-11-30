@@ -10,6 +10,7 @@ from tilematrix import TilePyramid
 import mapchete
 from mapchete.commands import convert, cp, execute, index, rm
 from mapchete.config import DaskSettings
+from mapchete.enums import Status
 from mapchete.errors import JobCancelledError
 from mapchete.io import fiona_open, rasterio_open
 from mapchete.processing.types import TaskInfo
@@ -87,7 +88,7 @@ def test_cp_http(mp_tmpdir, http_tiledir):
     assert task_counter.tasks
 
 
-def test_rm(mp_tmpdir, cleantopo_br):
+def test_rm(cleantopo_br):
     # generate TileDirectory
     with mapchete.open(
         cleantopo_br.dict, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
@@ -104,6 +105,27 @@ def test_rm(mp_tmpdir, cleantopo_br):
     task_counter = TaskCounter()
     rm(out_path, zoom=5, observers=[task_counter])
     assert task_counter.tasks == 0
+
+
+def test_rm_path_list(mp_tmpdir):
+    out_path = mp_tmpdir / "some_file.txt"
+    with out_path.open("w") as dst:
+        dst.write("foo")
+
+    assert out_path.exists()
+    rm(paths=[out_path])
+    assert not out_path.exists()
+
+
+@pytest.mark.integration
+def test_rm_path_list_s3(s3_testdata_dir):
+    out_path = s3_testdata_dir / "some_file.txt"
+    with out_path.open("w") as dst:
+        dst.write("foo")
+
+    assert out_path.exists()
+    rm(paths=[out_path])
+    assert not out_path.exists()
 
 
 @pytest.mark.parametrize(
@@ -134,17 +156,70 @@ def test_execute(
             assert not src.read(masked=True).mask.all()
 
 
-def test_execute_cancel(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
+def test_execute_retry(example_mapchete):
+    zoom = 10
+    retries = 2
+
+    class ExceptionRaiser:
+        """Makes the job fail during progress."""
+
+        def update(*args, progress=None, **kwargs):
+            if progress and progress.current > 2:
+                raise RuntimeError("This job just raised an exception!")
+
+    class RetryCounter:
+        """Count retry attempts."""
+
+        retries = 0
+
+        def update(self, *args, status=None, **kwargs):
+            if status and status == Status.retrying:
+                self.retries += 1
+
+    exception_raiser = ExceptionRaiser()
+    retry_counter = RetryCounter()
+
+    # this job should fail
+    with pytest.raises(RuntimeError):
+        execute(
+            example_mapchete.dict,
+            zoom=zoom,
+            retries=retries,
+            observers=[exception_raiser, retry_counter],
+            concurrency=None,
+        )
+
+    # make sure job has been retried
+    assert retry_counter.retries == retries
+
+
+def test_execute_cancel(cleantopo_br_metatiling_1):
     zoom = 5
 
     class CancelObserver:
-        """Cancels job at the first opportunity."""
+        """Cancels job when running."""
 
-        def update(*args, **kwargs):
-            raise JobCancelledError
+        def update(*args, progress=None, **kwargs):
+            if progress and progress.current > 0:
+                raise JobCancelledError
 
-    with pytest.raises(JobCancelledError):
-        execute(cleantopo_br_metatiling_1.dict, zoom=zoom, observers=[CancelObserver])
+    class StatusObserver:
+        """Observes job state."""
+
+        status = None
+
+        def update(self, *args, status=None, **kwargs):
+            if status:
+                self.status = status
+
+    state_observer = StatusObserver()
+    execute(
+        cleantopo_br_metatiling_1.dict,
+        zoom=zoom,
+        observers=[CancelObserver(), state_observer],
+        concurrency=None,
+    )
+    assert state_observer.status == Status.cancelled
 
 
 def test_execute_tile(mp_tmpdir, cleantopo_br_metatiling_1):

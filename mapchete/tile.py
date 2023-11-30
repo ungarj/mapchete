@@ -463,7 +463,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 
 
 def _count_cells(pyramid, geometry, minzoom, maxzoom):
-    if geometry.is_empty:
+    if geometry.is_empty:  # pragma: no cover
         return 0
 
     # for the rasterization algorithm we need to keep the all_touched flag True

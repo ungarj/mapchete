@@ -50,10 +50,9 @@ def rm(
     """
     all_observers = Observers(observers)
 
-    if zoom is None:  # pragma: no cover
-        raise ValueError("zoom level(s) required")
-
     if tiledir:
+        if zoom is None:  # pragma: no cover
+            raise ValueError("zoom level(s) required")
         tiledir = MPath.from_inp(tiledir, storage_options=fs_opts)
         paths = existing_paths(
             tiledir=tiledir,
@@ -64,20 +63,20 @@ def rm(
             bounds_crs=bounds_crs,
             workers=workers,
         )
+        fs = tiledir.fs
     elif isinstance(paths, list):
-        pass
-    else:
+        fs = MPath.from_inp(paths[0]).fs
+    else:  # pragma: no cover
         raise ValueError(
             "either a tile directory or a list of paths has to be provided"
         )
 
-    fs = tiledir.fs
     total = len(paths)
     all_observers.notify(progress=Progress(total=total))
     logger.debug("got %s path(s) on %s", len(paths), fs)
 
     # s3fs enables multiple paths as input, so let's use this:
-    if "s3" in fs.protocol:  # pragma: no cover
+    if "s3" in fs.protocol:
         fs.rm(paths)
         for ii, path in enumerate(paths, 1):
             msg = f"deleted {path}"

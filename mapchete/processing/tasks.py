@@ -180,10 +180,7 @@ class InterpolateFrom(str, Enum):
 
 
 def _execute_tile_task_wrapper(task, **kwargs) -> Any:
-    try:
-        return task.execute(**kwargs)
-    except MapcheteNodataTile:
-        return "empty"
+    return task.execute(**kwargs)
 
 
 class TileTask(Task):
@@ -246,14 +243,14 @@ class TileTask(Task):
 
         if ":" in task_key:
             inp_key, inp_task_key = task_key.split(":")[:2]
-        else:
+        else:  # pragma: no cover
             raise KeyError(
                 "preprocessing task cannot be assigned to an input "
                 f"because of a malformed task key: {task_key}"
             )
 
         input_keys = {inp.input_key for inp in self.input.values()}
-        if inp_key not in input_keys:
+        if inp_key not in input_keys:  # pragma: no cover
             if raise_error:
                 raise KeyError(
                     f"task {inp_task_key} cannot be assigned to input with key {inp_key} "
@@ -547,9 +544,6 @@ class Tasks:
     def tile_batches(self) -> List[TileTaskBatch]:
         self.materialize()
         return self._tile_batches
-
-    def clean_up(self) -> None:
-        raise NotImplementedError
 
     def to_dask_graph(
         self,

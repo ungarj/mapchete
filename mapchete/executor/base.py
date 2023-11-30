@@ -124,7 +124,7 @@ class ExecutorBase(ABC):
         self.finished_futures.discard(future)
 
         # create minimal Future-like object with no references to the cluster
-        mfuture = MFuture.from_future(future, lazy=False, result=result)
+        mfuture = MFuture.from_future(future, lazy=True, result=result)
 
         # raise exception if future errored or was cancelled
         mfuture.raise_if_failed()

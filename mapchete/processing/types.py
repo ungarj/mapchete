@@ -24,26 +24,13 @@ class TaskInfo:
     profiling: dict = field(default_factory=dict)
 
     @staticmethod
-    def from_inp(task_key: str, inp: Any, append_output: bool = True) -> TaskInfo:
-        if isinstance(inp, TaskInfo):
-            return TaskInfo(**inp.__dict__)
-        elif isinstance(inp, Result):
-            profiling = inp.profiling
-            output = inp.output
-        return TaskInfo(
-            task_key=task_key,
-            output=output if append_output else None,
-            profiling=profiling,
-        )
-
-    @staticmethod
     def from_future(future: MFuture) -> TaskInfo:
         result = future.result()
         if isinstance(result, TaskInfo):
             task_info = result
             if future.profiling:
                 task_info.profiling = future.profiling
-        else:
+        else:  # pragma: no cover
             task_info = TaskInfo(
                 id=future.key if hasattr(future, "key") else future.name,
                 processed=True,
