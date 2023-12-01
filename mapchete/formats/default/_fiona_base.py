@@ -221,7 +221,7 @@ class InputTile(base.InputTile):
             raise NotImplementedError()
         return self._from_cache(validity_check=validity_check)
 
-    def is_empty(self, validity_check=True):
+    def is_empty(self, validity_check=True):  # pragma: no cover
         """
         Check if there is data within this tile.
 

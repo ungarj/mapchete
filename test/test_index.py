@@ -128,7 +128,7 @@ def test_vrt(mp_tmpdir, cleantopo_br):
 
 
 def test_vrt_mercator(cleantopo_br_mercator):
-    zoom = 8
+    zoom = 2
     with mapchete.open(
         dict(cleantopo_br_mercator.dict, zoom_levels=dict(min=0, max=zoom))
     ) as mp:

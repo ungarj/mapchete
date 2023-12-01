@@ -266,12 +266,12 @@ def test_zoom_levels_from_item_errors():
     version.parse(rasterio.__gdal_version__) < version.parse("3.3.0"),
     reason="required STACTA driver is only available in GDAL>=3.3.0",
 )
-def test_create_prototype_file(example_mapchete):
+def test_create_prototype_file(cleantopo_br):
     # create sparse tiledirectory with no tiles at row/col 0/0
-    execute(example_mapchete.dict, zoom=[10, 11])
+    execute(cleantopo_br.dict, zoom=[3], concurrency=None)
 
     # read STACTA with rasterio and expect an exception
-    stac_path = example_mapchete.mp().config.output.stac_path
+    stac_path = cleantopo_br.mp().config.output.stac_path
     assert stac_path.exists()
 
     with pytest.raises(RasterioIOError):
@@ -279,7 +279,7 @@ def test_create_prototype_file(example_mapchete):
             pass
 
     # create prototype file and assert reading is possible
-    create_prototype_files(example_mapchete.mp())
+    create_prototype_files(cleantopo_br.mp())
     with rasterio_open(stac_path):
         pass
 

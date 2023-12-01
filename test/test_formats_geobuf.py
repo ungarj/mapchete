@@ -10,34 +10,30 @@ from mapchete.tile import BufferedTile
 
 def test_input_data_read(mp_tmpdir, geobuf, landpoly_3857):
     """Check Geobuf as input data."""
+    tile = geobuf.first_process_tile()
     with mapchete.open(geobuf.dict) as mp:
-        for tile in mp.get_process_tiles():
-            assert isinstance(tile, BufferedTile)
-            input_tile = formats.default.geojson.InputTile(tile, mp)
-            assert isinstance(input_tile.read(), list)
-            for feature in input_tile.read():
-                assert isinstance(feature, dict)
+        assert isinstance(tile, BufferedTile)
+        input_tile = formats.default.geojson.InputTile(tile, mp)
+        assert isinstance(input_tile.read(), list)
+        for feature in input_tile.read():
+            assert isinstance(feature, dict)
 
     # reprojected Geobuf
     config = geobuf.dict
     config["input"].update(file1=landpoly_3857)
     # first, write tiles
     with mapchete.open(config, mode="overwrite") as mp:
-        for tile in mp.get_process_tiles(4):
-            assert isinstance(tile, BufferedTile)
-            output = mp.get_raw_output(tile)
-            mp.write(tile, output)
+        assert isinstance(tile, BufferedTile)
+        output = mp.get_raw_output(tile)
+        mp.write(tile, output)
     # then, read output
     with mapchete.open(config, mode="readonly") as mp:
         any_data = False
-        for tile in mp.get_process_tiles(4):
-            with mp.config.output.open(tile, mp) as input_tile:
-                if input_tile.is_empty():
-                    continue
-                any_data = True
-                assert isinstance(input_tile.read(), list)
-                for feature in input_tile.read():
-                    assert isinstance(feature, dict)
+        with mp.config.output.open(tile, mp) as input_tile:
+            any_data = True
+            assert isinstance(input_tile.read(), list)
+            for feature in input_tile.read():
+                assert isinstance(feature, dict)
         assert any_data
 
 

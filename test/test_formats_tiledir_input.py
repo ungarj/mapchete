@@ -32,27 +32,22 @@ def test_parse_bounds(geojson_tiledir):
         assert ip.bbox(out_crs="3857")
 
 
-def test_read_vector_data(mp_tmpdir, geojson, geojson_tiledir):
+@pytest.mark.parametrize("metatiling", [2, 4, 8])
+def test_read_vector_data(geojson, geojson_tiledir, metatiling):
     """Read vector data."""
+    tile = geojson.first_process_tile()
     # prepare data
     with mapchete.open(geojson.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
-        list(mp.execute(zoom=4))
+        list(mp.execute(tile=tile))
     # read data
     config = geojson_tiledir.dict.copy()
     config["input"]["file1"]["path"] = mp.config.output.path
-    for metatiling in [2, 4, 8]:
-        _run_tiledir_process_vector(config, metatiling, bounds)
-
-
-def _run_tiledir_process_vector(conf_dict, metatiling, bounds):
-    conf = deepcopy(conf_dict)
-    conf["pyramid"].update(metatiling=metatiling)
+    config["pyramid"].update(metatiling=metatiling)
     features = []
-    with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
-        for tile in mp.get_process_tiles(4):
-            input_tile = next(iter(mp.config.input.values())).open(tile)
-            features.extend(input_tile.read())
+    with mapchete.open(config, mode="overwrite", bounds=bounds) as mp:
+        input_tile = next(iter(mp.config.input.values())).open(tile)
+        features.extend(input_tile.read())
     assert features
 
 

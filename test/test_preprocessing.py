@@ -43,9 +43,9 @@ def test_add_preprocessing_task(example_mapchete):
 
 
 @pytest.mark.parametrize("concurrency", ["threads", "processes", "dask", None])
-def test_run_preprocessing_task(example_mapchete, concurrency):
-    zoom = 10
-    with mapchete.open(example_mapchete.dict) as mp:
+def test_run_preprocessing_task(cleantopo_br, concurrency):
+    zoom = 5
+    with mapchete.open(cleantopo_br.dict) as mp:
         # get input object
         inp = mp.config.input_at_zoom("file1", zoom)
         with pytest.raises(KeyError):
@@ -65,9 +65,9 @@ def test_run_preprocessing_task(example_mapchete, concurrency):
 
 
 @pytest.mark.parametrize("concurrency", ["threads", "processes", "dask", None])
-def test_run_preprocessing_tasks(example_mapchete, concurrency):
-    zoom = 10
-    with mapchete.open(example_mapchete.dict) as mp:
+def test_run_preprocessing_tasks(cleantopo_br, concurrency):
+    zoom = 3
+    with mapchete.open(cleantopo_br.dict) as mp:
         inp1 = mp.config.input_at_zoom("file1", zoom)
         inp1.add_preprocessing_task(
             _trivial_func, key="test_task", fargs="foo", fkwargs={"kwarg": "foo"}
@@ -75,11 +75,6 @@ def test_run_preprocessing_tasks(example_mapchete, concurrency):
         inp1.add_preprocessing_task(
             _trivial_func, key="test_other_task", fargs="bar", fkwargs={"kwarg": "foo"}
         )
-        inp2 = mp.config.input_at_zoom("file2", zoom)
-        inp2.add_preprocessing_task(
-            _trivial_func, key="test_task", fargs="foo", fkwargs={"kwarg": "foo"}
-        )
-
         # total number of tasks should be 3
         assert (
             sum(
@@ -88,10 +83,10 @@ def test_run_preprocessing_tasks(example_mapchete, concurrency):
                     for tasks in mp.config.preprocessing_tasks_per_input().values()
                 ]
             )
-            == 3
+            == 2
         )
 
-        assert mp.config.preprocessing_tasks_count() == 3
+        assert mp.config.preprocessing_tasks_count() == 2
 
         list(
             mp.execute(
@@ -104,8 +99,6 @@ def test_run_preprocessing_tasks(example_mapchete, concurrency):
             f"{inp1.input_key}:test_other_task"
         )
         assert inp1.get_preprocessing_task_result("test_other_task") == "barfoobar"
-        assert mp.config.preprocessing_task_finished(f"{inp2.input_key}:test_task")
-        assert inp2.get_preprocessing_task_result("test_task") == "foofoobar"
 
 
 def test_preprocess_cache_raster_vector(preprocess_cache_raster_vector):

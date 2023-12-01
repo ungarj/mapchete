@@ -15,6 +15,7 @@ from mapchete.errors import JobCancelledError
 from mapchete.io import fiona_open, rasterio_open
 from mapchete.processing.types import TaskInfo
 from mapchete.protocols import ObserverProtocol
+from mapchete.tile import BufferedTilePyramid
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
@@ -568,6 +569,7 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
 
 
 def test_convert_tiledir(cleantopo_br, mp_tmpdir):
+    bounds = BufferedTilePyramid("geodetic").tile(4, 15, 31).bounds
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
         list(mp.execute(zoom=[1, 4]))
@@ -579,6 +581,7 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
         output_pyramid="geodetic",
         output_metatiling=1,
         zoom=[1, 4],
+        bounds=bounds,
     )
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])

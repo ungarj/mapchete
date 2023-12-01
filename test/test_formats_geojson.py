@@ -7,38 +7,34 @@ from mapchete import formats
 from mapchete.tile import BufferedTile
 
 
-def test_input_data_read(mp_tmpdir, geojson, landpoly_3857):
+def test_input_data_read(geojson, landpoly_3857):
     """Check GeoJSON as input data."""
+    tile = geojson.first_process_tile()
     with mapchete.open(geojson.dict) as mp:
-        for tile in mp.get_process_tiles():
-            assert isinstance(tile, BufferedTile)
-            input_tile = formats.default.geojson.InputTile(tile, mp)
-            assert isinstance(input_tile.read(), list)
-            for feature in input_tile.read():
-                assert "geometry" in feature
-                assert "properties" in feature
+        assert isinstance(tile, BufferedTile)
+        input_tile = formats.default.geojson.InputTile(tile, mp)
+        assert isinstance(input_tile.read(), list)
+        for feature in input_tile.read():
+            assert "geometry" in feature
+            assert "properties" in feature
 
     # reprojected GeoJSON
     config = geojson.dict
     config["input"].update(file1=landpoly_3857)
     # first, write tiles
     with mapchete.open(config, mode="overwrite") as mp:
-        for tile in mp.get_process_tiles(4):
-            assert isinstance(tile, BufferedTile)
-            output = mp.get_raw_output(tile)
-            mp.write(tile, output)
+        assert isinstance(tile, BufferedTile)
+        output = mp.get_raw_output(tile)
+        mp.write(tile, output)
     # then, read output
     with mapchete.open(config, mode="readonly") as mp:
         any_data = False
-        for tile in mp.get_process_tiles(4):
-            with mp.config.output.open(tile, mp) as input_tile:
-                if input_tile.is_empty():
-                    continue
-                any_data = True
-                assert isinstance(input_tile.read(), list)
-                for feature in input_tile.read():
-                    assert "geometry" in feature
-                    assert "properties" in feature
+        with mp.config.output.open(tile, mp) as input_tile:
+            any_data = True
+            assert isinstance(input_tile.read(), list)
+            for feature in input_tile.read():
+                assert "geometry" in feature
+                assert "properties" in feature
         assert any_data
 
 

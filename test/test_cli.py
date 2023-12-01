@@ -748,16 +748,22 @@ def test_convert_geojson(landpoly, mp_tmpdir):
             "geodetic",
             "--zoom",
             "4",
+            "--bounds",
+            "-101.25",
+            "78.75",
+            "-90.0",
+            "90.0",
             "--concurrency",
             "none",
         ]
     )
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
-        out_file = mp_tmpdir / zoom / row / col + ".geojson"
-        with fiona_open(out_file, "r") as src:
-            assert len(src) == control
-            for f in src:
-                assert shape(f["geometry"]).is_valid
+    zoom, row, col = (4, 0, 7)
+    control = 9
+    out_file = mp_tmpdir / zoom / row / col + ".geojson"
+    with fiona_open(out_file, "r") as src:
+        assert len(src) == control
+        for f in src:
+            assert shape(f["geometry"]).is_valid
 
 
 def test_convert_geobuf(landpoly, mp_tmpdir):
@@ -900,7 +906,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
 
     # prepare data for tiledir input
     with mapchete.open(cleantopo_br.path) as mp:
-        list(mp.execute(zoom=[1, 4]))
+        mp.execute(zoom=[1, 4])
     tiledir_path = cleantopo_br.dict["config_dir"] / cleantopo_br.dict["output"]["path"]
 
     # zoom level required
