@@ -81,7 +81,7 @@ def _cb_key_val(ctx, param, value):
     else:
         out = {}
         for pair in value:
-            if "=" not in pair:
+            if "=" not in pair:  # pragma: no cover
                 raise click.BadParameter(
                     "Invalid syntax for KEY=VAL arg: {}".format(pair)
                 )
