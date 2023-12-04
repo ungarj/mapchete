@@ -220,15 +220,20 @@ def test_profile_wrapper(request, path_fixture):
 )
 def test_profile_wrapper_requests(request, path_fixture):
     path = request.getfixturevalue(path_fixture)
-    result = run_func_with_profilers(
-        read_raster_no_crs,
-        path,
-        profilers=[
-            Profiler(name="time", decorator=measure_time),
-            Profiler(name="requests", decorator=measure_requests),
-            Profiler(name="memory", decorator=measure_memory),
-        ],
-    )
+
+    # setting this is important, otherwise GDAL will cache the file
+    # and thus measure_requests will not be able to count requests
+    # if the file has already been opened in a prior tests
+    with path.rio_env(opts=dict(CPL_VSIL_CURL_NON_CACHED=path.as_gdal_str())):
+        result = run_func_with_profilers(
+            read_raster_no_crs,
+            path,
+            profilers=[
+                Profiler(name="time", decorator=measure_time),
+                Profiler(name="requests", decorator=measure_requests),
+                Profiler(name="memory", decorator=measure_memory),
+            ],
+        )
     assert isinstance(result, Result)
     assert isinstance(result.output, ma.MaskedArray)
     assert isinstance(result.profiling, dict)
