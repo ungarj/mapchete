@@ -90,7 +90,6 @@ class MFuture:
         profiling = future.profiling if hasattr(future, "profiling") else {}
 
         if lazy:
-            # TODO: this is not covered by tests, why?
             # keep around Future for later and don't call Future.result()
             return MFuture(
                 result=result,
@@ -162,7 +161,6 @@ class MFuture:
     def _populate_from_future(self, timeout: int = FUTURE_TIMEOUT, **kwargs):
         """Fill internal cache with future.result() if future was provided."""
         # only check if there is a cached future but no result nor exception
-        # TODO: this is because lazy loading, right?
         if (
             self._future is not None
             and self._result is None
