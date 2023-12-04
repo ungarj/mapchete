@@ -300,7 +300,7 @@ class MPath(os.PathLike):
     def makedirs(self, exist_ok: bool = True) -> None:
         """Create all parent directories for path."""
         # create parent directories on local filesystems
-        if self.fs.protocol == "file":
+        if "file" in self.fs.protocol:
             # if path has no suffix, assume a file path and only create parent directories
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
