@@ -515,53 +515,30 @@ class TileTaskBatch(TaskBatch):
 
 
 class Tasks:
-    _len: int = None
-    _task_batches_generator: Iterator[Union[TaskBatch, TileTaskBatch]]
-    _preprocessing_batches: List[TaskBatch]
-    _tile_batches: List[TileTaskBatch]
     preprocessing_batches: List[TaskBatch]
     tile_batches: List[TileTaskBatch]
-    materialized: bool = False
 
     def __init__(
         self,
-        task_batches_generator: Iterator[Union[TaskBatch, TileTaskBatch]],
+        task_batches: Iterator[Union[TaskBatch, TileTaskBatch]],
     ):
-        self._task_batches_generator = task_batches_generator
+        with Timer() as tt:
+            self.preprocessing_batches = []
+            self.tile_batches = []
+            for batch in task_batches:
+                if isinstance(batch, TileTaskBatch):
+                    self.tile_batches.append(batch)
+                else:
+                    self.preprocessing_batches.append(batch)
+        logger.debug("task batches materialized in %s", tt)
 
     def __len__(self):
-        # TODO: maybe make explicit that Task.materialize() has to be run first
-        return sum([len(batch) for batch in self._batches_generator()])
+        return sum([len(batch) for batch in self])
 
-    def _batches_generator(self):
+    def __iter__(self) -> Union[TaskBatch, TileTaskBatch]:
         for phase in (self.preprocessing_batches, self.tile_batches):
             for batch in phase:
                 yield batch
-
-    def materialize(self):
-        if self.materialized:
-            return
-        logger.debug("materializing task batches ...")
-        with Timer() as tt:
-            self._preprocessing_batches = []
-            self._tile_batches = []
-            for batch in self._task_batches_generator:
-                if isinstance(batch, TileTaskBatch):
-                    self._tile_batches.append(batch)
-                else:
-                    self._preprocessing_batches.append(batch)
-            self.materialized = True
-        logger.debug("task batches materialized in %s", tt)
-
-    @property
-    def preprocessing_batches(self) -> List[TaskBatch]:
-        self.materialize()
-        return self._preprocessing_batches
-
-    @property
-    def tile_batches(self) -> List[TileTaskBatch]:
-        self.materialize()
-        return self._tile_batches
 
     def to_dask_graph(
         self,
@@ -569,11 +546,48 @@ class Tasks:
         tile_task_wrapper: Optional[Callable] = None,
     ) -> List[Union[Delayed, DelayedLeaf]]:
         """Return task graph to use with dask Executor."""
-        return to_dask_collection(
-            self._batches_generator(),
-            preprocessing_task_wrapper=preprocessing_task_wrapper,
-            tile_task_wrapper=tile_task_wrapper,
-        )
+        tasks = {}
+        previous_batch = None
+        for batch in self:
+            logger.debug("converting batch %s", batch)
+
+            if isinstance(batch, TileTaskBatch):
+                task_func = tile_task_wrapper or batch.func
+            else:
+                task_func = preprocessing_task_wrapper or batch.func
+
+            if previous_batch:
+                logger.debug("previous batch had %s tasks", len(previous_batch))
+
+            for task in batch.values():
+                if previous_batch:
+                    dependencies = {
+                        child.id: tasks[child]
+                        for child in previous_batch.intersection(task)
+                    }
+                    logger.debug(
+                        "found %s dependencies from last batch for task %s",
+                        len(dependencies),
+                        task,
+                    )
+                else:
+                    dependencies = {}
+
+                tasks[task] = delayed(
+                    task_func,
+                    pure=True,
+                    name=f"{task.id}",
+                    traverse=len(dependencies) > 0,
+                )(
+                    task,
+                    dependencies=dependencies,
+                    **batch.fkwargs,
+                    dask_key_name=f"{task.result_key_name}",
+                )
+
+            previous_batch = batch
+
+        return list(tasks.values())
 
     def to_batch(self) -> Iterator[Task]:
         """Return all tasks as one batch."""
@@ -583,53 +597,4 @@ class Tasks:
 
     def to_batches(self) -> Iterator[Iterator[Task]]:
         """Return batches of tasks."""
-        return list(self._batches_generator())
-
-
-def to_dask_collection(
-    batches: Iterator[Union[TaskBatch, TileTaskBatch]],
-    preprocessing_task_wrapper: Optional[Callable] = None,
-    tile_task_wrapper: Optional[Callable] = None,
-) -> List[Union[Delayed, DelayedLeaf]]:
-    tasks = {}
-    previous_batch = None
-    for batch in batches:
-        logger.debug("converting batch %s", batch)
-
-        if batch.id == "preprocessing_tasks":
-            task_func = preprocessing_task_wrapper or batch.func
-        else:
-            task_func = tile_task_wrapper or batch.func
-
-        if previous_batch:
-            logger.debug("previous batch had %s tasks", len(previous_batch))
-
-        for task in batch.values():
-            if previous_batch:
-                dependencies = {
-                    child.id: tasks[child]
-                    for child in previous_batch.intersection(task)
-                }
-                logger.debug(
-                    "found %s dependencies from last batch for task %s",
-                    len(dependencies),
-                    task,
-                )
-            else:
-                dependencies = {}
-
-            tasks[task] = delayed(
-                task_func,
-                pure=True,
-                name=f"{task.id}",
-                traverse=len(dependencies) > 0,
-            )(
-                task,
-                dependencies=dependencies,
-                **batch.fkwargs,
-                dask_key_name=f"{task.result_key_name}",
-            )
-
-        previous_batch = batch
-
-    return list(tasks.values())
+        return list(self)

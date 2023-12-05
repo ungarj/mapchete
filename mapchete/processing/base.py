@@ -676,13 +676,14 @@ def _task_batches(
     if tile:
         tile = process.config.process_pyramid.tile(*tile)
 
-    # first, materialize tile task batches
+    # first, materialize tile task batches to determine process AOI
     tile_task_batches = _tile_task_batches(
         process=process,
         zoom=zoom,
         tile=tile,
         profilers=profilers,
     )
+
     # create processing AOI (i.e. processing area without overviews)
     if process.config.preprocessing_tasks().values():
         zoom_aois = []

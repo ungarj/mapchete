@@ -6,14 +6,7 @@ from shapely.ops import unary_union
 
 from mapchete.errors import NoTaskGeometry
 from mapchete.executor import Executor
-from mapchete.processing.tasks import (
-    Task,
-    TaskBatch,
-    Tasks,
-    TileTask,
-    TileTaskBatch,
-    to_dask_collection,
-)
+from mapchete.processing.tasks import Task, TaskBatch, Tasks, TileTask, TileTaskBatch
 from mapchete.testing import ProcessFixture
 from mapchete.tile import BufferedTilePyramid
 
@@ -128,7 +121,7 @@ def test_task_batches_to_dask_graph(dem_to_hillshade):
         )
         for zoom in dem_to_hillshade.mp().config.zoom_levels.descending()
     )
-    collection = to_dask_collection((preprocessing_batch, *zoom_batches))
+    collection = Tasks((preprocessing_batch, *zoom_batches)).to_dask_graph()
     import dask
 
     dask.compute(collection)
