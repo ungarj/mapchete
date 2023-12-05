@@ -98,7 +98,8 @@ def zoom_index_gen(
     """
     if tile and zoom:  # pragma: no cover
         raise ValueError("tile and zoom cannot be used at the same time")
-    zoom = tile[0] if tile else zoom
+
+    zoom = tile.zoom if tile else zoom
     for zoom in get_zoom_levels(process_zoom_levels=zoom):
         with ExitStack() as es:
             # get index writers for all enabled formats

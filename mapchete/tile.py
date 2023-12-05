@@ -1,4 +1,6 @@
 """Mapchtete handling tiles."""
+from __future__ import annotations
+
 import logging
 from functools import cached_property
 from itertools import product
@@ -192,6 +194,12 @@ class BufferedTilePyramid(TilePyramid):
             pixelbuffer=self.pixelbuffer,
         )
 
+    def without_pixelbuffer(self) -> BufferedTilePyramid:
+        config_dict = self.to_dict()
+        config_dict.update(pixelbuffer=0)
+        return BufferedTilePyramid(**config_dict)
+
+    @staticmethod
     def from_dict(config_dict):
         """
         Initialize TilePyramid from configuration dictionary.

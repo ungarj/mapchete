@@ -122,7 +122,7 @@ class Mapchete(object):
             ):
                 yield tile
         else:
-            for i in self.config.zoom_levels.descending():
+            for i in self.config.init_zoom_levels.descending():
                 for tile in self.config.process_pyramid.tiles_from_geom(
                     self.config.area_at_zoom(i), zoom=i, batch_by=batch_by, exact=True
                 ):
@@ -662,7 +662,9 @@ class Mapchete(object):
             self.process_lock = None
 
     def __repr__(self):  # pragma: no cover
-        return f"Mapchete <process_name={self.config.process.name}>"
+        return (
+            f"<Mapchete process_name={self.config.process.name}, config={self.config}>"
+        )
 
 
 def _task_batches(
@@ -710,7 +712,7 @@ def _preprocessing_task_batches(
     with Timer() as duration:
         tasks = []
         for task in process.config.preprocessing_tasks().values():
-            if process_aoi and task.has_geometry():
+            if isinstance(process_aoi, base.BaseGeometry) and task.has_geometry():
                 if task.geometry.intersects(process_aoi):
                     tasks.append(task)
             else:
@@ -761,7 +763,7 @@ def _tile_task_batches(
 
         else:
             zoom_levels = (
-                process.config.zoom_levels
+                process.config.init_zoom_levels
                 if zoom is None
                 else ZoomLevels.from_inp(zoom)
             )

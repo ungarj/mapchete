@@ -540,6 +540,14 @@ class Tasks:
             for batch in phase:
                 yield batch
 
+    @property
+    def preprocessing_tasks_count(self):
+        return sum([len(batch) for batch in self.preprocessing_batches])
+
+    @property
+    def tile_tasks_count(self):
+        return sum([len(batch) for batch in self.tile_batches])
+
     def to_dask_graph(
         self,
         preprocessing_task_wrapper: Optional[Callable] = None,

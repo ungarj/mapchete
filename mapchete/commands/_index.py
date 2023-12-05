@@ -8,34 +8,36 @@ from shapely.geometry.base import BaseGeometry
 
 import mapchete
 from mapchete.commands.observer import ObserverProtocol, Observers
+from mapchete.config import MapcheteConfig
+from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
 from mapchete.index import zoom_index_gen
-from mapchete.types import Progress
+from mapchete.path import MPath
+from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
 
 
 def index(
-    tiledir: str,
-    idx_out_dir: str = None,
+    some_input: Union[MPathLike, dict, MapcheteConfig],
+    idx_out_dir: Optional[MPathLike] = None,
     geojson: bool = False,
     gpkg: bool = False,
     shp: bool = False,
     vrt: bool = False,
     txt: bool = False,
-    fieldname: str = "location",
-    basepath: str = None,
+    fieldname: Optional[str] = "location",
+    basepath: Optional[MPathLike] = None,
     for_gdal: bool = False,
-    zoom: Union[int, List[int]] = None,
-    area: Union[BaseGeometry, str, dict] = None,
-    area_crs: Union[CRS, str] = None,
-    bounds: Tuple[float] = None,
-    bounds_crs: Union[CRS, str] = None,
-    point: Tuple[float, float] = None,
-    point_crs: Tuple[float, float] = None,
-    tile: Tuple[int, int, int] = None,
-    fs_opts: dict = None,
+    zoom: Optional[Union[int, List[int]]] = None,
+    area: Optional[Union[BaseGeometry, str, dict]] = None,
+    area_crs: Optional[Union[CRS, str]] = None,
+    bounds: Optional[Tuple[float]] = None,
+    bounds_crs: Optional[Union[CRS, str]] = None,
+    point: Optional[Tuple[float, float]] = None,
+    point_crs: Optional[Tuple[float, float]] = None,
+    tile: Optional[Tuple[int, int, int]] = None,
+    fs_opts: Optional[dict] = None,
     observers: Optional[List[ObserverProtocol]] = None,
-    **_,
 ):
     """
     Create one or more indexes from a TileDirectory.
@@ -91,13 +93,26 @@ def index(
 
     all_observers = Observers(observers)
 
-    all_observers.notify(message=f"create index(es) for {tiledir}")
-    # process single tile
+    all_observers.notify(message=f"create index(es) for {some_input}")
+
+    if tile:
+        tile = raw_conf_process_pyramid(raw_conf(some_input)).tile(*tile)
+        bounds = tile.bounds
+        zoom = tile.zoom
+    else:
+        bounds = bounds_from_opts(
+            point=point,
+            point_crs=point_crs,
+            bounds=bounds,
+            bounds_crs=bounds_crs,
+            raw_conf=raw_conf(some_input),
+        )
+
     with mapchete.open(
-        tiledir,
+        some_input,
         mode="readonly",
         fs_kwargs=fs_opts,
-        zoom=tile[0] if tile else zoom,
+        zoom=zoom,
         point=point,
         point_crs=point_crs,
         bounds=bounds,

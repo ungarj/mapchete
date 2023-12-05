@@ -10,6 +10,7 @@ from shapely.ops import unary_union
 
 import mapchete
 from mapchete.config.base import initialize_inputs, open_inputs
+from mapchete.executor import SequentialExecutor
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 
@@ -139,15 +140,13 @@ class ProcessFixture:
             input=mp.config.get_inputs_for_tile(tile),
         )
 
-    def mp(self, batch_preprocess=True):
+    def mp(self, batch_preprocess=True, bounds=None, zoom=None):
         """
         Return Mapchete object from mapchete.open().
         """
-        from mapchete.executor import SequentialExecutor
-
         with SequentialExecutor() as executor:
             if not self._mp:
-                self._mp = mapchete.open(self.dict)
+                self._mp = mapchete.open(self.dict, bounds=bounds, zoom=zoom)
                 if batch_preprocess:
                     self._mp.execute_preprocessing_tasks(executor=executor)
 

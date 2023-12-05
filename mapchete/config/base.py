@@ -256,6 +256,9 @@ class MapcheteConfig(object):
         logger.debug("prepare output")
         self.output.prepare(process_area=self.area_at_zoom())
 
+    def __repr__(self):  # pragma: no cover
+        return f"<MapcheteConfig init_zoom_levels={self.init_zoom_levels}, init_bounds={self.init_bounds}>"
+
     def input_at_zoom(self, key=None, zoom=None):
         if zoom is None:  # pragma: no cover
             raise ValueError("zoom not provided")

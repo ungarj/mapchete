@@ -278,7 +278,9 @@ def bounds_from_opts(
         zoom_levels = get_zoom_levels(
             process_zoom_levels=raw_conf["zoom_levels"], init_zoom_levels=zoom
         )
-        return Bounds(*tp.tile_from_xy(x, y, max(zoom_levels)).bounds)
+        return Bounds(
+            *tp.without_pixelbuffer().tile_from_xy(x, y, max(zoom_levels)).bounds
+        )
     elif bounds:
         bounds = Bounds.from_inp(bounds)
         if bounds_crs:

@@ -866,3 +866,16 @@ def test_execute_request_count(
                 assert task_info.output is None
     assert tile_tasks == 20
     assert preprocessing_tasks == 2
+
+
+def test_execute_no_tasks(preprocess_cache_memory):
+    """If a process is initialized out of bounds, there should be no tasks."""
+    some_bounds_outside_process = (-180, 80, -170, 90)
+    with preprocess_cache_memory.mp(
+        batch_preprocess=False, bounds=some_bounds_outside_process, zoom=5
+    ) as mp:
+        process_tiles = [tile for tile in mp.get_process_tiles(zoom=5)]
+        tasks = mp.tasks()
+        assert tasks.tile_tasks_count == len(process_tiles) == 0
+        assert tasks.preprocessing_tasks_count == 0
+        assert len(tasks) == 0
