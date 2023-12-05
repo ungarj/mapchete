@@ -208,6 +208,10 @@ def test_profile_wrapper(request, path_fixture):
     assert result.profiling["memory"].total_allocated > 0
 
 
+@pytest.mark.skip(
+    reason="this test is flaky and the feature is also tested in "
+    "test_processing_profilers.py::test_requests_return_result"
+)
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "path_fixture",
