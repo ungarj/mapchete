@@ -262,7 +262,7 @@ class MapcheteConfig(object):
     def input_at_zoom(self, key=None, zoom=None):
         if zoom is None:  # pragma: no cover
             raise ValueError("zoom not provided")
-        return self.input[get_hash(self._params_at_zoom[zoom]["input"][key])]
+        return self.input[get_input_key(self._params_at_zoom[zoom]["input"][key])]
 
     def preprocessing_tasks_per_input(self):
         """Get all preprocessing tasks defined by the input drivers."""
@@ -453,7 +453,7 @@ class MapcheteConfig(object):
         raw_inputs = OrderedDict(
             [
                 # convert input definition to hash
-                (get_hash(v), v)
+                (get_input_key(v), v)
                 for zoom in self.init_zoom_levels
                 if "input" in self._params_at_zoom[zoom]
                 # to preserve file groups, "flatten" the input tree and use
@@ -575,7 +575,7 @@ class MapcheteConfig(object):
                 if v is None:
                     flat_inputs[k] = None
                 else:
-                    flat_inputs[k] = self.input[get_hash(v)]
+                    flat_inputs[k] = self.input[get_input_key(v)]
             out["input"] = _unflatten_tree(flat_inputs)
         else:
             out["input"] = OrderedDict()
@@ -620,7 +620,7 @@ class MapcheteConfig(object):
             if "input" in self._params_at_zoom[zoom]:
                 input_union = unary_union(
                     [
-                        self.input[get_hash(v)].bbox(self.process_pyramid.crs)
+                        self.input[get_input_key(v)].bbox(self.process_pyramid.crs)
                         for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
                         if v is not None
                     ]
@@ -760,6 +760,20 @@ class MapcheteConfig(object):
             DeprecationWarning("Method renamed to self.params_at_zoom(zoom).")
         )
         return self.params_at_zoom(zoom)
+
+
+def get_input_key(
+    input_definition: Union[MPathLike, dict], hash_length: int = 6
+) -> str:
+    try:
+        path = MPath.from_inp(input_definition)
+        return f"{path}-{get_hash(input_definition, length=hash_length)}"
+    except ValueError:
+        pass
+    if isinstance(input_definition, dict):
+        return f"{input_definition['format']}-{get_hash(input_definition, length=hash_length)}"
+    else:
+        raise ValueError(f"cannot generate input_key from {input_definition}")
 
 
 def get_hash(some_object: Any, length: int = 16) -> str:
