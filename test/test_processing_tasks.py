@@ -2,6 +2,7 @@ from itertools import chain
 
 import pytest
 from shapely.geometry import shape
+from shapely.ops import unary_union
 
 from mapchete.errors import NoTaskGeometry
 from mapchete.executor import Executor
@@ -14,6 +15,7 @@ from mapchete.processing.tasks import (
     to_dask_collection,
 )
 from mapchete.testing import ProcessFixture
+from mapchete.tile import BufferedTilePyramid
 
 
 def test_task_geo_interface():
@@ -155,6 +157,16 @@ def test_task_batches_mixed_geometries():
     other_task = Task(bounds=(3, 4, 5, 6))
     assert len(batch.intersection(other_task)) == 10
     assert len(batch.intersection((3, 4, 5, 6))) == 10
+
+
+def test_task_batch_geometry():
+    batch = TaskBatch(
+        [Task(func=str, bounds=(0, 1, 2, 3)), Task(func=str, bounds=(2, 3, 4, 5))]
+    )
+    assert shape(batch).bounds == (0, 1, 4, 5)
+
+    # return empty geometry
+    assert shape(TaskBatch([])).is_empty
 
 
 def task_batches_generator(process: ProcessFixture, preprocessing_tasks_count=10):

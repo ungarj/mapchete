@@ -454,7 +454,7 @@ class TileTaskBatch(TaskBatch):
     def geometry(self) -> base.BaseGeometry:
         if self.tasks:
             return unary_union([task.bbox for task in self.tasks])
-        else:
+        else:  # pragma: no cover
             return Polygon()
 
     def __repr__(self):  # pragma: no cover

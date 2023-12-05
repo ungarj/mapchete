@@ -295,7 +295,7 @@ class ZoomLevels(list):
     def difference(self, other: ZoomLevelsLike) -> ZoomLevels:
         other = other if isinstance(other, ZoomLevels) else ZoomLevels(other)
         difference = set(self).difference(set(other))
-        if len(difference) == 0:
+        if len(difference) == 0:  # pragma: no cover
             raise ValueError("ZoomLevels do not differ")
         return ZoomLevels(min(difference), max(difference))
 
