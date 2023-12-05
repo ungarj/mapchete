@@ -4,6 +4,18 @@ Changelog
 
 
 ----------------------
+2023.12.0 - 2023-12-05
+----------------------
+
+* core
+
+  * complete refactor of `mapchete.commands` (#604)
+  * remove `mapchete.Job` and use observer pattern to track execution state and progress (#604)
+  * refactor `mapchete.processing` (#604)
+  * replace `mapchete.processing.compute` with `mapchete.processing.execute` (#604)
+
+
+----------------------
 2023.11.0 - 2023-11-20
 ----------------------
 
