@@ -292,6 +292,13 @@ class ZoomLevels(list):
             raise ValueError("ZoomLevels do not intersect")
         return ZoomLevels(min(intersection), max(intersection))
 
+    def difference(self, other: ZoomLevelsLike) -> ZoomLevels:
+        other = other if isinstance(other, ZoomLevels) else ZoomLevels(other)
+        difference = set(self).difference(set(other))
+        if len(difference) == 0:
+            raise ValueError("ZoomLevels do not differ")
+        return ZoomLevels(min(difference), max(difference))
+
     def intersects(self, other: ZoomLevelsLike) -> bool:
         other = other if isinstance(other, ZoomLevels) else ZoomLevels(other)
         try:

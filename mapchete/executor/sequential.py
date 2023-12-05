@@ -15,6 +15,9 @@ class SequentialExecutor(ExecutorBase):
         logger.debug("init SequentialExecutor")
         super().__init__(*args, **kwargs)
 
+    def __str__(self) -> str:
+        return "<SequentialExecutor>"
+
     def as_completed(
         self, func, iterable, fargs=None, fkwargs=None, item_skip_bool=False, **kwargs
     ) -> Iterator[MFuture]:

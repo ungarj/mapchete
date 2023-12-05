@@ -1,22 +1,23 @@
 import logging
 from abc import ABC
 from enum import Enum
+from functools import cached_property
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 from uuid import uuid4
 
 import numpy.ma as ma
 from dask.delayed import Delayed, DelayedLeaf, delayed
-from shapely.geometry import base, box, mapping, shape
+from shapely.geometry import Polygon, base, box, mapping, shape
+from shapely.ops import unary_union
 
 from mapchete.config import MapcheteConfig
 from mapchete.config.process_func import ProcessFunc
-from mapchete.enums import ProcessingMode
 from mapchete.errors import (
     MapcheteNodataTile,
     MapcheteProcessOutputError,
     NoTaskGeometry,
 )
-from mapchete.executor.base import Profiler, func_partial
+from mapchete.executor.base import Profiler
 from mapchete.io import raster
 from mapchete.io._geometry_operations import to_shape
 from mapchete.io.vector import IndexedFeatures
@@ -138,6 +139,17 @@ class TaskBatch(ABC):
         self.func = func or _execute_task_wrapper
         self.fkwargs = fkwargs or {}
         self.profilers = profilers or []
+
+    @cached_property
+    def geometry(self) -> base.BaseGeometry:
+        if self.tasks:
+            return unary_union([shape(task) for task in self.tasks])
+        else:
+            return Polygon()
+
+    @property
+    def __geo_interface__(self) -> mapping:
+        return mapping(self.geometry)
 
     def __repr__(self):  # pragma: no cover
         return f"TaskBatch(id={self.id}, bounds={self.bounds}, tasks={len(self.tasks)})"
@@ -438,6 +450,13 @@ class TileTaskBatch(TaskBatch):
         self.fkwargs = fkwargs or {}
         self.profilers = profilers or []
 
+    @cached_property
+    def geometry(self) -> base.BaseGeometry:
+        if self.tasks:
+            return unary_union([task.bbox for task in self.tasks])
+        else:
+            return Polygon()
+
     def __repr__(self):  # pragma: no cover
         return f"TileTaskBatch(id={self.id}, bounds={self.bounds}, tasks={len(self.tasks)})"
 
@@ -507,7 +526,6 @@ class Tasks:
     def __init__(
         self,
         task_batches_generator: Iterator[Union[TaskBatch, TileTaskBatch]],
-        mode: ProcessingMode = ProcessingMode.CONTINUE,
     ):
         self._task_batches_generator = task_batches_generator
 
@@ -577,12 +595,15 @@ def to_dask_collection(
     previous_batch = None
     for batch in batches:
         logger.debug("converting batch %s", batch)
+
         if batch.id == "preprocessing_tasks":
             task_func = preprocessing_task_wrapper or batch.func
         else:
             task_func = tile_task_wrapper or batch.func
+
         if previous_batch:
             logger.debug("previous batch had %s tasks", len(previous_batch))
+
         for task in batch.values():
             if previous_batch:
                 dependencies = {
@@ -596,6 +617,7 @@ def to_dask_collection(
                 )
             else:
                 dependencies = {}
+
             tasks[task] = delayed(
                 task_func,
                 pure=True,
@@ -607,5 +629,7 @@ def to_dask_collection(
                 **batch.fkwargs,
                 dask_key_name=f"{task.result_key_name}",
             )
+
         previous_batch = batch
+
     return list(tasks.values())

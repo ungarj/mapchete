@@ -1,6 +1,7 @@
 import logging
 import os
 from functools import cached_property
+from sys import getsizeof
 from typing import Any, Callable, Iterable, Iterator, List, Optional, Union
 
 from dask.delayed import Delayed, DelayedLeaf
@@ -10,6 +11,7 @@ from mapchete.errors import JobCancelledError
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
 from mapchete.executor.types import Result
+from mapchete.pretty import pretty_bytes
 from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,9 @@ class DaskExecutor(ExecutorBase):
         )
         self._submitted = 0
         super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"<DaskExecutor dashboard_link={self._executor.dashboard_link}>"
 
     def map(
         self,
@@ -206,6 +211,7 @@ class DaskExecutor(ExecutorBase):
         raise_errors: bool = False,
     ) -> Iterator[MFuture]:
         # send to scheduler
+        logger.debug("task graph has %s", pretty_bytes(getsizeof(dask_collection)))
 
         with Timer() as t:
             futures = self._executor.compute(

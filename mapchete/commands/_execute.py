@@ -2,7 +2,7 @@
 import logging
 from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import List, Optional, Tuple, Type, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
@@ -14,7 +14,11 @@ from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_p
 from mapchete.enums import Concurrency, ProcessingMode, Status
 from mapchete.errors import JobCancelledError
 from mapchete.executor import Executor
-from mapchete.processing.profilers import preconfigured_profilers, pretty_bytes
+from mapchete.executor.types import Profiler
+from mapchete.pretty import pretty_bytes, pretty_seconds
+from mapchete.processing.profilers import preconfigured_profilers
+from mapchete.processing.profilers.time import measure_time
+from mapchete.processing.tasks import TaskInfo
 from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
@@ -35,7 +39,6 @@ def execute(
     concurrency: Concurrency = Concurrency.processes,
     workers: int = None,
     multiprocessing_start_method: str = None,
-    dask_client: Optional[Any] = None,
     dask_settings: DaskSettings = DaskSettings(),
     executor_getter: AbstractContextManager = Executor,
     profiling: bool = False,
@@ -83,7 +86,6 @@ def execute(
         Reusable Client instance if required. Otherwise a new client will be created.
     """
     try:
-        print_task_details = True
         mode = "overwrite" if overwrite else mode
         all_observers = Observers(observers)
 
@@ -132,21 +134,23 @@ def execute(
                     )
 
                 all_observers.notify(status=Status.initializing)
+
                 # determine tasks
-                tasks = mp.tasks(zoom=zoom, tile=tile, mode=mode)
+                tasks = mp.tasks(zoom=zoom, tile=tile)
 
                 if len(tasks) == 0:
-                    all_observers.notify(status=Status.done)
+                    all_observers.notify(
+                        status=Status.done, message="no tasks to process"
+                    )
                     return
+
                 all_observers.notify(
                     message=f"processing {len(tasks)} tasks on {workers} worker(s)"
                 )
 
                 all_observers.notify(message="waiting for executor ...")
                 with executor_getter(
-                    concurrency="dask"
-                    if dask_settings.scheduler or dask_settings.client
-                    else concurrency,
+                    concurrency=concurrency,
                     dask_scheduler=dask_settings.scheduler,
                     dask_client=dask_settings.client,
                     multiprocessing_start_method=multiprocessing_start_method,
@@ -155,6 +159,10 @@ def execute(
                     if profiling:
                         for profiler in preconfigured_profilers:
                             executor.add_profiler(profiler)
+                    else:
+                        executor.add_profiler(
+                            Profiler(name="time", decorator=measure_time)
+                        )
                     all_observers.notify(
                         status=Status.running,
                         progress=Progress(total=len(tasks)),
@@ -167,34 +175,19 @@ def execute(
                         for task_info in mp.execute(
                             executor=executor,
                             tasks=tasks,
-                            profiling=profiling,
                             dask_settings=dask_settings,
                         ):
                             count += 1
-                            if print_task_details:
-                                msg = f"task {task_info.id}: {task_info.process_msg}"
-                                if task_info.profiling:  # pragma: no cover
-                                    max_allocated = task_info.profiling[
-                                        "memory"
-                                    ].max_allocated
-                                    head_requests = task_info.profiling[
-                                        "requests"
-                                    ].head_count
-                                    get_requests = task_info.profiling[
-                                        "requests"
-                                    ].get_count
-                                    requests = head_requests + get_requests
-                                    transferred = task_info.profiling[
-                                        "requests"
-                                    ].get_bytes
-                                    msg += f" (max memory usage: {pretty_bytes(max_allocated)}"
-                                    msg += f", {requests} GET and HEAD requests"
-                                    msg += f", {pretty_bytes(transferred)} transferred)"
-                                all_observers.notify(message=msg)
+
+                            msg = f"task {task_info.id}: {task_info.process_msg}"
+
+                            if task_info.profiling:
+                                msg += profiling_info(task_info)
 
                             all_observers.notify(
                                 progress=Progress(total=len(tasks), current=count),
                                 task_result=task_info,
+                                message=msg,
                             )
 
                         all_observers.notify(status=Status.done)
@@ -217,3 +210,21 @@ def execute(
     except Exception as exception:
         all_observers.notify(status=Status.failed, exception=exception)
         raise
+
+
+def profiling_info(task_info: TaskInfo) -> str:
+    profiling_info = []
+    if task_info.profiling.get("time"):
+        elapsed = task_info.profiling["time"].elapsed
+        profiling_info.append(f"time: {pretty_seconds(elapsed)}")
+    if task_info.profiling.get("memory"):  # pragma: no cover
+        max_allocated = task_info.profiling["memory"].max_allocated
+        profiling_info.append(f"max memory usage: {pretty_bytes(max_allocated)}")
+    if task_info.profiling.get("memory"):  # pragma: no cover
+        head_requests = task_info.profiling["requests"].head_count
+        get_requests = task_info.profiling["requests"].get_count
+        requests = head_requests + get_requests
+        transferred = task_info.profiling["requests"].get_bytes
+        profiling_info.append(f"{requests} GET and HEAD requests")
+        profiling_info.append(f"{pretty_bytes(transferred)} transferred")
+    return f" ({', '.join(profiling_info)})"

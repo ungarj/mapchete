@@ -10,16 +10,3 @@ preconfigured_profilers = [
     Profiler(name="requests", decorator=measure_requests),
     Profiler(name="memory", decorator=measure_memory),
 ]
-
-
-def pretty_bytes(count: float, round_value: int = 2) -> str:
-    """Return human readable bytes."""
-    count = float(count)
-
-    for measurement in ["bytes", "KiB", "MiB", "GiB", "TiB"]:
-        out = f"{round(count, round_value)} {measurement}"
-        if count < 1024.0:
-            break
-        count /= 1024.0
-
-    return out

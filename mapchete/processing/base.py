@@ -8,6 +8,8 @@ from contextlib import ExitStack
 from typing import Any, Iterator, List, Optional, Tuple, Union
 
 from cachetools import LRUCache
+from shapely.geometry import Polygon, base
+from shapely.ops import unary_union
 
 from mapchete.config import DaskSettings, MapcheteConfig
 from mapchete.enums import Concurrency, ProcessingMode
@@ -165,7 +167,6 @@ class Mapchete(object):
         self,
         zoom: Optional[ZoomLevelsLike] = None,
         tile: Optional[TileLike] = None,
-        mode: Optional[ProcessingMode] = None,
         profilers: Optional[List[Profiler]] = None,
     ) -> Tasks:
         """
@@ -178,12 +179,10 @@ class Mapchete(object):
                 tile=tile,
                 profilers=profilers,
             ),
-            mode=mode or self.config.mode,
         )
 
     def preprocessing_tasks(
         self,
-        mode: Optional[ProcessingMode] = None,
         profilers: Optional[List[Profiler]] = None,
     ) -> Tasks:
         """
@@ -194,7 +193,6 @@ class Mapchete(object):
                 self,
                 profilers=profilers,
             ),
-            mode=mode or self.config.mode,
         )
 
     def execute(
@@ -207,7 +205,6 @@ class Mapchete(object):
         workers: int = os.cpu_count(),
         propagate_results: bool = False,
         dask_settings: DaskSettings = DaskSettings(),
-        profiling: bool = False,
         remember_preprocessing_results: bool = False,
     ) -> Iterator[TaskInfo]:
         """
@@ -669,26 +666,50 @@ def _task_batches(
     profilers = profilers or []
     if tile:
         tile = process.config.process_pyramid.tile(*tile)
+
+    # first, materialize tile task batches
     tile_task_batches = _tile_task_batches(
         process=process,
         zoom=zoom,
         tile=tile,
         profilers=profilers,
     )
-    # TODO: create processing AOI (i.e. processing area without overviews)
-    yield from _preprocessing_task_batches(process=process, profilers=profilers)
+    # create processing AOI (i.e. processing area without overviews)
+    if process.config.preprocessing_tasks().values():
+        zoom_aois = []
+        for zoom in process.config.processing_levels:
+            for batch in tile_task_batches:
+                if batch.id == f"zoom-{zoom}":
+                    zoom_aois.append(batch.geometry)
+        process_aoi = unary_union(zoom_aois) if zoom_aois else Polygon()
+    else:
+        process_aoi = None
+
+    yield from _preprocessing_task_batches(
+        process=process, profilers=profilers, process_aoi=process_aoi
+    )
+
     yield from tile_task_batches
 
 
 def _preprocessing_task_batches(
     process: Mapchete,
     profilers: Optional[List[Profiler]] = None,
+    process_aoi: Optional[base.BaseGeometry] = None,
 ) -> Iterator[TaskBatch]:
     with Timer() as duration:
+        tasks = []
+        for task in process.config.preprocessing_tasks().values():
+            if process_aoi and task.has_geometry():
+                if task.geometry.intersects(process_aoi):
+                    tasks.append(task)
+            else:
+                tasks.append(task)
+
         # preprocessing tasks
         preprocessing_batch = TaskBatch(
             id="preprocessing_tasks",
-            tasks=process.config.preprocessing_tasks().values(),
+            tasks=tasks,
             profilers=profilers,
         )
         if len(preprocessing_batch):

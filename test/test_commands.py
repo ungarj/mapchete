@@ -264,7 +264,7 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
     ],
 )
 def test_execute_preprocessing_tasks(
-    concurrency, preprocess_cache_raster_vector, dask_executor, process_graph
+    concurrency, preprocess_cache_raster_vector, process_graph
 ):
     execute_kwargs = dict(concurrency=concurrency)
     if concurrency == "dask":
@@ -287,9 +287,7 @@ def test_execute_preprocessing_tasks(
         (None, False),
     ],
 )
-def test_execute_profiling(
-    cleantopo_br_metatiling_1, concurrency, process_graph, dask_executor
-):
+def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, process_graph):
     execute_kwargs = dict(concurrency=concurrency)
     if concurrency == "dask":
         execute_kwargs.update(dask_settings=DaskSettings(process_graph=process_graph))

@@ -16,6 +16,9 @@ class Executor:
     """
 
     def __new__(cls, *args, concurrency=None, **kwargs) -> ExecutorBase:
+        if kwargs.get("dask_scheduler") or kwargs.get("dask_client"):
+            concurrency = "dask"
+
         if concurrency == "dask":
             return DaskExecutor(*args, **kwargs)
 
