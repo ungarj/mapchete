@@ -38,6 +38,7 @@ def index(
     tile: Optional[Tuple[int, int, int]] = None,
     fs_opts: Optional[dict] = None,
     observers: Optional[List[ObserverProtocol]] = None,
+    **kwargs,
 ):
     """
     Create one or more indexes from a TileDirectory.
