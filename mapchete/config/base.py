@@ -450,18 +450,21 @@ class MapcheteConfig(object):
         explicitly provided in process configuration.
         """
         # get input items only of initialized zoom levels
-        raw_inputs = OrderedDict(
-            [
-                # convert input definition to hash
-                (get_input_key(v), v)
-                for zoom in self.init_zoom_levels
-                if "input" in self._params_at_zoom[zoom]
-                # to preserve file groups, "flatten" the input tree and use
-                # the tree paths as keys
-                for key, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
-                if v is not None
-            ]
-        )
+        try:
+            raw_inputs = OrderedDict(
+                [
+                    # convert input definition to hash
+                    (get_input_key(v), v)
+                    for zoom in self.init_zoom_levels
+                    if "input" in self._params_at_zoom[zoom]
+                    # to preserve file groups, "flatten" the input tree and use
+                    # the tree paths as keys
+                    for key, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
+                    if v is not None
+                ]
+            )
+        except TypeError as exc:
+            raise MapcheteConfigError(exc)
         if self._init_inputs:
             return initialize_inputs(
                 raw_inputs,
