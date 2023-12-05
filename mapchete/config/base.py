@@ -775,7 +775,7 @@ def get_input_key(
         pass
     if isinstance(input_definition, dict):
         return f"{input_definition['format']}-{get_hash(input_definition, length=hash_length)}"
-    else:
+    else:  # pragma: no cover
         raise ValueError(f"cannot generate input_key from {input_definition}")
 
 
