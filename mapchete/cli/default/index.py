@@ -55,6 +55,7 @@ def index(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwar
     with PBar(
         total=100, desc="tiles", disable=debug or no_pbar, print_messages=verbose
     ) as pbar:
+        kwargs.update(some_input=kwargs.pop("tiledir"))
         commands.index(
             *args,
             as_iterator=True,

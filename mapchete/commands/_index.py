@@ -101,13 +101,16 @@ def index(
         bounds = tile.bounds
         zoom = tile.zoom
     else:
-        bounds = bounds_from_opts(
-            point=point,
-            point_crs=point_crs,
-            bounds=bounds,
-            bounds_crs=bounds_crs,
-            raw_conf=raw_conf(some_input),
-        )
+        try:
+            bounds = bounds_from_opts(
+                point=point,
+                point_crs=point_crs,
+                bounds=bounds,
+                bounds_crs=bounds_crs,
+                raw_conf=raw_conf(some_input),
+            )
+        except IsADirectoryError:
+            pass
 
     with mapchete.open(
         some_input,
