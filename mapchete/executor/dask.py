@@ -1,14 +1,17 @@
 import logging
 import os
 from functools import cached_property
-from typing import Any, Iterator, List
+from sys import getsizeof
+from typing import Any, Callable, Iterable, Iterator, List, Optional, Union
 
+from dask.delayed import Delayed, DelayedLeaf
 from dask.distributed import Client, LocalCluster, as_completed, wait
 
 from mapchete.errors import JobCancelledError
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
 from mapchete.executor.types import Result
+from mapchete.pretty import pretty_bytes
 from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
@@ -20,9 +23,9 @@ class DaskExecutor(ExecutorBase):
     def __init__(
         self,
         *args,
-        dask_scheduler=None,
-        dask_client=None,
-        max_workers=None,
+        dask_scheduler: Optional[str] = None,
+        dask_client: Optional[Client] = None,
+        max_workers: int = os.cpu_count(),
         **kwargs,
     ):
         self.cancel_signal = False
@@ -31,9 +34,7 @@ class DaskExecutor(ExecutorBase):
         if self._executor_client:  # pragma: no cover
             logger.debug("using existing dask client: %s", dask_client)
         else:
-            local_cluster_kwargs = dict(
-                n_workers=max_workers or os.cpu_count(), threads_per_worker=1
-            )
+            local_cluster_kwargs = dict(n_workers=max_workers, threads_per_worker=1)
             self._executor_cls = Client
             if dask_scheduler is None:
                 self._local_cluster = LocalCluster(**local_cluster_kwargs)
@@ -47,7 +48,16 @@ class DaskExecutor(ExecutorBase):
         self._submitted = 0
         super().__init__(*args, **kwargs)
 
-    def map(self, func, iterable, fargs=None, fkwargs=None) -> List[Any]:
+    def __str__(self) -> str:
+        return f"<DaskExecutor dashboard_link={self._executor.dashboard_link}>"
+
+    def map(
+        self,
+        func: Callable,
+        iterable: Iterable,
+        fargs: Optional[tuple] = None,
+        fkwargs: Optional[dict] = None,
+    ) -> List[Any]:
         fargs = fargs or []
         fkwargs = fkwargs or {}
 
@@ -72,13 +82,13 @@ class DaskExecutor(ExecutorBase):
 
     def as_completed(
         self,
-        func,
-        iterable,
-        fargs=None,
-        fkwargs=None,
-        max_submitted_tasks=500,
-        item_skip_bool=False,
-        chunksize=100,
+        func: Callable,
+        iterable: Iterable,
+        fargs: Optional[tuple] = None,
+        fkwargs: Optional[dict] = None,
+        max_submitted_tasks: int = 500,
+        item_skip_bool: bool = False,
+        chunksize: int = 100,
         **kwargs,
     ) -> Iterator[MFuture]:
         """
@@ -196,11 +206,12 @@ class DaskExecutor(ExecutorBase):
 
     def compute_task_graph(
         self,
-        dask_collection=None,
-        with_results=False,
-        raise_errors=False,
+        dask_collection: List[Union[Delayed, DelayedLeaf]],
+        with_results: bool = False,
+        raise_errors: bool = False,
     ) -> Iterator[MFuture]:
         # send to scheduler
+        logger.debug("task graph has %s", pretty_bytes(getsizeof(dask_collection)))
 
         with Timer() as t:
             futures = self._executor.compute(
@@ -227,7 +238,13 @@ class DaskExecutor(ExecutorBase):
                     raise JobCancelledError()
                 yield self._finished_future(future, result, _dask=True)
 
-    def _submit_chunk(self, chunk=None, func=None, fargs=None, fkwargs=None):
+    def _submit_chunk(
+        self,
+        chunk: List[Any],
+        func: Callable,
+        fargs: Optional[tuple] = None,
+        fkwargs: Optional[dict] = None,
+    ) -> None:
         if chunk:
             logger.debug("submit chunk of %s items to cluster", len(chunk))
             futures = self._executor.map(

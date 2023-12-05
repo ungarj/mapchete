@@ -73,6 +73,9 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         )
         super().__init__(*args, **kwargs)
 
+    def __str__(self) -> str:
+        return f"<ConcurrentFuturesExecutor max_workers={self.max_workers}, cls={self._executor_cls}>"
+
     def as_completed(
         self,
         func,

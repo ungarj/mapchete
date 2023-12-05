@@ -17,6 +17,7 @@ Submodules
 
    mapchete.cli.main
    mapchete.cli.options
+   mapchete.cli.progress_bar
 
 Module contents
 ---------------

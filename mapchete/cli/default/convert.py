@@ -1,5 +1,4 @@
 import click
-import tilematrix
 import tqdm
 from rasterio.dtypes import dtype_ranges
 from rasterio.enums import Resampling
@@ -8,6 +7,8 @@ from rasterio.rio.options import creation_options
 import mapchete
 from mapchete import commands
 from mapchete.cli import options
+from mapchete.cli.progress_bar import PBar
+from mapchete.config import DaskSettings
 from mapchete.formats import available_output_formats
 
 OUTPUT_FORMATS = available_output_formats()
@@ -96,7 +97,6 @@ def _validate_bidx(ctx, param, bidx):
 @options.opt_no_pbar
 @options.opt_debug
 @options.opt_workers
-@options.opt_multi
 @options.opt_concurrency
 @options.opt_dask_no_task_graph
 @options.opt_logfile
@@ -118,41 +118,27 @@ def convert(
     **kwargs,
 ):
     with mapchete.Timer() as t:
-        job = commands.convert(
-            tiledir,
-            output,
-            *args,
-            as_iterator=True,
-            dask_compute_graph=not dask_no_task_graph,
-            msg_callback=tqdm.tqdm.write if verbose else None,
-            **kwargs,
-        )
-        if not len(job):
-            return
-        list(
-            tqdm.tqdm(
-                job,
-                unit="task",
-                disable=debug or no_pbar,
+        with PBar(
+            total=100, desc="tasks", disable=debug or no_pbar, print_messages=verbose
+        ) as pbar:
+            commands.convert(
+                tiledir,
+                output,
+                *args,
+                dask_settings=DaskSettings(process_graph=not dask_no_task_graph),
+                observers=[pbar],
+                **kwargs,
             )
-        )
         tqdm.tqdm.write(f"processing {tiledir} finished in {t}")
 
-    if vrt:
-        tqdm.tqdm.write("creating VRT(s)")
-        list(
-            tqdm.tqdm(
-                commands.index(
-                    output,
-                    *args,
-                    vrt=vrt,
-                    idx_out_dir=idx_out_dir,
-                    as_iterator=True,
-                    msg_callback=tqdm.tqdm.write if verbose else None,
-                    **kwargs,
-                ),
-                unit="tile",
-                disable=debug or no_pbar,
+        if vrt:
+            tqdm.tqdm.write("creating VRT(s)")
+            commands.index(
+                output,
+                *args,
+                vrt=vrt,
+                idx_out_dir=idx_out_dir,
+                observers=[pbar],
+                **kwargs,
             )
-        )
-        tqdm.tqdm.write(f"index(es) creation for {tiledir} finished")
+            tqdm.tqdm.write(f"index(es) creation for {tiledir} finished")

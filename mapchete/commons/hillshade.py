@@ -34,6 +34,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 import math
+import warnings
 from itertools import product
 
 import numpy as np
@@ -71,24 +72,27 @@ def calculate_slope_aspect(elevation, xres, yres, z=1.0, scale=1.0):
     -------
     slope shade : array
     """
-    z = float(z)
-    scale = float(scale)
-    height, width = elevation.shape[0] - 2, elevation.shape[1] - 2
-    w = [
-        z * elevation[row : (row + height), col : (col + width)]
-        for (row, col) in product(range(3), range(3))
-    ]
-    x = ((w[0] + w[3] + w[3] + w[6]) - (w[2] + w[5] + w[5] + w[8])) / (
-        8.0 * xres * scale
-    )
-    y = ((w[6] + w[7] + w[7] + w[8]) - (w[0] + w[1] + w[1] + w[2])) / (
-        8.0 * yres * scale
-    )
-    # in radians, from 0 to pi/2
-    slope = math.pi / 2 - np.arctan(np.sqrt(x * x + y * y))
-    # in radians counterclockwise, from -pi at north back to pi
-    aspect = np.arctan2(x, y)
-    return slope, aspect
+    with warnings.catch_warnings():
+        # this is to filter out division by zero warnings
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        z = float(z)
+        scale = float(scale)
+        height, width = elevation.shape[0] - 2, elevation.shape[1] - 2
+        w = [
+            z * elevation[row : (row + height), col : (col + width)]
+            for (row, col) in product(range(3), range(3))
+        ]
+        x = ((w[0] + w[3] + w[3] + w[6]) - (w[2] + w[5] + w[5] + w[8])) / (
+            8.0 * xres * scale
+        )
+        y = ((w[6] + w[7] + w[7] + w[8]) - (w[0] + w[1] + w[1] + w[2])) / (
+            8.0 * yres * scale
+        )
+        # in radians, from 0 to pi/2
+        slope = math.pi / 2 - np.arctan(np.sqrt(x * x + y * y))
+        # in radians counterclockwise, from -pi at north back to pi
+        aspect = np.arctan2(x, y)
+        return slope, aspect
 
 
 def hillshade(

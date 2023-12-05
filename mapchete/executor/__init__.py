@@ -1,3 +1,6 @@
+from typing import Optional
+
+from mapchete.enums import Concurrency
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.concurrent_futures import (
     MULTIPROCESSING_DEFAULT_START_METHOD,
@@ -15,14 +18,22 @@ class Executor:
     Executor factory for dask and concurrent.futures executor
     """
 
-    def __new__(cls, *args, concurrency=None, **kwargs) -> ExecutorBase:
-        if concurrency == "dask":
+    def __new__(
+        cls, *args, concurrency: Optional[Concurrency] = None, **kwargs
+    ) -> ExecutorBase:
+        concurrency = (
+            Concurrency.dask
+            if kwargs.get("dask_scheduler") or kwargs.get("dask_client")
+            else concurrency
+        )
+
+        if concurrency == Concurrency.dask:
             return DaskExecutor(*args, **kwargs)
 
-        elif concurrency is None or kwargs.get("max_workers") == 1:
+        elif concurrency in [None, Concurrency.none]:
             return SequentialExecutor(*args, **kwargs)
 
-        elif concurrency in ["processes", "threads"]:
+        elif concurrency in [Concurrency.processes, Concurrency.threads]:
             return ConcurrentFuturesExecutor(*args, concurrency=concurrency, **kwargs)
 
         else:  # pragma: no cover

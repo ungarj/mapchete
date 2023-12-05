@@ -2,15 +2,13 @@ from itertools import chain
 
 import pytest
 from shapely.geometry import shape
+from shapely.ops import unary_union
 
 from mapchete.errors import NoTaskGeometry
-from mapchete.processing.tasks import (
-    Task,
-    TaskBatch,
-    TileTask,
-    TileTaskBatch,
-    to_dask_collection,
-)
+from mapchete.executor import Executor
+from mapchete.processing.tasks import Task, TaskBatch, Tasks, TileTask, TileTaskBatch
+from mapchete.testing import ProcessFixture
+from mapchete.tile import BufferedTilePyramid
 
 
 def test_task_geo_interface():
@@ -121,9 +119,9 @@ def test_task_batches_to_dask_graph(dem_to_hillshade):
                 for process_tile in dem_to_hillshade.mp().get_process_tiles(zoom=zoom)
             )
         )
-        for zoom in reversed(dem_to_hillshade.mp().config.zoom_levels)
+        for zoom in dem_to_hillshade.mp().config.zoom_levels.descending()
     )
-    collection = to_dask_collection((preprocessing_batch, *zoom_batches))
+    collection = Tasks((preprocessing_batch, *zoom_batches)).to_dask_graph()
     import dask
 
     dask.compute(collection)
@@ -152,3 +150,78 @@ def test_task_batches_mixed_geometries():
     other_task = Task(bounds=(3, 4, 5, 6))
     assert len(batch.intersection(other_task)) == 10
     assert len(batch.intersection((3, 4, 5, 6))) == 10
+
+
+def test_task_batch_geometry():
+    batch = TaskBatch(
+        [Task(func=str, bounds=(0, 1, 2, 3)), Task(func=str, bounds=(2, 3, 4, 5))]
+    )
+    assert shape(batch).bounds == (0, 1, 4, 5)
+
+    # return empty geometry
+    assert shape(TaskBatch([])).is_empty
+
+
+def task_batches_generator(process: ProcessFixture, preprocessing_tasks_count=10):
+    if preprocessing_tasks_count:
+        input_key = list(process.mp().config.inputs.keys())[0]
+        yield TaskBatch(
+            (
+                Task(
+                    func=str,
+                    fargs=(i,),
+                    bounds=process.mp().config.bounds,
+                    id=f"{input_key}:{i}",
+                )
+                for i in range(preprocessing_tasks_count)
+            )
+        )
+    for zoom in process.mp().config.zoom_levels.descending():
+        yield TileTaskBatch(
+            (
+                TileTask(tile=process_tile, config=process.mp().config)
+                for process_tile in process.mp().get_process_tiles(zoom=zoom)
+            ),
+            id=f"zoom-{zoom}",
+        )
+
+
+def test_task_batches_as_dask_graph(dem_to_hillshade):
+    task_batches = Tasks(task_batches_generator(dem_to_hillshade))
+    assert len(task_batches.preprocessing_batches) == 1
+    assert len(task_batches.tile_batches) == len(
+        dem_to_hillshade.mp().config.zoom_levels
+    )
+    graph = task_batches.to_dask_graph()
+    assert graph
+
+    import dask
+
+    dask.compute(graph)
+
+
+def test_task_batches_as_layered_batches(dem_to_hillshade):
+    task_batches = Tasks(task_batches_generator(dem_to_hillshade))
+    assert len(task_batches.preprocessing_batches) == 1
+    assert len(task_batches.tile_batches) == len(
+        dem_to_hillshade.mp().config.zoom_levels
+    )
+    batches = [list(batch) for batch in task_batches.to_batches()]
+    assert batches
+
+    for batch in batches:
+        assert batch
+        for tile_task in batch:
+            assert isinstance(tile_task, Task)
+
+
+def test_task_batches_as_single_batch(dem_to_hillshade):
+    task_batches = Tasks(task_batches_generator(dem_to_hillshade))
+    assert len(task_batches.preprocessing_batches) == 1
+    assert len(task_batches.tile_batches) == len(
+        dem_to_hillshade.mp().config.zoom_levels
+    )
+    batch = list(task_batches.to_batch())
+    assert batch
+    for tile_task in batch:
+        assert isinstance(tile_task, Task)

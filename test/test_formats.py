@@ -253,7 +253,7 @@ def test_load_metadata_datetime_list(driver_output_params_dict):
 
 def test_tile_path_schema(tile_path_schema):
     mp = tile_path_schema.mp()
-    mp.batch_process()
+    list(mp.execute())
     tile = tile_path_schema.first_process_tile()
     control = [str(tile.zoom), str(tile.col), str(tile.row) + ".tif"]
     assert mp.config.output_reader.get_path(tile).elements[-3:] == control
@@ -261,7 +261,7 @@ def test_tile_path_schema(tile_path_schema):
 
 def test_tile_path_schema_metadata_json(tile_path_schema):
     mp = tile_path_schema.mp()
-    mp.batch_process()
+    list(mp.execute())
     tile = tile_path_schema.first_process_tile()
     output_metadata = read_output_metadata(
         mp.config.output_reader.path / "metadata.json"
@@ -278,7 +278,7 @@ def test_tile_path_schema_metadata_json(tile_path_schema):
 
 def test_tile_path_schema_stac_json(tile_path_schema):
     mp = tile_path_schema.mp()
-    mp.batch_process()
+    list(mp.execute())
     mp.write_stac()
     stac_json = json.loads((mp.config.output_reader.path / "out.json").read_text())
     template = stac_json.get("asset_templates")["bands"]["href"]

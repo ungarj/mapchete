@@ -32,27 +32,22 @@ def test_parse_bounds(geojson_tiledir):
         assert ip.bbox(out_crs="3857")
 
 
-def test_read_vector_data(mp_tmpdir, geojson, geojson_tiledir):
+@pytest.mark.parametrize("metatiling", [2, 4, 8])
+def test_read_vector_data(geojson, geojson_tiledir, metatiling):
     """Read vector data."""
+    tile = geojson.first_process_tile()
     # prepare data
     with mapchete.open(geojson.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
-        mp.batch_process(zoom=4)
+        list(mp.execute(tile=tile))
     # read data
     config = geojson_tiledir.dict.copy()
     config["input"]["file1"]["path"] = mp.config.output.path
-    for metatiling in [2, 4, 8]:
-        _run_tiledir_process_vector(config, metatiling, bounds)
-
-
-def _run_tiledir_process_vector(conf_dict, metatiling, bounds):
-    conf = deepcopy(conf_dict)
-    conf["pyramid"].update(metatiling=metatiling)
+    config["pyramid"].update(metatiling=metatiling)
     features = []
-    with mapchete.open(conf, mode="overwrite", bounds=bounds) as mp:
-        for tile in mp.get_process_tiles(4):
-            input_tile = next(iter(mp.config.input.values())).open(tile)
-            features.extend(input_tile.read())
+    with mapchete.open(config, mode="overwrite", bounds=bounds) as mp:
+        input_tile = next(iter(mp.config.input.values())).open(tile)
+        features.extend(input_tile.read())
     assert features
 
 
@@ -61,7 +56,7 @@ def test_read_raster_data(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
-        mp.batch_process(zoom=4)
+        list(mp.execute(zoom=4))
     config = cleantopo_br_tiledir.dict.copy()
     config["input"]["file1"]["path"] = mp.config.output.path
     for metatiling in [1, 2, 4, 8]:
@@ -96,7 +91,7 @@ def test_read_reprojected_raster_data(
     zoom = 4
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
 
     config = cleantopo_br_tiledir_mercator.dict.copy()
     config["input"]["file1"] = mp.config.output.path
@@ -160,7 +155,7 @@ def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
         bounds = mp.config.bounds_at_zoom()
-        mp.batch_process(zoom=4)
+        list(mp.execute(zoom=4))
     config = dict(cleantopo_br_tiledir.dict, input=dict(file1=mp.config.output.path))
     _run_tiledir_process_raster(config, 4, bounds)
 
@@ -168,7 +163,7 @@ def test_read_from_dir(mp_tmpdir, cleantopo_br, cleantopo_br_tiledir):
 def test_read_indexes_shape(cleantopo_br_tiledir):
     mp = cleantopo_br_tiledir.mp()
     # create local TileDirectory
-    list(mp.compute())
+    list(mp.execute())
     input_data = InputData({"path": mp.config.output_reader.path})
     input_tile = input_data.open(cleantopo_br_tiledir.first_process_tile())
 

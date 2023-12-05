@@ -4,6 +4,8 @@ import tqdm
 import mapchete
 from mapchete import commands
 from mapchete.cli import options
+from mapchete.cli.progress_bar import PBar
+from mapchete.config import DaskSettings
 
 
 @click.command(help="Execute a process.")
@@ -19,7 +21,6 @@ from mapchete.cli import options
 @options.opt_overwrite
 @options.opt_concurrency
 @options.opt_workers
-@options.opt_multi
 @options.opt_dask_scheduler
 @options.opt_dask_no_task_graph
 @options.opt_input_file
@@ -41,6 +42,8 @@ def execute(
     input_file=None,
     dask_no_task_graph=False,
     profiling=False,
+    logfile=None,
+    dask_scheduler=None,
     **kwargs,
 ):
     # activate verbose if profiling is active
@@ -54,39 +57,32 @@ def execute(
     for mapchete_file in mapchete_files:
         tqdm.tqdm.write(f"preparing to process {mapchete_file}")
         with mapchete.Timer() as t:
-            job = commands.execute(
-                mapchete_file,
-                *args,
-                as_iterator=True,
-                msg_callback=tqdm.tqdm.write if verbose else None,
-                dask_compute_graph=not dask_no_task_graph,
-                profiling=profiling,
-                **kwargs,
-            )
-            list(
-                tqdm.tqdm(
-                    job,
-                    unit="task",
-                    disable=debug or no_pbar,
+            with PBar(
+                total=100,
+                desc="tasks",
+                disable=debug or no_pbar,
+                print_messages=verbose,
+            ) as pbar:
+                commands.execute(
+                    mapchete_file,
+                    *args,
+                    observers=[pbar],
+                    dask_settings=DaskSettings(
+                        process_graph=not dask_no_task_graph, scheduler=dask_scheduler
+                    ),
+                    profiling=profiling,
+                    **kwargs,
                 )
-            )
             tqdm.tqdm.write(f"processing {mapchete_file} finished in {t}")
 
-        if vrt:
-            tqdm.tqdm.write("creating VRT(s)")
-            list(
-                tqdm.tqdm(
-                    commands.index(
-                        mapchete_file,
-                        *args,
-                        vrt=vrt,
-                        idx_out_dir=idx_out_dir,
-                        as_iterator=True,
-                        msg_callback=tqdm.tqdm.write if verbose else None,
-                        **kwargs,
-                    ),
-                    unit="tile",
-                    disable=debug or no_pbar,
+            if vrt:
+                tqdm.tqdm.write("creating VRT(s)")
+                commands.index(
+                    mapchete_file,
+                    *args,
+                    vrt=vrt,
+                    idx_out_dir=idx_out_dir,
+                    observers=[pbar],
+                    **kwargs,
                 )
-            )
-            tqdm.tqdm.write(f"index(es) creation for {mapchete_file} finished")
+                tqdm.tqdm.write(f"index(es) creation for {mapchete_file} finished")

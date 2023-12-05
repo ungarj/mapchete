@@ -87,10 +87,7 @@ class MFuture:
         else:
             name = str(future)
 
-        if hasattr(future, "profiling"):
-            profiling = future.profiling
-        else:
-            profiling = {}
+        profiling = future.profiling if hasattr(future, "profiling") else {}
 
         if lazy:
             # keep around Future for later and don't call Future.result()
@@ -101,8 +98,9 @@ class MFuture:
                 status=status,
                 name=name,
                 profiling=profiling,
+                exception=future.exception(),
             )
-        else:
+        else:  # pragma: no cover
             # immediately fetch Future.result() or use provided result
             try:
                 result = result or future.result(timeout=timeout)
@@ -118,10 +116,6 @@ class MFuture:
                 name=name,
                 profiling=profiling,
             )
-
-    @staticmethod
-    def from_result(result: Any, profiling: Optional[dict] = None) -> MFuture:
-        return MFuture(result=result, profiling=profiling)
 
     @staticmethod
     def skip(skip_info: Optional[Any] = None, result: Optional[Any] = None) -> MFuture:

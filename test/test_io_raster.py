@@ -84,7 +84,7 @@ def test_read_raster_window_input_list(cleantopo_br):
     conf = dict(**cleantopo_br.dict)
     conf["output"].update(metatiling=1)
     with mapchete.open(conf) as mp:
-        mp.batch_process(process_zoom)
+        list(mp.execute(zoom=process_zoom))
         tiles = [
             (tile, mp.config.output.get_path(tile))
             for tile in mp.config.output_pyramid.tiles_from_bounds(
@@ -935,7 +935,7 @@ def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
     # the process file will raise an exception on purpose
     with pytest.raises(AssertionError):
         with output_s3_single_gtiff_error.mp() as mp:
-            mp.execute(output_s3_single_gtiff_error.first_process_tile())
+            mp.execute_tile(output_s3_single_gtiff_error.first_process_tile())
     # make sure no output has been written
     assert not path_exists(mp.config.output.path)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Iterable, List, Optional, Tuple, Union
 
+from pydantic import BaseModel
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 
@@ -10,7 +11,7 @@ from mapchete.tile import BufferedTile
 
 MPathLike = Union[str, os.PathLike]
 BoundsLike = Union[List[float], Tuple[float], dict, BaseGeometry]
-ZoomLevelsLike = Union[Iterable[int], int, dict]
+ZoomLevelsLike = Union[List[int], int, dict]
 TileLike = Union[BufferedTile, Tuple[int, int, int]]
 
 
@@ -175,7 +176,7 @@ class ZoomLevels(list):
 
     def __init__(
         self,
-        min: Union[Iterable[int], int],
+        min: Union[List[int], int],
         max: Optional[int] = None,
         descending: bool = False,
     ):
@@ -223,7 +224,7 @@ class ZoomLevels(list):
         return value in list(self)
 
     def _set_attributes(
-        self, minlevel: Union[Iterable[int], int], maxlevel: Optional[int] = None
+        self, minlevel: Union[List[int], int], maxlevel: Optional[int] = None
     ) -> None:
         """This method is important when ZoomLevel instances are passed on to the ProcessConfig schema."""
         if hasattr(minlevel, "__iter__"):  # pragma: no cover
@@ -291,6 +292,13 @@ class ZoomLevels(list):
             raise ValueError("ZoomLevels do not intersect")
         return ZoomLevels(min(intersection), max(intersection))
 
+    def difference(self, other: ZoomLevelsLike) -> ZoomLevels:
+        other = other if isinstance(other, ZoomLevels) else ZoomLevels(other)
+        difference = set(self).difference(set(other))
+        if len(difference) == 0:  # pragma: no cover
+            raise ValueError("ZoomLevels do not differ")
+        return ZoomLevels(min(difference), max(difference))
+
     def intersects(self, other: ZoomLevelsLike) -> bool:
         other = other if isinstance(other, ZoomLevels) else ZoomLevels(other)
         try:
@@ -300,3 +308,8 @@ class ZoomLevels(list):
 
     def descending(self) -> ZoomLevels:
         return ZoomLevels(min=self.min, max=self.max, descending=True)
+
+
+class Progress(BaseModel):
+    current: int = 0
+    total: Optional[int] = None

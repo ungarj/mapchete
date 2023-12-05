@@ -1,30 +1,32 @@
 """Remove tiles from Tile Directory."""
 
 import logging
-from typing import Callable, List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
+from mapchete.commands.observer import ObserverProtocol, Observers
 from mapchete.io import tiles_exist
 from mapchete.path import MPath
+from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
 
 
 def rm(
-    tiledir: str,
+    tiledir: Optional[MPathLike] = None,
+    paths: List[MPath] = None,
     zoom: Union[int, List[int]] = None,
     area: Union[BaseGeometry, str, dict] = None,
     area_crs: Union[CRS, str] = None,
     bounds: Tuple[float] = None,
     bounds_crs: Union[CRS, str] = None,
-    multi: int = None,
+    workers: Optional[int] = None,
     fs_opts: dict = None,
-    msg_callback: Callable = None,
-    as_iterator: bool = False,
-) -> mapchete.Job:
+    observers: Optional[List[ObserverProtocol]] = None,
+):
     """
     Remove tiles from TileDirectory.
 
@@ -43,45 +45,68 @@ def rm(
         Override bounds or area provided in process configuration.
     bounds_crs : CRS or str
         CRS of area (default: process CRS).
-    multi : int
-        Number of threads used to check whether tiles exist.
     fs_opts : dict
         Configuration options for fsspec filesystem.
-    msg_callback : Callable
-        Optional callback function for process messages.
-    as_iterator : bool
-        Returns as generator but with a __len__() property.
-
-    Returns
-    -------
-    mapchete.Job instance either with already processed items or a generator with known length.
-
-    Examples
-    --------
-    >>> rm("foo", zoom=5)
-
-    This will run the whole rm process.
-
-    >>> for i in rm("foo", zoom=5, as_iterator=True):
-    >>>     print(i)
-
-    This will return a generator where through iteration, tiles are removed.
-
-    >>> list(tqdm.tqdm(rm("foo", zoom=5, as_iterator=True)))
-
-    Usage within a process bar.
-
     """
+    all_observers = Observers(observers)
 
-    def _empty_callback(*_):
-        pass
+    if tiledir:
+        if zoom is None:  # pragma: no cover
+            raise ValueError("zoom level(s) required")
+        tiledir = MPath.from_inp(tiledir, storage_options=fs_opts)
+        paths = existing_paths(
+            tiledir=tiledir,
+            zoom=zoom,
+            area=area,
+            area_crs=area_crs,
+            bounds=bounds,
+            bounds_crs=bounds_crs,
+            workers=workers,
+        )
+        fs = tiledir.fs
+    elif isinstance(paths, list):
+        fs = MPath.from_inp(paths[0]).fs
+    else:  # pragma: no cover
+        raise ValueError(
+            "either a tile directory or a list of paths has to be provided"
+        )
 
-    msg_callback = msg_callback or _empty_callback
-    if zoom is None:  # pragma: no cover
-        raise ValueError("zoom level(s) required")
+    total = len(paths)
+    all_observers.notify(progress=Progress(total=total))
+    logger.debug("got %s path(s) on %s", len(paths), fs)
 
-    tiledir = MPath.from_inp(tiledir, storage_options=fs_opts)
+    # s3fs enables multiple paths as input, so let's use this:
+    if "s3" in fs.protocol:
+        fs.rm(paths)
+        for ii, path in enumerate(paths, 1):
+            msg = f"deleted {path}"
+            logger.debug(msg)
+            all_observers.notify(
+                progress=Progress(current=ii, total=total), message=msg
+            )
 
+    # otherwise, just iterate through the paths
+    else:
+        for ii, path in enumerate(paths, 1):
+            fs.rm(path)
+            msg = f"deleted {path}"
+            logger.debug(msg)
+            all_observers.notify(
+                progress=Progress(current=ii, total=total), message=msg
+            )
+
+    all_observers.notify(message=f"{len(paths)} tiles deleted")
+
+
+def existing_paths(
+    tiledir: Optional[MPathLike] = None,
+    zoom: Union[int, List[int]] = None,
+    area: Union[BaseGeometry, str, dict] = None,
+    area_crs: Union[CRS, str] = None,
+    bounds: Tuple[float] = None,
+    bounds_crs: Union[CRS, str] = None,
+    workers: Optional[int] = None,
+) -> dict:
     with mapchete.open(
         tiledir,
         zoom=zoom,
@@ -92,7 +117,6 @@ def rm(
         mode="readonly",
     ) as mp:
         tp = mp.config.output_pyramid
-
         tiles = {}
         for zoom in mp.config.init_zoom_levels:
             tiles[zoom] = []
@@ -106,55 +130,13 @@ def rm(
                     # this is required to omit tiles touching the config area
                     if mp.config.area_at_zoom(zoom).intersection(t.bbox).area
                 ],
-                workers=multi,
+                workers=workers,
             ):
                 if exists:
                     tiles[zoom].append(tile)
 
-        paths = [
+        return [
             mp.config.output_reader.get_path(tile)
             for zoom_tiles in tiles.values()
             for tile in zoom_tiles
         ]
-        return mapchete.Job(
-            _rm,
-            fargs=(
-                paths,
-                tiledir.fs,
-                msg_callback,
-            ),
-            as_iterator=as_iterator,
-            tiles_tasks=len(paths),
-        )
-
-
-def _rm(paths, fs, msg_callback, recursive=False, **_):
-    """
-    Remove one or multiple paths from file system.
-
-    Note: all paths have to be from the same file system!
-
-    Parameters
-    ----------
-    paths : str or list
-    fs : fsspec.FileSystem
-    """
-    logger.debug("got %s path(s) on %s", len(paths), fs)
-
-    # s3fs enables multiple paths as input, so let's use this:
-    if "s3" in fs.protocol:  # pragma: no cover
-        fs.rm(paths, recursive=recursive)
-        for path in paths:
-            msg = f"deleted {path}"
-            logger.debug(msg)
-            yield msg
-
-    # otherwise, just iterate through the paths
-    else:
-        for path in paths:
-            fs.rm(path, recursive=recursive)
-            msg = f"deleted {path}"
-            logger.debug(msg)
-            yield msg
-
-    msg_callback(f"{len(paths)} tiles deleted")

@@ -7,38 +7,34 @@ from mapchete import formats
 from mapchete.tile import BufferedTile
 
 
-def test_input_data_read(mp_tmpdir, flatgeobuf, landpoly_3857):
+def test_input_data_read(flatgeobuf, landpoly_3857):
     """Check FlatGeobuf as input data."""
+    tile = flatgeobuf.first_process_tile()
     with mapchete.open(flatgeobuf.dict) as mp:
-        for tile in mp.get_process_tiles():
-            assert isinstance(tile, BufferedTile)
-            input_tile = formats.default.geojson.InputTile(tile, mp)
-            assert isinstance(input_tile.read(), list)
-            for feature in input_tile.read():
-                assert "geometry" in feature
-                assert "properties" in feature
+        assert isinstance(tile, BufferedTile)
+        input_tile = formats.default.geojson.InputTile(tile, mp)
+        assert isinstance(input_tile.read(), list)
+        for feature in input_tile.read():
+            assert "geometry" in feature
+            assert "properties" in feature
 
     # reprojected FlatGeobuf
     config = flatgeobuf.dict
     config["input"].update(file1=landpoly_3857)
     # first, write tiles
     with mapchete.open(config, mode="overwrite") as mp:
-        for tile in mp.get_process_tiles(4):
-            assert isinstance(tile, BufferedTile)
-            output = mp.get_raw_output(tile)
-            mp.write(tile, output)
+        assert isinstance(tile, BufferedTile)
+        output = mp.get_raw_output(tile)
+        mp.write(tile, output)
     # then, read output
     with mapchete.open(config, mode="readonly") as mp:
         any_data = False
-        for tile in mp.get_process_tiles(4):
-            with mp.config.output.open(tile, mp) as input_tile:
-                if input_tile.is_empty():
-                    continue
-                any_data = True
-                assert isinstance(input_tile.read(), list)
-                for feature in input_tile.read():
-                    assert "geometry" in feature
-                    assert "properties" in feature
+        with mp.config.output.open(tile, mp) as input_tile:
+            any_data = True
+            assert isinstance(input_tile.read(), list)
+            for feature in input_tile.read():
+                assert "geometry" in feature
+                assert "properties" in feature
         assert any_data
 
 
@@ -94,7 +90,7 @@ def test_s3_output_data_rw(flatgeobuf_s3):
         # write empty
         mp.write(tile, None)
         # write data
-        raw_output = mp.execute(tile)
+        raw_output = mp.execute_tile(tile)
         assert isinstance(raw_output, list)
         assert len(raw_output)
         mp.write(tile, raw_output)

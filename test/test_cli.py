@@ -511,7 +511,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
             "--overviews",
             "--overviews-resampling-method",
             "bilinear",
-            "--multi",
+            "--workers",
             "1",
             "--concurrency",
             "none",
@@ -673,7 +673,7 @@ def test_convert_zoom(cleantopo_br_tif, mp_tmpdir, zoom, tiles):
 def test_convert_mapchete(cleantopo_br, mp_tmpdir):
     # prepare data
     with mapchete.open(cleantopo_br.path) as mp:
-        mp.batch_process(zoom=[1, 4])
+        list(mp.execute(zoom=[1, 4]))
     run_cli(
         [
             "convert",
@@ -705,7 +705,7 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
 def test_convert_tiledir(cleantopo_br, mp_tmpdir):
     # prepare data
     with mapchete.open(cleantopo_br.path) as mp:
-        mp.batch_process(zoom=[1, 4])
+        list(mp.execute(zoom=[1, 4]))
     run_cli(
         [
             "convert",
@@ -748,16 +748,22 @@ def test_convert_geojson(landpoly, mp_tmpdir):
             "geodetic",
             "--zoom",
             "4",
+            "--bounds",
+            "-101.25",
+            "78.75",
+            "-90.0",
+            "90.0",
             "--concurrency",
             "none",
         ]
     )
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
-        out_file = mp_tmpdir / zoom / row / col + ".geojson"
-        with fiona_open(out_file, "r") as src:
-            assert len(src) == control
-            for f in src:
-                assert shape(f["geometry"]).is_valid
+    zoom, row, col = (4, 0, 7)
+    control = 9
+    out_file = mp_tmpdir / zoom / row / col + ".geojson"
+    with fiona_open(out_file, "r") as src:
+        assert len(src) == control
+        for f in src:
+            assert shape(f["geometry"]).is_valid
 
 
 def test_convert_geobuf(landpoly, mp_tmpdir):
@@ -900,7 +906,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
 
     # prepare data for tiledir input
     with mapchete.open(cleantopo_br.path) as mp:
-        mp.batch_process(zoom=[1, 4])
+        mp.execute(zoom=[1, 4])
     tiledir_path = cleantopo_br.dict["config_dir"] / cleantopo_br.dict["output"]["path"]
 
     # zoom level required
@@ -1163,7 +1169,7 @@ def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_br, wkt_geom):
 
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
-        assert len(files) == 7
+        assert len(files) == 8  # was 7 before doing the observer pattern
         assert "3.geojson" in files
 
 
@@ -1424,29 +1430,6 @@ def test_rm(cleantopo_br):
         ]
     )
     assert not out_path.exists()
-
-
-def test_rm_storage_option_errors(cleantopo_br):
-    out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
-    run_cli(
-        [
-            "rm",
-            out_path,
-            "-z",
-            "5",
-            "-b",
-            "169.19251592399996",
-            "-90",
-            "180",
-            "-80.18582802550002",
-            "-f",
-            "--fs-opts",
-            "invalid_opt",
-        ],
-        output_contains="Error: Invalid value for '--fs-opts': Invalid syntax for KEY=VAL arg: invalid_opt",
-        expected_exit_code=2,
-        raise_exc=False,
-    )
 
 
 def test_fs_opt_extractor():

@@ -586,8 +586,6 @@ class GTiffSingleFileOutputWriter(
                     from_bounds(
                         *out_tile.bounds,
                         transform=self.dst.transform,
-                        height=self.dst.height,
-                        width=self.dst.width,
                     )
                     .round_lengths(pixel_precision=0)
                     .round_offsets(pixel_precision=0)

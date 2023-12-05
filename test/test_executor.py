@@ -5,6 +5,7 @@ import numpy.ma as ma
 import pytest
 
 import mapchete
+from mapchete.config import DaskSettings
 from mapchete.errors import MapcheteTaskFailed
 from mapchete.executor import MFuture
 from mapchete.executor.base import Profiler, Result, run_func_with_profilers
@@ -132,28 +133,22 @@ def test_process_exception_tile(mp_tmpdir, cleantopo_br, process_error_py):
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
-            list(mp.compute(tile=(5, 0, 0), concurrency="processes"))
+            list(mp.execute(tile=(5, 0, 0), concurrency="processes"))
 
 
-def test_process_exception_tile_dask(mp_tmpdir, cleantopo_br, process_error_py):
+@pytest.mark.parametrize("process_graph", [True, False])
+def test_process_exception_tile_dask(cleantopo_br, process_error_py, process_graph):
     """Assert process exception is raised."""
     config = cleantopo_br.dict
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
             list(
-                mp.compute(tile=(5, 0, 0), concurrency="dask", dask_compute_graph=True)
-            )
-
-
-def test_process_exception_tile_dask_nograph(mp_tmpdir, cleantopo_br, process_error_py):
-    """Assert process exception is raised."""
-    config = cleantopo_br.dict
-    config.update(process=process_error_py)
-    with mapchete.open(config) as mp:
-        with pytest.raises(MapcheteTaskFailed):
-            list(
-                mp.compute(tile=(5, 0, 0), concurrency="dask", dask_compute_graph=False)
+                mp.execute(
+                    tile=(5, 0, 0),
+                    concurrency="dask",
+                    dask_settings=DaskSettings(process_graph=process_graph),
+                )
             )
 
 
@@ -163,25 +158,23 @@ def test_process_exception_zoom(mp_tmpdir, cleantopo_br, process_error_py):
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
-            list(mp.compute(zoom=5, concurrency="processes"))
+            list(mp.execute(zoom=5, concurrency="processes"))
 
 
-def test_process_exception_zoom_dask(mp_tmpdir, cleantopo_br, process_error_py):
+@pytest.mark.parametrize("process_graph", [True, False])
+def test_process_exception_zoom_dask(cleantopo_br, process_error_py, process_graph):
     """Assert process exception is raised."""
     config = cleantopo_br.dict
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
-            list(mp.compute(zoom=5, concurrency="dask", dask_compute_graph=True))
-
-
-def test_process_exception_zoom_dask_nograph(mp_tmpdir, cleantopo_br, process_error_py):
-    """Assert process exception is raised."""
-    config = cleantopo_br.dict
-    config.update(process=process_error_py)
-    with mapchete.open(config) as mp:
-        with pytest.raises(MapcheteTaskFailed):
-            list(mp.compute(zoom=5, concurrency="dask", dask_compute_graph=False))
+            list(
+                mp.execute(
+                    zoom=5,
+                    concurrency="dask",
+                    dask_settings=DaskSettings(process_graph=process_graph),
+                )
+            )
 
 
 def test_dask_cancellederror(dask_executor, items=10):
@@ -227,15 +220,20 @@ def test_profile_wrapper(request, path_fixture):
 )
 def test_profile_wrapper_requests(request, path_fixture):
     path = request.getfixturevalue(path_fixture)
-    result = run_func_with_profilers(
-        read_raster_no_crs,
-        path,
-        profilers=[
-            Profiler(name="time", decorator=measure_time),
-            Profiler(name="requests", decorator=measure_requests),
-            Profiler(name="memory", decorator=measure_memory),
-        ],
-    )
+
+    # setting this is important, otherwise GDAL will cache the file
+    # and thus measure_requests will not be able to count requests
+    # if the file has already been opened in a prior tests
+    with path.rio_env(opts=dict(CPL_VSIL_CURL_NON_CACHED=path.as_gdal_str())):
+        result = run_func_with_profilers(
+            read_raster_no_crs,
+            path,
+            profilers=[
+                Profiler(name="time", decorator=measure_time),
+                Profiler(name="requests", decorator=measure_requests),
+                Profiler(name="memory", decorator=measure_memory),
+            ],
+        )
     assert isinstance(result, Result)
     assert isinstance(result.output, ma.MaskedArray)
     assert isinstance(result.profiling, dict)

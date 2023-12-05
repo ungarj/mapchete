@@ -10,9 +10,12 @@ Subpackages
    mapchete.cli
    mapchete.commands
    mapchete.commons
+   mapchete.config
+   mapchete.executor
    mapchete.formats
    mapchete.io
    mapchete.processes
+   mapchete.processing
 
 Submodules
 ----------
@@ -20,14 +23,18 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   mapchete.config
+   mapchete.enums
    mapchete.errors
    mapchete.index
    mapchete.log
    mapchete.path
+   mapchete.protocols
+   mapchete.registered
+   mapchete.settings
    mapchete.stac
    mapchete.testing
    mapchete.tile
+   mapchete.timer
    mapchete.types
    mapchete.validate
 

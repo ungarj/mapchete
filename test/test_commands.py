@@ -9,13 +9,24 @@ from tilematrix import TilePyramid
 
 import mapchete
 from mapchete.commands import convert, cp, execute, index, rm
-from mapchete.executor import ConcurrentFuturesExecutor, SequentialExecutor
+from mapchete.config import DaskSettings
+from mapchete.enums import Status
+from mapchete.errors import JobCancelledError
 from mapchete.io import fiona_open, rasterio_open
-from mapchete.processing.job import Status
-from mapchete.processing.types import TaskResult
+from mapchete.processing.types import TaskInfo
+from mapchete.protocols import ObserverProtocol
+from mapchete.tile import BufferedTilePyramid
 
 SCRIPTDIR = os.path.dirname(os.path.realpath(__file__))
 TESTDATA_DIR = os.path.join(SCRIPTDIR, "testdata")
+
+
+class TaskCounter(ObserverProtocol):
+    tasks = 0
+
+    def update(self, *args, progress=None, **kwargs):
+        if progress:
+            self.tasks = progress.current
 
 
 def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
@@ -23,123 +34,202 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
     with mapchete.open(
         cleantopo_br.dict, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
     ) as mp:
-        mp.batch_process(zoom=5)
+        list(mp.execute(zoom=5))
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
     # copy tiles and subset by bounds
-    tiles = cp(
+    task_counter = TaskCounter()
+    cp(
         out_path,
         os.path.join(mp_tmpdir, "bounds"),
         zoom=5,
         bounds=[169.19251592399996, -90, 180, -80.18582802550002],
+        observers=[task_counter],
     )
-    assert len(tiles)
+    assert task_counter.tasks
 
     # copy all tiles
-    tiles = cp(
-        out_path,
-        os.path.join(mp_tmpdir, "all"),
-        zoom=5,
-    )
-    assert len(tiles)
+    task_counter = TaskCounter()
+    cp(out_path, os.path.join(mp_tmpdir, "all"), zoom=5, observers=[task_counter])
+    assert task_counter.tasks
 
     # copy tiles and subset by area
-    tiles = cp(out_path, os.path.join(mp_tmpdir, "area"), zoom=5, area=wkt_geom)
-    assert len(tiles)
+    task_counter = TaskCounter()
+    cp(
+        out_path,
+        os.path.join(mp_tmpdir, "area"),
+        zoom=5,
+        area=wkt_geom,
+        observers=[task_counter],
+    )
+    assert task_counter.tasks
 
     # copy local tiles without using threads
-    tiles = cp(out_path, os.path.join(mp_tmpdir, "nothreads"), zoom=5, multi=1)
-    assert len(tiles)
+    task_counter = TaskCounter()
+    cp(
+        out_path,
+        os.path.join(mp_tmpdir, "nothreads"),
+        zoom=5,
+        multi=1,
+        observers=[task_counter],
+    )
+    assert task_counter.tasks
 
 
 @pytest.mark.integration
 def test_cp_http(mp_tmpdir, http_tiledir):
     # copy tiles and subset by bounds
-    tiles = cp(
-        http_tiledir, os.path.join(mp_tmpdir, "http"), zoom=1, bounds=[3, 1, 4, 2]
+    task_counter = TaskCounter()
+    cp(
+        http_tiledir,
+        os.path.join(mp_tmpdir, "http"),
+        zoom=1,
+        bounds=[3, 1, 4, 2],
+        observers=[task_counter],
     )
-    assert len(tiles)
+    assert task_counter.tasks
 
 
-def test_rm(mp_tmpdir, cleantopo_br):
+def test_rm(cleantopo_br):
     # generate TileDirectory
     with mapchete.open(
         cleantopo_br.dict, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
     ) as mp:
-        mp.batch_process(zoom=5)
+        list(mp.execute(zoom=5))
     out_path = os.path.join(TESTDATA_DIR, cleantopo_br.dict["output"]["path"])
 
     # remove tiles
-    tiles = rm(out_path, zoom=5)
-    assert len(tiles) > 0
+    task_counter = TaskCounter()
+    rm(out_path, zoom=5, observers=[task_counter])
+    assert task_counter.tasks
 
     # remove tiles but this time they should already have been removed
-    tiles = rm(out_path, zoom=5)
-    assert len(tiles) == 0
+    task_counter = TaskCounter()
+    rm(out_path, zoom=5, observers=[task_counter])
+    assert task_counter.tasks == 0
 
 
-def test_execute(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
+def test_rm_path_list(mp_tmpdir):
+    out_path = mp_tmpdir / "some_file.txt"
+    with out_path.open("w") as dst:
+        dst.write("foo")
+
+    assert out_path.exists()
+    rm(paths=[out_path])
+    assert not out_path.exists()
+
+
+@pytest.mark.integration
+def test_rm_path_list_s3(s3_testdata_dir):
+    out_path = s3_testdata_dir / "some_file.txt"
+    with out_path.open("w") as dst:
+        dst.write("foo")
+
+    assert out_path.exists()
+    rm(paths=[out_path])
+    assert not out_path.exists()
+
+
+@pytest.mark.parametrize(
+    "concurrency,process_graph",
+    [
+        ("threads", None),
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
+    ],
+)
+def test_execute(
+    cleantopo_br_metatiling_1, cleantopo_br_tif, concurrency, process_graph
+):
+    execute_kwargs = dict(concurrency=concurrency)
+    if concurrency == "dask":
+        execute_kwargs.update(dask_settings=DaskSettings(process_graph=process_graph))
+
     zoom = 5
     tp = TilePyramid("geodetic")
     with rasterio_open(cleantopo_br_tif) as src:
         tiles = list(tp.tiles_from_bounds(src.bounds, zoom))
-    job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom)
-    for t in job:
-        assert t
-    assert len(tiles) == len(job)
+    execute(cleantopo_br_metatiling_1.dict, zoom=zoom, **execute_kwargs)
     mp = cleantopo_br_metatiling_1.mp()
     for t in tiles:
         with rasterio_open(mp.config.output.get_path(t)) as src:
             assert not src.read(masked=True).mask.all()
 
 
-def test_execute_set_executor(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
+def test_execute_retry(example_mapchete):
+    zoom = 10
+    retries = 2
+
+    class ExceptionRaiser:
+        """Makes the job fail during progress."""
+
+        def update(*args, progress=None, **kwargs):
+            if progress and progress.current > 2:
+                raise RuntimeError("This job just raised an exception!")
+
+    class RetryCounter:
+        """Count retry attempts."""
+
+        retries = 0
+
+        def update(self, *args, status=None, **kwargs):
+            if status and status == Status.retrying:
+                self.retries += 1
+
+    exception_raiser = ExceptionRaiser()
+    retry_counter = RetryCounter()
+
+    # this job should fail
+    with pytest.raises(RuntimeError):
+        execute(
+            example_mapchete.dict,
+            zoom=zoom,
+            retries=retries,
+            observers=[exception_raiser, retry_counter],
+            concurrency=None,
+        )
+
+    # make sure job has been retried
+    assert retry_counter.retries == retries
+
+
+def test_execute_cancel(cleantopo_br_metatiling_1):
     zoom = 5
-    tp = TilePyramid("geodetic")
-    with rasterio_open(cleantopo_br_tif) as src:
-        tiles = list(tp.tiles_from_bounds(src.bounds, zoom))
-    job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom, as_iterator=True)
 
-    # invalid concurrency
-    job.set_executor_concurrency("invalid")
-    with pytest.raises(ValueError):
-        next(iter(job))
+    class CancelObserver:
+        """Cancels job when running."""
 
-    # reset to concurrent.futures
-    job.set_executor_concurrency("processes")
-    next(iter(job))
-    assert isinstance(job.executor, ConcurrentFuturesExecutor)
+        def update(*args, progress=None, **kwargs):
+            if progress and progress.current > 0:
+                raise JobCancelledError
 
-    # with max_workers: 1 it should fall back to a sequential executor
-    job.set_executor_kwargs({"max_workers": 1})
-    next(iter(job))
-    assert isinstance(job.executor, SequentialExecutor)
+    class StatusObserver:
+        """Observes job state."""
 
-    # make sure everything runs smoothly from here on
-    for t in job:
-        assert t
-    assert len(tiles) == len(job)
-    mp = cleantopo_br_metatiling_1.mp()
-    for t in tiles:
-        with rasterio_open(mp.config.output.get_path(t)) as src:
-            assert not src.read(masked=True).mask.all()
+        status = None
 
+        def update(self, *args, status=None, **kwargs):
+            if status:
+                self.status = status
 
-def test_execute_cancel(mp_tmpdir, cleantopo_br_metatiling_1, cleantopo_br_tif):
-    zoom = 5
-    job = execute(cleantopo_br_metatiling_1.dict, zoom=zoom, as_iterator=True)
-    for i, t in enumerate(job):
-        job.cancel()
-        break
-    assert i == 0
-    assert job.status == Status.cancelled
+    state_observer = StatusObserver()
+    execute(
+        cleantopo_br_metatiling_1.dict,
+        zoom=zoom,
+        observers=[CancelObserver(), state_observer],
+        concurrency=None,
+    )
+    assert state_observer.status == Status.cancelled
 
 
 def test_execute_tile(mp_tmpdir, cleantopo_br_metatiling_1):
     tile = (5, 30, 63)
 
-    job = execute(cleantopo_br_metatiling_1.dict, tile=tile)
+    task_counter = TaskCounter()
+    execute(cleantopo_br_metatiling_1.dict, tile=tile, observers=[task_counter])
 
-    assert len(job) == 1
+    assert task_counter.tasks == 1
 
     mp = cleantopo_br_metatiling_1.mp()
     with rasterio_open(
@@ -152,60 +242,84 @@ def test_execute_point(mp_tmpdir, example_mapchete, dummy2_tif):
     """Using bounds from WKT."""
     with rasterio_open(dummy2_tif) as src:
         g = box(*src.bounds)
-    job = execute(example_mapchete.dict, point=[g.centroid.x, g.centroid.y], zoom=10)
-    assert len(job) == 1
+
+    task_counter = TaskCounter()
+    execute(
+        example_mapchete.dict,
+        point=[g.centroid.x, g.centroid.y],
+        zoom=10,
+        observers=[task_counter],
+    )
+    assert task_counter.tasks == 1
 
 
 @pytest.mark.parametrize(
-    "concurrency",
+    "concurrency,process_graph",
     [
-        "threads",
-        "dask",
-        "processes",
-        None,
+        ("threads", None),
+        ("dask", True),
+        ("dask", False),
+        ("processes", None),
+        (None, None),
     ],
 )
-def test_execute_preprocessing_tasks(concurrency, preprocess_cache_raster_vector):
-    job = execute(preprocess_cache_raster_vector.path, concurrency=concurrency)
-    assert len(job)
+def test_execute_preprocessing_tasks(
+    concurrency, preprocess_cache_raster_vector, process_graph
+):
+    execute_kwargs = dict(concurrency=concurrency)
+    if concurrency == "dask":
+        execute_kwargs.update(dask_settings=DaskSettings(process_graph=process_graph))
+
+    task_counter = TaskCounter()
+    execute(
+        preprocess_cache_raster_vector.path, observers=[task_counter], **execute_kwargs
+    )
+    assert task_counter.tasks
 
 
 @pytest.mark.parametrize(
-    "concurrency,dask_compute_graph",
+    "concurrency,process_graph",
     [
-        # ("threads", False),
+        # ("threads", False),  # profiling does not work with threads
         ("dask", False),
         ("dask", True),
         ("processes", False),
         (None, False),
     ],
 )
-def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, dask_compute_graph):
+def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, process_graph):
+    execute_kwargs = dict(concurrency=concurrency)
+    if concurrency == "dask":
+        execute_kwargs.update(dask_settings=DaskSettings(process_graph=process_graph))
+
     zoom = 5
-    for task_result in execute(
+
+    class TaskResultObserver(ObserverProtocol):
+        def update(self, *args, task_result=None, **kwargs):
+            if task_result:
+                assert isinstance(task_result, TaskInfo)
+                assert task_result.profiling
+                for profiler in ["time", "memory"]:
+                    assert profiler in task_result.profiling
+
+                assert task_result.profiling["time"].elapsed > 0
+
+                assert task_result.profiling["memory"].max_allocated > 0
+                assert task_result.profiling["memory"].total_allocated > 0
+                assert task_result.profiling["memory"].allocations > 0
+
+    execute(
         cleantopo_br_metatiling_1.dict,
         zoom=zoom,
-        as_iterator=True,
         profiling=True,
-        concurrency=concurrency,
-        dask_compute_graph=dask_compute_graph,
-    ):
-        assert isinstance(task_result, TaskResult)
-        assert task_result.profiling
-        for profiler in ["time", "memory"]:
-            assert profiler in task_result.profiling
-
-        assert task_result.profiling["time"].elapsed > 0
-
-        assert task_result.profiling["memory"].max_allocated > 0
-        assert task_result.profiling["memory"].total_allocated > 0
-        assert task_result.profiling["memory"].allocations > 0
+        observers=[TaskResultObserver()],
+        **execute_kwargs
+    )
 
 
 def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
-    job = convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="geodetic")
-    assert len(job)
+    convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="geodetic")
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio_open(out_file, "r") as src:
@@ -217,8 +331,7 @@ def test_convert_geodetic(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
     """Automatic mercator tile pyramid creation of raster files."""
-    job = convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator")
-    assert len(job)
+    convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator")
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio_open(out_file, "r") as src:
@@ -230,8 +343,7 @@ def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_custom_grid(s2_band, mp_tmpdir, custom_grid_json):
     """Automatic mercator tile pyramid creation of raster files."""
-    job = convert(s2_band, mp_tmpdir, output_pyramid=custom_grid_json)
-    assert len(job)
+    convert(s2_band, mp_tmpdir, output_pyramid=custom_grid_json)
     for zoom, row, col in [(0, 5298, 631)]:
         out_file = mp_tmpdir / zoom / row / col + ".tif"
         with rasterio_open(out_file, "r") as src:
@@ -243,10 +355,8 @@ def test_convert_custom_grid(s2_band, mp_tmpdir, custom_grid_json):
 
 def test_convert_png(cleantopo_br_tif, mp_tmpdir):
     """Automatic PNG tile pyramid creation of raster files."""
-    job = convert(
-        cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", output_format="PNG"
-    )
-    assert len(job)
+    convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", output_format="PNG")
+
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".png"])
         with warnings.catch_warnings():
@@ -261,10 +371,7 @@ def test_convert_png(cleantopo_br_tif, mp_tmpdir):
 def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out_bidx.tif")
-    job = convert(
-        cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=3, bidx=1
-    )
-    assert len(job)
+    convert(cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=3, bidx=1)
     with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
@@ -276,8 +383,7 @@ def test_convert_bidx(cleantopo_br_tif, mp_tmpdir):
 def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
-    job = convert(cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=3)
-    assert len(job)
+    convert(cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=3)
     with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
@@ -289,10 +395,7 @@ def test_convert_single_gtiff(cleantopo_br_tif, mp_tmpdir):
 def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out_cog.tif")
-    job = convert(
-        cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=5, cog=True
-    )
-    assert len(job)
+    convert(cleantopo_br_tif, single_gtiff, output_pyramid="geodetic", zoom=5, cog=True)
     with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
@@ -304,7 +407,7 @@ def test_convert_single_gtiff_cog(cleantopo_br_tif, mp_tmpdir):
 def test_convert_single_gtiff_cog_dask(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out_cog.tif")
-    job = convert(
+    convert(
         cleantopo_br_tif,
         single_gtiff,
         output_pyramid="geodetic",
@@ -312,7 +415,6 @@ def test_convert_single_gtiff_cog_dask(cleantopo_br_tif, mp_tmpdir):
         cog=True,
         concurrency="dask",
     )
-    assert len(job)
     with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
@@ -324,7 +426,7 @@ def test_convert_single_gtiff_cog_dask(cleantopo_br_tif, mp_tmpdir):
 def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
-    job = convert(
+    convert(
         cleantopo_br_tif,
         single_gtiff,
         output_pyramid="geodetic",
@@ -333,7 +435,6 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         overviews_resampling_method="bilinear",
         concurrency=None,
     )
-    assert len(job)
     with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
@@ -346,10 +447,9 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
 def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     single_gtiff = os.path.join(mp_tmpdir, "single_out.tif")
-    job = convert(
+    convert(
         http_raster, single_gtiff, output_pyramid="geodetic", zoom=1, concurrency=None
     )
-    assert len(job)
     with rasterio_open(single_gtiff, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
@@ -359,10 +459,9 @@ def test_convert_remote_single_gtiff(http_raster, mp_tmpdir):
 
 def test_convert_dtype(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using dtype scale."""
-    job = convert(
+    convert(
         cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", output_dtype="uint8"
     )
-    assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio_open(out_file, "r") as src:
@@ -374,14 +473,13 @@ def test_convert_dtype(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation cropping data."""
-    job = convert(
+    convert(
         cleantopo_br_tif,
         mp_tmpdir,
         output_pyramid="mercator",
         output_dtype="uint8",
         scale_ratio=0.003,
     )
-    assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio_open(out_file, "r") as src:
@@ -394,14 +492,13 @@ def test_convert_scale_ratio(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_scale_offset(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation cropping data."""
-    job = convert(
+    convert(
         cleantopo_br_tif,
         mp_tmpdir,
         output_pyramid="mercator",
         output_dtype="uint8",
         scale_offset=1,
     )
-    assert len(job)
     for zoom, row, col in [(4, 15, 15), (3, 7, 7)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio_open(out_file, "r") as src:
@@ -414,16 +511,20 @@ def test_convert_scale_offset(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_clip(cleantopo_br_tif, mp_tmpdir, landpoly):
     """Automatic tile pyramid creation cropping data."""
-    job = convert(
-        cleantopo_br_tif, mp_tmpdir, output_pyramid="geodetic", clip_geometry=landpoly
+    task_counter = TaskCounter()
+    convert(
+        cleantopo_br_tif,
+        mp_tmpdir,
+        output_pyramid="geodetic",
+        clip_geometry=landpoly,
+        observers=[task_counter],
     )
-    assert len(job) == 0
+    assert task_counter.tasks == 0
 
 
 def test_convert_zoom(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using a specific zoom."""
-    job = convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", zoom=3)
-    assert len(job)
+    convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", zoom=3)
     for zoom, row, col in [(4, 15, 15), (2, 3, 0)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         assert not os.path.isfile(out_file)
@@ -431,8 +532,7 @@ def test_convert_zoom(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using min max zoom."""
-    job = convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", zoom=[3, 4])
-    assert len(job)
+    convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", zoom=[3, 4])
     for zoom, row, col in [(2, 3, 0)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         assert not os.path.isfile(out_file)
@@ -440,8 +540,7 @@ def test_convert_zoom_minmax(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
     """Automatic tile pyramid creation using max min zoom."""
-    job = convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", zoom=[4, 3])
-    assert len(job)
+    convert(cleantopo_br_tif, mp_tmpdir, output_pyramid="mercator", zoom=[4, 3])
     for zoom, row, col in [(2, 3, 0)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         assert not os.path.isfile(out_file)
@@ -449,17 +548,15 @@ def test_convert_zoom_maxmin(cleantopo_br_tif, mp_tmpdir):
 
 def test_convert_mapchete(cleantopo_br, mp_tmpdir):
     # prepare data
-    job = execute(cleantopo_br.path, zoom=[1, 3])
-    assert len(job)
+    execute(cleantopo_br.path, zoom=[1, 3])
 
-    job = convert(
+    convert(
         cleantopo_br.path,
         mp_tmpdir,
         output_pyramid="geodetic",
         output_metatiling=1,
         zoom=[1, 3],
     )
-    assert len(job)
     for zoom, row, col in [(3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio_open(out_file, "r") as src:
@@ -470,10 +567,11 @@ def test_convert_mapchete(cleantopo_br, mp_tmpdir):
 
 
 def test_convert_tiledir(cleantopo_br, mp_tmpdir):
+    bounds = BufferedTilePyramid("geodetic").tile(4, 15, 31).bounds
     # prepare data
     with mapchete.open(cleantopo_br.dict) as mp:
-        mp.batch_process(zoom=[1, 4])
-    job = convert(
+        list(mp.execute(zoom=[1, 4]))
+    convert(
         os.path.join(
             cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
         ),
@@ -481,8 +579,8 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
         output_pyramid="geodetic",
         output_metatiling=1,
         zoom=[1, 4],
+        bounds=bounds,
     )
-    assert len(job)
     for zoom, row, col in [(4, 15, 31), (3, 7, 15), (2, 3, 7), (1, 1, 3)]:
         out_file = os.path.join(*[mp_tmpdir, str(zoom), str(row), str(col) + ".tif"])
         with rasterio_open(out_file, "r") as src:
@@ -495,8 +593,7 @@ def test_convert_tiledir(cleantopo_br, mp_tmpdir):
 def test_convert_gcps(gcps_tif, mp_tmpdir):
     """Automatic geodetic tile pyramid creation of raster files."""
     out_file = os.path.join(mp_tmpdir, "gcps_out.tif")
-    job = convert(gcps_tif, out_file, output_pyramid="geodetic", zoom=8)
-    assert len(job)
+    convert(gcps_tif, out_file, output_pyramid="geodetic", zoom=8)
     with rasterio_open(out_file, "r") as src:
         assert src.meta["driver"] == "GTiff"
         assert src.meta["dtype"] == "uint16"
@@ -505,8 +602,7 @@ def test_convert_gcps(gcps_tif, mp_tmpdir):
 
 
 def test_convert_geojson(landpoly, mp_tmpdir):
-    job = convert(landpoly, mp_tmpdir, output_pyramid="geodetic", zoom=4)
-    assert len(job)
+    convert(landpoly, mp_tmpdir, output_pyramid="geodetic", zoom=4)
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
         out_file = os.path.join(
             *[mp_tmpdir, str(zoom), str(row), str(col) + ".geojson"]
@@ -520,14 +616,13 @@ def test_convert_geojson(landpoly, mp_tmpdir):
 def test_convert_geobuf(landpoly, mp_tmpdir):
     # convert to geobuf
     geobuf_outdir = os.path.join(mp_tmpdir, "geobuf")
-    job = convert(
+    convert(
         landpoly,
         geobuf_outdir,
         output_pyramid="geodetic",
         zoom=4,
         output_format="Geobuf",
     )
-    assert len(job)
     for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
         out_file = os.path.join(
             *[geobuf_outdir, str(zoom), str(row), str(col) + ".pbf"]
@@ -551,7 +646,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
 
     # prepare data for tiledir input
     with mapchete.open(cleantopo_br.dict) as mp:
-        mp.batch_process(zoom=[1, 4])
+        list(mp.execute(zoom=[1, 4]))
     tiledir_path = os.path.join(
         cleantopo_br.dict["config_dir"], cleantopo_br.dict["output"]["path"]
     )
@@ -581,12 +676,10 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
 
 def test_index_geojson(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    job = execute(cleantopo_br.dict, zoom=3)
-    assert len(job)
+    execute(cleantopo_br.dict, zoom=3)
 
     # generate index for zoom 3
-    job = index(cleantopo_br.dict, zoom=3, geojson=True)
-    assert len(job)
+    index(cleantopo_br.dict, zoom=3, geojson=True)
 
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -600,17 +693,15 @@ def test_index_geojson(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    job = execute(cleantopo_br.dict, zoom=3)
-    assert len(job)
+    execute(cleantopo_br.dict, zoom=3)
 
     # index and rename "location" to "new_fieldname"
-    job = index(
+    index(
         cleantopo_br.dict,
         zoom=3,
         geojson=True,
         fieldname="new_fieldname",
     )
-    assert len(job)
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "3.geojson" in files
@@ -622,13 +713,11 @@ def test_index_geojson_fieldname(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    job = execute(cleantopo_br.dict, zoom=3)
-    assert len(job)
+    execute(cleantopo_br.dict, zoom=3)
 
     basepath = "http://localhost"
     # index and rename "location" to "new_fieldname"
-    job = index(cleantopo_br.dict, zoom=3, geojson=True, basepath=basepath)
-    assert len(job)
+    index(cleantopo_br.dict, zoom=3, geojson=True, basepath=basepath)
 
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -641,15 +730,11 @@ def test_index_geojson_basepath(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
     # execute process at zoom 3
-    job = execute(cleantopo_br.dict, zoom=3)
-    assert len(job)
+    execute(cleantopo_br.dict, zoom=3)
 
     basepath = "http://localhost"
     # index and rename "location" to "new_fieldname"
-    job = index(
-        cleantopo_br.dict, zoom=3, geojson=True, basepath=basepath, for_gdal=True
-    )
-    assert len(job)
+    index(cleantopo_br.dict, zoom=3, geojson=True, basepath=basepath, for_gdal=True)
 
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -662,12 +747,10 @@ def test_index_geojson_for_gdal(mp_tmpdir, cleantopo_br):
 
 def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
     # execute process at zoom 3
-    job = execute(cleantopo_tl.dict, zoom=3)
-    assert len(job)
+    execute(cleantopo_tl.dict, zoom=3)
 
     # generate index
-    job = index(cleantopo_tl.dict, tile=(3, 0, 0), geojson=True)
-    assert len(job)
+    index(cleantopo_tl.dict, tile=(3, 0, 0), geojson=True)
 
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -679,12 +762,10 @@ def test_index_geojson_tile(mp_tmpdir, cleantopo_tl):
 
 def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_tl, wkt_geom_tl):
     # execute process at zoom 3
-    job = execute(cleantopo_tl.dict, area=wkt_geom_tl)
-    assert len(job)
+    execute(cleantopo_tl.dict, area=wkt_geom_tl)
 
     # generate index for zoom 3
-    job = index(cleantopo_tl.dict, geojson=True, area=wkt_geom_tl)
-    assert len(job)
+    index(cleantopo_tl.dict, geojson=True, area=wkt_geom_tl)
 
     with mapchete.open(cleantopo_tl.dict) as mp:
         files = os.listdir(mp.config.output.path)
@@ -694,12 +775,11 @@ def test_index_geojson_wkt_area(mp_tmpdir, cleantopo_tl, wkt_geom_tl):
 
 def test_index_gpkg(mp_tmpdir, cleantopo_br):
     # execute process
-    job = execute(cleantopo_br.dict, zoom=5)
-    assert len(job)
+    execute(cleantopo_br.dict, zoom=5)
 
     # generate index
-    job = index(cleantopo_br.dict, zoom=5, gpkg=True)
-    assert len(job)
+    index(cleantopo_br.dict, zoom=5, gpkg=True)
+
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
@@ -709,8 +789,8 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
-    job = index(cleantopo_br.dict, zoom=5, gpkg=True)
-    assert len(job)
+    index(cleantopo_br.dict, zoom=5, gpkg=True)
+
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.gpkg" in files
@@ -722,12 +802,11 @@ def test_index_gpkg(mp_tmpdir, cleantopo_br):
 
 def test_index_shp(mp_tmpdir, cleantopo_br):
     # execute process
-    job = execute(cleantopo_br.dict, zoom=5)
-    assert len(job)
+    execute(cleantopo_br.dict, zoom=5)
 
     # generate index
-    job = index(cleantopo_br.dict, zoom=5, shp=True)
-    assert len(job)
+    index(cleantopo_br.dict, zoom=5, shp=True)
+
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
@@ -737,8 +816,8 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
-    job = index(cleantopo_br.dict, zoom=5, shp=True)
-    assert len(job)
+    index(cleantopo_br.dict, zoom=5, shp=True)
+
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
@@ -750,12 +829,11 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
 
 def test_index_text(cleantopo_br):
     # execute process
-    job = execute(cleantopo_br.dict, zoom=5)
-    assert len(job)
+    execute(cleantopo_br.dict, zoom=5)
 
     # generate index
-    job = index(cleantopo_br.dict, zoom=5, txt=True)
-    assert len(job)
+    index(cleantopo_br.dict, zoom=5, txt=True)
+
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.txt" in files
@@ -766,8 +844,8 @@ def test_index_text(cleantopo_br):
             assert l.endswith("7.tif\n")
 
     # write again and assert there is no new entry because there is already one
-    job = index(cleantopo_br.dict, zoom=5, txt=True)
-    assert len(job)
+    index(cleantopo_br.dict, zoom=5, txt=True)
+
     with mapchete.open(cleantopo_br.dict) as mp:
         files = os.listdir(mp.config.output.path)
         assert "5.txt" in files

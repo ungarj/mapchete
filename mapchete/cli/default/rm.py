@@ -3,6 +3,8 @@ import tqdm
 
 from mapchete import commands
 from mapchete.cli import options
+from mapchete.cli.progress_bar import PBar
+from mapchete.commands._rm import existing_paths
 
 
 @click.command(help="Remove tiles from TileDirectory.")
@@ -12,13 +14,12 @@ from mapchete.cli import options
 @options.opt_area_crs
 @options.opt_bounds
 @options.opt_bounds_crs
-@options.opt_multi
+@options.opt_workers
 @options.opt_verbose
 @options.opt_no_pbar
 @options.opt_debug
 @options.opt_logfile
 @options.opt_force
-@options.opt_fs_opts
 def rm(
     *args,
     force=False,
@@ -29,22 +30,20 @@ def rm(
     **kwargs,
 ):
     """Remove tiles from TileDirectory."""
-    tiles_to_delete = commands.rm(
+    tiles_to_delete = existing_paths(
         *args,
-        as_iterator=True,
-        msg_callback=tqdm.tqdm.write if verbose else None,
         **kwargs,
     )
     if len(tiles_to_delete):
         if force or click.confirm(
             f"Do you want to delete {len(tiles_to_delete)} tiles?", abort=True
         ):
-            list(
-                tqdm.tqdm(
-                    tiles_to_delete,
-                    unit="tile",
-                    disable=debug or no_pbar,
-                )
-            )
+            with PBar(
+                total=len(tiles_to_delete),
+                desc="tiles",
+                disable=debug or no_pbar,
+                print_messages=verbose,
+            ) as pbar:
+                commands.rm(paths=tiles_to_delete, observers=[pbar], **kwargs)
     else:  # pragma: no cover
         tqdm.tqdm.write("No tiles found to delete.")

@@ -1,4 +1,6 @@
 """Mapchtete handling tiles."""
+from __future__ import annotations
+
 import logging
 from functools import cached_property
 from itertools import product
@@ -192,6 +194,12 @@ class BufferedTilePyramid(TilePyramid):
             pixelbuffer=self.pixelbuffer,
         )
 
+    def without_pixelbuffer(self) -> BufferedTilePyramid:
+        config_dict = self.to_dict()
+        config_dict.update(pixelbuffer=0)
+        return BufferedTilePyramid(**config_dict)
+
+    @staticmethod
     def from_dict(config_dict):
         """
         Initialize TilePyramid from configuration dictionary.
@@ -367,11 +375,7 @@ class BufferedTile(Tile):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return "BufferedTile(%s, tile_pyramid=%s, pixelbuffer=%s)" % (
-            self.id,
-            self.tp,
-            self.pixelbuffer,
-        )
+        return f"BufferedTile(zoom={self.zoom}, row={self.row}, col={self.col})"
 
     def __hash__(self):
         return hash(repr(self))
@@ -467,7 +471,7 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
 
 
 def _count_cells(pyramid, geometry, minzoom, maxzoom):
-    if geometry.is_empty:
+    if geometry.is_empty:  # pragma: no cover
         return 0
 
     # for the rasterization algorithm we need to keep the all_touched flag True

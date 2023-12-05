@@ -1,7 +1,7 @@
-mapchete.io.settings module
+mapchete.config.base module
 ===========================
 
-.. automodule:: mapchete.io.settings
+.. automodule:: mapchete.config.base
    :members:
    :undoc-members:
    :show-inheritance:

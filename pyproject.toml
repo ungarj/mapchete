@@ -48,14 +48,13 @@ dependencies = [
 [project.optional-dependencies]
 complete = [
     "aiohttp",
-    "aiobotocore>=1.1.2,!=2.7.0",
+    "aiobotocore>=1.1.2",
     "boto3>=1.14.44",
     "dask",
     "distributed",
     "Flask<3.0.0",
     "Flask-RangeRequest",
-    "fsspec[http]",
-    "fsspec[s3]",
+    "fsspec[http,s3]>=2023.12.0",
     "geobuf",
     "lxml",
     "matplotlib",
@@ -85,7 +84,7 @@ profiling = [
     "tilebench"
 ]
 s3 = [
-    "aiobotocore>=1.1.2,!=2.7.0",
+    "aiobotocore>=1.1.2,!=2.7.0,!=2.8.0",
     "boto3>=1.14.44",
     "fsspec[s3]",
     "s3fs!=2023.9.0",

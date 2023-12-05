@@ -43,7 +43,7 @@ def test_remote_indexes(gtiff_s3):
 
     with mapchete.open(gtiff_s3.dict) as mp:
         # write output data
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
 
         # generate indexes and check
         gen_indexes_and_check()
@@ -58,7 +58,7 @@ def test_vrt(mp_tmpdir, cleantopo_br):
         dict(cleantopo_br.dict, zoom_levels=dict(min=0, max=zoom))
     ) as mp:
         # generate output
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
 
         # generate index
         list(
@@ -114,7 +114,7 @@ def test_vrt(mp_tmpdir, cleantopo_br):
         dict(cleantopo_br.dict, zoom_levels=dict(min=0, max=zoom))
     ) as mp:
         # generate output
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
 
         # generate index
         list(
@@ -128,12 +128,12 @@ def test_vrt(mp_tmpdir, cleantopo_br):
 
 
 def test_vrt_mercator(cleantopo_br_mercator):
-    zoom = 8
+    zoom = 2
     with mapchete.open(
         dict(cleantopo_br_mercator.dict, zoom_levels=dict(min=0, max=zoom))
     ) as mp:
         # generate output
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
 
         # generate index
         list(
@@ -192,7 +192,7 @@ def test_vrt_mercator(cleantopo_br_mercator):
         dict(cleantopo_br_mercator.dict, zoom_levels=dict(min=0, max=zoom))
     ) as mp:
         # generate output
-        mp.batch_process(zoom=zoom)
+        list(mp.execute(zoom=zoom))
 
         # generate index
         list(

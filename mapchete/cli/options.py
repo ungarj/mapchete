@@ -81,7 +81,7 @@ def _cb_key_val(ctx, param, value):
     else:
         out = {}
         for pair in value:
-            if "=" not in pair:
+            if "=" not in pair:  # pragma: no cover
                 raise click.BadParameter(
                     "Invalid syntax for KEY=VAL arg: {}".format(pair)
                 )
@@ -203,12 +203,6 @@ opt_tile = click.option(
 )
 opt_overwrite = click.option(
     "--overwrite", "-o", is_flag=True, help="Overwrite if tile(s) already exist(s)."
-)
-opt_multi = click.option(
-    "--multi",
-    "-m",
-    type=click.INT,
-    help="Number of workers when processing concurrently.",
 )
 opt_workers = click.option(
     "--workers",

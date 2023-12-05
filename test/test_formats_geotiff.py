@@ -170,7 +170,7 @@ def test_write_geotiff_tags(mp_tmpdir, cleantopo_br, write_rasterfile_tags_py):
     conf.update(process=write_rasterfile_tags_py)
     with mapchete.open(conf) as mp:
         for tile in mp.get_process_tiles():
-            data, tags = mp.execute(tile)
+            data, tags = mp.execute_tile(tile)
             assert data.any()
             assert isinstance(tags, dict)
             mp.write(process_tile=tile, data=(data, tags))
@@ -195,7 +195,7 @@ def test_s3_write_output_data(gtiff_s3, s3_example_tile):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(tile=process_tile.id)
+        list(mp.execute(tile=process_tile.id))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -215,7 +215,7 @@ def test_output_single_gtiff(output_single_gtiff):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(workers=2)
+        list(mp.execute(workers=2))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -239,7 +239,7 @@ def test_output_single_gtiff(output_single_gtiff):
         process_tile = mp.config.process_pyramid.tile(*tile_id)
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(tile=process_tile.id)
+        list(mp.execute(tile=process_tile.id))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         assert mp.config.output.tiles_exist(
@@ -279,7 +279,7 @@ def test_output_single_gtiff_pixelbuffer(output_single_gtiff):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(tile=process_tile.id)
+        list(mp.execute(tile=process_tile.id))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -299,7 +299,7 @@ def test_output_single_gtiff_compression(output_single_gtiff):
         process_tile = mp.config.process_pyramid.tile(*tile_id)
         assert "compress" in mp.config.output.profile()
         assert mp.config.output.profile()["compress"] == "deflate"
-        mp.batch_process(tile=process_tile.id)
+        list(mp.execute(tile=process_tile.id))
 
     with rasterio_open(mp.config.output.path) as src:
         assert src.profile["compress"] == "deflate"
@@ -319,7 +319,7 @@ def test_output_single_gtiff_overviews(output_single_gtiff):
     ) as mp:
         tile_id = (5, 3, 7)
         process_tile = mp.config.process_pyramid.tile(*tile_id)
-        mp.batch_process(tile=process_tile.id)
+        list(mp.execute(tile=process_tile.id))
 
     with rasterio_open(mp.config.output.path) as src:
         assert src.overviews(1)
@@ -343,7 +343,7 @@ def test_output_single_gtiff_s3(output_single_gtiff_s3):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(workers=2)
+        list(mp.execute(workers=2))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -379,7 +379,7 @@ def test_output_single_gtiff_s3_tempfile(output_single_gtiff_s3):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(workers=2)
+        list(mp.execute(workers=2))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -409,7 +409,7 @@ def test_output_single_gtiff_cog(output_single_gtiff_cog):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(workers=2)
+        list(mp.execute(workers=2))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -445,7 +445,7 @@ def test_output_single_gtiff_cog_tempfile(output_single_gtiff_cog):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(workers=2)
+        list(mp.execute(workers=2))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data
@@ -477,7 +477,7 @@ def test_output_single_gtiff_cog_s3(output_single_gtiff_cog_s3):
         # check if tile exists
         assert not mp.config.output.tiles_exist(process_tile)
         # write
-        mp.batch_process(workers=2)
+        list(mp.execute(workers=2))
         # check if tile exists
         assert mp.config.output.tiles_exist(process_tile)
         # read again, this time with data

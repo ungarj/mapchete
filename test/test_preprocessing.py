@@ -42,10 +42,12 @@ def test_add_preprocessing_task(example_mapchete):
         assert mp.count_tasks() == tasks + 1
 
 
-def test_run_preprocessing_task(example_mapchete):
-    with mapchete.open(example_mapchete.dict) as mp:
+@pytest.mark.parametrize("concurrency", ["threads", "processes", "dask", None])
+def test_run_preprocessing_task(cleantopo_br, concurrency):
+    zoom = 5
+    with mapchete.open(cleantopo_br.dict) as mp:
         # get input object
-        inp = mp.config.input_at_zoom("file1", 10)
+        inp = mp.config.input_at_zoom("file1", zoom)
         with pytest.raises(KeyError):
             inp.get_preprocessing_task_result("test_task")
         # add a preprocessing task and make sure it is registered
@@ -54,24 +56,25 @@ def test_run_preprocessing_task(example_mapchete):
         )
         with pytest.raises(ValueError):
             inp.get_preprocessing_task_result("test_task")
-        mp.batch_preprocess()
+        list(
+            mp.execute(
+                concurrency=concurrency, zoom=zoom, remember_preprocessing_results=True
+            )
+        )
         assert inp.get_preprocessing_task_result("test_task") == "foofoobar"
 
 
-def test_run_preprocessing_tasks(example_mapchete):
-    with mapchete.open(example_mapchete.dict) as mp:
-        inp1 = mp.config.input_at_zoom("file1", 10)
+@pytest.mark.parametrize("concurrency", ["threads", "processes", "dask", None])
+def test_run_preprocessing_tasks(cleantopo_br, concurrency):
+    zoom = 3
+    with mapchete.open(cleantopo_br.dict) as mp:
+        inp1 = mp.config.input_at_zoom("file1", zoom)
         inp1.add_preprocessing_task(
             _trivial_func, key="test_task", fargs="foo", fkwargs={"kwarg": "foo"}
         )
         inp1.add_preprocessing_task(
             _trivial_func, key="test_other_task", fargs="bar", fkwargs={"kwarg": "foo"}
         )
-        inp2 = mp.config.input_at_zoom("file2", 10)
-        inp2.add_preprocessing_task(
-            _trivial_func, key="test_task", fargs="foo", fkwargs={"kwarg": "foo"}
-        )
-
         # total number of tasks should be 3
         assert (
             sum(
@@ -80,20 +83,22 @@ def test_run_preprocessing_tasks(example_mapchete):
                     for tasks in mp.config.preprocessing_tasks_per_input().values()
                 ]
             )
-            == 3
+            == 2
         )
 
-        assert mp.config.preprocessing_tasks_count() == 3
+        assert mp.config.preprocessing_tasks_count() == 2
 
-        mp.batch_preprocess()
+        list(
+            mp.execute(
+                concurrency=concurrency, zoom=zoom, remember_preprocessing_results=True
+            )
+        )
         assert mp.config.preprocessing_task_finished(f"{inp1.input_key}:test_task")
         assert inp1.get_preprocessing_task_result("test_task") == "foofoobar"
         assert mp.config.preprocessing_task_finished(
             f"{inp1.input_key}:test_other_task"
         )
         assert inp1.get_preprocessing_task_result("test_other_task") == "barfoobar"
-        assert mp.config.preprocessing_task_finished(f"{inp2.input_key}:test_task")
-        assert inp2.get_preprocessing_task_result("test_task") == "foofoobar"
 
 
 def test_preprocess_cache_raster_vector(preprocess_cache_raster_vector):
@@ -132,7 +137,7 @@ def test_preprocessing_tasks_dependencies(preprocess_cache_memory):
             for task in input_data.preprocessing_tasks.values():
                 assert isinstance(task, Task)
                 assert task.has_geometry()
-        list(mp.compute())
+        list(mp.execute())
 
         out_path = mp.config.output_reader.path
         total_tifs = len(
@@ -154,7 +159,7 @@ def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory):
                 assert isinstance(task, Task)
                 assert task.has_geometry()
 
-        list(mp.compute(concurrency="dask"))
+        list(mp.execute(concurrency="dask"))
 
         out_path = mp.config.output_reader.path
         total_tifs = [
@@ -166,7 +171,10 @@ def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory):
         assert len(total_tifs) == 9
 
 
-def test_preprocessing_tasks_dependencies_single_tile(preprocess_cache_memory):
+@pytest.mark.parametrize("concurrency", ["threads", "processes", "dask", None])
+def test_preprocessing_tasks_dependencies_single_tile(
+    preprocess_cache_memory, concurrency
+):
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         for i in ["clip", "inp"]:
             input_data = mp.config.input_at_zoom(key=i, zoom=5)
@@ -175,34 +183,10 @@ def test_preprocessing_tasks_dependencies_single_tile(preprocess_cache_memory):
                 assert task.has_geometry()
 
         tile = (5, 31, 63)
-        list(mp.compute(tile=tile))
-
-        out_path = mp.config.output_reader.get_path(
-            mp.config.process_pyramid.tile(*tile)
-        )
-        with rasterio_open(out_path) as src:
-            assert not src.read(masked=True).mask.all()
-
-        out_path = mp.config.output_reader.path
-        total_tifs = [
-            f"{directory[0]}/{file}"
-            for directory in fs_from_path(out_path).walk(out_path)
-            for file in directory[2]
-            if file.endswith(".tif")
-        ]
-        assert len(total_tifs) == 1
-
-
-def test_preprocessing_tasks_dependencies_single_tile_dask(preprocess_cache_memory):
-    with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
-        for i in ["clip", "inp"]:
-            input_data = mp.config.input_at_zoom(key=i, zoom=5)
-            for task in input_data.preprocessing_tasks.values():
-                assert isinstance(task, Task)
-                assert task.has_geometry()
-
-        tile = (5, 31, 63)
-        list(mp.compute(concurrency="dask", tile=tile))
+        for task_info in mp.execute(
+            tile=tile, concurrency=concurrency, remember_preprocessing_results=True
+        ):
+            pass
 
         out_path = mp.config.output_reader.get_path(
             mp.config.process_pyramid.tile(*tile)

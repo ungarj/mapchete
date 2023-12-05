@@ -1,5 +1,7 @@
 import time
 
+from mapchete.pretty import pretty_seconds
+
 
 class Timer:
     """
@@ -60,14 +62,7 @@ class Timer:
         )
 
     def __str__(self):
-        minutes, seconds = divmod(self.elapsed, 60)
-        hours, minutes = divmod(minutes, 60)
-        if hours:
-            return "%sh %sm %ss" % (int(hours), int(minutes), int(seconds))
-        elif minutes:
-            return "%sm %ss" % (int(minutes), int(seconds))
-        else:
-            return "%ss" % round(seconds, self._str_round)
+        return pretty_seconds(self.elapsed, self._str_round)
 
     @property
     def elapsed(self):

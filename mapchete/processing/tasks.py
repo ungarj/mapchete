@@ -1,42 +1,64 @@
 import logging
-from typing import Callable, Iterator, List, Optional
+from abc import ABC
+from enum import Enum
+from functools import cached_property
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 from uuid import uuid4
 
-from shapely.geometry import box, mapping
+import numpy.ma as ma
+from dask.delayed import Delayed, DelayedLeaf, delayed
+from shapely.geometry import Polygon, base, box, mapping, shape
+from shapely.ops import unary_union
 
+from mapchete.config import MapcheteConfig
+from mapchete.config.process_func import ProcessFunc
 from mapchete.errors import (
     MapcheteNodataTile,
     MapcheteProcessOutputError,
     NoTaskGeometry,
 )
-from mapchete.executor.base import Profiler, func_partial
+from mapchete.executor.base import Profiler
 from mapchete.io import raster
 from mapchete.io._geometry_operations import to_shape
 from mapchete.io.vector import IndexedFeatures
+from mapchete.path import MPath
 from mapchete.processing.mp import MapcheteProcess
+from mapchete.processing.types import TaskInfo, default_tile_task_id
+from mapchete.tile import BufferedTile
 from mapchete.timer import Timer
+from mapchete.types import Bounds, BoundsLike, TileLike, ZoomLevels, ZoomLevelsLike
 from mapchete.validate import validate_bounds
 
 logger = logging.getLogger(__name__)
 
 
-class Task:
+class Task(ABC):
     """Generic processing task.
 
     Can optionally have spatial properties attached which helps building up dependencies
     between tasks.
     """
 
+    id: str
+    func: Callable
+    fargs: Tuple
+    fkwargs: Tuple
+    dependencies: Dict[str, TaskInfo]
+    result_key_name: str
+    geometry: Optional[Union[base.BaseGeometry, dict]] = None
+    bounds: Optional[Bounds] = None
+    tile: Optional[BufferedTile] = None
+
     def __init__(
         self,
-        id=None,
-        func=None,
-        fargs=None,
-        fkwargs=None,
-        geometry=None,
-        bounds=None,
-        dependencies=None,
-        result_key_name=None,
+        id: Optional[str] = None,
+        func: Optional[Callable] = None,
+        fargs: Optional[Tuple] = None,
+        fkwargs: Optional[Tuple] = None,
+        dependencies: Optional[Dict[str, TaskInfo]] = None,
+        result_key_name: Optional[str] = None,
+        geometry: Optional[Union[base.BaseGeometry, dict]] = None,
+        bounds: Optional[BoundsLike] = None,
     ):
         self.id = id or uuid4().hex
         self.func = func
@@ -48,7 +70,7 @@ class Task:
             raise ValueError("only provide one of either 'geometry' or 'bounds'")
         elif geometry:
             self.geometry = to_shape(geometry)
-            self.bounds = self.geometry.bounds
+            self.bounds = validate_bounds(self.geometry.bounds)
         elif bounds:
             self.bounds = validate_bounds(bounds)
             self.geometry = box(*self.bounds)
@@ -58,7 +80,7 @@ class Task:
     def __repr__(self):  # pragma: no cover
         return f"Task(id={self.id}, bounds={self.bounds})"
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "bounds": self.bounds,
@@ -66,7 +88,7 @@ class Task:
             "properties": {},
         }
 
-    def add_dependencies(self, dependencies):
+    def add_dependencies(self, dependencies: Dict[str, TaskInfo]) -> None:
         dependencies = dependencies or {}
         if not isinstance(dependencies, dict):
             raise TypeError(
@@ -74,25 +96,31 @@ class Task:
             )
         self.dependencies.update(dependencies)
 
-    def execute(self, dependencies=None):
-        return func_partial(self.func, self.fargs, self.fkwargs, profilers=None)()
+    def execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> Any:
+        return self.func(*self.fargs, **self.fkwargs)
 
-    def has_geometry(self):
+    def has_geometry(self) -> bool:
         return self.geometry is not None
 
     @property
-    def __geo_interface__(self):
+    def __geo_interface__(self) -> mapping:
         if self.has_geometry():
             return mapping(self.geometry)
         else:
             raise NoTaskGeometry(f"{self} has no geo information assigned")
 
 
-def _execute_task_wrapper(task, **kwargs):
+def _execute_task_wrapper(task, **kwargs) -> Any:
     return task.execute(**kwargs)
 
 
-class TaskBatch:
+class TaskBatch(ABC):
+    tasks: IndexedFeatures
+    id: str
+    func: Callable
+    fkwargs: dict
+    profilers: List[Profiler]
+
     def __init__(
         self,
         tasks: Iterator[Task],
@@ -110,9 +138,21 @@ class TaskBatch:
         self.bounds = self.tasks.bounds
         self.func = func or _execute_task_wrapper
         self.fkwargs = fkwargs or {}
+        self.profilers = profilers or []
+
+    @cached_property
+    def geometry(self) -> base.BaseGeometry:
+        if self.tasks:
+            return unary_union([shape(task) for task in self.tasks])
+        else:
+            return Polygon()
+
+    @property
+    def __geo_interface__(self) -> mapping:
+        return mapping(self.geometry)
 
     def __repr__(self):  # pragma: no cover
-        return f"TaskBatch(id={self.id}, bounds={self.bounds})"
+        return f"TaskBatch(id={self.id}, bounds={self.bounds}, tasks={len(self.tasks)})"
 
     def __iter__(self):
         return iter(self.tasks.values())
@@ -129,7 +169,7 @@ class TaskBatch:
     def values(self):
         return self.tasks.values()
 
-    def intersection(self, other):
+    def intersection(self, other: Union[Task, Tuple, List]):
         if isinstance(other, Task):
             return self.tasks.filter(other.bounds)
         elif isinstance(other, (tuple, list)):
@@ -139,35 +179,55 @@ class TaskBatch:
                 f"intersection only works with other Task instances or bounds, not {other}"
             )
 
-    def _validate(self, item):
+    def _validate(self, item: Task):
         if isinstance(item, Task):
             return item
         else:
             raise TypeError("TaskBatch items must be Taskss, not %s", type(item))
 
 
+class InterpolateFrom(str, Enum):
+    lower = "lower"
+    higher = "higher"
+
+
+def _execute_tile_task_wrapper(task, **kwargs) -> Any:
+    return task.execute(**kwargs)
+
+
 class TileTask(Task):
     """
     Class to process on a specific process tile.
-
-    If skip is set to True, all attributes will be set to None.
     """
 
-    def __init__(self, tile=None, id=None, config=None, skip=False, dependencies=None):
+    config_zoom_levels: ZoomLevels
+    config_baselevels: ZoomLevels
+    process = Optional[ProcessFunc]
+    config_dir = Optional[MPath]
+    tile: BufferedTile
+    _dependencies: dict
+
+    def __init__(
+        self,
+        tile: TileLike,
+        id: Optional[str] = None,
+        config: Optional[MapcheteConfig] = None,
+        func: Optional[Callable] = None,
+        dependencies: Optional[dict] = None,
+    ):
         """Set attributes depending on baselevels or not."""
         self.tile = (
             config.process_pyramid.tile(*tile) if isinstance(tile, tuple) else tile
         )
-        _default_id = f"tile_task_z{self.tile.zoom}-({self.tile.zoom}-{self.tile.row}-{self.tile.col})"
+        _default_id = default_tile_task_id(tile)
         self.id = id or _default_id
-        self.skip = skip
-        self.config_zoom_levels = None if skip else config.zoom_levels
-        self.config_baselevels = None if skip else config.baselevels
-        self.process = None if skip else config.process
-        self.config_dir = None if skip else config.config_dir
+        self.func = func or _execute_tile_task_wrapper
+        self.config_zoom_levels = config.zoom_levels
+        self.config_baselevels = config.baselevels
+        self.process = config.process
+        self.config_dir = config.config_dir
         if (
-            skip
-            or self.tile.zoom not in self.config_zoom_levels
+            self.tile.zoom not in self.config_zoom_levels
             or self.tile.zoom in self.config_baselevels
         ):
             self.input, self.process_func_params, self.output_params = {}, {}, {}
@@ -175,13 +235,46 @@ class TileTask(Task):
             self.input = config.get_inputs_for_tile(tile)
             self.process_func_params = config.get_process_func_params(tile.zoom)
             self.output_params = config.output_reader.output_params
-        self.mode = None if skip else config.mode
-        self.output_reader = (
-            None if skip or not config.baselevels else config.output_reader
-        )
+        self.mode = config.mode
+        self.output_reader = config.output_reader if config.baselevels else None
+        self._dependencies = dict()
         super().__init__(id=self.id, geometry=tile.bbox)
 
-    def execute(self, dependencies=None):
+    def __repr__(self):  # pragma: no cover
+        return f"TileTask(id={self.id}, tile={self.tile}, bounds={self.bounds})"
+
+    def add_dependency(self, task_key: str, result: Any, raise_error: bool = True):
+        """Append preprocessing task result to input."""
+        # if dependency has geo information, only add if it intersects with task!
+        try:
+            if not shape(result).intersects(shape(self)):
+                logger.debug("dependency does not intersect with task")
+                return
+        except AttributeError:
+            pass
+
+        if ":" in task_key:
+            inp_key, inp_task_key = task_key.split(":")[:2]
+        else:  # pragma: no cover
+            raise KeyError(
+                "preprocessing task cannot be assigned to an input "
+                f"because of a malformed task key: {task_key}"
+            )
+
+        input_keys = {inp.input_key for inp in self.input.values()}
+        if inp_key not in input_keys:  # pragma: no cover
+            if raise_error:
+                raise KeyError(
+                    f"task {inp_task_key} cannot be assigned to input with key {inp_key} "
+                    f"(available keys: {input_keys})"
+                )
+            else:
+                return
+
+        logger.debug("remember preprocessing task (%s) result for execution", task_key)
+        self._dependencies[task_key] = result
+
+    def execute(self, dependencies: Optional[dict] = None) -> Any:
         """
         Run the Mapchete process and return the result.
 
@@ -200,7 +293,9 @@ class TileTask(Task):
             process output
         """
         if self.mode not in ["memory", "continue", "overwrite"]:  # pragma: no cover
-            raise ValueError("process mode must be memory, continue or overwrite")
+            raise ValueError(
+                f"process mode must be memory, continue or overwrite, not {self.mode}"
+            )
 
         if self.tile.zoom not in self.config_zoom_levels:
             raise MapcheteNodataTile
@@ -213,7 +308,7 @@ class TileTask(Task):
             raise MapcheteProcessOutputError("process output is empty")
         return process_output
 
-    def _execute(self, dependencies=None):
+    def _execute(self, dependencies: Optional[Dict[str, TaskInfo]] = None) -> Any:
         # If baselevel is active and zoom is outside of baselevel,
         # interpolate from other zoom levels.
         if self.config_baselevels:
@@ -224,9 +319,13 @@ class TileTask(Task):
         # Otherwise, execute from process file.
         try:
             with Timer() as duration:
+                if self._dependencies:
+                    dependencies.update(self._dependencies)
                 # append dependent preprocessing task results to input objects
                 if dependencies:
                     for task_key, task_result in dependencies.items():
+                        if isinstance(task_result, TaskInfo):
+                            task_result = task_result.output
                         if not task_key.startswith("tile_task"):
                             inp_key, task_key = task_key.split(":")[0], ":".join(
                                 task_key.split(":")[1:]
@@ -236,7 +335,7 @@ class TileTask(Task):
                             for inp in self.input.values():
                                 if inp.input_key == inp_key:
                                     inp.set_preprocessing_task_result(
-                                        task_key=task_key, result=task_result.data
+                                        task_key=task_key, result=task_result
                                     )
                 # Actually run process.
                 process_data = self.process(
@@ -257,7 +356,11 @@ class TileTask(Task):
 
         return process_data
 
-    def _interpolate_from_baselevel(self, baselevel=None, dependencies=None):
+    def _interpolate_from_baselevel(
+        self,
+        baselevel: InterpolateFrom,
+        dependencies: Optional[Dict[str, TaskInfo]] = None,
+    ) -> ma.MaskedArray:
         # This is a special tile derived from a pyramid which has the pixelbuffer setting
         # from the output pyramid but metatiling from the process pyramid. This is due to
         # performance reasons as for the usual case overview tiles do not need the
@@ -273,7 +376,7 @@ class TileTask(Task):
 
         with Timer() as duration:
             # resample from parent tile
-            if baselevel == "higher":
+            if baselevel == InterpolateFrom.higher:
                 parent_tile = self.tile.get_parent()
                 process_data = raster.resample_from_array(
                     self.output_reader.read(parent_tile),
@@ -283,19 +386,17 @@ class TileTask(Task):
                     nodata=self.output_reader.output_params["nodata"],
                 )
             # resample from children tiles
-            elif baselevel == "lower":
+            elif baselevel == InterpolateFrom.lower:
                 src_tiles = {}
-                for result in dependencies.values():
-                    process_info = result.output
+                for task_info in dependencies.values():
                     logger.debug("reading output from dependend tasks")
-                    process_tile = process_info.tile
                     for output_tile in self.output_reader.pyramid.intersecting(
-                        process_tile
+                        task_info.tile
                     ):
-                        if process_info.data is not None:
+                        if task_info.output is not None:
                             src_tiles[output_tile] = raster.extract_from_array(
-                                in_raster=process_info.data,
-                                in_affine=process_tile.affine,
+                                in_raster=task_info.output,
+                                in_affine=task_info.tile.affine,
                                 out_tile=output_tile,
                             )
                 if self.output_reader.pyramid.pixelbuffer:  # pragma: no cover
@@ -343,11 +444,21 @@ class TileTaskBatch(TaskBatch):
     ):
         self.id = id or uuid4().hex
         self.bounds = None, None, None, None
-        self.tasks = {tile: item for tile, item in self._validate(tasks)}
+        self.tasks = {item.tile: item for item in self._validate(tasks)}
         self._update_bounds()
-        self.func = func or _execute_task_wrapper
+        self.func = func or _execute_tile_task_wrapper
         self.fkwargs = fkwargs or {}
         self.profilers = profilers or []
+
+    @cached_property
+    def geometry(self) -> base.BaseGeometry:
+        if self.tasks:
+            return unary_union([task.bbox for task in self.tasks])
+        else:  # pragma: no cover
+            return Polygon()
+
+    def __repr__(self):  # pragma: no cover
+        return f"TileTaskBatch(id={self.id}, bounds={self.bounds}, tasks={len(self.tasks)})"
 
     def _update_bounds(self):
         for tile in self.tasks.keys():
@@ -384,7 +495,7 @@ class TileTaskBatch(TaskBatch):
                 "intersections only works with other Task instances or bounds"
             )
 
-    def _validate(self, items):
+    def _validate(self, items: Iterator[TileTask]) -> Iterator[TileTask]:
         self._tp = None
         self._zoom = None
         for item in items:
@@ -400,41 +511,98 @@ class TileTaskBatch(TaskBatch):
                 self._zoom = item.tile.zoom
             elif item.tile.zoom != self._zoom:  # pragma: no cover
                 raise TypeError("all TileTasks must lie on the same zoom level")
-            yield item.tile, item
+            yield item
 
 
-def to_dask_collection(batches):
-    from dask.delayed import delayed
+class Tasks:
+    preprocessing_batches: List[TaskBatch]
+    tile_batches: List[TileTaskBatch]
 
-    tasks = {}
-    previous_batch = None
-    for batch in batches:
-        logger.debug("converting batch %s", batch)
-        if previous_batch:
-            logger.debug("previous batch had %s tasks", len(previous_batch))
-        for task in batch.values():
-            if previous_batch:
-                dependencies = {
-                    child.id: tasks[child]
-                    for child in previous_batch.intersection(task)
-                }
-                logger.debug(
-                    "found %s dependencies from last batch for task %s",
-                    len(dependencies),
-                    task,
-                )
+    def __init__(
+        self,
+        task_batches: Iterator[Union[TaskBatch, TileTaskBatch]],
+    ):
+        with Timer() as tt:
+            self.preprocessing_batches = []
+            self.tile_batches = []
+            for batch in task_batches:
+                if isinstance(batch, TileTaskBatch):
+                    self.tile_batches.append(batch)
+                else:
+                    self.preprocessing_batches.append(batch)
+        logger.debug("task batches materialized in %s", tt)
+
+    def __len__(self):
+        return sum([len(batch) for batch in self])
+
+    def __iter__(self) -> Union[TaskBatch, TileTaskBatch]:
+        for phase in (self.preprocessing_batches, self.tile_batches):
+            for batch in phase:
+                yield batch
+
+    @property
+    def preprocessing_tasks_count(self):
+        return sum([len(batch) for batch in self.preprocessing_batches])
+
+    @property
+    def tile_tasks_count(self):
+        return sum([len(batch) for batch in self.tile_batches])
+
+    def to_dask_graph(
+        self,
+        preprocessing_task_wrapper: Optional[Callable] = None,
+        tile_task_wrapper: Optional[Callable] = None,
+    ) -> List[Union[Delayed, DelayedLeaf]]:
+        """Return task graph to use with dask Executor."""
+        tasks = {}
+        previous_batch = None
+        for batch in self:
+            logger.debug("converting batch %s", batch)
+
+            if isinstance(batch, TileTaskBatch):
+                task_func = tile_task_wrapper or batch.func
             else:
-                dependencies = {}
-            tasks[task] = delayed(
-                batch.func,
-                pure=True,
-                name=f"{task.id}",
-                traverse=len(dependencies) > 0,
-            )(
-                task,
-                dependencies=dependencies,
-                **batch.fkwargs,
-                dask_key_name=f"{task.result_key_name}",
-            )
-        previous_batch = batch
-    return list(tasks.values())
+                task_func = preprocessing_task_wrapper or batch.func
+
+            if previous_batch:
+                logger.debug("previous batch had %s tasks", len(previous_batch))
+
+            for task in batch.values():
+                if previous_batch:
+                    dependencies = {
+                        child.id: tasks[child]
+                        for child in previous_batch.intersection(task)
+                    }
+                    logger.debug(
+                        "found %s dependencies from last batch for task %s",
+                        len(dependencies),
+                        task,
+                    )
+                else:
+                    dependencies = {}
+
+                tasks[task] = delayed(
+                    task_func,
+                    pure=True,
+                    name=f"{task.id}",
+                    traverse=len(dependencies) > 0,
+                )(
+                    task,
+                    dependencies=dependencies,
+                    **batch.fkwargs,
+                    dask_key_name=f"{task.result_key_name}",
+                )
+
+            previous_batch = batch
+
+        return list(tasks.values())
+
+    def to_batch(self) -> Iterator[Task]:
+        """Return all tasks as one batch."""
+        for batch in self.to_batches():
+            for task in batch:
+                yield task
+
+    def to_batches(self) -> Iterator[Iterator[Task]]:
+        """Return batches of tasks."""
+        return list(self)
