@@ -893,7 +893,7 @@ def initialize_inputs(
                 logger.exception(e)
                 raise MapcheteDriverError("error when loading input %s: %s" % (v, e))
             logger.debug("input reader for abstract input %s is %s", v, reader)
-        else:
+        else:  # pragma: no cover
             raise MapcheteConfigError("invalid input type %s", type(v))
         # trigger bbox creation
         reader.bbox(out_crs=pyramid.crs)
