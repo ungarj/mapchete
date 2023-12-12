@@ -1,0 +1,40 @@
+process: ../example_process.py
+zoom_levels:
+    min: 0
+    max: 5
+pyramid:
+    grid: geodetic
+    pixelbuffer: 10
+    metatiling: 8
+input:
+    file1: cleantopo_tl.tif
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/cleantopo_tl
+    pixelbuffer: 10
+dask_specs:
+  worker_cores: 2.87
+  worker_cores_limit: 4.0
+  worker_memory: 6.2
+  worker_memory_limit: 12.4
+  worker_threads: 1
+  scheduler_cores: 2
+  scheduler_cores_limit: 4.0
+  scheduler_memory: 2.0
+  adapt_options:
+    minimum: 0
+    maximum: 32
+    active: true
+  worker_environment:
+    DASK_DISTRIBUTED__COMM__RETRY__COUNT: "8"
+    DASK_DISTRIBUTED__COMM__TIMEOUTS__TCP: "40"
+    DASK_DISTRIBUTED__COMM__TIMEOUTS__CONNECT: "30"
+    DASK_DISTRIBUTED__DEPLOY__LOST_WORKER: "10"
+    DASK_DISTRIBUTED__SCHEDULER__ALLOWED_FAILURES: "4"
+    DASK_DISTRIBUTED__SCHEDULER__IDLE_TIMEOUT: "30m"
+    DASK_DISTRIBUTED__SCHEDULER__WORKER_SATURATION: "1.1"
+    GDAL_HTTP_MAX_RETRY: "16"
+    GDAL_HTTP_RETRY_DELAY: "2"
+    GDAL_HTTP_TIMEOUT: "30"

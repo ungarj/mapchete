@@ -1041,6 +1041,15 @@ def green_raster(mp_tmpdir):
 
 
 @pytest.fixture
+def dask_specs(mp_tmpdir):
+    """Fixture for dask_specs.mapchete."""
+    with ProcessFixture(
+        TESTDATA_DIR / "dask_specs.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def tile_path_schema(mp_tmpdir):
     """Fixture for tile_path_schema.mapchete."""
     with ProcessFixture(

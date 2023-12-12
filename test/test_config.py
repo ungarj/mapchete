@@ -13,6 +13,7 @@ from shapely.ops import unary_union
 
 import mapchete
 from mapchete.config import MapcheteConfig, ProcessConfig, snap_bounds
+from mapchete.config.models import DaskAdaptOptions, DaskSpecs
 from mapchete.config.parse import bounds_from_opts, guess_geometry
 from mapchete.config.process_func import ProcessFunc
 from mapchete.errors import MapcheteConfigError
@@ -551,3 +552,11 @@ def test_process_pickle(process_src, example_custom_process_mapchete):
     # pickle and unpickle
     reloaded = pickle.loads(pickle.dumps(process))
     assert reloaded(mp) is not None
+
+
+def test_dask_specs(dask_specs):
+    with dask_specs.mp() as mp:
+        assert isinstance(mp.config.parsed_config.dask_specs, DaskSpecs)
+        assert isinstance(
+            mp.config.parsed_config.dask_specs.adapt_options, DaskAdaptOptions
+        )
