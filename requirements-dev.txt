@@ -6,6 +6,7 @@ morecantile>=5.0.0
 pre-commit
 pytest
 pytest-cov
+pytest-env
 pytest-flask
 pytest-lazy-fixture
 rio-cogeo>=5.0.0

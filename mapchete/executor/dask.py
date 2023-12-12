@@ -213,22 +213,17 @@ class DaskExecutor(ExecutorBase):
         # send to scheduler
         logger.debug("task graph has %s", pretty_bytes(getsizeof(dask_collection)))
 
-        with Timer() as t:
-            futures = self._executor.compute(
-                dask_collection, optimize_graph=True, traverse=True
-            )
-        logger.debug("%s tasks sent to scheduler in %s", len(futures), t)
-        self._submitted += len(futures)
-
-        logger.debug("wait for tasks to finish...")
+        logger.debug(
+            "sending %s tasks to cluster and wait for them to finish...",
+            len(dask_collection),
+        )
         for batch in as_completed(
-            futures,
+            self._executor.compute(dask_collection, optimize_graph=True, traverse=True),
             with_results=with_results,
             raise_errors=raise_errors,
             loop=self._executor.loop,
         ).batches():
             for item in batch:
-                self._submitted -= 1
                 if with_results:  # pragma: no cover
                     future, result = item
                 else:

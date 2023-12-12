@@ -45,3 +45,14 @@ class IORetrySettings(BaseSettings):
     backoff: float = 1.0
     # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_IO_RETRY_")
+
+
+class MapcheteOptions(BaseSettings):
+    # timeout granted when fetching future results or exceptions
+    future_timeout: int = 10
+
+    # read from environment
+    model_config = SettingsConfigDict(env_prefix="MAPCHETE_")
+
+
+mapchete_options = MapcheteOptions()
