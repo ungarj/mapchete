@@ -2,6 +2,17 @@
 Changelog
 #########
 
+----------------------
+2023.12.2 - 2023-12-12
+----------------------
+
+* core
+
+  * add `processing.types.LazyTaskInfo` to avoid calling `Future.result()` unnecessarily (#608)
+  * do not keep futures around when submitting a task graph to enable dask to release finished tasks (#608) 
+  * also apply `settings.MapcheteIOSettings` to `path.MPath.read_text()` (#609)
+  * add optional `DaskSpecs` to mapchte configuration schema (#609)
+
 
 ----------------------
 2023.12.1 - 2023-12-07
