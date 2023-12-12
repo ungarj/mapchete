@@ -13,9 +13,10 @@ import rasterio
 from fiona.session import Session as FioSession
 from fsspec import AbstractFileSystem
 from rasterio.session import Session as RioSession
+from retry import retry
 
 from mapchete.executor import Executor
-from mapchete.settings import GDALHTTPOptions
+from mapchete.settings import GDALHTTPOptions, IORetrySettings
 from mapchete.tile import BufferedTile
 from mapchete.types import MPathLike
 
@@ -292,6 +293,7 @@ class MPath(os.PathLike):
         """Open file."""
         return self.fs.open(self._path_str, mode)
 
+    @retry(logger=logger, **dict(IORetrySettings()))
     def read_text(self) -> str:
         """Open and return file content as text."""
         with self.open() as src:
