@@ -1,7 +1,7 @@
 from typing import List, Optional, Type, Union
 
 from distributed import Client
-from pydantic import BaseModel, Field, NonNegativeInt, field_validator
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, field_validator
 from shapely.geometry.base import BaseGeometry
 
 from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
@@ -66,7 +66,7 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     area_crs: Optional[Union[dict, str]] = None
     bounds: Optional[Union[Bounds, BoundsLike]] = None
     bounds_crs: Optional[Union[dict, str]] = None
-    process_parameters: Optional[dict] = None
+    process_parameters: dict = Field(default_factory=dict)
     dask_specs: Optional[DaskSpecs] = None
 
 
