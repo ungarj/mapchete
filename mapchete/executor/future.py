@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Callable, Dict, Optional, Protocol, Tuple, Union
 
 from dask.distributed import TimeoutError
@@ -10,8 +9,7 @@ from distributed.comm.core import CommClosedError
 
 from mapchete.errors import MapcheteTaskFailed
 from mapchete.executor.types import Result
-
-FUTURE_TIMEOUT = float(os.environ.get("MP_FUTURE_TIMEOUT", 10))
+from mapchete.settings import mapchete_options
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +69,7 @@ class MFuture:
         future: FutureProtocol,
         lazy: bool = True,
         result: Optional[Any] = None,
-        timeout: int = FUTURE_TIMEOUT,
+        timeout: int = mapchete_options.future_timeout,
     ) -> MFuture:
         # get status and name if possible
         # distributed.Future
@@ -138,7 +136,7 @@ class MFuture:
             return MFuture(exception=exc)
         return MFuture(result=result.output, profiling=result.profiling)
 
-    def result(self, timeout: int = FUTURE_TIMEOUT, **kwargs) -> Any:
+    def result(self, timeout: int = mapchete_options.future_timeout, **kwargs) -> Any:
         """Return task result."""
         self._populate_from_future(timeout=timeout)
 
@@ -158,7 +156,9 @@ class MFuture:
         """Sequential futures cannot be cancelled."""
         return self._cancelled
 
-    def _populate_from_future(self, timeout: int = FUTURE_TIMEOUT, **kwargs):
+    def _populate_from_future(
+        self, timeout: int = mapchete_options.future_timeout, **kwargs
+    ):
         """Fill internal cache with future.result() if future was provided."""
         # only check if there is a cached future but no result nor exception
         if (
@@ -166,10 +166,11 @@ class MFuture:
             and self._result is None
             and self._exception is None
         ):
-            try:
-                self._set_result(self._future.result(timeout=timeout, **kwargs))
-            except Exception as exc:  # pragma: no cover
+            exc = self._future.exception(timeout=timeout)
+            if exc:  # pragma: no cover
                 self._exception = exc
+            else:
+                self._set_result(self._future.result(timeout=timeout, **kwargs))
 
             # delete reference to future so it can be released from the dask cluster
             self._future = None
@@ -196,7 +197,7 @@ class MFuture:
             return self.status in ["error", "cancelled"]
         # concurrent.futures futures
         else:
-            return self.exception(timeout=FUTURE_TIMEOUT) is not None
+            return self.exception(timeout=mapchete_options.future_timeout) is not None
 
     def raise_if_failed(self) -> None:
         """
@@ -209,7 +210,7 @@ class MFuture:
         keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
 
         if self.failed_or_cancelled():
-            exception = self.exception(timeout=FUTURE_TIMEOUT)
+            exception = self.exception(timeout=mapchete_options.future_timeout)
 
             # sometimes, exceptions are simply empty
             if exception is None:  # pragma: no cover

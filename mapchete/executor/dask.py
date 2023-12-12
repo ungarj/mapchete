@@ -218,6 +218,8 @@ class DaskExecutor(ExecutorBase):
                 dask_collection, optimize_graph=True, traverse=True
             )
         logger.debug("%s tasks sent to scheduler in %s", len(futures), t)
+        # free dask collection
+        dask_collection = None
         self._submitted += len(futures)
 
         logger.debug("wait for tasks to finish...")

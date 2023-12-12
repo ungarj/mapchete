@@ -15,10 +15,8 @@ from mapchete.enums import Concurrency, ProcessingMode, Status
 from mapchete.errors import JobCancelledError
 from mapchete.executor import Executor
 from mapchete.executor.types import Profiler
-from mapchete.pretty import pretty_bytes, pretty_seconds
 from mapchete.processing.profilers import preconfigured_profilers
 from mapchete.processing.profilers.time import measure_time
-from mapchete.processing.tasks import TaskInfo
 from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
@@ -155,6 +153,8 @@ def execute(
                     dask_client=dask_settings.client,
                     multiprocessing_start_method=multiprocessing_start_method,
                     max_workers=workers,
+                    preprocessing_tasks=tasks.preprocessing_tasks_count,
+                    tile_tasks=tasks.tile_tasks_count,
                 ) as executor:
                     if profiling:
                         for profiler in preconfigured_profilers:
@@ -179,15 +179,9 @@ def execute(
                         ):
                             count += 1
 
-                            msg = f"task {task_info.id}: {task_info.process_msg}"
-
-                            if task_info.profiling:
-                                msg += profiling_info(task_info)
-
                             all_observers.notify(
                                 progress=Progress(total=len(tasks), current=count),
-                                task_result=task_info,
-                                message=msg,
+                                task_info=task_info,
                             )
 
                         all_observers.notify(status=Status.done)
@@ -210,21 +204,3 @@ def execute(
     except Exception as exception:
         all_observers.notify(status=Status.failed, exception=exception)
         raise
-
-
-def profiling_info(task_info: TaskInfo) -> str:
-    profiling_info = []
-    if task_info.profiling.get("time"):
-        elapsed = task_info.profiling["time"].elapsed
-        profiling_info.append(f"time: {pretty_seconds(elapsed)}")
-    if task_info.profiling.get("memory"):  # pragma: no cover
-        max_allocated = task_info.profiling["memory"].max_allocated
-        profiling_info.append(f"max memory usage: {pretty_bytes(max_allocated)}")
-    if task_info.profiling.get("memory"):  # pragma: no cover
-        head_requests = task_info.profiling["requests"].head_count
-        get_requests = task_info.profiling["requests"].get_count
-        requests = head_requests + get_requests
-        transferred = task_info.profiling["requests"].get_bytes
-        profiling_info.append(f"{requests} GET and HEAD requests")
-        profiling_info.append(f"{pretty_bytes(transferred)} transferred")
-    return f" ({', '.join(profiling_info)})"
