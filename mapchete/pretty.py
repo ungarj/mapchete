@@ -1,5 +1,7 @@
 def pretty_bytes(count: float, round_value: int = 2) -> str:
     """Return human readable bytes."""
+    out = ""
+
     for measurement in [
         "bytes",
         "KiB",
