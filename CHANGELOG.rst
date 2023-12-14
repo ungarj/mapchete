@@ -3,6 +3,16 @@ Changelog
 #########
 
 ----------------------
+2023.12.3 - 2023-12-14
+----------------------
+
+* core
+
+  * introduce `GridProtocol` to replace `tile` argument in raster read functions (#610)
+  * use `Concurrency.none` per default, except in CLI (#610)
+
+
+----------------------
 2023.12.2 - 2023-12-12
 ----------------------
 
