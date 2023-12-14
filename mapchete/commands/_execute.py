@@ -34,7 +34,7 @@ def execute(
     tile: Optional[Tuple[int, int, int]] = None,
     overwrite: bool = False,
     mode: ProcessingMode = ProcessingMode.CONTINUE,
-    concurrency: Concurrency = Concurrency.processes,
+    concurrency: Concurrency = Concurrency.none,
     workers: int = None,
     multiprocessing_start_method: str = None,
     dask_settings: DaskSettings = DaskSettings(),

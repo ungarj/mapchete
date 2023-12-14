@@ -203,7 +203,7 @@ class Mapchete(object):
         zoom: Optional[ZoomLevelsLike] = None,
         tile: Optional[TileLike] = None,
         executor: Optional[ExecutorBase] = None,
-        concurrency: Concurrency = Concurrency.processes,
+        concurrency: Concurrency = Concurrency.none,
         workers: int = os.cpu_count(),
         propagate_results: bool = False,
         dask_settings: DaskSettings = DaskSettings(),
