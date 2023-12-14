@@ -40,8 +40,10 @@ class SequentialExecutor(ExecutorBase):
                     continue
 
             # run task and yield future
-            yield MFuture.from_func_partial(
-                self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
+            yield self._finished_future(
+                MFuture.from_func_partial(
+                    self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
+                )
             )
 
     def map(self, func, iterable, fargs=None, fkwargs=None) -> List[Any]:
