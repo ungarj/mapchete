@@ -1,16 +1,20 @@
+from __future__ import annotations
+
 import logging
-from contextlib import contextmanager
+import warnings
+from contextlib import AbstractContextManager, contextmanager
 from tempfile import NamedTemporaryFile
 from typing import Optional, Union
 
 import numpy as np
 import numpy.ma as ma
 import rasterio
-from rasterio.io import MemoryFile
+from rasterio.io import DatasetWriter, MemoryFile
 from rasterio.profiles import Profile
 
 from mapchete.io.raster.array import extract_from_array
 from mapchete.path import MPath, MPathLike
+from mapchete.protocols import GridProtocol
 from mapchete.tile import BufferedTile
 from mapchete.validate import validate_write_window_params
 
@@ -20,7 +24,9 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def rasterio_write(
     path: MPathLike, mode: str = "w", in_memory: bool = True, *args, **kwargs
-):
+) -> AbstractContextManager[
+    Union[DatasetWriter, RasterioRemoteTempFileWriter, RasterioRemoteMemoryWriter]
+]:
     """
     Wrap rasterio.open() but handle bucket upload if path is remote.
 
@@ -125,10 +131,11 @@ class RasterioRemoteWriter:
 
 
 def write_raster_window(
-    in_tile: BufferedTile,
+    in_grid: GridProtocol,
     in_data: np.ndarray,
     out_profile: Union[Profile, dict],
     out_path: MPathLike,
+    out_grid: Optional[GridProtocol] = None,
     out_tile: Optional[BufferedTile] = None,
     tags: Optional[dict] = None,
     write_empty: bool = False,
@@ -139,16 +146,17 @@ def write_raster_window(
     """
     out_path = MPath.from_inp(out_path)
     logger.debug("write %s", out_path)
-    out_tile = out_tile or in_tile
-    validate_write_window_params(in_tile, out_tile, in_data, out_profile)
+    if out_tile:  # pragma: no cover
+        warnings.warn(
+            DeprecationWarning("'out_tile' is deprecated and should be 'grid'")
+        )
+        out_grid = out_grid or out_tile
+
+    validate_write_window_params(in_grid, out_grid, in_data, out_profile)
 
     # extract data
-    window_data = (
-        extract_from_array(
-            in_raster=in_data, in_affine=in_tile.affine, out_tile=out_tile
-        )
-        if in_tile != out_tile
-        else in_data
+    window_data = extract_from_array(
+        array=in_data, array_transform=in_grid.transform, out_grid=out_grid
     )
 
     # use transform instead of affine
@@ -159,14 +167,14 @@ def write_raster_window(
     if write_empty or (window_data.all() is not ma.masked):
         try:
             with rasterio_write(out_path, "w", **out_profile) as dst:
-                logger.debug((out_tile.id, "write tile", out_path))
+                logger.debug("write grid %s to %s", out_grid, out_path)
                 dst.write(window_data.astype(out_profile["dtype"], copy=False))
                 _write_tags(dst, tags)
         except Exception as e:
             logger.exception("error while writing file %s: %s", out_path, e)
             raise
     else:
-        logger.debug((out_tile.id, "array window empty", out_path))
+        logger.debug("array window empty, not writing %s", out_path)
 
 
 def _write_tags(dst, tags):

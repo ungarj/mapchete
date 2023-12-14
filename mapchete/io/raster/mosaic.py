@@ -101,9 +101,8 @@ def create_mosaic(
                 t_right -= pyramid.x_size
                 t_left -= pyramid.x_size
         minrow, maxrow, mincol, maxcol = bounds_to_ranges(
-            out_bounds=(t_left, t_bottom, t_right, t_top),
-            in_affine=affine,
-            in_shape=(height, width),
+            bounds=(t_left, t_bottom, t_right, t_top),
+            transform=affine,
         )
         existing_data = mosaic[:, minrow:maxrow, mincol:maxcol]
         existing_mask = mosaic.mask[:, minrow:maxrow, mincol:maxcol]

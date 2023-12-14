@@ -292,7 +292,7 @@ class InputTile(base.InputTile):
                     f"{list(self.preprocessing_tasks_results.keys())})"
                 )
             return resample_from_array(
-                in_raster=ma.stack(
+                array=ma.stack(
                     [
                         self._in_memory_raster.data[i - 1]
                         for i in self._get_band_indexes(indexes)

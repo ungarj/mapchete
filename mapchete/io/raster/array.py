@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 def extract_from_array(
-    in_raster: Union[np.ndarray, ma.MaskedArray, GridProtocol],
+    array: Union[np.ndarray, ma.MaskedArray, GridProtocol],
+    array_transform: Optional[Affine] = None,
     in_affine: Optional[Affine] = None,
     out_grid: Optional[GridProtocol] = None,
     out_tile: Optional[GridProtocol] = None,
@@ -32,37 +33,47 @@ def extract_from_array(
     """
     if out_tile:  # pragma: no cover
         warnings.warn(
-            DeprecationWarning("'out_tile' is deprecated and should be 'grid'")
+            DeprecationWarning("'out_tile' is deprecated and should be 'out_grid'")
         )
         out_grid = out_tile
+    if in_affine:  # pragma: no cover
+        warnings.warn(
+            DeprecationWarning(
+                "'in_affine' is deprecated and should be 'array_transform'"
+            )
+        )
+        array_transform = array_transform or in_affine
 
     if out_grid is None:  # pragma: no cover
         raise ValueError("grid must be defined")
 
-    if hasattr(in_raster, "affine") and hasattr(in_raster, "data"):  # pragma: no cover
-        in_affine, in_raster = in_raster.affine, in_raster.data
-    elif in_affine is None:
+    if hasattr(array, "affine") and hasattr(array, "data"):  # pragma: no cover
+        array_transform, array = array.affine, array.data
+    elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover
+        array_transform, array = array.transform, array.data
+    elif array_transform is None:
         raise ValueError("an Affine object is required")
 
     # get range within array
     minrow, maxrow, mincol, maxcol = bounds_to_ranges(
-        out_bounds=out_tile.bounds, in_affine=in_affine, in_shape=in_raster.shape
+        bounds=out_grid.bounds, transform=array_transform
     )
     # if output window is within input window
     if (
         minrow >= 0
         and mincol >= 0
-        and maxrow <= in_raster.shape[-2]
-        and maxcol <= in_raster.shape[-1]
+        and maxrow <= array.shape[-2]
+        and maxcol <= array.shape[-1]
     ):
-        return in_raster[..., minrow:maxrow, mincol:maxcol]
+        return array[..., minrow:maxrow, mincol:maxcol]
     # raise error if output is not fully within input
     else:
         raise ValueError("extraction fails if output shape is not within input")
 
 
 def resample_from_array(
-    in_raster: Union[np.ndarray, ma.MaskedArray, GridProtocol],
+    array: Union[np.ndarray, ma.MaskedArray, GridProtocol],
+    array_transform: Optional[Affine] = None,
     in_affine: Optional[Affine] = None,
     out_grid: Optional[GridProtocol] = None,
     out_tile: Optional[GridProtocol] = None,
@@ -85,7 +96,14 @@ def resample_from_array(
         warnings.warn(
             DeprecationWarning("'out_tile' is deprecated and should be 'grid'")
         )
-        out_grid = out_tile
+        out_grid = out_grid or out_tile
+    if in_affine:  # pragma: no cover
+        warnings.warn(
+            DeprecationWarning(
+                "'in_affine' is deprecated and should be 'array_transform'"
+            )
+        )
+        array_transform = array_transform or in_affine
 
     if out_grid is None:  # pragma: no cover
         raise ValueError("grid must be defined")
@@ -94,44 +112,46 @@ def resample_from_array(
         warnings.warn("'nodataval' is deprecated, please use 'nodata'")
         nodata = nodata or nodataval
 
-    if isinstance(in_raster, ma.MaskedArray):
+    if isinstance(array, ma.MaskedArray):
         pass
-    elif isinstance(in_raster, np.ndarray):
-        in_raster = ma.MaskedArray(in_raster, mask=in_raster == nodata)
-    elif hasattr(in_raster, "affine") and hasattr(
-        in_raster, "data"
-    ):  # pragma: no cover
-        in_affine = in_raster.affine
-        in_crs = in_raster.crs
-        in_raster = in_raster.data
-    elif isinstance(in_raster, tuple):
-        in_raster = ma.MaskedArray(
-            data=np.stack(in_raster),
+    elif isinstance(array, np.ndarray):
+        array = ma.MaskedArray(array, mask=array == nodata)
+    elif hasattr(array, "affine") and hasattr(array, "data"):  # pragma: no cover
+        array_transform = array.affine
+        in_crs = array.crs
+        array = array.data
+    elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover
+        array_transform = array.transform
+        in_crs = array.crs
+        array = array.data
+    elif isinstance(array, tuple):
+        array = ma.MaskedArray(
+            data=np.stack(array),
             mask=np.stack(
                 [
                     band.mask
                     if isinstance(band, ma.masked_array)
                     else np.where(band == nodata, True, False)
-                    for band in in_raster
+                    for band in array
                 ]
             ),
             fill_value=nodata,
         )
     else:
-        raise TypeError("wrong input data type: %s" % type(in_raster))
-    if in_raster.ndim == 2:
-        in_raster = ma.expand_dims(in_raster, axis=0)
-    elif in_raster.ndim == 3:
+        raise TypeError("wrong input data type: %s" % type(array))
+    if array.ndim == 2:
+        array = ma.expand_dims(array, axis=0)
+    elif array.ndim == 3:
         pass
     else:
         raise TypeError("input array must have 2 or 3 dimensions")
-    if in_raster.fill_value != nodata:
-        ma.set_fill_value(in_raster, nodata)
-    dst_data = np.empty((in_raster.shape[0],) + out_grid.shape, in_raster.dtype)
+    if array.fill_value != nodata:
+        ma.set_fill_value(array, nodata)
+    dst_data = np.empty((array.shape[0],) + out_grid.shape, array.dtype)
     reproject(
-        in_raster.filled(),
+        array.filled(),
         dst_data,
-        src_transform=in_affine,
+        src_transform=array_transform,
         src_crs=in_crs or out_grid.crs,
         src_nodata=nodata,
         dst_transform=out_grid.affine,
@@ -143,7 +163,7 @@ def resample_from_array(
 
 
 def bounds_to_ranges(
-    out_bounds: BoundsLike, in_affine: Affine, **kwargs
+    bounds: BoundsLike, transform: Affine
 ) -> Tuple[int, int, int, int]:
     """
     Return bounds range values from geolocated input.
@@ -154,7 +174,7 @@ def bounds_to_ranges(
     """
     return tuple(
         itertools.chain(
-            *from_bounds(*out_bounds, transform=in_affine)
+            *from_bounds(*bounds, transform=transform)
             .round_lengths(pixel_precision=0)
             .round_offsets(pixel_precision=0)
             .toranges()

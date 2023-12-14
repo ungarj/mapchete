@@ -6,7 +6,6 @@ import numpy as np
 import numpy.ma as ma
 from affine import Affine
 from shapely.geometry import box, mapping
-from zict import Buffer
 
 from mapchete.io.raster.array import resample_from_array
 from mapchete.io.raster.open import rasterio_open
@@ -106,7 +105,7 @@ class ReferencedRaster:
             return band_selection
         else:
             return resample_from_array(
-                in_raster=band_selection,
+                array=band_selection,
                 in_affine=self.transform,
                 in_crs=self.crs,
                 nodataval=self.nodata,

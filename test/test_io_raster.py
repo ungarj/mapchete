@@ -95,7 +95,7 @@ def test_read_raster_window_input_list(cleantopo_br):
         upper_tile = next(mp.get_process_tiles(process_zoom - 1))
         assert len(tiles) > 1
         resampled = resample_from_array(
-            in_raster=create_mosaic(
+            array=create_mosaic(
                 [(tile, read_raster_window(path, tile)) for tile, path in tiles]
             ),
             out_tile=upper_tile,
@@ -201,7 +201,7 @@ def test_write_raster_window():
     ]:
         try:
             write_raster_window(
-                in_tile=tile, in_data=data, out_profile=out_profile, out_path=path
+                in_grid=tile, in_data=data, out_profile=out_profile, out_path=path
             )
             with rasterio_open(path, "r") as src:
                 assert src.read().any()
@@ -229,10 +229,10 @@ def test_write_raster_window():
     )
     try:
         write_raster_window(
-            in_tile=tile,
+            in_grid=tile,
             in_data=data,
             out_profile=out_profile,
-            out_tile=out_tile,
+            out_grid=out_tile,
             out_path=path,
         )
         with rasterio_open(path, "r") as src:
@@ -242,51 +242,6 @@ def test_write_raster_window():
             assert src.transform == out_profile["transform"]
     finally:
         shutil.rmtree(path, ignore_errors=True)
-
-
-def test_write_raster_window_memory():
-    """Basic output format writing."""
-    path = "memoryfile"
-    # standard tile
-    tp = BufferedTilePyramid("geodetic")
-    tile = tp.tile(5, 5, 5)
-    data = ma.masked_array(np.ones((2,) + tile.shape))
-    for out_profile in [
-        dict(
-            driver="GTiff",
-            count=2,
-            dtype="uint8",
-            compress="lzw",
-            nodata=0,
-            height=tile.height,
-            width=tile.width,
-            affine=tile.affine,
-        ),
-        dict(
-            driver="GTiff",
-            count=2,
-            dtype="uint8",
-            compress="deflate",
-            nodata=0,
-            height=tile.height,
-            width=tile.width,
-            affine=tile.affine,
-        ),
-        dict(
-            driver="PNG",
-            count=2,
-            dtype="uint8",
-            nodata=0,
-            height=tile.height,
-            width=tile.width,
-            compress=None,
-            affine=tile.affine,
-        ),
-    ]:
-        with pytest.raises(DeprecationWarning):
-            write_raster_window(
-                in_tile=tile, in_data=data, out_profile=out_profile, out_path=path
-            )
 
 
 def test_raster_window_memoryfile():
@@ -348,51 +303,51 @@ def test_write_raster_window_errors():
     # in_tile
     with pytest.raises(TypeError):
         write_raster_window(
-            in_tile="invalid tile",
+            in_grid="invalid tile",
             in_data=data,
             out_profile=profile,
-            out_tile=tile,
+            out_grid=tile,
             out_path=path,
         )
     # out_tile
     with pytest.raises(TypeError):
         write_raster_window(
-            in_tile=tile,
+            in_grid=tile,
             in_data=data,
             out_profile=profile,
-            out_tile="invalid tile",
+            out_grid="invalid tile",
             out_path=path,
         )
     # in_data
     with pytest.raises(TypeError):
         write_raster_window(
-            in_tile=tile,
+            in_grid=tile,
             in_data="invalid data",
             out_profile=profile,
-            out_tile=tile,
+            out_grid=tile,
             out_path=path,
         )
     # out_profile
     with pytest.raises(TypeError):
         write_raster_window(
-            in_tile=tile,
+            in_grid=tile,
             in_data=data,
             out_profile="invalid profile",
-            out_tile=tile,
+            out_grid=tile,
             out_path=path,
         )
     # out_path
     with pytest.raises(TypeError):
         write_raster_window(
-            in_tile=tile, in_data=data, out_profile=profile, out_tile=tile, out_path=999
+            in_grid=tile, in_data=data, out_profile=profile, out_grid=tile, out_path=999
         )
     # cannot write
     with pytest.raises(ValueError):
         write_raster_window(
-            in_tile=tile,
+            in_grid=tile,
             in_data=data,
             out_profile=profile,
-            out_tile=tile,
+            out_grid=tile,
             out_path="/invalid_path",
         )
 
@@ -405,14 +360,14 @@ def test_extract_from_array():
     # intersecting at top
     out_tile = BufferedTilePyramid("geodetic").tile(5, 20, 20)
     out_array = extract_from_array(
-        in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
+        array=data, in_affine=in_tile.affine, out_tile=out_tile
     )
     assert isinstance(out_array, np.ndarray)
     assert np.all(np.where(out_array == 1, True, False))
     # intersecting at bottom
     out_tile = BufferedTilePyramid("geodetic").tile(5, 22, 20)
     out_array = extract_from_array(
-        in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
+        array=data, in_affine=in_tile.affine, out_tile=out_tile
     )
     assert isinstance(out_array, np.ndarray)
     assert np.all(np.where(out_array == 2, True, False))
@@ -420,7 +375,7 @@ def test_extract_from_array():
     out_tile = BufferedTilePyramid("geodetic").tile(5, 15, 20)
     with pytest.raises(ValueError):
         out_array = extract_from_array(
-            in_raster=data, in_affine=in_tile.affine, out_tile=out_tile
+            array=data, in_affine=in_tile.affine, out_tile=out_tile
         )
 
 

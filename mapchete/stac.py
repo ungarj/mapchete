@@ -471,7 +471,7 @@ def create_prototype_files(mp):
             out_profile = mp.config.output.profile(prototype_tile)
             tile_path.parent.makedirs()
             write_raster_window(
-                in_tile=prototype_tile,
+                in_grid=prototype_tile,
                 in_data=ma.masked_array(
                     data=np.full(
                         (out_profile["count"],) + prototype_tile.shape,
@@ -481,7 +481,7 @@ def create_prototype_files(mp):
                     mask=True,
                 ),
                 out_profile=out_profile,
-                out_tile=prototype_tile,
+                out_grid=prototype_tile,
                 out_path=tile_path,
                 write_empty=True,
             )

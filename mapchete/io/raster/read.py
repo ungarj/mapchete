@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -13,7 +13,7 @@ from affine import Affine
 from numpy.typing import DTypeLike
 from rasterio.enums import Resampling
 from rasterio.errors import RasterioIOError
-from rasterio.io import MemoryFile
+from rasterio.io import DatasetReader, DatasetWriter, MemoryFile
 from rasterio.profiles import Profile
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def rasterio_read(path, mode="r", **kwargs):
+def rasterio_read(
+    path: MPathLike, mode: str = "r", **kwargs
+) -> AbstractContextManager[Union[DatasetReader, DatasetWriter]]:
     """
     Wrapper around rasterio.open but rasterio.Env is set according to path properties.
     """
@@ -442,7 +444,7 @@ class RasterWindowMemoryFile:
         out_tile = out_tile or in_tile
         validate_write_window_params(in_tile, out_tile, in_data, out_profile)
         self.data = extract_from_array(
-            in_raster=in_data, in_affine=in_tile.affine, out_tile=out_tile
+            array=in_data, in_affine=in_tile.affine, out_tile=out_tile
         )
         # use transform instead of affine
         if "affine" in out_profile:

@@ -331,7 +331,7 @@ class OutputDataBaseFunctions:
         if self.METADATA["data_type"] == "raster":
             mosaic = create_mosaic(input_data_tiles)
             return extract_from_array(
-                in_raster=prepare_array(
+                array=prepare_array(
                     mosaic.data,
                     nodata=self.output_params["nodata"],
                     dtype=self.output_params["dtype"],
