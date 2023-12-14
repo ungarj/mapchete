@@ -297,11 +297,8 @@ def _raise_error(i):
 
 def test_finished_task():
     """Encapsulating exceptions test."""
-    task = next(Executor().as_completed(func=_raise_error, iterable=[0]))
-    assert task.exception()
-    with pytest.raises(ZeroDivisionError):
-        task.result()
-    assert "MFuture" in str(task)
+    with pytest.raises(errors.MapcheteTaskFailed):
+        next(Executor().as_completed(func=_raise_error, iterable=[0]))
 
 
 def test_strip_zoom_error(files_zooms):

@@ -74,8 +74,8 @@ def extract_from_array(
 def resample_from_array(
     array: Union[np.ndarray, ma.MaskedArray, GridProtocol],
     array_transform: Optional[Affine] = None,
-    in_affine: Optional[Affine] = None,
     out_grid: Optional[GridProtocol] = None,
+    in_affine: Optional[Affine] = None,
     out_tile: Optional[GridProtocol] = None,
     in_crs: Optional[CRSLike] = None,
     resampling: Union[Resampling, str] = Resampling.nearest,

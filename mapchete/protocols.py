@@ -1,4 +1,4 @@
-from typing import Protocol, Tuple
+from typing import Protocol, Tuple, runtime_checkable
 
 from affine import Affine
 from rasterio.crs import CRS
@@ -13,6 +13,7 @@ class ObserverProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class GridProtocol(Protocol):
     transform: Affine
     width: int

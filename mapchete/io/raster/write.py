@@ -152,6 +152,8 @@ def write_raster_window(
         )
         out_grid = out_grid or out_tile
 
+    out_grid = out_grid or in_grid
+
     validate_write_window_params(in_grid, out_grid, in_data, out_profile)
 
     # extract data
