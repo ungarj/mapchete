@@ -362,7 +362,7 @@ class Grid:
         )
         return Grid(transform, shape.height, shape.width, crs)
 
-    def to_dict(self):
+    def to_dict(self):  # pragma: no cover
         return dict(
             transform=self.transform,
             height=self.height,

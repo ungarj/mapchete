@@ -170,7 +170,7 @@ def write_raster_window(
                 logger.debug("write grid %s to %s", out_grid, out_path)
                 dst.write(window_data.astype(out_profile["dtype"], copy=False))
                 _write_tags(dst, tags)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.exception("error while writing file %s: %s", out_path, e)
             raise
     else:
