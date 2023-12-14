@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from typing import Optional, Union
 
@@ -24,9 +24,7 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def rasterio_write(
     path: MPathLike, mode: str = "w", in_memory: bool = True, *args, **kwargs
-) -> AbstractContextManager[
-    Union[DatasetWriter, RasterioRemoteTempFileWriter, RasterioRemoteMemoryWriter]
-]:
+) -> Union[DatasetWriter, RasterioRemoteTempFileWriter, RasterioRemoteMemoryWriter]:
     """
     Wrap rasterio.open() but handle bucket upload if path is remote.
 

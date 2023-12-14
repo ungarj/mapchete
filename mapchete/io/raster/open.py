@@ -1,4 +1,4 @@
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from typing import Union
 
 from rasterio.io import DatasetReader, DatasetWriter
@@ -15,13 +15,11 @@ from mapchete.path import MPath, MPathLike
 @contextmanager
 def rasterio_open(
     path: MPathLike, mode: str = "r", **kwargs
-) -> AbstractContextManager[
-    Union[
-        DatasetReader,
-        DatasetWriter,
-        RasterioRemoteMemoryWriter,
-        RasterioRemoteTempFileWriter,
-    ]
+) -> Union[
+    DatasetReader,
+    DatasetWriter,
+    RasterioRemoteMemoryWriter,
+    RasterioRemoteTempFileWriter,
 ]:
     """Call rasterio.open but set environment correctly and return custom writer if needed."""
     path = MPath.from_inp(path)

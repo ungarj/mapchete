@@ -81,9 +81,10 @@ def resample_from_array(
     resampling: Union[Resampling, str] = Resampling.nearest,
     nodataval: Optional[NodataVal] = None,
     nodata: Optional[NodataVal] = 0,
+    keep_2d: bool = False,
 ) -> ma.MaskedArray:
     """
-    Extract and resample from array to target tile.
+    Extract and resample from array to target grid.
 
     Returns
     -------
@@ -139,22 +140,32 @@ def resample_from_array(
         )
     else:
         raise TypeError("wrong input data type: %s" % type(array))
+
     if array.ndim == 2:
-        array = ma.expand_dims(array, axis=0)
+        if not keep_2d:
+            array = ma.expand_dims(array, axis=0)
     elif array.ndim == 3:
         pass
     else:
         raise TypeError("input array must have 2 or 3 dimensions")
-    if array.fill_value != nodata:
+
+    if hasattr(array, "fill_value") and array.fill_value != nodata:
         ma.set_fill_value(array, nodata)
-    dst_data = np.empty((array.shape[0],) + out_grid.shape, array.dtype)
+        array = array.filled()
+
+    dst_shape: tuple = out_grid.shape
+    if len(array.shape) == 3:
+        dst_shape = (array.shape[0], *out_grid.shape)
+
+    dst_data = np.empty(dst_shape, array.dtype)
+
     reproject(
-        array.filled(),
+        array,
         dst_data,
         src_transform=array_transform,
         src_crs=in_crs or out_grid.crs,
         src_nodata=nodata,
-        dst_transform=out_grid.affine,
+        dst_transform=out_grid.transform,
         dst_crs=out_grid.crs,
         dst_nodata=nodata,
         resampling=resampling,

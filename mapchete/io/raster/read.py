@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def rasterio_read(
     path: MPathLike, mode: str = "r", **kwargs
-) -> AbstractContextManager[Union[DatasetReader, DatasetWriter]]:
+) -> Union[DatasetReader, DatasetWriter]:
     """
     Wrapper around rasterio.open but rasterio.Env is set according to path properties.
     """
