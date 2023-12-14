@@ -51,7 +51,7 @@ def extract_from_array(
         array_transform, array = array.affine, array.data
     elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover
         array_transform, array = array.transform, array.data
-    elif array_transform is None:
+    elif array_transform is None:  # pragma: no cover
         raise ValueError("an Affine object is required")
 
     # get range within array

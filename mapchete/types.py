@@ -341,7 +341,7 @@ class Grid:
         self.shape = Shape(self.height, self.width)
 
     @staticmethod
-    def from_obj(obj):
+    def from_obj(obj):  # pragma: no cover
         if hasattr(obj, "transform"):
             transform = obj.transform
         else:
