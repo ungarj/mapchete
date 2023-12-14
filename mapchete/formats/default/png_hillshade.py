@@ -220,9 +220,9 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
                 self.prepare_path(tile)
                 out_tile = BufferedTile(tile, self.pixelbuffer)
                 write_raster_window(
-                    in_tile=process_tile,
+                    in_grid=process_tile,
                     in_data=data,
                     out_profile=self.profile(out_tile),
-                    out_tile=out_tile,
+                    out_grid=out_tile,
                     out_path=out_path,
                 )

@@ -1,4 +1,9 @@
-from typing import Protocol
+from typing import Protocol, Tuple, runtime_checkable
+
+from affine import Affine
+from rasterio.crs import CRS
+
+from mapchete.types import Bounds
 
 
 class ObserverProtocol(Protocol):
@@ -6,3 +11,13 @@ class ObserverProtocol(Protocol):
 
     def update(self, *args, **kwargs) -> None:  # pragma: no cover
         ...
+
+
+@runtime_checkable
+class GridProtocol(Protocol):
+    transform: Affine
+    width: int
+    height: int
+    shape: Tuple[int, int]
+    bounds: Bounds
+    crs: CRS

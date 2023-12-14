@@ -395,7 +395,7 @@ class TileTask(Task):
                     ):
                         if task_info.output is not None:
                             src_tiles[output_tile] = raster.extract_from_array(
-                                in_raster=task_info.output,
+                                array=task_info.output,
                                 in_affine=task_info.tile.affine,
                                 out_tile=output_tile,
                             )
@@ -419,7 +419,7 @@ class TileTask(Task):
                         src_tiles[child_tile] = self.output_reader.read(child_tile)
 
                 process_data = raster.resample_from_array(
-                    in_raster=raster.create_mosaic(
+                    array=raster.create_mosaic(
                         [(src_tile, data) for src_tile, data in src_tiles.items()],
                         nodata=self.output_reader.output_params["nodata"],
                     ),

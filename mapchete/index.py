@@ -471,18 +471,16 @@ class VRTFileWriter:
                                 xOff=str(
                                     list(
                                         raster.bounds_to_ranges(
-                                            out_bounds=tile.bounds,
-                                            in_affine=vrt_affine,
-                                            in_shape=vrt_shape,
+                                            bounds=tile.bounds,
+                                            transform=vrt_affine,
                                         )
                                     )[2]
                                 ),
                                 yOff=str(
                                     list(
                                         raster.bounds_to_ranges(
-                                            out_bounds=tile.bounds,
-                                            in_affine=vrt_affine,
-                                            in_shape=vrt_shape,
+                                            bounds=tile.bounds,
+                                            transform=vrt_affine,
                                         )
                                     )[0]
                                 ),

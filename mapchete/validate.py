@@ -1,6 +1,5 @@
 """Convenience validator functions for core and extension packages."""
 
-
 import warnings
 from collections.abc import Iterable
 from typing import Dict, List, Union
@@ -8,6 +7,7 @@ from typing import Dict, List, Union
 import numpy.ma as ma
 from rasterio.crs import CRS
 
+from mapchete.protocols import GridProtocol
 from mapchete.tile import BufferedTile, BufferedTilePyramid
 from mapchete.types import Bounds, ZoomLevels
 
@@ -183,10 +183,15 @@ def validate_crs(crs):
             raise TypeError(f"invalid CRS given: {crs}")
 
 
-def validate_write_window_params(in_tile, out_tile, in_data, out_profile):
+def validate_write_window_params(
+    in_grid: GridProtocol,
+    out_grid: GridProtocol,
+    in_data: ma.MaskedArray,
+    out_profile: dict,
+):
     """Raise Exception if write window parameters are invalid."""
-    if any([not isinstance(t, BufferedTile) for t in [in_tile, out_tile]]):
-        raise TypeError("in_tile and out_tile must be BufferedTile")
+    if any([not isinstance(t, GridProtocol) for t in [in_grid, out_grid]]):
+        raise TypeError("in_grid and out_grid must implement GridProtocol")
     if not isinstance(in_data, ma.MaskedArray):
         raise TypeError("in_data must be ma.MaskedArray")
     if not isinstance(out_profile, dict):

@@ -26,12 +26,12 @@ import numpy.ma as ma
 
 from mapchete.formats import base
 from mapchete.io.raster import (
-    MPath,
     memory_file,
     prepare_array,
     read_raster_no_crs,
     write_raster_window,
 )
+from mapchete.path import MPath
 from mapchete.tile import BufferedTile
 from mapchete.validate import validate_values
 
@@ -239,9 +239,9 @@ class OutputDataWriter(base.OutputDataWriter, OutputDataReader):
                 self.prepare_path(tile)
                 out_tile = BufferedTile(tile, self.pixelbuffer)
                 write_raster_window(
-                    in_tile=process_tile,
+                    in_grid=process_tile,
                     in_data=data,
                     out_profile=self.profile(out_tile),
-                    out_tile=out_tile,
+                    out_grid=out_tile,
                     out_path=out_path,
                 )

@@ -293,6 +293,11 @@ class BufferedTile(Tile):
         return self._tile.affine(pixelbuffer=self.pixelbuffer)
 
     @cached_property
+    def transform(self):
+        """Return buffered Affine."""
+        return self._tile.affine(pixelbuffer=self.pixelbuffer)
+
+    @cached_property
     def bounds(self):
         """Return buffered bounds."""
         return self._tile.bounds(pixelbuffer=self.pixelbuffer)

@@ -219,7 +219,7 @@ class MFuture:
                 )
 
             # keep some exceptions as they are
-            elif isinstance(exception, keep_exceptions):
+            if isinstance(exception, keep_exceptions):
                 raise exception
 
             # wrap all other exceptions in a MapcheteTaskFailed
