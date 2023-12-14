@@ -23,7 +23,7 @@ import mapchete
 from mapchete.config import DaskSettings
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import fs_from_path, rasterio_open
-from mapchete.io.raster import _shift_required, create_mosaic
+from mapchete.io.raster.mosaic import _shift_required, create_mosaic
 from mapchete.processing.types import TaskInfo
 from mapchete.tile import BufferedTilePyramid, count_tiles
 

@@ -3,16 +3,25 @@ from __future__ import annotations
 import os
 from typing import Iterable, List, Optional, Tuple, Union
 
+from affine import Affine
+from fiona.crs import CRS as FionaCRS
 from pydantic import BaseModel
+from rasterio.crs import CRS as RasterioCRS
+from rasterio.transform import array_bounds, from_bounds
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
+from tilematrix import Shape
 
 from mapchete.tile import BufferedTile
 
 MPathLike = Union[str, os.PathLike]
 BoundsLike = Union[List[float], Tuple[float], dict, BaseGeometry]
+ShapeLike = Union[Shape, List[int], Tuple[int, int]]
 ZoomLevelsLike = Union[List[int], int, dict]
 TileLike = Union[BufferedTile, Tuple[int, int, int]]
+CRSLike = Union[FionaCRS, RasterioCRS]
+NodataVal = Optional[float]
+NodataVals = Union[List[NodataVal], NodataVal]
 
 
 class Bounds(list):
@@ -313,3 +322,52 @@ class ZoomLevels(list):
 class Progress(BaseModel):
     current: int = 0
     total: Optional[int] = None
+
+
+class Grid:
+    transform: Affine
+    height: int
+    width: int
+    crs: CRSLike
+    bounds: Bounds
+    shape: Shape
+
+    def __init__(self, transform: Affine, height: int, width: int, crs: CRSLike):
+        self.transform = transform
+        self.height = height
+        self.width = width
+        self.crs = crs
+        self.bounds = Bounds(*array_bounds(self.height, self.width, self.transform))
+        self.shape = Shape(self.height, self.width)
+
+    @staticmethod
+    def from_obj(obj):
+        if hasattr(obj, "transform"):
+            transform = obj.transform
+        else:
+            transform = obj.affine
+        return Grid(transform, obj.height, obj.width, obj.crs)
+
+    @staticmethod
+    def from_bounds(bounds: BoundsLike, shape: ShapeLike, crs: CRSLike) -> Grid:
+        shape = Shape(*shape)
+        bounds = Bounds.from_inp(bounds)
+        transform = from_bounds(
+            bounds.left,
+            bounds.bottom,
+            bounds.right,
+            bounds.top,
+            shape.width,
+            shape.height,
+        )
+        return Grid(transform, shape.height, shape.width, crs)
+
+    def to_dict(self):
+        return dict(
+            transform=self.transform,
+            height=self.height,
+            width=self.width,
+            crs=self.crs,
+            bounds=self.bounds,
+            shape=self.shape,
+        )

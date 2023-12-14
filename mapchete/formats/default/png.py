@@ -26,12 +26,12 @@ import numpy.ma as ma
 
 from mapchete.formats import base
 from mapchete.io.raster import (
-    MPath,
     memory_file,
     prepare_array,
     read_raster_no_crs,
     write_raster_window,
 )
+from mapchete.path import MPath
 from mapchete.tile import BufferedTile
 from mapchete.validate import validate_values
 
