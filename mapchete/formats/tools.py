@@ -274,7 +274,12 @@ def load_metadata(params: Dict, parse_known_types=True) -> Dict:
         raise TypeError(f"metadata parameters must be a dictionary, not {params}")
     out = params.copy()
     grid = out["pyramid"]["grid"]
-    if grid["type"] == "geodetic" and grid["shape"] == [2, 1]:  # pragma: no cover
+    if "type" in grid:  # pragma: no cover
+        warnings.warn(DeprecationWarning("'type' is deprecated and should be 'grid'"))
+        if "grid" not in grid:
+            grid["grid"] = grid.pop("type")
+
+    if grid["grid"] == "geodetic" and grid["shape"] == [2, 1]:  # pragma: no cover
         warnings.warn(
             DeprecationWarning(
                 "Deprecated grid shape ordering found. "
