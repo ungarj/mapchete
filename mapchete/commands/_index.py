@@ -8,8 +8,10 @@ from shapely.geometry.base import BaseGeometry
 
 import mapchete
 from mapchete.commands.observer import ObserverProtocol, Observers
+from mapchete.commands.parser import InputInfo
 from mapchete.config import MapcheteConfig
-from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
+from mapchete.config.parse import bounds_from_opts, raw_conf
+from mapchete.enums import InputType
 from mapchete.index import zoom_index_gen
 from mapchete.path import MPath
 from mapchete.types import MPathLike, Progress
@@ -85,7 +87,6 @@ def index(
     fs_opts : dict
         Configuration options for fsspec filesystem.
     """
-
     if not any([geojson, gpkg, shp, txt, vrt]):
         raise ValueError(
             """At least one of '--geojson', '--gpkg', '--shp', '--vrt' or '--txt'"""
@@ -96,21 +97,21 @@ def index(
 
     all_observers.notify(message=f"create index(es) for {some_input}")
 
+    input_info = InputInfo.from_path(MPath.from_inp(some_input))
     if tile:
-        tile = raw_conf_process_pyramid(raw_conf(some_input)).tile(*tile)
+        tile = input_info.output_pyramid.tile(*tile)
         bounds = tile.bounds
         zoom = tile.zoom
+    elif input_info.input_type == InputType.mapchete_file:
+        bounds = bounds_from_opts(
+            point=point,
+            point_crs=point_crs,
+            bounds=bounds,
+            bounds_crs=bounds_crs,
+            raw_conf=raw_conf(some_input),
+        )
     else:
-        try:
-            bounds = bounds_from_opts(
-                point=point,
-                point_crs=point_crs,
-                bounds=bounds,
-                bounds_crs=bounds_crs,
-                raw_conf=raw_conf(some_input),
-            )
-        except IsADirectoryError:
-            pass
+        bounds = bounds or input_info.bounds
 
     with mapchete.open(
         some_input,
@@ -146,3 +147,16 @@ def index(
             all_observers.notify(
                 progress=Progress(current=ii, total=total), message=f"{tile.id} indexed"
             )
+
+
+def is_tiledirectory(inp: Union[MPathLike, dict]) -> bool:
+    if isinstance(inp, dict):
+        return False
+    try:
+        for ff in MPath.from_inp(inp).ls():
+            if ff.endswith("metadata.json"):
+                return True
+        else:
+            return False
+    except NotADirectoryError:
+        return False

@@ -32,7 +32,7 @@ def dict_from_mapchete(path):
     return out
 
 
-def dict_to_yaml(dictionary):
+def clear_dict(dictionary) -> dict:
     def _convert(vv):
         out = OrderedDict()
         for k, v in vv.items():
@@ -43,7 +43,7 @@ def dict_to_yaml(dictionary):
             out[k] = v
         return out
 
-    return yaml.dump(_convert(dictionary))
+    return _convert(dictionary)
 
 
 class ProcessFixture:
@@ -98,9 +98,7 @@ class ProcessFixture:
             self.path = self._tempdir / self.path.name
 
             # dump modified mapchete config to temporary directory
-            self.path.parent.makedirs()
-            with self.path.open("w") as dst:
-                dst.write(dict_to_yaml(self.dict))
+            self.path.write_yaml(clear_dict(self.dict))
 
         # shortcut to output path
         self.output_path = self.dict["output"]["path"]

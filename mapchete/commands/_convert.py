@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from contextlib import AbstractContextManager
@@ -14,20 +13,16 @@ from shapely.geometry.base import BaseGeometry
 
 from mapchete.commands._execute import execute
 from mapchete.commands.observer import ObserverProtocol, Observers
+from mapchete.commands.parser import InputInfo, OutputInfo
 from mapchete.config import DaskSettings
-from mapchete.config.parse import raw_conf, raw_conf_output_pyramid
+from mapchete.enums import DataType
 from mapchete.errors import JobCancelledError
 from mapchete.executor import Executor
-from mapchete.formats import (
-    available_input_formats,
-    available_output_formats,
-    driver_from_file,
-)
-from mapchete.io import MPath, fiona_open, get_best_zoom_level, rasterio_open, read_json
+from mapchete.formats import available_output_formats
+from mapchete.io import MPath, fiona_open, get_best_zoom_level
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import MPathLike
-from mapchete.validate import validate_zooms
 
 logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()
@@ -155,9 +150,9 @@ def convert(
     tiledir = MPath.from_inp(tiledir, storage_options=src_fs_opts)
     output = MPath.from_inp(output, storage_options=dst_fs_opts)
     try:
-        input_info = _get_input_info(tiledir)
+        input_info = InputInfo.from_path(tiledir)
         logger.debug("input params: %s", input_info)
-        output_info = _get_output_info(output)
+        output_info = OutputInfo.from_path(output)
         logger.debug("output params: %s", output_info)
     except Exception as e:
         raise ValueError(e)
@@ -166,7 +161,7 @@ def convert(
         isinstance(output_pyramid, (str, MPath))
         and output_pyramid not in tilematrix._conf.PYRAMID_PARAMS.keys()
     ):
-        output_pyramid = json.loads(MPath.from_inp(output_pyramid).read_text())
+        output_pyramid = MPath.from_inp(output_pyramid).read_json()
 
     # collect mapchete configuration
     mapchete_config = dict(
@@ -178,40 +173,40 @@ def convert(
                 metatiling=(
                     output_metatiling
                     or (
-                        input_info["pyramid"].get("metatiling", 1)
-                        if input_info["pyramid"]
+                        input_info.output_pyramid.metatiling
+                        if input_info.output_pyramid
                         else 1
                     )
                 ),
                 pixelbuffer=(
-                    input_info["pyramid"].get("pixelbuffer", 0)
-                    if input_info["pyramid"]
+                    input_info.output_pyramid.pixelbuffer
+                    if input_info.output_pyramid
                     else 0
                 ),
             )
             if output_pyramid
-            else input_info["pyramid"]
+            else input_info.output_pyramid
         ),
         output=dict(
             {
                 k: v
-                for k, v in input_info["output_params"].items()
+                for k, v in input_info.output_params.items()
                 if k not in ["delimiters", "bounds", "mode"]
             },
             path=output,
             format=(
                 output_format
-                or output_info["driver"]
-                or input_info["output_params"]["format"]
+                or output_info.driver
+                or input_info.output_params["format"]
             ),
-            dtype=output_dtype or input_info["output_params"].get("dtype"),
+            dtype=output_dtype or input_info.output_params.get("dtype"),
             **creation_options,
             **dict(overviews=True, overviews_resampling=overviews_resampling_method)
             if overviews
             else dict(),
         ),
         config_dir=os.getcwd(),
-        zoom_levels=zoom or input_info["zoom_levels"],
+        zoom_levels=zoom or input_info.zoom_levels,
         process_parameters=dict(
             scale_ratio=scale_ratio,
             scale_offset=scale_offset,
@@ -226,7 +221,9 @@ def convert(
         raise ValueError("Output format required.")
     if mapchete_config["output"]["format"] == "GTiff":
         mapchete_config["output"].update(cog=cog)
-    output_type = OUTPUT_FORMATS[mapchete_config["output"]["format"]]["data_type"]
+    output_type = DataType[
+        OUTPUT_FORMATS[mapchete_config["output"]["format"]]["data_type"]
+    ]
     if bidx is not None:
         mapchete_config["output"].update(bands=len(bidx))
     if mapchete_config["pyramid"] is None:
@@ -243,14 +240,14 @@ def convert(
             )
         except Exception as exc:
             raise ValueError("Zoom levels required.") from exc
-    elif input_info["input_type"] != output_type:
+    elif input_info.data_type != output_type:
         raise ValueError(
-            f"Output format type ({output_type}) is incompatible with input format ({input_info['input_type']})."
+            f"Output format type ({output_type}) is incompatible with input format ({input_info.data_type})."
         )
     if output_metatiling:
         mapchete_config["pyramid"].update(metatiling=output_metatiling)
         mapchete_config["output"].update(metatiling=output_metatiling)
-    if input_info["output_params"].get("schema") and output_geometry_type:
+    if input_info.output_params.get("schema") and output_geometry_type:
         mapchete_config["output"]["schema"].update(geometry=output_geometry_type)
 
     # determine process bounds
@@ -258,11 +255,11 @@ def convert(
     inp_bounds = (
         bounds
         or reproject_geometry(
-            box(*input_info["bounds"]),
-            src_crs=input_info["crs"],
+            input_info.bounds.geometry,
+            src_crs=input_info.crs,
             dst_crs=out_pyramid.crs,
         ).bounds
-        if input_info["bounds"]
+        if input_info.bounds
         else out_pyramid.bounds
     )
     # if clip-geometry is available, intersect determined bounds with clip bounds
@@ -309,117 +306,3 @@ def convert(
 def _clip_bbox(clip_geometry, dst_crs=None):
     with fiona_open(clip_geometry) as src:
         return reproject_geometry(box(*src.bounds), src_crs=src.crs, dst_crs=dst_crs)
-
-
-def _get_input_info(inp):
-    # assuming single file if path has a file extension
-    if inp.suffix:
-        logger.debug("assuming single file")
-        driver = driver_from_file(inp)
-
-        # single file input can be a mapchete file or a rasterio/fiona file
-        if driver == "Mapchete":
-            logger.debug("input is mapchete file")
-            input_info = _input_mapchete_info(inp)
-
-        elif driver == "raster_file":
-            # this should be readable by rasterio
-            logger.debug("input is raster_file")
-            input_info = _input_rasterio_info(inp)
-
-        elif driver == "vector_file":
-            # this should be readable by Fiona
-            input_info = _input_fiona_info(inp)
-        else:  # pragma: no cover
-            raise NotImplementedError(f"driver {driver} is not supported")
-
-    # assuming tile directory
-    else:
-        logger.debug("input is tile directory")
-        input_info = _input_tile_directory_info(inp)
-
-    return input_info
-
-
-def _input_mapchete_info(inp):
-    conf = raw_conf(inp)
-    output_params = conf["output"]
-    pyramid = raw_conf_output_pyramid(conf)
-    return dict(
-        output_params=output_params,
-        pyramid=pyramid.to_dict(),
-        crs=pyramid.crs,
-        zoom_levels=validate_zooms(conf["zoom_levels"], expand=False),
-        pixel_size=None,
-        input_type=OUTPUT_FORMATS[output_params["format"]]["data_type"],
-        bounds=conf.get("bounds"),
-    )
-
-
-def _input_rasterio_info(inp):
-    with rasterio_open(inp) as src:
-        if src.transform.is_identity:
-            if src.gcps[1] is not None:
-                with WarpedVRT(src) as dst:
-                    bounds = dst.bounds
-                    crs = src.gcps[1]
-            elif src.rpcs:  # pragma: no cover
-                with WarpedVRT(src) as dst:
-                    bounds = dst.bounds
-                    crs = CRS.from_string("EPSG:4326")
-            else:  # pragma: no cover
-                raise TypeError("cannot determine georeference")
-        else:
-            crs = src.crs
-            bounds = src.bounds
-        return dict(
-            output_params=dict(
-                bands=src.meta["count"],
-                dtype=src.meta["dtype"],
-                format=src.driver if src.driver in available_input_formats() else None,
-            ),
-            pyramid=None,
-            crs=crs,
-            zoom_levels=None,
-            pixel_size=src.transform[0],
-            input_type="raster",
-            bounds=bounds,
-        )
-
-
-def _input_fiona_info(inp):
-    with fiona_open(inp) as src:
-        return dict(
-            output_params=dict(
-                schema=src.schema,
-                format=src.driver if src.driver in available_input_formats() else None,
-            ),
-            pyramid=None,
-            crs=src.crs,
-            zoom_levels=None,
-            input_type="vector",
-            bounds=src.bounds if len(src) else None,
-        )
-
-
-def _input_tile_directory_info(tiledir_path):
-    conf = read_json(tiledir_path / "metadata.json")
-    pyramid = BufferedTilePyramid.from_dict(conf["pyramid"])
-    return dict(
-        output_params=conf["driver"],
-        pyramid=pyramid.to_dict(),
-        crs=pyramid.crs,
-        zoom_levels=None,
-        pixel_size=None,
-        input_type=OUTPUT_FORMATS[conf["driver"]["format"]]["data_type"],
-        bounds=None,
-    )
-
-
-def _get_output_info(output):
-    if not output.suffix:
-        return dict(type="TileDirectory", driver=None)
-    elif output.suffix == ".tif":
-        return dict(type="SingleFile", driver="GTiff")
-    else:
-        raise TypeError(f"Could not determine output from extension: {output.suffix}")
