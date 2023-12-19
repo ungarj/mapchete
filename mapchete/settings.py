@@ -48,11 +48,13 @@ class IORetrySettings(BaseSettings):
     backoff: float = 1.0
     exceptions: Tuple[Type[Exception], ...] = (
         AttributeError,
-        IndexError,
-        KeyError,
+        BufferError,
+        ConnectionError,
+        InterruptedError,
+        LookupError,
         NameError,
-        OSError,
         SystemError,
+        TimeoutError,
         RasterioError,
         FionaError,
     )

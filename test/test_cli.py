@@ -961,7 +961,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             "none",
         ],
         expected_exit_code=1,
-        output_contains=("Could not determine output from extension"),
+        output_contains=("currently only single file GeoTIFFs are allowed"),
         raise_exc=False,
     )
 
