@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 
 from rasterio.crs import CRS
 from rasterio.vrt import WarpedVRT
 
+from mapchete.config.base import MapcheteConfig
 from mapchete.config.parse import raw_conf, raw_conf_output_pyramid
 from mapchete.enums import DataType, InputType, OutputType
 from mapchete.formats import (
@@ -17,7 +18,7 @@ from mapchete.formats import (
 from mapchete.io import fiona_open, rasterio_open
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import Bounds, CRSLike, ZoomLevels
+from mapchete.types import Bounds, CRSLike, MPathLike, ZoomLevels
 
 logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()
@@ -33,6 +34,49 @@ class InputInfo:
     zoom_levels: Optional[ZoomLevels] = None
     output_pyramid: Optional[BufferedTilePyramid] = None
     pixel_size: Optional[int] = None
+
+    @staticmethod
+    def from_inp(inp: Union[MPathLike, dict, MapcheteConfig]) -> InputInfo:
+        try:
+            path = MPath.from_inp(inp)
+
+        except Exception:
+            if isinstance(inp, dict):
+                return InputInfo.from_config_dict(inp)
+            elif isinstance(inp, MapcheteConfig):
+                return InputInfo.from_mapchete_config(inp)
+
+            raise TypeError(f"cannot create InputInfo from {inp}")
+
+        return InputInfo.from_path(path)
+
+    @staticmethod
+    def from_config_dict(conf: dict) -> InputInfo:
+        output_params = conf["output"]
+        output_pyramid = raw_conf_output_pyramid(conf)
+        return InputInfo(
+            input_type=InputType.mapchete,
+            output_params=output_params,
+            output_pyramid=output_pyramid,
+            crs=output_pyramid.crs,
+            zoom_levels=ZoomLevels.from_inp(conf["zoom_levels"]),
+            data_type=DataType[OUTPUT_FORMATS[output_params["format"]]["data_type"]],
+            bounds=Bounds.from_inp(conf.get("bounds")) if conf.get("bounds") else None,
+        )
+
+    @staticmethod
+    def from_mapchete_config(mapchete_config: MapcheteConfig) -> InputInfo:
+        return InputInfo(
+            input_type=InputType.mapchete,
+            output_params=mapchete_config.output.params,
+            output_pyramid=mapchete_config.output_pyramid,
+            crs=mapchete_config.output_pyramid.crs,
+            zoom_levels=mapchete_config.zoom_levels,
+            data_type=DataType[
+                OUTPUT_FORMATS[mapchete_config.output.params["format"]]["data_type"]
+            ],
+            bounds=mapchete_config.bounds,
+        )
 
     @staticmethod
     def from_path(path: MPath) -> InputInfo:
@@ -65,18 +109,7 @@ class InputInfo:
 
     @staticmethod
     def from_mapchete_file(path: MPath) -> InputInfo:
-        conf = raw_conf(path)
-        output_params = conf["output"]
-        output_pyramid = raw_conf_output_pyramid(conf)
-        return InputInfo(
-            input_type=InputType.mapchete_file,
-            output_params=output_params,
-            output_pyramid=output_pyramid,
-            crs=output_pyramid.crs,
-            zoom_levels=ZoomLevels.from_inp(conf["zoom_levels"]),
-            data_type=DataType[OUTPUT_FORMATS[output_params["format"]]["data_type"]],
-            bounds=Bounds.from_inp(conf.get("bounds")) if conf.get("bounds") else None,
-        )
+        return InputInfo.from_config_dict(raw_conf(path))
 
     @staticmethod
     def from_rasterio_file(path: MPath) -> InputInfo:
@@ -149,9 +182,8 @@ class OutputInfo:
         if path.suffix:
             if path.suffix == ".tif":
                 return OutputInfo(type=OutputType.single_file, driver="GTiff")
-            return OutputInfo(
-                type=OutputType.single_file, driver=driver_from_file(path)
-            )
+            else:
+                raise ValueError("currently only single file GeoTIFFs are allowed")
 
         if not path.suffix:
             return OutputInfo(type=OutputType.tile_directory, driver=None)

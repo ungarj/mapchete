@@ -185,7 +185,9 @@ def convert(
                 ),
             )
             if output_pyramid
-            else input_info.output_pyramid
+            else input_info.output_pyramid.to_dict()
+            if input_info.output_pyramid
+            else None
         ),
         output=dict(
             {

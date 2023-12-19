@@ -28,7 +28,7 @@ class OutputType(str, Enum):
 class InputType(str, Enum):
     single_file = "single_file"
     tile_directory = "tile_directory"
-    mapchete_file = "mapchete_file"
+    mapchete = "mapchete"
 
 
 class Status(str, Enum):

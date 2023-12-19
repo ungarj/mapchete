@@ -97,12 +97,12 @@ def index(
 
     all_observers.notify(message=f"create index(es) for {some_input}")
 
-    input_info = InputInfo.from_path(MPath.from_inp(some_input))
+    input_info = InputInfo.from_inp(some_input)
     if tile:
         tile = input_info.output_pyramid.tile(*tile)
         bounds = tile.bounds
         zoom = tile.zoom
-    elif input_info.input_type == InputType.mapchete_file:
+    elif input_info.input_type == InputType.mapchete:
         bounds = bounds_from_opts(
             point=point,
             point_crs=point_crs,

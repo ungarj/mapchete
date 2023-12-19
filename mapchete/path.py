@@ -298,20 +298,21 @@ class MPath(os.PathLike):
     @retry(logger=logger, **dict(IORetrySettings()))
     def read_text(self) -> str:
         """Open and return file content as text."""
-        with self.open() as src:
-            return src.read()
-
-    @retry(logger=logger, **dict(IORetrySettings()))
-    def read_json(self) -> dict:
-        """Read local or remote."""
         try:
-            return json.loads(self.read_text())
+            with self.open() as src:
+                return src.read()
+        except FileNotFoundError:
+            raise FileNotFoundError(f"{str(self)} not found")
         except Exception as e:
             if self.exists():  # pragma: no cover
                 logger.exception(e)
                 raise e
             else:
                 raise FileNotFoundError(f"{str(self)} not found")
+
+    def read_json(self) -> dict:
+        """Read local or remote."""
+        return json.loads(self.read_text())
 
     def write_json(self, params: dict, sort_keys=True, indent=4) -> None:
         """Write local or remote."""

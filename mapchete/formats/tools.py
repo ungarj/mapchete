@@ -15,6 +15,7 @@ from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 from mapchete.errors import MapcheteConfigError, MapcheteDriverError
+from mapchete.formats.models import DriverMetadata
 from mapchete.io import MPath, fiona_open, rasterio_open
 from mapchete.registered import drivers
 from mapchete.tile import BufferedTilePyramid

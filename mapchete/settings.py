@@ -1,8 +1,11 @@
 """
 Combine default values with environment variable values.
 """
+from typing import Tuple, Type
 
+from fiona.errors import FionaError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from rasterio.errors import RasterioError
 
 
 # defaults sets according to the recommendations given at
@@ -43,6 +46,16 @@ class IORetrySettings(BaseSettings):
     tries: int = 3
     delay: float = 1.0
     backoff: float = 1.0
+    exceptions: Tuple[Type[Exception], ...] = (
+        AttributeError,
+        IndexError,
+        KeyError,
+        NameError,
+        OSError,
+        SystemError,
+        RasterioError,
+        FionaError,
+    )
     # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_IO_RETRY_")
 
