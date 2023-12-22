@@ -6,7 +6,7 @@ from mapchete.types import MPathLike
 logger = logging.getLogger(__name__)
 
 
-def write_json(path: MPathLike, params: dict, **kwargs) -> None:
+def write_json(path: MPathLike, params: dict, **kwargs) -> None:  # pragma: no cover
     """Write local or remote."""
     return MPath.from_inp(path, **kwargs).write_json(params)
 

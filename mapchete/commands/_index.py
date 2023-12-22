@@ -147,16 +147,3 @@ def index(
             all_observers.notify(
                 progress=Progress(current=ii, total=total), message=f"{tile.id} indexed"
             )
-
-
-def is_tiledirectory(inp: Union[MPathLike, dict]) -> bool:
-    if isinstance(inp, dict):
-        return False
-    try:
-        for ff in MPath.from_inp(inp).ls():
-            if ff.endswith("metadata.json"):
-                return True
-        else:
-            return False
-    except NotADirectoryError:
-        return False

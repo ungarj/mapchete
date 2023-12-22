@@ -43,10 +43,10 @@ class InputInfo:
         except Exception:
             if isinstance(inp, dict):
                 return InputInfo.from_config_dict(inp)
-            elif isinstance(inp, MapcheteConfig):
+            elif isinstance(inp, MapcheteConfig):  # pragma: no cover
                 return InputInfo.from_mapchete_config(inp)
 
-            raise TypeError(f"cannot create InputInfo from {inp}")
+            raise TypeError(f"cannot create InputInfo from {inp}")  # pragma: no cover
 
         return InputInfo.from_path(path)
 
@@ -65,7 +65,9 @@ class InputInfo:
         )
 
     @staticmethod
-    def from_mapchete_config(mapchete_config: MapcheteConfig) -> InputInfo:
+    def from_mapchete_config(
+        mapchete_config: MapcheteConfig,
+    ) -> InputInfo:  # pragma: no cover
         return InputInfo(
             input_type=InputType.mapchete,
             output_params=mapchete_config.output.params,

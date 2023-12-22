@@ -303,8 +303,8 @@ class MPath(os.PathLike):
                 return src.read()
         except FileNotFoundError:
             raise FileNotFoundError(f"{str(self)} not found")
-        except Exception as e:
-            if self.exists():  # pragma: no cover
+        except Exception as e:  # pragma: no cover
+            if self.exists():
                 logger.exception(e)
                 raise e
             else:
