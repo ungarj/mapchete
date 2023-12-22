@@ -941,9 +941,7 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
             "none",
         ],
         expected_exit_code=1,
-        output_contains=(
-            "Output format type (vector) is incompatible with input format (raster)."
-        ),
+        output_contains=("is incompatible with input format"),
         raise_exc=False,
     )
 

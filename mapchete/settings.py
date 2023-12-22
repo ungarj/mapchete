@@ -46,6 +46,8 @@ class IORetrySettings(BaseSettings):
     tries: int = 3
     delay: float = 1.0
     backoff: float = 1.0
+    # only retry the most common exceptions which do not hint to
+    # a permanent issue (such as FileNotFoundError, ...).
     exceptions: Tuple[Type[Exception], ...] = (
         AttributeError,
         BufferError,

@@ -3,11 +3,11 @@ import os
 from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
 from pprint import pformat
-from typing import List, Optional, Tuple, Type, Union
+from typing import List, NoReturn, Optional, Tuple, Type, Union
 
 import tilematrix
 from rasterio.crs import CRS
-from rasterio.vrt import WarpedVRT
+from rasterio.enums import Resampling
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 
@@ -15,7 +15,7 @@ from mapchete.commands._execute import execute
 from mapchete.commands.observer import ObserverProtocol, Observers
 from mapchete.commands.parser import InputInfo, OutputInfo
 from mapchete.config import DaskSettings
-from mapchete.enums import DataType
+from mapchete.enums import Concurrency, DataType, ProcessingMode
 from mapchete.errors import JobCancelledError
 from mapchete.executor import Executor
 from mapchete.formats import available_output_formats
@@ -29,42 +29,41 @@ OUTPUT_FORMATS = available_output_formats()
 
 
 def convert(
-    tiledir: MPathLike,
-    output: MPathLike,
-    zoom: Union[int, List[int]] = None,
-    area: Union[BaseGeometry, str, dict] = None,
-    area_crs: Union[CRS, str] = None,
-    bounds: Tuple[float] = None,
-    bounds_crs: Union[CRS, str] = None,
-    point: Tuple[float, float] = None,
-    point_crs: Tuple[float, float] = None,
-    tile: Tuple[int, int, int] = None,
+    input_path: MPathLike,
+    output_path: MPathLike,
+    zoom: Optional[Union[int, List[int]]] = None,
+    area: Optional[Union[BaseGeometry, str, dict]] = None,
+    area_crs: Optional[Union[CRS, str]] = None,
+    bounds: Optional[Tuple[float]] = None,
+    bounds_crs: Optional[Union[CRS, str]] = None,
+    point: Optional[Tuple[float, float]] = None,
+    point_crs: Optional[Tuple[float, float]] = None,
     overwrite: bool = False,
-    concurrency: str = "processes",
+    concurrency: Concurrency = Concurrency.processes,
     dask_settings: DaskSettings = DaskSettings(),
-    workers: int = None,
-    clip_geometry: str = None,
-    bidx: List[int] = None,
-    output_pyramid: str = None,
-    output_metatiling: int = None,
-    output_format: str = None,
-    output_dtype: str = None,
-    output_geometry_type: str = None,
-    creation_options: dict = None,
-    scale_ratio: float = None,
-    scale_offset: float = None,
-    resampling_method: str = "nearest",
+    workers: Optional[int] = None,
+    clip_geometry: Optional[str] = None,
+    bidx: Optional[List[int]] = None,
+    output_pyramid: Optional[Union[str, dict, MPathLike]] = None,
+    output_metatiling: Optional[int] = None,
+    output_format: Optional[str] = None,
+    output_dtype: Optional[str] = None,
+    output_geometry_type: Optional[str] = None,
+    creation_options: Optional[dict] = None,
+    scale_ratio: Optional[float] = None,
+    scale_offset: Optional[float] = None,
+    resampling_method: Resampling = Resampling.nearest,
     overviews: bool = False,
-    overviews_resampling_method: str = "cubic_spline",
+    overviews_resampling_method: Resampling = Resampling.cubic_spline,
     cog: bool = False,
-    src_fs_opts: Union[dict, None] = None,
-    dst_fs_opts: Union[dict, None] = None,
+    src_fs_opts: Optional[dict] = None,
+    dst_fs_opts: Optional[dict] = None,
     executor_getter: AbstractContextManager = Executor,
     observers: Optional[List[ObserverProtocol]] = None,
     retry_on_exception: Tuple[Type[Exception], Type[Exception]] = Exception,
     cancel_on_exception: Type[Exception] = JobCancelledError,
     retries: int = 0,
-) -> None:
+) -> NoReturn:
     """
     Convert mapchete outputs or other geodata.
 
@@ -74,91 +73,24 @@ def convert(
     It also supports clipping of the input by a vector dataset.
 
     If only a subset of a TileDirectory is desired, please see the mapchete.commands.cp command.
-
-    Parameters
-    ----------
-    tiledir : str
-        Path to TileDirectory or mapchete config.
-    output : str
-        Path to output.
-    zoom : integer or list of integers
-        Single zoom, minimum and maximum zoom or a list of zoom levels.
-    area : str, dict, BaseGeometry
-        Geometry to override bounds or area provided in process configuration. Can be either a
-        WKT string, a GeoJSON mapping, a shapely geometry or a path to a Fiona-readable file.
-    area_crs : CRS or str
-        CRS of area (default: process CRS).
-    bounds : tuple
-        Override bounds or area provided in process configuration.
-    bounds_crs : CRS or str
-        CRS of area (default: process CRS).
-    point : iterable
-        X and y coordinates of point whose corresponding process tile bounds will be used.
-    point_crs : str or CRS
-        CRS of point (defaults to process pyramid CRS).
-    tile : tuple
-        Zoom, row and column of tile to be processed (cannot be used with zoom)
-    overwrite : bool
-        Overwrite existing output.
-    workers : int
-        Number of execution workers when processing concurrently.
-    concurrency : str
-        Concurrency to be used. Could either be "processes", "threads" or "dask".
-    dask_scheduler : str
-        URL to dask scheduler if required.
-    dask_max_submitted_tasks : int
-        Make sure that not more tasks are submitted to dask scheduler at once. (default: 500)
-    dask_chunksize : int
-        Number of tasks submitted to the scheduler at once. (default: 100)
-    dask_client : dask.distributed.Client
-        Reusable Client instance if required. Otherwise a new client will be created.
-    clip_geometry : str
-        Path to Fiona-readable file by which output will be clipped.
-    bidx : list of integers
-        Band indexes to read from source.
-    output_pyramid : str
-        Output pyramid to write to. Can either be one of the standard pyramid grids or a JSON
-        file holding the grid definition.
-    output_metatiling : int
-        Output metatiling.
-    output_format : str
-        Output format. Can be any raster or vector format available by mapchete.
-    output_dtype : str
-        Output data type (for raster output only).
-    output_geometry_type :
-        Output geometry type (for vector output only).
-    creation_options : dict
-        Output driver specific creation options.
-    scale_ratio : float
-        Scaling factor (for raster output only).
-    scale_offset : float
-        Scaling offset (for raster output only).
-    resampling_method : str
-        Resampling method used. (default: nearest).
-    overviews : bool
-        Generate overviews (single GTiff output only).
-    overviews_resampling_method : str
-        Resampling method used for overviews. (default: cubic_spline)
-    cog : bool
-        Write a valid COG. This will automatically generate verviews. (GTiff only)
     """
 
     all_observers = Observers(observers)
     workers = workers or cpu_count()
     creation_options = creation_options or {}
     bidx = [bidx] if isinstance(bidx, int) else bidx
-    tiledir = MPath.from_inp(tiledir, storage_options=src_fs_opts)
-    output = MPath.from_inp(output, storage_options=dst_fs_opts)
+    input_path = MPath.from_inp(input_path, storage_options=src_fs_opts)
+    output_path = MPath.from_inp(output_path, storage_options=dst_fs_opts)
     try:
-        input_info = InputInfo.from_path(tiledir)
+        input_info = InputInfo.from_path(input_path)
         logger.debug("input params: %s", input_info)
-        output_info = OutputInfo.from_path(output)
+        output_info = OutputInfo.from_path(output_path)
         logger.debug("output params: %s", output_info)
     except Exception as e:
         raise ValueError(e)
 
     if (
-        isinstance(output_pyramid, (str, MPath))
+        isinstance(output_pyramid, MPathLike)
         and output_pyramid not in tilematrix._conf.PYRAMID_PARAMS.keys()
     ):
         output_pyramid = MPath.from_inp(output_pyramid).read_json()
@@ -166,7 +98,7 @@ def convert(
     # collect mapchete configuration
     mapchete_config = dict(
         process="mapchete.processes.convert",
-        input=dict(inp=tiledir, clip=clip_geometry),
+        input=dict(inp=input_path, clip=clip_geometry),
         pyramid=(
             dict(
                 grid=output_pyramid,
@@ -195,7 +127,7 @@ def convert(
                 for k, v in input_info.output_params.items()
                 if k not in ["delimiters", "bounds", "mode"]
             },
-            path=output,
+            path=output_path,
             format=(
                 output_format
                 or output_info.driver
@@ -236,7 +168,7 @@ def convert(
                 zoom_levels=dict(
                     min=0,
                     max=get_best_zoom_level(
-                        tiledir, mapchete_config["pyramid"]["grid"]
+                        input_path, mapchete_config["pyramid"]["grid"]
                     ),
                 )
             )
@@ -286,7 +218,7 @@ def convert(
 
     return execute(
         mapchete_config=mapchete_config,
-        mode="overwrite" if overwrite else "continue",
+        mode=ProcessingMode.OVERWRITE if overwrite else ProcessingMode.CONTINUE,
         zoom=zoom,
         point=point,
         point_crs=point_crs,
