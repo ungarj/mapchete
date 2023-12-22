@@ -4,7 +4,6 @@ import warnings
 from collections import OrderedDict
 from typing import Any, Iterable, Optional, Tuple, Union
 
-import oyaml as yaml
 from rasterio.crs import CRS
 from shapely import wkt
 from shapely.geometry import Point, box, shape
@@ -48,7 +47,7 @@ def parse_config(
             return OrderedDict(_include_env(input_config), mapchete_file=None)
         # from Mapchete file
         elif input_config.suffix == ".mapchete":
-            config_dict = _include_env(yaml.safe_load(input_config.read_text()))
+            config_dict = _include_env(input_config.read_yaml())
             return OrderedDict(
                 config_dict,
                 config_dir=config_dict.get(
@@ -84,9 +83,7 @@ def raw_conf(mapchete_file: Union[dict, MPathLike]) -> dict:
     if isinstance(mapchete_file, dict):
         return map_to_new_config_dict(mapchete_file)
     else:
-        return map_to_new_config_dict(
-            yaml.safe_load(MPath.from_inp(mapchete_file).read_text())
-        )
+        return map_to_new_config_dict(MPath.from_inp(mapchete_file).read_yaml())
 
 
 def raw_conf_process_pyramid(

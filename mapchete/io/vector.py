@@ -323,7 +323,6 @@ class VectorWindowMemoryFile:
 
 @retry(
     logger=logger,
-    exceptions=(DriverError, FionaError, FionaValueError),
     **dict(IORetrySettings()),
 )
 def _get_reprojected_features(

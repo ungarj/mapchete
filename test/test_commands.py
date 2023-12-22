@@ -856,6 +856,33 @@ def test_index_text(cleantopo_br):
             assert l.endswith("7.tif\n")
 
 
+def test_index_tiledir(cleantopo_br):
+    # execute process
+    execute(cleantopo_br.dict, zoom=5)
+
+    # generate index
+    index(cleantopo_br.output_path, zoom=5, gpkg=True)
+
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.gpkg" in files
+    with fiona_open(mp.config.output.path / "5.gpkg") as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+    # write again and assert there is no new entry because there is already one
+    index(cleantopo_br.dict, zoom=5, txt=True)
+
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.txt" in files
+    with fiona_open(mp.config.output.path / "5.gpkg") as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+
 def test_index_errors(mp_tmpdir, cleantopo_br):
     with pytest.raises(ValueError):
         index(cleantopo_br.dict, zoom=5)

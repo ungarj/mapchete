@@ -15,6 +15,22 @@ class Concurrency(str, Enum):
     dask = "dask"
 
 
+class DataType(str, Enum):
+    raster = "raster"
+    vector = "vector"
+
+
+class OutputType(str, Enum):
+    single_file = "single_file"
+    tile_directory = "tile_directory"
+
+
+class InputType(str, Enum):
+    single_file = "single_file"
+    tile_directory = "tile_directory"
+    mapchete = "mapchete"
+
+
 class Status(str, Enum):
     r"""
     Status describin life cycle of a Job.

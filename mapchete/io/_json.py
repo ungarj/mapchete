@@ -1,29 +1,16 @@
-import json
 import logging
 
 from mapchete.path import MPath
+from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
 
 
-def write_json(path, params, fs=None, **kwargs):
+def write_json(path: MPathLike, params: dict, **kwargs) -> None:  # pragma: no cover
     """Write local or remote."""
-    logger.debug(f"write {params} to {path}")
-    path = MPath.from_inp(path, fs=fs, **kwargs)
-    path.parent.makedirs()
-    with path.open(mode="w") as dst:
-        json.dump(params, dst, sort_keys=True, indent=4)
+    return MPath.from_inp(path, **kwargs).write_json(params)
 
 
-def read_json(path, fs=None, **kwargs):
+def read_json(path: MPathLike, **kwargs) -> dict:
     """Read local or remote."""
-    path = MPath.from_inp(path, fs=fs, **kwargs)
-    try:
-        with path.open(mode="r") as src:
-            return json.loads(src.read())
-    except Exception as e:
-        if path.exists():  # pragma: no cover
-            logger.exception(e)
-            raise e
-        else:
-            raise FileNotFoundError(f"{str(path)} not found")
+    return MPath.from_inp(path, **kwargs).read_json()

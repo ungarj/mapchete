@@ -296,7 +296,7 @@ def _get_warped_array(
         raise
 
 
-@retry(logger=logger, exceptions=RasterioIOError, **dict(IORetrySettings()))
+@retry(logger=logger, **dict(IORetrySettings()))
 def _rasterio_read(
     input_file: MPathLike,
     dst_grid: GridProtocol,
@@ -385,7 +385,7 @@ def read_raster_no_crs(
     FileNotFoundError if file cannot be found.
     """
 
-    @retry(logger=logger, exceptions=RasterioIOError, **dict(IORetrySettings()))
+    @retry(logger=logger, **dict(IORetrySettings()))
     def _read() -> ma.MaskedArray:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

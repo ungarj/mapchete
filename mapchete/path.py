@@ -1,6 +1,7 @@
 """Functions handling paths and file systems."""
 from __future__ import annotations
 
+import json
 import logging
 import os
 from collections import defaultdict
@@ -9,6 +10,7 @@ from typing import IO, List, Set, TextIO, Union
 
 import fiona
 import fsspec
+import oyaml as yaml
 import rasterio
 from fiona.session import Session as FioSession
 from fsspec import AbstractFileSystem
@@ -296,8 +298,39 @@ class MPath(os.PathLike):
     @retry(logger=logger, **dict(IORetrySettings()))
     def read_text(self) -> str:
         """Open and return file content as text."""
-        with self.open() as src:
-            return src.read()
+        try:
+            with self.open() as src:
+                return src.read()
+        except FileNotFoundError:
+            raise FileNotFoundError(f"{str(self)} not found")
+        except Exception as e:  # pragma: no cover
+            if self.exists():
+                logger.exception(e)
+                raise e
+            else:
+                raise FileNotFoundError(f"{str(self)} not found")
+
+    def read_json(self) -> dict:
+        """Read local or remote."""
+        return json.loads(self.read_text())
+
+    def write_json(self, params: dict, sort_keys=True, indent=4) -> None:
+        """Write local or remote."""
+        logger.debug(f"write {params} to {self}")
+        self.parent.makedirs()
+        with self.open(mode="w") as dst:
+            json.dump(params, dst, sort_keys=sort_keys, indent=indent)
+
+    def read_yaml(self) -> dict:
+        """Read local or remote."""
+        return yaml.safe_load(self.read_text())
+
+    def write_yaml(self, params: dict) -> None:
+        """Write local or remote."""
+        logger.debug(f"write {params} to {self}")
+        self.parent.makedirs()
+        with self.open(mode="w") as dst:
+            yaml.dump(params, dst)
 
     def makedirs(self, exist_ok: bool = True) -> None:
         """Create all parent directories for path."""
