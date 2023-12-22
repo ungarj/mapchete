@@ -89,11 +89,15 @@ def convert(
     except Exception as e:
         raise ValueError(e)
 
+    # try to read output grid definition from a file
     if (
-        isinstance(output_pyramid, MPathLike)
+        isinstance(output_pyramid, (MPath, str, dict))
         and output_pyramid not in tilematrix._conf.PYRAMID_PARAMS.keys()
     ):
-        output_pyramid = MPath.from_inp(output_pyramid).read_json()
+        try:
+            output_pyramid = MPath.from_inp(output_pyramid).read_json()
+        except Exception:  # pragma: no cover
+            pass
 
     # collect mapchete configuration
     mapchete_config = dict(
