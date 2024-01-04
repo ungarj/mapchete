@@ -2,6 +2,19 @@
 Changelog
 #########
 
+---------------------
+2024.1.0 - 2024-01-04
+---------------------
+
+* core
+
+  * fix `"type"` `DeprecationWarning` with old `BufferedTilePyramid` parameters (#611)
+  * add `MPath.read_json()`, `MPath.write_json()`, `MPath.read_yaml()` and `MPath.write_yaml()` methods (#611)
+  * explicitly set exception types to be retried in `mapchete.settings.IORetrySettings` (#611)
+  * `mapchete.commands.index`: enable indexing from a `TileDir` input (#611)
+  * `MPapth`: set rasterio environment `GDAL_DISABLE_READDIR_ON_OPEN='EMPTY_DIR'` when opening STACTA or VRT
+
+
 ----------------------
 2023.12.3 - 2023-12-15
 ----------------------
