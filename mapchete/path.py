@@ -423,6 +423,7 @@ class MPath(os.PathLike):
                     gdal_opts.pop("CPL_VSIL_CURL_ALLOWED_EXTENSIONS")
                 except KeyError:  # pragma: no cover
                     pass
+                gdal_opts.update(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR")
 
             # limit requests only to allowed extensions
             else:
