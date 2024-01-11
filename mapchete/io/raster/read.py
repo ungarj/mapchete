@@ -43,9 +43,12 @@ def rasterio_read(
     """
     path = MPath.from_inp(path)
     with path.rio_env() as env:
-        logger.debug("reading %s with GDAL options %s", str(path), env.options)
-        with rasterio.open(path, mode=mode, **kwargs) as src:
-            yield src
+        try:
+            logger.debug("reading %s with GDAL options %s", str(path), env.options)
+            with rasterio.open(path, mode=mode, **kwargs) as src:
+                yield src
+        except RasterioIOError as rio_exc:
+            _extract_filenotfound_exception(rio_exc, path)
 
 
 def read_raster_window(
@@ -78,26 +81,21 @@ def read_raster_window(
     ]
     if len(input_files) == 0:  # pragma: no cover
         raise ValueError("no input given")
-    try:
-        with input_files[0].rio_env(gdal_opts) as env:
-            logger.debug(
-                "reading %s file(s) with GDAL options %s", len(input_files), env.options
-            )
-            return _read_raster_window(
-                input_files,
-                grid,
-                indexes=indexes,
-                resampling=resampling,
-                src_nodata=src_nodata,
-                dst_nodata=dst_nodata,
-                dst_dtype=dst_dtype,
-                skip_missing_files=skip_missing_files,
-            )
-    except FileNotFoundError:  # pragma: no cover
-        raise
-    except Exception as e:  # pragma: no cover
-        logger.exception(e)
-        raise MapcheteIOError(e)
+
+    with input_files[0].rio_env(gdal_opts) as env:
+        logger.debug(
+            "reading %s file(s) with GDAL options %s", len(input_files), env.options
+        )
+        return _read_raster_window(
+            input_files,
+            grid,
+            indexes=indexes,
+            resampling=resampling,
+            src_nodata=src_nodata,
+            dst_nodata=dst_nodata,
+            dst_dtype=dst_dtype,
+            skip_missing_files=skip_missing_files,
+        )
 
 
 def _read_raster_window(
@@ -205,7 +203,7 @@ def _read_raster_window(
             else:
                 raise
         except Exception as exc:  # pragma: no cover
-            raise OSError(f"failed to read {input_file}") from exc
+            raise MapcheteIOError(f"failed to read {input_file}") from exc
 
 
 def _get_warped_edge_array(
@@ -280,20 +278,14 @@ def _get_warped_array(
     dst_nodata: NodataVal = None,
 ) -> ma.MaskedArray:
     """Extract a numpy array from a raster file."""
-    try:
-        return _rasterio_read(
-            input_file=input_file,
-            indexes=indexes,
-            dst_grid=dst_grid,
-            resampling=resampling,
-            src_nodata=src_nodata,
-            dst_nodata=dst_nodata,
-        )
-    except FileNotFoundError:
-        raise
-    except Exception as e:
-        logger.exception("error while reading file %s: %s", input_file, e)
-        raise
+    return _rasterio_read(
+        input_file=input_file,
+        indexes=indexes,
+        dst_grid=dst_grid,
+        resampling=resampling,
+        src_nodata=src_nodata,
+        dst_nodata=dst_nodata,
+    )
 
 
 @retry(logger=logger, **dict(IORetrySettings()))
@@ -356,24 +348,22 @@ def _rasterio_read(
                         masked=True,
                     )
 
-    try:
-        with Timer() as t:
-            with rasterio_read(input_file, "r") as src:
-                logger.debug("read from %s...", input_file)
-                out = _read(
-                    src,
-                    dst_grid,
-                    indexes,
-                    resampling,
-                    src_nodata,
-                    dst_nodata,
-                )
-        logger.debug("read %s in %s", input_file, t)
-        return out
-    except RasterioIOError as rio_exc:
-        _extract_filenotfound_exception(rio_exc, input_file)
+    with Timer() as t:
+        with rasterio_read(input_file, "r") as src:
+            logger.debug("read from %s...", input_file)
+            out = _read(
+                src,
+                dst_grid,
+                indexes,
+                resampling,
+                src_nodata,
+                dst_nodata,
+            )
+    logger.debug("read %s in %s", input_file, t)
+    return out
 
 
+@retry(logger=logger, **dict(IORetrySettings()))
 def read_raster_no_crs(
     input_file: MPathLike, indexes: Optional[Union[int, List[int]]] = None, **kwargs
 ) -> ma.MaskedArray:
@@ -384,23 +374,14 @@ def read_raster_no_crs(
     ------
     FileNotFoundError if file cannot be found.
     """
-
-    @retry(logger=logger, **dict(IORetrySettings()))
-    def _read() -> ma.MaskedArray:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            try:
-                with rasterio_read(input_file, "r") as src:
-                    return src.read(indexes=indexes, masked=True)
-            except RasterioIOError as rio_exc:
-                _extract_filenotfound_exception(rio_exc, input_file)
-
-    try:
-        return _read()
-    except Exception as exc:
-        if isinstance(exc, FileNotFoundError):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            with rasterio_read(input_file, "r") as src:
+                return src.read(indexes=indexes, masked=True)
+        except FileNotFoundError:
             raise
-        else:
+        except Exception as exc:
             raise MapcheteIOError(exc)
 
 

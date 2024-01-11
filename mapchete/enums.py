@@ -35,6 +35,8 @@ class Status(str, Enum):
     r"""
     Status describin life cycle of a Job.
 
+           pending
+              |
            parsing --> cancelled|failed
               |
     /--> initializing --> cancelled|failed
@@ -45,6 +47,8 @@ class Status(str, Enum):
                    |
                   done
     """
+    # just waiting
+    pending = "pending"
 
     # (A) doing something
     # (A.1) parsing configuration
