@@ -3,6 +3,16 @@ Changelog
 #########
 
 ---------------------
+2024.1.2 - 2024-01-11
+---------------------
+
+* core
+
+  * determine `FileNotFoundError` directly in `rasterio_read` (#613)
+  * add `Status.pending` (#613)
+
+
+---------------------
 2024.1.1 - 2024-01-11
 ---------------------
 
