@@ -3,6 +3,15 @@ Changelog
 #########
 
 ---------------------
+2024.1.1 - 2024-01-11
+---------------------
+
+* core
+
+  * catch dask exception if task exception cannot be retreived and wrap it within `MapcheteTaskFailed` (#612)
+
+
+---------------------
 2024.1.0 - 2024-01-04
 ---------------------
 
