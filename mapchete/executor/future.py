@@ -210,12 +210,15 @@ class MFuture:
         keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
 
         if self.failed_or_cancelled():
-            exception = self.exception(timeout=mapchete_options.future_timeout)
+            try:
+                exception = self.exception(timeout=mapchete_options.future_timeout)
+            except Exception:  # pragma: no cover
+                exception = None
 
-            # sometimes, exceptions are simply empty
+            # sometimes, exceptions are simply empty or cannot be retreived
             if exception is None:  # pragma: no cover
                 raise MapcheteTaskFailed(
-                    f"future failed (status: {self.status}), but exception could not be recovered"
+                    f"{self.name} failed (status: {self.status}), but exception could not be recovered"
                 )
 
             # keep some exceptions as they are
