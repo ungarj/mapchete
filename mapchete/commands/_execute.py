@@ -193,11 +193,12 @@ def execute(
                         return
 
                     except retry_on_exception as exception:
-                        all_observers.notify(status=Status.failed, exception=exception)
-
                         if retries:
                             retries -= 1
-                            all_observers.notify(status=Status.retrying)
+                            all_observers.notify(
+                                status=Status.retrying,
+                                message=f"run failed due to {str(exception)} (remaining retries: {retries})",
+                            )
                         else:
                             raise
 
