@@ -7,6 +7,7 @@ import geobuf
 import pytest
 import rasterio
 import yaml
+from click.exceptions import ClickException
 from click.testing import CliRunner
 from packaging import version
 from rasterio.io import MemoryFile
@@ -51,7 +52,8 @@ def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
         )
     if raise_exc and result.exception:
         logger.error(result.output or result.exception)
-        raise Exception(result.output or result.exception)
+        raise result.exception
+        # raise ClickException(result.output or result.exception)
     assert result.exit_code == expected_exit_code
     return result
 
