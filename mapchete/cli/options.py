@@ -249,6 +249,7 @@ opt_output_formats = click.option(
 opt_geojson = click.option("--geojson", is_flag=True, help="Write GeoJSON index.")
 opt_gpkg = click.option("--gpkg", is_flag=True, help="Write GeoPackage index.")
 opt_shp = click.option("--shp", is_flag=True, help="Write Shapefile index.")
+opt_fgb = click.option("--fgb", is_flag=True, help="Write FlatGeobuf index.")
 opt_vrt = click.option("--vrt", is_flag=True, help="Write VRT file.")
 opt_txt = click.option(
     "--txt", is_flag=True, help="Write output tile paths to text file."
