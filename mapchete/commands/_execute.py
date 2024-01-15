@@ -171,19 +171,18 @@ def execute(
                     )
                     # TODO it would be nice to track the time it took sending tasks to the executor
                     try:
-                        count = 0
-                        for task_info in mp.execute(
-                            executor=executor,
-                            tasks=tasks,
-                            dask_settings=dask_settings,
+                        for count, task_info in enumerate(
+                            mp.execute(
+                                executor=executor,
+                                tasks=tasks,
+                                dask_settings=dask_settings,
+                            ),
+                            1,
                         ):
-                            count += 1
-
                             all_observers.notify(
                                 progress=Progress(total=len(tasks), current=count),
                                 task_info=task_info,
                             )
-
                         all_observers.notify(status=Status.done)
                         return
 

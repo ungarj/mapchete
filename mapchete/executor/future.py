@@ -152,9 +152,16 @@ class MFuture:
 
         return self._exception
 
-    def cancelled(self) -> bool:  # pragma: no cover
+    def cancelled(self) -> bool:
         """Sequential futures cannot be cancelled."""
-        return self._cancelled
+        return self._cancelled or self.status == "cancelled"
+
+    def failed(self) -> bool:
+        return (
+            self.status == "error"
+            # concurrent.futures futures
+            or self.exception(timeout=mapchete_options.future_timeout) is not None
+        )
 
     def _populate_from_future(
         self, timeout: int = mapchete_options.future_timeout, **kwargs
@@ -184,21 +191,6 @@ class MFuture:
         else:
             self._result = result
 
-    def failed_or_cancelled(self) -> bool:
-        """
-        Return whether future is failed or cancelled.
-
-        This is a workaround between the slightly different APIs of dask and concurrent.futures.
-        It also tries to avoid potentially expensive calls to the dask scheduler.
-        """
-        if self.cancelled():  # pragma: no cover
-            return True
-        elif self.status:
-            return self.status in ["error", "cancelled"]
-        # concurrent.futures futures
-        else:
-            return self.exception(timeout=mapchete_options.future_timeout) is not None
-
     def raise_if_failed(self) -> None:
         """
         Checks whether future contains an exception and raises it as MapcheteTaskFailed.
@@ -209,7 +201,16 @@ class MFuture:
         # Let's directly re-raise these to be more transparent.
         keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
 
-        if self.failed_or_cancelled():
+        if self.cancelled():  # pragma: no cover
+            try:
+                raise self.exception(timeout=mapchete_options.future_timeout)
+            except Exception as exc:  # pragma: no cover
+                raise CancelledError(
+                    f"{self.name} got cancelled (status: {self.status}) but original "
+                    f"exception could not be recovered due to {exc}"
+                )
+
+        elif self.failed():
             try:
                 exception = self.exception(timeout=mapchete_options.future_timeout)
             except Exception:  # pragma: no cover
@@ -218,7 +219,8 @@ class MFuture:
             # sometimes, exceptions are simply empty or cannot be retreived
             if exception is None:  # pragma: no cover
                 raise MapcheteTaskFailed(
-                    f"{self.name} failed (status: {self.status}), but exception could not be recovered"
+                    f"{self.name} failed (status: {self.status}), but exception could "
+                    "not be recovered"
                 )
 
             # keep some exceptions as they are
