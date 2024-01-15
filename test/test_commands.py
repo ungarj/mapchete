@@ -827,6 +827,33 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
         assert len(list(src)) == 1
 
 
+def test_index_fgb(mp_tmpdir, cleantopo_br):
+    # execute process
+    execute(cleantopo_br.dict, zoom=5)
+
+    # generate index
+    index(cleantopo_br.dict, zoom=5, fgb=True)
+
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.fgb" in files
+    with fiona_open(mp.config.output.path / "5.fgb") as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+    # write again and assert there is no new entry because there is already one
+    index(cleantopo_br.dict, zoom=5, fgb=True)
+
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.fgb" in files
+    with fiona_open(mp.config.output.path / "5.fgb") as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+
 def test_index_text(cleantopo_br):
     # execute process
     execute(cleantopo_br.dict, zoom=5)
