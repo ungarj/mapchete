@@ -176,7 +176,8 @@ def execute(
                                 executor=executor,
                                 tasks=tasks,
                                 dask_settings=dask_settings,
-                            )
+                            ),
+                            1,
                         ):
                             all_observers.notify(
                                 progress=Progress(total=len(tasks), current=count),
