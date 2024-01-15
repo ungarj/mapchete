@@ -183,6 +183,7 @@ def execute(
                                 task_info=task_info,
                             )
                         all_observers.notify(status=Status.done)
+                        return
 
                     except cancel_on_exception:
                         # special exception indicating job was cancelled from the outside
