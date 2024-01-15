@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @options.opt_geojson
 @options.opt_gpkg
 @options.opt_shp
+@options.opt_fgb
 @options.opt_vrt
 @options.opt_txt
 @options.opt_fieldname
@@ -58,8 +59,6 @@ def index(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwar
         kwargs.update(some_input=kwargs.pop("tiledir"))
         commands.index(
             *args,
-            as_iterator=True,
-            msg_callback=tqdm.tqdm.write if verbose else None,
             observers=[pbar],
             **kwargs,
         )

@@ -25,6 +25,7 @@ def index(
     geojson: bool = False,
     gpkg: bool = False,
     shp: bool = False,
+    fgb: bool = False,
     vrt: bool = False,
     txt: bool = False,
     fieldname: Optional[str] = "location",
@@ -40,56 +41,13 @@ def index(
     tile: Optional[Tuple[int, int, int]] = None,
     fs_opts: Optional[dict] = None,
     observers: Optional[List[ObserverProtocol]] = None,
-    **kwargs,
 ):
     """
     Create one or more indexes from a TileDirectory.
-
-    Parameters
-    ----------
-    tiledir : str
-        Source TileDirectory or mapchete file.
-    idx_out_dir : str
-        Alternative output dir for index. Defaults to TileDirectory path.
-    geojson : bool
-        Activate GeoJSON output.
-    gpkg : bool
-        Activate GeoPackage output.
-    shp : bool
-        Activate Shapefile output.
-    vrt : bool
-        Activate VRT output.
-    txt : bool
-        Activate TXT output.
-    fieldname : str
-        Field name which contains paths of tiles (default: "location").
-    basepath : str
-        Use custom base path for absolute paths instead of output path.
-    for_gdal : bool
-        Use GDAL compatible remote paths, i.e. add "/vsicurl/" before path.
-    zoom : integer or list of integers
-        Single zoom, minimum and maximum zoom or a list of zoom levels.
-    area : str, dict, BaseGeometry
-        Geometry to override bounds or area provided in process configuration. Can be either a
-        WKT string, a GeoJSON mapping, a shapely geometry or a path to a Fiona-readable file.
-    area_crs : CRS or str
-        CRS of area (default: process CRS).
-    bounds : tuple
-        Override bounds or area provided in process configuration.
-    bounds_crs : CRS or str
-        CRS of area (default: process CRS).
-    point : iterable
-        X and y coordinates of point whose corresponding process tile bounds will be used.
-    point_crs : str or CRS
-        CRS of point (defaults to process pyramid CRS).
-    tile : tuple
-        Zoom, row and column of tile to be processed (cannot be used with zoom)
-    fs_opts : dict
-        Configuration options for fsspec filesystem.
     """
-    if not any([geojson, gpkg, shp, txt, vrt]):
+    if not any([geojson, gpkg, shp, fgb, txt, vrt]):
         raise ValueError(
-            """At least one of '--geojson', '--gpkg', '--shp', '--vrt' or '--txt'"""
+            """At least one of '--geojson', '--gpkg', '--shp', '--fgb', '--vrt' or '--txt'"""
             """must be provided."""
         )
 
@@ -136,6 +94,7 @@ def index(
                 geojson=geojson,
                 gpkg=gpkg,
                 shapefile=shp,
+                flatgeobuf=fgb,
                 vrt=vrt,
                 txt=txt,
                 fieldname=fieldname,

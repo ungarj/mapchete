@@ -50,8 +50,8 @@ def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
             result.exception
         )
     if raise_exc and result.exception:
-        logger.error(result.exception)
-        raise result.exception
+        logger.error(result.output or result.exception)
+        raise Exception(result.output or result.exception)
     assert result.exit_code == expected_exit_code
     return result
 
@@ -1220,6 +1220,33 @@ def test_index_shp(mp_tmpdir, cleantopo_br):
         files = os.listdir(mp.config.output.path)
         assert "5.shp" in files
     with fiona_open(mp.config.output.path / "5.shp") as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+
+def test_index_fgb(cleantopo_br):
+    # execute process
+    run_cli(
+        ["execute", cleantopo_br.path, "-z", "5", "--debug", "--concurrency", "none"]
+    )
+
+    # generate index
+    run_cli(["index", cleantopo_br.path, "-z", "5", "--fgb", "--debug"])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.fgb" in files
+    with fiona_open(mp.config.output.path / "5.fgb") as src:
+        for f in src:
+            assert "location" in f["properties"]
+        assert len(list(src)) == 1
+
+    # write again and assert there is no new entry because there is already one
+    run_cli(["index", cleantopo_br.path, "-z", "5", "--fgb", "--debug"])
+    with mapchete.open(cleantopo_br.dict) as mp:
+        files = os.listdir(mp.config.output.path)
+        assert "5.fgb" in files
+    with fiona_open(mp.config.output.path / "5.fgb") as src:
         for f in src:
             assert "location" in f["properties"]
         assert len(list(src)) == 1
