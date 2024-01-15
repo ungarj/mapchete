@@ -3,7 +3,9 @@ Combine default values with environment variable values.
 """
 from typing import Tuple, Type
 
+from aiohttp.client_exceptions import ServerDisconnectedError
 from fiona.errors import FionaError
+from fsspec.exceptions import FSTimeoutError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rasterio.errors import RasterioError
 
@@ -59,6 +61,8 @@ class IORetrySettings(BaseSettings):
         TimeoutError,
         RasterioError,
         FionaError,
+        FSTimeoutError,
+        ServerDisconnectedError,
     )
     # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_IO_RETRY_")
