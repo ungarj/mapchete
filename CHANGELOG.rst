@@ -2,6 +2,19 @@
 Changelog
 #########
 
+
+---------------------
+2024.1.3 - 2024-01-15
+---------------------
+
+* core
+
+  * `commands.execute()`: avoid reporting on exception twice; send notification message on details of retry attempt (#614)
+  * `settings.IORetrySettings`: add ServerDisconnectedError and FSTimeoutError to retryable exceptions (#615)
+  * `executor.future.MFuture`: keep CancelledError from dask instead of wrapping it within a MapcheteTaskFailed (#615)
+  * `commands.index()`: add FlatGeobuf as index driver (#616)
+
+
 ---------------------
 2024.1.2 - 2024-01-11
 ---------------------
