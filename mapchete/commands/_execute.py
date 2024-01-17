@@ -196,7 +196,7 @@ def execute(
                             retries -= 1
                             all_observers.notify(
                                 status=Status.retrying,
-                                message=f"run failed due to {str(exception)} (remaining retries: {retries})",
+                                message=f"run failed due to {repr(exception)} (remaining retries: {retries})",
                             )
                         else:
                             raise
