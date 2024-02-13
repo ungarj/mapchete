@@ -4,7 +4,7 @@ flake8
 minio
 morecantile>=5.0.0
 pre-commit
-pytest
+pytest<8
 pytest-cov
 pytest-env
 pytest-flask
