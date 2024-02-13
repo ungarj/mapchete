@@ -18,8 +18,9 @@ from fsspec import AbstractFileSystem
 from rasterio.session import Session as RioSession
 from retry import retry
 
+import mapchete
 from mapchete.executor import Executor
-from mapchete.settings import GDALHTTPOptions, IORetrySettings
+from mapchete.settings import GDALHTTPOptions, IORetrySettings, mapchete_options
 from mapchete.tile import BufferedTile
 from mapchete.types import MPathLike
 
@@ -811,7 +812,7 @@ def _batch_tiles_by_attribute(tiles: List[BufferedTile], attribute: str = "row")
 
 
 def _output_tiles_batches_exist(output_tiles_batches, config, is_https_without_ls):
-    with Executor(concurrency="threads") as executor:
+    with Executor(concurrency=mapchete_options.tiles_exist_concurrency) as executor:
         for batch in executor.as_completed(
             _output_tiles_batch_exists,
             (list(b) for b in output_tiles_batches),
@@ -829,7 +830,7 @@ def _output_tiles_batch_exists(tiles, config, is_https_without_ls):
             for output_tile in tiles
         }
         # iterate through output tile rows and determine existing output tiles
-        existing_tiles = _existing_tiles(
+        existing_tiles = _existing_output_tiles(
             output_rows=[tiles[0].row],
             output_paths=output_paths,
             config=config,
@@ -842,7 +843,7 @@ def _output_tiles_batch_exists(tiles, config, is_https_without_ls):
 
 
 def _process_tiles_batches_exist(process_tiles_batches, config, is_https_without_ls):
-    with Executor(concurrency="threads") as executor:
+    with Executor(concurrency=mapchete_options.tiles_exist_concurrency) as executor:
         for batch in executor.as_completed(
             _process_tiles_batch_exists,
             (list(b) for b in process_tiles_batches),
@@ -852,32 +853,43 @@ def _process_tiles_batches_exist(process_tiles_batches, config, is_https_without
 
 
 def _process_tiles_batch_exists(tiles, config, is_https_without_ls):
+    def _all_output_tiles_exist(process_tile, existing_output_tiles):
+        # a process tile only exists if all of its output tiles exist
+        for output_tile in config.output_pyramid.intersecting(process_tile):
+            if output_tile not in existing_output_tiles:
+                return False
+        else:
+            return True
+
     if tiles:
         zoom = tiles[0].zoom
         # determine output tile rows
         output_rows = sorted(
             list(set(t.row for t in config.output_pyramid.intersecting(tiles[0])))
         )
-        # determine output paths
+        # determine all output paths
         output_paths = {
-            config.output_reader.get_path(output_tile).crop(-3): process_tile
+            config.output_reader.get_path(output_tile).crop(-3): output_tile
             for process_tile in tiles
             for output_tile in config.output_pyramid.intersecting(process_tile)
         }
         # iterate through output tile rows and determine existing process tiles
-        existing_tiles = _existing_tiles(
+        existing_output_tiles = _existing_output_tiles(
             output_rows=output_rows,
             output_paths=output_paths,
             config=config,
             zoom=zoom,
             is_https_without_ls=is_https_without_ls,
         )
-        return [(tile, tile in existing_tiles) for tile in tiles]
+        return [
+            (tile, _all_output_tiles_exist(tile, existing_output_tiles))
+            for tile in tiles
+        ]
     else:  # pragma: no cover
         return []
 
 
-def _existing_tiles(
+def _existing_output_tiles(
     output_rows=None,
     output_paths=None,
     config=None,

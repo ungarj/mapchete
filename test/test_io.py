@@ -201,17 +201,23 @@ def test_tiles_exist_local(example_mapchete):
         output_tiles = list(mp.config.output_pyramid.tiles_from_bounds(bounds, zoom))
 
         # see which files were written and create set for output_tiles and process_tiles
-        out_path = os.path.join(
-            SCRIPTDIR, example_mapchete.dict["output"]["path"], str(zoom)
-        )
         written_output_tiles = set()
-        for root, dirs, files in os.walk(out_path):
-            for file in files:
-                zoom, row = map(int, root.split("/")[-2:])
-                col = int(file.split(".")[0])
+        for rowdir in (example_mapchete.output_path / zoom).ls():
+            for file in rowdir.ls():
+                zoom, row, col = map(int, file.without_suffix().elements[-3:])
                 written_output_tiles.add(mp.config.output_pyramid.tile(zoom, row, col))
-        written_process_tiles = set(
-            [mp.config.process_pyramid.intersecting(t)[0] for t in written_output_tiles]
+
+        full_process_tiles = set(
+            [
+                tile
+                for tile in process_tiles
+                if all(
+                    [
+                        output_tile in written_output_tiles
+                        for output_tile in mp.config.output_pyramid.intersecting(tile)
+                    ]
+                )
+            ]
         )
 
         # process tiles
@@ -224,7 +230,7 @@ def test_tiles_exist_local(example_mapchete):
                 existing.add(tile)
             else:
                 not_existing.add(tile)
-        assert existing == written_process_tiles
+        assert existing == full_process_tiles
         assert not_existing
         assert set(process_tiles) == existing.union(not_existing)
 
@@ -267,8 +273,17 @@ def test_tiles_exist_s3(gtiff_s3):
         for t in output_tiles:
             if mp.config.output_reader.tiles_exist(output_tile=t):
                 written_output_tiles.add(t)
-        written_process_tiles = set(
-            [mp.config.process_pyramid.intersecting(t)[0] for t in written_output_tiles]
+        full_process_tiles = set(
+            [
+                tile
+                for tile in process_tiles
+                if all(
+                    [
+                        output_tile in written_output_tiles
+                        for output_tile in mp.config.output_pyramid.intersecting(tile)
+                    ]
+                )
+            ]
         )
 
         # process tiles
@@ -281,7 +296,7 @@ def test_tiles_exist_s3(gtiff_s3):
                 existing.add(tile)
             else:
                 not_existing.add(tile)
-        assert existing == written_process_tiles
+        assert existing == full_process_tiles
         assert set(process_tiles) == existing.union(not_existing)
 
         # output tiles
