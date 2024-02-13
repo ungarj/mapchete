@@ -9,6 +9,8 @@ from fsspec.exceptions import FSTimeoutError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rasterio.errors import RasterioError
 
+from mapchete.executor import Concurrency
+
 
 # defaults sets according to the recommendations given at
 # https://developmentseed.org/titiler/advanced/performance_tuning/
@@ -71,6 +73,7 @@ class IORetrySettings(BaseSettings):
 class MapcheteOptions(BaseSettings):
     # timeout granted when fetching future results or exceptions
     future_timeout: int = 10
+    tiles_exist_concurrency: Concurrency = Concurrency.threads
 
     # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_")
