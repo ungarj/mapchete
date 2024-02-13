@@ -324,6 +324,28 @@ def test_update_overviews(overviews, concurrency, process_graph, dask_executor):
     assert not np.array_equal(overview_before, overview_after)
 
 
+def test_larger_process_tiles_than_output_tiles(cleantopo_br):
+    config = cleantopo_br.dict.copy()
+    config["output"].update(metatiling=1)
+    config["pyramid"].update(metatiling=2)
+    zoom = 5
+    with mapchete.open(config) as mp:
+        # there are tasks to be done
+        assert mp.tasks(zoom=zoom)
+
+        # execute tasks
+        list(mp.execute(zoom=zoom))
+
+        # there are no tasks
+        assert not mp.tasks(zoom=zoom)
+
+        # remove one output tile
+        (cleantopo_br.output_path / 5).ls()[0].ls()[0].rm()
+
+        # now there are tasks to be done again
+        assert mp.tasks(zoom=zoom)
+
+
 def test_baselevels_buffer(baselevels):
     """Baselevel interpolation using buffers."""
     config = baselevels.dict
