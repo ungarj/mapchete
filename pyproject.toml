@@ -107,6 +107,7 @@ vrt = [
 
 [project.scripts]
 mapchete = "mapchete.cli.main:main"
+mpath = "mapchete.cli.mpath:mpath"
 
 [project.entry-points."mapchete.cli.commands"]
 convert = "mapchete.cli.default.convert:convert"

@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from collections import defaultdict
+from datetime import datetime
 from functools import cached_property
 from typing import IO, List, Set, TextIO, Union
 
@@ -39,6 +40,7 @@ class MPath(os.PathLike):
         path: Union[str, os.PathLike, MPath],
         fs: AbstractFileSystem = None,
         storage_options: Union[dict, None] = None,
+        _info: Union[dict, None] = None,
         **kwargs,
     ):
         self._kwargs = {}
@@ -69,6 +71,7 @@ class MPath(os.PathLike):
         self._storage_options = dict(
             DEFAULT_STORAGE_OPTIONS, **self._kwargs.get("storage_options") or {}
         )
+        self._info = _info
 
     @staticmethod
     def from_dict(dictionary: dict) -> MPath:
@@ -97,6 +100,11 @@ class MPath(os.PathLike):
             return MPath(inp.__fspath__(), **kwargs)
         else:  # pragma: no cover
             raise TypeError(f"cannot construct MPath object from {inp}")
+
+    def info(self, refresh: bool = False) -> dict:
+        if refresh or self._info is None:
+            self._info = self.fs.info(self._path_str)
+        return self._info
 
     def to_dict(self) -> dict:
         return dict(
@@ -140,7 +148,7 @@ class MPath(os.PathLike):
         """Return path filesystem."""
         if self._fs is not None:
             return self._fs
-        elif self._path_str.startswith("s3"):
+        elif self._path_str.startswith("s3://"):
             return fsspec.filesystem(
                 "s3",
                 requester_pays=self._storage_options.get(
@@ -291,6 +299,9 @@ class MPath(os.PathLike):
         else:
             return self.new(os.path.relpath(self._path_str, start=start))
 
+    def relative_to(self, other: MPathLike) -> str:
+        return str(self.without_protocol().relative_path(other.without_protocol()))
+
     def open(self, mode: str = "r") -> Union[IO, TextIO]:
         """Open file."""
         return self.fs.open(self._path_str, mode)
@@ -344,10 +355,12 @@ class MPath(os.PathLike):
         self, detail: bool = False, absolute_paths: bool = True
     ) -> List[Union[MPath, dict]]:
         def _create_full_path(path):
-            # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
-            if absolute_paths and "s3" in self.protocols:
+            if "s3" in self.protocols:
+                # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
                 return self.new(path).with_protocol("s3")
-            return self.new(path)
+            elif absolute_paths:
+                return self.new(path)
+            return self.new(os.path.relpath(path, start=self))
 
         if detail:
             # return as is but convert "name" from string to MPath instead
@@ -374,7 +387,25 @@ class MPath(os.PathLike):
                 raise
 
     def size(self) -> int:
-        return self.fs.size(self._path_str)
+        return self.info().get("size", self.info().get("Size"))
+
+    def last_modified(self) -> datetime:
+        # for S3 objects
+        if "LastModified" in self.info():
+            return self.info().get("LastModified")
+        # for local files
+        elif "mtime" in self.info():
+            mtime = self.info().get("mtime")
+            return datetime.fromtimestamp(mtime)
+        else:
+            raise IOError("Object size could not be determined.")
+
+    def is_directory(self) -> bool:
+        # for S3 objects use the possible cached info directory
+        if "StorageClass" in self.info():
+            return self.info().get("StorageClass") == "DIRECTORY"
+        else:
+            return self.fs.isdir(self._path_str)
 
     def joinpath(self, *other: List[MPathLike]) -> MPath:
         """Join path with other."""
@@ -713,6 +744,7 @@ def tiles_exist(
         )
 
     basepath = config.output_reader.path
+    breakpoint()
 
     # for single file outputs:
     if basepath.suffix == config.output_reader.file_extension:

@@ -130,6 +130,7 @@ arg_output = click.argument("output", type=click.STRING)
 arg_src_tiledir = click.argument("src_tiledir", type=click.STRING)
 arg_dst_tiledir = click.argument("dst_tiledir", type=click.STRING)
 arg_tiledir = click.argument("tiledir", type=click.STRING)
+arg_path = click.argument("path", type=click.Path(path_type=MPath))
 
 
 # click options #

@@ -178,6 +178,29 @@ def test_ls_remote(path):
 @pytest.mark.parametrize(
     "path",
     [
+        pytest.lazy_fixture("testdata_dir"),
+    ],
+)
+def test_is_directory(path):
+    assert path.is_directory()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("http_testdata_dir"),
+        pytest.lazy_fixture("secure_http_testdata_dir"),
+        pytest.lazy_fixture("s3_testdata_dir"),
+    ],
+)
+def test_is_dir_remote(path):
+    test_is_directory(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
         pytest.lazy_fixture("metadata_json"),
     ],
 )

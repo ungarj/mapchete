@@ -2,7 +2,17 @@ import logging
 from abc import ABC
 from enum import Enum
 from functools import cached_property
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 from uuid import uuid4
 
 import numpy.ma as ma
@@ -535,7 +545,7 @@ class Tasks:
     def __len__(self):
         return sum([len(batch) for batch in self])
 
-    def __iter__(self) -> Union[TaskBatch, TileTaskBatch]:
+    def __iter__(self) -> Generator[Union[TaskBatch, TileTaskBatch], None, None]:
         for phase in (self.preprocessing_batches, self.tile_batches):
             for batch in phase:
                 yield batch
