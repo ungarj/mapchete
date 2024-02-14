@@ -4,6 +4,20 @@ Changelog
 
 
 ---------------------
+2024.2.0 - 2024-02-14
+---------------------
+
+* core
+
+  * use `repr(exception)` when reporting Exception to observers (#617)
+  * fix tiles exist check on output tiles smaller than process tiles #622
+
+* CI
+
+  * avoid pytest 8 for now
+
+
+---------------------
 2024.1.3 - 2024-01-15
 ---------------------
 
