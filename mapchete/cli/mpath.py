@@ -19,7 +19,7 @@ def exists(path: MPath):
     click.echo(path.exists())
 
 
-@mpath.command(help="List path contents")
+@mpath.command(help="List path contents.")
 @options.arg_path
 @click.option(
     "--date-format", type=click.STRING, default="%y-%m-%d %H:%M:%S", show_default=True
@@ -32,52 +32,55 @@ def ls(
     absolute_paths: bool = False,
     spacing: int = 4,
 ):
-    directories = []
-    files = []
-    last_modified_column_width = len(date_format)
-    size_column_width = 0
-    for subpath in path.ls(absolute_paths=absolute_paths):
-        if subpath.is_directory():
-            directories.append(subpath)
-        else:
-            size_column_width = max(
-                len(pretty_bytes(subpath.size())), size_column_width
-            )
-            files.append(subpath)
+    try:
+        directories = []
+        files = []
+        last_modified_column_width = len(date_format)
+        size_column_width = 0
+        for subpath in path.ls(absolute_paths=absolute_paths):
+            if subpath.is_directory():
+                directories.append(subpath)
+            else:
+                size_column_width = max(
+                    len(pretty_bytes(subpath.size())), size_column_width
+                )
+                files.append(subpath)
 
-    click.echo(
-        _row(
-            columns=["last modified", "size", "path"],
-            widths=[last_modified_column_width, size_column_width, None],
-            spacing=spacing,
-            underlines=True,
-        )
-    )
-
-    for subpath in directories:
         click.echo(
             _row(
-                columns=[
-                    "",
-                    "",
-                    str(subpath) if absolute_paths else subpath.relative_to(path),
-                ],
+                columns=["last modified", "size", "path"],
                 widths=[last_modified_column_width, size_column_width, None],
                 spacing=spacing,
+                underlines=True,
             )
         )
-    for subpath in files:
-        click.echo(
-            _row(
-                columns=[
-                    subpath.last_modified().strftime(date_format),
-                    pretty_bytes(subpath.size()),
-                    str(subpath) if absolute_paths else subpath.relative_to(path),
-                ],
-                widths=[last_modified_column_width, size_column_width, None],
-                spacing=spacing,
+
+        for subpath in directories:
+            click.echo(
+                _row(
+                    columns=[
+                        "",
+                        "",
+                        str(subpath) if absolute_paths else subpath.relative_to(path),
+                    ],
+                    widths=[last_modified_column_width, size_column_width, None],
+                    spacing=spacing,
+                )
             )
-        )
+        for subpath in files:
+            click.echo(
+                _row(
+                    columns=[
+                        subpath.last_modified().strftime(date_format),
+                        pretty_bytes(subpath.size()),
+                        str(subpath) if absolute_paths else subpath.relative_to(path),
+                    ],
+                    widths=[last_modified_column_width, size_column_width, None],
+                    spacing=spacing,
+                )
+            )
+    except Exception as exc:
+        raise click.ClickException(exc)
 
 
 def _row(

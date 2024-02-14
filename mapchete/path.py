@@ -744,7 +744,6 @@ def tiles_exist(
         )
 
     basepath = config.output_reader.path
-    breakpoint()
 
     # for single file outputs:
     if basepath.suffix == config.output_reader.file_extension:

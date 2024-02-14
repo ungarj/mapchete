@@ -216,8 +216,6 @@ class Mapchete(object):
         # we have to do this before it can be decided which type of processing can be applied
         tasks = self.tasks(zoom=zoom, tile=tile) if tasks is None else tasks
 
-        breakpoint()
-
         if len(tasks) == 0:
             return
 
