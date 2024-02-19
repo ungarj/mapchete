@@ -339,7 +339,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
         mapchete.open(dict(aoi_br.dict, area=None), area="/invalid_path.geojson")
 
 
-def testguess_geometry(aoi_br_geojson):
+def test_guess_geometry(aoi_br_geojson):
     with fiona_open(aoi_br_geojson) as src:
         area = shape(next(iter(src))["geometry"])
 
@@ -368,7 +368,7 @@ def testguess_geometry(aoi_br_geojson):
     with pytest.raises(WKTReadingError):
         guess_geometry(area.wkt.rstrip(")"))
     # non-existent path
-    with pytest.raises(DriverError):
+    with pytest.raises(FileNotFoundError):
         guess_geometry("/invalid_path.geojson")
     # malformed GeoJSON mapping
     with pytest.raises(AttributeError):

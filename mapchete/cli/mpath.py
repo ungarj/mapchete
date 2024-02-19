@@ -4,6 +4,7 @@ from typing import List, Optional, Union
 import click
 
 from mapchete.cli import options
+from mapchete.io import copy
 from mapchete.path import MPath
 from mapchete.pretty import pretty_bytes
 
@@ -21,11 +22,29 @@ def exists(path: MPath):
     click.echo(path.exists())
 
 
+@mpath.command(help="copy path.")
+@options.arg_path
+@options.arg_out_path
+@options.opt_overwrite
+def cp(path: MPath, out_path: MPath, overwrite: bool = False):
+    try:
+        copy(path, out_path, overwrite=overwrite)
+    except Exception as exc:  # pragma: no cover
+        raise click.ClickException(exc)
+
+
 @mpath.command(help="Remove path.")
 @options.arg_path
 @opt_recursive
-def rm(path: MPath, recursive: bool = False):
-    path.rm(recursive=recursive)
+@options.opt_force
+def rm(path: MPath, recursive: bool = False, force: bool = False):
+    try:
+        if not force and click.confirm(
+            f"do you really want to permanently delete {str(path)}?"
+        ):
+            path.rm(recursive=recursive)
+    except Exception as exc:  # pragma: no cover
+        raise click.ClickException(exc)
 
 
 @mpath.command(help="List path contents.")
@@ -104,7 +123,7 @@ def ls(
         else:
             directories = []
             files = []
-            for subpath in path.ls(absolute_paths=absolute_paths):
+            for subpath in path.ls(absolute_paths=True):
                 if subpath.is_directory():
                     directories.append(subpath)
                 else:
@@ -116,8 +135,8 @@ def ls(
                 spacing=spacing,
             )
 
-    except Exception as exc:
-        raise click.ClickException(repr(exc))
+    except Exception as exc:  # pragma: no cover
+        raise click.ClickException(exc)
 
 
 def _row(
@@ -154,8 +173,8 @@ def _row(
 def read_text(path: MPath):
     try:
         click.echo(path.read_text())
-    except Exception as exc:
-        raise click.ClickException(repr(exc))
+    except Exception as exc:  # pragma: no cover
+        raise click.ClickException(exc)
 
 
 @mpath.command(help="Print contents of file as JSON.")
@@ -164,5 +183,5 @@ def read_text(path: MPath):
 def read_json(path: MPath, indent: int = 4):
     try:
         click.echo(json.dumps(path.read_json(), indent=indent))
-    except Exception as exc:
-        raise click.ClickException(repr(exc))
+    except Exception as exc:  # pragma: no cover
+        raise click.ClickException(exc)
