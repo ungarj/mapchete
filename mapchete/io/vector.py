@@ -63,10 +63,14 @@ def fiona_read(path, mode="r", **kwargs):
     """
     path = MPath.from_inp(path)
 
-    with path.fio_env() as env:
-        logger.debug("reading %s with GDAL options %s", str(path), env.options)
-        with fiona.open(str(path), mode=mode, **kwargs) as src:
-            yield src
+    try:
+        with path.fio_env() as env:
+            logger.debug("reading %s with GDAL options %s", str(path), env.options)
+            with fiona.open(str(path), mode=mode, **kwargs) as src:
+                yield src
+    except DriverError as exc:
+        if "The specified key does not exist." in repr(exc):
+            raise FileNotFoundError(f"path {str(path)} does not exist")
 
 
 @contextmanager
