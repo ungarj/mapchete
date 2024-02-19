@@ -440,7 +440,7 @@ class MPath(os.PathLike):
             mtime = self.info().get("mtime")
             return datetime.fromtimestamp(mtime)
         else:  # pragma: no cover
-            raise IOError("Object size could not be determined.")
+            raise ValueError("Object timestamp could not be determined.")
 
     def is_directory(self) -> bool:
         # for S3 objects use the possible cached info directory

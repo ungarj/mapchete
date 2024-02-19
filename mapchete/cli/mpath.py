@@ -39,7 +39,7 @@ def cp(path: MPath, out_path: MPath, overwrite: bool = False):
 @options.opt_force
 def rm(path: MPath, recursive: bool = False, force: bool = False):
     try:
-        if not force and click.confirm(
+        if force or click.confirm(
             f"do you really want to permanently delete {str(path)}?"
         ):
             path.rm(recursive=recursive)

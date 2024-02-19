@@ -306,7 +306,11 @@ def test_last_modified(path):
     ],
 )
 def test_last_modified_remote(path):
-    test_last_modified(path)
+    if "https" in path.protocols:
+        with pytest.raises(ValueError):
+            test_last_modified(path)
+    else:
+        test_last_modified(path)
 
 
 @pytest.mark.integration
