@@ -7,6 +7,8 @@ from mapchete.cli import options
 from mapchete.path import MPath
 from mapchete.pretty import pretty_bytes
 
+opt_recursive = click.option("--recursive", "-r", is_flag=True)
+
 
 @click.group()
 def mpath():
@@ -19,6 +21,13 @@ def exists(path: MPath):
     click.echo(path.exists())
 
 
+@mpath.command(help="Remove path.")
+@options.arg_path
+@opt_recursive
+def rm(path: MPath, recursive: bool = False):
+    path.rm(recursive=recursive)
+
+
 @mpath.command(help="List path contents.")
 @options.arg_path
 @click.option(
@@ -26,42 +35,34 @@ def exists(path: MPath):
 )
 @click.option("--absolute-paths", is_flag=True)
 @click.option("--spacing", type=click.INT, default=4, show_default=True)
+@click.option("--max-depth", type=click.INT, default=None, show_default=True)
+@opt_recursive
 def ls(
     path: MPath,
     date_format: str = "%y-%m-%d %H:%M:%S",
     absolute_paths: bool = False,
     spacing: int = 4,
+    recursive: bool = False,
+    max_depth: Optional[int] = None,
 ):
-    try:
-        directories = []
-        files = []
-        last_modified_column_width = len(date_format)
-        size_column_width = 0
-        for subpath in path.ls(absolute_paths=absolute_paths):
-            if subpath.is_directory():
-                directories.append(subpath)
-            else:
-                size_column_width = max(
-                    len(pretty_bytes(subpath.size())), size_column_width
-                )
-                files.append(subpath)
+    size_column_width = 10
 
-        click.echo(
-            _row(
-                columns=["last modified", "size", "path"],
-                widths=[last_modified_column_width, size_column_width, None],
-                spacing=spacing,
-                underlines=True,
-            )
-        )
-
+    def _print_rows(
+        directories: List[MPath],
+        files: List[MPath],
+        last_modified_column_width: int = 0,
+        size_column_width: int = 10,
+        spacing: int = 4,
+    ):
         for subpath in directories:
             click.echo(
                 _row(
                     columns=[
                         "",
                         "",
-                        str(subpath) if absolute_paths else subpath.relative_to(path),
+                        f"{str(subpath)}/"
+                        if absolute_paths
+                        else f"{subpath.relative_to(path)}/",
                     ],
                     widths=[last_modified_column_width, size_column_width, None],
                     spacing=spacing,
@@ -79,8 +80,44 @@ def ls(
                     spacing=spacing,
                 )
             )
+
+    try:
+        last_modified_column_width = len(date_format)
+        click.echo(
+            _row(
+                columns=["last modified", "size", "path"],
+                widths=[last_modified_column_width, size_column_width, None],
+                spacing=spacing,
+                underlines=True,
+            )
+        )
+        if recursive:
+            for root, _, files in path.walk(
+                detail=False, absolute_paths=True, maxdepth=max_depth
+            ):
+                _print_rows(
+                    [root],
+                    files,
+                    last_modified_column_width=last_modified_column_width,
+                    spacing=spacing,
+                )
+        else:
+            directories = []
+            files = []
+            for subpath in path.ls(absolute_paths=absolute_paths):
+                if subpath.is_directory():
+                    directories.append(subpath)
+                else:
+                    files.append(subpath)
+            _print_rows(
+                directories,
+                files,
+                last_modified_column_width=last_modified_column_width,
+                spacing=spacing,
+            )
+
     except Exception as exc:
-        raise click.ClickException(exc)
+        raise click.ClickException(repr(exc))
 
 
 def _row(
@@ -118,7 +155,7 @@ def read_text(path: MPath):
     try:
         click.echo(path.read_text())
     except Exception as exc:
-        raise click.ClickException(exc)
+        raise click.ClickException(repr(exc))
 
 
 @mpath.command(help="Print contents of file as JSON.")
@@ -128,4 +165,4 @@ def read_json(path: MPath, indent: int = 4):
     try:
         click.echo(json.dumps(path.read_json(), indent=indent))
     except Exception as exc:
-        raise click.ClickException(exc)
+        raise click.ClickException(repr(exc))
