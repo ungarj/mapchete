@@ -4,10 +4,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import warnings
 from collections import defaultdict
 from datetime import datetime
 from functools import cached_property
-from typing import IO, List, Set, TextIO, Union
+from typing import IO, List, Optional, Set, TextIO, Union
 
 import fiona
 import fsspec
@@ -352,33 +353,68 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
-    def ls(
-        self, detail: bool = False, absolute_paths: bool = True
-    ) -> List[Union[MPath, dict]]:
-        def _create_full_path(path):
-            if "s3" in self.protocols:
-                # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
-                return self.new(path).with_protocol("s3")
-            elif absolute_paths:
-                return self.new(path)
-            return self.new(os.path.relpath(path, start=self))
+    def _create_full_path(self, path: str, absolute_path: bool = True):
+        if "s3" in self.protocols:
+            # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
+            return self.new(path).with_protocol("s3")
+        elif absolute_path:
+            return self.new(path)
+        return self.new(os.path.relpath(path, start=self))
 
+    def ls(
+        self,
+        detail: bool = False,
+        absolute_paths: bool = True,
+    ) -> List[Union[MPath, dict]]:
         if detail:
             # return as is but convert "name" from string to MPath instead
             return [
                 {
-                    k: (_create_full_path(v) if k == "name" else v)
+                    k: (
+                        self._create_full_path(v, absolute_path=absolute_paths)
+                        if k == "name"
+                        else v
+                    )
                     for k, v in path_info.items()
                 }
                 for path_info in self.fs.ls(self._path_str, detail=detail)
             ]
         else:
             return [
-                _create_full_path(path)
+                self._create_full_path(path, absolute_path=absolute_paths)
                 for path in self.fs.ls(self._path_str, detail=detail)
             ]
 
+    def walk(
+        self,
+        maxdepth: Optional[int] = None,
+        topdown: bool = True,
+        detail: bool = False,
+        absolute_paths: bool = True,
+        **kwargs,
+    ):
+        for root, subpaths, files in self.fs.walk(
+            str(self), maxdepth=maxdepth, topdown=topdown, detail=detail, **kwargs
+        ):
+            yield (
+                self._create_full_path(root, absolute_path=absolute_paths),
+                [
+                    self._create_full_path(
+                        MPath(root) / subpath, absolute_path=absolute_paths
+                    )
+                    for subpath in subpaths
+                ],
+                [
+                    self._create_full_path(
+                        MPath(root) / file, absolute_path=absolute_paths
+                    )
+                    for file in files
+                ],
+            )
+
     def rm(self, recursive: bool = False, ignore_errors: bool = False) -> None:
+        if not recursive and not ignore_errors and self.is_directory():
+            warnings.warn(f"{self} is a directory, use 'recursive' flag to delete")
         try:
             self.fs.rm(str(self), recursive=recursive)
         except FileNotFoundError:
