@@ -444,7 +444,7 @@ class MPath(os.PathLike):
 
     def is_directory(self) -> bool:
         # for S3 objects use the possible cached info directory
-        if "StorageClass" in self.info():
+        if "StorageClass" in self.info():  # pragma: no cover
             return self.info().get("StorageClass") == "DIRECTORY"
         else:
             return self.fs.isdir(self._path_str)
