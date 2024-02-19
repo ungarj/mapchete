@@ -69,8 +69,15 @@ def fiona_read(path, mode="r", **kwargs):
             with fiona.open(str(path), mode=mode, **kwargs) as src:
                 yield src
     except DriverError as exc:
-        if "The specified key does not exist." in repr(exc):
-            raise FileNotFoundError(f"path {str(path)} does not exist")
+        for i in (
+            "does not exist in the file system",
+            "No such file or directory",
+            "specified key does not exist.",
+        ):
+            if i in str(repr(exc)):
+                raise FileNotFoundError(f"path {str(path)} does not exist")
+        else:  # pragma: no cover
+            raise
 
 
 @contextmanager
