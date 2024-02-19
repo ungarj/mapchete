@@ -130,6 +130,8 @@ arg_output = click.argument("output", type=click.STRING)
 arg_src_tiledir = click.argument("src_tiledir", type=click.STRING)
 arg_dst_tiledir = click.argument("dst_tiledir", type=click.STRING)
 arg_tiledir = click.argument("tiledir", type=click.STRING)
+arg_path = click.argument("path", type=click.Path(path_type=MPath))
+arg_out_path = click.argument("out_path", type=click.Path(path_type=MPath))
 
 
 # click options #
@@ -202,7 +204,7 @@ opt_tile = click.option(
     "--tile", "-t", type=click.INT, nargs=3, help="Zoom, row, column of single tile."
 )
 opt_overwrite = click.option(
-    "--overwrite", "-o", is_flag=True, help="Overwrite if tile(s) already exist(s)."
+    "--overwrite", "-o", is_flag=True, help="Overwrite if output already exist(s)."
 )
 opt_workers = click.option(
     "--workers",

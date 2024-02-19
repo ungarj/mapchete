@@ -63,10 +63,21 @@ def fiona_read(path, mode="r", **kwargs):
     """
     path = MPath.from_inp(path)
 
-    with path.fio_env() as env:
-        logger.debug("reading %s with GDAL options %s", str(path), env.options)
-        with fiona.open(str(path), mode=mode, **kwargs) as src:
-            yield src
+    try:
+        with path.fio_env() as env:
+            logger.debug("reading %s with GDAL options %s", str(path), env.options)
+            with fiona.open(str(path), mode=mode, **kwargs) as src:
+                yield src
+    except DriverError as exc:
+        for i in (
+            "does not exist in the file system",
+            "No such file or directory",
+            "specified key does not exist.",
+        ):
+            if i in str(repr(exc)):
+                raise FileNotFoundError(f"path {str(path)} does not exist")
+        else:  # pragma: no cover
+            raise
 
 
 @contextmanager
@@ -335,35 +346,8 @@ def _get_reprojected_features(
     logger.debug("reading %s", inp)
     with ExitStack() as exit_stack:
         if isinstance(inp, (str, MPath)):
-            try:
-                src = exit_stack.enter_context(fiona_open(inp, "r"))
-                src_crs = CRS(src.crs)
-            except Exception as e:
-                # fiona errors which indicate file does not exist
-                for i in (
-                    "does not exist in the file system",
-                    "No such file or directory",
-                    "The specified key does not exist",
-                ):
-                    if i in str(e):
-                        raise FileNotFoundError(
-                            "%s not found and cannot be opened with Fiona" % inp
-                        )
-                else:
-                    try:
-                        # NOTE: this can cause addional S3 requests
-                        exists = path_exists(inp)
-                    except Exception:  # pragma: no cover
-                        # in order not to mask the original fiona exception, raise it
-                        raise e
-                    if exists:
-                        # raise fiona exception
-                        raise e
-                    else:  # pragma: no cover
-                        # file does not exist
-                        raise FileNotFoundError(
-                            "%s not found and cannot be opened with Fiona" % inp
-                        )
+            src = exit_stack.enter_context(fiona_open(inp, "r"))
+            src_crs = CRS(src.crs)
         else:
             src = inp
             src_crs = inp.crs

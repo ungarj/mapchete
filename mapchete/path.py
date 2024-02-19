@@ -4,9 +4,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import warnings
 from collections import defaultdict
+from datetime import datetime
 from functools import cached_property
-from typing import IO, List, Set, TextIO, Union
+from typing import IO, Generator, List, Optional, Set, TextIO, Union
 
 import fiona
 import fsspec
@@ -40,6 +42,7 @@ class MPath(os.PathLike):
         path: Union[str, os.PathLike, MPath],
         fs: AbstractFileSystem = None,
         storage_options: Union[dict, None] = None,
+        _info: Union[dict, None] = None,
         **kwargs,
     ):
         self._kwargs = {}
@@ -70,6 +73,7 @@ class MPath(os.PathLike):
         self._storage_options = dict(
             DEFAULT_STORAGE_OPTIONS, **self._kwargs.get("storage_options") or {}
         )
+        self._info = _info
 
     @staticmethod
     def from_dict(dictionary: dict) -> MPath:
@@ -98,6 +102,11 @@ class MPath(os.PathLike):
             return MPath(inp.__fspath__(), **kwargs)
         else:  # pragma: no cover
             raise TypeError(f"cannot construct MPath object from {inp}")
+
+    def info(self, refresh: bool = False) -> dict:
+        if refresh or self._info is None:
+            self._info = self.fs.info(self._path_str)
+        return self._info
 
     def to_dict(self) -> dict:
         return dict(
@@ -141,7 +150,7 @@ class MPath(os.PathLike):
         """Return path filesystem."""
         if self._fs is not None:
             return self._fs
-        elif self._path_str.startswith("s3"):
+        elif self._path_str.startswith("s3://"):
             return fsspec.filesystem(
                 "s3",
                 requester_pays=self._storage_options.get(
@@ -292,6 +301,9 @@ class MPath(os.PathLike):
         else:
             return self.new(os.path.relpath(self._path_str, start=start))
 
+    def relative_to(self, other: MPathLike) -> str:
+        return str(self.without_protocol().relative_path(other.without_protocol()))
+
     def open(self, mode: str = "r") -> Union[IO, TextIO]:
         """Open file."""
         return self.fs.open(self._path_str, mode)
@@ -341,31 +353,73 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
-    def ls(
-        self, detail: bool = False, absolute_paths: bool = True
-    ) -> List[Union[MPath, dict]]:
-        def _create_full_path(path):
+    def _create_full_path(self, path: str, absolute_path: bool = True):
+        if "s3" in self.protocols:
             # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
-            if absolute_paths and "s3" in self.protocols:
-                return self.new(path).with_protocol("s3")
+            return self.new(path).with_protocol("s3")
+        elif absolute_path:
             return self.new(path)
+        return self.new(os.path.relpath(path, start=self))
 
+    def ls(
+        self,
+        detail: bool = False,
+        absolute_paths: bool = True,
+    ) -> List[Union[MPath, dict]]:
         if detail:
             # return as is but convert "name" from string to MPath instead
             return [
                 {
-                    k: (_create_full_path(v) if k == "name" else v)
+                    k: (
+                        self._create_full_path(v, absolute_path=absolute_paths)
+                        if k == "name"
+                        else v
+                    )
                     for k, v in path_info.items()
                 }
                 for path_info in self.fs.ls(self._path_str, detail=detail)
             ]
         else:
             return [
-                _create_full_path(path)
+                self._create_full_path(path, absolute_path=absolute_paths)
                 for path in self.fs.ls(self._path_str, detail=detail)
             ]
 
+    def walk(
+        self,
+        maxdepth: Optional[int] = None,
+        topdown: bool = True,
+        absolute_paths: bool = True,
+        **kwargs,
+    ) -> Generator[
+        List[Union[MPath, dict], List[Union[MPath, dict]], List[Union[MPath, dict]]],
+        None,
+        None,
+    ]:
+        for root, subpaths, files in self.fs.walk(
+            str(self), maxdepth=maxdepth, topdown=topdown, **kwargs
+        ):
+            yield (
+                self._create_full_path(root, absolute_path=absolute_paths),
+                [
+                    self._create_full_path(
+                        MPath(root) / subpath, absolute_path=absolute_paths
+                    )
+                    for subpath in subpaths
+                ],
+                [
+                    self._create_full_path(
+                        MPath(root) / file, absolute_path=absolute_paths
+                    )
+                    for file in files
+                ],
+            )
+
     def rm(self, recursive: bool = False, ignore_errors: bool = False) -> None:
+        if (
+            not recursive and not ignore_errors and self.is_directory()
+        ):  # pragma: no cover
+            warnings.warn(f"{self} is a directory, use 'recursive' flag to delete")
         try:
             self.fs.rm(str(self), recursive=recursive)
         except FileNotFoundError:
@@ -375,7 +429,25 @@ class MPath(os.PathLike):
                 raise
 
     def size(self) -> int:
-        return self.fs.size(self._path_str)
+        return self.info().get("size", self.info().get("Size"))
+
+    def last_modified(self) -> datetime:
+        # for S3 objects
+        if "LastModified" in self.info():
+            return self.info().get("LastModified")
+        # for local files
+        elif "mtime" in self.info():
+            mtime = self.info().get("mtime")
+            return datetime.fromtimestamp(mtime)
+        else:  # pragma: no cover
+            raise ValueError("Object timestamp could not be determined.")
+
+    def is_directory(self) -> bool:
+        # for S3 objects use the possible cached info directory
+        if "StorageClass" in self.info():  # pragma: no cover
+            return self.info().get("StorageClass") == "DIRECTORY"
+        else:
+            return self.fs.isdir(self._path_str)
 
     def joinpath(self, *other: List[MPathLike]) -> MPath:
         """Join path with other."""

@@ -7,7 +7,6 @@ import geobuf
 import pytest
 import rasterio
 import yaml
-from click.exceptions import ClickException
 from click.testing import CliRunner
 from packaging import version
 from rasterio.io import MemoryFile
@@ -42,9 +41,11 @@ def version_is_greater_equal(a, b):
         return False
 
 
-def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True):
+def run_cli(
+    args, expected_exit_code=0, output_contains=None, raise_exc=True, cli=mapchete_cli
+):
     result = CliRunner(env=dict(MAPCHETE_TEST="TRUE"), mix_stderr=True).invoke(
-        mapchete_cli, map(str, args), catch_exceptions=True, standalone_mode=True
+        cli, map(str, args), catch_exceptions=True, standalone_mode=True
     )
     if output_contains:
         assert output_contains in result.output or output_contains in str(
