@@ -8,7 +8,7 @@ import warnings
 from collections import defaultdict
 from datetime import datetime
 from functools import cached_property
-from typing import IO, List, Optional, Set, TextIO, Union
+from typing import IO, Generator, List, Optional, Set, TextIO, Union
 
 import fiona
 import fsspec
@@ -389,12 +389,15 @@ class MPath(os.PathLike):
         self,
         maxdepth: Optional[int] = None,
         topdown: bool = True,
-        detail: bool = False,
         absolute_paths: bool = True,
         **kwargs,
-    ):
+    ) -> Generator[
+        List[Union[MPath, dict], List[Union[MPath, dict]], List[Union[MPath, dict]]],
+        None,
+        None,
+    ]:
         for root, subpaths, files in self.fs.walk(
-            str(self), maxdepth=maxdepth, topdown=topdown, detail=detail, **kwargs
+            str(self), maxdepth=maxdepth, topdown=topdown, **kwargs
         ):
             yield (
                 self._create_full_path(root, absolute_path=absolute_paths),
@@ -413,7 +416,9 @@ class MPath(os.PathLike):
             )
 
     def rm(self, recursive: bool = False, ignore_errors: bool = False) -> None:
-        if not recursive and not ignore_errors and self.is_directory():
+        if (
+            not recursive and not ignore_errors and self.is_directory()
+        ):  # pragma: no cover
             warnings.warn(f"{self} is a directory, use 'recursive' flag to delete")
         try:
             self.fs.rm(str(self), recursive=recursive)
@@ -434,7 +439,7 @@ class MPath(os.PathLike):
         elif "mtime" in self.info():
             mtime = self.info().get("mtime")
             return datetime.fromtimestamp(mtime)
-        else:
+        else:  # pragma: no cover
             raise IOError("Object size could not be determined.")
 
     def is_directory(self) -> bool:

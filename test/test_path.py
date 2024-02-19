@@ -1,4 +1,5 @@
 import pickle
+from datetime import datetime
 
 import pytest
 
@@ -181,6 +182,42 @@ def test_ls_remote(path):
         pytest.lazy_fixture("testdata_dir"),
     ],
 )
+@pytest.mark.parametrize("absolute_paths", [True, False])
+def test_walk(path, absolute_paths):
+    dir_is_remote = path.is_remote()
+    assert list(path.ls())
+    for root, subdirs, files in path.walk(absolute_paths=absolute_paths):
+        assert isinstance(root, MPath)
+        if absolute_paths:
+            assert root.is_remote() == dir_is_remote
+        assert isinstance(subdirs, list)
+        assert isinstance(files, list)
+        for subdir in subdirs:
+            assert isinstance(subdir, MPath)
+        for file in files:
+            assert isinstance(file, MPath)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("http_testdata_dir"),
+        pytest.lazy_fixture("secure_http_testdata_dir"),
+        pytest.lazy_fixture("s3_testdata_dir"),
+    ],
+)
+@pytest.mark.parametrize("absolute_paths", [True, False])
+def test_walk_remote(path, absolute_paths):
+    test_walk(path, absolute_paths=absolute_paths)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("testdata_dir"),
+    ],
+)
 def test_is_directory(path):
     assert path.is_directory()
 
@@ -247,6 +284,29 @@ def test_size(path):
 )
 def test_size_remote(path):
     test_size(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("metadata_json"),
+    ],
+)
+def test_last_modified(path):
+    assert isinstance(path.last_modified(), datetime)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.lazy_fixture("http_metadata_json"),
+        pytest.lazy_fixture("secure_http_metadata_json"),
+        pytest.lazy_fixture("s3_metadata_json"),
+    ],
+)
+def test_last_modified_remote(path):
+    test_last_modified(path)
 
 
 @pytest.mark.integration

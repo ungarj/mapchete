@@ -111,9 +111,7 @@ def ls(
             )
         )
         if recursive:
-            for root, _, files in path.walk(
-                detail=False, absolute_paths=True, maxdepth=max_depth
-            ):
+            for root, _, files in path.walk(absolute_paths=True, maxdepth=max_depth):
                 _print_rows(
                     [root],
                     files,
