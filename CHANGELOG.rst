@@ -4,6 +4,17 @@ Changelog
 
 
 ---------------------
+2024.2.1 - 2024-02-20
+---------------------
+
+* core
+
+  * add `mpath` CLI (#620)
+  * `io.vector.fiona_open()` now properly raises a `FileNotFoundError` (#620)
+  * removed deprecated `log.user_process_logger()` and `log.driver_logger()` (#620)
+
+
+---------------------
 2024.2.0 - 2024-02-14
 ---------------------
 
