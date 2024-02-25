@@ -560,3 +560,8 @@ def test_dask_specs(dask_specs):
         assert isinstance(
             mp.config.parsed_config.dask_specs.adapt_options, DaskAdaptOptions
         )
+
+
+def test_typed_raster_input(typed_raster_input):
+    with mapchete.open(typed_raster_input.path) as mp:
+        list(mp.execute(concurrency=None))

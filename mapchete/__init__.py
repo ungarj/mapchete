@@ -9,6 +9,12 @@ from mapchete.executor import Executor, MFuture
 from mapchete.formats import read_output_metadata
 from mapchete.path import MPath, fs_from_path
 from mapchete.processing import Mapchete, MapcheteProcess
+from mapchete.protocols import (
+    RasterInput,
+    RasterInputGroup,
+    VectorInput,
+    VectorInputGroup,
+)
 from mapchete.tile import count_tiles
 from mapchete.timer import Timer
 from mapchete.types import MPathLike
@@ -20,6 +26,10 @@ __all__ = [
     "Timer",
     "Executor",
     "MFuture",
+    "RasterInput",
+    "RasterInputGroup",
+    "VectorInput",
+    "VectorInputGroup",
 ]
 __version__ = "2024.2.1"
 

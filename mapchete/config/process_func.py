@@ -52,7 +52,9 @@ class ProcessFunc:
         self.function_parameters = dict(**inspect.signature(func).parameters)
 
     def __call__(self, *args, **kwargs: Any) -> Any:
-        return self._load_func()(*args, **self.filter_parameters(kwargs))
+        args = args
+        kwargs = self.filter_parameters(kwargs)
+        return self._load_func()(*args, **kwargs)
 
     def filter_parameters(self, params):
         """Return function kwargs."""

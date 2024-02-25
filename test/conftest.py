@@ -613,6 +613,15 @@ def custom_grid_json():
 
 # example mapchete configurations
 @pytest.fixture
+def typed_raster_input(mp_tmpdir):
+    """Fixture for typed_raster_input.mapchete."""
+    with ProcessFixture(
+        TESTDATA_DIR / "typed_raster_input.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def custom_grid(mp_tmpdir):
     """Fixture for custom_grid.mapchete."""
     with ProcessFixture(

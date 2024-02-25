@@ -1,6 +1,9 @@
+import numpy.ma as ma
+
 from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
+from mapchete.protocols import InputTileProtocol
 from mapchete.validate import deprecated_kwargs
 
 
@@ -77,7 +80,7 @@ class MapcheteProcess(object):
         )
 
     @deprecated_kwargs
-    def open(self, input_id, **kwargs):
+    def open(self, input_id, **kwargs) -> InputTileProtocol:
         """
         Open input data.
 
@@ -96,7 +99,9 @@ class MapcheteProcess(object):
             raise ValueError("%s not found in config as input" % input_id)
         return self.input[input_id]
 
-    def hillshade(self, elevation, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0):
+    def hillshade(
+        self, elevation, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0
+    ) -> ma.MaskedArray:
         """
         Calculate hillshading from elevation data.
 
@@ -122,7 +127,7 @@ class MapcheteProcess(object):
             elevation, self.tile, azimuth, altitude, z, scale
         )
 
-    def contours(self, elevation, interval=100, field="elev", base=0):
+    def contours(self, elevation, interval=100, field="elev", base=0) -> ma.MaskedArray:
         """
         Extract contour lines from elevation data.
 
@@ -146,7 +151,7 @@ class MapcheteProcess(object):
             elevation, self.tile, interval=interval, field=field, base=base
         )
 
-    def clip(self, array, geometries, inverted=False, clip_buffer=0):
+    def clip(self, array, geometries, inverted=False, clip_buffer=0) -> ma.MaskedArray:
         """
         Clip array by geometry.
 

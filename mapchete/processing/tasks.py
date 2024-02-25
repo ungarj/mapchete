@@ -348,14 +348,20 @@ class TileTask(Task):
                                         task_key=task_key, result=task_result
                                     )
                 # Actually run process.
+                mp = MapcheteProcess(
+                    tile=self.tile,
+                    params=self.process_func_params,
+                    input=self.input,
+                    output_params=self.output_params,
+                )
+                # this contains key: params mapping, where under param.annotation we can inspect for target type
+                extended_kwargs = dict(
+                    self.process_func_params,
+                    mp=mp,
+                    **{k: v for k, v in self.input.items()},
+                )
                 process_data = self.process(
-                    MapcheteProcess(
-                        tile=self.tile,
-                        params=self.process_func_params,
-                        input=self.input,
-                        output_params=self.output_params,
-                    ),
-                    **self.process_func_params,
+                    **extended_kwargs,
                 )
         except MapcheteNodataTile:
             raise

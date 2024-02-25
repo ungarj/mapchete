@@ -7,6 +7,7 @@ from affine import Affine
 from fiona.crs import CRS as FionaCRS
 from pydantic import BaseModel
 from rasterio.crs import CRS as RasterioCRS
+from rasterio.enums import Resampling
 from rasterio.transform import array_bounds, from_bounds
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
@@ -22,6 +23,7 @@ TileLike = Union[BufferedTile, Tuple[int, int, int]]
 CRSLike = Union[FionaCRS, RasterioCRS]
 NodataVal = Optional[float]
 NodataVals = Union[List[NodataVal], NodataVal]
+ResamplingLike = Union[Resampling, str]
 
 
 class Bounds(list):
