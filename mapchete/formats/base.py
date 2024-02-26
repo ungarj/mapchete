@@ -4,19 +4,22 @@ Main base classes for input and output formats.
 When writing a new driver, please inherit from these classes and implement the
 respective interfaces.
 """
-
 import logging
 import types
 import warnings
+from abc import ABC, abstractmethod
 from itertools import chain
+from typing import Any, NoReturn, Optional
 
 import numpy as np
 import numpy.ma as ma
 from shapely.geometry import shape
+from shapely.geometry.base import BaseGeometry
 
 from mapchete.config import get_hash
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessOutputError
 from mapchete.formats import write_output_metadata
+from mapchete.formats.protocols import InputDataProtocol, InputTileProtocol
 from mapchete.io import fs_from_path, path_exists
 from mapchete.io.raster import (
     create_mosaic,
@@ -26,7 +29,8 @@ from mapchete.io.raster import (
 )
 from mapchete.io.vector import read_vector_window
 from mapchete.processing.tasks import Task
-from mapchete.tile import BufferedTilePyramid
+from mapchete.tile import BufferedTile, BufferedTilePyramid
+from mapchete.types import CRSLike
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +38,63 @@ logger = logging.getLogger(__name__)
 DEFAULT_TILE_PATH_SCHEMA = "{zoom}/{row}/{col}.{extension}"
 
 
-class InputData(object):
+class InputTile(InputTileProtocol, ABC):
+    """
+    Target Tile representation of input data.
+
+    Parameters
+    ----------
+    tile : ``Tile``
+    kwargs : keyword arguments
+        driver specific parameters
+    """
+
+    preprocessing_tasks_results = {}
+    input_key = None
+
+    def __init__(self, tile: BufferedTile, **kwargs):
+        """Initialize."""
+
+    @abstractmethod
+    def read(self, **kwargs) -> Any:
+        """
+        Read reprojected & resampled input data.
+
+        Returns
+        -------
+        data : array or list
+            NumPy array for raster data or feature list for vector data
+        """
+        ...
+
+    @abstractmethod
+    def is_empty(self) -> bool:
+        """
+        Check if there is data within this tile.
+
+        Returns
+        -------
+        is empty : bool
+        """
+        ...
+
+    def set_preprocessing_task_result(
+        self, task_key: str, result: Any = None
+    ) -> NoReturn:
+        """
+        Adds a preprocessing task result.
+        """
+        self.preprocessing_tasks_results[task_key] = result
+
+    def __enter__(self):
+        """Required for 'with' statement."""
+        return self
+
+    def __exit__(self, t, v, tb):
+        """Clean up."""
+
+
+class InputData(InputDataProtocol, ABC):
     """
     Template class handling geographic input data.
 
@@ -53,9 +113,15 @@ class InputData(object):
         object describing the process coordinate reference system
     """
 
+    input_key: str
+    pyramid: BufferedTilePyramid
+    pixelbuffer: int
+    crs: CRSLike
+    preprocessing_tasks: dict
+    preprocessing_tasks_results: dict
     METADATA = {"driver_name": None, "data_type": None, "mode": "r"}
 
-    def __init__(self, input_params, input_key=None, **kwargs):
+    def __init__(self, input_params: dict, input_key: str, **kwargs):
         """Initialize relevant input information."""
         self.input_key = input_key
         self.pyramid = input_params.get("pyramid")
@@ -69,7 +135,8 @@ class InputData(object):
             "storage_options", {}
         )
 
-    def open(self, tile, **kwargs):
+    @abstractmethod
+    def open(self, tile: BufferedTile, **kwargs) -> InputTileProtocol:
         """
         Return InputTile object.
 
@@ -82,9 +149,10 @@ class InputData(object):
         input tile : ``InputTile``
             tile view of input data
         """
-        raise NotImplementedError
+        ...
 
-    def bbox(self, out_crs=None):
+    @abstractmethod
+    def bbox(self, out_crs: Optional[CRSLike] = None) -> BaseGeometry:
         """
         Return data bounding box.
 
@@ -98,9 +166,9 @@ class InputData(object):
         bounding box : geometry
             Shapely geometry object
         """
-        raise NotImplementedError
+        ...
 
-    def exists(self):
+    def exists(self) -> bool:
         """
         Check if data or file even exists.
 
@@ -108,9 +176,9 @@ class InputData(object):
         -------
         file exists : bool
         """
-        raise NotImplementedError
+        ...
 
-    def cleanup(self):
+    def cleanup(self) -> NoReturn:
         """Optional cleanup function called when Mapchete exits."""
 
     def add_preprocessing_task(
@@ -179,58 +247,6 @@ class InputData(object):
         if task_key not in self.preprocessing_tasks:  # pragma: no cover
             raise KeyError(f"task {task_key} is not a task for current input")
         return task_key in self.preprocessing_tasks_results
-
-
-class InputTile(object):
-    """
-    Target Tile representation of input data.
-
-    Parameters
-    ----------
-    tile : ``Tile``
-    kwargs : keyword arguments
-        driver specific parameters
-    """
-
-    preprocessing_tasks_results = {}
-    input_key = None
-
-    def __init__(self, tile, **kwargs):
-        """Initialize."""
-
-    def read(self, **kwargs):
-        """
-        Read reprojected & resampled input data.
-
-        Returns
-        -------
-        data : array or list
-            NumPy array for raster data or feature list for vector data
-        """
-        raise NotImplementedError
-
-    def is_empty(self):
-        """
-        Check if there is data within this tile.
-
-        Returns
-        -------
-        is empty : bool
-        """
-        raise NotImplementedError
-
-    def set_preprocessing_task_result(self, task_key=None, result=None):
-        """
-        Adds a preprocessing task result.
-        """
-        self.preprocessing_tasks_results[task_key] = result
-
-    def __enter__(self):
-        """Required for 'with' statement."""
-        return self
-
-    def __exit__(self, t, v, tb):
-        """Clean up."""
 
 
 class OutputDataBaseFunctions:

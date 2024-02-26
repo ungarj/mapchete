@@ -24,6 +24,8 @@ CRSLike = Union[FionaCRS, RasterioCRS]
 NodataVal = Optional[float]
 NodataVals = Union[List[NodataVal], NodataVal]
 ResamplingLike = Union[Resampling, str]
+BandIndex = int
+BandIndexes = Union[BandIndex, List[BandIndex]]
 
 
 class Bounds(list):

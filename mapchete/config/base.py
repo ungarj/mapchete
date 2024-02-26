@@ -140,7 +140,7 @@ class MapcheteConfig(object):
 
         # (2) check user process
         self.config_dir = self.parsed_config.config_dir
-        if self.mode != "readonly":
+        if self.mode != ProcessingMode.READONLY:
             if self.parsed_config.process is None:
                 raise MapcheteConfigError(
                     f"process must be provided on {self.mode} mode"
@@ -205,6 +205,10 @@ class MapcheteConfig(object):
         self._params_at_zoom = raw_conf_at_zoom(
             self.parsed_config, self.init_zoom_levels
         )
+        # TODO: check execute function parameters and provide warnings in case parameters
+        # have been omitted, are not defined in the config, or have the wrong type
+        # if self.process:
+        # breakpoint()
 
         # (6) determine process area and process boundaries both from config as well
         # as from initialization.

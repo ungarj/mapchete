@@ -3,7 +3,7 @@ import numpy.ma as ma
 from mapchete.commons import clip as commons_clip
 from mapchete.commons import contours as commons_contours
 from mapchete.commons import hillshade as commons_hillshade
-from mapchete.protocols import InputTileProtocol
+from mapchete.formats.protocols import InputTileProtocol
 from mapchete.validate import deprecated_kwargs
 
 
