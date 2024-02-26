@@ -17,6 +17,7 @@ from mapchete.config.parse import (
     guess_geometry,
     parse_config,
     raw_conf_at_zoom,
+    zoom_parameters,
 )
 from mapchete.config.process_func import ProcessFunc
 from mapchete.enums import ProcessingMode
@@ -207,8 +208,13 @@ class MapcheteConfig(object):
         )
         # TODO: check execute function parameters and provide warnings in case parameters
         # have been omitted, are not defined in the config, or have the wrong type
-        # if self.process:
-        # breakpoint()
+        if self.process:
+            self.process.analyze_parameters(
+                {
+                    zoom: zoom_parameters(self.parsed_config, zoom)
+                    for zoom in self.init_zoom_levels
+                }
+            )
 
         # (6) determine process area and process boundaries both from config as well
         # as from initialization.

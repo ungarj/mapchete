@@ -5,6 +5,7 @@ from typing import Optional, Union
 from fsspec import AbstractFileSystem
 
 from mapchete.config import MapcheteConfig
+from mapchete.errors import MapcheteNodataTile
 from mapchete.executor import Executor, MFuture
 from mapchete.formats import read_output_metadata
 from mapchete.formats.protocols import (
@@ -25,6 +26,7 @@ __all__ = [
     "MapcheteProcess",
     "Timer",
     "Executor",
+    "MapcheteNodataTile",
     "MFuture",
     "RasterInput",
     "RasterInputGroup",

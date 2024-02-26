@@ -1,4 +1,5 @@
 import logging
+from enum import Enum
 
 import rasterio
 from rasterio.warp import calculate_default_transform
@@ -7,7 +8,7 @@ from shapely.geometry import box
 
 from mapchete.io._geometry_operations import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
-from mapchete.tile import BufferedTilePyramid
+from mapchete.tile import BufferedTile, BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,17 @@ def get_segmentize_value(input_file=None, tile_pyramid=None):
     return pixelsize * tile_pyramid.tile_size
 
 
-def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision=8):
+class MatchingMethod(str, Enum):
+    gdal = "gdal"
+    min = "min"
+
+
+def tile_to_zoom_level(
+    tile: BufferedTile,
+    dst_pyramid: BufferedTilePyramid,
+    matching_method: MatchingMethod = MatchingMethod.gdal,
+    precision: int = 8,
+):
     """
     Determine the best zoom level in target TilePyramid from given Tile.
 
@@ -83,7 +94,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
     ----------
     tile : BufferedTile
     dst_pyramid : BufferedTilePyramid
-    matching_method : str ('gdal' or 'min')
+    matching_method : MatchingMethod ('gdal' or 'min')
         gdal: Uses GDAL's standard method. Here, the target resolution is calculated by
             averaging the extent's pixel sizes over both x and y axes. This approach
             returns a zoom level which may not have the best quality but will speed up
@@ -120,7 +131,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
     if tile.tp.crs == dst_pyramid.crs:
         return tile.zoom
     else:
-        if matching_method == "gdal":
+        if matching_method == MatchingMethod.gdal:
             # use rasterio/GDAL method to calculate default warp target properties
             # enabling CHECK_WITH_INVERT_PROJ fixes #269, otherwise this function would
             # return a non-optimal zoom level for reprojection
@@ -130,7 +141,7 @@ def tile_to_zoom_level(tile, dst_pyramid=None, matching_method="gdal", precision
                 )
                 # this is the resolution the tile would have in destination CRS
                 tile_resolution = round(transform[0], precision)
-        elif matching_method == "min":
+        elif matching_method == MatchingMethod.min:
             # calculate the minimum pixel size from the four tile corner pixels
             l, b, r, t = tile.bounds
             x = tile.pixel_x_size

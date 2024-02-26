@@ -5,13 +5,15 @@ from typing import Any, Callable, List, NoReturn, Optional, Protocol
 import numpy.ma as ma
 from shapely.geometry.base import BaseGeometry
 
-from mapchete.tile import BufferedTilePyramid
+from mapchete.protocols import GridProtocol
+from mapchete.tile import BufferedTile, BufferedTilePyramid
 from mapchete.types import BandIndexes, BoundsLike, CRSLike, ResamplingLike, TileLike
 
 
-class InputTileProtocol(Protocol):
+class InputTileProtocol(GridProtocol):
     preprocessing_tasks_results: dict = {}
     input_key: str
+    tile: BufferedTile
 
     def read(self, **kwargs) -> Any:
         """Read from input."""

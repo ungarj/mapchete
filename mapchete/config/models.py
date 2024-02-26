@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import List, Optional, Type, Union
 
 from distributed import Client
@@ -76,3 +77,8 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     bounds_crs: Optional[Union[dict, str]] = None
     process_parameters: dict = Field(default_factory=dict)
     dask_specs: Optional[DaskSpecs] = None
+
+
+class ZoomParameters(BaseModel):
+    input: OrderedDict = Field(default_factory=OrderedDict)
+    process_parameters: OrderedDict = Field(default_factory=OrderedDict)
