@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def execute(
     dem: RasterInput,
-    clip: Optional[VectorInput],
+    clip: Optional[VectorInput] = None,
     resampling: ResamplingLike = "nearest",
     interval: float = 100,
     field: str = "elev",

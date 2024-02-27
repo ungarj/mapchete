@@ -67,6 +67,7 @@ class ProcessFunc:
                 if param.default == inspect.Parameter.empty and name not in [
                     "mp",
                     "kwargs",
+                    "__",
                 ]:
                     if (
                         name not in config_parameters.input

@@ -2,7 +2,7 @@
 
 import numpy.ma as ma
 
-from mapchete import RasterInput
+from mapchete import MapcheteNodataTile, RasterInput
 
 
 def execute(
@@ -13,7 +13,7 @@ def execute(
     if raster.is_empty():
         # This assures a transparent tile instead of a pink error tile
         # is returned when using mapchete serve.
-        return "empty"
+        raise MapcheteNodataTile
 
     data = raster.read(resampling="bilinear")
     return data

@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 def execute(
     dem: RasterInput,
-    clip: Optional[VectorInput],
+    clip: Optional[VectorInput] = None,
     resampling: ResamplingLike = "nearest",
     azimuth: float = 315.0,
     altitude: float = 45.0,
@@ -93,7 +93,7 @@ def execute(
     logger.debug("calculate hillshade")
     return hillshade(
         elevation_data,
-        dem.affine,
+        dem.tile.affine,
         azimuth=azimuth,
         altitude=altitude,
         z=z,
