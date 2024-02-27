@@ -482,11 +482,18 @@ def test_custom_process(example_custom_process_mapchete):
 
 
 # pytest-env must be installed
-def test_env_params(env_storage_options_mapchete):
+def test_env_storage_options(env_storage_options_mapchete):
     with mapchete.open(env_storage_options_mapchete.dict) as mp:
         inp = mp.config.params_at_zoom(5)
         assert inp["input"]["file1"].storage_options.get("access_key") == "foo"
         assert mp.config.output.storage_options.get("access_key") == "bar"
+
+
+# pytest-env must be installed
+def test_env_params(env_input_path_mapchete):
+    with mapchete.open(env_input_path_mapchete.dict) as mp:
+        inp = mp.config.params_at_zoom(5)
+        assert inp["input"]["file1"].path.endswith("dummy2.tif")
 
 
 def test_process_config_pyramid_settings():
