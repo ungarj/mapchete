@@ -53,7 +53,7 @@ class InputData(base.InputData):
 
     METADATA = METADATA
 
-    def __init__(self, input_params, **kwargs):
+    def __init__(self, input_params: dict, **kwargs):
         """Initialize."""
         super().__init__(input_params, **kwargs)
         self._read_as_tiledir_func = None

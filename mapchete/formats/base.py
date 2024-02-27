@@ -121,9 +121,9 @@ class InputData(InputDataProtocol, ABC):
     preprocessing_tasks_results: dict
     METADATA = {"driver_name": None, "data_type": None, "mode": "r"}
 
-    def __init__(self, input_params: dict, input_key: str, **kwargs):
+    def __init__(self, input_params: dict, input_key: Optional[str] = None, **kwargs):
         """Initialize relevant input information."""
-        self.input_key = input_key
+        self.input_key = input_key or get_hash(input_params)
         self.pyramid = input_params.get("pyramid")
         self.pixelbuffer = input_params.get("pixelbuffer")
         self.crs = self.pyramid.crs if self.pyramid else None
@@ -249,7 +249,7 @@ class InputData(InputDataProtocol, ABC):
         return task_key in self.preprocessing_tasks_results
 
 
-class OutputDataBaseFunctions:
+class OutputDataBaseFunctions(ABC):
     write_in_parent_process = False
 
     def __init__(self, output_params, readonly=False, **kwargs):

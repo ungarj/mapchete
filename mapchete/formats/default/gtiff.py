@@ -29,6 +29,7 @@ compress: string
     compression method (default: lzw): lzw, jpeg, packbits, deflate, CCITTRLE,
     CCITTFAX3, CCITTFAX4, lzma
 """
+from __future__ import annotations
 
 import logging
 import math
@@ -48,6 +49,7 @@ from tilematrix import Bounds
 from mapchete.config.base import _OUTPUT_PARAMETERS, snap_bounds
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
+from mapchete.formats.protocols import RasterInput
 from mapchete.io import MPath, path_exists, path_is_remote
 from mapchete.io.profiles import DEFAULT_PROFILES
 from mapchete.io.raster import (
@@ -197,7 +199,7 @@ class GTiffOutputReaderFunctions:
         )
 
     @deprecated_kwargs
-    def open(self, tile, process, **kwargs):
+    def open(self, tile, process, **kwargs) -> InputTile:
         """
         Open process output as input for other process.
 
@@ -649,7 +651,7 @@ def _window_in_out_file(window, rio_file):
     )
 
 
-class InputTile(base.InputTile):
+class InputTile(base.InputTile, RasterInput):
     """
     Target Tile representation of input data.
 
