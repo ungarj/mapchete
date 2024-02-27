@@ -730,6 +730,15 @@ def env_storage_options_mapchete(mp_tmpdir):
 
 
 @pytest.fixture
+def env_input_path_mapchete(mp_tmpdir):
+    """Fixture for env_input_path.mapchete."""
+    with ProcessFixture(
+        TESTDATA_DIR / "env_input_path.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def example_custom_process_mapchete(mp_tmpdir):
     """Fixture for example.mapchete."""
     with ProcessFixture(
