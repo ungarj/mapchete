@@ -1,14 +1,19 @@
 import logging
-from typing import Dict, Optional
+from typing import Optional
 
 from mapchete.errors import MapcheteDriverError
+from mapchete.formats.protocols import (
+    InputDataProtocol,
+    OutputDataReaderProtocol,
+    OutputDataWriterProtocol,
+)
 from mapchete.formats.tools import driver_from_file
 from mapchete.registered import drivers
 
 logger = logging.getLogger(__name__)
 
 
-def load_output_reader(output_params: Dict) -> "OutputDataReader":
+def load_output_reader(output_params: dict) -> OutputDataReaderProtocol:
     """
     Return OutputReader class of driver.
 
@@ -35,8 +40,8 @@ def load_output_reader(output_params: Dict) -> "OutputDataReader":
 
 
 def load_output_writer(
-    output_params: Dict, readonly: bool = False
-) -> "OutputDataWriter":
+    output_params: dict, readonly: bool = False
+) -> OutputDataWriterProtocol:
     """
     Return output class of driver.
 
@@ -65,8 +70,8 @@ def load_output_writer(
 
 
 def load_input_reader(
-    input_params: Dict, readonly: bool = False, input_key: Optional[str] = None
-) -> "InputData":
+    input_params: dict, readonly: bool = False, input_key: Optional[str] = None
+) -> InputDataProtocol:
     """
     Return input class of driver.
 

@@ -21,6 +21,7 @@ schema: key-value pairs
 import warnings
 
 from mapchete.formats.default import _fiona_base
+from mapchete.formats.protocols import VectorInput
 
 METADATA = {"driver_name": "FlatGeobuf", "data_type": "vector", "mode": "rw"}
 

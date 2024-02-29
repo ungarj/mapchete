@@ -1,0 +1,13 @@
+process: typed_raster_input.py
+zoom_levels:
+    min: 0
+    max: 5
+pyramid:
+    grid: geodetic
+input:
+    raster: cleantopo_br.tif
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: tmp/typed_raster_input

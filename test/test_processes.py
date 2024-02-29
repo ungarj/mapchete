@@ -2,8 +2,10 @@
 
 import numpy as np
 import numpy.ma as ma
+import pytest
 
 import mapchete
+from mapchete import MapcheteNodataTile
 from mapchete.processes import contours, convert, hillshade
 from mapchete.processes.examples import example_process
 from mapchete.testing import get_process_mp
@@ -22,110 +24,120 @@ def test_example_process(cleantopo_tl):
 def test_convert_raster(cleantopo_tl_tif, landpoly):
     # tile with data
     assert isinstance(
-        convert.execute(get_process_mp(input=dict(inp=cleantopo_tl_tif), zoom=5)),
+        convert.execute(
+            inp=get_process_mp(input=dict(inp=cleantopo_tl_tif), zoom=5).open("inp")
+        ),
         np.ndarray,
     )
 
     # execute on empty tile
-    assert (
+    with pytest.raises(MapcheteNodataTile):
         convert.execute(
-            get_process_mp(input=dict(inp=cleantopo_tl_tif), tile=(5, 3, 7))
+            inp=get_process_mp(input=dict(inp=cleantopo_tl_tif), tile=(5, 3, 7)).open(
+                "inp"
+            )
         )
-        == "empty"
-    )
 
-    process_mp = get_process_mp(
+    inp = get_process_mp(
         input=dict(inp=cleantopo_tl_tif, clip=landpoly), zoom=5, metatiling=8
-    )
+    ).open("inp")
 
     # tile with data
-    default = convert.execute(process_mp)
+    default = convert.execute(inp)
     assert isinstance(default, np.ndarray)
 
     # scale_offset
-    offset = convert.execute(process_mp, scale_offset=2)
+    offset = convert.execute(inp, scale_offset=2)
     assert isinstance(offset, np.ndarray)
 
     # scale_ratio
-    ratio = convert.execute(process_mp, scale_ratio=0.5)
+    ratio = convert.execute(inp, scale_ratio=0.5)
     assert isinstance(ratio, np.ndarray)
 
     # clip_to_output_dtype
-    clip_dtype = convert.execute(
-        process_mp, scale_ratio=2, clip_to_output_dtype="uint8"
-    )
+    clip_dtype = convert.execute(inp, scale_ratio=2, clip_to_output_dtype="uint8")
     assert isinstance(clip_dtype, np.ndarray)
 
+    # NOTE: this was in the test suite but there is no reason why over this process tile
+    # the execute function should return an empty tile
     # execute on empty tile
-    assert (
-        convert.execute(
-            get_process_mp(
-                input=dict(inp=cleantopo_tl_tif, clip=landpoly),
-                tile=(5, 0, 0),
-                metatiling=1,
-            )
-        )
-        == "empty"
+    mp = get_process_mp(
+        input=dict(inp=cleantopo_tl_tif, clip=landpoly),
+        tile=(5, 0, 0),
+        metatiling=1,
     )
+    with pytest.raises(MapcheteNodataTile):
+        convert.execute(mp.open("inp"), mp.open("clip"))
 
 
 def test_convert_vector(landpoly):
     # execute without clip
     assert isinstance(
-        convert.execute(get_process_mp(input=dict(inp=landpoly), zoom=5, metatiling=8)),
+        convert.execute(
+            get_process_mp(input=dict(inp=landpoly), zoom=5, metatiling=8).open("inp")
+        ),
         list,
     )
 
     # execute on empty tile
-    assert (
+    with pytest.raises(MapcheteNodataTile):
         convert.execute(
-            get_process_mp(input=dict(inp=landpoly), tile=(5, 3, 7), metatiling=8)
+            get_process_mp(input=dict(inp=landpoly), tile=(5, 3, 7), metatiling=8).open(
+                "inp"
+            )
         )
-        == "empty"
-    )
 
 
 def test_contours(cleantopo_tl_tif, landpoly):
-    process_mp = get_process_mp(input=dict(dem=cleantopo_tl_tif), zoom=5, metatiling=8)
-    output = contours.execute(process_mp)
+    dem = get_process_mp(input=dict(dem=cleantopo_tl_tif), zoom=5, metatiling=8).open(
+        "dem"
+    )
+    output = contours.execute(dem)
     assert isinstance(output, list)
     assert output
 
     # execute on empty tile
-    process_mp = get_process_mp(
+    dem = get_process_mp(
         input=dict(dem=cleantopo_tl_tif), tile=(5, 3, 7), metatiling=8
-    )
-    assert contours.execute(process_mp) == "empty"
+    ).open("dem")
+    with pytest.raises(MapcheteNodataTile):
+        contours.execute(dem)
 
-    process_mp = get_process_mp(
+    dem = get_process_mp(
         input=dict(dem=cleantopo_tl_tif, clip=landpoly), zoom=5, metatiling=8
-    )
-    output = contours.execute(process_mp)
+    ).open("dem")
+    output = contours.execute(dem)
     assert isinstance(output, list)
     assert output
 
-    process_mp = get_process_mp(
+    dem = get_process_mp(
         input=dict(dem=cleantopo_tl_tif, clip=landpoly), tile=(5, 3, 7), metatiling=8
-    )
-    assert contours.execute(process_mp) == "empty"
+    ).open("dem")
+    with pytest.raises(MapcheteNodataTile):
+        contours.execute(dem)
 
 
 def test_hillshade(cleantopo_tl_tif, landpoly):
-    process_mp = get_process_mp(input=dict(dem=cleantopo_tl_tif), zoom=5, metatiling=8)
-    assert isinstance(hillshade.execute(process_mp), np.ndarray)
+    dem = get_process_mp(input=dict(dem=cleantopo_tl_tif), zoom=5, metatiling=8).open(
+        "dem"
+    )
+    assert isinstance(hillshade.execute(dem), np.ndarray)
 
     # execute on empty tile
-    process_mp = get_process_mp(
+    dem = get_process_mp(
         input=dict(dem=cleantopo_tl_tif), tile=(5, 3, 7), metatiling=8
-    )
-    assert hillshade.execute(process_mp) == "empty"
+    ).open("dem")
+    with pytest.raises(MapcheteNodataTile):
+        hillshade.execute(dem)
 
-    process_mp = get_process_mp(
+    dem = get_process_mp(
         input=dict(dem=cleantopo_tl_tif, clip=landpoly), zoom=5, metatiling=8
-    )
-    assert isinstance(hillshade.execute(process_mp), np.ndarray)
+    ).open("dem")
+    assert isinstance(hillshade.execute(dem), np.ndarray)
+
     # execute on empty tile
-    process_mp = get_process_mp(
+    mp = get_process_mp(
         input=dict(dem=cleantopo_tl_tif, clip=landpoly), tile=(5, 3, 7), metatiling=8
     )
-    assert hillshade.execute(process_mp) == "empty"
+    with pytest.raises(MapcheteNodataTile):
+        hillshade.execute(mp.open("dem"), mp.open("clip"))

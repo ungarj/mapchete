@@ -10,7 +10,7 @@ from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from mapchete.config.models import ProcessConfig
+from mapchete.config.models import ProcessConfig, ZoomParameters
 from mapchete.errors import GeometryTypeError, MapcheteConfigError
 from mapchete.io.vector import clean_geometry_type, fiona_open, reproject_geometry
 from mapchete.path import MPath
@@ -144,6 +144,16 @@ def raw_conf_at_zoom(config: ProcessConfig, zooms: ZoomLevels) -> OrderedDict:
                 params[name] = out_element
         params_per_zoom[zoom] = params
     return OrderedDict(params_per_zoom)
+
+
+def zoom_parameters(config: ProcessConfig, zoom: int) -> ZoomParameters:
+    """Return parameter dictionary per zoom level."""
+    params = dict()
+    for name, element in config.model_dump().items():
+        out_element = element_at_zoom(name, element, zoom)
+        if out_element is not None:
+            params[name] = out_element
+    return ZoomParameters(**params)
 
 
 def element_at_zoom(name: str, element: Any, zoom: int) -> Any:

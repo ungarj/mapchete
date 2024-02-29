@@ -6,6 +6,7 @@ import logging
 import types
 
 from mapchete.formats import base
+from mapchete.formats.protocols import VectorInput
 from mapchete.io import MPath, fiona_open
 from mapchete.io.vector import write_vector_window
 from mapchete.tile import BufferedTile
@@ -168,7 +169,7 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
                 )
 
 
-class InputTile(base.InputTile):
+class InputTile(base.InputTile, VectorInput):
     """
     Target Tile representation of input data.
 
