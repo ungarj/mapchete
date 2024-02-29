@@ -52,7 +52,7 @@ class Task(ABC):
     id: str
     func: Callable
     fargs: Tuple
-    fkwargs: Tuple
+    fkwargs: dict
     dependencies: Dict[str, TaskInfo]
     result_key_name: str
     geometry: Optional[Union[base.BaseGeometry, dict]] = None
@@ -61,17 +61,17 @@ class Task(ABC):
 
     def __init__(
         self,
+        func: Callable,
         id: Optional[str] = None,
-        func: Optional[Callable] = None,
         fargs: Optional[Tuple] = None,
-        fkwargs: Optional[Tuple] = None,
+        fkwargs: Optional[dict] = None,
         dependencies: Optional[Dict[str, TaskInfo]] = None,
         result_key_name: Optional[str] = None,
         geometry: Optional[Union[base.BaseGeometry, dict]] = None,
         bounds: Optional[BoundsLike] = None,
     ):
-        self.id = id or uuid4().hex
         self.func = func
+        self.id = id or uuid4().hex
         self.fargs = fargs or ()
         self.fkwargs = fkwargs or {}
         self.dependencies = dependencies or {}
@@ -248,7 +248,7 @@ class TileTask(Task):
         self.mode = config.mode
         self.output_reader = config.output_reader if config.baselevels else None
         self._dependencies = dict()
-        super().__init__(id=self.id, geometry=tile.bbox)
+        super().__init__(self.func, id=self.id, geometry=tile.bbox)
 
     def __repr__(self):  # pragma: no cover
         return f"TileTask(id={self.id}, tile={self.tile}, bounds={self.bounds})"

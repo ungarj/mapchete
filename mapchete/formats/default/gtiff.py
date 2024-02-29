@@ -375,7 +375,6 @@ class GTiffTileDirectoryOutputWriter(
                     out_grid=out_tile,
                     out_path=out_path,
                     tags=tags,
-                    fs=self.fs,
                 )
 
     @property

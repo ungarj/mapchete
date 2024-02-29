@@ -1,8 +1,10 @@
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, NonNegativeInt
 
 from mapchete.enums import DataType
+from mapchete.tile import BufferedTilePyramid
+from mapchete.types import NodataVal
 
 
 class DriverMetadata(BaseModel):
@@ -10,3 +12,13 @@ class DriverMetadata(BaseModel):
     data_type: DataType
     mode: str
     file_extensions: List[str] = Field(default_factory=list)
+
+
+class BaseInputParams(BaseModel, arbitrary_types_allowed=True):
+    pyramid: BufferedTilePyramid
+    pixelbuffer: NonNegativeInt = 0
+
+
+class BaseOutputParams(BaseModel):
+    stac: dict = Field(default_factory=dict)
+    nodata: NodataVal

@@ -5,7 +5,7 @@ import logging
 import os
 import threading
 from contextlib import ExitStack
-from typing import Any, Iterator, List, Optional, Tuple, Union
+from typing import Any, Generator, Iterator, List, Optional, Tuple, Union
 
 from cachetools import LRUCache
 from shapely.geometry import Polygon, base
@@ -92,7 +92,7 @@ class Mapchete(object):
 
     def get_process_tiles(
         self, zoom: Optional[int] = None, batch_by: Optional[str] = None
-    ) -> Iterator[BufferedTile]:
+    ) -> Generator[BufferedTile, None, None]:
         """
         Yield process tiles.
 
@@ -113,6 +113,8 @@ class Mapchete(object):
         BufferedTile objects
         """
         logger.debug("get process tiles...")
+        # if batch_by is None and hasattr(self.config.output_reader, "tile_path_schema"):
+        #     batch_by = batch_sort_property(self.config.output_reader.tile_path_schema)
         if zoom or zoom == 0:
             for tile in self.config.process_pyramid.tiles_from_geom(
                 self.config.area_at_zoom(zoom),
@@ -130,8 +132,8 @@ class Mapchete(object):
 
     def skip_tiles(
         self,
-        tiles: Iterator[BufferedTile] = None,
-        tiles_batches: Iterator[Iterator[BufferedTile]] = None,
+        tiles: Optional[Iterator[BufferedTile]] = None,
+        tiles_batches: Optional[Iterator[Iterator[BufferedTile]]] = None,
     ) -> Iterator[Tuple[BufferedTile, bool]]:
         """
         Quickly determine whether tiles can be skipped for processing.
@@ -161,9 +163,11 @@ class Mapchete(object):
                 for batch in tiles_batches:
                     for tile in batch:
                         yield (tile, False)
-            else:
+            elif tiles:
                 for tile in tiles:
                     yield (tile, False)
+            else:  # pragma: no cover
+                raise TypeError("either tiles or tiles_batches required")
 
     def tasks(
         self,
@@ -204,7 +208,7 @@ class Mapchete(object):
         tile: Optional[TileLike] = None,
         executor: Optional[ExecutorBase] = None,
         concurrency: Concurrency = Concurrency.none,
-        workers: int = os.cpu_count(),
+        workers: Optional[int] = os.cpu_count(),
         propagate_results: bool = False,
         dask_settings: DaskSettings = DaskSettings(),
         remember_preprocessing_results: bool = False,
@@ -772,15 +776,15 @@ def _tile_task_batches(
             overview_parents = set()
             for i, zoom in enumerate(zoom_levels.descending()):
                 tile_tasks = []
-
+                if hasattr(process.config.output_reader, "tile_path_schema"):
+                    batch_by = batch_sort_property(
+                        process.config.output_reader.tile_path_schema
+                    )
+                else:
+                    batch_by = "row"
                 for tile in _filter_skipable(
                     process=process,
-                    tiles_batches=process.get_process_tiles(
-                        zoom,
-                        batch_by=batch_sort_property(
-                            process.config.output_reader.tile_path_schema
-                        ),
-                    ),
+                    tiles_batches=process.get_process_tiles(zoom, batch_by=batch_by),
                     overview_tiles=(
                         overview_parents if process.config.baselevels and i else None
                     ),

@@ -5,7 +5,7 @@ import py_compile
 import sys
 import warnings
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, NoReturn
+from typing import Any, Dict
 
 from mapchete.config.models import ZoomParameters
 from mapchete.errors import (
@@ -60,7 +60,7 @@ class ProcessFunc:
 
     def analyze_parameters(
         self, parameters_per_zoom: Dict[int, ZoomParameters]
-    ) -> NoReturn:
+    ) -> None:
         for zoom, config_parameters in parameters_per_zoom.items():
             # make sure parameters with no defaults are given, except of magical "mp" object
             for name, param in self.function_parameters.items():

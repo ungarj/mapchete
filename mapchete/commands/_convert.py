@@ -3,7 +3,7 @@ import os
 from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
 from pprint import pformat
-from typing import List, NoReturn, Optional, Tuple, Type, Union
+from typing import List, Optional, Tuple, Type, Union
 
 import tilematrix
 from rasterio.crs import CRS
@@ -63,7 +63,7 @@ def convert(
     retry_on_exception: Tuple[Type[Exception], Type[Exception]] = Exception,
     cancel_on_exception: Type[Exception] = JobCancelledError,
     retries: int = 0,
-) -> NoReturn:
+) -> None:
     """
     Convert mapchete outputs or other geodata.
 
