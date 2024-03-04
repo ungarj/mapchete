@@ -129,9 +129,9 @@ gtiff = "mapchete.formats.default.gtiff"
 mapchete_input = "mapchete.formats.default.mapchete_input"
 png = "mapchete.formats.default.png"
 png_hillshade = "mapchete.formats.default.png_hillshade"
-raster_file = "mapchete.formats.default.raster_file"
+raster_file = "mapchete.formats.default.raster.single_file"
 tile_directory = "mapchete.formats.default.tile_directory"
-vector_file = "mapchete.formats.default.vector_file"
+vector_file = "mapchete.formats.default.vector.single_file"
 
 [project.entry-points."mapchete.processes"]
 contours = "mapchete.processes.contours"

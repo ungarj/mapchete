@@ -2,21 +2,29 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from functools import cached_property
 from itertools import product
+from typing import Generator, List, Tuple, Union
 
 import numpy as np
 from affine import Affine
+from pydantic import NonNegativeInt
 from rasterio.enums import Resampling
 from rasterio.features import rasterize, shapes
 from rasterio.warp import reproject
 from shapely import clip_by_rect
-from shapely.geometry import box, shape
+from shapely.geometry import base, box, shape
 from shapely.ops import unary_union
 from tilematrix import Tile, TilePyramid
 from tilematrix._conf import ROUND
 
 logger = logging.getLogger(__name__)
+
+
+class BatchBy(str, Enum):
+    row = "row"
+    column = "column"
 
 
 class BufferedTilePyramid(TilePyramid):
@@ -42,7 +50,13 @@ class BufferedTilePyramid(TilePyramid):
         tile buffer size in pixels
     """
 
-    def __init__(self, grid=None, metatiling=1, tile_size=256, pixelbuffer=0):
+    def __init__(
+        self,
+        grid=None,
+        metatiling: NonNegativeInt = 1,
+        tile_size: NonNegativeInt = 256,
+        pixelbuffer: NonNegativeInt = 0,
+    ):
         """Initialize."""
         TilePyramid.__init__(self, grid, metatiling=metatiling, tile_size=tile_size)
         self.tile_pyramid = TilePyramid(
@@ -74,7 +88,9 @@ class BufferedTilePyramid(TilePyramid):
         tile = self.tile_pyramid.tile(zoom, row, col)
         return BufferedTile(tile, pixelbuffer=self.pixelbuffer)
 
-    def tiles_from_bounds(self, bounds=None, zoom=None, batch_by=None):
+    def tiles_from_bounds(
+        self, bounds: Union[List[float], Tuple[float, float, float, float]], zoom: int
+    ) -> Generator[BufferedTile, None, None]:
         """
         Return all tiles intersecting with bounds.
 
@@ -93,10 +109,42 @@ class BufferedTilePyramid(TilePyramid):
         intersecting tiles : generator
             generates ``BufferedTiles``
         """
-        batch_by = "column" if batch_by == "col" else batch_by
-        yield from self.tiles_from_bbox(box(*bounds), zoom=zoom, batch_by=batch_by)
+        left, bottom, right, top = bounds
+        yield from self.tiles_from_bbox(box(left, bottom, right, top), zoom=zoom)
 
-    def tiles_from_bbox(self, geometry, zoom=None, batch_by=None):
+    def tiles_from_bounds_batches(
+        self,
+        bounds: Union[List[float], Tuple[float, float, float, float]],
+        zoom: int,
+        batch_by: BatchBy = BatchBy.row,
+    ) -> Generator[Generator[BufferedTile, None, None], None, None]:
+        """
+        Return all tiles intersecting with bounds.
+
+        Bounds values will be cleaned if they cross the antimeridian or are
+        outside of the Northern or Southern tile pyramid bounds.
+
+        Parameters
+        ----------
+        bounds : tuple
+            (left, bottom, right, top) bounding values in tile pyramid CRS
+        zoom : integer
+            zoom level
+
+        Yields
+        ------
+        intersecting tiles : generator
+            generates ``BufferedTiles``
+        """
+        batch_by = BatchBy.column if batch_by == "col" else batch_by
+        left, bottom, right, top = bounds
+        yield from self.tiles_from_bbox_batches(
+            box(left, bottom, right, top), zoom=zoom, batch_by=batch_by
+        )
+
+    def tiles_from_bbox(
+        self, geometry: base.BaseGeometry, zoom: int
+    ) -> Generator[BufferedTile, None, None]:
         """
         All metatiles intersecting with given bounding box.
 
@@ -111,17 +159,35 @@ class BufferedTilePyramid(TilePyramid):
         intersecting tiles : generator
             generates ``BufferedTiles``
         """
-        batch_by = "column" if batch_by == "col" else batch_by
-        if batch_by:  # pragma: no cover
-            for batch in self.tile_pyramid.tiles_from_bbox(
-                geometry, zoom=zoom, batch_by=batch_by
-            ):
-                yield (self.tile(*tile.id) for tile in batch)
-        else:
-            for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom=zoom):
-                yield self.tile(*tile.id)
+        for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom=zoom):
+            yield self.tile(*tile.id)
 
-    def tiles_from_geom(self, geometry, zoom=None, batch_by=None, exact=False):
+    def tiles_from_bbox_batches(
+        self, geometry: base.BaseGeometry, zoom: int, batch_by: BatchBy = BatchBy.row
+    ) -> Generator[Generator[BufferedTile, None, None], None, None]:
+        """
+        All metatiles intersecting with given bounding box.
+
+        Parameters
+        ----------
+        geometry : ``shapely.geometry``
+        zoom : integer
+            zoom level
+
+        Yields
+        ------
+        intersecting tiles : generator
+            generates ``BufferedTiles``
+        """
+        batch_by = BatchBy.column if batch_by == "col" else batch_by
+        for batch in self.tile_pyramid.tiles_from_bbox(
+            geometry, zoom=zoom, batch_by=batch_by
+        ):
+            yield (self.tile(*tile.id) for tile in batch)
+
+    def tiles_from_geom(
+        self, geometry: base.BaseGeometry, zoom: int, exact: bool = False
+    ) -> Generator[BufferedTile, None, None]:
         """
         Return all tiles intersecting with input geometry.
 
@@ -135,19 +201,36 @@ class BufferedTilePyramid(TilePyramid):
         ------
         intersecting tiles : ``BufferedTile``
         """
-        batch_by = "column" if batch_by == "col" else batch_by
-        if batch_by:
-            for batch in self.tile_pyramid.tiles_from_geom(
-                geometry, zoom=zoom, batch_by=batch_by, exact=exact
-            ):
-                yield (self.tile(*tile.id) for tile in batch)
-        else:
-            for tile in self.tile_pyramid.tiles_from_geom(
-                geometry, zoom=zoom, batch_by=batch_by, exact=exact
-            ):
-                yield self.tile(*tile.id)
+        for tile in self.tile_pyramid.tiles_from_geom(geometry, zoom=zoom, exact=exact):
+            yield self.tile(*tile.id)
 
-    def intersecting(self, tile):
+    def tiles_from_geom_batches(
+        self,
+        geometry: base.BaseGeometry,
+        zoom: int,
+        batch_by: BatchBy = BatchBy.row,
+        exact: bool = False,
+    ) -> Generator[Generator[BufferedTile, None, None], None, None]:
+        """
+        Return all tiles intersecting with input geometry.
+
+        Parameters
+        ----------
+        geometry : ``shapely.geometry``
+        zoom : integer
+            zoom level
+
+        Yields
+        ------
+        intersecting tiles : ``BufferedTile``
+        """
+        batch_by = BatchBy.column if batch_by == "col" else batch_by
+        for batch in self.tile_pyramid.tiles_from_geom(
+            geometry, zoom=zoom, batch_by=batch_by, exact=exact
+        ):
+            yield (self.tile(*tile.id) for tile in batch)
+
+    def intersecting(self, tile: BufferedTile) -> List[BufferedTile]:
         """
         Return all BufferedTiles intersecting with tile.
 
@@ -161,7 +244,7 @@ class BufferedTilePyramid(TilePyramid):
             for intersecting_tile in self.tile_pyramid.intersecting(tile)
         ]
 
-    def matrix_affine(self, zoom):
+    def matrix_affine(self, zoom: int) -> Affine:
         """
         Return Affine object for zoom level assuming tiles are cells.
 
@@ -183,7 +266,7 @@ class BufferedTilePyramid(TilePyramid):
             self.bounds.top,
         )
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """
         Return dictionary representation of pyramid parameters.
         """
@@ -200,7 +283,7 @@ class BufferedTilePyramid(TilePyramid):
         return BufferedTilePyramid(**config_dict)
 
     @staticmethod
-    def from_dict(config_dict):
+    def from_dict(config_dict: dict) -> BufferedTilePyramid:
         """
         Initialize TilePyramid from configuration dictionary.
         """

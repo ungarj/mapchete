@@ -61,7 +61,7 @@ class Task(ABC):
 
     def __init__(
         self,
-        func: Callable,
+        func: Optional[Callable] = None,
         id: Optional[str] = None,
         fargs: Optional[Tuple] = None,
         fkwargs: Optional[dict] = None,
@@ -70,7 +70,8 @@ class Task(ABC):
         geometry: Optional[Union[base.BaseGeometry, dict]] = None,
         bounds: Optional[BoundsLike] = None,
     ):
-        self.func = func
+        if func:
+            self.func = func
         self.id = id or uuid4().hex
         self.fargs = fargs or ()
         self.fkwargs = fkwargs or {}

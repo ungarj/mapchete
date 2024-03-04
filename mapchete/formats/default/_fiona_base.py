@@ -169,7 +169,7 @@ class OutputDataWriter(base.TileDirectoryOutputWriter, OutputDataReader):
                 )
 
 
-class InputTile(base.InputTile, VectorInput):
+class InputTile(base.RasterInputTile, VectorInput):
     """
     Target Tile representation of input data.
 

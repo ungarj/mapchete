@@ -18,6 +18,7 @@ class Concurrency(str, Enum):
 class DataType(str, Enum):
     raster = "raster"
     vector = "vector"
+    unknown = "unknown"
 
 
 class OutputType(str, Enum):

@@ -1,4 +1,4 @@
-from mapchete.formats.default.raster_file import InputData
+from mapchete.formats.default.raster.single_file import InputData
 
 
 def test_read_indexes_shape(cleantopo_br_tiledir, cleantopo_br_tif):

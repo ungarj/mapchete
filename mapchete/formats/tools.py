@@ -8,7 +8,7 @@ import datetime
 import logging
 import warnings
 from pprint import pformat
-from typing import Dict
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import dateutil.parser
 from rasterio.crs import CRS
@@ -374,8 +374,9 @@ def compare_metadata_params(params1: Dict, params2: Dict) -> None:
         )
 
 
-def _parse_dict(d, strategies=None):
+def _parse_dict(d, strategies: Optional[List[Tuple[Any, Callable]]] = None) -> dict:
     """Iterate through dictionary and try to parse values according to strategies."""
+    strategies = strategies or []
 
     def _parse_val(val):
         for func, allowed_exception in strategies:
@@ -386,7 +387,6 @@ def _parse_dict(d, strategies=None):
         else:
             return val
 
-    strategies = strategies or []
     out = dict()
     for k, v in d.items():
         if isinstance(v, dict):
@@ -401,8 +401,9 @@ def _parse_dict(d, strategies=None):
     return out
 
 
-def _unparse_dict(d, strategies=None):
+def _unparse_dict(d, strategies: Optional[List[Tuple[Any, Callable]]] = None) -> dict:
     """Iterate through dictionary and try to unparse values according to strategies."""
+    strategies = strategies or []
 
     def _unparse_val(val):
         for instance_type, func in strategies:
@@ -411,7 +412,6 @@ def _unparse_dict(d, strategies=None):
         else:
             return val
 
-    strategies = strategies or []
     out = dict()
     for k, v in d.items():
         if isinstance(v, dict):

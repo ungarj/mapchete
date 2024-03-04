@@ -8,6 +8,7 @@ import numpy.ma as ma
 from pydantic import NonNegativeInt
 from shapely.geometry.base import BaseGeometry
 
+from mapchete.formats.models import DriverMetadata
 from mapchete.path import MPath
 
 # from mapchete.processing.mp import MapcheteProcess
@@ -64,6 +65,7 @@ VectorInputGroup = List[VectorInput]
 
 
 class InputDataProtocol(Protocol):
+    __mp_driver_metadata__: DriverMetadata
     input_key: str
     pyramid: BufferedTilePyramid
     pixelbuffer: int = 0

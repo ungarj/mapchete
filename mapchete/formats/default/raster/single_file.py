@@ -4,18 +4,21 @@ Raster file input which can be read by rasterio.
 Currently limited by extensions .tif, .vrt., .png and .jp2 but could be
 extended easily.
 """
+from __future__ import annotations
 
 import logging
-import warnings
 from copy import deepcopy
+from typing import Optional, Tuple
 
 import numpy.ma as ma
+from affine import Affine
 from rasterio.crs import CRS
+from rasterio.enums import Resampling
 from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
-from mapchete import io
-from mapchete.formats import base
+from mapchete.formats.base import InputData as BaseInputData
+from mapchete.formats.base import RasterInputTile as BaseRasterInputTile
 from mapchete.formats.protocols import RasterInput
 from mapchete.io.raster import (
     convert_raster,
@@ -24,8 +27,11 @@ from mapchete.io.raster import (
     read_raster_window,
     resample_from_array,
 )
+from mapchete.io.raster.referenced_raster import ReferencedRaster
 from mapchete.io.vector import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
+from mapchete.tile import BufferedTile
+from mapchete.types import BandIndexes, Bounds, ResamplingLike
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +43,7 @@ METADATA = {
 }
 
 
-class InputData(base.InputData):
+class InputData(BaseInputData):
     """
     Main input class.
 
@@ -62,15 +68,10 @@ class InputData(base.InputData):
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    METADATA = {
-        "driver_name": "raster_file",
-        "data_type": "raster",
-        "mode": "r",
-        "file_extensions": ["tif", "vrt", "png", "jp2"],
-    }
-    _cached_path = None
-    _cache_keep = False
-    _memory_cache_active = False
+    METADATA = METADATA
+    _cached_path: Optional[MPath] = None
+    _cache_keep: bool = False
+    _memory_cache_active: bool = False
 
     def __init__(self, input_params, **kwargs):
         """Initialize."""
@@ -143,7 +144,7 @@ class InputData(base.InputData):
                     f"invalid cache configuration given: {input_params['abstract']['cache']}"
                 )
 
-    def open(self, tile, **kwargs):
+    def open(self, tile, **kwargs) -> RasterInputTile:
         """
         Return InputTile object.
 
@@ -162,7 +163,7 @@ class InputData(base.InputData):
             in_memory_raster = self.get_preprocessing_task_result(self._cache_task)
         else:
             in_memory_raster = None
-        return InputTile(
+        return RasterInputTile(
             tile,
             self,
             in_memory_raster=in_memory_raster,
@@ -217,7 +218,7 @@ class InputData(base.InputData):
             self._cached_path.rm(ignore_errors=True)
 
 
-class InputTile(base.InputTile, RasterInput):
+class RasterInputTile(BaseRasterInputTile, RasterInput):
     """
     Target Tile representation of input data.
 
@@ -236,14 +237,31 @@ class InputTile(base.InputTile, RasterInput):
         resampling method passed on to rasterio
     """
 
+    width: int
+    height: int
+    transform: Affine
+    bounds: Bounds
+    shape: Tuple[int, int]
+    crs: CRS
     _memory_cache_active = False
     _in_memory_raster = None
 
     def __init__(
-        self, tile, input_data, in_memory_raster=None, cache_task_key=None, **kwargs
+        self,
+        tile: BufferedTile,
+        input_data: InputData,
+        in_memory_raster: Optional[ReferencedRaster] = None,
+        cache_task_key: Optional[str] = None,
+        **kwargs,
     ):
         """Initialize."""
         super().__init__(tile, input_key=input_data.input_key, **kwargs)
+        self.width = tile.width
+        self.height = tile.height
+        self.transform = tile.transform
+        self.bounds = Bounds.from_inp(tile.bounds)
+        self.shape = tile.shape
+        self.crs = tile.crs
         self.bbox = input_data.bbox(out_crs=self.tile.crs)
         self.profile = input_data.profile
         self.cache_task_key = cache_task_key
@@ -260,7 +278,12 @@ class InputTile(base.InputTile, RasterInput):
         )
         return f"raster_file.InputTile(tile={self.tile.id}, source={source})"
 
-    def read(self, indexes=None, resampling="nearest", **kwargs):
+    def read(
+        self,
+        indexes: Optional[BandIndexes] = None,
+        resampling: ResamplingLike = Resampling.nearest,
+        **kwargs,
+    ) -> ma.MaskedArray:
         """
         Read reprojected & resampled input data.
 
@@ -312,7 +335,7 @@ class InputTile(base.InputTile, RasterInput):
                 gdal_opts=self.gdal_opts,
             )
 
-    def is_empty(self, indexes=None):
+    def is_empty(self, indexes: Optional[BandIndexes] = None) -> bool:
         """
         Check if there is data within this tile.
 
@@ -329,28 +352,3 @@ class InputTile(base.InputTile, RasterInput):
             return indexes
         else:
             return list(range(1, self.profile["count"] + 1))
-
-
-def get_segmentize_value(input_file=None, tile_pyramid=None):
-    """
-    Return the recommended segmentation value in input file units.
-
-    It is calculated by multiplyling raster pixel size with tile shape in
-    pixels.
-
-    Parameters
-    ----------
-    input_file : str
-        location of a file readable by rasterio
-    tile_pyramied : ``TilePyramid`` or ``BufferedTilePyramid``
-        tile pyramid to estimate target tile size
-
-    Returns
-    -------
-    segmenize value : float
-        length suggested of line segmentation to reproject file bounds
-    """
-    warnings.warn(
-        DeprecationWarning("get_segmentize_value() has moved to mapchete.io")
-    )  # pragma: no cover
-    return io.get_segmentize_value(input_file, tile_pyramid)  # pragma: no cover

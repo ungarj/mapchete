@@ -47,8 +47,10 @@ from shapely.geometry import box
 from tilematrix import Bounds
 
 from mapchete.config.base import _OUTPUT_PARAMETERS, snap_bounds
+from mapchete.enums import DataType, OutputType
 from mapchete.errors import MapcheteConfigError
 from mapchete.formats import base
+from mapchete.formats.models import DriverMetadata
 from mapchete.formats.protocols import RasterInput
 from mapchete.io import MPath, path_exists, path_is_remote
 from mapchete.io.profiles import DEFAULT_PROFILES
@@ -99,7 +101,7 @@ class OutputDataReader:
         spatial reference ID of CRS (e.g. "{'init': 'epsg:4326'}")
     """
 
-    def __new__(self, output_params, **kwargs):
+    def __new__(cls, output_params, **kwargs):
         """Initialize."""
         return GTiffTileDirectoryOutputReader(output_params, **kwargs)
 
@@ -144,7 +146,7 @@ class OutputDataWriter:
             return GTiffTileDirectoryOutputWriter(output_params, **kwargs)
 
 
-class GTiffOutputReaderFunctions:
+class GTiffOutputReaderFunctions(base.RasterOutput):
     """Common functions."""
 
     METADATA = METADATA
@@ -242,9 +244,13 @@ class GTiffTileDirectoryOutputReader(
 ):
     def __init__(self, output_params, **kwargs):
         """Initialize."""
-        logger.debug("output is tile directory")
         super().__init__(output_params, **kwargs)
-        self._set_attributes(output_params)
+        logger.debug("output is tile directory")
+        # update params with driver specific settings
+        output_params.update(
+            extension=".tif",
+            nodata=output_params.get("nodata", DEFAULT_PROFILES["COG"]()["nodata"]),
+        )
 
     def read(self, output_tile, **kwargs):
         """
@@ -338,6 +344,9 @@ class GTiffTileDirectoryOutputWriter(
     GTiffTileDirectoryOutputReader, base.TileDirectoryOutputWriter
 ):
     use_stac = True
+
+    def __init__(self, params: dict, readonly: bool = False, **kwargs):
+        super().__init__(params, readonly=readonly)
 
     def write(self, process_tile, data):
         """
@@ -650,7 +659,7 @@ def _window_in_out_file(window, rio_file):
     )
 
 
-class InputTile(base.InputTile, RasterInput):
+class InputTile(base.RasterInputTile, RasterInput):
     """
     Target Tile representation of input data.
 

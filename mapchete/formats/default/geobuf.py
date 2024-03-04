@@ -148,7 +148,7 @@ class OutputDataReader(geojson.OutputDataReader):
             "application/octet-stream",
         )
 
-    def _read_as_tiledir(self, out_tile=None, tiles_paths=None, **kwargs):
+    def _read_from_tiledir(self, out_tile=None, tiles_paths=None, **kwargs):
         return [
             dict(
                 feature,
