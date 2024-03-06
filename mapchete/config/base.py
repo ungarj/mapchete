@@ -433,8 +433,7 @@ class MapcheteConfig(object):
         except Exception as e:
             logger.exception(e)
             raise MapcheteConfigError(
-                "driver %s not compatible with configuration: %s"
-                % (writer.METADATA["driver_name"], e)
+                "driver %s not compatible with configuration: %s" % (writer, e)
             )
         return writer
 

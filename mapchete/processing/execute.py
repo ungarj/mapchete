@@ -5,7 +5,7 @@ from typing import Callable, Iterator, Optional
 
 from mapchete.errors import MapcheteNodataTile
 from mapchete.executor import DaskExecutor, ExecutorBase
-from mapchete.formats.base import OutputDataWriter
+from mapchete.formats.protocols import OutputDataWriterProtocol
 from mapchete.processing.tasks import Task, Tasks
 from mapchete.processing.types import TaskInfo, default_tile_task_id
 from mapchete.timer import Timer
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def single_batch(
     executor: ExecutorBase,
     tasks: Tasks,
-    output_writer: Optional[OutputDataWriter] = None,
+    output_writer: Optional[OutputDataWriterProtocol] = None,
     write_in_parent_process: bool = False,
     propagate_results: bool = False,
 ) -> Iterator[TaskInfo]:
@@ -45,7 +45,7 @@ def single_batch(
 def batches(
     executor: ExecutorBase,
     tasks: Tasks,
-    output_writer: Optional[OutputDataWriter] = None,
+    output_writer: Optional[OutputDataWriterProtocol] = None,
     write_in_parent_process: bool = False,
     propagate_results: bool = False,
 ) -> Iterator[TaskInfo]:
@@ -87,7 +87,7 @@ def batches(
 def dask_graph(
     executor: DaskExecutor,
     tasks: Tasks,
-    output_writer: Optional[OutputDataWriter] = None,
+    output_writer: Optional[OutputDataWriterProtocol] = None,
     write_in_parent_process: bool = False,
     propagate_results: bool = False,
 ) -> Iterator[TaskInfo]:
@@ -119,7 +119,7 @@ def dask_graph(
 
 def get_task_wrapper(
     write_in_parent_process: bool = False,
-    output_writer: Optional[OutputDataWriter] = None,
+    output_writer: Optional[OutputDataWriterProtocol] = None,
     propagate_results: bool = False,
 ) -> Callable:
     """Return a partially initialized wrapper function for task."""
@@ -172,7 +172,10 @@ def execute_wrapper(
 
 
 def write_wrapper(
-    task_info: TaskInfo, output_writer: OutputDataWriter, append_data: bool = False, **_
+    task_info: TaskInfo,
+    output_writer: OutputDataWriterProtocol,
+    append_data: bool = False,
+    **_
 ) -> TaskInfo:
     """Write output from previous step and return updated TileTaskInfo object."""
     if task_info.processed and task_info.tile:
@@ -210,7 +213,7 @@ def write_wrapper(
 
 def execute_and_write_wrapper(
     task: Task,
-    output_writer: Optional[OutputDataWriter] = None,
+    output_writer: Optional[OutputDataWriterProtocol] = None,
     dependencies: Optional[dict] = None,
     append_data: bool = False,
     **_

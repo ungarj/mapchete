@@ -15,8 +15,8 @@ from mapchete.formats import (
     driver_metadata,
     read_output_metadata,
 )
-from mapchete.formats.default.raster.tile_directory import RasterTileDirectory
-from mapchete.formats.default.vector.tile_directory import VectorTileDirectory
+from mapchete.formats.raster.tile_directory import RasterTileDirectoryInputDriver
+from mapchete.formats.vector.tile_directory import VectorTileDirectory
 from mapchete.path import MPath
 from mapchete.validate import validate_values
 
@@ -36,7 +36,7 @@ class InputData:
 
     def __new__(
         cls, input_params: dict, **kwargs
-    ) -> Union[RasterTileDirectory, VectorTileDirectory]:
+    ) -> Union[RasterTileDirectoryInputDriver, VectorTileDirectory]:
         """Initialize."""
         logger.debug("InputData params: %s", input_params)
         # populate internal parameters initially depending on whether this input was
@@ -62,7 +62,7 @@ class InputData:
         if data_type == DataType.raster:
             params["count"] = params.get("count", params.get("bands", None))
             validate_values(params, [("dtype", str), ("count", int)])
-            return RasterTileDirectory(
+            return RasterTileDirectoryInputDriver(
                 params=params,
                 nodata=params.get("nodata", 0),
                 dtype=params["dtype"],

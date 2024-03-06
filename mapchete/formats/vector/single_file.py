@@ -197,7 +197,7 @@ class InputData(base.InputData):
             self._cached_path.rm(ignore_errors=True)
 
 
-class InputTile(base.RasterInputTile, VectorInput):
+class InputTile(base.InputTile, VectorInput):
     """
     Target Tile representation of input data.
 

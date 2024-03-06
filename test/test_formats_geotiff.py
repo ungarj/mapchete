@@ -14,7 +14,7 @@ from tilematrix import Bounds
 
 import mapchete
 from mapchete.errors import MapcheteConfigError
-from mapchete.formats.default import gtiff
+from mapchete.formats.default.gtiff import OutputDataWriter
 from mapchete.io import path_exists, rasterio_open
 from mapchete.tile import BufferedTilePyramid
 
@@ -44,22 +44,18 @@ def test_output_data(mp_tmpdir):
             process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0),
         ),
     )
-    output = gtiff.OutputDataWriter(output_params)
+    output = OutputDataWriter(output_params)
     assert output.path == mp_tmpdir
     assert output.file_extension == ".tif"
     tp = BufferedTilePyramid("geodetic")
     tile = tp.tile(5, 5, 5)
+
     # get_path
     assert output.get_path(tile) == os.path.join(*[mp_tmpdir, "5", "5", "5" + ".tif"])
-    # prepare_path
-    try:
-        temp_dir = os.path.join(*[mp_tmpdir, "5", "5"])
-        output.prepare_path(tile)
-        assert os.path.isdir(temp_dir)
-    finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+
     # profile
     assert isinstance(output.profile(tile), dict)
+
     # write
     try:
         data = np.ones((1,) + tile.shape) * 128
@@ -72,6 +68,7 @@ def test_output_data(mp_tmpdir):
         assert not data[0].mask.any()
     finally:
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
+
     # read empty
     try:
         data = output.read(tile)
@@ -80,26 +77,29 @@ def test_output_data(mp_tmpdir):
     finally:
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
     # empty
+
     try:
         empty = output.empty(tile)
         assert isinstance(empty, ma.MaskedArray)
         assert not empty.any()
     finally:
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
+
     # deflate with predictor
     try:
         # with pytest.deprecated_call():
         output_params.update(compress="deflate", predictor=2)
-        output = gtiff.OutputDataWriter(output_params)
+        output = OutputDataWriter(output_params)
         assert output.profile(tile)["compress"] == "deflate"
         assert output.profile(tile)["predictor"] == 2
     finally:
         shutil.rmtree(mp_tmpdir, ignore_errors=True)
+
     # using deprecated "compression" property
     try:
         with pytest.deprecated_call():
             output_params.update(compression="deflate", predictor=2)
-            output = gtiff.OutputDataWriter(output_params)
+            output = OutputDataWriter(output_params)
             assert output.profile(tile)["compress"] == "deflate"
             assert output.profile(tile)["predictor"] == 2
     finally:
@@ -149,7 +149,7 @@ def test_input_data(mp_tmpdir, cleantopo_br):
                 process_bounds=Bounds(-180.0, -90.0, 180.0, 90.0),
             ),
         )
-        output = gtiff.OutputDataWriter(output_params)
+        output = OutputDataWriter(output_params)
         with output.open(tile, mp) as input_tile:
             for data in [
                 input_tile.read(),
