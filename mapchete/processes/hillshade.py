@@ -33,6 +33,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
+
 import logging
 import math
 import warnings
@@ -43,7 +44,7 @@ import numpy as np
 import numpy.ma as ma
 from affine import Affine
 
-from mapchete import MapcheteNodataTile, RasterInput, VectorInput
+from mapchete import Empty, RasterInput, VectorInput
 from mapchete.io import MatchingMethod
 from mapchete.types import ResamplingLike
 
@@ -73,10 +74,10 @@ def execute(
         clip_geom = clip.read()
         if not clip_geom:
             logger.debug("no clip data over tile")
-            raise MapcheteNodataTile
+            raise Empty
 
     if dem.is_empty():
-        raise MapcheteNodataTile
+        raise Empty
 
     logger.debug("reading input raster")
     elevation_data = dem.read(
@@ -88,7 +89,7 @@ def execute(
     )
 
     if elevation_data.mask.all():
-        raise MapcheteNodataTile
+        raise Empty
 
     logger.debug("calculate hillshade")
     return hillshade(

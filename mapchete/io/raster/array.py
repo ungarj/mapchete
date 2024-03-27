@@ -133,9 +133,11 @@ def resample_from_array(
             data=np.stack(array),
             mask=np.stack(
                 [
-                    band.mask
-                    if isinstance(band, ma.masked_array)
-                    else np.where(band == nodata, True, False)
+                    (
+                        band.mask
+                        if isinstance(band, ma.masked_array)
+                        else np.where(band == nodata, True, False)
+                    )
                     for band in array
                 ]
             ),
@@ -296,7 +298,7 @@ def clip_array_with_vector(
     geometries: List[dict],
     inverted: bool = False,
     clip_buffer: int = 0,
-):
+) -> ma.MaskedArray:
     """
     Clip input array with a vector list.
 
@@ -352,6 +354,8 @@ def clip_array_with_vector(
                 invert=inverted,
             )
             return ma.masked_array(array, mask=np.stack([mask for band in array]))
+        else:  # pragma: no cover
+            raise ValueError("array has to be 2D or 3D")
 
     # if no geometries, return unmasked array
     else:

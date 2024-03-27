@@ -1,4 +1,5 @@
 """Contour line extraction using matplotlib."""
+
 import logging
 from typing import List, Optional
 
@@ -6,7 +7,7 @@ import numpy as np
 from shapely.geometry import LineString, mapping, shape
 from shapely.ops import unary_union
 
-from mapchete import MapcheteNodataTile, RasterInput, VectorInput
+from mapchete import Empty, RasterInput, VectorInput
 from mapchete.io import MatchingMethod
 from mapchete.tile import BufferedTile
 from mapchete.types import ResamplingLike
@@ -77,10 +78,10 @@ def execute(
         clip_geom = []
         if not clip_geom:
             logger.debug("no clip data over tile")
-            raise MapcheteNodataTile
+            raise Empty
 
     if dem.is_empty():
-        raise MapcheteNodataTile
+        raise Empty
 
     logger.debug("reading input raster")
     dem_data = dem.read(
@@ -93,7 +94,7 @@ def execute(
     )
     if dem_data.mask.all():
         logger.debug("raster empty")
-        raise MapcheteNodataTile
+        raise Empty
 
     logger.debug("calculate hillshade")
     contour_lines = contours(
@@ -150,12 +151,13 @@ def contours(
         index += 1
         paths = contours.collections[level].get_paths()
         for path in paths:
+            breakpoint()
             out_coords = [
                 (
                     tile.left + (y * tile.pixel_x_size),
                     tile.top - (x * tile.pixel_y_size),
                 )
-                for x, y in zip(path.vertices[:, 1], path.vertices[:, 0])
+                for x, y in np.asarray(path.vertices)
             ]
             if len(out_coords) >= 2:
                 out_contours.append(

@@ -1,11 +1,12 @@
 import logging
 from typing import List, Optional, Union
 
+import numpy as np
 import numpy.ma as ma
 from numpy.typing import DTypeLike
 from rasterio.dtypes import dtype_ranges
 
-from mapchete import MapcheteNodataTile, RasterInput, VectorInput
+from mapchete import Empty, RasterInput, VectorInput
 from mapchete.io import MatchingMethod
 from mapchete.io.raster.array import clip_array_with_vector
 from mapchete.types import BandIndexes, ResamplingLike
@@ -25,9 +26,9 @@ def execute(
     clip_pixelbuffer: int = 0,
     scale_ratio: float = 1.0,
     scale_offset: float = 0.0,
-    clip_to_output_dtype: Optional[DTypeLike] = None,
+    clip_to_output_dtype: Optional[str] = None,
     **kwargs,
-) -> Union[ma.MaskedArray, List[dict]]:
+) -> Union[np.ndarray, List[dict]]:
     """
     Convert and optionally clip input raster or vector data.
 
@@ -82,10 +83,10 @@ def execute(
         clip_geom = clip.read()
         if not clip_geom:
             logger.debug("no clip data over tile")
-            raise MapcheteNodataTile
+            raise Empty
 
     if inp.is_empty():
-        raise MapcheteNodataTile
+        raise Empty
 
     logger.debug("reading input data")
     if isinstance(inp, RasterInput):
@@ -104,8 +105,10 @@ def execute(
             logger.debug("apply scale ratio %s", scale_ratio)
             input_data = input_data.astype("float64", copy=False) * scale_ratio
         if (
-            scale_offset != 0.0 or scale_ratio != 1.0
-        ) and clip_to_output_dtype in dtype_ranges:
+            clip_to_output_dtype
+            and (scale_offset != 0.0 or scale_ratio != 1.0)
+            and clip_to_output_dtype in dtype_ranges
+        ):
             logger.debug("clip to output dtype ranges")
             input_data.clip(*dtype_ranges[clip_to_output_dtype], out=input_data)
 

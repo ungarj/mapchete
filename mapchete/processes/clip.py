@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy.ma as ma
 
-from mapchete import MapcheteNodataTile, RasterInput, VectorInput
+from mapchete import Empty, RasterInput, VectorInput
 from mapchete.io import MatchingMethod
 from mapchete.io.raster.array import clip_array_with_vector
 from mapchete.types import BandIndexes, ResamplingLike
@@ -31,10 +31,10 @@ def execute(
     clip_geom = clip.read()
     if not clip_geom:
         logger.debug("no clip data over tile")
-        raise MapcheteNodataTile
+        raise Empty
 
     if inp.is_empty():
-        raise MapcheteNodataTile
+        raise Empty
 
     logger.debug("reading input data")
     input_data = inp.read(

@@ -37,6 +37,10 @@ class MapcheteNodataTile(Exception):
     """Indicates an empty tile."""
 
 
+class Empty(MapcheteNodataTile):
+    """Short alias for MapcheteNodataTile."""
+
+
 class GeometryTypeError(TypeError):
     """Raised when geometry type does not fit."""
 
