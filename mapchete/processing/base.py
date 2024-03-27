@@ -14,14 +14,7 @@ from shapely.ops import unary_union
 from mapchete.config import DaskSettings, MapcheteConfig
 from mapchete.enums import Concurrency, ProcessingMode
 from mapchete.errors import MapcheteNodataTile, ReprojectionFailed
-from mapchete.executor import (
-    MULTIPROCESSING_DEFAULT_START_METHOD,
-    DaskExecutor,
-    Executor,
-    ExecutorBase,
-    MFuture,
-)
-from mapchete.executor.base import func_partial
+from mapchete.executor import Executor, ExecutorBase, MFuture
 from mapchete.executor.types import Profiler
 from mapchete.path import batch_sort_property, tiles_exist
 from mapchete.processing.execute import batches, dask_graph, single_batch

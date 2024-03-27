@@ -4,7 +4,6 @@ from copy import deepcopy
 
 import oyaml as yaml
 import pytest
-from fiona.errors import DriverError
 from pydantic import ValidationError
 from shapely import wkt
 from shapely.errors import WKTReadingError

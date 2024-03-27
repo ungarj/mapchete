@@ -341,7 +341,6 @@ class VRTFileWriter:
 
     def __init__(self, out_path=None, output=None, out_pyramid=None):
         # see if lxml is installed before checking all output tiles
-        from lxml.builder import ElementMaker
 
         self.path = out_path
         self._tp = out_pyramid

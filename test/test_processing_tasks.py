@@ -2,13 +2,10 @@ from itertools import chain
 
 import pytest
 from shapely.geometry import shape
-from shapely.ops import unary_union
 
 from mapchete.errors import NoTaskGeometry
-from mapchete.executor import Executor
 from mapchete.processing.tasks import Task, TaskBatch, Tasks, TileTask, TileTaskBatch
 from mapchete.testing import ProcessFixture
-from mapchete.tile import BufferedTilePyramid
 
 
 def dummy_func(*args, **kwargs):

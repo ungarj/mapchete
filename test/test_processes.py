@@ -4,7 +4,6 @@ import numpy as np
 import numpy.ma as ma
 import pytest
 
-import mapchete
 from mapchete import MapcheteNodataTile
 from mapchete.processes import contours, convert, hillshade
 from mapchete.processes.examples import example_process

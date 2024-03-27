@@ -2,8 +2,6 @@ import logging
 from typing import List, Optional, Union
 
 import numpy as np
-import numpy.ma as ma
-from numpy.typing import DTypeLike
 from rasterio.dtypes import dtype_ranges
 
 from mapchete import Empty, RasterInput, VectorInput

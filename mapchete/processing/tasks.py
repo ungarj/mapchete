@@ -36,7 +36,7 @@ from mapchete.processing.mp import MapcheteProcess
 from mapchete.processing.types import TaskInfo, default_tile_task_id
 from mapchete.tile import BufferedTile
 from mapchete.timer import Timer
-from mapchete.types import Bounds, BoundsLike, TileLike, ZoomLevels, ZoomLevelsLike
+from mapchete.types import Bounds, BoundsLike, TileLike, ZoomLevels
 from mapchete.validate import validate_bounds
 
 logger = logging.getLogger(__name__)

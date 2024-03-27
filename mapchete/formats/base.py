@@ -14,7 +14,6 @@ import numpy as np
 import numpy.ma as ma
 from pydantic import NonNegativeInt
 from shapely.geometry import shape
-from shapely.geometry.base import BaseGeometry
 
 from mapchete.config import get_hash
 from mapchete.errors import MapcheteNodataTile, MapcheteProcessOutputError
@@ -22,7 +21,6 @@ from mapchete.formats import write_output_metadata
 
 # from mapchete.formats.models import BaseInputParams
 from mapchete.formats.protocols import InputDataProtocol, InputTileProtocol
-from mapchete.io import path_exists
 from mapchete.io.raster import (
     create_mosaic,
     extract_from_array,
