@@ -151,7 +151,6 @@ def contours(
         index += 1
         paths = contours.collections[level].get_paths()
         for path in paths:
-            breakpoint()
             out_coords = [
                 (
                     tile.left + (y * tile.pixel_x_size),
