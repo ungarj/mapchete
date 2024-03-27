@@ -11,27 +11,31 @@ from mapchete.testing import ProcessFixture
 from mapchete.tile import BufferedTilePyramid
 
 
+def dummy_func(*args, **kwargs):
+    return
+
+
 def test_task_geo_interface():
-    task = Task(bounds=(0, 1, 2, 3))
+    task = Task(dummy_func, bounds=(0, 1, 2, 3))
     assert not shape(task).is_empty
 
 
 def test_task_errors():
     # provide geometry and bounds at the same time
     with pytest.raises(ValueError):
-        Task(geometry="foo", bounds="bar")
+        Task(dummy_func, geometry="foo", bounds="bar")
 
     # task has no geo information
     with pytest.raises(NoTaskGeometry):
-        Task().__geo_interface__
+        Task(dummy_func).__geo_interface__
 
     # invalid dependencies
     with pytest.raises(TypeError):
-        Task().add_dependencies("invalid")
+        Task(dummy_func).add_dependencies("invalid")
 
 
 def test_task_dict():
-    task_dict = Task(bounds=(0, 1, 2, 3)).to_dict()
+    task_dict = Task(dummy_func, bounds=(0, 1, 2, 3)).to_dict()
     assert "geometry" in task_dict
     assert "properties" in task_dict
     assert "id" in task_dict
@@ -39,7 +43,7 @@ def test_task_dict():
 
 
 def test_task_dependencies():
-    task = Task()
+    task = Task(dummy_func)
     task.add_dependencies({"foo": "bar"})
     assert "foo" in task.dependencies
 
@@ -62,7 +66,7 @@ def test_task_batches():
     for task in batch:
         assert isinstance(task, Task)
 
-    other_task = Task(bounds=(0, 1, 2, 3))
+    other_task = Task(dummy_func, bounds=(0, 1, 2, 3))
     assert len(batch.intersection(other_task)) == 10
     assert len(batch.intersection((0, 1, 2, 3))) == 10
 
@@ -96,7 +100,7 @@ def test_tile_task_batch(dem_to_hillshade):
     tile_task = TileTask(tile=other_tile, config=dem_to_hillshade.mp().config)
     assert len(tile_task_batch.intersection(tile_task)) == 4
 
-    task = Task(bounds=other_tile.bounds)
+    task = Task(dummy_func, bounds=other_tile.bounds)
     assert len(tile_task_batch.intersection(task)) == 4
 
     assert len(tile_task_batch.intersection(task.bounds)) == 4
@@ -142,12 +146,12 @@ def test_task_batches_mixed_geometries():
         assert isinstance(task, Task)
 
     # other task intersecting with all tasks
-    other_task = Task(bounds=(0, 1, 2, 3))
+    other_task = Task(dummy_func, bounds=(0, 1, 2, 3))
     assert len(batch.intersection(other_task)) == 20
     assert len(batch.intersection((0, 1, 2, 3))) == 20
 
     # other task not intersecting with spatial tasks
-    other_task = Task(bounds=(3, 4, 5, 6))
+    other_task = Task(dummy_func, bounds=(3, 4, 5, 6))
     assert len(batch.intersection(other_task)) == 10
     assert len(batch.intersection((3, 4, 5, 6))) == 10
 
