@@ -50,11 +50,9 @@ class ProcessFunc:
         # this also serves as a validation step for the function
         logger.debug("validate process function")
         func = self._load_func()
-
         self.function_parameters = dict(**inspect.signature(func).parameters)
 
     def __call__(self, *args, **kwargs: Any) -> Any:
-        args = args
         kwargs = self.filter_parameters(kwargs)
         return self._load_func()(*args, **kwargs)
 
@@ -62,7 +60,7 @@ class ProcessFunc:
         self, parameters_per_zoom: Dict[int, ZoomParameters]
     ) -> None:
         for zoom, config_parameters in parameters_per_zoom.items():
-            # make sure parameters with no defaults are given, except of magical "mp" object
+            # make sure parameters with no defaults are present in configuration, except of magical "mp" object
             for name, param in self.function_parameters.items():
                 if param.default == inspect.Parameter.empty and name not in [
                     "mp",
@@ -91,11 +89,11 @@ class ProcessFunc:
                         f"zoom {zoom}: parameter '{param_name}' is set in the process configuration but not a process function parameter"
                     )
 
-    def filter_parameters(self, params):
+    def filter_parameters(self, kwargs):
         """Return function kwargs."""
         return {
             k: v
-            for k, v in params.items()
+            for k, v in kwargs.items()
             if k in self.function_parameters and v is not None
         }
 

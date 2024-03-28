@@ -31,7 +31,8 @@ S3_SECRET = "Eashei2a"
 S3_ENDPOINT_URL = "localhost:9000"
 
 SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
-TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata/"))
+EXAMPLES_DIR = SCRIPT_DIR.parent / "examples/"
+TESTDATA_DIR = SCRIPT_DIR / "testdata/"
 HTTP_TESTDATA_DIR = MPath("http://localhost/open/")
 SECURE_HTTP_TESTDATA_DIR = MPath(
     "http://localhost/secure/",
@@ -1108,3 +1109,39 @@ def threads_executor():
     """ConcurrentFuturesExecutor()"""
     with ConcurrentFuturesExecutor(concurrency="threads") as executor:
         yield executor
+
+
+@pytest.fixture
+def example_contours(mp_tmpdir):
+    """Fixture for examples/contours/contours.mapchete."""
+    with ProcessFixture(
+        EXAMPLES_DIR / "contours/contours.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
+def example_custom_grid(mp_tmpdir):
+    """Fixture for examples/custom_grid/custom_grid.mapchete."""
+    with ProcessFixture(
+        EXAMPLES_DIR / "custom_grid/custom_grid.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
+def example_file_groups(mp_tmpdir):
+    """Fixture for examples/file_groups/file_groups.mapchete."""
+    with ProcessFixture(
+        EXAMPLES_DIR / "file_groups/file_groups.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
+def example_hillshade(mp_tmpdir):
+    """Fixture for examples/hillshade/hillshade.mapchete."""
+    with ProcessFixture(
+        EXAMPLES_DIR / "hillshade/hillshade.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example

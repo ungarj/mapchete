@@ -74,7 +74,8 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
     config = MapcheteConfig(example_mapchete.dict)
     zoom7 = config.params_at_zoom(7)
     input_files = zoom7["input"]
-    assert input_files["file1"] is None
+    assert input_files["file1"] is not None
+    assert str(input_files["file1"].path) == dummy2_tif
     assert str(input_files["file2"].path) == dummy2_tif
     assert zoom7["process_parameters"]["some_integer_parameter"] == 12
     assert zoom7["process_parameters"]["some_float_parameter"] == 5.3
@@ -233,10 +234,11 @@ def test_read_baselevels(baselevels):
 
 
 def test_empty_input(file_groups):
-    """Verify configuration gets parsed without input files."""
+    """Input has to be defined if required by process."""
     config = file_groups.dict
     config.update(input=None)
-    assert mapchete.open(config)
+    with pytest.raises(MapcheteConfigError):
+        mapchete.open(config)
 
 
 def test_read_input_groups(file_groups):

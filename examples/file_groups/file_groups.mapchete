@@ -1,0 +1,20 @@
+process: file_groups.py
+zoom_levels:
+    min: 0
+    max: 5
+pyramid:
+    grid: geodetic
+    pixelbuffer: 10
+    metatiling: 8
+input:
+    group1:
+        file1: ../../test/testdata/cleantopo_tl.tif
+        file2: ../../test/testdata/cleantopo_br.tif
+    group2:
+        file1: ../../test/testdata/dummy1.tif
+        file2: ../../test/testdata/dummy2.tif
+output:
+    dtype: uint16
+    bands: 1
+    format: GTiff
+    path: output

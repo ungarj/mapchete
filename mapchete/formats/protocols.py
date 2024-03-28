@@ -59,8 +59,8 @@ class VectorInput(InputTileProtocol):
         ...
 
 
-RasterInputGroup = List[RasterInput]
-VectorInputGroup = List[VectorInput]
+RasterInputGroup = List[Tuple[str, RasterInput]]
+VectorInputGroup = List[Tuple[str, VectorInput]]
 
 
 class InputDataProtocol(Protocol):
