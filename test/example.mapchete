@@ -22,6 +22,7 @@ pyramid:
 
 input:
     file1:
+        zoom<9: testdata/dummy2.tif
         zoom>=10: testdata/dummy1.tif
     file2: testdata/dummy2.tif
 output:

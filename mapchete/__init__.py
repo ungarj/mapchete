@@ -5,8 +5,15 @@ from typing import Optional, Union
 from fsspec import AbstractFileSystem
 
 from mapchete.config import MapcheteConfig
+from mapchete.errors import Empty, MapcheteNodataTile
 from mapchete.executor import Executor, MFuture
 from mapchete.formats import read_output_metadata
+from mapchete.formats.protocols import (
+    RasterInput,
+    RasterInputGroup,
+    VectorInput,
+    VectorInputGroup,
+)
 from mapchete.path import MPath, fs_from_path
 from mapchete.processing import Mapchete, MapcheteProcess
 from mapchete.tile import count_tiles
@@ -19,7 +26,13 @@ __all__ = [
     "MapcheteProcess",
     "Timer",
     "Executor",
+    "Empty",
+    "MapcheteNodataTile",
     "MFuture",
+    "RasterInput",
+    "RasterInputGroup",
+    "VectorInput",
+    "VectorInputGroup",
 ]
 __version__ = "2024.2.1"
 

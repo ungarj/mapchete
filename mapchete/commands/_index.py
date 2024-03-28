@@ -13,7 +13,6 @@ from mapchete.config import MapcheteConfig
 from mapchete.config.parse import bounds_from_opts, raw_conf
 from mapchete.enums import InputType
 from mapchete.index import zoom_index_gen
-from mapchete.path import MPath
 from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)

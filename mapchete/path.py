@@ -19,7 +19,6 @@ from fsspec import AbstractFileSystem
 from rasterio.session import Session as RioSession
 from retry import retry
 
-import mapchete
 from mapchete.executor import Executor
 from mapchete.settings import GDALHTTPOptions, IORetrySettings, mapchete_options
 from mapchete.tile import BufferedTile

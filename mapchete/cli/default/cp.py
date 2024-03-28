@@ -1,5 +1,4 @@
 import click
-import tqdm
 
 from mapchete import commands
 from mapchete.cli import options

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import logging
 import warnings
@@ -17,6 +19,7 @@ from mapchete.config.parse import (
     guess_geometry,
     parse_config,
     raw_conf_at_zoom,
+    zoom_parameters,
 )
 from mapchete.config.process_func import ProcessFunc
 from mapchete.enums import ProcessingMode
@@ -140,7 +143,7 @@ class MapcheteConfig(object):
 
         # (2) check user process
         self.config_dir = self.parsed_config.config_dir
-        if self.mode != "readonly":
+        if self.mode != ProcessingMode.READONLY:
             if self.parsed_config.process is None:
                 raise MapcheteConfigError(
                     f"process must be provided on {self.mode} mode"
@@ -205,6 +208,15 @@ class MapcheteConfig(object):
         self._params_at_zoom = raw_conf_at_zoom(
             self.parsed_config, self.init_zoom_levels
         )
+        # TODO: check execute function parameters and provide warnings in case parameters
+        # have been omitted, are not defined in the config, or have the wrong type
+        if self.process:
+            self.process.analyze_parameters(
+                {
+                    zoom: zoom_parameters(self.parsed_config, zoom)
+                    for zoom in self.init_zoom_levels
+                }
+            )
 
         # (6) determine process area and process boundaries both from config as well
         # as from initialization.
@@ -939,12 +951,12 @@ def _unflatten_tree(flat):
         # there are more branches
         else:
             # create new dict
-            if not path[0] in tree:
+            if path[0] not in tree:
                 tree[path[0]] = _unflatten_tree({"/".join(path[1:]): value})
             # add keys to existing dict
             else:
                 branch = _unflatten_tree({"/".join(path[1:]): value})
-                if not path[1] in tree[path[0]]:
+                if path[1] not in tree[path[0]]:
                     tree[path[0]][path[1]] = branch[path[1]]
                 else:
                     tree[path[0]][path[1]].update(branch[path[1]])

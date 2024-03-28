@@ -1,0 +1,21 @@
+process: mapchete.processes.hillshade
+zoom_levels:
+    min: 0
+    max: 8
+pyramid:
+    grid: geodetic
+    metatiling: 1
+    pixelbuffer: 2
+input:
+    dem: ../../test/testdata/cleantopo_tl.tif
+output:
+    path: output
+    format: GTiff
+    dtype: uint8
+    bands: 1
+process_parameters:
+    resampling: "nearest"
+    azimuth: 315.0
+    altitude: 45.0
+    z: 1.0
+    scale: 1.0

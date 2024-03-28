@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Protocol, Tuple, runtime_checkable
 
 from affine import Affine

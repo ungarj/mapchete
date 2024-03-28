@@ -3,7 +3,6 @@
 import pytest
 
 import mapchete
-from mapchete.errors import MapcheteProcessImportError
 
 
 def test_parse_deprecated(deprecated_params):

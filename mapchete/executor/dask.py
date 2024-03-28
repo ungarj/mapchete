@@ -12,7 +12,6 @@ from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
 from mapchete.executor.types import Result
 from mapchete.pretty import pretty_bytes
-from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
 

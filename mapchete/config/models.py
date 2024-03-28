@@ -1,7 +1,8 @@
+from collections import OrderedDict
 from typing import List, Optional, Type, Union
 
 from distributed import Client
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, field_validator
+from pydantic import BaseModel, Field, NonNegativeInt, field_validator
 from shapely.geometry.base import BaseGeometry
 
 from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
@@ -53,6 +54,14 @@ class DaskSpecs(BaseModel):
     adapt_options: DaskAdaptOptions = DaskAdaptOptions()
 
 
+class DaskSettings(BaseModel):
+    process_graph: bool = True
+    max_submitted_tasks: int = 500
+    chunksize: int = 100
+    scheduler: Optional[str] = None
+    client: Optional[Type[Client]] = None
+
+
 class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     pyramid: PyramidConfig
     output: dict
@@ -70,9 +79,6 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     dask_specs: Optional[DaskSpecs] = None
 
 
-class DaskSettings(BaseModel):
-    process_graph: bool = True
-    max_submitted_tasks: int = 500
-    chunksize: int = 100
-    scheduler: Optional[str] = None
-    client: Optional[Type[Client]] = None
+class ZoomParameters(BaseModel):
+    input: OrderedDict = Field(default_factory=OrderedDict)
+    process_parameters: OrderedDict = Field(default_factory=OrderedDict)

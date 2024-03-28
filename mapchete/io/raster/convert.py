@@ -2,8 +2,6 @@ import logging
 
 from mapchete.io import copy
 from mapchete.io.raster.open import rasterio_open
-from mapchete.io.raster.read import read_raster_window
-from mapchete.io.raster.referenced_raster import ReferencedRaster
 from mapchete.path import MPath
 
 logger = logging.getLogger(__name__)

@@ -1,0 +1,29 @@
+process: mapchete.processes.convert
+input:
+  inp: ../../test/testdata/custom_grid_points.geojson
+output:
+  format: GeoJSON
+  path: output
+  schema:
+    properties:
+      name: str
+    geometry: Unknown
+pyramid:
+  grid:
+    shape:
+    - 1525
+    - 125
+    bounds:
+    - 166020
+    - 0
+    - 934020
+    - 9369600
+    is_global: false
+    proj: +proj=utm +zone=32 +datum=WGS84 +units=m +no_defs
+  metatiling: 4
+zoom_levels: 3
+bounds:
+- 166020
+- 0
+- 934020
+- 9369600

@@ -3,6 +3,7 @@
 from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.formats import base
+from mapchete.formats.protocols import InputTileProtocol
 from mapchete.io.vector import reproject_geometry
 
 METADATA = {
@@ -49,7 +50,7 @@ class InputData(base.InputData):
         self.path = input_params["path"]
         self.process = Mapchete(MapcheteConfig(self.path, mode="readonly"))
 
-    def open(self, tile, **kwargs):
+    def open(self, tile, **kwargs) -> InputTileProtocol:
         """
         Return InputTile object.
 
