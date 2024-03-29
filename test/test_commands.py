@@ -69,7 +69,7 @@ def test_cp(mp_tmpdir, cleantopo_br, wkt_geom):
         out_path,
         os.path.join(mp_tmpdir, "nothreads"),
         zoom=5,
-        multi=1,
+        workers=1,
         observers=[task_counter],
     )
     assert task_counter.tasks

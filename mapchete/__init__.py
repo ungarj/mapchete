@@ -79,17 +79,17 @@ def open(
     Mapchete
         a Mapchete process object
     """
+    if fs or fs_kwargs:
+        raise DeprecationWarning()
     # convert to MPath object if possible
     if isinstance(some_input, str):
         some_input = MPath.from_inp(some_input)
     # for TileDirectory inputs
     if isinstance(some_input, MPath) and some_input.suffix == "":
         logger.debug("assuming TileDirectory")
-        metadata_json = MPath.from_inp(some_input).joinpath("metadata.json")
-        fs_kwargs = fs_kwargs or {}
-        fs = fs or fs_from_path(metadata_json, **fs_kwargs)
+        metadata_json = MPath.from_inp(some_input) / "metadata.json"
         logger.debug("read metadata.json")
-        metadata = read_output_metadata(metadata_json, fs=fs)
+        metadata = read_output_metadata(metadata_json)
         config = dict(
             process=None,
             input=None,

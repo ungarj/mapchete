@@ -28,13 +28,10 @@ def execute(
 
     """
     # read clip geometry
-    clip_geom = clip.read()
-    if not clip_geom:
-        logger.debug("no clip data over tile")
-        raise Empty
-
-    if inp.is_empty():
-        raise Empty
+    if clip.is_empty():
+        raise Empty("no clip data over tile")
+    elif inp.is_empty():
+        raise Empty("no data over tile")
 
     logger.debug("reading input data")
     input_data = inp.read(
@@ -48,5 +45,5 @@ def execute(
     logger.debug("clipping output with geometry")
     # apply original nodata mask and clip
     return clip_array_with_vector(
-        input_data, inp.tile.affine, clip_geom, clip_buffer=clip_pixelbuffer
+        input_data, inp.tile.affine, clip.read(), clip_buffer=clip_pixelbuffer
     )

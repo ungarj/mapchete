@@ -5,7 +5,6 @@ zoom_levels:
 pyramid:
     grid: geodetic
     metatiling: 1
-    pixelbuffer: 2
 input:
     dem: ../../test/testdata/cleantopo_tl.tif
 output:
