@@ -811,6 +811,11 @@ def test_referencedraster_meta(s2_band):
         assert k in meta
 
 
+def test_referencedraster_array_interface(s2_band):
+    rr = ReferencedRaster.from_file(s2_band)
+    assert isinstance(ma.array(rr), ma.MaskedArray)
+
+
 @pytest.mark.parametrize("indexes", [None, 1, [1]])
 def test_referencedraster_read_band(s2_band, indexes):
     rr = ReferencedRaster.from_file(s2_band)

@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import logging
 import warnings
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import numpy.ma as ma
 from affine import Affine
-from shapely.geometry import box, mapping
+from rasterio.transform import array_bounds
+from shapely.geometry import mapping, shape
 
 from mapchete.io.raster.array import resample_from_array
 from mapchete.io.raster.open import rasterio_open
@@ -13,7 +16,7 @@ from mapchete.io.raster.read import read_raster_window
 from mapchete.path import MPath
 from mapchete.protocols import GridProtocol
 from mapchete.tile import BufferedTile
-from mapchete.types import Bounds, CRSLike, MPathLike, NodataVal
+from mapchete.types import Bounds, BoundsLike, CRSLike, MPathLike, NodataVal
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,7 @@ class ReferencedRaster:
 
     data: Union[np.ndarray, ma.masked_array]
     transform: Affine
-    bounds: Union[List[float], Tuple[float], Bounds]
+    bounds: Bounds
     crs: CRSLike
     nodata: Optional[NodataVal] = None
     driver: Optional[str] = None
@@ -36,10 +39,10 @@ class ReferencedRaster:
         self,
         data: Union[np.ndarray, ma.masked_array],
         transform: Affine,
-        bounds: Union[List[float], Tuple[float], Bounds],
         crs: CRSLike,
+        bounds: Optional[BoundsLike] = None,
         nodata: Optional[NodataVal] = None,
-        driver: Optional[str] = None,
+        driver: Optional[str] = "COG",
         **kwargs,
     ):
         if data.ndim == 1:  # pragma: no cover
@@ -63,8 +66,14 @@ class ReferencedRaster:
         self.nodata = nodata
         self.crs = crs
         self.transform = self.affine = transform
-        self.bounds = bounds
-        self.__geo_interface__ = mapping(box(*self.bounds))
+        self.bounds = Bounds.from_inp(
+            bounds or array_bounds(self.height, self.width, self.transform)
+        )
+        self.__geo_interface__ = mapping(shape(self.bounds))
+
+    @property
+    def __array_interface__(self) -> dict:
+        return self.data.__array_interface__
 
     @property
     def meta(self) -> dict:
@@ -158,7 +167,7 @@ class ReferencedRaster:
         return path
 
     @staticmethod
-    def from_rasterio(src, masked: bool = True) -> "ReferencedRaster":
+    def from_rasterio(src, masked: bool = True) -> ReferencedRaster:
         return ReferencedRaster(
             data=src.read(masked=masked).copy(),
             transform=src.transform,
@@ -167,9 +176,27 @@ class ReferencedRaster:
         )
 
     @staticmethod
-    def from_file(path, masked: bool = True) -> "ReferencedRaster":
+    def from_file(path, masked: bool = True) -> ReferencedRaster:
         with rasterio_open(path) as src:
             return ReferencedRaster.from_rasterio(src, masked=masked)
+
+    @staticmethod
+    def from_array_like(
+        array_like: Union[np.ndarray, ma.MaskedArray, GridProtocol],
+        transform: Optional[Affine] = None,
+        crs: Optional[CRSLike] = None,
+    ) -> ReferencedRaster:
+        if isinstance(array_like, ReferencedRaster):
+            return array_like
+        elif isinstance(array_like, np.ndarray):
+            if transform is None or crs is None:
+                raise ValueError("array transform and CRS must be provided")
+            return ReferencedRaster(data=array_like, transform=transform, crs=crs)
+        # elif isinstance(array_like, GridProtocol):
+        #     return ReferencedRaster(
+        #         data=array_like, transform=array_like.transform, crs=array_like.crs
+        #     )
+        raise TypeError(f"cannot convert {array_like} to ReferencedRaster")
 
 
 def read_raster(

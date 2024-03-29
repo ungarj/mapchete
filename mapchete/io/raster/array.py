@@ -50,16 +50,15 @@ def extract_from_array(
     if out_grid is None:  # pragma: no cover
         raise ValueError("grid must be defined")
 
-    if hasattr(array, "affine") and hasattr(array, "data"):  # pragma: no cover
-        array_transform, array = array.affine, array.data
-    elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover
-        array_transform, array = array.transform, array.data
-    elif array_transform is None:  # pragma: no cover
-        raise ValueError("an Affine object is required")
+    from mapchete.io.raster.referenced_raster import ReferencedRaster
+
+    raster = ReferencedRaster.from_array_like(
+        array, transform=array_transform, crs=out_grid.crs
+    )
 
     # get range within array
     minrow, maxrow, mincol, maxcol = bounds_to_ranges(
-        bounds=out_grid.bounds, transform=array_transform
+        bounds=out_grid.bounds, transform=raster.transform
     )
     # if output window is within input window
     if (
@@ -68,7 +67,7 @@ def extract_from_array(
         and maxrow <= array.shape[-2]
         and maxcol <= array.shape[-1]
     ):
-        return array[..., minrow:maxrow, mincol:maxcol]
+        return ma.array(raster)[..., minrow:maxrow, mincol:maxcol]
     # raise error if output is not fully within input
     else:
         raise ValueError("extraction fails if output shape is not within input")
