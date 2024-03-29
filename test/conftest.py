@@ -1112,6 +1112,15 @@ def threads_executor():
 
 
 @pytest.fixture
+def example_clip(mp_tmpdir):
+    """Fixture for examples/clip/clip.mapchete."""
+    with ProcessFixture(
+        EXAMPLES_DIR / "clip/clip.mapchete", output_tempdir=mp_tmpdir
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def example_contours(mp_tmpdir):
     """Fixture for examples/contours/contours.mapchete."""
     with ProcessFixture(

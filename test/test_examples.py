@@ -8,6 +8,7 @@ from mapchete.testing import ProcessFixture
 @pytest.mark.parametrize(
     "process_fixture",
     [
+        lazy_fixture("example_clip"),
         lazy_fixture("example_contours"),
         lazy_fixture("example_custom_grid"),
         lazy_fixture("example_file_groups"),
