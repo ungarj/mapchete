@@ -56,6 +56,11 @@ def extract_from_array(
         array, transform=array_transform, crs=out_grid.crs
     )
 
+    if raster.crs != out_grid.crs:  # pragma: no cover
+        raise ValueError(
+            f"source CRS {raster.crs} and destination CRS {out_grid.crs} do not match!"
+        )
+
     # get range within array
     minrow, maxrow, mincol, maxcol = bounds_to_ranges(
         bounds=out_grid.bounds, transform=raster.transform
