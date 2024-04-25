@@ -2,7 +2,7 @@
 
 import logging
 from multiprocessing import cpu_count
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Type, Union
 
 from distributed import Client
 from shapely.geometry import Point
@@ -36,7 +36,7 @@ def cp(
     dask_client: Optional[Client] = None,
     src_fs_opts: Union[dict, None] = None,
     dst_fs_opts: Union[dict, None] = None,
-    executor_getter: type[Executor] = Executor,
+    executor_getter: Type[Executor] = Executor,
     observers: Optional[List[ObserverProtocol]] = None,
 ):
     """
