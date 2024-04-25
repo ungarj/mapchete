@@ -75,13 +75,15 @@ def execute(
     """
     # read clip geometry
     if clip:
-        clip_geom = []
+        clip_geom = clip.read()
         if not clip_geom:
             logger.debug("no clip data over tile")
-            raise Empty
+            raise Empty("no clip data over tile")
+    else:
+        clip_geom = []
 
     if dem.is_empty():
-        raise Empty
+        raise Empty("no DEM data over tile")
 
     logger.debug("reading input raster")
     dem_data = dem.read(
@@ -92,9 +94,9 @@ def execute(
         matching_precision=td_matching_precision,
         fallback_to_higher_zoom=td_fallback_to_higher_zoom,
     )
-    if dem_data.mask.all():
-        logger.debug("raster empty")
-        raise Empty
+    if dem_data.mask.all():  # pragma: no cover
+        logger.debug("DEM data empty over tile")
+        raise Empty("DEM data empty over tile")
 
     logger.debug("calculate hillshade")
     contour_lines = contours(
@@ -140,9 +142,9 @@ def contours(
     """
     import matplotlib.pyplot as plt
 
-    levels = _get_contour_values(array.min(), array.max(), interval=interval, base=base)
-    if not levels:
-        return []
+    levels = (
+        get_contour_values(array.min(), array.max(), interval=interval, base=base) or []
+    )
     contours = plt.contour(array, levels)
     index = 0
     out_contours = []
@@ -168,9 +170,9 @@ def contours(
     return out_contours
 
 
-def _get_contour_values(
+def get_contour_values(
     min_val: float, max_val: float, base: float = 0, interval: float = 100
-):
+) -> List[float]:
     """Return a list of values between min and max within an interval."""
     i = base
     out = []

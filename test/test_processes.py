@@ -4,7 +4,7 @@ import numpy as np
 import numpy.ma as ma
 import pytest
 
-from mapchete import MapcheteNodataTile
+from mapchete import Empty, MapcheteNodataTile
 from mapchete.processes import contours, convert, hillshade
 from mapchete.processes.examples import example_process
 from mapchete.testing import get_process_mp
@@ -87,7 +87,8 @@ def test_convert_vector(landpoly):
         )
 
 
-def test_contours(cleantopo_tl_tif, landpoly):
+def test_contours_dem(cleantopo_tl_tif):
+    # not empty dem
     dem = get_process_mp(input=dict(dem=cleantopo_tl_tif), zoom=5, metatiling=8).open(
         "dem"
     )
@@ -95,25 +96,50 @@ def test_contours(cleantopo_tl_tif, landpoly):
     assert isinstance(output, list)
     assert output
 
-    # execute on empty tile
+
+def test_contours_empty_dem(cleantopo_tl_tif):
+    # empty dem
     dem = get_process_mp(
-        input=dict(dem=cleantopo_tl_tif), tile=(5, 3, 7), metatiling=8
+        input=dict(dem=cleantopo_tl_tif), tile=(5, 3, 6), metatiling=8
     ).open("dem")
-    with pytest.raises(MapcheteNodataTile):
+    with pytest.raises(Empty):
         contours.execute(dem)
 
-    dem = get_process_mp(
+
+def test_contours_clipped(cleantopo_tl_tif, landpoly):
+    # clipped contours
+    mp = get_process_mp(
         input=dict(dem=cleantopo_tl_tif, clip=landpoly), zoom=5, metatiling=8
-    ).open("dem")
-    output = contours.execute(dem)
+    )
+    dem = mp.open("dem")
+    clip = mp.open("clip")
+    output = contours.execute(dem, clip)
     assert isinstance(output, list)
     assert output
 
-    dem = get_process_mp(
-        input=dict(dem=cleantopo_tl_tif, clip=landpoly), tile=(5, 3, 7), metatiling=8
-    ).open("dem")
-    with pytest.raises(MapcheteNodataTile):
-        contours.execute(dem)
+
+def test_contours_empty_clip(cleantopo_tl_tif, landpoly):
+    # empty clip geometry
+    mp = get_process_mp(
+        input=dict(dem=cleantopo_tl_tif, clip=landpoly), tile=(5, 3, 6), metatiling=8
+    )
+    dem = mp.open("dem")
+    clip = mp.open("clip")
+    with pytest.raises(Empty):
+        contours.execute(dem, clip)
+
+
+@pytest.mark.parametrize(
+    "min_val, max_val, base, interval, control",
+    [
+        (0, 1000, 0, 500, [0, 500, 1000]),
+        (10, 1000, 0, 500, [500, 1000]),
+        (0, 1000, 10, 500, [10, 510]),
+        (-100, 500, 0, 100, [-100, 0, 100, 200, 300, 400, 500]),
+    ],
+)
+def test_get_contour_values(min_val, max_val, base, interval, control):
+    assert contours.get_contour_values(min_val, max_val, base, interval) == control
 
 
 def test_hillshade(cleantopo_tl_tif, landpoly):

@@ -9,14 +9,12 @@ from pydantic import NonNegativeInt
 from shapely.geometry.base import BaseGeometry
 
 from mapchete.path import MPath
-
-# from mapchete.processing.mp import MapcheteProcess
 from mapchete.protocols import GridProtocol
 from mapchete.tile import BufferedTile, BufferedTilePyramid
 from mapchete.types import BandIndexes, BoundsLike, CRSLike, ResamplingLike, TileLike
 
 
-class InputTileProtocol(GridProtocol):
+class InputTileProtocol(GridProtocol):  # pragma: no cover
     preprocessing_tasks_results: dict
     input_key: str
     tile: BufferedTile
@@ -40,7 +38,7 @@ class InputTileProtocol(GridProtocol):
         """Clean up."""
 
 
-class RasterInput(InputTileProtocol):
+class RasterInput(InputTileProtocol):  # pragma: no cover
     def read(
         self,
         indexes: Optional[BandIndexes] = None,
@@ -51,7 +49,7 @@ class RasterInput(InputTileProtocol):
         ...
 
 
-class VectorInput(InputTileProtocol):
+class VectorInput(InputTileProtocol):  # pragma: no cover
     def read(
         self, validity_check: bool = True, clip_to_crs_bounds: bool = False, **kwargs
     ) -> List[dict]:
@@ -63,7 +61,7 @@ RasterInputGroup = List[Tuple[str, RasterInput]]
 VectorInputGroup = List[Tuple[str, VectorInput]]
 
 
-class InputDataProtocol(Protocol):
+class InputDataProtocol(Protocol):  # pragma: no cover
     input_key: str
     pyramid: BufferedTilePyramid
     pixelbuffer: int = 0
@@ -108,7 +106,7 @@ class InputDataProtocol(Protocol):
         ...
 
 
-class OutputDataReaderProtocol(Protocol):
+class OutputDataReaderProtocol(Protocol):  # pragma: no cover
     """Minimum interface for any output reader class."""
 
     pixelbuffer: NonNegativeInt
