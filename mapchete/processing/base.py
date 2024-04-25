@@ -519,7 +519,6 @@ class Mapchete(object):
             )
         else:
             output_tiles = self.config.output_pyramid.intersecting(tile)
-
         if self.config.mode == ProcessingMode.READONLY or _baselevel_readonly:
             if self.config.output.tiles_exist(process_tile):
                 return self._read_existing_output(tile, output_tiles)

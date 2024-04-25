@@ -72,7 +72,7 @@ def extract_from_array(
         and maxrow <= array.shape[-2]
         and maxcol <= array.shape[-1]
     ):
-        return ma.array(raster)[..., minrow:maxrow, mincol:maxcol]
+        return raster.array[..., minrow:maxrow, mincol:maxcol]
     # raise error if output is not fully within input
     else:
         raise ValueError("extraction fails if output shape is not within input")

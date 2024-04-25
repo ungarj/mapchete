@@ -223,9 +223,7 @@ def test_tiles_exist_local(example_mapchete):
         # process tiles
         existing = set()
         not_existing = set()
-        for tile, exists in tiles_exist(
-            config=mp.config, process_tiles=process_tiles, multi=4
-        ):
+        for tile, exists in tiles_exist(config=mp.config, process_tiles=process_tiles):
             if exists:
                 existing.add(tile)
             else:
@@ -237,9 +235,7 @@ def test_tiles_exist_local(example_mapchete):
         # output tiles
         existing = set()
         not_existing = set()
-        for tile, exists in tiles_exist(
-            config=mp.config, output_tiles=output_tiles, multi=1
-        ):
+        for tile, exists in tiles_exist(config=mp.config, output_tiles=output_tiles):
             if exists:
                 existing.add(tile)
             else:

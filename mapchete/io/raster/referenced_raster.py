@@ -29,6 +29,7 @@ class ReferencedRaster:
     """
 
     data: Union[np.ndarray, ma.masked_array]
+    array: Union[np.ndarray, ma.masked_array]
     transform: Affine
     bounds: Bounds
     crs: CRSLike
@@ -60,7 +61,7 @@ class ReferencedRaster:
         transform = transform or kwargs.get("affine")
         if transform is None:  # pragma: no cover
             raise ValueError("georeference given")
-        self.data = data
+        self.data = self.array = data
         self.driver = driver
         self.dtype = self.data.dtype
         self.nodata = nodata
@@ -70,10 +71,6 @@ class ReferencedRaster:
             bounds or array_bounds(self.height, self.width, self.transform)
         )
         self.__geo_interface__ = mapping(shape(self.bounds))
-
-    @property
-    def __array_interface__(self) -> dict:
-        return self.data.__array_interface__
 
     @property
     def meta(self) -> dict:
