@@ -1,7 +1,7 @@
 """Contour line extraction using matplotlib."""
 
 import logging
-from typing import List, Optional
+from typing import Generator, List, Optional
 
 import numpy as np
 from shapely.geometry import LineString, mapping, shape
@@ -99,12 +99,14 @@ def execute(
         raise Empty("DEM data empty over tile")
 
     logger.debug("calculate hillshade")
-    contour_lines = contours(
-        dem_data,
-        dem.tile,
-        interval=interval,
-        field=field,
-        base=base,
+    contour_lines = list(
+        generate_contours(
+            dem_data,
+            dem.tile,
+            interval=interval,
+            field=field,
+            base=base,
+        )
     )
 
     if clip:
@@ -130,29 +132,22 @@ def execute(
         return contour_lines
 
 
-def contours(
+def generate_contours(
     array: np.ndarray,
     tile: BufferedTile,
     interval: float = 100,
     field: str = "elev",
     base: float = 0,
-) -> List[dict]:
-    """
-    Extract contour lines from an array.
-    """
+) -> Generator[dict, None, None]:
     import matplotlib.pyplot as plt
 
-    levels = (
+    elevations = (
         get_contour_values(array.min(), array.max(), interval=interval, base=base) or []
     )
-    contours = plt.contour(array, levels)
-    index = 0
-    out_contours = []
-    for level in range(len(contours.collections)):
-        elevation = levels[index]
-        index += 1
-        paths = contours.collections[level].get_paths()
-        for path in paths:
+    for elevation, contours in zip(
+        elevations, plt.contour(array, elevations).collections
+    ):
+        for path in contours.get_paths():
             out_coords = [
                 (
                     tile.left + (y * tile.pixel_x_size),
@@ -161,13 +156,10 @@ def contours(
                 for x, y in np.asarray(path.vertices)
             ]
             if len(out_coords) >= 2:
-                out_contours.append(
-                    dict(
-                        properties={field: elevation},
-                        geometry=mapping(LineString(out_coords)),
-                    )
+                yield dict(
+                    properties={field: elevation},
+                    geometry=mapping(LineString(out_coords)),
                 )
-    return out_contours
 
 
 def get_contour_values(
