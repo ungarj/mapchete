@@ -138,7 +138,7 @@ class OutputDataReaderProtocol(Protocol):  # pragma: no cover
         ...
 
 
-class FileSystemOutputDataReaderProtocol:
+class FileSystemOutputDataReaderProtocol:  # pragma: no cover
     """Minimum interface for any filesystem storage based output reader class."""
 
     def get_path(self, tile: BufferedTile) -> MPath:
@@ -164,7 +164,7 @@ class FileSystemOutputDataReaderProtocol:
         ...
 
 
-class OutputDataWriterProtocol(OutputDataReaderProtocol):
+class OutputDataWriterProtocol(OutputDataReaderProtocol):  # pragma: no cover
     def write(self, process_tile: BufferedTile, data: Any) -> None:
         ...
 

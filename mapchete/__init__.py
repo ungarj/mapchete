@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional, Union
+from typing import Union
 
 from fsspec import AbstractFileSystem
 
@@ -43,8 +43,6 @@ logger.addHandler(logging.NullHandler())
 def open(
     some_input: Union[MPathLike, dict, MapcheteConfig],
     with_cache: bool = False,
-    fs: Optional[AbstractFileSystem] = None,
-    fs_kwargs: Optional[dict] = None,
     **kwargs,
 ) -> Mapchete:
     """
@@ -79,8 +77,6 @@ def open(
     Mapchete
         a Mapchete process object
     """
-    if fs or fs_kwargs:
-        raise DeprecationWarning()
     # convert to MPath object if possible
     if isinstance(some_input, str):
         some_input = MPath.from_inp(some_input)
@@ -101,8 +97,6 @@ def open(
                     if k not in ["delimiters", "mode"]
                 },
                 path=some_input,
-                fs=fs,
-                fs_kwargs=fs_kwargs,
                 **kwargs,
             ),
             config_dir=os.getcwd(),

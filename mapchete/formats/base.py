@@ -299,7 +299,7 @@ class OutputSTACMixin:
 
 
 class OutputDataReader(OutputDataBase):
-    def read(self, output_tile):
+    def read(self, output_tile):  # pragma: no cover
         """
         Read existing process output.
 
@@ -314,7 +314,7 @@ class OutputDataReader(OutputDataBase):
         """
         raise NotImplementedError()
 
-    def empty(self, process_tile):
+    def empty(self, process_tile):  # pragma: no cover
         """
         Return empty data.
 
@@ -331,7 +331,7 @@ class OutputDataReader(OutputDataBase):
         """
         raise NotImplementedError()
 
-    def open(self, tile, process):
+    def open(self, tile, process):  # pragma: no cover
         """
         Open process output as input for other process.
 
@@ -342,7 +342,7 @@ class OutputDataReader(OutputDataBase):
         """
         raise NotImplementedError
 
-    def for_web(self, data):
+    def for_web(self, data):  # pragma: no cover
         """
         Convert data to web output (raster only).
 
@@ -379,7 +379,7 @@ class OutputDataWriter(OutputDataReader):
     METADATA = {"driver_name": None, "data_type": None, "mode": "w"}
     use_stac = False
 
-    def write(self, process_tile, data):
+    def write(self, process_tile, data):  # pragma: no cover
         """
         Write data from one or more process tiles.
 
@@ -559,7 +559,7 @@ class SingleFileOutputReader(OutputDataReader, OutputSTACMixin):
         """Initialize."""
         super().__init__(output_params, readonly=readonly)
 
-    def tiles_exist(self, process_tile=None, output_tile=None):
+    def tiles_exist(self, process_tile=None, output_tile=None):  # pragma: no cover
         """
         Check whether output tiles of a tile (either process or output) exists.
 
@@ -575,7 +575,7 @@ class SingleFileOutputReader(OutputDataReader, OutputSTACMixin):
         exists : bool
         """
         # TODO
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
 
 
 class SingleFileOutputWriter(OutputDataWriter, SingleFileOutputReader):

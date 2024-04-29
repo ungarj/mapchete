@@ -180,6 +180,12 @@ def wkt_geom_tl():
 
 # example files
 @pytest.fixture
+def local_raster(testdata_dir):
+    """Fixture for HTTP raster."""
+    return testdata_dir / "cleantopo/1/0/0.tif"
+
+
+@pytest.fixture
 def http_raster(http_testdata_dir):
     """Fixture for HTTP raster."""
     return http_testdata_dir / "cleantopo/1/0/0.tif"
@@ -509,12 +515,6 @@ def cleantopo_br_tif():
 def cleantopo_br_tif_s3(minio_testdata_bucket):
     """Fixture for cleantopo_br.tif"""
     return prepare_s3_testfile(minio_testdata_bucket, "cleantopo_br.tif")
-
-
-@pytest.fixture
-def cleantopo_tl_tif():
-    """Fixture for cleantopo_tl.tif"""
-    return TESTDATA_DIR / "cleantopo_tl.tif"
 
 
 @pytest.fixture

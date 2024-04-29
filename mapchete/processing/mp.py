@@ -96,7 +96,7 @@ class MapcheteProcess(object):
             raise ValueError("%s not found in config as input" % input_id)
         return self.input[input_id]
 
-    def hillshade(self, *_, **__) -> ma.MaskedArray:
+    def hillshade(self, *_, **__) -> ma.MaskedArray:  # pragma: no cover
         """
         Calculate hillshading from elevation data.
 
@@ -122,7 +122,7 @@ class MapcheteProcess(object):
             "Run hillshade via mp is deprecated. Call the hillshade method from mapchete.processes.hillshade."
         )
 
-    def contours(self, *_, **__) -> ma.MaskedArray:
+    def contours(self, *_, **__) -> ma.MaskedArray:  # pragma: no cover
         """
         Extract contour lines from elevation data.
 
@@ -146,7 +146,7 @@ class MapcheteProcess(object):
             "MapcheteProcess.contours() is deprecated. Call the contours method from mapchete.processes.contours."
         )
 
-    def clip(self, *_, **__) -> ma.MaskedArray:
+    def clip(self, *_, **__) -> ma.MaskedArray:  # pragma: no cover
         """
         Clip array by geometry.
 
