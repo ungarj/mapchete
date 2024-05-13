@@ -15,7 +15,7 @@ from shapely.ops import unary_union
 
 from mapchete.io.vector import to_shape
 from mapchete.protocols import GridProtocol
-from mapchete.types import BoundsLike, CRSLike, NodataVal
+from mapchete.types import BoundsLike, CRSLike, Grid, NodataVal
 
 logger = logging.getLogger(__name__)
 
@@ -81,9 +81,9 @@ def extract_from_array(
 def resample_from_array(
     array: Union[np.ndarray, ma.MaskedArray, GridProtocol],
     array_transform: Optional[Affine] = None,
-    out_grid: Optional[GridProtocol] = None,
+    out_grid: Optional[Union[Grid, GridProtocol]] = None,
     in_affine: Optional[Affine] = None,
-    out_tile: Optional[GridProtocol] = None,
+    out_tile: Optional[Union[Grid, GridProtocol]] = None,
     in_crs: Optional[CRSLike] = None,
     resampling: Union[Resampling, str] = Resampling.nearest,
     nodataval: Optional[NodataVal] = None,
@@ -125,7 +125,7 @@ def resample_from_array(
     elif isinstance(array, np.ndarray):
         array = ma.MaskedArray(array, mask=array == nodata)
     elif hasattr(array, "affine") and hasattr(array, "data"):  # pragma: no cover
-        array_transform = array.affine
+        array_transform = getattr(array, "affine")
         in_crs = array.crs
         array = array.data
     elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover

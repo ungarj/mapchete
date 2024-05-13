@@ -16,7 +16,7 @@ from mapchete.io.raster.read import read_raster_window
 from mapchete.path import MPath
 from mapchete.protocols import GridProtocol
 from mapchete.tile import BufferedTile
-from mapchete.types import Bounds, BoundsLike, CRSLike, MPathLike, NodataVal
+from mapchete.types import Bounds, BoundsLike, CRSLike, Grid, MPathLike, NodataVal
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +87,9 @@ class ReferencedRaster:
 
     def read(
         self,
-        indexes: Union[int, List[int]] = None,
+        indexes: Optional[Union[int, List[int]]] = None,
         tile: Optional[BufferedTile] = None,
-        grid: Optional[GridProtocol] = None,
+        grid: Optional[Union[Grid, GridProtocol]] = None,
         resampling: str = "nearest",
     ) -> np.ndarray:
         """Either read full array or resampled to grid."""
@@ -97,7 +97,9 @@ class ReferencedRaster:
             warnings.warn(
                 DeprecationWarning("'tile' is deprecated and should be 'grid'")
             )
-            grid = grid or tile
+            grid = Grid.from_obj(tile)
+        elif grid:
+            grid = Grid.from_obj(grid)
         # select bands using band indexes
         if indexes is None or self.data.ndim == 2:
             band_selection = self.data
@@ -120,12 +122,16 @@ class ReferencedRaster:
                 resampling=resampling,
             )
 
-    def _get_band_indexes(self, indexes: Union[List[int], int] = None) -> List[int]:
+    def _get_band_indexes(
+        self, indexes: Optional[Union[List[int], int]] = None
+    ) -> List[int]:
         """Return valid band indexes."""
         if isinstance(indexes, int):
             return [indexes]
-        else:
+        elif isinstance(indexes, list):
             return indexes
+        else:
+            return list(range(1, self.count + 1))
 
     def _stack(self, *args) -> np.ndarray:
         """return stack of numpy or numpy.masked depending on array type"""
@@ -138,9 +144,9 @@ class ReferencedRaster:
     def to_file(
         self,
         path: MPath,
-        indexes: Union[int, List[int]] = None,
+        indexes: Optional[Union[int, List[int]]] = None,
         tile: Optional[BufferedTile] = None,
-        grid: Optional[GridProtocol] = None,
+        grid: Optional[Union[Grid, GridProtocol]] = None,
         resampling: str = "nearest",
         **kwargs,
     ) -> MPath:
@@ -149,7 +155,9 @@ class ReferencedRaster:
             warnings.warn(
                 DeprecationWarning("'tile' is deprecated and should be 'grid'")
             )
-            grid = grid or tile
+            grid = Grid.from_obj(tile)
+        elif grid:
+            grid = Grid.from_obj(grid)
         with rasterio_open(path, "w", **dict(self.meta, **kwargs)) as dst:
             src_array = self.read(indexes=indexes, grid=grid, resampling=resampling)
             if src_array.ndim == 2:
