@@ -567,3 +567,29 @@ def test_dask_specs(dask_specs):
         assert isinstance(
             mp.config.parsed_config.dask_specs.adapt_options, DaskAdaptOptions
         )
+
+
+@pytest.mark.skip(reason="just have this here for future reference")
+def test_input_union_special_case():
+    inputs_bboxes = [
+        wkt.loads(
+            "POLYGON ((61.87774658203125 25.31524658203125, 61.87774658203125 22.499459088891662, 61.54664001798359 22.50000394977196, 61.551935808978804 24.204692898426533, 60.46875 24.34987565522143, 59.670821629213485 24.45682447197602, 59.05975341796875 24.538727841428283, 59.05975341796875 25.31524658203125, 61.87774658203125 25.31524658203125))"
+        ),
+        wkt.loads(
+            "POLYGON ((61.87774658203125 22.49725341796875, 61.54663101769545 22.49725341796875, 61.54664001798359 22.50018469008428, 61.87774658203125 22.500173492502597, 61.87774658203125 22.49725341796875))"
+        ),
+        wkt.loads(
+            "POLYGON ((59.05975341796875 22.49725341796875, 59.05975341796875 24.538727841428283, 59.0625 24.5383597085117, 59.160145469148475 24.52527198313532, 59.670821629213485 24.45682447197602, 60.46875 24.34987565522143, 61.551935808978804 24.204692898426533, 61.54668582675388 22.49725341796875, 59.05975341796875 22.49725341796875))"
+        ),
+    ]
+    # inputs are not overlapping but touching each other. however, there is a slight gap between them resulting in
+    # a square with a little line in between.
+    input_union = unary_union(inputs_bboxes)
+    assert input_union.area
+    init_area = wkt.loads(
+        "POLYGON ((61.875 22.5, 59.0625 22.5, 59.0625 25.3125, 61.875 25.3125, 61.875 22.5))"
+    )
+    # when intersected with a perfect square (the init_area), instead of adding the small gap to the output,
+    # the small gap _is_ the output which obviously is wrong
+    config_area_at_zoom = init_area.intersection(input_union)
+    assert config_area_at_zoom.area == pytest.approx(init_area.area)
