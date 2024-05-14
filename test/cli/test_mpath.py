@@ -1,8 +1,8 @@
+from test.cli.default import run_cli
+
 import pytest
 
 from mapchete.cli.mpath import mpath
-
-from .test_cli import run_cli
 
 
 @pytest.mark.integration
