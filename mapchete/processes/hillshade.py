@@ -88,7 +88,7 @@ def execute(
         fallback_to_higher_zoom=td_fallback_to_higher_zoom,
     )
 
-    if elevation_data.mask.all():
+    if elevation_data.mask.all():  # pragma: no cover
         raise Empty
 
     logger.debug("calculate hillshade")

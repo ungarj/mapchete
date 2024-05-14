@@ -176,3 +176,10 @@ def test_clip(local_raster, landpoly):
     assert isinstance(output, np.ndarray)
     assert not output.mask.all()
     assert output.mask.any()
+
+
+def test_clip_empty(cleantopo_br_tif, landpoly):
+    tile = (8, 28, 89)
+    mp = get_process_mp(input=dict(inp=cleantopo_br_tif, clip=landpoly), tile=tile)
+    with pytest.raises(Empty):
+        clip.execute(mp.open("inp"), mp.open("clip"))

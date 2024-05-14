@@ -126,7 +126,7 @@ def execute(
         else:
             logger.debug(f"writing {len(input_data)} features")
             return input_data
-    else:
+    else:  # pragma: no cover
         raise TypeError(
             f"inp must either be of type RasterInput or VectorInput, not {type(inp)}"
         )

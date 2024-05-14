@@ -241,6 +241,14 @@ def test_empty_input(file_groups):
         mapchete.open(config)
 
 
+def test_input_name_process_params(example_mapchete):
+    """Input has to be defined if required by process."""
+    config = example_mapchete.dict
+    config.update(process_parameters=dict(file1="foo"))
+    with pytest.raises(MapcheteConfigError):
+        mapchete.open(config)
+
+
 def test_read_input_groups(file_groups):
     """Read input data groups."""
     config = MapcheteConfig(file_groups.dict)

@@ -31,8 +31,8 @@ def _validate_zoom(ctx, param, zoom):
             if len(zoom_levels) > 2:
                 raise ValueError("zooms can be maximum two items")
             return ZoomLevels.from_inp(zoom_levels)
-        except Exception as e:
-            raise click.BadParameter(e)
+        except Exception as exc:
+            raise click.BadParameter(str(exc))
 
 
 def _validate_bounds(ctx, param, bounds):

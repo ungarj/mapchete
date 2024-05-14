@@ -7,6 +7,7 @@ import numpy as np
 import numpy.ma as ma
 from affine import Affine
 from rasterio.transform import array_bounds
+from retry import retry
 from shapely.geometry import mapping, shape
 
 from mapchete.io.raster.array import resample_from_array
@@ -14,6 +15,7 @@ from mapchete.io.raster.open import rasterio_open
 from mapchete.io.raster.read import read_raster_window
 from mapchete.path import MPath
 from mapchete.protocols import GridProtocol
+from mapchete.settings import IORetrySettings
 from mapchete.types import Bounds, BoundsLike, CRSLike, Grid, MPathLike, NodataVal
 
 logger = logging.getLogger(__name__)
@@ -174,6 +176,7 @@ class ReferencedRaster:
         **kwargs,
     ) -> ReferencedRaster:
         path = MPath.from_inp(path)
+
         logger.debug(f"reading {str(path)} into memory")
         if grid:
             grid = Grid.from_obj(grid)
@@ -184,11 +187,16 @@ class ReferencedRaster:
                 bounds=grid.bounds,
                 crs=grid.crs,
             )
-        with rasterio_open(path, "r") as src:
-            return ReferencedRaster.from_rasterio(
-                src,
-                masked=masked,
-            )
+
+        @retry(logger=logger, **dict(IORetrySettings()))
+        def _read_raster():
+            with rasterio_open(path, "r") as src:
+                return ReferencedRaster.from_rasterio(
+                    src,
+                    masked=masked,
+                )
+
+        return _read_raster()
 
     @staticmethod
     def from_array_like(

@@ -7,7 +7,7 @@ import numpy.ma as ma
 import pytest
 from pytest_lazyfixture import lazy_fixture
 from rasterio.enums import Compression
-from shapely.geometry import box
+from shapely.geometry import GeometryCollection, box
 from shapely.ops import unary_union
 from tilematrix import Bounds
 
@@ -29,9 +29,9 @@ from mapchete.io.raster import (
     resample_from_array,
     write_raster_window,
 )
+from mapchete.io.raster.array import clip_array_with_vector
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import Grid
 
 
 def test_read_raster_window_nofile(raster_4band_tile):
@@ -1145,3 +1145,42 @@ def test_read_raster_tile_remote(path):
 )
 def test_read_raster_tile_integration(path):
     test_read_raster_tile(path)
+
+
+def test_clip_array_with_vector(s2_band, s2_band_tile):
+    rr = ReferencedRaster.from_file(s2_band)
+
+    geometries = [dict(geometry=s2_band_tile.bbox)]
+    out = clip_array_with_vector(rr.data, rr.affine, geometries)
+    assert out.mask.all()
+
+
+def test_clip_array_with_vector_geometrycollection(s2_band, s2_band_tile):
+    rr = ReferencedRaster.from_file(s2_band)
+
+    geometries = [dict(geometry=GeometryCollection([s2_band_tile.bbox]))]
+    out = clip_array_with_vector(rr.data, rr.affine, geometries)
+    assert out.mask.all()
+
+
+def test_clip_array_with_vector_2dim(s2_band, s2_band_tile):
+    rr = ReferencedRaster.from_file(s2_band)
+
+    geometries = [dict(geometry=s2_band_tile.bbox)]
+    out = clip_array_with_vector(rr.data[0], rr.affine, geometries)
+    assert out.mask.all()
+
+
+@pytest.mark.parametrize("inverted", [True, False])
+@pytest.mark.parametrize("clip_buffer", [0, 0.1])
+def test_clip_array_with_vector_empty_geometries(s2_band, inverted, clip_buffer):
+    rr = ReferencedRaster.from_file(s2_band)
+
+    geometries = [dict(geometry=GeometryCollection())]
+    out = clip_array_with_vector(
+        rr.data, rr.affine, geometries, inverted=inverted, clip_buffer=clip_buffer
+    )
+    if inverted:
+        assert not out.mask.all()
+    else:
+        assert out.mask.all()

@@ -301,7 +301,7 @@ def clip_array_with_vector(
     array_affine: Affine,
     geometries: List[dict],
     inverted: bool = False,
-    clip_buffer: int = 0,
+    clip_buffer: float = 0,
 ) -> ma.MaskedArray:
     """
     Clip input array with a vector list.
