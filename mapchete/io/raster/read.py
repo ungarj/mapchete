@@ -54,7 +54,7 @@ def rasterio_read(
 
 def read_raster_window(
     input_files: Union[MPathLike, List[MPathLike]],
-    grid: GridProtocol,
+    grid: Union[Grid, GridProtocol],
     indexes: Optional[Union[int, List[int]]] = None,
     resampling: Union[Resampling, str] = Resampling.nearest,
     src_nodata: NodataVal = None,

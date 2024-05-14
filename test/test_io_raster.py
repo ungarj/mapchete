@@ -5,6 +5,7 @@ from itertools import product
 import numpy as np
 import numpy.ma as ma
 import pytest
+from pytest_lazyfixture import lazy_fixture
 from rasterio.enums import Compression
 from shapely.geometry import box
 from shapely.ops import unary_union
@@ -30,6 +31,7 @@ from mapchete.io.raster import (
 )
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
+from mapchete.types import Grid
 
 
 def test_read_raster_window_nofile(raster_4band_tile):
@@ -811,9 +813,47 @@ def test_referencedraster_meta(s2_band):
         assert k in meta
 
 
+@pytest.mark.parametrize("masked", [True, False])
+@pytest.mark.parametrize("grid", [lazy_fixture("s2_band_tile")])
+def test_referencedraster_from_file(s2_band, masked, grid):
+    rr = ReferencedRaster.from_file(s2_band, grid=grid, masked=masked)
+    if masked:
+        assert isinstance(rr.array, ma.MaskedArray)
+    else:
+        assert not isinstance(rr.array, ma.MaskedArray)
+        assert isinstance(rr.array, np.ndarray)
+    if grid:
+        assert rr.array.shape[1:] == grid.shape
+
+
+def test_referencedraster_from_array_like(s2_band):
+    rr = ReferencedRaster.from_file(s2_band)
+    assert ReferencedRaster.from_array_like(rr)
+    assert ReferencedRaster.from_array_like(rr.data, transform=rr.transform, crs=rr.crs)
+
+
+def test_referencedraster_from_array_like_errors(s2_band):
+    with pytest.raises(TypeError):
+        ReferencedRaster.from_array_like("foo")
+
+    rr = ReferencedRaster.from_file(s2_band)
+    with pytest.raises(ValueError):
+        ReferencedRaster.from_array_like(rr.data)
+    with pytest.raises(ValueError):
+        ReferencedRaster.from_array_like(rr.data, transform=rr.transform)
+    with pytest.raises(ValueError):
+        ReferencedRaster.from_array_like(rr.data, crs=rr.crs)
+
+
 def test_referencedraster_array_interface(s2_band):
     rr = ReferencedRaster.from_file(s2_band)
     assert isinstance(ma.array(rr), ma.MaskedArray)
+
+
+@pytest.mark.parametrize("indexes", [None, 1, [1]])
+def test_referencedraster_get_band_indexes(s2_band, indexes):
+    rr = ReferencedRaster.from_file(s2_band)
+    assert rr.get_band_indexes(indexes) == [1]
 
 
 @pytest.mark.parametrize("indexes", [None, 1, [1]])
@@ -825,7 +865,7 @@ def test_referencedraster_read_band(s2_band, indexes):
 @pytest.mark.parametrize("indexes", [None, 1, [1]])
 def test_referencedraster_read_tile_band(s2_band, indexes, s2_band_tile):
     rr = ReferencedRaster.from_file(s2_band)
-    assert rr.read(indexes, tile=s2_band_tile).any()
+    assert rr.read(indexes, grid=s2_band_tile).any()
 
 
 @pytest.mark.parametrize("dims", [2, 3])
@@ -839,7 +879,7 @@ def test_referencedraster_to_file(s2_band, mp_tmpdir, dims):
         assert src.read(masked=True).any()
 
 
-@pytest.mark.parametrize("path", [pytest.lazy_fixture("mp_tmpdir")])
+@pytest.mark.parametrize("path", [lazy_fixture("mp_tmpdir")])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("in_memory", [True, False])
 def test_rasterio_write(path, dtype, in_memory):
@@ -864,7 +904,7 @@ def test_rasterio_write(path, dtype, in_memory):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("path", [pytest.lazy_fixture("mp_s3_tmpdir")])
+@pytest.mark.parametrize("path", [lazy_fixture("mp_s3_tmpdir")])
 @pytest.mark.parametrize("dtype", [np.uint8, np.float32])
 @pytest.mark.parametrize("in_memory", [True, False])
 def test_rasterio_write_remote(path, dtype, in_memory):
@@ -903,7 +943,7 @@ def test_output_s3_single_gtiff_error(output_s3_single_gtiff_error):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band"),
+        lazy_fixture("raster_4band"),
     ],
 )
 def test_read_raster_no_crs(path):
@@ -916,10 +956,10 @@ def test_read_raster_no_crs(path):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band_s3"),
-        pytest.lazy_fixture("raster_4band_aws_s3"),
-        pytest.lazy_fixture("raster_4band_http"),
-        pytest.lazy_fixture("raster_4band_secure_http"),
+        lazy_fixture("raster_4band_s3"),
+        lazy_fixture("raster_4band_aws_s3"),
+        lazy_fixture("raster_4band_http"),
+        lazy_fixture("raster_4band_secure_http"),
     ],
 )
 def test_read_raster_no_crs_remote(path):
@@ -930,7 +970,7 @@ def test_read_raster_no_crs_remote(path):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band_aws_s3"),
+        lazy_fixture("raster_4band_aws_s3"),
     ],
 )
 def test_read_raster_no_crs_aws_s3(path):
@@ -940,7 +980,7 @@ def test_read_raster_no_crs_aws_s3(path):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band"),
+        lazy_fixture("raster_4band"),
     ],
 )
 @pytest.mark.parametrize("grid", ["geodetic", "mercator"])
@@ -987,9 +1027,9 @@ def test_read_raster_window(path, grid, pixelbuffer, zoom):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band_s3"),
-        pytest.lazy_fixture("raster_4band_http"),
-        pytest.lazy_fixture("raster_4band_secure_http"),
+        lazy_fixture("raster_4band_s3"),
+        lazy_fixture("raster_4band_http"),
+        lazy_fixture("raster_4band_secure_http"),
     ],
 )
 @pytest.mark.parametrize("grid", ["geodetic", "mercator"])
@@ -1003,7 +1043,7 @@ def test_read_raster_window_remote(path, grid, pixelbuffer, zoom):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band_aws_s3"),
+        lazy_fixture("raster_4band_aws_s3"),
     ],
 )
 @pytest.mark.parametrize("grid", ["geodetic", "mercator"])
@@ -1016,8 +1056,8 @@ def test_read_raster_window_aws_s3(path, grid, pixelbuffer, zoom):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band"),
-        pytest.lazy_fixture("stacta"),
+        lazy_fixture("raster_4band"),
+        lazy_fixture("stacta"),
     ],
 )
 def test_read_raster(path):
@@ -1026,12 +1066,25 @@ def test_read_raster(path):
     assert not rr.data.mask.all()
 
 
+@pytest.mark.parametrize("masked", [True, False])
+@pytest.mark.parametrize("grid", [lazy_fixture("s2_band_tile")])
+def test_read_raster_args(s2_band, masked, grid):
+    rr = read_raster(s2_band, grid=grid, masked=masked)
+    if masked:
+        assert isinstance(rr.array, ma.MaskedArray)
+    else:
+        assert not isinstance(rr.array, ma.MaskedArray)
+        assert isinstance(rr.array, np.ndarray)
+    if grid:
+        assert rr.array.shape[1:] == grid.shape
+
+
 @pytest.mark.aws_s3
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band_aws_s3"),
-        pytest.lazy_fixture("aws_s3_stacta"),
+        lazy_fixture("raster_4band_aws_s3"),
+        lazy_fixture("aws_s3_stacta"),
     ],
 )
 def test_read_raster_remote(path):
@@ -1042,10 +1095,10 @@ def test_read_raster_remote(path):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band_http"),
-        pytest.lazy_fixture("raster_4band_s3"),
-        pytest.lazy_fixture("http_stacta"),
-        pytest.lazy_fixture("secure_http_stacta"),
+        lazy_fixture("raster_4band_http"),
+        lazy_fixture("raster_4band_s3"),
+        lazy_fixture("http_stacta"),
+        lazy_fixture("secure_http_stacta"),
     ],
 )
 def test_read_raster_integration(path):
@@ -1055,14 +1108,14 @@ def test_read_raster_integration(path):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band"),
-        pytest.lazy_fixture("stacta"),
+        lazy_fixture("raster_4band"),
+        lazy_fixture("stacta"),
     ],
 )
 def test_read_raster_tile(path):
     tp = BufferedTilePyramid("geodetic")
     tile = next(tp.tiles_from_bounds(read_raster(path).bounds, zoom=13))
-    rr = read_raster(path, tile=tile)
+    rr = read_raster(path, grid=tile)
     assert isinstance(rr, ReferencedRaster)
     assert not rr.data.mask.all()
 
@@ -1071,8 +1124,8 @@ def test_read_raster_tile(path):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band_aws_s3"),
-        pytest.lazy_fixture("aws_s3_stacta"),
+        lazy_fixture("raster_4band_aws_s3"),
+        lazy_fixture("aws_s3_stacta"),
     ],
 )
 def test_read_raster_tile_remote(path):
@@ -1083,11 +1136,11 @@ def test_read_raster_tile_remote(path):
 @pytest.mark.parametrize(
     "path",
     [
-        pytest.lazy_fixture("raster_4band_s3"),
-        pytest.lazy_fixture("raster_4band_http"),
-        pytest.lazy_fixture("raster_4band_secure_http"),
-        pytest.lazy_fixture("http_stacta"),
-        pytest.lazy_fixture("secure_http_stacta"),
+        lazy_fixture("raster_4band_s3"),
+        lazy_fixture("raster_4band_http"),
+        lazy_fixture("raster_4band_secure_http"),
+        lazy_fixture("http_stacta"),
+        lazy_fixture("secure_http_stacta"),
     ],
 )
 def test_read_raster_tile_integration(path):

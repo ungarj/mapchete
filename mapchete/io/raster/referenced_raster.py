@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import warnings
 from typing import List, Optional, Union
 
 import numpy as np
@@ -15,7 +14,6 @@ from mapchete.io.raster.open import rasterio_open
 from mapchete.io.raster.read import read_raster_window
 from mapchete.path import MPath
 from mapchete.protocols import GridProtocol
-from mapchete.tile import BufferedTile
 from mapchete.types import Bounds, BoundsLike, CRSLike, Grid, MPathLike, NodataVal
 
 logger = logging.getLogger(__name__)
@@ -88,24 +86,16 @@ class ReferencedRaster:
     def read(
         self,
         indexes: Optional[Union[int, List[int]]] = None,
-        tile: Optional[BufferedTile] = None,
         grid: Optional[Union[Grid, GridProtocol]] = None,
         resampling: str = "nearest",
     ) -> np.ndarray:
         """Either read full array or resampled to grid."""
-        if tile:  # pragma: no cover
-            warnings.warn(
-                DeprecationWarning("'tile' is deprecated and should be 'grid'")
-            )
-            grid = Grid.from_obj(tile)
-        elif grid:
-            grid = Grid.from_obj(grid)
         # select bands using band indexes
         if indexes is None or self.data.ndim == 2:
             band_selection = self.data
         else:
             band_selection = self._stack(
-                [self.data[i - 1] for i in self._get_band_indexes(indexes)]
+                [self.data[i - 1] for i in self.get_band_indexes(indexes)]
             )
 
         # return either full array or a window resampled to grid
@@ -118,11 +108,11 @@ class ReferencedRaster:
                 in_crs=self.crs,
                 nodataval=self.nodata,
                 nodata=self.nodata,
-                out_grid=grid,
+                out_grid=Grid.from_obj(grid),
                 resampling=resampling,
             )
 
-    def _get_band_indexes(
+    def get_band_indexes(
         self, indexes: Optional[Union[List[int], int]] = None
     ) -> List[int]:
         """Return valid band indexes."""
@@ -145,19 +135,12 @@ class ReferencedRaster:
         self,
         path: MPath,
         indexes: Optional[Union[int, List[int]]] = None,
-        tile: Optional[BufferedTile] = None,
         grid: Optional[Union[Grid, GridProtocol]] = None,
         resampling: str = "nearest",
         **kwargs,
     ) -> MPath:
         """Write raster to output."""
-        if tile:  # pragma: no cover
-            warnings.warn(
-                DeprecationWarning("'tile' is deprecated and should be 'grid'")
-            )
-            grid = Grid.from_obj(tile)
-        elif grid:
-            grid = Grid.from_obj(grid)
+        grid = Grid.from_obj(grid) if grid else None
         with rasterio_open(path, "w", **dict(self.meta, **kwargs)) as dst:
             src_array = self.read(indexes=indexes, grid=grid, resampling=resampling)
             if src_array.ndim == 2:
@@ -172,7 +155,10 @@ class ReferencedRaster:
         return path
 
     @staticmethod
-    def from_rasterio(src, masked: bool = True) -> ReferencedRaster:
+    def from_rasterio(
+        src,
+        masked: bool = True,
+    ) -> ReferencedRaster:
         return ReferencedRaster(
             data=src.read(masked=masked).copy(),
             transform=src.transform,
@@ -181,13 +167,32 @@ class ReferencedRaster:
         )
 
     @staticmethod
-    def from_file(path, masked: bool = True) -> ReferencedRaster:
-        with rasterio_open(path) as src:
-            return ReferencedRaster.from_rasterio(src, masked=masked)
+    def from_file(
+        path: MPathLike,
+        grid: Optional[Union[Grid, GridProtocol]] = None,
+        masked: bool = True,
+        **kwargs,
+    ) -> ReferencedRaster:
+        path = MPath.from_inp(path)
+        logger.debug(f"reading {str(path)} into memory")
+        if grid:
+            grid = Grid.from_obj(grid)
+            data = read_raster_window(path, grid=grid, **kwargs)
+            return ReferencedRaster(
+                data=data if masked else data.filled(),
+                transform=grid.transform,
+                bounds=grid.bounds,
+                crs=grid.crs,
+            )
+        with rasterio_open(path, "r") as src:
+            return ReferencedRaster.from_rasterio(
+                src,
+                masked=masked,
+            )
 
     @staticmethod
     def from_array_like(
-        array_like: Union[np.ndarray, ma.MaskedArray, GridProtocol],
+        array_like: Union[np.ndarray, ma.MaskedArray, GridProtocol, ReferencedRaster],
         transform: Optional[Affine] = None,
         crs: Optional[CRSLike] = None,
     ) -> ReferencedRaster:
@@ -197,33 +202,13 @@ class ReferencedRaster:
             if transform is None or crs is None:
                 raise ValueError("array transform and CRS must be provided")
             return ReferencedRaster(data=array_like, transform=transform, crs=crs)
-        # elif isinstance(array_like, GridProtocol):
-        #     return ReferencedRaster(
-        #         data=array_like, transform=array_like.transform, crs=array_like.crs
-        #     )
         raise TypeError(f"cannot convert {array_like} to ReferencedRaster")
 
 
 def read_raster(
-    inp: MPathLike, grid: Optional[GridProtocol] = None, **kwargs
+    inp: MPathLike,
+    grid: Optional[Union[Grid, GridProtocol]] = None,
+    masked: bool = True,
+    **kwargs,
 ) -> ReferencedRaster:
-    if kwargs.get("tile"):  # pragma: no cover
-        warnings.warn(DeprecationWarning("'tile' is deprecated and should be 'grid'"))
-        grid = grid or kwargs.get("tile")
-        kwargs.pop("tile")
-    inp = MPath.from_inp(inp)
-    logger.debug(f"reading {str(inp)} into memory")
-    if grid:
-        return ReferencedRaster(
-            data=read_raster_window(inp, grid=grid, **kwargs),
-            transform=grid.transform,
-            bounds=grid.bounds,
-            crs=grid.crs,
-        )
-    with rasterio_open(inp, "r") as src:
-        return ReferencedRaster(
-            data=src.read(masked=True),
-            transform=src.transform,
-            bounds=src.bounds,
-            crs=src.crs,
-        )
+    return ReferencedRaster.from_file(inp, grid=grid, masked=masked, **kwargs)
