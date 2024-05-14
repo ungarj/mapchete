@@ -43,7 +43,7 @@ def convert(
     dask_settings: DaskSettings = DaskSettings(),
     workers: Optional[int] = None,
     clip_geometry: Optional[str] = None,
-    bidx: Optional[List[int]] = None,
+    bidx: Optional[Union[List[int], int]] = None,
     output_pyramid: Optional[Union[str, dict, MPathLike]] = None,
     output_metatiling: Optional[int] = None,
     output_format: Optional[str] = None,
@@ -121,9 +121,11 @@ def convert(
                 ),
             )
             if output_pyramid
-            else input_info.output_pyramid.to_dict()
-            if input_info.output_pyramid
-            else None
+            else (
+                input_info.output_pyramid.to_dict()
+                if input_info.output_pyramid
+                else None
+            )
         ),
         output=dict(
             {
@@ -139,9 +141,11 @@ def convert(
             ),
             dtype=output_dtype or input_info.output_params.get("dtype"),
             **creation_options,
-            **dict(overviews=True, overviews_resampling=overviews_resampling_method)
-            if overviews
-            else dict(),
+            **(
+                dict(overviews=True, overviews_resampling=overviews_resampling_method)
+                if overviews
+                else dict()
+            ),
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info.zoom_levels,
