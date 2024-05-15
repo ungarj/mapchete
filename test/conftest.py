@@ -125,14 +125,13 @@ def minio_testdata_bucket():
 
 # flask test app for mapchete serve
 @pytest.fixture
-def app(dem_to_hillshade, cleantopo_br, geobuf, geojson, mp_tmpdir):
+def app(dem_to_hillshade, cleantopo_br, geojson):
     """Dummy Flask app."""
     return create_app(
         mapchete_files=[
             dem_to_hillshade.path,
             cleantopo_br.path,
             geojson.path,
-            geobuf.path,
         ],
         zoom=None,
         bounds=None,
@@ -862,25 +861,6 @@ def geojson_s3(mp_s3_tmpdir):
     """Fixture for geojson.mapchete with updated output path."""
     with ProcessFixture(
         TESTDATA_DIR / "geojson.mapchete",
-        output_tempdir=mp_s3_tmpdir,
-    ) as example:
-        yield example
-
-
-@pytest.fixture
-def geobuf(mp_tmpdir):
-    """Fixture for geobuf.mapchete."""
-    with ProcessFixture(
-        TESTDATA_DIR / "geobuf.mapchete", output_tempdir=mp_tmpdir
-    ) as example:
-        yield example
-
-
-@pytest.fixture
-def geobuf_s3(mp_s3_tmpdir):
-    """Fixture for geobuf.mapchete with updated output path."""
-    with ProcessFixture(
-        TESTDATA_DIR / "geobuf.mapchete",
         output_tempdir=mp_s3_tmpdir,
     ) as example:
         yield example

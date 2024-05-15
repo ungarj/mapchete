@@ -16,6 +16,7 @@ Submodules
    :maxdepth: 4
 
    mapchete.cli.main
+   mapchete.cli.mpath
    mapchete.cli.options
    mapchete.cli.progress_bar
 

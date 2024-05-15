@@ -18,6 +18,7 @@ Submodules
    mapchete.formats.base
    mapchete.formats.drivers
    mapchete.formats.loaders
+   mapchete.formats.protocols
    mapchete.formats.tools
 
 Module contents

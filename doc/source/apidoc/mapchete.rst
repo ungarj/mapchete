@@ -9,7 +9,6 @@ Subpackages
 
    mapchete.cli
    mapchete.commands
-   mapchete.commons
    mapchete.config
    mapchete.executor
    mapchete.formats
@@ -28,6 +27,7 @@ Submodules
    mapchete.index
    mapchete.log
    mapchete.path
+   mapchete.pretty
    mapchete.protocols
    mapchete.registered
    mapchete.settings

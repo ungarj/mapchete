@@ -55,7 +55,6 @@ complete = [
     "Flask<3.0.0",
     "Flask-RangeRequest",
     "fsspec[http,s3]>=2023.12.0",
-    "geobuf",
     "lxml",
     "matplotlib",
     "memray",
@@ -69,10 +68,6 @@ complete = [
 ]
 contours = [
     "matplotlib",
-]
-geobuf = [
-    "geobuf",
-    "protobuf<=3.20.1",
 ]
 http = [
     "aiohttp",
@@ -123,7 +118,6 @@ stac = "mapchete.cli.default.stac:stac"
 
 [project.entry-points."mapchete.formats.drivers"]
 flatgeobuf = "mapchete.formats.default.flatgeobuf"
-geobuf = "mapchete.formats.default.geobuf"
 geojson = "mapchete.formats.default.geojson"
 gtiff = "mapchete.formats.default.gtiff"
 mapchete_input = "mapchete.formats.default.mapchete_input"

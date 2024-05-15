@@ -1,7 +1,7 @@
-mapchete.commons.hillshade module
+mapchete.io.raster.convert module
 =================================
 
-.. automodule:: mapchete.commons.hillshade
+.. automodule:: mapchete.io.raster.convert
    :members:
    :undoc-members:
    :show-inheritance:

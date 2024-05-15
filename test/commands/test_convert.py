@@ -1,7 +1,6 @@
 import warnings
 from test.commands import TaskCounter
 
-import geobuf
 import pytest
 from rasterio.enums import Resampling
 from rio_cogeo import cog_validate
@@ -309,26 +308,6 @@ def test_convert_geojson(landpoly, mp_tmpdir):
             assert len(src) == control
             for f in src:
                 assert shape(f["geometry"]).is_valid
-
-
-def test_convert_geobuf(landpoly, mp_tmpdir):
-    # convert to geobuf
-    geobuf_outdir = mp_tmpdir / "geobuf"
-    convert(
-        landpoly,
-        geobuf_outdir,
-        output_pyramid="geodetic",
-        zoom=4,
-        output_format="Geobuf",
-    )
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
-        out_file = geobuf_outdir / str(zoom) / str(row) / str(col) + ".pbf"
-        with open(out_file, "rb") as src:
-            features = geobuf.decode(src.read())["features"]
-            assert len(features) == control
-            for f in features:
-                assert f["geometry"]["type"] == "Polygon"
-                assert shape(f["geometry"]).area
 
 
 def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly):

@@ -221,9 +221,6 @@ def write_vector_window(
     """
     Write features to file.
 
-    When the output driver is 'Geobuf', the geobuf library will be used otherwise the
-    driver will be passed on to Fiona.
-
     Parameters
     ----------
     in_data : features
@@ -264,72 +261,21 @@ def write_vector_window(
     # write if there are output features
     if out_features:
         try:
-            if out_driver.lower() in ["geobuf"]:
-                # write data to remote file
-                with VectorWindowMemoryFile(
-                    tile=out_tile,
-                    features=out_features,
-                    schema=out_schema,
-                    driver=out_driver,
-                ) as memfile:
-                    logger.debug((out_tile.id, "write tile", out_path))
-                    with out_path.open("wb") as dst:
-                        dst.write(memfile)
-            else:  # pragma: no cover
-                with fiona_open(
-                    out_path,
-                    "w",
-                    schema=out_schema,
-                    driver=out_driver,
-                    crs=out_tile.crs.to_dict(),
-                ) as dst:
-                    logger.debug((out_tile.id, "write tile", out_path))
-                    dst.writerecords(out_features)
+            with fiona_open(
+                out_path,
+                "w",
+                schema=out_schema,
+                driver=out_driver,
+                crs=out_tile.crs.to_dict(),
+            ) as dst:
+                logger.debug((out_tile.id, "write tile", out_path))
+                dst.writerecords(out_features)
         except Exception as e:
             logger.error("error while writing file %s: %s", out_path, e)
             raise
 
     else:
         logger.debug((out_tile.id, "nothing to write", out_path))
-
-
-class VectorWindowMemoryFile:
-    """Context manager around fiona.io.MemoryFile."""
-
-    def __init__(self, tile=None, features=None, schema=None, driver=None):
-        """Prepare data & profile."""
-        self.tile = tile
-        self.schema = schema
-        self.driver = driver
-        self.features = features
-
-    def __enter__(self):
-        """Open MemoryFile, write data and return."""
-        if self.driver.lower() == "geobuf":
-            import geobuf
-
-            return geobuf.encode(
-                dict(
-                    type="FeatureCollection",
-                    features=[dict(f, type="Feature") for f in self.features],
-                )
-            )
-        else:  # pragma: no cover
-            # this part is excluded now for tests as we try to let fiona write directly
-            # to S3
-            self.fio_memfile = MemoryFile()
-            with self.fio_memfile.open(
-                schema=self.schema, driver=self.driver, crs=self.tile.crs
-            ) as dst:
-                dst.writerecords(self.features)
-            return self.fio_memfile.getbuffer()
-
-    def __exit__(self, *args):
-        """Make sure MemoryFile is closed."""
-        try:
-            self.fio_memfile.close()
-        except AttributeError:
-            pass
 
 
 @retry(

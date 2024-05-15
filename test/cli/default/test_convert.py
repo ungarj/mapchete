@@ -2,7 +2,6 @@ import os
 import warnings
 from test.cli.default import run_cli
 
-import geobuf
 import pytest
 from rio_cogeo.cogeo import cog_validate
 from shapely.geometry import shape
@@ -447,102 +446,6 @@ def test_geojson(landpoly, mp_tmpdir):
         assert len(src) == control
         for f in src:
             assert shape(f["geometry"]).is_valid
-
-
-def test_geobuf(landpoly, mp_tmpdir):
-    # convert to geobuf
-    geobuf_outdir = mp_tmpdir / "geobuf"
-    run_cli(
-        [
-            "convert",
-            landpoly,
-            geobuf_outdir,
-            "--output-pyramid",
-            "geodetic",
-            "--zoom",
-            "4",
-            "--output-format",
-            "Geobuf",
-            "--concurrency",
-            "none",
-            "--bounds",
-            "-101.25",
-            "67.5",
-            "-90.0",
-            "90.0",
-        ]
-    )
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
-        out_file = geobuf_outdir / zoom / row / col + ".pbf"
-        with open(out_file, "rb") as src:
-            features = geobuf.decode(src.read())["features"]
-            assert len(features) == control
-            for f in features:
-                assert f["geometry"]["type"] == "Polygon"
-                assert shape(f["geometry"]).area
-
-    # convert from geobuf
-    geojson_outdir = mp_tmpdir / "geojson"
-    run_cli(
-        [
-            "convert",
-            geobuf_outdir,
-            geojson_outdir,
-            "--zoom",
-            "4",
-            "--output-format",
-            "GeoJSON",
-            "--concurrency",
-            "none",
-            "--bounds",
-            "-101.25",
-            "67.5",
-            "-90.0",
-            "90.0",
-        ]
-    )
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, [31, 32]]):
-        out_file = geojson_outdir / zoom / row / col + ".geojson"
-        with fiona_open(out_file, "r") as src:
-            if isinstance(control, list):
-                assert len(src) in control
-            else:
-                assert len(src) == control
-
-            for f in src:
-                assert shape(f["geometry"]).is_valid
-
-
-def test_geobuf_multipolygon(landpoly, mp_tmpdir):
-    run_cli(
-        [
-            "convert",
-            landpoly,
-            mp_tmpdir,
-            "--output-pyramid",
-            "geodetic",
-            "--zoom",
-            "4",
-            "--output-format",
-            "Geobuf",
-            "--output-geometry-type",
-            "MultiPolygon",
-            "--concurrency",
-            "none",
-        ]
-    )
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [7, 30]):
-        out_file = mp_tmpdir / zoom / row / col + ".pbf"
-        with open(out_file, "rb") as src:
-            features = geobuf.decode(src.read())["features"]
-            assert len(features) == control
-            multipolygons = 0
-            for f in features:
-                assert f["geometry"]["type"] in ["Polygon", "MultiPolygon"]
-                assert shape(f["geometry"]).area
-                if f["geometry"]["type"] == "MultiPolygon":
-                    multipolygons += 1
-            assert multipolygons
 
 
 def test_vrt(cleantopo_br_tif, mp_tmpdir):

@@ -8,7 +8,6 @@ Submodules
    :maxdepth: 4
 
    mapchete.formats.default.flatgeobuf
-   mapchete.formats.default.geobuf
    mapchete.formats.default.geojson
    mapchete.formats.default.gtiff
    mapchete.formats.default.mapchete_input
