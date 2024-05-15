@@ -4,7 +4,7 @@ import tqdm
 from mapchete import commands
 from mapchete.cli import options
 from mapchete.cli.progress_bar import PBar
-from mapchete.commands._rm import existing_paths
+from mapchete.commands.rm import existing_paths
 
 
 @click.command(help="Remove tiles from TileDirectory.")
