@@ -1,26 +1,32 @@
 import logging
-import warnings
+from typing import List, Optional, Union
 
 import numpy as np
 from rasterio.dtypes import dtype_ranges
+
+from mapchete import Empty, RasterInput, VectorInput
+from mapchete.io import MatchingMethod
+from mapchete.io.raster.array import clip_array_with_vector
+from mapchete.types import BandIndexes, ResamplingLike
 
 logger = logging.getLogger(__name__)
 
 
 def execute(
-    mp,
-    resampling="nearest",
-    band_indexes=None,
-    td_matching_method="gdal",
-    td_matching_max_zoom=None,
-    td_matching_precision=8,
-    td_fallback_to_higher_zoom=False,
-    clip_pixelbuffer=0,
-    scale_ratio=1.0,
-    scale_offset=0.0,
-    clip_to_output_dtype=None,
+    inp: Union[RasterInput, VectorInput],
+    clip: Optional[VectorInput] = None,
+    resampling: ResamplingLike = "nearest",
+    band_indexes: Optional[BandIndexes] = None,
+    td_matching_method: MatchingMethod = MatchingMethod.gdal,
+    td_matching_max_zoom: Optional[int] = None,
+    td_matching_precision: int = 8,
+    td_fallback_to_higher_zoom: bool = False,
+    clip_pixelbuffer: int = 0,
+    scale_ratio: float = 1.0,
+    scale_offset: float = 0.0,
+    clip_to_output_dtype: Optional[str] = None,
     **kwargs,
-):
+) -> Union[np.ndarray, List[dict]]:
     """
     Convert and optionally clip input raster or vector data.
 
@@ -69,27 +75,19 @@ def execute(
     np.ndarray
     """
     # read clip geometry
-    if "clip" in mp.params["input"]:
-        clip_geom = mp.open("clip").read()
+    if clip is None:
+        clip_geom = []
+    else:
+        clip_geom = clip.read()
         if not clip_geom:
             logger.debug("no clip data over tile")
-            return "empty"
-    else:
-        clip_geom = []
+            raise Empty
 
-    if "raster" in mp.input:  # pragma: no cover
-        warnings.warn(
-            UserWarning(
-                "'raster' input name in the mapchete configuration is deprecated and has to be named 'inp'"
-            )
-        )
-        inp_key = "raster"
-    else:
-        inp_key = "inp"
-    with mp.open(inp_key) as inp:
-        if inp.is_empty():
-            return "empty"
-        logger.debug("reading input data")
+    if inp.is_empty():
+        raise Empty
+
+    logger.debug("reading input data")
+    if isinstance(inp, RasterInput):
         input_data = inp.read(
             indexes=band_indexes,
             resampling=resampling,
@@ -98,17 +96,6 @@ def execute(
             matching_precision=td_matching_precision,
             fallback_to_higher_zoom=td_fallback_to_higher_zoom,
         )
-        if isinstance(input_data, np.ndarray):
-            input_type = "raster"
-        elif isinstance(input_data, list):
-            input_type = "vector"
-        else:  # pragma: no cover
-            raise TypeError(
-                "input data type for this process has to either be a raster or a vector "
-                "dataset"
-            )
-
-    if input_type == "raster":
         if scale_offset != 0.0:
             logger.debug("apply scale offset %s", scale_offset)
             input_data = input_data.astype("float64", copy=False) + scale_offset
@@ -116,21 +103,30 @@ def execute(
             logger.debug("apply scale ratio %s", scale_ratio)
             input_data = input_data.astype("float64", copy=False) * scale_ratio
         if (
-            scale_offset != 0.0 or scale_ratio != 1.0
-        ) and clip_to_output_dtype in dtype_ranges:
+            clip_to_output_dtype
+            and (scale_offset != 0.0 or scale_ratio != 1.0)
+            and clip_to_output_dtype in dtype_ranges
+        ):
             logger.debug("clip to output dtype ranges")
             input_data.clip(*dtype_ranges[clip_to_output_dtype], out=input_data)
 
         if clip_geom:
             logger.debug("clipping output with geometry")
             # apply original nodata mask and clip
-            return mp.clip(input_data, clip_geom, clip_buffer=clip_pixelbuffer)
+            return clip_array_with_vector(
+                input_data, inp.tile.affine, clip_geom, clip_buffer=clip_pixelbuffer
+            )
         else:
             return input_data
 
-    elif input_type == "vector":
+    elif isinstance(inp, VectorInput):
+        input_data = inp.read()
         if clip_geom:  # pragma: no cover
             raise NotImplementedError("clipping vector data is not yet implemented")
         else:
             logger.debug(f"writing {len(input_data)} features")
             return input_data
+    else:  # pragma: no cover
+        raise TypeError(
+            f"inp must either be of type RasterInput or VectorInput, not {type(inp)}"
+        )

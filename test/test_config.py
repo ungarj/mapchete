@@ -4,7 +4,6 @@ from copy import deepcopy
 
 import oyaml as yaml
 import pytest
-from fiona.errors import DriverError
 from pydantic import ValidationError
 from shapely import wkt
 from shapely.errors import WKTReadingError
@@ -75,7 +74,8 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
     config = MapcheteConfig(example_mapchete.dict)
     zoom7 = config.params_at_zoom(7)
     input_files = zoom7["input"]
-    assert input_files["file1"] is None
+    assert input_files["file1"] is not None
+    assert str(input_files["file1"].path) == dummy2_tif
     assert str(input_files["file2"].path) == dummy2_tif
     assert zoom7["process_parameters"]["some_integer_parameter"] == 12
     assert zoom7["process_parameters"]["some_float_parameter"] == 5.3
@@ -234,10 +234,19 @@ def test_read_baselevels(baselevels):
 
 
 def test_empty_input(file_groups):
-    """Verify configuration gets parsed without input files."""
+    """Input has to be defined if required by process."""
     config = file_groups.dict
     config.update(input=None)
-    assert mapchete.open(config)
+    with pytest.raises(MapcheteConfigError):
+        mapchete.open(config)
+
+
+def test_input_name_process_params(example_mapchete):
+    """Input has to be defined if required by process."""
+    config = example_mapchete.dict
+    config.update(process_parameters=dict(file1="foo"))
+    with pytest.raises(MapcheteConfigError):
+        mapchete.open(config)
 
 
 def test_read_input_groups(file_groups):
@@ -567,6 +576,11 @@ def test_dask_specs(dask_specs):
         assert isinstance(
             mp.config.parsed_config.dask_specs.adapt_options, DaskAdaptOptions
         )
+
+
+def test_typed_raster_input(typed_raster_input):
+    with mapchete.open(typed_raster_input.path) as mp:
+        list(mp.execute(concurrency=None))
 
 
 @pytest.mark.skip(reason="just have this here for future reference")

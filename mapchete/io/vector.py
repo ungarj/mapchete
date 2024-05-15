@@ -8,7 +8,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Union
 
 import fiona
-from fiona.errors import DriverError, FionaError, FionaValueError
+from fiona.errors import DriverError
 from fiona.io import MemoryFile
 from rasterio.crs import CRS
 from retry import retry
@@ -26,7 +26,7 @@ from mapchete.io._geometry_operations import (
     segmentize_geometry,
     to_shape,
 )
-from mapchete.path import MPath, fs_from_path, path_exists
+from mapchete.path import MPath, fs_from_path
 from mapchete.settings import IORetrySettings
 from mapchete.types import Bounds
 from mapchete.validate import validate_bounds

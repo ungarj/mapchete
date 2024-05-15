@@ -1,12 +1,19 @@
 import logging
 import os
-from typing import Optional, Union
+from typing import Union
 
 from fsspec import AbstractFileSystem
 
 from mapchete.config import MapcheteConfig
+from mapchete.errors import Empty, MapcheteNodataTile
 from mapchete.executor import Executor, MFuture
 from mapchete.formats import read_output_metadata
+from mapchete.formats.protocols import (
+    RasterInput,
+    RasterInputGroup,
+    VectorInput,
+    VectorInputGroup,
+)
 from mapchete.path import MPath, fs_from_path
 from mapchete.processing import Mapchete, MapcheteProcess
 from mapchete.tile import count_tiles
@@ -19,7 +26,13 @@ __all__ = [
     "MapcheteProcess",
     "Timer",
     "Executor",
+    "Empty",
+    "MapcheteNodataTile",
     "MFuture",
+    "RasterInput",
+    "RasterInputGroup",
+    "VectorInput",
+    "VectorInputGroup",
 ]
 __version__ = "2024.5.0"
 
@@ -30,8 +43,6 @@ logger.addHandler(logging.NullHandler())
 def open(
     some_input: Union[MPathLike, dict, MapcheteConfig],
     with_cache: bool = False,
-    fs: Optional[AbstractFileSystem] = None,
-    fs_kwargs: Optional[dict] = None,
     **kwargs,
 ) -> Mapchete:
     """
@@ -72,11 +83,9 @@ def open(
     # for TileDirectory inputs
     if isinstance(some_input, MPath) and some_input.suffix == "":
         logger.debug("assuming TileDirectory")
-        metadata_json = MPath.from_inp(some_input).joinpath("metadata.json")
-        fs_kwargs = fs_kwargs or {}
-        fs = fs or fs_from_path(metadata_json, **fs_kwargs)
+        metadata_json = MPath.from_inp(some_input) / "metadata.json"
         logger.debug("read metadata.json")
-        metadata = read_output_metadata(metadata_json, fs=fs)
+        metadata = read_output_metadata(metadata_json)
         config = dict(
             process=None,
             input=None,
@@ -88,8 +97,6 @@ def open(
                     if k not in ["delimiters", "mode"]
                 },
                 path=some_input,
-                fs=fs,
-                fs_kwargs=fs_kwargs,
                 **kwargs,
             ),
             config_dir=os.getcwd(),

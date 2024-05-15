@@ -1,0 +1,19 @@
+process: mapchete.processes.contours
+zoom_levels:
+    min: 0
+    max: 8
+pyramid:
+    grid: geodetic
+    metatiling: 1
+input:
+    dem: ../../test/testdata/cleantopo_tl.tif
+output:
+    format: GeoJSON
+    path: output
+    schema:
+        properties:
+            elevation: float
+        geometry: LineString
+process_parameters:
+    field: "elevation"
+    interval: 100

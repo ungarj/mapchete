@@ -1,10 +1,11 @@
 """Wrapper functions around rasterio and useful raster functions."""
+
 from __future__ import annotations
 
 import logging
 import warnings
 from contextlib import contextmanager
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Generator, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.ma as ma
@@ -37,7 +38,7 @@ logger = logging.getLogger(__name__)
 @contextmanager
 def rasterio_read(
     path: MPathLike, mode: str = "r", **kwargs
-) -> Union[DatasetReader, DatasetWriter]:
+) -> Generator[Union[DatasetReader, DatasetWriter], None, None]:
     """
     Wrapper around rasterio.open but rasterio.Env is set according to path properties.
     """
@@ -53,7 +54,7 @@ def rasterio_read(
 
 def read_raster_window(
     input_files: Union[MPathLike, List[MPathLike]],
-    grid: GridProtocol,
+    grid: Union[Grid, GridProtocol],
     indexes: Optional[Union[int, List[int]]] = None,
     resampling: Union[Resampling, str] = Resampling.nearest,
     src_nodata: NodataVal = None,
@@ -73,21 +74,21 @@ def read_raster_window(
     resampling = (
         resampling if isinstance(resampling, Resampling) else Resampling[resampling]
     )
-    input_files = [
+    input_paths: List[MPath] = [
         MPath.from_inp(input_file)
         for input_file in (
             input_files if isinstance(input_files, list) else [input_files]
         )
     ]
-    if len(input_files) == 0:  # pragma: no cover
+    if len(input_paths) == 0:  # pragma: no cover
         raise ValueError("no input given")
 
-    with input_files[0].rio_env(gdal_opts) as env:
+    with input_paths[0].rio_env(gdal_opts) as env:
         logger.debug(
-            "reading %s file(s) with GDAL options %s", len(input_files), env.options
+            "reading %s file(s) with GDAL options %s", len(input_paths), env.options
         )
         return _read_raster_window(
-            input_files,
+            input_paths,
             grid,
             indexes=indexes,
             resampling=resampling,
@@ -99,7 +100,7 @@ def read_raster_window(
 
 
 def _read_raster_window(
-    input_files: Union[MPathLike, List[MPathLike]],
+    input_files: List[MPath],
     grid: GridProtocol,
     indexes: Optional[Union[int, List[int]]] = None,
     resampling: Resampling = Resampling.nearest,

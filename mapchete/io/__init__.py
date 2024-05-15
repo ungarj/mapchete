@@ -2,6 +2,7 @@
 
 from mapchete.io._json import read_json, write_json
 from mapchete.io._misc import (
+    MatchingMethod,
     copy,
     get_best_zoom_level,
     get_boto3_bucket,
@@ -29,6 +30,7 @@ __all__ = [
     "get_best_zoom_level",
     "get_segmentize_value",
     "tile_to_zoom_level",
+    "MatchingMethod",
     "path_is_remote",
     "path_exists",
     "tiles_exist",

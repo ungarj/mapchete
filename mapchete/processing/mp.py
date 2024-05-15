@@ -1,6 +1,6 @@
-from mapchete.commons import clip as commons_clip
-from mapchete.commons import contours as commons_contours
-from mapchete.commons import hillshade as commons_hillshade
+import numpy.ma as ma
+
+from mapchete.formats.protocols import InputTileProtocol
 from mapchete.validate import deprecated_kwargs
 
 
@@ -77,7 +77,7 @@ class MapcheteProcess(object):
         )
 
     @deprecated_kwargs
-    def open(self, input_id, **kwargs):
+    def open(self, input_id, **kwargs) -> InputTileProtocol:
         """
         Open input data.
 
@@ -96,7 +96,7 @@ class MapcheteProcess(object):
             raise ValueError("%s not found in config as input" % input_id)
         return self.input[input_id]
 
-    def hillshade(self, elevation, azimuth=315.0, altitude=45.0, z=1.0, scale=1.0):
+    def hillshade(self, *_, **__) -> ma.MaskedArray:  # pragma: no cover
         """
         Calculate hillshading from elevation data.
 
@@ -118,11 +118,11 @@ class MapcheteProcess(object):
         -------
         hillshade : array
         """
-        return commons_hillshade.hillshade(
-            elevation, self.tile, azimuth, altitude, z, scale
+        raise DeprecationWarning(
+            "Run hillshade via mp is deprecated. Call the hillshade method from mapchete.processes.hillshade."
         )
 
-    def contours(self, elevation, interval=100, field="elev", base=0):
+    def contours(self, *_, **__) -> ma.MaskedArray:  # pragma: no cover
         """
         Extract contour lines from elevation data.
 
@@ -142,11 +142,11 @@ class MapcheteProcess(object):
         contours : iterable
             contours as GeoJSON-like pairs of properties and geometry
         """
-        return commons_contours.extract_contours(
-            elevation, self.tile, interval=interval, field=field, base=base
+        raise DeprecationWarning(
+            "MapcheteProcess.contours() is deprecated. Call the contours method from mapchete.processes.contours."
         )
 
-    def clip(self, array, geometries, inverted=False, clip_buffer=0):
+    def clip(self, *_, **__) -> ma.MaskedArray:  # pragma: no cover
         """
         Clip array by geometry.
 
@@ -165,10 +165,6 @@ class MapcheteProcess(object):
         -------
         clipped array : array
         """
-        return commons_clip.clip_array_with_vector(
-            array,
-            self.tile.affine,
-            geometries,
-            inverted=inverted,
-            clip_buffer=clip_buffer * self.tile.pixel_x_size,
+        raise DeprecationWarning(
+            "MapcheteProcess.clip() is deprecated. Call the clip method from mapchete.io.raster.array.clip_array_with_vector()."
         )

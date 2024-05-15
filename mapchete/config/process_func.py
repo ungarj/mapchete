@@ -3,9 +3,11 @@ import inspect
 import logging
 import py_compile
 import sys
+import warnings
 from tempfile import NamedTemporaryFile
-from typing import Any
+from typing import Any, Dict
 
+from mapchete.config.models import ZoomParameters
 from mapchete.errors import (
     MapcheteConfigError,
     MapcheteProcessImportError,
@@ -48,17 +50,50 @@ class ProcessFunc:
         # this also serves as a validation step for the function
         logger.debug("validate process function")
         func = self._load_func()
-
         self.function_parameters = dict(**inspect.signature(func).parameters)
 
     def __call__(self, *args, **kwargs: Any) -> Any:
-        return self._load_func()(*args, **self.filter_parameters(kwargs))
+        kwargs = self.filter_parameters(kwargs)
+        return self._load_func()(*args, **kwargs)
 
-    def filter_parameters(self, params):
+    def analyze_parameters(
+        self, parameters_per_zoom: Dict[int, ZoomParameters]
+    ) -> None:
+        for zoom, config_parameters in parameters_per_zoom.items():
+            # make sure parameters with no defaults are present in configuration, except of magical "mp" object
+            for name, param in self.function_parameters.items():
+                if param.default == inspect.Parameter.empty and name not in [
+                    "mp",
+                    "kwargs",
+                    "__",
+                ]:
+                    if (
+                        name not in config_parameters.input
+                        and name not in config_parameters.process_parameters
+                    ):
+                        raise MapcheteConfigError(
+                            f"zoom {zoom}: parameter '{name}' is required by process function but not provided in the process configuration"
+                        )
+            # make sure there is no intersection between process parameters and input keys
+            param_intersection = set(config_parameters.input.keys()).intersection(
+                set(config_parameters.process_parameters.keys())
+            )
+            if param_intersection:
+                raise MapcheteConfigError(
+                    f"zoom {zoom}: parameters {', '.join(list(param_intersection))} are provided as both input names as well as process parameter names"
+                )
+            # warn if there are process parameters not available in the process
+            for param_name in config_parameters.process_parameters.keys():
+                if param_name not in self.function_parameters:
+                    warnings.warn(
+                        f"zoom {zoom}: parameter '{param_name}' is set in the process configuration but not a process function parameter"
+                    )
+
+    def filter_parameters(self, kwargs):
         """Return function kwargs."""
         return {
             k: v
-            for k, v in params.items()
+            for k, v in kwargs.items()
             if k in self.function_parameters and v is not None
         }
 

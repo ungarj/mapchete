@@ -1,18 +1,21 @@
 import itertools
 import logging
 import warnings
-from typing import Iterable, Optional, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.ma as ma
 from affine import Affine
 from numpy.typing import DTypeLike
 from rasterio.enums import Resampling
+from rasterio.features import geometry_mask
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
+from shapely.ops import unary_union
 
+from mapchete.io.vector import to_shape
 from mapchete.protocols import GridProtocol
-from mapchete.types import BoundsLike, CRSLike, NodataVal
+from mapchete.types import BoundsLike, CRSLike, Grid, NodataVal
 
 logger = logging.getLogger(__name__)
 
@@ -47,16 +50,20 @@ def extract_from_array(
     if out_grid is None:  # pragma: no cover
         raise ValueError("grid must be defined")
 
-    if hasattr(array, "affine") and hasattr(array, "data"):  # pragma: no cover
-        array_transform, array = array.affine, array.data
-    elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover
-        array_transform, array = array.transform, array.data
-    elif array_transform is None:  # pragma: no cover
-        raise ValueError("an Affine object is required")
+    from mapchete.io.raster.referenced_raster import ReferencedRaster
+
+    raster = ReferencedRaster.from_array_like(
+        array, transform=array_transform, crs=out_grid.crs
+    )
+
+    if raster.crs != out_grid.crs:  # pragma: no cover
+        raise ValueError(
+            f"source CRS {raster.crs} and destination CRS {out_grid.crs} do not match!"
+        )
 
     # get range within array
     minrow, maxrow, mincol, maxcol = bounds_to_ranges(
-        bounds=out_grid.bounds, transform=array_transform
+        bounds=out_grid.bounds, transform=raster.transform
     )
     # if output window is within input window
     if (
@@ -65,7 +72,7 @@ def extract_from_array(
         and maxrow <= array.shape[-2]
         and maxcol <= array.shape[-1]
     ):
-        return array[..., minrow:maxrow, mincol:maxcol]
+        return raster.array[..., minrow:maxrow, mincol:maxcol]
     # raise error if output is not fully within input
     else:
         raise ValueError("extraction fails if output shape is not within input")
@@ -74,9 +81,9 @@ def extract_from_array(
 def resample_from_array(
     array: Union[np.ndarray, ma.MaskedArray, GridProtocol],
     array_transform: Optional[Affine] = None,
-    out_grid: Optional[GridProtocol] = None,
+    out_grid: Optional[Union[Grid, GridProtocol]] = None,
     in_affine: Optional[Affine] = None,
-    out_tile: Optional[GridProtocol] = None,
+    out_tile: Optional[Union[Grid, GridProtocol]] = None,
     in_crs: Optional[CRSLike] = None,
     resampling: Union[Resampling, str] = Resampling.nearest,
     nodataval: Optional[NodataVal] = None,
@@ -118,7 +125,7 @@ def resample_from_array(
     elif isinstance(array, np.ndarray):
         array = ma.MaskedArray(array, mask=array == nodata)
     elif hasattr(array, "affine") and hasattr(array, "data"):  # pragma: no cover
-        array_transform = array.affine
+        array_transform = getattr(array, "affine")
         in_crs = array.crs
         array = array.data
     elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover
@@ -130,9 +137,11 @@ def resample_from_array(
             data=np.stack(array),
             mask=np.stack(
                 [
-                    band.mask
-                    if isinstance(band, ma.masked_array)
-                    else np.where(band == nodata, True, False)
+                    (
+                        band.mask
+                        if isinstance(band, ma.masked_array)
+                        else np.where(band == nodata, True, False)
+                    )
                     for band in array
                 ]
             ),
@@ -285,3 +294,74 @@ def prepare_masked_array(
         return ma.masked_values(data.astype(dtype, copy=False), nodata, copy=False)
     else:
         return ma.filled(data.astype(dtype, copy=False), nodata)
+
+
+def clip_array_with_vector(
+    array: np.ndarray,
+    array_affine: Affine,
+    geometries: List[dict],
+    inverted: bool = False,
+    clip_buffer: float = 0,
+) -> ma.MaskedArray:
+    """
+    Clip input array with a vector list.
+
+    Parameters
+    ----------
+    array : array
+        input raster data
+    array_affine : Affine
+        Affine object describing the raster's geolocation
+    geometries : iterable
+        iterable of dictionaries, where every entry has a 'geometry' and
+        'properties' key.
+    inverted : bool
+        invert clip (default: False)
+    clip_buffer : integer
+        buffer (in pixels) geometries before clipping
+
+    Returns
+    -------
+    clipped array : array
+    """
+    # buffer input geometries and clean up
+    buffered_geometries = []
+    for feature in geometries:
+        feature_geom = to_shape(feature["geometry"])
+        if feature_geom.is_empty:
+            continue
+        if feature_geom.geom_type == "GeometryCollection":
+            # for GeometryCollections apply buffer to every subgeometry
+            # and make union
+            buffered_geom = unary_union(
+                [g.buffer(clip_buffer) for g in feature_geom.geoms]
+            )
+        else:
+            buffered_geom = feature_geom.buffer(clip_buffer)
+        if not buffered_geom.is_empty:
+            buffered_geometries.append(buffered_geom)
+
+    # mask raster by buffered geometries
+    if buffered_geometries:
+        if array.ndim == 2:
+            return ma.masked_array(
+                array,
+                geometry_mask(
+                    buffered_geometries, array.shape, array_affine, invert=inverted
+                ),
+            )
+        elif array.ndim == 3:
+            mask = geometry_mask(
+                buffered_geometries,
+                (array.shape[1], array.shape[2]),
+                array_affine,
+                invert=inverted,
+            )
+            return ma.masked_array(array, mask=np.stack([mask for band in array]))
+        else:  # pragma: no cover
+            raise ValueError("array has to be 2D or 3D")
+
+    # if no geometries, return unmasked array
+    else:
+        fill = False if inverted else True
+        return ma.masked_array(array, mask=np.full(array.shape, fill, dtype=bool))

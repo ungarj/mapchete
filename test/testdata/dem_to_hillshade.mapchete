@@ -1,4 +1,4 @@
-process: dem_to_hillshade.py
+process: mapchete.processes.hillshade
 zoom_levels:
     min: 0
     max: 5
@@ -6,7 +6,7 @@ pyramid:
     grid: geodetic
     pixelbuffer: 5
 input:
-    file1: cleantopo_br.tif
+    dem: cleantopo_br.tif
 output:
     bands: 2
     format: PNG

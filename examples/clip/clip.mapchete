@@ -1,0 +1,16 @@
+process: mapchete.processes.clip
+zoom_levels:
+    min: 0
+    max: 8
+pyramid:
+    grid: geodetic
+    metatiling: 1
+input:
+    inp: ../../test/testdata/cleantopo_br.tif
+    clip: ../../test/testdata/aoi_br.geojson
+
+output:
+    path: output
+    format: GTiff
+    dtype: uint8
+    bands: 1

@@ -16,6 +16,7 @@ from shapely.geometry import box
 
 from mapchete import io
 from mapchete.formats import base
+from mapchete.formats.protocols import RasterInput
 from mapchete.io.raster import (
     convert_raster,
     rasterio_open,
@@ -216,7 +217,7 @@ class InputData(base.InputData):
             self._cached_path.rm(ignore_errors=True)
 
 
-class InputTile(base.InputTile):
+class InputTile(base.InputTile, RasterInput):
     """
     Target Tile representation of input data.
 
@@ -242,11 +243,10 @@ class InputTile(base.InputTile):
         self, tile, input_data, in_memory_raster=None, cache_task_key=None, **kwargs
     ):
         """Initialize."""
-        self.tile = tile
+        super().__init__(tile, input_key=input_data.input_key, **kwargs)
         self.bbox = input_data.bbox(out_crs=self.tile.crs)
         self.profile = input_data.profile
         self.cache_task_key = cache_task_key
-        self.input_key = input_data.input_key
         if input_data._memory_cache_active:
             self._memory_cache_active = True
             self._in_memory_raster = in_memory_raster

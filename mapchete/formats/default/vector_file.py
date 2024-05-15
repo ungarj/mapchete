@@ -11,6 +11,7 @@ from rasterio.crs import CRS
 from shapely.geometry import Point, box
 
 from mapchete.formats import base
+from mapchete.formats.protocols import VectorInput
 from mapchete.io import fiona_open
 from mapchete.io.vector import (
     IndexedFeatures,
@@ -196,7 +197,7 @@ class InputData(base.InputData):
             self._cached_path.rm(ignore_errors=True)
 
 
-class InputTile(base.InputTile):
+class InputTile(base.InputTile, VectorInput):
     """
     Target Tile representation of input data.
 
@@ -220,11 +221,10 @@ class InputTile(base.InputTile):
         self, tile, input_data, in_memory_features=None, cache_task_key=None, **kwargs
     ):
         """Initialize."""
-        self.tile = tile
+        super().__init__(tile, input_key=input_data.input_key, **kwargs)
         self._cache = {}
         self.bbox = input_data.bbox(out_crs=self.tile.crs)
         self.cache_task_key = cache_task_key
-        self.input_key = input_data.input_key
         if input_data._memory_cache_active:
             self._memory_cache_active = True
             self._in_memory_features = in_memory_features

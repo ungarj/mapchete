@@ -1,6 +1,5 @@
 """Test FlatGeobuf as process output."""
 import pytest
-from shapely.geometry import shape
 
 import mapchete
 from mapchete import formats

@@ -3,7 +3,7 @@ import os
 from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
 from pprint import pformat
-from typing import List, NoReturn, Optional, Tuple, Type, Union
+from typing import List, Optional, Tuple, Type, Union
 
 import tilematrix
 from rasterio.crs import CRS
@@ -11,7 +11,7 @@ from rasterio.enums import Resampling
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 
-from mapchete.commands._execute import execute
+from mapchete.commands.execute import execute
 from mapchete.commands.observer import ObserverProtocol, Observers
 from mapchete.commands.parser import InputInfo, OutputInfo
 from mapchete.config import DaskSettings
@@ -43,7 +43,7 @@ def convert(
     dask_settings: DaskSettings = DaskSettings(),
     workers: Optional[int] = None,
     clip_geometry: Optional[str] = None,
-    bidx: Optional[List[int]] = None,
+    bidx: Optional[Union[List[int], int]] = None,
     output_pyramid: Optional[Union[str, dict, MPathLike]] = None,
     output_metatiling: Optional[int] = None,
     output_format: Optional[str] = None,
@@ -63,7 +63,7 @@ def convert(
     retry_on_exception: Tuple[Type[Exception], Type[Exception]] = Exception,
     cancel_on_exception: Type[Exception] = JobCancelledError,
     retries: int = 0,
-) -> NoReturn:
+) -> None:
     """
     Convert mapchete outputs or other geodata.
 
@@ -121,9 +121,11 @@ def convert(
                 ),
             )
             if output_pyramid
-            else input_info.output_pyramid.to_dict()
-            if input_info.output_pyramid
-            else None
+            else (
+                input_info.output_pyramid.to_dict()
+                if input_info.output_pyramid
+                else None
+            )
         ),
         output=dict(
             {
@@ -139,9 +141,11 @@ def convert(
             ),
             dtype=output_dtype or input_info.output_params.get("dtype"),
             **creation_options,
-            **dict(overviews=True, overviews_resampling=overviews_resampling_method)
-            if overviews
-            else dict(),
+            **(
+                dict(overviews=True, overviews_resampling=overviews_resampling_method)
+                if overviews
+                else dict()
+            ),
         ),
         config_dir=os.getcwd(),
         zoom_levels=zoom or input_info.zoom_levels,
