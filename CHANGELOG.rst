@@ -4,6 +4,15 @@ Changelog
 
 
 ---------------------
+2024.5.0 - 2024-05-02
+---------------------
+
+* core
+
+  * also include `executor_getter()` call within `try ... except` block in order to be able to retry eventual connection errors (#627)
+
+
+---------------------
 2024.2.1 - 2024-02-20
 ---------------------
 
