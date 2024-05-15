@@ -4,6 +4,20 @@ Changelog
 
 
 ---------------------
+2024.5.1 - 2024-05-15
+---------------------
+
+* core
+
+  * remove Geobuf driver (#629)
+  * enable typing for processes (#626)
+
+* packaging
+
+  * remove `geobuf` and `protobuf`` dependency
+
+
+---------------------
 2024.5.0 - 2024-05-02
 ---------------------
 

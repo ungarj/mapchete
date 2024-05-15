@@ -34,7 +34,7 @@ __all__ = [
     "VectorInput",
     "VectorInputGroup",
 ]
-__version__ = "2024.5.0"
+__version__ = "2024.5.1"
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
