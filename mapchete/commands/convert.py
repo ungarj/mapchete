@@ -11,7 +11,7 @@ from rasterio.enums import Resampling
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 
-from mapchete.commands._execute import execute
+from mapchete.commands.execute import execute
 from mapchete.commands.observer import ObserverProtocol, Observers
 from mapchete.commands.parser import InputInfo, OutputInfo
 from mapchete.config import DaskSettings
