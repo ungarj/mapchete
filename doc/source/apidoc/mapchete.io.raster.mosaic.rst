@@ -1,7 +1,7 @@
-mapchete.commons.contours module
+mapchete.io.raster.mosaic module
 ================================
 
-.. automodule:: mapchete.commons.contours
+.. automodule:: mapchete.io.raster.mosaic
    :members:
    :undoc-members:
    :show-inheritance:

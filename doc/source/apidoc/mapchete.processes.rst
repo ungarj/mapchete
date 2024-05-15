@@ -15,6 +15,7 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   mapchete.processes.clip
    mapchete.processes.contours
    mapchete.processes.convert
    mapchete.processes.hillshade
