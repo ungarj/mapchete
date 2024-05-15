@@ -278,33 +278,6 @@ def write_vector_window(
         logger.debug((out_tile.id, "nothing to write", out_path))
 
 
-class VectorWindowMemoryFile:
-    """Context manager around fiona.io.MemoryFile."""
-
-    def __init__(self, tile=None, features=None, schema=None, driver=None):
-        """Prepare data & profile."""
-        self.tile = tile
-        self.schema = schema
-        self.driver = driver
-        self.features = features
-
-    def __enter__(self):
-        """Open MemoryFile, write data and return."""
-        self.fio_memfile = MemoryFile()
-        with self.fio_memfile.open(
-            schema=self.schema, driver=self.driver, crs=self.tile.crs
-        ) as dst:
-            dst.writerecords(self.features)
-        return self.fio_memfile.getbuffer()
-
-    def __exit__(self, *args):
-        """Make sure MemoryFile is closed."""
-        try:
-            self.fio_memfile.close()
-        except AttributeError:
-            pass
-
-
 @retry(
     logger=logger,
     **dict(IORetrySettings()),

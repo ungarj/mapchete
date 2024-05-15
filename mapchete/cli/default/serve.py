@@ -177,7 +177,7 @@ def _valid_tile_response(mp, data):
         return RangeRequest(out_data).make_response()
     elif isinstance(out_data, list):
         response = make_response(jsonify(data))
-    else:
+    else:  # pragma: no cover
         response = make_response(out_data)
     response.headers["Content-Type"] = mime_type
     response.cache_control.no_write = True
