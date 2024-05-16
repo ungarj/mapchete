@@ -4,6 +4,7 @@ import datetime
 import os
 import uuid
 from tempfile import TemporaryDirectory
+from typing import Generator, List
 
 import pytest
 from aiohttp.client_exceptions import ClientConnectorError
@@ -21,7 +22,7 @@ from mapchete.executor import (
 from mapchete.io import MPath, copy, rasterio_open
 from mapchete.io.vector import reproject_geometry
 from mapchete.testing import ProcessFixture
-from mapchete.tile import BufferedTilePyramid
+from mapchete.tile import BufferedTile, BufferedTilePyramid
 
 MINIO_TESTDATA_BUCKET = "testdata"
 HTTP_USERNAME = "client"
@@ -29,10 +30,7 @@ HTTP_PASSWORD = "password2022"
 S3_KEY = "eecang7G"
 S3_SECRET = "Eashei2a"
 S3_ENDPOINT_URL = "localhost:9000"
-
-SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
-EXAMPLES_DIR = SCRIPT_DIR.parent / "examples/"
-TESTDATA_DIR = SCRIPT_DIR / "testdata/"
+TESTDATA_DIR = "testdata"
 HTTP_TESTDATA_DIR = MPath("http://localhost/open/")
 SECURE_HTTP_TESTDATA_DIR = MPath(
     "http://localhost/secure/",
@@ -41,20 +39,35 @@ SECURE_HTTP_TESTDATA_DIR = MPath(
 AWS_S3_TESTDATA_DIR = MPath("s3://mapchete-test/")
 
 
-def prepare_s3_testfile(bucket, testfile):
+def prepare_s3_testfile(bucket, testfile) -> MPath:
     dst = bucket / testfile
     if not dst.exists():
-        copy(TESTDATA_DIR / testfile, dst)
+        copy(
+            MPath(os.path.dirname(os.path.realpath(__file__)))
+            / TESTDATA_DIR
+            / testfile,
+            dst,
+        )
     return dst
 
 
 @pytest.fixture()
-def testdata_dir():
-    return TESTDATA_DIR
+def script_dir() -> MPath:
+    return MPath(os.path.dirname(os.path.realpath(__file__)))
+
+
+@pytest.fixture()
+def examples_dir(script_dir) -> MPath:
+    return script_dir.parent / "examples"
+
+
+@pytest.fixture()
+def testdata_dir(script_dir) -> MPath:
+    return script_dir / TESTDATA_DIR
 
 
 @pytest.fixture(scope="session")
-def http_testdata_dir():
+def http_testdata_dir() -> MPath:
     try:
         HTTP_TESTDATA_DIR.ls()
     except ClientConnectorError:
@@ -67,7 +80,7 @@ def http_testdata_dir():
 
 
 @pytest.fixture(scope="session")
-def secure_http_testdata_dir():
+def secure_http_testdata_dir() -> MPath:
     try:
         SECURE_HTTP_TESTDATA_DIR.ls()
     except ClientConnectorError:
@@ -80,7 +93,7 @@ def secure_http_testdata_dir():
 
 
 @pytest.fixture(scope="session")
-def s3_testdata_dir(minio_testdata_bucket):
+def s3_testdata_dir(minio_testdata_bucket) -> MPath:
     bucket_path = minio_testdata_bucket / MINIO_TESTDATA_BUCKET
     # prepare at least one file for testing
     prepare_s3_testfile(bucket_path, "cleantopo/cleantopo.json")
@@ -88,7 +101,7 @@ def s3_testdata_dir(minio_testdata_bucket):
 
 
 @pytest.fixture(scope="session")
-def aws_s3_testdata_dir():
+def aws_s3_testdata_dir() -> MPath:
     from botocore.exceptions import NoCredentialsError
 
     try:
@@ -99,7 +112,7 @@ def aws_s3_testdata_dir():
 
 
 @pytest.fixture(scope="session")
-def minio_testdata_bucket():
+def minio_testdata_bucket() -> MPath:
     from urllib3.exceptions import MaxRetryError
 
     minio = Minio(
@@ -143,7 +156,7 @@ def app(dem_to_hillshade, cleantopo_br, geojson):
 
 # temporary directory for I/O tests
 @pytest.fixture(autouse=True)
-def mp_tmpdir():
+def mp_tmpdir() -> Generator[MPath, None, None]:
     """Setup and teardown temporary directory."""
     with TemporaryDirectory() as tempdir_path:
         tempdir = MPath(tempdir_path)
@@ -153,7 +166,7 @@ def mp_tmpdir():
 
 # temporary directory for I/O tests
 @pytest.fixture
-def mp_s3_tmpdir(minio_testdata_bucket):
+def mp_s3_tmpdir(minio_testdata_bucket) -> Generator[MPath, None, None]:
     """Setup and teardown temporary directory."""
     tempdir = minio_testdata_bucket / "tmp" / uuid.uuid4().hex
 
@@ -166,93 +179,93 @@ def mp_s3_tmpdir(minio_testdata_bucket):
 
 
 @pytest.fixture
-def wkt_geom():
+def wkt_geom() -> str:
     """Example WKT geometry."""
     return "Polygon ((2.8125 11.25, 2.8125 14.0625, 0 14.0625, 0 11.25, 2.8125 11.25))"
 
 
 @pytest.fixture
-def wkt_geom_tl():
+def wkt_geom_tl() -> str:
     """Example WKT geometry."""
     return "Polygon ((-176.04949 85.59671, -174.57652 73.86651, -159.98073 74.58961, -161.74829 83.05249, -176.04949 85.59671))"
 
 
 # example files
 @pytest.fixture
-def local_raster(testdata_dir):
+def local_raster(testdata_dir) -> MPath:
     """Fixture for HTTP raster."""
     return testdata_dir / "cleantopo/1/0/0.tif"
 
 
 @pytest.fixture
-def http_raster(http_testdata_dir):
+def http_raster(http_testdata_dir) -> MPath:
     """Fixture for HTTP raster."""
     return http_testdata_dir / "cleantopo/1/0/0.tif"
 
 
 @pytest.fixture
-def secure_http_raster(secure_http_testdata_dir):
+def secure_http_raster(secure_http_testdata_dir) -> MPath:
     """Fixture for HTTP raster."""
     return secure_http_testdata_dir / "cleantopo/1/0/0.tif"
 
 
 @pytest.fixture
-def http_tiledir(http_testdata_dir):
+def http_tiledir(http_testdata_dir) -> MPath:
     """Fixture for HTTP TileDirectory."""
     return http_testdata_dir / "cleantopo"
 
 
 @pytest.fixture
-def secure_http_tiledir(secure_http_testdata_dir):
+def secure_http_tiledir(secure_http_testdata_dir) -> MPath:
     """Fixture for HTTP TileDirectory."""
     return secure_http_testdata_dir / "cleantopo"
 
 
 @pytest.fixture
-def stacta(testdata_dir):
+def stacta(testdata_dir) -> MPath:
     """Fixture for STACTA."""
     return testdata_dir / "cleantopo" / "cleantopo.json"
 
 
 @pytest.fixture
-def http_stacta(http_testdata_dir):
+def http_stacta(http_testdata_dir) -> MPath:
     """Fixture for HTTP STACTA."""
     return http_testdata_dir / "cleantopo" / "cleantopo.json"
 
 
 @pytest.fixture
-def secure_http_stacta(secure_http_testdata_dir):
+def secure_http_stacta(secure_http_testdata_dir) -> MPath:
     """Fixture for secure HTTP STACTA."""
     return secure_http_testdata_dir / "cleantopo" / "cleantopo.json"
 
 
 @pytest.fixture
-def s3_stacta(minio_testdata_bucket):
+def s3_stacta(minio_testdata_bucket) -> MPath:
     """Fixture for S3 STACTA."""
     return prepare_s3_testfile(minio_testdata_bucket, "cleantopo/cleantopo.json")
 
 
 @pytest.fixture
-def aws_s3_stacta(aws_s3_testdata_dir):
+def aws_s3_stacta(aws_s3_testdata_dir) -> MPath:
     """Fixture for AWS S3 STACTA."""
     return aws_s3_testdata_dir / "cleantopo" / "cleantopo.json"
 
 
 @pytest.fixture
-def s2_band():
+def s2_band(testdata_dir) -> MPath:
     """
     Fixture for Sentinel-2 raster band.
 
     Original file:
     s3://sentinel-s2-l1c/tiles/33/T/WN/2016/4/3/0/B02.jp2
     """
-    return TESTDATA_DIR / "s2_band.tif"
+    return testdata_dir / "s2_band.tif"
 
 
 @pytest.fixture
-def s2_band_tile():
+def s2_band_tile(testdata_dir):
     tp = BufferedTilePyramid("geodetic")
-    with rasterio_open(TESTDATA_DIR / "s2_band.tif") as src:
+    with rasterio_open(testdata_dir / "s2_band.tif") as src:
         rr_center = reproject_geometry(
             geometry=box(*src.bounds), src_crs=src.crs, dst_crs=tp.crs
         ).centroid
@@ -260,18 +273,18 @@ def s2_band_tile():
 
 
 @pytest.fixture
-def s2_band_jp2():
+def s2_band_jp2(testdata_dir) -> MPath:
     """
     Fixture for Sentinel-2 raster band.
 
     Original file:
     s3://sentinel-s2-l1c/tiles/33/T/WN/2016/4/3/0/B02.jp2
     """
-    return TESTDATA_DIR / "s2_band.jp2"
+    return testdata_dir / "s2_band.jp2"
 
 
 @pytest.fixture
-def raster_4band_tile():
+def raster_4band_tile() -> BufferedTile:
     """
     A tile intersecting with 4band_test.tif.
     """
@@ -279,15 +292,15 @@ def raster_4band_tile():
 
 
 @pytest.fixture
-def raster_4band():
+def raster_4band(testdata_dir) -> MPath:
     """
     Fixture for 4band_test.tif.
     """
-    return TESTDATA_DIR / "4band_test.tif"
+    return testdata_dir / "4band_test.tif"
 
 
 @pytest.fixture
-def raster_4band_s3(minio_testdata_bucket):
+def raster_4band_s3(minio_testdata_bucket) -> MPath:
     """
     Fixture for remote file on S3 bucket.
     """
@@ -295,7 +308,7 @@ def raster_4band_s3(minio_testdata_bucket):
 
 
 @pytest.fixture
-def raster_4band_http(http_testdata_dir):
+def raster_4band_http(http_testdata_dir) -> MPath:
     """
     Fixture for 4band_test.tif.
     """
@@ -303,7 +316,7 @@ def raster_4band_http(http_testdata_dir):
 
 
 @pytest.fixture
-def raster_4band_secure_http(secure_http_testdata_dir):
+def raster_4band_secure_http(secure_http_testdata_dir) -> MPath:
     """
     Fixture for 4band_test.tif.
     """
@@ -311,7 +324,7 @@ def raster_4band_secure_http(secure_http_testdata_dir):
 
 
 @pytest.fixture
-def raster_4band_aws_s3(aws_s3_testdata_dir):
+def raster_4band_aws_s3(aws_s3_testdata_dir) -> MPath:
     """
     Fixture for remote file on S3 bucket.
     """
@@ -319,21 +332,21 @@ def raster_4band_aws_s3(aws_s3_testdata_dir):
 
 
 @pytest.fixture
-def empty_gpkg():
+def empty_gpkg(testdata_dir) -> MPath:
     """Fixture for HTTP raster."""
-    return TESTDATA_DIR / "empty.gpkg"
+    return testdata_dir / "empty.gpkg"
 
 
 @pytest.fixture
-def metadata_json():
+def metadata_json(testdata_dir) -> MPath:
     """
     Fixture for metadata.json.
     """
-    return TESTDATA_DIR / "cleantopo" / "metadata.json"
+    return testdata_dir / "cleantopo" / "metadata.json"
 
 
 @pytest.fixture
-def s3_metadata_json(minio_testdata_bucket):
+def s3_metadata_json(minio_testdata_bucket) -> MPath:
     """
     Fixture for s3://mapchete-test/metadata.json.
     """
@@ -341,7 +354,7 @@ def s3_metadata_json(minio_testdata_bucket):
 
 
 @pytest.fixture
-def http_metadata_json(http_testdata_dir):
+def http_metadata_json(http_testdata_dir) -> MPath:
     """
     Fixture for http://localhost/cleantopo/metadata.json.
     """
@@ -349,7 +362,7 @@ def http_metadata_json(http_testdata_dir):
 
 
 @pytest.fixture
-def secure_http_metadata_json(secure_http_testdata_dir):
+def secure_http_metadata_json(secure_http_testdata_dir) -> MPath:
     """
     Fixture for http://localhost/cleantopo/metadata.json.
     """
@@ -357,7 +370,7 @@ def secure_http_metadata_json(secure_http_testdata_dir):
 
 
 @pytest.fixture
-def vsicurl_metadata_json(http_testdata_dir):
+def vsicurl_metadata_json(http_testdata_dir) -> MPath:
     """
     Fixture for http://localhost/cleantopo/metadata.json.
     """
@@ -367,23 +380,23 @@ def vsicurl_metadata_json(http_testdata_dir):
 
 
 @pytest.fixture
-def old_style_metadata_json():
+def old_style_metadata_json(testdata_dir) -> MPath:
     """
     Fixture for old_style_metadata.json.
     """
-    return TESTDATA_DIR / "old_style_metadata.json"
+    return testdata_dir / "old_style_metadata.json"
 
 
 @pytest.fixture
-def old_geodetic_shape_metadata_json():
+def old_geodetic_shape_metadata_json(testdata_dir) -> MPath:
     """
     Fixture for old_geodetic_shape_metadata.json.
     """
-    return TESTDATA_DIR / "old_geodetic_shape_metadata.json"
+    return testdata_dir / "old_geodetic_shape_metadata.json"
 
 
 @pytest.fixture
-def driver_metadata_dict():
+def driver_metadata_dict() -> dict:
     """Content of a metadata.json file as dictionary."""
     return {
         "driver": {
@@ -419,7 +432,7 @@ def driver_metadata_dict():
 
 
 @pytest.fixture
-def driver_output_params_dict():
+def driver_output_params_dict() -> dict:
     return {
         "format": "xarray",
         "path": "/foo/bar",
@@ -455,49 +468,49 @@ def driver_output_params_dict():
 
 
 @pytest.fixture
-def landpoly():
+def landpoly(testdata_dir) -> MPath:
     """Fixture for landpoly.geojson."""
-    return TESTDATA_DIR / "landpoly.geojson"
+    return testdata_dir / "landpoly.geojson"
 
 
 @pytest.fixture
-def landpoly_s3(minio_testdata_bucket):
+def landpoly_s3(minio_testdata_bucket) -> MPath:
     """Fixture for landpoly.geojson."""
     return prepare_s3_testfile(minio_testdata_bucket, "landpoly.geojson")
 
 
 @pytest.fixture
-def landpoly_http(http_testdata_dir):
+def landpoly_http(http_testdata_dir) -> MPath:
     """Fixture for landpoly.geojson."""
     return http_testdata_dir / "landpoly.geojson"
 
 
 @pytest.fixture
-def landpoly_secure_http(secure_http_testdata_dir):
+def landpoly_secure_http(secure_http_testdata_dir) -> MPath:
     """Fixture for landpoly.geojson."""
     return secure_http_testdata_dir / "landpoly.geojson"
 
 
 @pytest.fixture
-def landpoly_3857():
+def landpoly_3857(testdata_dir) -> MPath:
     """Fixture for landpoly_3857.geojson"""
-    return TESTDATA_DIR / "landpoly_3857.geojson"
+    return testdata_dir / "landpoly_3857.geojson"
 
 
 @pytest.fixture
-def aoi_br_geojson():
+def aoi_br_geojson(testdata_dir) -> MPath:
     """Fixture for aoi_br.geojson"""
-    return TESTDATA_DIR / "aoi_br.geojson"
+    return testdata_dir / "aoi_br.geojson"
 
 
 @pytest.fixture
-def sample_geojson():
+def sample_geojson(testdata_dir) -> MPath:
     """Fixture for sample.geojson"""
-    return TESTDATA_DIR / "sample.geojson"
+    return testdata_dir / "sample.geojson"
 
 
 @pytest.fixture
-def geometrycollection():
+def geometrycollection() -> str:
     """Fixture for geometrycollection.geojson"""
     return wkt.loads(
         "GEOMETRYCOLLECTION (LINESTRING (-100.9423828125 78.75, -100.8984375 78.75), LINESTRING (-100.2392578125 78.75, -99.9755859375 78.75), POLYGON ((-101.25 78.9697265625, -101.25 79.013671875, -101.2060546875 79.013671875, -101.2060546875 78.9697265625, -100.986328125 78.9697265625, -100.986328125 78.92578125, -101.0302734375 78.92578125, -101.0302734375 78.8818359375, -101.07421875 78.8818359375, -101.1181640625 78.8818359375, -101.1181640625 78.837890625, -101.162109375 78.837890625, -101.2060546875 78.837890625, -101.2060546875 78.7939453125, -100.9423828125 78.7939453125, -100.9423828125 78.75, -101.25 78.75, -101.25 78.9697265625)), POLYGON ((-100.8984375 78.75, -100.8984375 78.7939453125, -100.5908203125 78.7939453125, -100.546875 78.7939453125, -100.546875 78.837890625, -100.3271484375 78.837890625, -100.3271484375 78.7939453125, -100.2392578125 78.7939453125, -100.2392578125 78.75, -100.8984375 78.75)))"
@@ -505,428 +518,443 @@ def geometrycollection():
 
 
 @pytest.fixture
-def cleantopo_br_tif():
+def cleantopo_br_tif(testdata_dir) -> MPath:
     """Fixture for cleantopo_br.tif"""
-    return TESTDATA_DIR / "cleantopo_br.tif"
+    return testdata_dir / "cleantopo_br.tif"
 
 
 @pytest.fixture
-def cleantopo_br_tif_s3(minio_testdata_bucket):
+def cleantopo_br_tif_s3(minio_testdata_bucket) -> MPath:
     """Fixture for cleantopo_br.tif"""
     return prepare_s3_testfile(minio_testdata_bucket, "cleantopo_br.tif")
 
 
 @pytest.fixture
-def dummy1_3857_tif():
+def dummy1_3857_tif(testdata_dir) -> MPath:
     """Fixture for dummy1_3857.tif"""
-    return TESTDATA_DIR / "dummy1_3857.tif"
+    return testdata_dir / "dummy1_3857.tif"
 
 
 @pytest.fixture
-def dummy1_tif():
+def dummy1_tif(testdata_dir) -> MPath:
     """Fixture for dummy1.tif"""
-    return TESTDATA_DIR / "dummy1.tif"
+    return testdata_dir / "dummy1.tif"
 
 
 @pytest.fixture
-def dummy2_tif():
+def dummy2_tif(testdata_dir) -> MPath:
     """Fixture for dummy2.tif"""
-    return TESTDATA_DIR / "dummy2.tif"
+    return testdata_dir / "dummy2.tif"
 
 
 @pytest.fixture
-def invalid_tif():
+def invalid_tif(testdata_dir) -> MPath:
     """Fixture for invalid.tif"""
-    return TESTDATA_DIR / "invalid.tif"
+    return testdata_dir / "invalid.tif"
 
 
 @pytest.fixture
-def gcps_tif():
+def gcps_tif(testdata_dir) -> MPath:
     """Fixture for gcps.tif"""
-    return TESTDATA_DIR / "gcps.tif"
+    return testdata_dir / "gcps.tif"
 
 
 @pytest.fixture
-def invalid_geojson():
+def invalid_geojson(testdata_dir) -> MPath:
     """Fixture for invalid.geojson"""
-    return TESTDATA_DIR / "invalid.geojson"
+    return testdata_dir / "invalid.geojson"
 
 
 @pytest.fixture
-def execute_kwargs_py():
+def example_process_text(script_dir) -> List[str]:
+    return (script_dir / "example_process.py").read_text().split("\n")
+
+
+@pytest.fixture
+def example_process_module() -> str:
+    return "mapchete.processes.examples.example_process"
+
+
+@pytest.fixture
+def example_process_py(script_dir) -> MPath:
+    return script_dir / "example_process.py"
+
+
+@pytest.fixture
+def execute_kwargs_py(testdata_dir) -> MPath:
     """Fixture for execute_kwargs.py"""
-    return TESTDATA_DIR / "execute_kwargs.py"
+    return testdata_dir / "execute_kwargs.py"
 
 
 @pytest.fixture
-def write_rasterfile_tags_py():
+def write_rasterfile_tags_py(testdata_dir) -> MPath:
     """Fixture for write_rasterfile_tags.py"""
-    return TESTDATA_DIR / "write_rasterfile_tags.py"
+    return testdata_dir / "write_rasterfile_tags.py"
 
 
 @pytest.fixture
-def import_error_py():
+def import_error_py(testdata_dir) -> MPath:
     """Fixture for import_error.py"""
-    return TESTDATA_DIR / "import_error.py"
+    return testdata_dir / "import_error.py"
 
 
 @pytest.fixture
-def malformed_py():
+def malformed_py(testdata_dir) -> MPath:
     """Fixture for malformed.py"""
-    return TESTDATA_DIR / "malformed.py"
+    return testdata_dir / "malformed.py"
 
 
 @pytest.fixture
-def syntax_error_py():
+def syntax_error_py(testdata_dir) -> MPath:
     """Fixture for syntax_error.py"""
-    return TESTDATA_DIR / "syntax_error.py"
+    return testdata_dir / "syntax_error.py"
 
 
 @pytest.fixture
-def execute_params_error_py():
+def execute_params_error_py(testdata_dir) -> MPath:
     """Fixture for execute_params_error.py"""
-    return TESTDATA_DIR / "execute_params_error.py"
+    return testdata_dir / "execute_params_error.py"
 
 
 @pytest.fixture
-def process_error_py():
+def process_error_py(testdata_dir) -> MPath:
     """Fixture for process_error.py"""
-    return TESTDATA_DIR / "process_error.py"
+    return testdata_dir / "process_error.py"
 
 
 @pytest.fixture
-def output_error_py():
+def output_error_py(testdata_dir) -> MPath:
     """Fixture for output_error.py"""
-    return TESTDATA_DIR / "output_error.py"
+    return testdata_dir / "output_error.py"
 
 
 @pytest.fixture
-def old_style_process_py():
+def old_style_process_py(testdata_dir) -> MPath:
     """Fixture for old_style_process.py"""
-    return TESTDATA_DIR / "old_style_process.py"
+    return testdata_dir / "old_style_process.py"
 
 
 @pytest.fixture
-def custom_grid_json():
-    return TESTDATA_DIR / "custom_grid.json"
+def custom_grid_json(testdata_dir) -> MPath:
+    return testdata_dir / "custom_grid.json"
 
 
 # example mapchete configurations
 @pytest.fixture
-def typed_raster_input(mp_tmpdir):
+def typed_raster_input(mp_tmpdir, testdata_dir):
     """Fixture for typed_raster_input.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "typed_raster_input.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "typed_raster_input.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def custom_grid(mp_tmpdir):
+def custom_grid(mp_tmpdir, testdata_dir):
     """Fixture for custom_grid.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "custom_grid.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "custom_grid.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def deprecated_params(mp_tmpdir):
+def deprecated_params(mp_tmpdir, testdata_dir):
     """Fixture for deprecated_params.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "deprecated_params.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "deprecated_params.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def files_zooms(mp_tmpdir):
+def files_zooms(mp_tmpdir, testdata_dir):
     """Fixture for files_zooms.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "files_zooms.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "files_zooms.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def file_groups(mp_tmpdir):
+def file_groups(mp_tmpdir, testdata_dir):
     """Fixture for file_groups.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "file_groups.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "file_groups.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def overviews(mp_tmpdir):
+def overviews(mp_tmpdir, testdata_dir):
     """Fixture for overviews.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "overviews.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "overviews.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def baselevels(mp_tmpdir):
+def baselevels(mp_tmpdir, testdata_dir):
     """Fixture for baselevels.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "baselevels.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "baselevels.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def baselevels_output_buffer(mp_tmpdir):
+def baselevels_output_buffer(mp_tmpdir, testdata_dir):
     """Fixture for baselevels_output_buffer.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "baselevels_output_buffer.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "baselevels_output_buffer.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def baselevels_custom_nodata(mp_tmpdir):
+def baselevels_custom_nodata(mp_tmpdir, testdata_dir):
     """Fixture for baselevels_custom_nodata.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "baselevels_custom_nodata.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "baselevels_custom_nodata.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def mapchete_input(mp_tmpdir):
+def mapchete_input(mp_tmpdir, testdata_dir):
     """Fixture for mapchete_input.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "mapchete_input.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "mapchete_input.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def dem_to_hillshade(mp_tmpdir):
+def dem_to_hillshade(mp_tmpdir, testdata_dir):
     """Fixture for dem_to_hillshade.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "dem_to_hillshade.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "dem_to_hillshade.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def files_bounds(mp_tmpdir):
+def files_bounds(mp_tmpdir, testdata_dir):
     """Fixture for files_bounds.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "files_bounds.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "files_bounds.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def example_mapchete(mp_tmpdir):
+def example_mapchete(mp_tmpdir, script_dir):
     """Fixture for example.mapchete."""
     with ProcessFixture(
-        SCRIPT_DIR / "example.mapchete", output_tempdir=mp_tmpdir
+        script_dir / "example.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def env_storage_options_mapchete(mp_tmpdir):
+def env_storage_options_mapchete(mp_tmpdir, testdata_dir):
     """Fixture for env_storage_options.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "env_storage_options.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "env_storage_options.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def env_input_path_mapchete(mp_tmpdir):
+def env_input_path_mapchete(mp_tmpdir, testdata_dir):
     """Fixture for env_input_path.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "env_input_path.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "env_input_path.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def example_custom_process_mapchete(mp_tmpdir):
+def example_custom_process_mapchete(mp_tmpdir, testdata_dir):
     """Fixture for example.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "example_custom_process.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "example_custom_process.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def zoom_mapchete(mp_tmpdir):
+def zoom_mapchete(mp_tmpdir, testdata_dir):
     """Fixture for zoom.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "zoom.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "zoom.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def minmax_zoom(mp_tmpdir):
+def minmax_zoom(mp_tmpdir, testdata_dir):
     """Fixture for minmax_zoom.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "minmax_zoom.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "minmax_zoom.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def cleantopo_tl(mp_tmpdir):
+def cleantopo_tl(mp_tmpdir, testdata_dir):
     """Fixture for cleantopo_tl.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "cleantopo_tl.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "cleantopo_tl.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def cleantopo_br(mp_tmpdir):
+def cleantopo_br(mp_tmpdir, testdata_dir):
     """Fixture for cleantopo_br.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "cleantopo_br.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "cleantopo_br.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def cleantopo_br_metatiling_1(mp_tmpdir):
+def cleantopo_br_metatiling_1(mp_tmpdir, testdata_dir):
     """Fixture for cleantopo_br.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "cleantopo_br_metatiling_1.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "cleantopo_br_metatiling_1.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def cleantopo_remote(mp_tmpdir):
+def cleantopo_remote(mp_tmpdir, testdata_dir):
     """Fixture for cleantopo_remote.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "cleantopo_remote.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "cleantopo_remote.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def cleantopo_br_tiledir(mp_tmpdir):
+def cleantopo_br_tiledir(mp_tmpdir, testdata_dir):
     """Fixture for cleantopo_br_tiledir.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "cleantopo_br_tiledir.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "cleantopo_br_tiledir.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def cleantopo_br_tiledir_mercator(mp_tmpdir):
+def cleantopo_br_tiledir_mercator(mp_tmpdir, testdata_dir):
     """Fixture for cleantopo_br_tiledir_mercator.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "cleantopo_br_tiledir_mercator.mapchete",
+        testdata_dir / "cleantopo_br_tiledir_mercator.mapchete",
         output_tempdir=mp_tmpdir,
     ) as example:
         yield example
 
 
 @pytest.fixture
-def cleantopo_br_mercator(mp_tmpdir):
+def cleantopo_br_mercator(mp_tmpdir, testdata_dir):
     """Fixture for cleantopo_br_mercator.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "cleantopo_br_mercator.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "cleantopo_br_mercator.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def cleantopo_read_lower_zoom(mp_tmpdir):
+def cleantopo_read_lower_zoom(mp_tmpdir, testdata_dir):
     """Fixture for cleantopo_read_lower_zoom.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "cleantopo_read_lower_zoom.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "cleantopo_read_lower_zoom.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def geojson(mp_tmpdir):
+def geojson(mp_tmpdir, testdata_dir):
     """Fixture for geojson.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "geojson.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "geojson.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def geojson_s3(mp_s3_tmpdir):
+def geojson_s3(mp_s3_tmpdir, testdata_dir):
     """Fixture for geojson.mapchete with updated output path."""
     with ProcessFixture(
-        TESTDATA_DIR / "geojson.mapchete",
+        testdata_dir / "geojson.mapchete",
         output_tempdir=mp_s3_tmpdir,
     ) as example:
         yield example
 
 
 @pytest.fixture
-def flatgeobuf(mp_tmpdir):
+def flatgeobuf(mp_tmpdir, testdata_dir):
     """Fixture for flatgeobuf.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "flatgeobuf.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "flatgeobuf.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def flatgeobuf_s3(mp_s3_tmpdir):
+def flatgeobuf_s3(mp_s3_tmpdir, testdata_dir):
     """Fixture for flatgeobuf.mapchete with updated output path."""
     with ProcessFixture(
-        TESTDATA_DIR / "flatgeobuf.mapchete",
+        testdata_dir / "flatgeobuf.mapchete",
         output_tempdir=mp_s3_tmpdir,
     ) as example:
         yield example
 
 
 @pytest.fixture
-def geojson_tiledir(mp_tmpdir):
+def geojson_tiledir(mp_tmpdir, testdata_dir):
     """Fixture for geojson_tiledir.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "geojson_tiledir.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "geojson_tiledir.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def process_module(mp_tmpdir):
+def process_module(mp_tmpdir, testdata_dir):
     """Fixture for process_module.mapchete"""
     with ProcessFixture(
-        TESTDATA_DIR / "process_module.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "process_module.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def gtiff_s3(mp_s3_tmpdir):
+def gtiff_s3(mp_s3_tmpdir, testdata_dir):
     """Fixture for gtiff_s3.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "gtiff_s3.mapchete",
+        testdata_dir / "gtiff_s3.mapchete",
         output_tempdir=mp_s3_tmpdir,
     ) as example:
         yield example
 
 
 @pytest.fixture
-def output_single_gtiff(mp_tmpdir):
+def output_single_gtiff(mp_tmpdir, testdata_dir):
     """Fixture for output_single_gtiff.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "output_single_gtiff.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "output_single_gtiff.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture(scope="function")
-def output_s3_single_gtiff_error(mp_s3_tmpdir):
+def output_s3_single_gtiff_error(mp_s3_tmpdir, testdata_dir):
     """Fixture for output_s3_single_gtiff_error.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "output_s3_single_gtiff_error.mapchete",
+        testdata_dir / "output_s3_single_gtiff_error.mapchete",
         output_tempdir=mp_s3_tmpdir,
         output_suffix=".tif",
     ) as example:
@@ -934,10 +962,10 @@ def output_s3_single_gtiff_error(mp_s3_tmpdir):
 
 
 @pytest.fixture
-def output_single_gtiff_s3(mp_s3_tmpdir):
+def output_single_gtiff_s3(mp_s3_tmpdir, testdata_dir):
     """Fixture for output_single_gtiff.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "output_single_gtiff.mapchete",
+        testdata_dir / "output_single_gtiff.mapchete",
         output_tempdir=mp_s3_tmpdir,
         output_suffix=".tif",
     ) as example:
@@ -945,19 +973,19 @@ def output_single_gtiff_s3(mp_s3_tmpdir):
 
 
 @pytest.fixture
-def output_single_gtiff_cog(mp_tmpdir):
+def output_single_gtiff_cog(mp_tmpdir, testdata_dir):
     """Fixture for output_single_gtiff_cog.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "output_single_gtiff_cog.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "output_single_gtiff_cog.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def output_single_gtiff_cog_s3(mp_s3_tmpdir):
+def output_single_gtiff_cog_s3(mp_s3_tmpdir, testdata_dir):
     """Fixture for output_single_gtiff_cog.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "output_single_gtiff_cog.mapchete",
+        testdata_dir / "output_single_gtiff_cog.mapchete",
         output_tempdir=mp_s3_tmpdir,
         output_suffix=".tif",
     ) as example:
@@ -965,19 +993,19 @@ def output_single_gtiff_cog_s3(mp_s3_tmpdir):
 
 
 @pytest.fixture
-def aoi_br(mp_tmpdir):
+def aoi_br(mp_tmpdir, testdata_dir):
     """Fixture for aoi_br.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "aoi_br.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "aoi_br.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def preprocess_cache_raster_vector(mp_tmpdir):
+def preprocess_cache_raster_vector(mp_tmpdir, testdata_dir):
     """Fixture for preprocess_cache_raster_vector.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "preprocess_cache_raster_vector.mapchete",
+        testdata_dir / "preprocess_cache_raster_vector.mapchete",
         output_tempdir=mp_tmpdir,
         inp_cache_tempdir=mp_tmpdir,
     ) as example:
@@ -985,80 +1013,80 @@ def preprocess_cache_raster_vector(mp_tmpdir):
 
 
 @pytest.fixture
-def preprocess_cache_memory(mp_tmpdir):
+def preprocess_cache_memory(mp_tmpdir, testdata_dir):
     """Fixture for preprocess_cache_memory.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "preprocess_cache_memory.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "preprocess_cache_memory.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def preprocess_cache_memory_single_file(mp_tmpdir):
+def preprocess_cache_memory_single_file(mp_tmpdir, testdata_dir):
     """Fixture for preprocess_cache_memory_single_file.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "preprocess_cache_memory_single_file.mapchete",
+        testdata_dir / "preprocess_cache_memory_single_file.mapchete",
         output_tempdir=mp_tmpdir,
     ) as example:
         yield example
 
 
 @pytest.fixture
-def custom_grid_points(mp_tmpdir):
+def custom_grid_points(mp_tmpdir, testdata_dir):
     """Fixture for custom_grid_points.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "custom_grid_points.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "custom_grid_points.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def stac_metadata(mp_tmpdir):
+def stac_metadata(mp_tmpdir, testdata_dir):
     """Fixture for stac_metadata.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "stac_metadata.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "stac_metadata.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def red_raster(mp_tmpdir):
+def red_raster(mp_tmpdir, testdata_dir):
     """Fixture for red_raster.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "red_raster.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "red_raster.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def green_raster(mp_tmpdir):
+def green_raster(mp_tmpdir, testdata_dir):
     """Fixture for green_raster.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "green_raster.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "green_raster.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def dask_specs(mp_tmpdir):
+def dask_specs(mp_tmpdir, testdata_dir):
     """Fixture for dask_specs.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "dask_specs.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "dask_specs.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def tile_path_schema(mp_tmpdir):
+def tile_path_schema(mp_tmpdir, testdata_dir):
     """Fixture for tile_path_schema.mapchete."""
     with ProcessFixture(
-        TESTDATA_DIR / "tile_path_schema.mapchete", output_tempdir=mp_tmpdir
+        testdata_dir / "tile_path_schema.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def s3_example_tile(gtiff_s3):
+def s3_example_tile():
     """Example tile for fixture."""
     return (5, 15, 32)
 
@@ -1092,45 +1120,45 @@ def threads_executor():
 
 
 @pytest.fixture
-def example_clip(mp_tmpdir):
+def example_clip(mp_tmpdir, examples_dir):
     """Fixture for examples/clip/clip.mapchete."""
     with ProcessFixture(
-        EXAMPLES_DIR / "clip/clip.mapchete", output_tempdir=mp_tmpdir
+        examples_dir / "clip/clip.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def example_contours(mp_tmpdir):
+def example_contours(mp_tmpdir, examples_dir):
     """Fixture for examples/contours/contours.mapchete."""
     with ProcessFixture(
-        EXAMPLES_DIR / "contours/contours.mapchete", output_tempdir=mp_tmpdir
+        examples_dir / "contours/contours.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def example_custom_grid(mp_tmpdir):
+def example_custom_grid(mp_tmpdir, examples_dir):
     """Fixture for examples/custom_grid/custom_grid.mapchete."""
     with ProcessFixture(
-        EXAMPLES_DIR / "custom_grid/custom_grid.mapchete", output_tempdir=mp_tmpdir
+        examples_dir / "custom_grid/custom_grid.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def example_file_groups(mp_tmpdir):
+def example_file_groups(mp_tmpdir, examples_dir):
     """Fixture for examples/file_groups/file_groups.mapchete."""
     with ProcessFixture(
-        EXAMPLES_DIR / "file_groups/file_groups.mapchete", output_tempdir=mp_tmpdir
+        examples_dir / "file_groups/file_groups.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
 
 
 @pytest.fixture
-def example_hillshade(mp_tmpdir):
+def example_hillshade(mp_tmpdir, examples_dir):
     """Fixture for examples/hillshade/hillshade.mapchete."""
     with ProcessFixture(
-        EXAMPLES_DIR / "hillshade/hillshade.mapchete", output_tempdir=mp_tmpdir
+        examples_dir / "hillshade/hillshade.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example

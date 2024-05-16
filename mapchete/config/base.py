@@ -44,7 +44,7 @@ from mapchete.validate import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = [validate_bounds, validate_zooms, validate_values]
+__all__ = ["validate_bounds", "validate_zooms", "validate_values"]
 
 # TODO remove these
 # parameters for output configuration

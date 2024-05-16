@@ -46,19 +46,23 @@ def parse_config(
                 raise MapcheteConfigError("config_dir parameter missing")
             return OrderedDict(_include_env(input_config), mapchete_file=None)
         # from Mapchete file
-        elif input_config.suffix == ".mapchete":
-            config_dict = _include_env(input_config.read_yaml())
+        elif (
+            isinstance(input_config, (str, MPath))
+            and MPath(input_config).suffix == ".mapchete"
+        ):
+            path = MPath(input_config)
+            config_dict = _include_env(path.read_yaml())
             return OrderedDict(
                 config_dict,
                 config_dir=config_dict.get(
-                    "config_dir", input_config.absolute_path().dirname or os.getcwd()
+                    "config_dir", path.absolute_path().dirname or os.getcwd()
                 ),
-                mapchete_file=input_config,
+                mapchete_file=path,
             )
         # throw error if unknown object
-        else:  # pragma: no cover
-            raise MapcheteConfigError(
-                "Configuration has to be a dictionary or a .mapchete file."
+        else:
+            raise TypeError(
+                f"Configuration has to be a dictionary or a .mapchete file: {input_config}"
             )
 
     if strict:  # pragma: no cover
