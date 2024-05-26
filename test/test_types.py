@@ -8,10 +8,10 @@ from mapchete.types import Bounds, ZoomLevels
 
 def test_bounds_cls():
     bounds = Bounds(1, 2, 3, 4)
-    assert bounds.left == 1
-    assert bounds.bottom == 2
-    assert bounds.right == 3
-    assert bounds.top == 4
+    assert bounds.left == 1.0
+    assert bounds.bottom == 2.0
+    assert bounds.right == 3.0
+    assert bounds.top == 4.0
 
 
 @pytest.mark.parametrize(
@@ -25,42 +25,42 @@ def test_bounds_cls():
 )
 def test_bounds_from_inp(args):
     bounds = Bounds.from_inp(args)
-    assert bounds.left == 1
-    assert bounds.bottom == 2
-    assert bounds.right == 3
-    assert bounds.top == 4
+    assert bounds.left == 1.0
+    assert bounds.bottom == 2.0
+    assert bounds.right == 3.0
+    assert bounds.top == 4.0
 
 
 def test_bounds_subscriptable():
     bounds = Bounds(1, 2, 3, 4)
-    assert bounds[0] == 1
-    assert bounds[1] == 2
-    assert bounds[2] == 3
-    assert bounds[3] == 4
-    assert bounds["left"] == 1
-    assert bounds["bottom"] == 2
-    assert bounds["right"] == 3
-    assert bounds["top"] == 4
+    assert bounds[0] == 1.0
+    assert bounds[1] == 2.0
+    assert bounds[2] == 3.0
+    assert bounds[3] == 4.0
+    assert bounds["left"] == 1.0
+    assert bounds["bottom"] == 2.0
+    assert bounds["right"] == 3.0
+    assert bounds["top"] == 4.0
 
 
 def test_bounds_list():
     bounds = Bounds(1, 2, 3, 4)
-    assert list(bounds) == [1, 2, 3, 4]
+    assert list(bounds) == [1.0, 2.0, 3.0, 4.0]
 
 
 def test_bounds_tuple():
     bounds = Bounds(1, 2, 3, 4)
-    assert tuple(bounds) == (1, 2, 3, 4)
+    assert tuple(bounds) == (1.0, 2.0, 3.0, 4.0)
 
 
 def test_bounds_dict():
     bounds = Bounds(1, 2, 3, 4)
-    assert bounds.to_dict() == {"left": 1, "bottom": 2, "right": 3, "top": 4}
+    assert bounds.to_dict() == {"left": 1.0, "bottom": 2.0, "right": 3.0, "top": 4.0}
 
 
 def test_bounds_json_serializable():
     bounds = Bounds(1, 2, 3, 4)
-    assert json.dumps(bounds) == "[1, 2, 3, 4]"
+    assert json.dumps(bounds) == "[1.0, 2.0, 3.0, 4.0]"
 
 
 def test_bounds_geo_interface():

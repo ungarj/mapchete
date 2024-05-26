@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from affine import Affine
 from fiona.crs import CRS as FionaCRS
@@ -33,27 +33,22 @@ class Bounds(list):
     Class to handle geographic bounds.
     """
 
-    left: float = None
-    bottom: float = None
-    right: float = None
-    top: float = None
-    height: float = None
-    width: float = None
+    left: float
+    bottom: float
+    right: float
+    top: float
+    height: float
+    width: float
 
     def __init__(
         self,
-        left: Union[Iterable[float], float],
+        left: Union[List[float], Tuple[float, float, float, float], float],
         bottom: Optional[float],
         right: Optional[float],
         top: Optional[float],
         strict: bool = True,
     ):
         self._set_attributes(left, bottom, right, top)
-        for value in self:
-            if not isinstance(value, (int, float)):
-                raise TypeError(
-                    f"all bounds values must be integers or floats: {list(self)}"
-                )
         if strict:
             if self.left >= self.right:
                 raise ValueError("right must be larger than left")
@@ -118,16 +113,39 @@ class Bounds(list):
 
     def _set_attributes(
         self,
-        left: Union[Iterable[float], float],
+        left: Union[List[float], Tuple[float, float, float, float], float],
         bottom: Optional[float],
         right: Optional[float],
         top: Optional[float],
     ) -> None:
         """This method is important when Bounds instances are passed on to the ProcessConfig schema."""
-        if hasattr(left, "__iter__"):  # pragma: no cover
-            self.left, self.bottom, self.right, self.top = [i for i in left]
-        else:
-            self.left, self.bottom, self.right, self.top = left, bottom, right, top
+
+        def _extract_coords(
+            left: Union[List[float], Tuple[float, float, float, float], float],
+            bottom: Optional[float],
+            right: Optional[float],
+            top: Optional[float],
+        ) -> Tuple[float, float, float, float]:
+            if isinstance(left, (list, tuple)):
+                if len(left) != 4:
+                    raise ValueError(
+                        f"excactly 4 values required, but {len(left)} given: {left}"
+                    )
+                return _extract_coords(*left)
+            elif isinstance(left, (float, int)):
+                if (
+                    isinstance(bottom, (float, int))
+                    and isinstance(right, (float, int))
+                    and isinstance(top, (float, int))
+                ):
+                    return (float(left), float(bottom), float(right), float(top))
+            raise TypeError(
+                f"all coordinates must be floats: {(left, bottom, right, top)}"
+            )
+
+        self.left, self.bottom, self.right, self.top = _extract_coords(
+            left, bottom, right, top
+        )
 
     @property
     def geometry(self) -> BaseGeometry:
@@ -184,8 +202,8 @@ class Bounds(list):
 
 
 class ZoomLevels(list):
-    min: int = None
-    max: int = None
+    min: int
+    max: int
 
     def __init__(
         self,
