@@ -35,6 +35,7 @@ dependencies = [
     "numpy>=1.16",
     "oyaml",
     "pydantic>=2.3.0",
+    "pydantic-geojson",
     "pydantic_settings>=2.0.0",
     "pyproj",
     "python-dateutil",

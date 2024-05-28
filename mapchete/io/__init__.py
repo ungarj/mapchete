@@ -37,7 +37,6 @@ __all__ = [
     "absolute_path",
     "relative_path",
     "makedirs",
-    "Path",
     "write_json",
     "read_json",
     "get_boto3_bucket",

@@ -9,7 +9,16 @@ import pytest
 from aiohttp.client_exceptions import ClientConnectorError
 from minio import Minio
 from shapely import wkt
-from shapely.geometry import box
+from shapely.geometry import (
+    GeometryCollection,
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+    box,
+)
 from tilematrix import Bounds, GridDefinition
 
 from mapchete.cli.default.serve import create_app
@@ -496,12 +505,12 @@ def sample_geojson():
     return TESTDATA_DIR / "sample.geojson"
 
 
-@pytest.fixture
-def geometrycollection():
-    """Fixture for geometrycollection.geojson"""
-    return wkt.loads(
-        "GEOMETRYCOLLECTION (LINESTRING (-100.9423828125 78.75, -100.8984375 78.75), LINESTRING (-100.2392578125 78.75, -99.9755859375 78.75), POLYGON ((-101.25 78.9697265625, -101.25 79.013671875, -101.2060546875 79.013671875, -101.2060546875 78.9697265625, -100.986328125 78.9697265625, -100.986328125 78.92578125, -101.0302734375 78.92578125, -101.0302734375 78.8818359375, -101.07421875 78.8818359375, -101.1181640625 78.8818359375, -101.1181640625 78.837890625, -101.162109375 78.837890625, -101.2060546875 78.837890625, -101.2060546875 78.7939453125, -100.9423828125 78.7939453125, -100.9423828125 78.75, -101.25 78.75, -101.25 78.9697265625)), POLYGON ((-100.8984375 78.75, -100.8984375 78.7939453125, -100.5908203125 78.7939453125, -100.546875 78.7939453125, -100.546875 78.837890625, -100.3271484375 78.837890625, -100.3271484375 78.7939453125, -100.2392578125 78.7939453125, -100.2392578125 78.75, -100.8984375 78.75)))"
-    )
+# @pytest.fixture
+# def geometrycollection():
+#     """Fixture for geometrycollection.geojson"""
+#     return wkt.loads(
+#         "GEOMETRYCOLLECTION (LINESTRING (-100.9423828125 78.75, -100.8984375 78.75), LINESTRING (-100.2392578125 78.75, -99.9755859375 78.75), POLYGON ((-101.25 78.9697265625, -101.25 79.013671875, -101.2060546875 79.013671875, -101.2060546875 78.9697265625, -100.986328125 78.9697265625, -100.986328125 78.92578125, -101.0302734375 78.92578125, -101.0302734375 78.8818359375, -101.07421875 78.8818359375, -101.1181640625 78.8818359375, -101.1181640625 78.837890625, -101.162109375 78.837890625, -101.2060546875 78.837890625, -101.2060546875 78.7939453125, -100.9423828125 78.7939453125, -100.9423828125 78.75, -101.25 78.75, -101.25 78.9697265625)), POLYGON ((-100.8984375 78.75, -100.8984375 78.7939453125, -100.5908203125 78.7939453125, -100.546875 78.7939453125, -100.546875 78.837890625, -100.3271484375 78.837890625, -100.3271484375 78.7939453125, -100.2392578125 78.7939453125, -100.2392578125 78.75, -100.8984375 78.75)))"
+#     )
 
 
 @pytest.fixture
@@ -1134,3 +1143,49 @@ def example_hillshade(mp_tmpdir):
         EXAMPLES_DIR / "hillshade/hillshade.mapchete", output_tempdir=mp_tmpdir
     ) as example:
         yield example
+
+
+@pytest.fixture
+def point() -> Point:
+    return Point(0, 0)
+
+
+@pytest.fixture
+def multipoint() -> MultiPoint:
+    return MultiPoint([Point(0, 0), Point(1, 1)])
+
+
+@pytest.fixture
+def linestring() -> LineString:
+    return LineString([Point(0, 0), Point(1, 1)])
+
+
+@pytest.fixture
+def multilinestring() -> LineString:
+    return MultiLineString(
+        [LineString([Point(0, 0), Point(1, 1)]), LineString([Point(2, 2), Point(3, 3)])]
+    )
+
+
+@pytest.fixture
+def polygon() -> Polygon:
+    return Polygon([(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)])
+
+
+@pytest.fixture
+def multipolygon() -> MultiPolygon:
+    return MultiPolygon(
+        [
+            Polygon([(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]),
+            Polygon([(2, 2), (3, 2), (3, 3), (2, 3), (2, 2)]),
+        ]
+    )
+
+
+@pytest.fixture
+def geometrycollection(
+    point, multipoint, linestring, multilinestring, polygon, multipolygon
+) -> GeometryCollection:
+    return GeometryCollection(
+        [point, multipoint, linestring, multilinestring, polygon, multipolygon]
+    )

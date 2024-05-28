@@ -17,15 +17,16 @@ from shapely.geometry import base, box, mapping, shape
 from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError
-from mapchete.io import copy
-from mapchete.io._geometry_operations import (
-    _repair,
+from mapchete.geometry import (
     clean_geometry_type,
     multipart_to_singleparts,
+    repair,
     reproject_geometry,
     segmentize_geometry,
     to_shape,
 )
+from mapchete.geometry.types import get_geometry_type
+from mapchete.io import copy
 from mapchete.path import MPath, fs_from_path
 from mapchete.settings import IORetrySettings
 from mapchete.types import Bounds
@@ -241,7 +242,7 @@ def write_vector_window(
             # clip feature geometry to tile bounding box and append for writing
             clipped = clean_geometry_type(
                 to_shape(feature["geometry"]).intersection(out_tile.bbox),
-                out_schema["geometry"],
+                get_geometry_type(out_schema["geometry"]),
             )
             if allow_multipart_geometries:
                 cleaned_output_fetures = [clipped]
@@ -310,7 +311,7 @@ def _get_reprojected_features(
         for feature in src.filter(bbox=dst_bbox.bounds):
             try:
                 # check validity
-                original_geom = _repair(to_shape(feature["geometry"]))
+                original_geom = repair(to_shape(feature["geometry"]))
 
                 # clip with bounds and omit if clipped geometry is empty
                 clipped_geom = original_geom.intersection(dst_bbox)

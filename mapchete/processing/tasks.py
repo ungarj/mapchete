@@ -28,8 +28,8 @@ from mapchete.errors import (
     NoTaskGeometry,
 )
 from mapchete.executor.base import Profiler
+from mapchete.geometry import to_shape
 from mapchete.io import raster
-from mapchete.io._geometry_operations import to_shape
 from mapchete.io.vector import IndexedFeatures
 from mapchete.path import MPath
 from mapchete.processing.mp import MapcheteProcess

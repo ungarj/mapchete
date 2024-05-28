@@ -1,0 +1,142 @@
+from typing import Generator, Union
+
+from mapchete.errors import GeometryTypeError
+from mapchete.geometry.types import (
+    Geometry,
+    GeometryCollection,
+    MultipartGeometry,
+    SinglepartGeometry,
+    get_geometry_type,
+    get_multipart_type,
+)
+
+
+def multipart_to_singleparts(
+    geometry: Geometry,
+) -> Generator[SinglepartGeometry, None, None]:
+    """
+    Yield single part geometries if geom is multipart, otherwise yield geom.
+
+    Parameters
+    ----------
+    geom : shapely geometry
+
+    Returns
+    -------
+    shapely single part geometries
+    """
+    if isinstance(geometry, GeometryCollection):
+        for subgeom in geometry.geoms:
+            yield from multipart_to_singleparts(subgeom)
+    if isinstance(geometry, MultipartGeometry):
+        for subgeom in geometry.geoms:
+            yield subgeom
+    elif isinstance(geometry, SinglepartGeometry):
+        yield geometry
+    else:
+        raise GeometryTypeError(f"invalid geometry type: {repr(geometry)}")
+
+
+def is_type(
+    geometry: Geometry,
+    target_type: Union[str, Geometry],
+    allow_multipart: bool = True,
+) -> bool:
+    target_type = get_geometry_type(target_type)
+    if isinstance(geometry, target_type):
+        return True
+    elif isinstance(geometry, GeometryCollection):
+        return False
+
+    if allow_multipart:
+        return isinstance(geometry, get_multipart_type(target_type))
+    return False
+
+
+def yield_geometry_type(
+    geometry: Geometry,
+    target_type: Union[str, Geometry],
+    allow_multipart: bool = True,
+):
+    """Yields geometries only if they match the target type.
+
+    When the input geometry is a multipart geometry
+    If allow_multipart is set to False, multipart geometries are broken down into their
+    subgeometries. If set to True, a MultiPoint will be yielded if the
+    """
+    target_type = get_geometry_type(target_type)
+    if is_type(geometry, target_type=target_type, allow_multipart=allow_multipart):
+        yield geometry
+
+    elif isinstance(geometry, GeometryCollection):
+        for subgeometry in multipart_to_singleparts(geometry):
+            yield from yield_geometry_type(
+                subgeometry, target_type=target_type, allow_multipart=allow_multipart
+            )
+
+    elif isinstance(geometry, MultipartGeometry):
+        for subgeometry in multipart_to_singleparts(geometry):
+            yield from yield_geometry_type(
+                subgeometry, target_type=target_type, allow_multipart=allow_multipart
+            )
+
+
+def clean_geometry_type(
+    geometry: Geometry,
+    target_type: Union[str, Geometry],
+    allow_multipart: bool = True,
+    raise_exception: bool = True,
+) -> Geometry:
+    """
+    Return geometry of a specific type if possible.
+
+    Filters and splits up GeometryCollection into target types. This is
+    necessary when after clipping and/or reprojecting the geometry types from
+    source geometries change (i.e. a Polygon becomes a LineString or a
+    LineString becomes Point) in some edge cases.
+
+    Parameters
+    ----------
+    geometry : ``shapely.geometry``
+    target_type : string
+        target geometry type
+    allow_multipart : bool
+        allow multipart geometries (default: True)
+
+    Returns
+    -------
+    cleaned geometry : ``shapely.geometry``
+        returns None if input geometry type differs from target type
+
+    Raises
+    ------
+    GeometryTypeError : if geometry type does not match target_type
+    """
+    target_type = get_geometry_type(target_type)
+    if isinstance(geometry, target_type):
+        return geometry
+
+    elif allow_multipart:
+        multipart_type = get_multipart_type(target_type)
+        if isinstance(geometry, GeometryCollection):
+            return multipart_type(
+                [
+                    clean_geometry_type(
+                        subgeometry,
+                        target_type,
+                        allow_multipart,
+                        raise_exception=raise_exception,
+                    )
+                    for subgeometry in geometry.geoms
+                ]
+            )
+        elif isinstance(geometry, multipart_type):
+            return geometry
+
+    if raise_exception:
+        raise GeometryTypeError(
+            "geometry type does not match: %s, %s" % (geometry.geom_type, target_type)
+        )
+
+    else:
+        return GeometryCollection()

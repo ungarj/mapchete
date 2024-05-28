@@ -4,19 +4,40 @@ import os
 from typing import Iterable, List, Optional, Tuple, Union
 
 from affine import Affine
-from fiona.crs import CRS as FionaCRS
+from fiona.crs import CRS as FionaCRS  # type: ignore
 from pydantic import BaseModel
 from rasterio.crs import CRS as RasterioCRS
 from rasterio.enums import Resampling
 from rasterio.transform import array_bounds, from_bounds
-from shapely.geometry import shape
-from shapely.geometry.base import BaseGeometry
+from shapely.geometry import (
+    GeometryCollection,
+    LinearRing,
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+    shape,
+)
+from shapely.ops import unary_union
 from tilematrix import Shape
 
 from mapchete.tile import BufferedTile
 
+Geometry = Union[
+    Point,
+    MultiPoint,
+    LineString,
+    MultiLineString,
+    LinearRing,
+    Polygon,
+    MultiPolygon,
+    GeometryCollection,
+]
+
 MPathLike = Union[str, os.PathLike]
-BoundsLike = Union[List[float], Tuple[float], dict, BaseGeometry]
+BoundsLike = Union[List[float], Tuple[float, float, float, float], dict, Geometry]
 ShapeLike = Union[Shape, List[int], Tuple[int, int]]
 ZoomLevelsLike = Union[List[int], int, dict]
 TileLike = Union[BufferedTile, Tuple[int, int, int]]
@@ -33,12 +54,13 @@ class Bounds(list):
     Class to handle geographic bounds.
     """
 
-    left: float = None
-    bottom: float = None
-    right: float = None
-    top: float = None
-    height: float = None
-    width: float = None
+    left: float
+    bottom: float
+    right: float
+    top: float
+    height: float
+    width: float
+    crs: Optional[CRSLike] = None
 
     def __init__(
         self,
@@ -47,6 +69,7 @@ class Bounds(list):
         right: Optional[float],
         top: Optional[float],
         strict: bool = True,
+        crs: Optional[CRSLike] = None,
     ):
         self._set_attributes(left, bottom, right, top)
         for value in self:
@@ -61,6 +84,7 @@ class Bounds(list):
                 raise ValueError("top must be larger than bottom")
         self.height = self.top - self.bottom
         self.width = self.right - self.left
+        self.crs = crs
 
     def __iter__(self):
         yield self.left
@@ -130,8 +154,35 @@ class Bounds(list):
             self.left, self.bottom, self.right, self.top = left, bottom, right, top
 
     @property
-    def geometry(self) -> BaseGeometry:
+    def geometry(self) -> Geometry:
         return shape(self)
+
+    def latlon_geometry(
+        self, crs: Optional[CRSLike] = None, width_threshold: float = 180.0
+    ) -> Geometry:
+        """
+        Will create a MultiPolygon if bounds overlap with Antimeridian.
+        """
+        from mapchete.geometry.latlon import transform_to_latlon
+
+        crs = crs or self.crs
+        if crs is None:
+            raise ValueError(
+                "crs or Bounds.crs must be set in order to generate latlon_geometry."
+            )
+        bounds = Bounds.from_inp(
+            transform_to_latlon(shape(self), self.crs, width_threshold=width_threshold)
+        )
+        if bounds.left < -180:
+            part1 = Bounds(-180, bounds.bottom, bounds.right, bounds.top)
+            part2 = Bounds(bounds.left + 360, bounds.bottom, 180, bounds.top)
+            return unary_union([shape(part1), shape(part2)])
+        elif bounds.right > 180:
+            part1 = Bounds(-180, bounds.bottom, bounds.right - 360, bounds.top)
+            part2 = Bounds(bounds.left, bounds.bottom, 180, bounds.top)
+            return unary_union([shape(part1), shape(part2)])
+        else:
+            return shape(bounds)
 
     @classmethod
     def from_inp(cls, inp: BoundsLike, strict: bool = True) -> Bounds:
@@ -141,7 +192,7 @@ class Bounds(list):
             return Bounds(*inp, strict=strict)
         elif isinstance(inp, dict):
             return Bounds.from_dict(inp, strict=strict)
-        elif isinstance(inp, BaseGeometry):
+        elif isinstance(inp, Geometry):
             return Bounds(*inp.bounds, strict=strict)
         else:
             raise TypeError(f"cannot create Bounds using {inp}")

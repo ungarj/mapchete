@@ -9,7 +9,7 @@ from rasterio.crs import CRS
 
 from mapchete.protocols import GridProtocol
 from mapchete.tile import BufferedTile, BufferedTilePyramid
-from mapchete.types import Bounds, ZoomLevels
+from mapchete.types import Bounds, CRSLike, ZoomLevels
 
 ########################
 # validator functionrs #
@@ -151,7 +151,7 @@ def validate_bufferedtilepyramid(pyramid):
         raise TypeError("pyramid must be BufferedTilePyramid")
 
 
-def validate_crs(crs):
+def validate_crs(crs: CRSLike) -> CRS:
     """
     Return crs as rasterio.crs.CRS.
 
