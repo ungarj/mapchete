@@ -1,9 +1,4 @@
-from mapchete.geometry.filter import (
-    clean_geometry_type,
-    is_type,
-    multipart_to_singleparts,
-    yield_geometry_type,
-)
+from mapchete.geometry.filter import filter, is_type, multipart_to_singleparts
 from mapchete.geometry.footprints import (
     buffer_antimeridian_safe,
     repair_antimeridian_geometry,
@@ -23,8 +18,7 @@ from mapchete.geometry.types import get_geometry_type, get_multipart_type
 __all__ = [
     "multipart_to_singleparts",
     "is_type",
-    "clean_geometry_type",
-    "yield_geometry_type",
+    "filter",
     "repair_antimeridian_geometry",
     "buffer_antimeridian_safe",
     "longitudinal_shift",

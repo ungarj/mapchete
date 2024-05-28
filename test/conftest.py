@@ -1147,7 +1147,7 @@ def example_hillshade(mp_tmpdir):
 
 @pytest.fixture
 def point() -> Point:
-    return Point(0, 0)
+    return Point(1, 0)
 
 
 @pytest.fixture
@@ -1189,3 +1189,18 @@ def geometrycollection(
     return GeometryCollection(
         [point, multipoint, linestring, multilinestring, polygon, multipolygon]
     )
+
+
+@pytest.fixture
+def antimeridian_polygon1() -> Polygon:
+    return box(-175, 0, 175, 5)
+
+
+@pytest.fixture
+def antimeridian_polygon2() -> Polygon:
+    return box(175, 0, 185, 5)
+
+
+@pytest.fixture
+def antimeridian_polygon3(antimeridian_polygon2) -> MultiPolygon:
+    return MultiPolygon([antimeridian_polygon2, box(170, 0, 171, 5)])

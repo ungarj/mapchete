@@ -4,7 +4,7 @@ from functools import partial
 from fiona.transform import transform as fiona_transform
 from rasterio.crs import CRS
 
-from mapchete.geometry.transform import _coords_transform, custom_transform
+from mapchete.geometry.transform import custom_transform
 from mapchete.geometry.types import CoordArrays, Geometry
 from mapchete.types import CRSLike
 
@@ -66,6 +66,11 @@ def transform_to_latlon(
     this geometry into a multipart geometry where all of its subgeometries are within the
     lat/lon bounds again.
     """
+
+    def _coords_transform(
+        coords: CoordArrays, src_crs: CRSLike, dst_crs: CRSLike
+    ) -> CoordArrays:
+        return fiona_transform(src_crs, dst_crs, *coords)
 
     def transform_shift_coords(coords: CoordArrays) -> CoordArrays:
         out_x_coords, out_y_coords = fiona_transform(src_crs, LATLON_CRS, *coords)

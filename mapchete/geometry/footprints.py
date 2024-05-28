@@ -85,7 +85,6 @@ def buffer_antimeridian_safe(footprint: Geometry, buffer_m: float = 0) -> Geomet
             subpolygons.append(polygon)
         # (2) merge to single polygon
         merged = unary_union(subpolygons)
-
         # (3) apply buffer
         if isinstance(merged, MultiPolygon):
             buffered = unary_union(

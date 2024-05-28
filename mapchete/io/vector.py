@@ -18,13 +18,13 @@ from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError
 from mapchete.geometry import (
-    clean_geometry_type,
     multipart_to_singleparts,
     repair,
     reproject_geometry,
     segmentize_geometry,
     to_shape,
 )
+from mapchete.geometry.filter import filter
 from mapchete.geometry.types import get_geometry_type
 from mapchete.io import copy
 from mapchete.path import MPath, fs_from_path
@@ -37,7 +37,6 @@ __all__ = [
     "segmentize_geometry",
     "to_shape",
     "multipart_to_singleparts",
-    "clean_geometry_type",
 ]
 
 logger = logging.getLogger(__name__)
@@ -240,15 +239,10 @@ def write_vector_window(
     for feature in in_data:
         try:
             # clip feature geometry to tile bounding box and append for writing
-            clipped = clean_geometry_type(
+            for out_geom in filter(
                 to_shape(feature["geometry"]).intersection(out_tile.bbox),
                 get_geometry_type(out_schema["geometry"]),
-            )
-            if allow_multipart_geometries:
-                cleaned_output_fetures = [clipped]
-            else:
-                cleaned_output_fetures = multipart_to_singleparts(clipped)
-            for out_geom in cleaned_output_fetures:
+            ):
                 if out_geom.is_empty:  # pragma: no cover
                     continue
 

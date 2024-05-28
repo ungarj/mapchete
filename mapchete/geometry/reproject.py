@@ -5,13 +5,14 @@ import fiona
 import pyproj
 from fiona.transform import transform_geom
 from rasterio.crs import CRS
-from shapely.geometry import LinearRing, LineString, Polygon, mapping, shape
+from shapely.geometry import mapping, shape
 
 from mapchete.errors import GeometryTypeError, ReprojectionFailed
 from mapchete.geometry.latlon import LATLON_CRS
 from mapchete.geometry.repair import repair
 from mapchete.geometry.segmentize import get_segmentize_value, segmentize_geometry
 from mapchete.geometry.shape import to_shape
+from mapchete.geometry.transform import custom_transform
 from mapchete.geometry.types import Geometry, GeometryLike
 from mapchete.types import Bounds, CRSLike
 from mapchete.validate import validate_crs
@@ -40,6 +41,10 @@ def get_crs_bounds(crs: CRS) -> Bounds:
             if area_of_use:
                 return Bounds.from_inp(area_of_use.bounds)
     raise ValueError(f"bounds of CRS {crs} could not be determined")
+
+
+def crs_is_epsg_4326(crs: CRS) -> bool:
+    return crs.is_epsg_code and crs.get("init") == "epsg:4326"
 
 
 def reproject_geometry(
@@ -95,13 +100,8 @@ def reproject_geometry(
         return repair(geometry)
 
     crs_bounds = None
-    # geometry needs to be clipped to its CRS bounds
-    if (
-        clip_to_crs_bounds
-        and dst_crs.is_epsg_code
-        and dst_crs.get("init")
-        != "epsg:4326"  # and is not WGS84 (does not need clipping)
-    ):
+    # geometry needs to be clipped to its CRS bounds except when projecting to EPSG:4326
+    if clip_to_crs_bounds and not crs_is_epsg_4326(dst_crs):
         try:
             crs_bounds = get_crs_bounds(dst_crs)
         except ValueError:

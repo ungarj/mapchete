@@ -2,10 +2,11 @@ import pytest
 from fiona.crs import CRS  # type: ignore
 from pytest_lazyfixture import lazy_fixture
 from shapely import wkt
-from shapely.geometry import Point, Polygon, box, shape
+from shapely.geometry import Point, Polygon, box
 
+from mapchete.errors import ReprojectionFailed
 from mapchete.geometry import reproject_geometry
-from mapchete.io import fiona_open
+from mapchete.geometry.reproject import get_crs_bounds
 from mapchete.tile import BufferedTilePyramid
 
 
@@ -22,6 +23,10 @@ from mapchete.tile import BufferedTilePyramid
         CRS.from_epsg(3035),
         # WGS84
         CRS.from_epsg(4326),
+        # some custom polar
+        CRS.from_string(
+            "+proj=ortho +lat_0=90 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -56,6 +61,22 @@ def test_reproject_geometry(
         antimeridian_cutting=antimeridian_cutting,
     )
     assert out_geom.is_valid
+
+
+@pytest.mark.parametrize("enable_partial_reprojection", [True, False])
+def test_reproject_from_crs_wkt(enable_partial_reprojection):
+    geom = wkt.loads(
+        "POLYGON ((6453888 -6453888, 6453888 6453888, -6453888 6453888, -6453888 -6453888, 6453888 -6453888))"
+    )
+    src_crs = 'PROJCS["unknown",GEOGCS["unknown",DATUM["Unknown based on WGS84 ellipsoid",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]]],PROJECTION["Orthographic"],PARAMETER["latitude_of_origin",-90],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]]'
+    dst_crs = "EPSG:4326"
+    with pytest.raises(ReprojectionFailed):
+        reproject_geometry(
+            geom,
+            src_crs,
+            dst_crs,
+            fiona_env={"OGR_ENABLE_PARTIAL_REPROJECTION": enable_partial_reprojection},
+        ).is_valid
 
 
 def test_reproject_geometry_latlon2mercator():
@@ -196,3 +217,19 @@ def test_reproject_geometry_over_antimeridian():
         tile_4326, src_crs="EPSG:4326", dst_crs="EPSG:3857"
     )
     assert tile.bbox == tile_4326_3857
+
+
+@pytest.mark.parametrize(
+    "crs", [CRS.from_epsg(4326), CRS.from_epsg(3857), CRS.from_epsg(32633)]
+)
+def test_get_crs_bounds(crs):
+    assert get_crs_bounds(crs)
+
+
+def test_get_crs_bounds_custom():
+    with pytest.raises(ValueError):
+        get_crs_bounds(
+            CRS.from_string(
+                "+proj=ortho +lat_0=90 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
+            )
+        )

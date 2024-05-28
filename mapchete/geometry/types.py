@@ -80,9 +80,12 @@ def get_geometry_type(geometry_type: Union[Type[Geometry], str]) -> Type[Geometr
                 "MultiPoint".lower(): MultiPoint,
                 "MultiLineString".lower(): MultiLineString,
                 "MultiPolygon".lower(): MultiPolygon,
+                "GeometryCollection".lower(): GeometryCollection,
             }[geometry_type.lower()]
         except KeyError:
             raise GeometryTypeError(
                 f"geometry type cannot be determined from {geometry_type}"
             )
-    return geometry_type
+    elif issubclass(geometry_type, Geometry):
+        return geometry_type
+    raise GeometryTypeError(f"geometry type cannot be determined from {geometry_type}")

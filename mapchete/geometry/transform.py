@@ -1,6 +1,5 @@
 from typing import Callable
 
-from fiona.transform import transform as fiona_transform
 from shapely.geometry import (
     GeometryCollection,
     LinearRing,
@@ -24,7 +23,7 @@ def custom_transform(geometry: Geometry, func: Callable) -> Geometry:
         return Point(zip(*func(point.xy)))
 
     def _multipoint(multipoint: MultiPoint) -> MultiPoint:
-        return MultiPoint([_point(point) for point in multipoint])
+        return MultiPoint([_point(point) for point in multipoint.geoms])
 
     def _linestring(linestring: LineString) -> LineString:
         return LineString(zip(*func(linestring.xy)))
@@ -66,7 +65,7 @@ def custom_transform(geometry: Geometry, func: Callable) -> Geometry:
         }
         try:
             return transform_funcs[type(geometry)](geometry)
-        except KeyError:
+        except KeyError:  # pragma: no cover
             raise TypeError(f"unknown geometry {geometry} of type {type(geometry)}")
 
     if geometry.is_empty:
@@ -74,9 +73,3 @@ def custom_transform(geometry: Geometry, func: Callable) -> Geometry:
 
     # make valid by buffering
     return repair(_any_geometry(geometry))
-
-
-def _coords_transform(
-    coords: CoordArrays, src_crs: CRSLike, dst_crs: CRSLike
-) -> CoordArrays:
-    return fiona_transform(src_crs, dst_crs, *coords)
