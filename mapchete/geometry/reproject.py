@@ -88,10 +88,7 @@ def reproject_geometry(
     src_crs = validate_crs(src_crs)
     dst_crs = validate_crs(dst_crs)
     fiona_env = fiona_env or {}
-    try:
-        geometry = to_shape(geometry)
-    except Exception:  # pragma: no cover
-        raise TypeError(f"invalid geometry type: {type(geometry)}")
+    geometry = to_shape(geometry)
 
     # return repaired geometry if no reprojection needed
     if src_crs == dst_crs or geometry.is_empty:
@@ -130,15 +127,14 @@ def reproject_geometry(
 
         # segmentize clipped geometry using one 100th of with or height depending on
         # which is shorter
-        if (
-            segmentize_on_clip
-            or segmentize
-            and isinstance(clipped_latlon, (Polygon, LinearRing, LineString))
-        ):
-            clipped_latlon = segmentize_geometry(
-                clipped_latlon,
-                get_segmentize_value(clipped_latlon, segmentize_fraction),
-            )
+        if segmentize_on_clip or segmentize:
+            try:
+                clipped_latlon = segmentize_geometry(
+                    clipped_latlon,
+                    get_segmentize_value(clipped_latlon, segmentize_fraction),
+                )
+            except GeometryTypeError:
+                pass
 
         # clip geometry dst_crs boundaries and return
         return _reproject_geom(
@@ -214,23 +210,23 @@ def _reproject_geom(
 ) -> Geometry:
     if geometry.is_empty:
         return geometry
-    else:
-        with fiona.Env(**fiona_env):
-            try:
-                transformed = transform_geom(
-                    src_crs.to_dict(),
-                    dst_crs.to_dict(),
-                    mapping(geometry),
-                    antimeridian_cutting=antimeridian_cutting,
-                )
-            except Exception as exc:
-                raise ReprojectionFailed(
-                    f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
-                ) from exc
-        # Fiona >1.9 returns None if transformation errored
-        if transformed is None:  # pragma: no cover
+
+    with fiona.Env(**fiona_env):
+        try:
+            transformed = transform_geom(
+                src_crs.to_dict(),
+                dst_crs.to_dict(),
+                mapping(geometry),
+                antimeridian_cutting=antimeridian_cutting,
+            )
+        except Exception as exc:
             raise ReprojectionFailed(
                 f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
-            )
-        out_geom = to_shape(transformed)
-        return repair(out_geom) if validity_check else out_geom
+            ) from exc
+    # Fiona >1.9 returns None if transformation errored
+    if transformed is None:  # pragma: no cover
+        raise ReprojectionFailed(
+            f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
+        )
+    out_geom = to_shape(transformed)
+    return repair(out_geom) if validity_check else out_geom

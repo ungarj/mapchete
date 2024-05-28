@@ -61,5 +61,5 @@ def coords_segmentize(coords: CoordArrays, segmentize_value: float) -> CoordArra
 
 def get_segmentize_value(geometry: Geometry, segmentize_fraction: float) -> float:
     """Divide the smaller one of geometry height or width by segmentize fraction."""
-    bounds = Bounds.from_inp(geometry)
+    bounds = Bounds.from_inp(geometry, strict=False)
     return min([bounds.height, bounds.width]) / segmentize_fraction

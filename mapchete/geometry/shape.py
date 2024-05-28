@@ -15,13 +15,16 @@ def to_shape(geometry: GeometryLike) -> Geometry:
     -------
     shapely geometry
     """
-    if isinstance(geometry, Geometry):
-        return geometry
-    elif (
-        isinstance(geometry, GeoInterface)
-        and isinstance(geometry.__geo_interface__, dict)
-        and geometry.__geo_interface__.get("geometry")
-    ):
-        return shape(geometry.__geo_interface__["geometry"])
-    else:
-        return shape(geometry)
+    try:
+        if isinstance(geometry, Geometry):
+            return geometry
+        elif (
+            isinstance(geometry, GeoInterface)
+            and isinstance(geometry.__geo_interface__, dict)
+            and geometry.__geo_interface__.get("geometry")
+        ):
+            return shape(geometry.__geo_interface__["geometry"])
+        else:
+            return shape(geometry)
+    except Exception:  # pragma: no cover
+        raise TypeError(f"invalid geometry type: {type(geometry)}")

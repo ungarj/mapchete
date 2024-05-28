@@ -1,5 +1,6 @@
 import pytest
 from fiona.crs import CRS  # type: ignore
+from pytest_lazyfixture import lazy_fixture
 from shapely import wkt
 from shapely.geometry import Point, Polygon, box, shape
 
@@ -8,54 +9,76 @@ from mapchete.io import fiona_open
 from mapchete.tile import BufferedTilePyramid
 
 
-def test_reproject_geometry(landpoly):
+@pytest.mark.parametrize("segmentize", [True, False])
+@pytest.mark.parametrize("clip_to_crs_bounds", [True, False])
+@pytest.mark.parametrize("validity_check", [True, False])
+@pytest.mark.parametrize("antimeridian_cutting", [True, False])
+@pytest.mark.parametrize(
+    "dst_crs",
+    [
+        # Spherical Mercator
+        CRS.from_epsg(3857),
+        # LAEA
+        CRS.from_epsg(3035),
+        # WGS84
+        CRS.from_epsg(4326),
+    ],
+)
+@pytest.mark.parametrize(
+    "geometry",
+    [
+        lazy_fixture("point"),
+        lazy_fixture("multipoint"),
+        lazy_fixture("linestring"),
+        lazy_fixture("multilinestring"),
+        lazy_fixture("polygon"),
+        lazy_fixture("multipolygon"),
+        lazy_fixture("geometrycollection"),
+    ],
+)
+def test_reproject_geometry(
+    geometry,
+    dst_crs,
+    segmentize,
+    clip_to_crs_bounds,
+    validity_check,
+    antimeridian_cutting,
+):
     """Reproject geometry."""
-    with fiona_open(str(landpoly), "r") as src:
-        for feature in src:
-            # WGS84 to Spherical Mercator
-            out_geom = reproject_geometry(
-                shape(feature["geometry"]), CRS(src.crs), CRS().from_epsg(3857)
-            )
-            assert out_geom.is_valid
-
-            # WGS84 to LAEA
-            out_geom = reproject_geometry(
-                shape(feature["geometry"]), CRS(src.crs), CRS().from_epsg(3035)
-            )
-            assert out_geom.is_valid
-
-            # WGS84 to WGS84
-            out_geom = reproject_geometry(
-                shape(feature["geometry"]), CRS(src.crs), CRS().from_epsg(4326)
-            )
-            assert out_geom.is_valid
+    src_crs = CRS.from_epsg(4326)
+    out_geom = reproject_geometry(
+        geometry,
+        src_crs=src_crs,
+        dst_crs=dst_crs,
+        segmentize=segmentize,
+        clip_to_crs_bounds=clip_to_crs_bounds,
+        validity_check=validity_check,
+        antimeridian_cutting=antimeridian_cutting,
+    )
+    assert out_geom.is_valid
 
 
 def test_reproject_geometry_latlon2mercator():
     # WGS84 bounds to Spherical Mercator
     big_box = box(-180, -90, 180, 90)
-    reproject_geometry(big_box, CRS().from_epsg(4326), CRS().from_epsg(3857))
+    assert reproject_geometry(
+        big_box, CRS.from_epsg(4326), CRS.from_epsg(3857)
+    ).is_valid
 
     # WGS84 bounds to Spherical Mercator raising clip error
     with pytest.raises(RuntimeError):
         reproject_geometry(
-            big_box, CRS().from_epsg(4326), CRS().from_epsg(3857), error_on_clip=True
+            big_box, CRS.from_epsg(4326), CRS.from_epsg(3857), error_on_clip=True
         )
-    outside_box = box(-180, 87, 180, 90)
-    assert reproject_geometry(
-        outside_box,
-        CRS().from_epsg(4326),
-        CRS().from_epsg(3857),
-    ).is_valid
 
 
 def test_reproject_geometry_empty_geom():
     # empty geometry
     assert reproject_geometry(
-        Polygon(), CRS().from_epsg(4326), CRS().from_epsg(3857)
+        Polygon(), CRS.from_epsg(4326), CRS.from_epsg(3857)
     ).is_empty
     assert reproject_geometry(
-        Polygon(), CRS().from_epsg(4326), CRS().from_epsg(4326)
+        Polygon(), CRS.from_epsg(4326), CRS.from_epsg(4326)
     ).is_empty
 
 

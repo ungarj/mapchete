@@ -68,12 +68,6 @@ def yield_geometry_type(
     if is_type(geometry, target_type=target_type, allow_multipart=allow_multipart):
         yield geometry
 
-    elif isinstance(geometry, GeometryCollection):
-        for subgeometry in multipart_to_singleparts(geometry):
-            yield from yield_geometry_type(
-                subgeometry, target_type=target_type, allow_multipart=allow_multipart
-            )
-
     elif isinstance(geometry, MultipartGeometry):
         for subgeometry in multipart_to_singleparts(geometry):
             yield from yield_geometry_type(
