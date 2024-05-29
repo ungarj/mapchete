@@ -440,7 +440,7 @@ def test_geojson(landpoly, mp_tmpdir):
         ]
     )
     zoom, row, col = (4, 0, 7)
-    control = 9
+    control = 14
     out_file = mp_tmpdir / zoom / row / col + ".geojson"
     with fiona_open(out_file, "r") as src:
         assert len(src) == control

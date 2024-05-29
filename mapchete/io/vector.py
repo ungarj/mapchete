@@ -18,13 +18,13 @@ from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError
 from mapchete.geometry import (
+    filter_by_geometry_type,
     multipart_to_singleparts,
     repair,
     reproject_geometry,
     segmentize_geometry,
     to_shape,
 )
-from mapchete.geometry.filter import filter
 from mapchete.geometry.types import get_geometry_type
 from mapchete.io import copy
 from mapchete.path import MPath, fs_from_path
@@ -239,11 +239,12 @@ def write_vector_window(
     for feature in in_data:
         try:
             # clip feature geometry to tile bounding box and append for writing
-            for out_geom in filter(
+            for out_geom in filter_by_geometry_type(
                 to_shape(feature["geometry"]).intersection(out_tile.bbox),
                 get_geometry_type(out_schema["geometry"]),
+                allow_multipart=allow_multipart_geometries,
             ):
-                if out_geom.is_empty:  # pragma: no cover
+                if out_geom.is_empty:
                     continue
 
                 out_features.append(
@@ -309,24 +310,23 @@ def _get_reprojected_features(
 
                 # clip with bounds and omit if clipped geometry is empty
                 clipped_geom = original_geom.intersection(dst_bbox)
-
-                # reproject each feature to tile CRS
-                g = reproject_geometry(
-                    clean_geometry_type(
-                        clipped_geom,
-                        original_geom.geom_type,
-                        raise_exception=False,
-                    ),
-                    src_crs=src_crs,
-                    dst_crs=dst_crs,
-                    validity_check=validity_check,
-                    clip_to_crs_bounds=False,
-                )
-                if not g.is_empty:
-                    yield {
-                        "properties": feature["properties"],
-                        "geometry": mapping(g),
-                    }
+                for checked_geom in filter_by_geometry_type(
+                    clipped_geom,
+                    original_geom.geom_type,
+                ):
+                    # reproject each feature to tile CRS
+                    reprojected_geom = reproject_geometry(
+                        checked_geom,
+                        src_crs=src_crs,
+                        dst_crs=dst_crs,
+                        validity_check=validity_check,
+                        clip_to_crs_bounds=False,
+                    )
+                    if not reprojected_geom.is_empty:
+                        yield {
+                            "properties": feature["properties"],
+                            "geometry": mapping(reprojected_geom),
+                        }
             # this can be handled quietly
             except TopologicalError as e:  # pragma: no cover
                 logger.warning("feature omitted: %s", e)

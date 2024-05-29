@@ -11,7 +11,7 @@ from shapely.geometry import (
 )
 
 from mapchete.geometry import (
-    filter,
+    filter_by_geometry_type,
     get_multipart_type,
     is_type,
     multipart_to_singleparts,
@@ -106,9 +106,11 @@ def test_is_type(geometry, target_type, allow_multipart):
         lazy_fixture("geometrycollection"),
     ],
 )
-def test_filter(geometry, target_type, allow_multipart):
+def test_filter_by_geometry_type(geometry, target_type, allow_multipart):
     geometries = list(
-        filter(geometry, target_type=target_type, allow_multipart=allow_multipart)
+        filter_by_geometry_type(
+            geometry, target_type=target_type, allow_multipart=allow_multipart
+        )
     )
 
     if isinstance(

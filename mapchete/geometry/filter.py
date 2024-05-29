@@ -53,7 +53,7 @@ def is_type(
     return False
 
 
-def filter(
+def filter_by_geometry_type(
     geometry: Geometry,
     target_type: Union[str, Geometry],
     allow_multipart: bool = True,
@@ -70,6 +70,6 @@ def filter(
 
     elif isinstance(geometry, MultipartGeometry):
         for subgeometry in multipart_to_singleparts(geometry):
-            yield from filter(
+            yield from filter_by_geometry_type(
                 subgeometry, target_type=target_type, allow_multipart=allow_multipart
             )
