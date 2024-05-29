@@ -34,7 +34,7 @@ def convert(
     zoom: Optional[Union[int, List[int]]] = None,
     area: Optional[Union[BaseGeometry, str, dict]] = None,
     area_crs: Optional[Union[CRS, str]] = None,
-    bounds: Optional[Tuple[float]] = None,
+    bounds: Optional[Tuple[float, float, float, float]] = None,
     bounds_crs: Optional[Union[CRS, str]] = None,
     point: Optional[Tuple[float, float]] = None,
     point_crs: Optional[Tuple[float, float]] = None,

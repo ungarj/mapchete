@@ -129,7 +129,7 @@ def test_convert_single_gtiff_overviews(cleantopo_br_tif, mp_tmpdir):
         output_pyramid="geodetic",
         zoom=7,
         overviews=True,
-        overviews_resampling_method="bilinear",
+        overviews_resampling_method=Resampling.bilinear,
         concurrency=Concurrency.none,
     )
     with rasterio_open(single_gtiff, "r") as src:
@@ -351,4 +351,4 @@ def test_convert_errors(s2_band_jp2, mp_tmpdir, s2_band, cleantopo_br, landpoly)
 
     # malformed band index
     with pytest.raises(ValueError):
-        convert(s2_band_jp2, "output.tif", bidx="invalid")
+        convert(s2_band_jp2, "output.tif", bidx="invalid")  # type: ignore

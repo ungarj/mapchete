@@ -157,32 +157,33 @@ class Bounds(list):
     def geometry(self) -> Geometry:
         return shape(self)
 
-    def latlon_geometry(
-        self, crs: Optional[CRSLike] = None, width_threshold: float = 180.0
-    ) -> Geometry:
-        """
-        Will create a MultiPolygon if bounds overlap with Antimeridian.
-        """
-        from mapchete.geometry.latlon import transform_to_latlon
+    # save this for later when rewriting tests for this module
+    # def latlon_geometry(
+    #     self, crs: Optional[CRSLike] = None, width_threshold: float = 180.0
+    # ) -> Geometry:
+    #     """
+    #     Will create a MultiPolygon if bounds overlap with Antimeridian.
+    #     """
+    #     from mapchete.geometry.latlon import transform_to_latlon
 
-        crs = crs or self.crs
-        if crs is None:
-            raise ValueError(
-                "crs or Bounds.crs must be set in order to generate latlon_geometry."
-            )
-        bounds = Bounds.from_inp(
-            transform_to_latlon(shape(self), self.crs, width_threshold=width_threshold)
-        )
-        if bounds.left < -180:
-            part1 = Bounds(-180, bounds.bottom, bounds.right, bounds.top)
-            part2 = Bounds(bounds.left + 360, bounds.bottom, 180, bounds.top)
-            return unary_union([shape(part1), shape(part2)])
-        elif bounds.right > 180:
-            part1 = Bounds(-180, bounds.bottom, bounds.right - 360, bounds.top)
-            part2 = Bounds(bounds.left, bounds.bottom, 180, bounds.top)
-            return unary_union([shape(part1), shape(part2)])
-        else:
-            return shape(bounds)
+    #     crs = crs or self.crs
+    #     if crs is None:
+    #         raise ValueError(
+    #             "crs or Bounds.crs must be set in order to generate latlon_geometry."
+    #         )
+    #     bounds = Bounds.from_inp(
+    #         transform_to_latlon(shape(self), self.crs, width_threshold=width_threshold)
+    #     )
+    #     if bounds.left < -180:
+    #         part1 = Bounds(-180, bounds.bottom, bounds.right, bounds.top)
+    #         part2 = Bounds(bounds.left + 360, bounds.bottom, 180, bounds.top)
+    #         return unary_union([shape(part1), shape(part2)])
+    #     elif bounds.right > 180:
+    #         part1 = Bounds(-180, bounds.bottom, bounds.right - 360, bounds.top)
+    #         part2 = Bounds(bounds.left, bounds.bottom, 180, bounds.top)
+    #         return unary_union([shape(part1), shape(part2)])
+    #     else:
+    #         return shape(bounds)
 
     @classmethod
     def from_inp(cls, inp: BoundsLike, strict: bool = True) -> Bounds:
