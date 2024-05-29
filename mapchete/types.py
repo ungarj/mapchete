@@ -20,7 +20,6 @@ from shapely.geometry import (
     Polygon,
     shape,
 )
-from shapely.ops import unary_union
 from tilematrix import Shape
 
 from mapchete.tile import BufferedTile
@@ -47,6 +46,12 @@ NodataVals = Union[List[NodataVal], NodataVal]
 ResamplingLike = Union[Resampling, str]
 BandIndex = int
 BandIndexes = Union[BandIndex, List[BandIndex]]
+
+
+def to_resampling(resampling: ResamplingLike) -> Resampling:
+    if isinstance(resampling, Resampling):
+        return resampling
+    return Resampling[resampling]
 
 
 class Bounds(list):
