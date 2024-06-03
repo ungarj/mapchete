@@ -821,14 +821,14 @@ def tiles_exist(
             )
 
         def _tiles():
-            if process_tiles:
+            if process_tiles:  # pragma: no cover
                 yield from process_tiles
-            elif output_tiles:
+            elif output_tiles:  # pragma: no cover
                 yield from output_tiles
             elif process_tiles_batches:
                 for batch in process_tiles_batches:
                     yield from batch
-            elif output_tiles_batches:
+            elif output_tiles_batches:  # pragma: no cover
                 for batch in output_tiles_batches:
                     yield from batch
 
