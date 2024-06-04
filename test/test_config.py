@@ -5,6 +5,7 @@ from copy import deepcopy
 import oyaml as yaml
 import pytest
 from pydantic import ValidationError
+from pytest_lazyfixture import lazy_fixture
 from shapely import wkt
 from shapely.errors import WKTReadingError
 from shapely.geometry import Polygon, box, mapping, shape
@@ -67,6 +68,13 @@ def test_config_errors(example_mapchete):
         config = deepcopy(config_orig)
         config["pyramid"].update(metatiling="wrong_type")
         mapchete.open(config)
+
+
+def test_config_parse_dict(example_mapchete):
+    raw_config = example_mapchete.dict.copy()
+    raw_config.update(process_parameters=dict(foo=dict(bar=1)))
+    config = MapcheteConfig(raw_config)
+    assert config.params_at_zoom(7)["process_parameters"]["foo"]["bar"] == 1
 
 
 def test_config_zoom7(example_mapchete, dummy2_tif):
@@ -166,17 +174,17 @@ def test_effective_bounds(files_bounds, baselevels):
 @pytest.mark.parametrize(
     "example_config",
     [
-        pytest.lazy_fixture("custom_grid"),
-        pytest.lazy_fixture("file_groups"),
-        pytest.lazy_fixture("overviews"),
-        pytest.lazy_fixture("baselevels"),
-        pytest.lazy_fixture("baselevels_output_buffer"),
-        pytest.lazy_fixture("baselevels_custom_nodata"),
-        pytest.lazy_fixture("mapchete_input"),
-        pytest.lazy_fixture("dem_to_hillshade"),
-        pytest.lazy_fixture("env_storage_options_mapchete"),
-        pytest.lazy_fixture("zoom_mapchete"),
-        pytest.lazy_fixture("cleantopo_br_mercator"),
+        lazy_fixture("custom_grid"),
+        lazy_fixture("file_groups"),
+        lazy_fixture("overviews"),
+        lazy_fixture("baselevels"),
+        lazy_fixture("baselevels_output_buffer"),
+        lazy_fixture("baselevels_custom_nodata"),
+        lazy_fixture("mapchete_input"),
+        lazy_fixture("dem_to_hillshade"),
+        lazy_fixture("env_storage_options_mapchete"),
+        lazy_fixture("zoom_mapchete"),
+        lazy_fixture("cleantopo_br_mercator"),
     ],
 )
 def test_effective_area(example_config):

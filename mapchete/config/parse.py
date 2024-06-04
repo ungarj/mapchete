@@ -140,7 +140,10 @@ def raw_conf_at_zoom(config: ProcessConfig, zooms: ZoomLevels) -> OrderedDict:
     for zoom in zooms:
         params = OrderedDict()
         for name, element in config.model_dump().items():
-            out_element = element_at_zoom(name, element, zoom)
+            if name in ["input", "process_parameters"]:
+                out_element = element_at_zoom(name, element, zoom)
+            else:
+                out_element = element
             if out_element is not None:
                 params[name] = out_element
         params_per_zoom[zoom] = params
@@ -151,7 +154,10 @@ def zoom_parameters(config: ProcessConfig, zoom: int) -> ZoomParameters:
     """Return parameter dictionary per zoom level."""
     params = dict()
     for name, element in config.model_dump().items():
-        out_element = element_at_zoom(name, element, zoom)
+        if name in ["input", "process_parameters"]:
+            out_element = element_at_zoom(name, element, zoom)
+        else:
+            out_element = element
         if out_element is not None:
             params[name] = out_element
     return ZoomParameters(**params)
@@ -172,21 +178,40 @@ def element_at_zoom(name: str, element: Any, zoom: int) -> Any:
     """
     # If element is a dictionary, analyze subitems.
     if isinstance(element, dict):
+        zoom_keys = [key.startswith("zoom") for key in element.keys()]
+
+        # we have a zoom level dependent structure here!
+        if any(zoom_keys):
+            if not all(zoom_keys):
+                raise MapcheteConfigError(
+                    f"when using zoom level dependent settings, all possible keys ({','.join(zoom_keys)}) must start with 'zoom'"
+                )
+            # iterate through sub elements
+            values = []
+            for sub_name, sub_element in element.items():
+                out_element = element_at_zoom(sub_name, sub_element, zoom)
+                if out_element is not None:
+                    values.append(out_element)
+            if len(values) == 0:
+                return None
+            elif len(values) == 1:
+                return values[0]
+            else:
+                raise MapcheteConfigError(
+                    f"multiple possible values configured for element '{name}' on zoom {zoom}"
+                )
+
         # we have an input or output driver here
-        if "format" in element:
+        elif "format" in element:
             return element
 
-        # iterate through sub elements
-        out_elements = OrderedDict()
-        for sub_name, sub_element in element.items():
-            out_element = element_at_zoom(sub_name, sub_element, zoom)
-            if name in ["input", "process_parameters"] or out_element is not None:
-                out_elements[sub_name] = out_element
-
-        # If there is only one subelement, collapse unless it is
-        # input. In such case, return a dictionary.
-        if name not in ["input", "process_parameters"] and len(out_elements) == 1:
-            return next(iter(out_elements.values()))
+        else:
+            # iterate through sub elements
+            out_elements = OrderedDict()
+            for sub_name, sub_element in element.items():
+                out_element = element_at_zoom(sub_name, sub_element, zoom)
+                if out_element is not None:
+                    out_elements[sub_name] = out_element
 
         # If subelement is empty, return None
         if len(out_elements) == 0:
