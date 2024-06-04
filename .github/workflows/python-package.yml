@@ -61,7 +61,7 @@ jobs:
           AWS_REQUEST_PAYER: ${{ secrets.AWS_REQUEST_PAYER }}
           CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
         run: |
-          pytest -v --cov mapchete --cov-report xml:coverage.xml --junitxml=/tmp/pytest.xml | tee /tmp/pytest-coverage.txt
+          pytest -v --cov mapchete --cov-report xml:coverage.xml
 
       - name: Show missing coverage
         run: coverage report --skip-covered --show-missing
@@ -75,8 +75,15 @@ jobs:
       - name: Pytest coverage comment
         uses: MishaKav/pytest-coverage-comment@main
         with:
-          pytest-coverage-path: /tmp/pytest-coverage.txt
-          junitxml-path: /tmp/pytest.xml
+          pytest-xml-coverage-path: coverage.xml
+          title: Detailed Coverage Report
+          badge-title: Test Coverage
+          hide-badge: false
+          hide-report: false
+          create-new-comment: false
+          hide-comment: false
+          report-only-changed-files: false
+          remove-link-from-badge: false
 
       - name: Stop containers
         if: always()
