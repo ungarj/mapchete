@@ -12,7 +12,6 @@ from mapchete.geometry.latlon import LATLON_CRS
 from mapchete.geometry.repair import repair
 from mapchete.geometry.segmentize import get_segmentize_value, segmentize_geometry
 from mapchete.geometry.shape import to_shape
-from mapchete.geometry.transform import custom_transform
 from mapchete.geometry.types import Geometry, GeometryLike
 from mapchete.types import Bounds, CRSLike
 from mapchete.validate import validate_crs

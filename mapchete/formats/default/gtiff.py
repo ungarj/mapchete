@@ -41,7 +41,6 @@ from contextlib import ExitStack
 import numpy as np
 from affine import Affine
 from numpy import ma
-from rasterio.enums import Resampling
 from rasterio.rio.overview import get_maximum_overview_level
 from rasterio.windows import from_bounds
 from shapely.geometry import box

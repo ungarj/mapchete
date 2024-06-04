@@ -12,8 +12,7 @@ from shapely.geometry import (
 )
 
 from mapchete.geometry.repair import repair
-from mapchete.geometry.types import CoordArrays, Geometry
-from mapchete.types import CRSLike
+from mapchete.geometry.types import Geometry
 
 
 def custom_transform(geometry: Geometry, func: Callable) -> Geometry:
