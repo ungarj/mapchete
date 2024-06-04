@@ -12,6 +12,7 @@ Subpackages
    mapchete.config
    mapchete.executor
    mapchete.formats
+   mapchete.geometry
    mapchete.io
    mapchete.processes
    mapchete.processing
