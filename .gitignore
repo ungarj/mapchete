@@ -14,3 +14,5 @@ htmlcov/
 dask-worker-space/
 .vscode/
 *.minio.sys/
+coverage.xml
+pytest.xml

@@ -22,7 +22,7 @@ from mapchete.formats import available_output_formats
 from mapchete.io import MPath, fiona_open, get_best_zoom_level
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import MPathLike
+from mapchete.types import MPathLike, ResamplingLike, to_resampling
 
 logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()
@@ -34,7 +34,7 @@ def convert(
     zoom: Optional[Union[int, List[int]]] = None,
     area: Optional[Union[BaseGeometry, str, dict]] = None,
     area_crs: Optional[Union[CRS, str]] = None,
-    bounds: Optional[Tuple[float]] = None,
+    bounds: Optional[Tuple[float, float, float, float]] = None,
     bounds_crs: Optional[Union[CRS, str]] = None,
     point: Optional[Tuple[float, float]] = None,
     point_crs: Optional[Tuple[float, float]] = None,
@@ -52,7 +52,7 @@ def convert(
     creation_options: Optional[dict] = None,
     scale_ratio: Optional[float] = None,
     scale_offset: Optional[float] = None,
-    resampling_method: Resampling = Resampling.nearest,
+    resampling_method: ResamplingLike = Resampling.nearest,
     overviews: bool = False,
     overviews_resampling_method: Resampling = Resampling.cubic_spline,
     cog: bool = False,
@@ -74,7 +74,8 @@ def convert(
 
     If only a subset of a TileDirectory is desired, please see the mapchete.commands.cp command.
     """
-
+    resampling_method = to_resampling(resampling_method)
+    overviews_resampling_method = to_resampling(overviews_resampling_method)
     all_observers = Observers(observers)
     workers = workers or cpu_count()
     creation_options = creation_options or {}

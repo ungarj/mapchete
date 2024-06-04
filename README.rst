@@ -8,9 +8,6 @@ Tile-based geodata processing.
 .. image:: https://github.com/ungarj/mapchete/actions/workflows/python-package.yml/badge.svg
     :target: https://github.com/ungarj/mapchete/actions
 
-.. image:: https://coveralls.io/repos/github/ungarj/mapchete/badge.svg?branch=master
-    :target: https://coveralls.io/github/ungarj/mapchete?branch=master
-
 .. image:: https://readthedocs.org/projects/mapchete/badge/?version=latest
     :target: http://mapchete.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status

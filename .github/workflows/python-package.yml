@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
-        os: ["ubuntu-22.04"]
+        python-version: ["3.10", "3.11", "3.12"]
+        os: ["ubuntu-22.04", "ubuntu-latest"]
 
     steps:
       - uses: actions/checkout@v2
@@ -28,6 +28,15 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Lint
+        run: |
+          python -m pip install pre-commit
+          pre-commit run --show-diff-on-failure --all-files
+          # stop the build if there are Python syntax errors or undefined names
+          # flake8 mapchete --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          # flake8 mapchete --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Install dependencies
         env:
@@ -41,31 +50,35 @@ jobs:
           pip install -e .[complete]
           pip freeze
 
-      - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined names
-          flake8 mapchete --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 mapchete --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
       - name: Start containers
-        run: |
-          docker-compose -f "test/docker-compose.yml" up -d
+        run: docker-compose -f "test/docker-compose.yml" up -d
 
-      - name: Test with pytest
+      # run tests
+      - name: run 
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REQUEST_PAYER: ${{ secrets.AWS_REQUEST_PAYER }}
           CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
-        run: |
-          pytest -v --cov mapchete
+        run: pytest -v --cov mapchete --cov-report xml:coverage.xml --cov-report=term-missing:skip-covered --junitxml=pytest.xml
 
-      - name: Coveralls
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          coveralls --service=github
+      # report detailed coverage in PR comment
+      - name: comment test coverage report on PR
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-xml-coverage-path: coverage.xml
+          title: missing coverage
+          badge-title: Test Coverage
+          hide-badge: false
+          hide-report: false
+          create-new-comment: false
+          hide-comment: false
+          report-only-changed-files: false
+          remove-link-from-badge: true
+
+      # this will let the workflow fail if coverage is below 100%
+      - name: Pytest coverage
+        run: coverage report --skip-covered --show-missing --fail-under 100
 
       - name: Stop containers
         if: always()

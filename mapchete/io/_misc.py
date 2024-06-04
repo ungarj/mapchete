@@ -6,7 +6,7 @@ from rasterio.warp import calculate_default_transform
 from shapely.errors import TopologicalError
 from shapely.geometry import box
 
-from mapchete.io._geometry_operations import reproject_geometry, segmentize_geometry
+from mapchete.geometry import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
 from mapchete.tile import BufferedTile, BufferedTilePyramid
 

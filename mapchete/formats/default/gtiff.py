@@ -29,6 +29,7 @@ compress: string
     compression method (default: lzw): lzw, jpeg, packbits, deflate, CCITTRLE,
     CCITTFAX3, CCITTFAX4, lzma
 """
+
 from __future__ import annotations
 
 import logging
@@ -40,7 +41,6 @@ from contextlib import ExitStack
 import numpy as np
 from affine import Affine
 from numpy import ma
-from rasterio.enums import Resampling
 from rasterio.rio.overview import get_maximum_overview_level
 from rasterio.windows import from_bounds
 from shapely.geometry import box
@@ -61,6 +61,7 @@ from mapchete.io.raster import (
     write_raster_window,
 )
 from mapchete.tile import BufferedTile
+from mapchete.types import to_resampling
 from mapchete.validate import deprecated_kwargs, validate_values
 
 logger = logging.getLogger(__name__)
@@ -462,8 +463,8 @@ class GTiffSingleFileOutputWriter(
         )
         if self.cog or "overviews" in self.output_params:
             self.overviews = True
-            self.overviews_resampling = self.output_params.get(
-                "overviews_resampling", "nearest"
+            self.overviews_resampling = to_resampling(
+                self.output_params.get("overviews_resampling", "nearest")
             )
             self.overviews_levels = self.output_params.get(
                 "overviews_levels",
@@ -594,13 +595,15 @@ class GTiffSingleFileOutputWriter(
                 if _window_in_out_file(write_window, self.dst):
                     logger.debug("write data to window: %s", write_window)
                     self.dst.write(
-                        extract_from_array(
-                            array=data,
-                            in_affine=process_tile.affine,
-                            out_tile=out_tile,
-                        )
-                        if process_tile != out_tile
-                        else data,
+                        (
+                            extract_from_array(
+                                array=data,
+                                in_affine=process_tile.affine,
+                                out_tile=out_tile,
+                            )
+                            if process_tile != out_tile
+                            else data
+                        ),
                         window=write_window,
                     )
 
@@ -628,12 +631,10 @@ class GTiffSingleFileOutputWriter(
                         self.overviews_levels,
                     )
                     self.dst.build_overviews(
-                        self.overviews_levels, Resampling[self.overviews_resampling]
+                        self.overviews_levels, self.overviews_resampling
                     )
                     self.dst.update_tags(
-                        OVR_RESAMPLING_ALG=Resampling[
-                            self.overviews_resampling
-                        ].name.upper()
+                        OVR_RESAMPLING_ALG=self.overviews_resampling.name.upper()
                     )
         finally:
             self._ctx.__exit__(exc_type, exc_value, exc_traceback)

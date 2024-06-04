@@ -17,15 +17,16 @@ from shapely.geometry import base, box, mapping, shape
 from tilematrix import clip_geometry_to_srs_bounds
 
 from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError
-from mapchete.io import copy
-from mapchete.io._geometry_operations import (
-    _repair,
-    clean_geometry_type,
+from mapchete.geometry import (
+    filter_by_geometry_type,
     multipart_to_singleparts,
+    repair,
     reproject_geometry,
     segmentize_geometry,
     to_shape,
 )
+from mapchete.geometry.types import get_geometry_type
+from mapchete.io import copy
 from mapchete.path import MPath, fs_from_path
 from mapchete.settings import IORetrySettings
 from mapchete.types import Bounds
@@ -36,7 +37,6 @@ __all__ = [
     "segmentize_geometry",
     "to_shape",
     "multipart_to_singleparts",
-    "clean_geometry_type",
 ]
 
 logger = logging.getLogger(__name__)
@@ -239,16 +239,12 @@ def write_vector_window(
     for feature in in_data:
         try:
             # clip feature geometry to tile bounding box and append for writing
-            clipped = clean_geometry_type(
+            for out_geom in filter_by_geometry_type(
                 to_shape(feature["geometry"]).intersection(out_tile.bbox),
-                out_schema["geometry"],
-            )
-            if allow_multipart_geometries:
-                cleaned_output_fetures = [clipped]
-            else:
-                cleaned_output_fetures = multipart_to_singleparts(clipped)
-            for out_geom in cleaned_output_fetures:
-                if out_geom.is_empty:  # pragma: no cover
+                get_geometry_type(out_schema["geometry"]),
+                allow_multipart=allow_multipart_geometries,
+            ):
+                if out_geom.is_empty:
                     continue
 
                 out_features.append(
@@ -310,28 +306,27 @@ def _get_reprojected_features(
         for feature in src.filter(bbox=dst_bbox.bounds):
             try:
                 # check validity
-                original_geom = _repair(to_shape(feature["geometry"]))
+                original_geom = repair(to_shape(feature["geometry"]))
 
                 # clip with bounds and omit if clipped geometry is empty
                 clipped_geom = original_geom.intersection(dst_bbox)
-
-                # reproject each feature to tile CRS
-                g = reproject_geometry(
-                    clean_geometry_type(
-                        clipped_geom,
-                        original_geom.geom_type,
-                        raise_exception=False,
-                    ),
-                    src_crs=src_crs,
-                    dst_crs=dst_crs,
-                    validity_check=validity_check,
-                    clip_to_crs_bounds=False,
-                )
-                if not g.is_empty:
-                    yield {
-                        "properties": feature["properties"],
-                        "geometry": mapping(g),
-                    }
+                for checked_geom in filter_by_geometry_type(
+                    clipped_geom,
+                    original_geom.geom_type,
+                ):
+                    # reproject each feature to tile CRS
+                    reprojected_geom = reproject_geometry(
+                        checked_geom,
+                        src_crs=src_crs,
+                        dst_crs=dst_crs,
+                        validity_check=validity_check,
+                        clip_to_crs_bounds=False,
+                    )
+                    if not reprojected_geom.is_empty:
+                        yield {
+                            "properties": feature["properties"],
+                            "geometry": mapping(reprojected_geom),
+                        }
             # this can be handled quietly
             except TopologicalError as e:  # pragma: no cover
                 logger.warning("feature omitted: %s", e)
