@@ -52,7 +52,7 @@ complete = [
     "boto3>=1.14.44",
     "dask",
     "distributed",
-    "Flask<3.0.0",
+    "Flask<4.0.0",
     "Flask-RangeRequest",
     "fsspec[http,s3]>=2023.12.0",
     "lxml",
@@ -84,7 +84,7 @@ s3 = [
     "s3fs!=2023.9.0",
 ]
 serve = [
-    "Flask<3.0.0",
+    "Flask<4.0.0",
     "Flask-RangeRequest",
     "werkzeug>=0.15",
 ]
