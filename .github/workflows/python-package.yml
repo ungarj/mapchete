@@ -61,17 +61,22 @@ jobs:
           AWS_REQUEST_PAYER: ${{ secrets.AWS_REQUEST_PAYER }}
           CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
         run: |
-          pytest -v --cov mapchete --cov-report xml:coverage.xml
+          pytest -v --cov mapchete --cov-report xml:coverage.xml --junitxml=/tmp/pytest.xml | tee /tmp/pytest-coverage.txt
 
       - name: Show missing coverage
         run: coverage report --skip-covered --show-missing
 
-      - name: Verify Coverage
-        uses: orgoro/coverage@v3.1
+      # - name: Verify Coverage
+      #   uses: orgoro/coverage@v3.1
+      #   with:
+      #     coverageFile: coverage.xml
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     thresholdAll: 1.0
+      - name: Pytest coverage comment
+        uses: MishaKav/pytest-coverage-comment@main
         with:
-          coverageFile: coverage.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          thresholdAll: 1.0
+          pytest-coverage-path: /tmp/pytest-coverage.txt
+          junitxml-path: /tmp/pytest.xml
 
       - name: Stop containers
         if: always()
