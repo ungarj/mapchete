@@ -63,15 +63,7 @@ jobs:
         run: |
           pytest -v --cov mapchete --cov-report xml:coverage.xml
 
-      - name: Show missing coverage
-        run: coverage report --skip-covered --show-missing
-
-      # - name: Verify Coverage
-      #   uses: orgoro/coverage@v3.1
-      #   with:
-      #     coverageFile: coverage.xml
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     thresholdAll: 1.0
+      # report detailed coverage in PR comment
       - name: Pytest coverage comment
         uses: MishaKav/pytest-coverage-comment@main
         with:
@@ -84,6 +76,10 @@ jobs:
           hide-comment: false
           report-only-changed-files: false
           remove-link-from-badge: false
+
+      # this will let the workflow fail if coverage is below 100%
+      - name: Pytest coverage
+        run: coverage report --skip-covered --show-missing --fail-under 100
 
       - name: Stop containers
         if: always()
