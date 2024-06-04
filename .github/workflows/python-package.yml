@@ -72,6 +72,7 @@ jobs:
         with:
           coverageFile: coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
+          thresholdAll: 1.0
 
       - name: Stop containers
         if: always()
