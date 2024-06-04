@@ -51,31 +51,30 @@ jobs:
           pip freeze
 
       - name: Start containers
-        run: |
-          docker-compose -f "test/docker-compose.yml" up -d
+        run: docker-compose -f "test/docker-compose.yml" up -d
 
-      - name: Test with pytest
+      # run tests
+      - name: run 
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REQUEST_PAYER: ${{ secrets.AWS_REQUEST_PAYER }}
           CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
-        run: |
-          pytest -v --cov mapchete --cov-report xml:coverage.xml
+        run: pytest -v --cov mapchete --cov-report xml:coverage.xml --cov-report=term-missing:skip-covered --junitxml=pytest.xml
 
       # report detailed coverage in PR comment
-      - name: Pytest coverage comment
+      - name: comment test coverage report on PR
         uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-xml-coverage-path: coverage.xml
-          title: Detailed Coverage Report
+          title: missing coverage
           badge-title: Test Coverage
           hide-badge: false
           hide-report: false
           create-new-comment: false
           hide-comment: false
           report-only-changed-files: false
-          remove-link-from-badge: false
+          remove-link-from-badge: true
 
       # this will let the workflow fail if coverage is below 100%
       - name: Pytest coverage
