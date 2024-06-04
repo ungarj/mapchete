@@ -58,7 +58,7 @@ complete = [
     "lxml",
     "matplotlib",
     "memray",
-    "pystac[urllib3]<=1.7.3",
+    "pystac[urllib3]>=1.8.2",
     "requests",
     "rtree",
     "s3fs!=2023.9.0",
