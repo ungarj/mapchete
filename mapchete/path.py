@@ -762,11 +762,15 @@ def makedirs(
 
 def tiles_exist(
     config,
-    output_tiles: Optional[Generator[BufferedTile, None, None]] = None,
+    output_tiles: Optional[
+        Union[List[BufferedTile], Generator[BufferedTile, None, None]]
+    ] = None,
     output_tiles_batches: Optional[
         Generator[Generator[BufferedTile, None, None], None, None]
     ] = None,
-    process_tiles: Optional[Generator[BufferedTile, None, None]] = None,
+    process_tiles: Optional[
+        Union[List[BufferedTile], Generator[BufferedTile, None, None]]
+    ] = None,
     process_tiles_batches: Optional[
         Generator[Generator[BufferedTile, None, None], None, None]
     ] = None,
