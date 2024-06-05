@@ -587,7 +587,7 @@ class MapcheteConfig(object):
         if "input" in self._params_at_zoom[zoom]:
             flat_inputs = OrderedDict()
             for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"]):
-                if v is None:
+                if v is None:  # pragma: no cover
                     flat_inputs[k] = None
                 else:
                     flat_inputs[k] = self.input[get_input_key(v)]

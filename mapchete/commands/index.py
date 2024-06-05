@@ -61,13 +61,16 @@ def index(
         bounds = tile.bounds
         zoom = tile.zoom
     elif input_info.input_type == InputType.mapchete:
-        bounds = bounds_from_opts(
-            point=point,
-            point_crs=point_crs,
-            bounds=bounds,
-            bounds_crs=bounds_crs,
-            raw_conf=raw_conf(some_input),
-        )
+        try:
+            bounds = bounds_from_opts(
+                point=point,
+                point_crs=point_crs,
+                bounds=bounds,
+                bounds_crs=bounds_crs,
+                raw_conf=raw_conf(some_input),
+            )
+        except ValueError:
+            pass
     else:
         bounds = bounds or input_info.bounds
 

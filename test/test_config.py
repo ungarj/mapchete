@@ -5,6 +5,7 @@ from copy import deepcopy
 import oyaml as yaml
 import pytest
 from pydantic import ValidationError
+from pytest_lazyfixture import lazy_fixture
 from shapely import wkt
 from shapely.errors import WKTReadingError
 from shapely.geometry import Polygon, box, mapping, shape
@@ -67,6 +68,27 @@ def test_config_errors(example_mapchete):
         config = deepcopy(config_orig)
         config["pyramid"].update(metatiling="wrong_type")
         mapchete.open(config)
+
+
+def test_config_parse_dict(example_mapchete):
+    raw_config = example_mapchete.dict.copy()
+    raw_config.update(process_parameters=dict(foo=dict(bar=1)))
+    config = MapcheteConfig(raw_config)
+    assert config.params_at_zoom(7)["process_parameters"]["foo"]["bar"] == 1
+
+
+def test_config_parse_dict_zoom_overlaps_error(example_mapchete):
+    raw_config = example_mapchete.dict.copy()
+    raw_config.update(process_parameters={"foo": {"zoom<9": 1, "zoom<10": 2}})
+    with pytest.raises(MapcheteConfigError):
+        ProcessConfig.parse(raw_config).zoom_parameters(7)
+
+
+def test_config_parse_dict_not_all_zoom_dependent_error(example_mapchete):
+    raw_config = example_mapchete.dict.copy()
+    raw_config.update(process_parameters={"foo": {"zoom<9": 1, "bar": 2}})
+    with pytest.raises(MapcheteConfigError):
+        ProcessConfig.parse(raw_config).zoom_parameters(7)
 
 
 def test_config_zoom7(example_mapchete, dummy2_tif):
@@ -166,17 +188,17 @@ def test_effective_bounds(files_bounds, baselevels):
 @pytest.mark.parametrize(
     "example_config",
     [
-        pytest.lazy_fixture("custom_grid"),
-        pytest.lazy_fixture("file_groups"),
-        pytest.lazy_fixture("overviews"),
-        pytest.lazy_fixture("baselevels"),
-        pytest.lazy_fixture("baselevels_output_buffer"),
-        pytest.lazy_fixture("baselevels_custom_nodata"),
-        pytest.lazy_fixture("mapchete_input"),
-        pytest.lazy_fixture("dem_to_hillshade"),
-        pytest.lazy_fixture("env_storage_options_mapchete"),
-        pytest.lazy_fixture("zoom_mapchete"),
-        pytest.lazy_fixture("cleantopo_br_mercator"),
+        lazy_fixture("custom_grid"),
+        lazy_fixture("file_groups"),
+        lazy_fixture("overviews"),
+        lazy_fixture("baselevels"),
+        lazy_fixture("baselevels_output_buffer"),
+        lazy_fixture("baselevels_custom_nodata"),
+        lazy_fixture("mapchete_input"),
+        lazy_fixture("dem_to_hillshade"),
+        lazy_fixture("env_storage_options_mapchete"),
+        lazy_fixture("zoom_mapchete"),
+        lazy_fixture("cleantopo_br_mercator"),
     ],
 )
 def test_effective_area(example_config):
@@ -390,15 +412,19 @@ def test_guess_geometry(aoi_br_geojson):
         guess_geometry(area.centroid)
 
 
-def test_bounds_from_opts(example_mapchete, wkt_geom):
+def test_bounds_from_opts_wkt(wkt_geom):
     # WKT
     assert isinstance(bounds_from_opts(wkt_geometry=wkt_geom), Bounds)
 
+
+def test_bounds_from_opts_point(example_mapchete):
     # point
     assert isinstance(
         bounds_from_opts(point=(0, 0), raw_conf=example_mapchete.dict), Bounds
     )
 
+
+def test_bounds_from_opts_point_crs(example_mapchete):
     # point from different CRS
     assert isinstance(
         bounds_from_opts(
@@ -407,11 +433,15 @@ def test_bounds_from_opts(example_mapchete, wkt_geom):
         Bounds,
     )
 
+
+def test_bounds_from_opts_bounds(example_mapchete):
     # bounds
     assert isinstance(
         bounds_from_opts(bounds=(1, 2, 3, 4), raw_conf=example_mapchete.dict), Bounds
     )
 
+
+def test_bounds_from_opts_bounds_crs(example_mapchete):
     # bounds from different CRS
     assert isinstance(
         bounds_from_opts(
@@ -419,6 +449,16 @@ def test_bounds_from_opts(example_mapchete, wkt_geom):
         ),
         Bounds,
     )
+
+
+def test_bounds_from_opts_point_no_conf_error():
+    with pytest.raises(ValueError):
+        bounds_from_opts(point=(0, 0))
+
+
+def test_bounds_from_opts_bounds_no_conf_error():
+    with pytest.raises(ValueError):
+        bounds_from_opts(bounds=(1, 2, 3, 4), bounds_crs="EPSG:3857")
 
 
 def test_init_overrides_config(example_mapchete):
