@@ -13,7 +13,7 @@ from mapchete.geometry import is_type, reproject_geometry
 from mapchete.io.vector import fiona_open
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import Bounds, MPathLike, ZoomLevels, ZoomLevelsLike
+from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
 from mapchete.validate import validate_values
 
 
@@ -107,7 +107,7 @@ def bounds_from_opts(
     point: Optional[Iterable[float]] = None,
     point_crs: Optional[CRS] = None,
     zoom: Optional[int] = None,
-    bounds: Optional[Bounds] = None,
+    bounds: Optional[BoundsLike] = None,
     bounds_crs: Optional[CRS] = None,
     raw_conf: Optional[dict] = None,
 ) -> Bounds:

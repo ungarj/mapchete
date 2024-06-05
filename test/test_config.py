@@ -77,6 +77,20 @@ def test_config_parse_dict(example_mapchete):
     assert config.params_at_zoom(7)["process_parameters"]["foo"]["bar"] == 1
 
 
+def test_config_parse_dict_zoom_overlaps_error(example_mapchete):
+    raw_config = example_mapchete.dict.copy()
+    raw_config.update(process_parameters={"foo": {"zoom<9": 1, "zoom<10": 2}})
+    with pytest.raises(MapcheteConfigError):
+        ProcessConfig.parse(raw_config).zoom_parameters(7)
+
+
+def test_config_parse_dict_not_all_zoom_dependent_error(example_mapchete):
+    raw_config = example_mapchete.dict.copy()
+    raw_config.update(process_parameters={"foo": {"zoom<9": 1, "bar": 2}})
+    with pytest.raises(MapcheteConfigError):
+        ProcessConfig.parse(raw_config).zoom_parameters(7)
+
+
 def test_config_zoom7(example_mapchete, dummy2_tif):
     """Example configuration at zoom 5."""
     config = MapcheteConfig(example_mapchete.dict)
@@ -398,15 +412,19 @@ def test_guess_geometry(aoi_br_geojson):
         guess_geometry(area.centroid)
 
 
-def test_bounds_from_opts(example_mapchete, wkt_geom):
+def test_bounds_from_opts_wkt(wkt_geom):
     # WKT
     assert isinstance(bounds_from_opts(wkt_geometry=wkt_geom), Bounds)
 
+
+def test_bounds_from_opts_point(example_mapchete):
     # point
     assert isinstance(
         bounds_from_opts(point=(0, 0), raw_conf=example_mapchete.dict), Bounds
     )
 
+
+def test_bounds_from_opts_point_crs(example_mapchete):
     # point from different CRS
     assert isinstance(
         bounds_from_opts(
@@ -415,11 +433,15 @@ def test_bounds_from_opts(example_mapchete, wkt_geom):
         Bounds,
     )
 
+
+def test_bounds_from_opts_bounds(example_mapchete):
     # bounds
     assert isinstance(
         bounds_from_opts(bounds=(1, 2, 3, 4), raw_conf=example_mapchete.dict), Bounds
     )
 
+
+def test_bounds_from_opts_bounds_crs(example_mapchete):
     # bounds from different CRS
     assert isinstance(
         bounds_from_opts(
@@ -427,6 +449,16 @@ def test_bounds_from_opts(example_mapchete, wkt_geom):
         ),
         Bounds,
     )
+
+
+def test_bounds_from_opts_point_no_conf_error():
+    with pytest.raises(ValueError):
+        bounds_from_opts(point=(0, 0))
+
+
+def test_bounds_from_opts_bounds_no_conf_error():
+    with pytest.raises(ValueError):
+        bounds_from_opts(bounds=(1, 2, 3, 4))
 
 
 def test_init_overrides_config(example_mapchete):

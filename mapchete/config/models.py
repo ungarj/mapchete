@@ -311,7 +311,7 @@ def _element_at_zoom(name: str, element: Any, zoom: int) -> Any:
         if any(zoom_keys):
             if not all(zoom_keys):
                 raise MapcheteConfigError(
-                    f"when using zoom level dependent settings, all possible keys ({','.join(zoom_keys)}) must start with 'zoom'"
+                    f"when using zoom level dependent settings, all possible keys ({','.join(element.keys())}) must start with 'zoom'"
                 )
             # iterate through sub elements
             values = []
