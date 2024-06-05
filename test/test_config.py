@@ -458,7 +458,7 @@ def test_bounds_from_opts_point_no_conf_error():
 
 def test_bounds_from_opts_bounds_no_conf_error():
     with pytest.raises(ValueError):
-        bounds_from_opts(bounds=(1, 2, 3, 4))
+        bounds_from_opts(bounds=(1, 2, 3, 4), bounds_crs="EPSG:3857")
 
 
 def test_init_overrides_config(example_mapchete):
