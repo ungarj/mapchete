@@ -5,6 +5,7 @@ import logging
 import logging.config
 import os
 import pkgutil
+from typing import List
 
 import click
 from rasterio.io import MemoryFile
@@ -13,6 +14,7 @@ import mapchete
 from mapchete.cli import options
 from mapchete.io import MPath
 from mapchete.tile import BufferedTilePyramid
+from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ def serve(
 
 
 def create_app(
-    mapchete_files=None,
+    mapchete_files: List[MPathLike],
     zoom=None,
     bounds=None,
     single_input_file=None,
@@ -106,7 +108,7 @@ def create_app(
     def index():
         """Render and hosts the appropriate OpenLayers instance."""
         return render_template_string(
-            pkgutil.get_data("mapchete.static", "index.html").decode("utf-8"),
+            pkgutil.get_data("mapchete.static", "index.html").decode("utf-8"),  # type: ignore
             srid=pyramid_srid,
             process_bounds=process_bounds,
             is_mercator=(pyramid_srid == 3857),
@@ -173,12 +175,16 @@ def _valid_tile_response(mp, data):
 
     out_data, mime_type = mp.config.output.for_web(data)
     logger.debug("create tile response %s", mime_type)
+
     if isinstance(out_data, MemoryFile):
         return RangeRequest(out_data).make_response()
-    elif isinstance(out_data, list):
-        response = make_response(jsonify(data))
+
     else:  # pragma: no cover
-        response = make_response(out_data)
-    response.headers["Content-Type"] = mime_type
-    response.cache_control.no_write = True
-    return response
+        response = (
+            make_response(jsonify(data))
+            if isinstance(out_data, list)
+            else make_response(out_data)
+        )
+        response.headers["Content-Type"] = mime_type
+        response.cache_control.no_write = True  # type: ignore
+        return response
