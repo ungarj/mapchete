@@ -5,6 +5,27 @@ from mapchete.config.models import ProcessConfig, PyramidConfig
 from mapchete.errors import MapcheteConfigError
 
 
+@pytest.mark.parametrize("strict", [True, False])
+def test_process_config_from_dict(example_mapchete, strict):
+    assert ProcessConfig.from_dict(example_mapchete.dict, strict=strict)
+
+
+@pytest.mark.parametrize("strict", [True, False])
+def test_process_config_from_file(example_mapchete, strict):
+    assert ProcessConfig.from_file(example_mapchete.path, strict=strict)
+
+
+@pytest.mark.parametrize("strict", [True, False])
+def test_process_config_parse(example_mapchete, strict):
+    assert ProcessConfig.parse(example_mapchete.path, strict=strict)
+    assert ProcessConfig.parse(example_mapchete.dict, strict=strict)
+
+
+def test_process_config_parse_error():
+    with pytest.raises(MapcheteConfigError):
+        ProcessConfig.parse(None)  # type: ignore
+
+
 def test_config_parse_dict_zoom_overlaps_error(example_mapchete):
     raw_config = example_mapchete.dict.copy()
     raw_config.update(process_parameters={"foo": {"zoom<9": 1, "zoom<10": 2}})

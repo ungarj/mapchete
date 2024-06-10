@@ -159,7 +159,7 @@ class TaskBatch(ABC):
             return Polygon()
 
     @property
-    def __geo_interface__(self) -> mapping:
+    def __geo_interface__(self):
         return mapping(self.geometry)
 
     def __repr__(self):  # pragma: no cover
@@ -239,7 +239,8 @@ class TileTask(Task):
         self.config_dir = config.config_dir
         if (
             self.tile.zoom not in self.config_zoom_levels
-            or self.tile.zoom in self.config_baselevels
+            or self.config_baselevels
+            and self.tile.zoom in self.config_baselevels
         ):
             self.input, self.process_func_params, self.output_params = {}, {}, {}
         else:

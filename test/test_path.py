@@ -517,3 +517,7 @@ def test_with_protocol_http():
 def test_with_protocol_relative():
     path = MPath("foo/bar")
     assert path.with_protocol("https") == "https://foo/bar"
+
+
+def test_cwd():
+    assert MPath.cwd()

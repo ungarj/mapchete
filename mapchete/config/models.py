@@ -188,11 +188,6 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
             else:
                 raise MapcheteConfigError("no 'input' found")
 
-        elif "input_files" in config:
-            raise MapcheteConfigError(
-                "'input' and 'input_files' are not allowed at the same time"
-            )
-
         if "process_file" in config:
             warnings.warn(
                 DeprecationWarning(
