@@ -1068,6 +1068,16 @@ def tile_path_schema(mp_tmpdir):
 
 
 @pytest.fixture
+def example_process_py():
+    return SCRIPT_DIR / "example_process.py"
+
+
+@pytest.fixture
+def example_process_text(example_process_py):
+    return example_process_py.read_text().split("\n")
+
+
+@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)

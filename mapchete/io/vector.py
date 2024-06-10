@@ -1,13 +1,16 @@
 """Functions handling vector data."""
 
+from __future__ import annotations
+
 import logging
 import warnings
 from contextlib import ExitStack, contextmanager
 from itertools import chain
 from tempfile import NamedTemporaryFile
-from typing import Any, Union
+from typing import Any, Generator, List, Union
 
 import fiona
+from fiona import Collection
 from fiona.errors import DriverError
 from fiona.io import MemoryFile
 from rasterio.crs import CRS
@@ -28,8 +31,10 @@ from mapchete.geometry import (
 from mapchete.geometry.types import get_geometry_type
 from mapchete.io import copy
 from mapchete.path import MPath, fs_from_path
+from mapchete.protocols import GridProtocol
 from mapchete.settings import IORetrySettings
-from mapchete.types import Bounds
+from mapchete.tile import BufferedTile
+from mapchete.types import Bounds, MPathLike
 from mapchete.validate import validate_bounds
 
 __all__ = [
@@ -43,7 +48,9 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def fiona_open(path, mode="r", **kwargs):
+def fiona_open(
+    path: MPathLike, mode: str = "r", **kwargs
+) -> Generator[Union[FionaRemoteWriter, Collection], None, None]:
     """Call fiona.open but set environment correctly and return custom writer if needed."""
     path = MPath.from_inp(path)
 
@@ -57,7 +64,9 @@ def fiona_open(path, mode="r", **kwargs):
 
 
 @contextmanager
-def fiona_read(path, mode="r", **kwargs):
+def fiona_read(
+    path: MPathLike, mode: str = "r", **kwargs
+) -> Generator[Collection, None, None]:
     """
     Wrapper around fiona.open but fiona.Env is set according to path properties.
     """
@@ -81,7 +90,9 @@ def fiona_read(path, mode="r", **kwargs):
 
 
 @contextmanager
-def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
+def fiona_write(
+    path: MPathLike, mode: str = "w", in_memory: bool = True, *args, **kwargs
+) -> Generator[Union[FionaRemoteWriter, Collection], None, None]:
     """
     Wrap fiona.open() but handle bucket upload if path is remote.
 
@@ -113,9 +124,7 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
                     import boto3
                 except ImportError:
                     raise ImportError("please install [s3] extra to write remote files")
-            with FionaRemoteWriter(
-                path, fs=fs, in_memory=in_memory, *args, **kwargs
-            ) as dst:
+            with FionaRemoteWriter(path, in_memory=in_memory, *args, **kwargs) as dst:
                 yield dst
         else:
             with path.fio_env() as env:
@@ -131,7 +140,11 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
 
 
 def read_vector_window(
-    inp, tile, validity_check=True, clip_to_crs_bounds=False, skip_missing_files=False
+    inp: Union[MPathLike, List[MPathLike]],
+    tile: BufferedTile,
+    validity_check: bool = True,
+    clip_to_crs_bounds: bool = False,
+    skip_missing_files: bool = False,
 ):
     """
     Read a window of an input vector dataset.
@@ -179,7 +192,12 @@ def read_vector_window(
         raise MapcheteIOError(e)
 
 
-def _read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False):
+def _read_vector_window(
+    inp: MPathLike,
+    tile: BufferedTile,
+    validity_check: bool = True,
+    clip_to_crs_bounds: bool = False,
+):
     try:
         if tile.pixelbuffer and tile.is_on_edge():
             return chain.from_iterable(
@@ -579,9 +597,12 @@ def read_vector(inp, index="rtree"):
 
 
 class FionaRemoteMemoryWriter:
+    crs: CRS
+
     def __init__(self, path, *args, **kwargs):
         logger.debug("open FionaRemoteMemoryWriter for path %s", path)
         self.path = path
+        self.crs = kwargs.get("crs")
         self._dst = MemoryFile()
         self._open_args = args
         self._open_kwargs = kwargs
@@ -604,9 +625,12 @@ class FionaRemoteMemoryWriter:
 
 
 class FionaRemoteTempFileWriter:
+    crs: CRS
+
     def __init__(self, path, *args, **kwargs):
         logger.debug("open FionaRemoteTempFileWriter for path %s", path)
         self.path = path
+        self.crs = kwargs.get("crs")
         self._dst = NamedTemporaryFile(suffix=self.path.suffix)
         self._open_args = args
         self._open_kwargs = kwargs
@@ -629,8 +653,8 @@ class FionaRemoteTempFileWriter:
             self._dst.close()
 
 
-class FionaRemoteWriter:
-    def __new__(self, path, *args, in_memory=True, **kwargs):
+class FionaRemoteWriter(FionaRemoteMemoryWriter, FionaRemoteTempFileWriter):
+    def __new__(cls, path, *args, in_memory=True, **kwargs):
         if in_memory:
             return FionaRemoteMemoryWriter(path, *args, **kwargs)
         else:

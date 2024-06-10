@@ -3,18 +3,17 @@ from typing import Iterable, Optional, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely import wkt
-from shapely.geometry import Point, box, shape
-from shapely.geometry.base import BaseGeometry
+from shapely.geometry import Point, shape
 from shapely.ops import unary_union
 
 from mapchete.config.models import ProcessConfig, ZoomParameters
-from mapchete.errors import GeometryTypeError, MapcheteConfigError
+from mapchete.errors import GeometryTypeError
 from mapchete.geometry import is_type, reproject_geometry
-from mapchete.io.vector import fiona_open
+from mapchete.geometry.types import Geometry
+from mapchete.io.vector import fiona_read
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
-from mapchete.validate import validate_values
 
 
 def parse_config(
@@ -191,8 +190,8 @@ def get_zoom_levels(
 
 
 def guess_geometry(
-    some_input: Union[MPathLike, dict, BaseGeometry], base_dir=None
-) -> Tuple[BaseGeometry, CRS]:
+    some_input: Union[MPathLike, dict, Geometry], base_dir: Optional[MPathLike] = None
+) -> Tuple[Geometry, Union[CRS, None]]:
     """
     Guess and parse geometry if possible.
 
@@ -209,14 +208,14 @@ def guess_geometry(
         else:
             path = MPath.from_inp(some_input)
             with path.fio_env():
-                with fiona_open(str(path.absolute_path(base_dir))) as src:
+                with fiona_read(str(path.absolute_path(base_dir)), "r") as src:
                     geom = unary_union([shape(f["geometry"]) for f in src])
                     crs = src.crs
     # GeoJSON mapping
     elif isinstance(some_input, dict):
         geom = shape(some_input)
     # shapely geometry
-    elif isinstance(some_input, BaseGeometry):
+    elif isinstance(some_input, Geometry):
         geom = some_input
     else:
         raise TypeError(

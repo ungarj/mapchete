@@ -165,6 +165,11 @@ class FileSystemOutputDataReaderProtocol:  # pragma: no cover
 
 
 class OutputDataWriterProtocol(OutputDataReaderProtocol):  # pragma: no cover
+    METADATA: dict
+
+    def is_valid_with_config(self, params: dict) -> bool:
+        ...
+
     def write(self, process_tile: BufferedTile, data: Any) -> None:
         ...
 

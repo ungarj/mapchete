@@ -7,12 +7,22 @@ from collections import OrderedDict
 from typing import Any, List, Optional, Tuple, Type, Union
 
 from distributed import Client
-from pydantic import BaseModel, Field, NonNegativeInt, field_validator
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, field_validator
+from rasterio.enums import Resampling
 from shapely.geometry.base import BaseGeometry
 
 from mapchete.errors import MapcheteConfigError
 from mapchete.path import MPath
-from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
+from mapchete.tile import BufferedTilePyramid
+from mapchete.types import (
+    Bounds,
+    BoundsLike,
+    MPathLike,
+    ResamplingLike,
+    ZoomLevels,
+    ZoomLevelsLike,
+    to_resampling,
+)
 from mapchete.validate import validate_values
 
 
@@ -70,6 +80,29 @@ class DaskSettings(BaseModel):
     client: Optional[Type[Client]] = None
 
 
+class OverviewSettings(BaseModel):
+    zooms: ZoomLevels
+    lower: Resampling
+    higher: Resampling
+    tile_pyramid: BufferedTilePyramid
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @staticmethod
+    def parse(
+        zooms: ZoomLevelsLike,
+        tile_pyramid: BufferedTilePyramid,
+        lower: ResamplingLike = Resampling.nearest,
+        higher: ResamplingLike = Resampling.nearest,
+    ) -> OverviewSettings:
+        return OverviewSettings(
+            zooms=ZoomLevels.from_inp(zooms),
+            lower=to_resampling(lower),
+            higher=to_resampling(higher),
+            tile_pyramid=tile_pyramid,
+        )
+
+
 class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     pyramid: PyramidConfig
     output: dict
@@ -77,7 +110,7 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
     process: Optional[Union[MPathLike, List[str]]] = None
     baselevels: Optional[dict] = None
     input: Optional[dict] = None
-    config_dir: Optional[MPathLike] = None
+    config_dir: MPath = Field(default=MPath(os.getcwd()))
     mapchete_file: Optional[MPathLike] = None
     area: Optional[Union[MPathLike, BaseGeometry]] = None
     area_crs: Optional[Union[dict, str]] = None
@@ -181,55 +214,73 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
         return config
 
     @staticmethod
+    def from_file(input_config: MPathLike, strict: bool = False) -> ProcessConfig:
+        config_path = MPath.from_inp(input_config)
+        # from Mapchete file
+        if config_path.suffix == ".mapchete":
+            config_dict = config_path.read_yaml()
+            return ProcessConfig.from_dict(
+                dict(
+                    config_dict,
+                    mapchete_file=config_path,
+                    config_dir=MPath.from_inp(
+                        config_dict.get(
+                            "config_dir",
+                            config_path.absolute_path().parent or MPath.cwd(),
+                        )
+                    ),
+                ),
+                strict=strict,
+            )
+        raise MapcheteConfigError(
+            f"process configuration file has to have a '.mapchete' extension: {str(input_config)}"
+        )
+
+    @staticmethod
+    def from_dict(
+        input_config: dict,
+        strict: bool = False,
+    ) -> ProcessConfig:
+        config_dir = input_config.get("config_dir")
+        if config_dir is None:
+            raise MapcheteConfigError("config_dir parameter missing")
+        config_dict = ProcessConfig._include_env(input_config)
+        config_dict.update(config_dir=MPath.from_inp(config_dir))
+        if strict:
+            return ProcessConfig(**config_dict)
+        else:
+            return ProcessConfig(**ProcessConfig.map_to_new_config_dict(config_dict))
+
+    @staticmethod
+    def _include_env(d: dict) -> OrderedDict:
+        """Search for environment variables and add their values."""
+        out = OrderedDict()
+        for k, v in d.items():
+            if isinstance(v, dict):
+                out[k] = ProcessConfig._include_env(v)
+            elif isinstance(v, str) and v.startswith("${") and v.endswith("}"):
+                envvar = v.lstrip("${").rstrip("}")
+                out[k] = os.environ.get(envvar)
+            else:
+                out[k] = v
+        return out
+
+    @staticmethod
     def parse(
         input_config: Union[dict, MPathLike], strict: bool = False
     ) -> ProcessConfig:
         """Read config from file or dictionary and return validated configuration"""
 
-        def _include_env(d: dict) -> OrderedDict:
-            """Search for environment variables and add their values."""
-            out = OrderedDict()
-            for k, v in d.items():
-                if isinstance(v, dict):
-                    out[k] = _include_env(v)
-                elif isinstance(v, str) and v.startswith("${") and v.endswith("}"):
-                    envvar = v.lstrip("${").rstrip("}")
-                    out[k] = os.environ.get(envvar)
-                else:
-                    out[k] = v
-            return out
+        if isinstance(input_config, dict):
+            return ProcessConfig.from_dict(input_config, strict=strict)
 
-        def _config_to_dict(input_config: Union[dict, MPathLike]) -> dict:
-            """Convert a file or dictionary to a config dictionary."""
-            if isinstance(input_config, dict):
-                if "config_dir" not in input_config:
-                    raise MapcheteConfigError("config_dir parameter missing")
-                return OrderedDict(_include_env(input_config), mapchete_file=None)
+        elif isinstance(input_config, (MPath, str)):
+            return ProcessConfig.from_file(input_config, strict=strict)
 
-            elif isinstance(input_config, (MPath, str)):
-                config_path = MPath.from_inp(input_config)
-                # from Mapchete file
-                if config_path.suffix == ".mapchete":
-                    config_dict = _include_env(config_path.read_yaml())
-                    return OrderedDict(
-                        config_dict,
-                        config_dir=config_dict.get(
-                            "config_dir",
-                            config_path.absolute_path().dirname or os.getcwd(),
-                        ),
-                        mapchete_file=config_path,
-                    )
-            # throw error if unknown object
-            raise MapcheteConfigError(
-                "Configuration has to be a dictionary or a .mapchete file."
-            )  # pragma: no cover
-
-        if strict:  # pragma: no cover
-            return ProcessConfig(**_config_to_dict(input_config))
-        else:
-            return ProcessConfig(
-                **ProcessConfig.map_to_new_config_dict(_config_to_dict(input_config))
-            )
+        # throw error if unknown object
+        raise MapcheteConfigError(
+            "Configuration has to be a dictionary or a .mapchete file."
+        )
 
     def to_dict(self) -> OrderedDict:
         return OrderedDict(self.model_dump())
@@ -246,10 +297,10 @@ class ProcessConfig(BaseModel, arbitrary_types_allowed=True):
                 # input and process_parameters can be zoom dependent
                 if name in ["input", "process_parameters"]:
                     out_element = _element_at_zoom(name, element, zoom)
-                else:
-                    out_element = element
-                if out_element is not None:
-                    yield name, out_element
+                    if out_element is not None:
+                        yield name, out_element
+                elif element is not None:
+                    yield name, element
 
         return OrderedDict(list(_yield_items()))
 

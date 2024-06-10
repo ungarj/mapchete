@@ -108,6 +108,10 @@ class MPath(os.PathLike):
         else:  # pragma: no cover
             raise TypeError(f"cannot construct MPath object from {inp}")
 
+    @staticmethod
+    def cwd() -> MPath:
+        return MPath(os.getcwd())
+
     def info(self, refresh: bool = False) -> dict:
         if refresh or self._info is None:
             self._info = self.fs.info(self._path_str)
