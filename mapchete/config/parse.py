@@ -190,7 +190,8 @@ def get_zoom_levels(
 
 
 def guess_geometry(
-    some_input: Union[MPathLike, dict, Geometry], base_dir: Optional[MPathLike] = None
+    some_input: Union[MPathLike, dict, str, Geometry],
+    base_dir: Optional[MPathLike] = None,
 ) -> Tuple[Geometry, Union[CRS, None]]:
     """
     Guess and parse geometry if possible.

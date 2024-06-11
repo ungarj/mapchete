@@ -1,11 +1,23 @@
 from __future__ import annotations
 
 import os
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    Union,
+    runtime_checkable,
+)
 
 from affine import Affine
 from fiona.crs import CRS as FionaCRS  # type: ignore
 from pydantic import BaseModel
+from pydantic_geojson import GeometryType as GeoJSONGeometryType
 from rasterio.crs import CRS as RasterioCRS
 from rasterio.enums import Resampling
 from rasterio.transform import array_bounds, from_bounds
@@ -20,26 +32,82 @@ from shapely.geometry import (
     Polygon,
     shape,
 )
+from shapely.geometry.base import BaseGeometry
 from tilematrix import Shape
 
-from mapchete.tile import BufferedTile
+from mapchete.errors import GeometryTypeError
 
-Geometry = Union[
+SinglepartGeometry = Union[
     Point,
-    MultiPoint,
     LineString,
-    MultiLineString,
     LinearRing,
     Polygon,
+]
+
+MultipartGeometry = Union[
+    MultiPoint,
+    MultiLineString,
     MultiPolygon,
     GeometryCollection,
 ]
+
+Geometry = Union[SinglepartGeometry, MultipartGeometry, BaseGeometry]
+
+
+@runtime_checkable
+class GeoInterface(Protocol):
+    __geo_interface__: Union[
+        GeoJSONGeometryType, Dict[Literal["geometry"], GeoJSONGeometryType]
+    ]
+
+
+GeometryLike = Union[Geometry, GeoJSONGeometryType, GeoInterface]
+
+CoordArrays = Tuple[Iterable[float], Iterable[float]]
+
+
+def get_multipart_type(geometry: Geometry) -> MultipartGeometry:
+    try:
+        return {
+            Point: MultiPoint,
+            LineString: MultiLineString,
+            Polygon: MultiPolygon,
+            MultiPoint: MultiPoint,
+            MultiLineString: MultiLineString,
+            MultiPolygon: MultiPolygon,
+        }[geometry]
+    except KeyError:
+        raise GeometryTypeError(
+            f"geometry type {geometry.type} has no corresponding multipart type"
+        )
+
+
+def get_geometry_type(geometry_type: Union[Type[Geometry], str]) -> Type[Geometry]:
+    if isinstance(geometry_type, str):
+        try:
+            return {
+                "Point".lower(): Point,
+                "LineString".lower(): LineString,
+                "LinearRing".lower(): LinearRing,
+                "Polygon".lower(): Polygon,
+                "MultiPoint".lower(): MultiPoint,
+                "MultiLineString".lower(): MultiLineString,
+                "MultiPolygon".lower(): MultiPolygon,
+                "GeometryCollection".lower(): GeometryCollection,
+            }[geometry_type.lower()]
+        except KeyError:
+            raise GeometryTypeError(
+                f"geometry type cannot be determined from {geometry_type}"
+            )
+    elif issubclass(geometry_type, Geometry):
+        return geometry_type
+    raise GeometryTypeError(f"geometry type cannot be determined from {geometry_type}")
+
 
 MPathLike = Union[str, os.PathLike]
 BoundsLike = Union[List[float], Tuple[float, float, float, float], dict, Geometry]
 ShapeLike = Union[Shape, List[int], Tuple[int, int]]
 ZoomLevelsLike = Union[List[int], int, dict]
-TileLike = Union[BufferedTile, Tuple[int, int, int]]
 CRSLike = Union[FionaCRS, RasterioCRS, str, dict]
 NodataVal = Optional[float]
 NodataVals = Union[List[NodataVal], NodataVal]

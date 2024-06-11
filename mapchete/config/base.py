@@ -36,7 +36,7 @@ from mapchete.io import MPath, absolute_path
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTile, BufferedTilePyramid, snap_geometry_to_tiles
 from mapchete.timer import Timer
-from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels
+from mapchete.types import Bounds, BoundsLike, CRSLike, MPathLike, ZoomLevels
 from mapchete.validate import (
     validate_bounds,
     validate_bufferedtilepyramid,
@@ -225,7 +225,6 @@ class MapcheteConfig(object):
             area=self.parsed_config.area,
             bounds=self.parsed_config.bounds,
             area_fallback=box(*self.process_pyramid.bounds),
-            bounds_fallback=self.process_pyramid.bounds,
             area_crs=area_crs,
             bounds_crs=bounds_crs,
         )
@@ -236,7 +235,6 @@ class MapcheteConfig(object):
             area=self._init_area,
             bounds=self._init_bounds,
             area_fallback=self.area,
-            bounds_fallback=self.bounds,
             area_crs=area_crs,
             bounds_crs=bounds_crs,
         )
@@ -335,7 +333,7 @@ class MapcheteConfig(object):
         """
         try:
             return get_zoom_levels(
-                process_zoom_levels=self.parsed_config.zoom_levels,
+                self.parsed_config.zoom_levels,
                 init_zoom_levels=self._init_zoom_levels,
             )
         except Exception as e:  # pragma: no cover
@@ -636,7 +634,7 @@ class MapcheteConfig(object):
             if "input" in self._params_at_zoom[zoom]:
                 input_union = unary_union(
                     [
-                        self.input[get_input_key(v)].bbox(self.process_pyramid.crs)
+                        self.input[get_input_key(v)].bbox(self.process_pyramid.crs)  # type: ignore
                         for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
                         if v is not None
                     ]
@@ -673,12 +671,11 @@ class MapcheteConfig(object):
 
     def _get_process_area(
         self,
-        area=None,
-        bounds=None,
-        area_fallback=None,
-        bounds_fallback=None,
-        area_crs=None,
-        bounds_crs=None,
+        area: Optional[Union[MPathLike, dict, str, Geometry]] = None,
+        bounds: Optional[BoundsLike] = None,
+        area_fallback: Optional[Geometry] = None,
+        area_crs: Optional[CRSLike] = None,
+        bounds_crs: Optional[CRSLike] = None,
     ):
         """
         Determine process area by combining configuration with instantiation arguments.
@@ -696,7 +693,7 @@ class MapcheteConfig(object):
         try:
             dst_crs = self.process_pyramid.crs
 
-            if bounds is None and area is None:
+            if bounds is None and area is None and area_fallback:
                 return area_fallback
 
             elif bounds is None:
@@ -710,7 +707,7 @@ class MapcheteConfig(object):
 
             elif area is None:
                 return reproject_geometry(
-                    box(*Bounds.from_inp(bounds)),
+                    Bounds.from_inp(bounds).geometry,
                     src_crs=bounds_crs or dst_crs,
                     dst_crs=dst_crs,
                 )
@@ -727,7 +724,7 @@ class MapcheteConfig(object):
                     area, src_crs=area_crs or dst_crs, dst_crs=dst_crs
                 ).intersection(
                     reproject_geometry(
-                        box(*Bounds.from_inp(bounds)),
+                        Bounds.from_inp(bounds).geometry,
                         src_crs=bounds_crs or dst_crs,
                         dst_crs=dst_crs,
                     ),
@@ -805,9 +802,7 @@ def get_hash(some_object: Any, length: int = 16) -> str:
         return hashlib.sha224(str(some_object).encode()).hexdigest()[:length]
 
 
-def snap_bounds(
-    bounds: BoundsLike = None, pyramid: BufferedTilePyramid = None, zoom: int = None
-) -> Bounds:
+def snap_bounds(bounds: BoundsLike, pyramid: BufferedTilePyramid, zoom: int) -> Bounds:
     """
     Snap bounds to tiles boundaries of specific zoom level.
 
@@ -828,7 +823,7 @@ def snap_bounds(
     return Bounds(lb.left, lb.bottom, rt.right, rt.top)
 
 
-def clip_bounds(bounds: BoundsLike = None, clip: BoundsLike = None) -> Bounds:
+def clip_bounds(bounds: BoundsLike, clip: BoundsLike) -> Bounds:
     """
     Clip bounds by clip.
 
@@ -853,9 +848,9 @@ def clip_bounds(bounds: BoundsLike = None, clip: BoundsLike = None) -> Bounds:
 
 def initialize_inputs(
     raw_inputs: dict,
-    config_dir: Optional[MPathLike] = None,
-    pyramid: BufferedTilePyramid = None,
-    delimiters: dict = None,
+    config_dir: MPathLike,
+    pyramid: BufferedTilePyramid,
+    delimiters: dict,
     readonly: bool = False,
 ) -> OrderedDict:
     initalized_inputs = OrderedDict()

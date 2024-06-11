@@ -1,9 +1,11 @@
 """Mapchtete handling tiles."""
+
 from __future__ import annotations
 
 import logging
 from functools import cached_property
 from itertools import product
+from typing import Tuple, Union
 
 import numpy as np
 from affine import Affine
@@ -15,6 +17,8 @@ from shapely.geometry import box, shape
 from shapely.ops import unary_union
 from tilematrix import Tile, TilePyramid
 from tilematrix._conf import ROUND
+
+from mapchete.types import Geometry
 
 logger = logging.getLogger(__name__)
 
@@ -386,6 +390,9 @@ class BufferedTile(Tile):
         return hash(repr(self))
 
 
+TileLike = Union[BufferedTile, Tuple[int, int, int]]
+
+
 def count_tiles(
     geometry, pyramid, minzoom, maxzoom, init_zoom=0, rasterize_threshold=0
 ):
@@ -527,7 +534,9 @@ def _count_cells(pyramid, geometry, minzoom, maxzoom):
     return int(count)
 
 
-def snap_geometry_to_tiles(geometry=None, pyramid=None, zoom=None):
+def snap_geometry_to_tiles(
+    geometry: Geometry, pyramid: BufferedTilePyramid, zoom: int
+) -> Geometry:
     if geometry.is_empty:
         return geometry
     # calculate everything using an unbuffered pyramid, because otherwise the Affine
