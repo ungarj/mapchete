@@ -124,9 +124,6 @@ class MemoryTracker:
             if self.output_file:
                 copy(self._temp_file, self.output_file, overwrite=True)
         finally:
-            try:
-                self._exit_stack.__exit__(*args)
-            except Exception as exc:  # pragma: no cover
-                logger.error(exc)
+            self._exit_stack.__exit__(*args)
             # we need to set this to None, so MemoryTracker can be serialized
             self._memray_tracker = None
