@@ -79,7 +79,7 @@ class MemoryTracker:
         self._exit_stack = ExitStack()
         self._temp_dir = self._exit_stack.enter_context(TemporaryDirectory())
         self._temp_file = str(
-            MPath(self._temp_dir) / f"{os. getpid()}-{uuid.uuid4().hex}.bin"
+            MPath(self._temp_dir) / f"{os.getpid()}-{uuid.uuid4().hex}.bin"
         )
         try:
             self._memray_tracker = self._exit_stack.enter_context(
@@ -113,9 +113,10 @@ class MemoryTracker:
             # close memray.Tracker before attempting to read file
             if self._memray_tracker:
                 self._memray_tracker.__exit__(*args)
-            reader = FileReader(self._temp_file)
             allocations = list(
-                reader.get_high_watermark_allocation_records(merge_threads=True)
+                FileReader(self._temp_file).get_high_watermark_allocation_records(
+                    merge_threads=True
+                )
             )
             self.max_allocated = max(record.size for record in allocations)
             self.total_allocated = sum(record.size for record in allocations)
@@ -123,6 +124,9 @@ class MemoryTracker:
             if self.output_file:
                 copy(self._temp_file, self.output_file, overwrite=True)
         finally:
-            self._exit_stack.__exit__(*args)
+            try:
+                self._exit_stack.__exit__(*args)
+            except Exception as exc:  # pragma: no cover
+                logger.error(exc)
             # we need to set this to None, so MemoryTracker can be serialized
             self._memray_tracker = None
