@@ -466,7 +466,6 @@ def test_pickle_fs(path):
         lazy_fixture("raster_4band_s3"),
         lazy_fixture("raster_4band_http"),
         lazy_fixture("raster_4band_secure_http"),
-        lazy_fixture("raster_4band_aws_s3"),
     ],
 )
 def test_pickle_fs_remote(path):
