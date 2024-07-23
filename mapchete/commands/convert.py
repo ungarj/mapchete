@@ -90,13 +90,13 @@ def convert(
     except Exception as e:
         raise ValueError(e)
 
-    # try to read output grid definition from a file
-    if (
-        isinstance(output_pyramid, (MPath, str, dict))
-        and output_pyramid not in tilematrix._conf.PYRAMID_PARAMS.keys()
+        # try to read output grid definition from a file
+    if not (
+        isinstance(output_pyramid, str)
+        and output_pyramid in tilematrix._conf.PYRAMID_PARAMS.keys()
     ):
         try:
-            output_pyramid = MPath.from_inp(output_pyramid).read_json()
+            output_pyramid = MPath.from_inp(output_pyramid).read_json()  # type: ignore
         except Exception:  # pragma: no cover
             pass
 
