@@ -57,7 +57,7 @@ complete = [
     "fsspec[http,s3]>=2023.12.0",
     "lxml",
     "matplotlib",
-    "memray!=1.13.1,!=1.13.2,!=1.13.3",
+    "memray<1.13.0",
     "pystac[urllib3]>=1.8.2",
     "requests",
     "rtree",
@@ -74,7 +74,7 @@ http = [
     "requests",
 ]
 profiling = [
-    "memray!=1.13.1,!=1.13.2,!=1.13.3",
+    "memray<1.13.0",
     "tilebench"
 ]
 s3 = [
