@@ -3,24 +3,42 @@
 from __future__ import annotations
 
 import logging
-from functools import cached_property
 from itertools import product
-from typing import Tuple, Union
+from typing import (
+    Any,
+    Generator,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import numpy as np
 from affine import Affine
+from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.features import rasterize, shapes
 from rasterio.warp import reproject
 from shapely import clip_by_rect
-from shapely.geometry import box, shape
+from shapely.geometry import shape
 from shapely.ops import unary_union
-from tilematrix import Tile, TilePyramid
+from tilematrix import GridDefinition, Shape, Tile, TilePyramid
 from tilematrix._conf import ROUND
 
-from mapchete.types import Geometry
+from mapchete.protocols import GridProtocol
+from mapchete.types import Bounds, BoundsLike, Geometry, Polygon
 
 logger = logging.getLogger(__name__)
+
+
+class PyramidDefinition(TypedDict):
+    grid: Union[Literal["geodetic"], Literal["mercator"], str, dict, GridDefinition]
+    metatiling: int
+    tile_size: int
+    pixelbuffer: int
 
 
 class BufferedTilePyramid(TilePyramid):
@@ -46,7 +64,15 @@ class BufferedTilePyramid(TilePyramid):
         tile buffer size in pixels
     """
 
-    def __init__(self, grid=None, metatiling=1, tile_size=256, pixelbuffer=0):
+    def __init__(
+        self,
+        grid: Union[
+            Literal["geodetic"], Literal["mercator"], str, dict, GridDefinition
+        ],
+        metatiling: int = 1,
+        tile_size: int = 256,
+        pixelbuffer: int = 0,
+    ):
         """Initialize."""
         TilePyramid.__init__(self, grid, metatiling=metatiling, tile_size=tile_size)
         self.tile_pyramid = TilePyramid(
@@ -58,7 +84,7 @@ class BufferedTilePyramid(TilePyramid):
         else:  # pragma: no cover
             raise ValueError("pixelbuffer has to be a non-negative int")
 
-    def tile(self, zoom, row, col):
+    def tile(self, zoom: int, row: int, col: int) -> BufferedTile:
         """
         Return ``BufferedTile`` object of this ``BufferedTilePyramid``.
 
@@ -78,7 +104,14 @@ class BufferedTilePyramid(TilePyramid):
         tile = self.tile_pyramid.tile(zoom, row, col)
         return BufferedTile(tile, pixelbuffer=self.pixelbuffer)
 
-    def tiles_from_bounds(self, bounds=None, zoom=None, batch_by=None):
+    def tiles_from_bounds(
+        self,
+        bounds: BoundsLike,
+        zoom: int,
+        batch_by: Optional[
+            Union[Literal["row"], Literal["col"], Literal["column"]]
+        ] = None,
+    ) -> Generator[Generator[BufferedTile, None, None] | BufferedTile, Any, None]:
         """
         Return all tiles intersecting with bounds.
 
@@ -98,9 +131,18 @@ class BufferedTilePyramid(TilePyramid):
             generates ``BufferedTiles``
         """
         batch_by = "column" if batch_by == "col" else batch_by
-        yield from self.tiles_from_bbox(box(*bounds), zoom=zoom, batch_by=batch_by)
+        yield from self.tiles_from_bbox(
+            Bounds.from_inp(bounds).geometry, zoom=zoom, batch_by=batch_by
+        )
 
-    def tiles_from_bbox(self, geometry, zoom=None, batch_by=None):
+    def tiles_from_bbox(
+        self,
+        geometry: Geometry,
+        zoom: int,
+        batch_by: Optional[
+            Union[Literal["row"], Literal["col"], Literal["column"]]
+        ] = None,
+    ) -> Generator[Generator[BufferedTile, None, None] | BufferedTile, Any, None]:
         """
         All metatiles intersecting with given bounding box.
 
@@ -120,12 +162,21 @@ class BufferedTilePyramid(TilePyramid):
             for batch in self.tile_pyramid.tiles_from_bbox(
                 geometry, zoom=zoom, batch_by=batch_by
             ):
-                yield (self.tile(*tile.id) for tile in batch)
+                yield (self.tile(*tile.id) for tile in batch if isinstance(tile, Tile))
         else:
             for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom=zoom):
-                yield self.tile(*tile.id)
+                if isinstance(tile, Tile):
+                    yield self.tile(*tile.id)
 
-    def tiles_from_geom(self, geometry, zoom=None, batch_by=None, exact=False):
+    def tiles_from_geom(
+        self,
+        geometry: Geometry,
+        zoom: int,
+        batch_by: Optional[
+            Union[Literal["row"], Literal["col"], Literal["column"]]
+        ] = None,
+        exact: bool = False,
+    ) -> Generator[Generator[BufferedTile, None, None] | BufferedTile, Any, None]:
         """
         Return all tiles intersecting with input geometry.
 
@@ -144,14 +195,15 @@ class BufferedTilePyramid(TilePyramid):
             for batch in self.tile_pyramid.tiles_from_geom(
                 geometry, zoom=zoom, batch_by=batch_by, exact=exact
             ):
-                yield (self.tile(*tile.id) for tile in batch)
+                yield (self.tile(*tile.id) for tile in batch if isinstance(tile, Tile))
         else:
             for tile in self.tile_pyramid.tiles_from_geom(
                 geometry, zoom=zoom, batch_by=batch_by, exact=exact
             ):
-                yield self.tile(*tile.id)
+                if isinstance(tile, Tile):
+                    yield self.tile(*tile.id)
 
-    def intersecting(self, tile):
+    def intersecting(self, tile: TileLike) -> List[BufferedTile]:
         """
         Return all BufferedTiles intersecting with tile.
 
@@ -165,7 +217,7 @@ class BufferedTilePyramid(TilePyramid):
             for intersecting_tile in self.tile_pyramid.intersecting(tile)
         ]
 
-    def matrix_affine(self, zoom):
+    def matrix_affine(self, zoom: int) -> Affine:
         """
         Return Affine object for zoom level assuming tiles are cells.
 
@@ -187,11 +239,11 @@ class BufferedTilePyramid(TilePyramid):
             self.bounds.top,
         )
 
-    def to_dict(self):
+    def to_dict(self) -> PyramidDefinition:
         """
         Return dictionary representation of pyramid parameters.
         """
-        return dict(
+        return PyramidDefinition(
             grid=self.grid.to_dict(),
             metatiling=self.metatiling,
             tile_size=self.tile_size,
@@ -199,12 +251,15 @@ class BufferedTilePyramid(TilePyramid):
         )
 
     def without_pixelbuffer(self) -> BufferedTilePyramid:
-        config_dict = self.to_dict()
-        config_dict.update(pixelbuffer=0)
-        return BufferedTilePyramid(**config_dict)
+        return BufferedTilePyramid(
+            grid=self.grid.to_dict(),
+            metatiling=self.metatiling,
+            tile_size=self.tile_size,
+            pixelbuffer=0,
+        )
 
     @staticmethod
-    def from_dict(config_dict):
+    def from_dict(config_dict: PyramidDefinition) -> BufferedTilePyramid:
         """
         Initialize TilePyramid from configuration dictionary.
         """
@@ -217,7 +272,7 @@ class BufferedTilePyramid(TilePyramid):
         )
 
 
-class BufferedTile(Tile):
+class BufferedTile(GridProtocol):
     """
     A special tile with fixed pixelbuffer.
 
@@ -247,71 +302,70 @@ class BufferedTile(Tile):
         rasterio metadata profile
     """
 
-    def __init__(self, tile, pixelbuffer=0):
+    zoom: int
+    row: int
+    col: int
+    left: float
+    bottom: float
+    right: float
+    top: float
+    height: int
+    width: int
+    shape: Shape
+    affine: Affine
+    transform: Affine
+    bounds: Bounds
+    bbox: Polygon
+    tp: BufferedTilePyramid
+    buffered_tp: BufferedTilePyramid
+    crs: CRS
+    pixel_x_size: float
+    pixel_y_size: float
+    x_size: float
+    y_size: float
+    pixelbuffer: int
+
+    def __init__(self, tile: Union[BufferedTile, Tile], pixelbuffer: int = 0):
         """Initialize."""
         if isinstance(tile, BufferedTile):
             tile = TilePyramid(
                 tile.tp.grid, tile_size=tile.tp.tile_size, metatiling=tile.tp.metatiling
             ).tile(*tile.id)
-        Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
         self._tile = tile
+        # attributes inherited by tile
+        self.tp = tile.tp
+        self.zoom = tile.zoom
+        self.row = tile.row
+        self.col = tile.col
+        self.id = tile.id
+        self.crs = tile.crs
+        self.tile_pyramid = tile.tile_pyramid
+        self.pixel_x_size = tile.pixel_x_size
+        self.pixel_y_size = tile.pixel_y_size
+        self.x_size = tile.x_size
+        self.y_size = tile.y_size
+        # set special attributes
         self.pixelbuffer = pixelbuffer
-        self.buffered_tp = BufferedTilePyramid(
+        self.buffered_tp = self.tp = BufferedTilePyramid(
             tile.tp.to_dict(), pixelbuffer=pixelbuffer
         )
+        self.bounds = Bounds.from_inp(self._tile.bounds(pixelbuffer=self.pixelbuffer))
+        self.left = self.bounds.left
+        self.bottom = self.bounds.bottom
+        self.right = self.bounds.right
+        self.top = self.bounds.top
+        self.shape = self._tile.shape(pixelbuffer=self.pixelbuffer)
+        self.height = self.shape.height
+        self.width = self.shape.width
+        self.affine = self.transform = self._tile.affine(pixelbuffer=self.pixelbuffer)
+        self.bbox = self._tile.bbox(pixelbuffer=self.pixelbuffer)
 
-    @cached_property
-    def left(self):
-        return self.bounds.left
+    def __iter__(self):
+        yield self.zoom
+        yield self.row
+        yield self.col
 
-    @cached_property
-    def bottom(self):
-        return self.bounds.bottom
-
-    @cached_property
-    def right(self):
-        return self.bounds.right
-
-    @cached_property
-    def top(self):
-        return self.bounds.top
-
-    @cached_property
-    def height(self):
-        """Return buffered height."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer).height
-
-    @cached_property
-    def width(self):
-        """Return buffered width."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer).width
-
-    @cached_property
-    def shape(self):
-        """Return buffered shape."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def affine(self):
-        """Return buffered Affine."""
-        return self._tile.affine(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def transform(self):
-        """Return buffered Affine."""
-        return self._tile.affine(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def bounds(self):
-        """Return buffered bounds."""
-        return self._tile.bounds(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def bbox(self):
-        """Return buffered bounding box."""
-        return self._tile.bbox(pixelbuffer=self.pixelbuffer)
-
-    def get_children(self):
+    def get_children(self) -> List[BufferedTile]:
         """
         Get tile children (intersecting tiles in next zoom level).
 
@@ -322,7 +376,7 @@ class BufferedTile(Tile):
         """
         return [BufferedTile(t, self.pixelbuffer) for t in self._tile.get_children()]
 
-    def get_parent(self):
+    def get_parent(self) -> Union[BufferedTile, None]:
         """
         Get tile parent (intersecting tile in previous zoom level).
 
@@ -330,9 +384,12 @@ class BufferedTile(Tile):
         -------
         parent : ``BufferedTile``
         """
-        return BufferedTile(self._tile.get_parent(), self.pixelbuffer)
+        parent = self._tile.get_parent()
+        if parent:
+            return BufferedTile(parent, self.pixelbuffer)
+        raise AttributeError(f"{str(self)} has no parent")
 
-    def get_neighbors(self, connectedness=8):
+    def get_neighbors(self, connectedness: int = 8) -> List[BufferedTile]:
         """
         Return tile neighbors.
 
@@ -363,7 +420,7 @@ class BufferedTile(Tile):
             for t in self._tile.get_neighbors(connectedness=connectedness)
         ]
 
-    def is_on_edge(self):
+    def is_on_edge(self) -> bool:
         """Determine whether tile touches or goes over pyramid edge."""
         return (
             self.left <= self.tile_pyramid.left
@@ -372,7 +429,7 @@ class BufferedTile(Tile):
             or self.top >= self.tile_pyramid.top  # touches_right  # touches_top
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: BufferedTile) -> bool:
         return (
             isinstance(other, self.__class__)
             and self.pixelbuffer == other.pixelbuffer
@@ -380,7 +437,7 @@ class BufferedTile(Tile):
             and self.id == other.id
         )
 
-    def __ne__(self, other):
+    def __ne__(self, other: BufferedTile):
         return not self.__eq__(other)
 
     def __repr__(self):
@@ -394,8 +451,13 @@ TileLike = Union[BufferedTile, Tuple[int, int, int]]
 
 
 def count_tiles(
-    geometry, pyramid, minzoom, maxzoom, init_zoom=0, rasterize_threshold=0
-):
+    geometry: Geometry,
+    pyramid: BufferedTilePyramid,
+    minzoom: int,
+    maxzoom: int,
+    init_zoom: int = 0,
+    rasterize_threshold: int = 0,
+) -> int:
     """
     Count number of tiles intersecting with geometry.
 
@@ -440,7 +502,9 @@ def count_tiles(
     )
 
 
-def _count_tiles(tiles, geometry, minzoom, maxzoom):
+def _count_tiles(
+    tiles: Iterable[BufferedTile], geometry: Geometry, minzoom: int, maxzoom: int
+) -> int:
     count = 0
     for tile in tiles:
         # determine data covered by tile
@@ -482,7 +546,9 @@ def _count_tiles(tiles, geometry, minzoom, maxzoom):
     return count
 
 
-def _count_cells(pyramid, geometry, minzoom, maxzoom):
+def _count_cells(
+    pyramid: BufferedTilePyramid, geometry: Geometry, minzoom: int, maxzoom: int
+) -> int:
     if geometry.is_empty:  # pragma: no cover
         return 0
 
@@ -541,9 +607,7 @@ def snap_geometry_to_tiles(
         return geometry
     # calculate everything using an unbuffered pyramid, because otherwise the Affine
     # object cannot be calculated
-    unbuffered_pyramid = BufferedTilePyramid.from_dict(
-        dict(pyramid.to_dict(), pixelbuffer=0)
-    )
+    unbuffered_pyramid = pyramid.without_pixelbuffer()
     transform = unbuffered_pyramid.matrix_affine(zoom)
     raster = rasterize(
         [(geometry, 1)],
