@@ -8,6 +8,7 @@ from typing import Any, Callable, Optional, Tuple, Union
 
 from mapchete.io import copy
 from mapchete.path import MPath
+from mapchete.pretty import pretty_bytes
 from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
@@ -47,9 +48,9 @@ def measure_memory(
                 return (retval, result)
 
             logger.info(
-                "function %s consumed a maximum of %sMB",
+                "function %s consumed a maximum of %s",
                 func,
-                round(tracker.max_allocated / 1024 / 1024, 2),
+                pretty_bytes(tracker.max_allocated),
             )
             return retval
 
@@ -92,9 +93,7 @@ class MemoryTracker:
             logger.exception(exc)
 
     def __str__(self):  # pragma: no cover
-        max_allocated = f"{self.max_allocated / 1024 / 1024:.2f}MB"
-        total_allocated = f"{self.total_allocated / 1024 / 1024:.2f}MB"
-        return f"<MemoryTracker max_allocated={max_allocated}, total_allocated={total_allocated}, allocations={self.allocations}>"
+        return f"<MemoryTracker max_allocated={pretty_bytes(self.max_allocated)}, total_allocated={pretty_bytes(self.total_allocated)}, allocations={self.allocations}>"
 
     def __repr__(self):  # pragma: no cover
         return repr(str(self))
