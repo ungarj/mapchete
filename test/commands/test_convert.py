@@ -38,9 +38,21 @@ def test_convert_mercator(cleantopo_br_tif, mp_tmpdir):
             assert data.mask.any()
 
 
-def test_convert_custom_grid(s2_band, mp_tmpdir, custom_grid_json):
+def test_convert_custom_grid_json(s2_band, mp_tmpdir, custom_grid_json):
     """Automatic mercator tile pyramid creation of raster files."""
     convert(s2_band, mp_tmpdir, output_pyramid=custom_grid_json)
+    for zoom, row, col in [(0, 5298, 631)]:
+        out_file = mp_tmpdir / zoom / row / col + ".tif"
+        with rasterio_open(out_file, "r") as src:
+            assert src.meta["driver"] == "GTiff"
+            assert src.meta["dtype"] == "uint16"
+            data = src.read(masked=True)
+            assert data.mask.any()
+
+
+def test_convert_custom_grid_dict(s2_band, mp_tmpdir, custom_grid_json):
+    """Automatic mercator tile pyramid creation of raster files."""
+    convert(s2_band, mp_tmpdir, output_pyramid=custom_grid_json.read_json())
     for zoom, row, col in [(0, 5298, 631)]:
         out_file = mp_tmpdir / zoom / row / col + ".tif"
         with rasterio_open(out_file, "r") as src:
