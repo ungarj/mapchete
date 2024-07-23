@@ -466,7 +466,6 @@ def test_pickle_fs(path):
         lazy_fixture("raster_4band_s3"),
         lazy_fixture("raster_4band_http"),
         lazy_fixture("raster_4band_secure_http"),
-        lazy_fixture("raster_4band_aws_s3"),
     ],
 )
 def test_pickle_fs_remote(path):
@@ -517,3 +516,7 @@ def test_with_protocol_http():
 def test_with_protocol_relative():
     path = MPath("foo/bar")
     assert path.with_protocol("https") == "https://foo/bar"
+
+
+def test_cwd():
+    assert MPath.cwd()

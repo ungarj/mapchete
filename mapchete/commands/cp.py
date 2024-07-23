@@ -14,6 +14,7 @@ from mapchete.enums import Concurrency
 from mapchete.executor import Executor
 from mapchete.io import MPath, copy, tiles_exist
 from mapchete.io.vector import reproject_geometry
+from mapchete.tile import BufferedTile
 from mapchete.types import BoundsLike, CRSLike, Progress, ZoomLevelsLike
 
 logger = logging.getLogger(__name__)
@@ -103,10 +104,11 @@ def cp(
                     else:
                         aoi_geom = src_mp.config.area_at_zoom(zoom)
                         tiles = [
-                            t
-                            for t in tp.tiles_from_geom(aoi_geom, zoom)
+                            tt
+                            for tt in tp.tiles_from_geom(aoi_geom, zoom)
                             # this is required to omit tiles touching the config area
-                            if aoi_geom.intersection(t.bbox).area
+                            if isinstance(tt, BufferedTile)
+                            and aoi_geom.intersection(tt.bbox).area
                         ]
 
                     all_observers.notify(progress=Progress(current=0, total=len(tiles)))

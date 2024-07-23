@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property
 from io import TextIOWrapper
-from typing import IO, Generator, List, Optional, Set, TextIO, Tuple, Union
+from typing import IO, Generator, Iterator, List, Optional, Set, TextIO, Tuple, Union
 
 import fiona
 import fsspec
@@ -107,6 +107,10 @@ class MPath(os.PathLike):
             return MPath(inp.__fspath__(), **kwargs)
         else:  # pragma: no cover
             raise TypeError(f"cannot construct MPath object from {inp}")
+
+    @staticmethod
+    def cwd() -> MPath:
+        return MPath(os.getcwd())
 
     def info(self, refresh: bool = False) -> dict:
         if refresh or self._info is None:
@@ -762,14 +766,10 @@ def makedirs(
 
 def tiles_exist(
     config,
-    output_tiles: Optional[Generator[BufferedTile, None, None]] = None,
-    output_tiles_batches: Optional[
-        Generator[Generator[BufferedTile, None, None], None, None]
-    ] = None,
-    process_tiles: Optional[Generator[BufferedTile, None, None]] = None,
-    process_tiles_batches: Optional[
-        Generator[Generator[BufferedTile, None, None], None, None]
-    ] = None,
+    output_tiles: Optional[Iterator[BufferedTile]] = None,
+    output_tiles_batches: Optional[Iterator[Iterator[BufferedTile]]] = None,
+    process_tiles: Optional[Iterator[BufferedTile]] = None,
+    process_tiles_batches: Optional[Iterator[Iterator[BufferedTile]]] = None,
     **kwargs,
 ):
     """
@@ -880,7 +880,7 @@ def _is_https_without_ls(path: MPath, default_file: str = "metadata.json") -> bo
 
 
 def _batch_tiles_by_attribute(
-    tiles: Generator[BufferedTile, None, None], attribute: str = "row"
+    tiles: Iterator[BufferedTile], attribute: str = "row"
 ) -> Generator[Generator[BufferedTile, None, None], None, None]:
     ordered = defaultdict(set)
     for tile in tiles:
@@ -889,7 +889,7 @@ def _batch_tiles_by_attribute(
 
 
 def _output_tiles_batches_exist(
-    output_tiles_batches: Generator[Generator[BufferedTile, None, None], None, None],
+    output_tiles_batches: Iterator[Iterator[BufferedTile]],
     config,
     is_https_without_ls,
 ):

@@ -10,8 +10,8 @@ from shapely.geometry.base import BaseGeometry
 
 from mapchete.path import MPath
 from mapchete.protocols import GridProtocol
-from mapchete.tile import BufferedTile, BufferedTilePyramid
-from mapchete.types import BandIndexes, BoundsLike, CRSLike, ResamplingLike, TileLike
+from mapchete.tile import BufferedTile, BufferedTilePyramid, TileLike
+from mapchete.types import BandIndexes, BoundsLike, CRSLike, ResamplingLike
 
 
 class InputTileProtocol(GridProtocol):  # pragma: no cover
@@ -165,6 +165,11 @@ class FileSystemOutputDataReaderProtocol:  # pragma: no cover
 
 
 class OutputDataWriterProtocol(OutputDataReaderProtocol):  # pragma: no cover
+    METADATA: dict
+
+    def is_valid_with_config(self, params: dict) -> bool:
+        ...
+
     def write(self, process_tile: BufferedTile, data: Any) -> None:
         ...
 

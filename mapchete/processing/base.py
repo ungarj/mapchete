@@ -26,9 +26,9 @@ from mapchete.processing.tasks import (
     TileTaskBatch,
 )
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
-from mapchete.tile import BufferedTile, count_tiles
+from mapchete.tile import BufferedTile, TileLike, count_tiles
 from mapchete.timer import Timer
-from mapchete.types import TileLike, ZoomLevels, ZoomLevelsLike
+from mapchete.types import ZoomLevels, ZoomLevelsLike
 from mapchete.validate import validate_tile
 
 logger = logging.getLogger(__name__)

@@ -1,94 +1,117 @@
-import os
-import pickle
 from copy import deepcopy
 
 import oyaml as yaml
 import pytest
-from pydantic import ValidationError
 from pytest_lazyfixture import lazy_fixture
+from rasterio.enums import Resampling
 from shapely import wkt
-from shapely.errors import WKTReadingError
-from shapely.geometry import Polygon, box, mapping, shape
+from shapely.geometry import Polygon, box, shape
 from shapely.ops import unary_union
 
 import mapchete
-from mapchete.config import MapcheteConfig, ProcessConfig, snap_bounds
-from mapchete.config.models import DaskAdaptOptions, DaskSpecs
-from mapchete.config.parse import bounds_from_opts, guess_geometry
-from mapchete.config.process_func import ProcessFunc
+from mapchete.config.base import MapcheteConfig, snap_bounds
+from mapchete.config.models import DaskAdaptOptions, DaskSpecs, OverviewSettings
+from mapchete.enums import Concurrency
 from mapchete.errors import MapcheteConfigError
 from mapchete.io import fiona_open, rasterio_open
-from mapchete.path import MPath
-from mapchete.types import Bounds
-
-SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
-TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata/"))
 
 
-def test_config_errors(example_mapchete):
-    """Test various configuration parsing errors."""
-    config_orig = example_mapchete.dict
+def test_config_errors_type():
     # wrong config type
-    with pytest.raises(FileNotFoundError):
-        mapchete.open("not_a_config")
+    with pytest.raises(MapcheteConfigError):
+        MapcheteConfig("not_a_config")
+
+
+def test_config_errors_missing_process(example_mapchete):
     # missing process
     with pytest.raises(MapcheteConfigError):
-        config = deepcopy(config_orig)
+        config = deepcopy(example_mapchete.dict)
         config.pop("process")
         MapcheteConfig(config)
-    # using input and input_files
-    with pytest.raises(MapcheteConfigError):
-        config = deepcopy(config_orig)
-        config.update(input=None, input_files=None)
-        mapchete.open(config)
+
+
+def test_config_errors_invalid_output_config(example_mapchete):
     # output configuration not compatible with driver
     with pytest.raises(MapcheteConfigError):
-        config = deepcopy(config_orig)
+        config = deepcopy(example_mapchete.dict)
         config["output"].pop("bands")
         MapcheteConfig(config)
+
+
+def test_config_errors_no_baselevel(example_mapchete):
     # no baselevel params
     with pytest.raises(MapcheteConfigError):
-        config = deepcopy(config_orig)
+        config = deepcopy(example_mapchete.dict)
         config.update(baselevels={})
-        with mapchete.open(config) as mp:
-            mp.config.baselevels
+        assert not MapcheteConfig(config).baselevels
+
+
+def test_config_errors_baselevel_invalid_min(example_mapchete):
     # wrong baselevel min or max
     with pytest.raises(MapcheteConfigError):
-        config = deepcopy(config_orig)
+        config = deepcopy(example_mapchete.dict)
         config.update(baselevels={"min": "invalid"})
-        with mapchete.open(config) as mp:
-            mp.config.baselevels
+        assert MapcheteConfig(config).baselevels
+
+
+def test_config_errors_invalid_pyramid_pixelbuffer(example_mapchete):
     # wrong pixelbuffer type
     with pytest.raises(MapcheteConfigError):
-        config = deepcopy(config_orig)
+        config = deepcopy(example_mapchete.dict)
         config["pyramid"].update(pixelbuffer="wrong_type")
-        mapchete.open(config)
+        MapcheteConfig(config)
+
+
+def test_config_errors_invalid_pyramid_metatiling(example_mapchete):
     # wrong metatiling type
     with pytest.raises(MapcheteConfigError):
-        config = deepcopy(config_orig)
+        config = deepcopy(example_mapchete.dict)
         config["pyramid"].update(metatiling="wrong_type")
-        mapchete.open(config)
+        MapcheteConfig(config)
+
+
+def test_config_errors_invalid_mode(example_mapchete):
+    # wrong metatiling type
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(example_mapchete.dict)
+        MapcheteConfig(config, mode="invalid")
+
+
+def test_config_errors_output_format_missing(
+    example_mapchete,
+):
+    # wrong metatiling type
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(example_mapchete.dict)
+        config["output"].pop("format")
+        MapcheteConfig(config)
+
+
+def test_config_errors_output_invalid_format(
+    example_mapchete,
+):
+    # wrong metatiling type
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(example_mapchete.dict)
+        config["output"].update(format="foo")
+        MapcheteConfig(config)
+
+
+def test_config_errors_output_metatiling_larger_than_process_metatiling(
+    example_mapchete,
+):
+    # wrong metatiling type
+    with pytest.raises(MapcheteConfigError):
+        config = deepcopy(example_mapchete.dict)
+        config["output"].update(metatiling=32)
+        MapcheteConfig(config)
 
 
 def test_config_parse_dict(example_mapchete):
     raw_config = example_mapchete.dict.copy()
     raw_config.update(process_parameters=dict(foo=dict(bar=1)))
     config = MapcheteConfig(raw_config)
-    assert config.params_at_zoom(7)["process_parameters"]["foo"]["bar"] == 1
-
-
-def test_config_parse_dict_zoom_overlaps_error(example_mapchete):
-    raw_config = example_mapchete.dict.copy()
-    raw_config.update(process_parameters={"foo": {"zoom<9": 1, "zoom<10": 2}})
-    with pytest.raises(MapcheteConfigError):
-        ProcessConfig.parse(raw_config).zoom_parameters(7)
-
-
-def test_config_parse_dict_not_all_zoom_dependent_error(example_mapchete):
-    raw_config = example_mapchete.dict.copy()
-    raw_config.update(process_parameters={"foo": {"zoom<9": 1, "bar": 2}})
-    with pytest.raises(MapcheteConfigError):
-        ProcessConfig.parse(raw_config).zoom_parameters(7)
+    assert config.params_at_zoom(7)["process_parameters"]["foo"]["bar"] == 1  # type: ignore
 
 
 def test_config_zoom7(example_mapchete, dummy2_tif):
@@ -96,13 +119,13 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
     config = MapcheteConfig(example_mapchete.dict)
     zoom7 = config.params_at_zoom(7)
     input_files = zoom7["input"]
-    assert input_files["file1"] is not None
-    assert str(input_files["file1"].path) == dummy2_tif
-    assert str(input_files["file2"].path) == dummy2_tif
-    assert zoom7["process_parameters"]["some_integer_parameter"] == 12
-    assert zoom7["process_parameters"]["some_float_parameter"] == 5.3
-    assert zoom7["process_parameters"]["some_string_parameter"] == "string1"
-    assert zoom7["process_parameters"]["some_bool_parameter"] is True
+    assert input_files["file1"] is not None  # type: ignore
+    assert str(input_files["file1"].path) == dummy2_tif  # type: ignore
+    assert str(input_files["file2"].path) == dummy2_tif  # type: ignore
+    assert zoom7["process_parameters"]["some_integer_parameter"] == 12  # type: ignore
+    assert zoom7["process_parameters"]["some_float_parameter"] == 5.3  # type: ignore
+    assert zoom7["process_parameters"]["some_string_parameter"] == "string1"  # type: ignore
+    assert zoom7["process_parameters"]["some_bool_parameter"] is True  # type: ignore
 
 
 def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
@@ -110,12 +133,12 @@ def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
     config = MapcheteConfig(example_mapchete.dict)
     zoom11 = config.params_at_zoom(11)
     input_files = zoom11["input"]
-    assert str(input_files["file1"].path) == dummy1_tif
-    assert str(input_files["file2"].path) == dummy2_tif
-    assert zoom11["process_parameters"]["some_integer_parameter"] == 12
-    assert zoom11["process_parameters"]["some_float_parameter"] == 5.3
-    assert zoom11["process_parameters"]["some_string_parameter"] == "string2"
-    assert zoom11["process_parameters"]["some_bool_parameter"] is True
+    assert str(input_files["file1"].path) == dummy1_tif  # type: ignore
+    assert str(input_files["file2"].path) == dummy2_tif  # type: ignore
+    assert zoom11["process_parameters"]["some_integer_parameter"] == 12  # type: ignore
+    assert zoom11["process_parameters"]["some_float_parameter"] == 5.3  # type: ignore
+    assert zoom11["process_parameters"]["some_string_parameter"] == "string2"  # type: ignore
+    assert zoom11["process_parameters"]["some_bool_parameter"] is True  # type: ignore
 
 
 def test_read_zoom_level(zoom_mapchete):
@@ -185,6 +208,11 @@ def test_effective_bounds(files_bounds, baselevels):
         )
 
 
+def test_baselevels_output_reader(baselevels):
+    config = MapcheteConfig(baselevels.dict)
+    assert config.output_reader
+
+
 @pytest.mark.parametrize(
     "example_config",
     [
@@ -206,13 +234,13 @@ def test_effective_area(example_config):
     aoi = config.area.intersection(config.init_area)
     control_area = unary_union(
         [
-            tile.bbox
+            tile.bbox  # type: ignore
             for tile in config.process_pyramid.tiles_from_geom(
                 aoi, config.zoom_levels.min
             )
         ]
     )
-    assert config.effective_area.difference(control_area).area == 0
+    assert config.effective_area.difference(control_area).area == 0  # type: ignore
 
 
 def test_area_and_bounds(cleantopo_br_tiledir, sample_geojson):
@@ -237,22 +265,22 @@ def test_read_mapchete_input(mapchete_input):
 def test_read_baselevels(baselevels):
     """Read baselevels."""
     config = MapcheteConfig(baselevels.dict)
-    assert isinstance(config.baselevels, dict)
-    assert set(config.baselevels["zooms"]) == set([5, 6])
-    assert config.baselevels["lower"] == "bilinear"
-    assert config.baselevels["higher"] == "nearest"
+    assert isinstance(config.baselevels, OverviewSettings)
+    assert set(config.baselevels.zooms) == set([5, 6])
+    assert config.baselevels.lower == Resampling.bilinear
+    assert config.baselevels.higher == Resampling.nearest
 
     # without min
     config = deepcopy(baselevels.dict)
     del config["baselevels"]["min"]
-    assert min(MapcheteConfig(config).baselevels["zooms"]) == 3
+    assert min(MapcheteConfig(config).baselevels.zooms) == 3  # type: ignore
 
     # without max and resampling
     config = deepcopy(baselevels.dict)
     del config["baselevels"]["max"]
     del config["baselevels"]["lower"]
-    assert max(MapcheteConfig(config).baselevels["zooms"]) == 7
-    assert MapcheteConfig(config).baselevels["lower"] == "nearest"
+    assert max(MapcheteConfig(config).baselevels.zooms) == 7  # type: ignore
+    assert MapcheteConfig(config).baselevels.lower == Resampling.nearest  # type: ignore
 
 
 def test_empty_input(file_groups):
@@ -260,7 +288,7 @@ def test_empty_input(file_groups):
     config = file_groups.dict
     config.update(input=None)
     with pytest.raises(MapcheteConfigError):
-        mapchete.open(config)
+        MapcheteConfig(config)
 
 
 def test_input_name_process_params(example_mapchete):
@@ -268,23 +296,23 @@ def test_input_name_process_params(example_mapchete):
     config = example_mapchete.dict
     config.update(process_parameters=dict(file1="foo"))
     with pytest.raises(MapcheteConfigError):
-        mapchete.open(config)
+        MapcheteConfig(config)
 
 
 def test_read_input_groups(file_groups):
     """Read input data groups."""
     config = MapcheteConfig(file_groups.dict)
     input_files = config.params_at_zoom(0)["input"]
-    assert "file1" in input_files["group1"]
-    assert "file2" in input_files["group1"]
-    assert "file1" in input_files["group2"]
-    assert "file2" in input_files["group2"]
-    assert "nested_group" in input_files
-    assert "group1" in input_files["nested_group"]
-    assert "file1" in input_files["nested_group"]["group1"]
-    assert "file2" in input_files["nested_group"]["group1"]
-    assert "file1" in input_files["nested_group"]["group2"]
-    assert "file2" in input_files["nested_group"]["group2"]
+    assert "file1" in input_files["group1"]  # type: ignore
+    assert "file2" in input_files["group1"]  # type: ignore
+    assert "file1" in input_files["group2"]  # type: ignore
+    assert "file2" in input_files["group2"]  # type: ignore
+    assert "nested_group" in input_files  # type: ignore
+    assert "group1" in input_files["nested_group"]  # type: ignore
+    assert "file1" in input_files["nested_group"]["group1"]  # type: ignore
+    assert "file2" in input_files["nested_group"]["group1"]  # type: ignore
+    assert "file1" in input_files["nested_group"]["group2"]  # type: ignore
+    assert "file2" in input_files["nested_group"]["group2"]  # type: ignore
     assert config.area_at_zoom()
 
 
@@ -299,7 +327,7 @@ def test_read_input_order(file_groups):
             params=mp.config.params_at_zoom(tile.zoom),
             input=mp.config.get_inputs_for_tile(tile),
         )
-        assert inputs.keys() == user_process.input.keys()
+        assert inputs.keys() == user_process.input.keys()  # type: ignore
 
 
 def test_input_zooms(files_zooms):
@@ -307,29 +335,29 @@ def test_input_zooms(files_zooms):
     config = MapcheteConfig(files_zooms.dict)
     # zoom 7
     input_files = config.params_at_zoom(7)["input"]
-    assert os.path.basename(input_files["greater_smaller"].path) == "dummy1.tif"
-    assert os.path.basename(input_files["equals"].path) == "dummy1.tif"
+    assert input_files["greater_smaller"].path.name == "dummy1.tif"  # type: ignore
+    assert input_files["equals"].path.name == "dummy1.tif"  # type: ignore
     # zoom 8
     input_files = config.params_at_zoom(8)["input"]
-    assert os.path.basename(input_files["greater_smaller"].path) == "dummy1.tif"
-    assert os.path.basename(input_files["equals"].path) == "dummy2.tif"
+    assert input_files["greater_smaller"].path.name == "dummy1.tif"  # type: ignore
+    assert input_files["equals"].path.name == "dummy2.tif"  # type: ignore
     # zoom 9
     input_files = config.params_at_zoom(9)["input"]
-    assert os.path.basename(input_files["greater_smaller"].path) == "dummy2.tif"
-    assert os.path.basename(input_files["equals"].path) == "cleantopo_br.tif"
+    assert input_files["greater_smaller"].path.name == "dummy2.tif"  # type: ignore
+    assert input_files["equals"].path.name == "cleantopo_br.tif"  # type: ignore
     # zoom 10
     input_files = config.params_at_zoom(10)["input"]
-    assert os.path.basename(input_files["greater_smaller"].path) == "dummy2.tif"
-    assert os.path.basename(input_files["equals"].path) == "cleantopo_tl.tif"
+    assert input_files["greater_smaller"].path.name == "dummy2.tif"  # type: ignore
+    assert input_files["equals"].path.name == "cleantopo_tl.tif"  # type: ignore
 
 
 def test_init_zoom(cleantopo_br):
-    with mapchete.open(cleantopo_br.dict, zoom=[3, 5]) as mp:
-        assert mp.config.init_zoom_levels == list(range(3, 6))
+    config = MapcheteConfig(cleantopo_br.dict, zoom=[3, 5])
+    assert config.init_zoom_levels == list(range(3, 6))
 
 
 def test_process_module(process_module):
-    mapchete.open(process_module.dict)
+    assert MapcheteConfig(process_module.dict)
 
 
 def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
@@ -337,7 +365,7 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
 
     # read geojson geometry
     with fiona_open(aoi_br_geojson) as src:
-        area = shape(next(iter(src))["geometry"])
+        area = shape(next(iter(src))["geometry"])  # type: ignore
     # read input tiff bounds
     with rasterio_open(cleantopo_br_tif) as src:
         raster = box(*src.bounds)
@@ -370,97 +398,6 @@ def test_aoi(aoi_br, aoi_br_geojson, cleantopo_br_tif):
         mapchete.open(dict(aoi_br.dict, area=None), area="/invalid_path.geojson")
 
 
-def test_guess_geometry(aoi_br_geojson):
-    with fiona_open(aoi_br_geojson) as src:
-        area = shape(next(iter(src))["geometry"])
-
-    # WKT
-    geom, crs = guess_geometry(area.wkt)
-    assert geom.is_valid
-    assert crs is None
-
-    # GeoJSON mapping
-    geom, crs = guess_geometry(mapping(area))
-    assert geom.is_valid
-    assert crs is None
-
-    # shapely Geometry
-    geom, crs = guess_geometry(area)
-    assert geom.is_valid
-    assert crs is None
-
-    # path
-    geom, crs = guess_geometry(aoi_br_geojson)
-    assert geom.is_valid
-    assert crs
-
-    # Errors
-    # malformed WKT
-    with pytest.raises(WKTReadingError):
-        guess_geometry(area.wkt.rstrip(")"))
-    # non-existent path
-    with pytest.raises(FileNotFoundError):
-        guess_geometry("/invalid_path.geojson")
-    # malformed GeoJSON mapping
-    with pytest.raises(AttributeError):
-        guess_geometry(dict(mapping(area), type=None))
-    # unknown type
-    with pytest.raises(TypeError):
-        guess_geometry(1)
-    # wrong geometry type
-    with pytest.raises(TypeError):
-        guess_geometry(area.centroid)
-
-
-def test_bounds_from_opts_wkt(wkt_geom):
-    # WKT
-    assert isinstance(bounds_from_opts(wkt_geometry=wkt_geom), Bounds)
-
-
-def test_bounds_from_opts_point(example_mapchete):
-    # point
-    assert isinstance(
-        bounds_from_opts(point=(0, 0), raw_conf=example_mapchete.dict), Bounds
-    )
-
-
-def test_bounds_from_opts_point_crs(example_mapchete):
-    # point from different CRS
-    assert isinstance(
-        bounds_from_opts(
-            point=(0, 0), point_crs="EPSG:3857", raw_conf=example_mapchete.dict
-        ),
-        Bounds,
-    )
-
-
-def test_bounds_from_opts_bounds(example_mapchete):
-    # bounds
-    assert isinstance(
-        bounds_from_opts(bounds=(1, 2, 3, 4), raw_conf=example_mapchete.dict), Bounds
-    )
-
-
-def test_bounds_from_opts_bounds_crs(example_mapchete):
-    # bounds from different CRS
-    assert isinstance(
-        bounds_from_opts(
-            bounds=(1, 2, 3, 4), bounds_crs="EPSG:3857", raw_conf=example_mapchete.dict
-        ),
-        Bounds,
-    )
-
-
-def test_bounds_from_opts_point_no_conf_error():
-    with pytest.raises(ValueError):
-        bounds_from_opts(point=(0, 0))
-
-
-def test_bounds_from_opts_bounds_no_conf_error():
-    with pytest.raises(ValueError):
-        bounds_from_opts(bounds=(1, 2, 3, 4), bounds_crs="EPSG:3857")
-
-
 def test_init_overrides_config(example_mapchete):
     process_bounds = (0, 1, 2, 3)
     init_bounds = (3, 4, 5, 6)
@@ -468,60 +405,60 @@ def test_init_overrides_config(example_mapchete):
     init_area = box(*init_bounds)
 
     # bounds
-    with mapchete.open(
+    config = MapcheteConfig(
         dict(example_mapchete.dict, bounds=process_bounds), bounds=init_bounds
-    ) as mp:
-        assert mp.config.bounds == process_bounds
-        assert mp.config.init_bounds == init_bounds
+    )
+    assert config.bounds == process_bounds
+    assert config.init_bounds == init_bounds
 
     # area
-    with mapchete.open(
+    config = MapcheteConfig(
         dict(example_mapchete.dict, area=process_area), area=init_area
-    ) as mp:
-        assert mp.config.bounds == process_bounds
-        assert mp.config.init_bounds == init_bounds
+    )
+    assert config.bounds == process_bounds
+    assert config.init_bounds == init_bounds
 
     # process bounds and init area
-    with mapchete.open(
+    config = MapcheteConfig(
         dict(example_mapchete.dict, bounds=process_bounds), area=init_area
-    ) as mp:
-        assert mp.config.bounds == process_bounds
-        assert mp.config.init_bounds == init_bounds
+    )
+    assert config.bounds == process_bounds
+    assert config.init_bounds == init_bounds
 
     # process area and init bounds
-    with mapchete.open(
+    config = MapcheteConfig(
         dict(example_mapchete.dict, area=process_area), bounds=init_bounds
-    ) as mp:
-        assert mp.config.bounds == process_bounds
-        assert mp.config.init_bounds == init_bounds
+    )
+    assert config.bounds == process_bounds
+    assert config.init_bounds == init_bounds
 
     # process bounds, init area and init bounds
-    with mapchete.open(
+    config = MapcheteConfig(
         dict(example_mapchete.dict, bounds=process_bounds),
         area=init_area,
         bounds=init_bounds,
-    ) as mp:
-        assert mp.config.bounds == process_bounds
-        assert mp.config.init_bounds == init_bounds
+    )
+    assert config.bounds == process_bounds
+    assert config.init_bounds == init_bounds
 
     # process area, init area and init bounds
-    with mapchete.open(
+    config = MapcheteConfig(
         dict(example_mapchete.dict, area=process_area),
         area=init_area,
         bounds=init_bounds,
-    ) as mp:
-        assert mp.config.bounds == process_bounds
-        assert mp.config.init_bounds == init_bounds
+    )
+    assert config.bounds == process_bounds
+    assert config.init_bounds == init_bounds
 
     # process area
-    with mapchete.open(dict(example_mapchete.dict, area=process_area)) as mp:
-        assert mp.config.bounds == process_bounds
-        assert mp.config.init_bounds == process_bounds
+    config = MapcheteConfig(dict(example_mapchete.dict, area=process_area))
+    assert config.bounds == process_bounds
+    assert config.init_bounds == process_bounds
 
     # process bounds
-    with mapchete.open(dict(example_mapchete.dict, bounds=process_bounds)) as mp:
-        assert mp.config.bounds == process_bounds
-        assert mp.config.init_bounds == process_bounds
+    config = MapcheteConfig(dict(example_mapchete.dict, bounds=process_bounds))
+    assert config.bounds == process_bounds
+    assert config.init_bounds == process_bounds
 
 
 def test_custom_process(example_custom_process_mapchete):
@@ -532,82 +469,18 @@ def test_custom_process(example_custom_process_mapchete):
 
 # pytest-env must be installed
 def test_env_storage_options(env_storage_options_mapchete):
-    with mapchete.open(env_storage_options_mapchete.dict) as mp:
-        inp = mp.config.params_at_zoom(5)
-        assert inp["input"]["file1"].storage_options.get("access_key") == "foo"
-        assert mp.config.output.storage_options.get("access_key") == "bar"
+    config = MapcheteConfig(env_storage_options_mapchete.dict)
+    assert (
+        config.params_at_zoom(5)["input"]["file1"].storage_options.get("access_key")  # type: ignore
+        == "foo"
+    )
+    assert config.output.storage_options.get("access_key") == "bar"  # type: ignore
 
 
 # pytest-env must be installed
 def test_env_params(env_input_path_mapchete):
-    with mapchete.open(env_input_path_mapchete.dict) as mp:
-        inp = mp.config.params_at_zoom(5)
-        assert inp["input"]["file1"].path.endswith("dummy2.tif")
-
-
-def test_process_config_pyramid_settings():
-    conf = ProcessConfig(
-        pyramid=dict(
-            grid="geodetic",
-        ),
-        zoom_levels=5,
-        output={},
-    )
-    assert conf.pyramid.pixelbuffer == 0
-    assert conf.pyramid.metatiling == 1
-
-    conf = ProcessConfig(
-        pyramid=dict(grid="geodetic", pixelbuffer=5, metatiling=4),
-        zoom_levels=5,
-        output={},
-    )
-    assert conf.pyramid.pixelbuffer == 5
-    assert conf.pyramid.metatiling == 4
-
-    with pytest.raises(ValidationError):
-        ProcessConfig(
-            pyramid=dict(grid="geodetic", pixelbuffer=-1, metatiling=4),
-            zoom_levels=5,
-            output={},
-        )
-
-    with pytest.raises(ValidationError):
-        ProcessConfig(
-            pyramid=dict(grid="geodetic", pixelbuffer=5, metatiling=5),
-            zoom_levels=5,
-            output={},
-        )
-
-
-@pytest.mark.parametrize(
-    "process_src",
-    [
-        "mapchete.processes.examples.example_process",
-        SCRIPT_DIR / "example_process.py",
-        (SCRIPT_DIR / "example_process.py").read_text().split("\n"),
-    ],
-)
-def test_process(process_src, example_custom_process_mapchete):
-    mp = example_custom_process_mapchete.process_mp()
-    process = ProcessFunc(process_src)
-    assert process.name
-    assert process(mp) is not None
-
-
-@pytest.mark.parametrize(
-    "process_src",
-    [
-        "mapchete.processes.examples.example_process",
-        SCRIPT_DIR / "example_process.py",
-        (SCRIPT_DIR / "example_process.py").read_text().split("\n"),
-    ],
-)
-def test_process_pickle(process_src, example_custom_process_mapchete):
-    mp = example_custom_process_mapchete.process_mp()
-    process = ProcessFunc(process_src)
-    # pickle and unpickle
-    reloaded = pickle.loads(pickle.dumps(process))
-    assert reloaded(mp) is not None
+    config = MapcheteConfig(env_input_path_mapchete.dict)
+    assert config.params_at_zoom(5)["input"]["file1"].path.endswith("dummy2.tif")  # type: ignore
 
 
 def test_dask_specs(dask_specs):
@@ -620,7 +493,38 @@ def test_dask_specs(dask_specs):
 
 def test_typed_raster_input(typed_raster_input):
     with mapchete.open(typed_raster_input.path) as mp:
-        list(mp.execute(concurrency=None))
+        list(mp.execute(concurrency=Concurrency.none))
+
+
+def test_input_at_zoom(example_mapchete):
+    config = MapcheteConfig(example_mapchete.dict)
+    assert config.input_at_zoom("file1", 7)
+
+
+def test_preprocessing_tasks_per_input(preprocess_cache_memory):
+    config = MapcheteConfig(preprocess_cache_memory.dict)
+    for (preprocessing_tasks,) in config.preprocessing_tasks_per_input().values():
+        assert preprocessing_tasks
+
+
+def test_preprocessing_tasks(preprocess_cache_memory):
+    config = MapcheteConfig(preprocess_cache_memory.dict)
+    assert config.preprocessing_tasks()
+    assert config.preprocessing_tasks_count()
+
+
+def test_preprocessing_task_finished(preprocess_cache_memory):
+    config = MapcheteConfig(preprocess_cache_memory.dict)
+    for task_key in config.preprocessing_tasks():
+        assert not config.preprocessing_task_finished(task_key)
+
+
+def test_set_preprocessing_task_result(preprocess_cache_memory):
+    config = MapcheteConfig(preprocess_cache_memory.dict)
+    for task_key in config.preprocessing_tasks():
+        config.set_preprocessing_task_result(task_key, "foo")
+    for task_key in config.preprocessing_tasks():
+        assert config.preprocessing_task_finished(task_key)
 
 
 @pytest.mark.skip(reason="just have this here for future reference")

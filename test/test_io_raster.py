@@ -957,7 +957,6 @@ def test_read_raster_no_crs(path):
     "path",
     [
         lazy_fixture("raster_4band_s3"),
-        lazy_fixture("raster_4band_aws_s3"),
         lazy_fixture("raster_4band_http"),
         lazy_fixture("raster_4band_secure_http"),
     ],
@@ -1039,7 +1038,7 @@ def test_read_raster_window_remote(path, grid, pixelbuffer, zoom):
     test_read_raster_window(path, grid, pixelbuffer, zoom)
 
 
-@pytest.mark.integration
+@pytest.mark.aws_s3
 @pytest.mark.parametrize(
     "path",
     [

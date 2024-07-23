@@ -6,14 +6,14 @@ import warnings
 from collections import OrderedDict
 from copy import deepcopy
 from functools import cached_property
-from typing import Any, Iterator, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, Optional, Tuple, Union
 
 import oyaml as yaml
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from mapchete.config.models import ProcessConfig
+from mapchete.config.models import OverviewSettings, ProcessConfig
 from mapchete.config.parse import (
     get_zoom_levels,
     guess_geometry,
@@ -30,11 +30,13 @@ from mapchete.formats import (
     load_output_reader,
     load_output_writer,
 )
+from mapchete.formats.protocols import InputDataProtocol
+from mapchete.geometry.types import Geometry
 from mapchete.io import MPath, absolute_path
 from mapchete.io.vector import reproject_geometry
 from mapchete.tile import BufferedTile, BufferedTilePyramid, snap_geometry_to_tiles
 from mapchete.timer import Timer
-from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels
+from mapchete.types import Bounds, BoundsLike, CRSLike, MPathLike, ZoomLevels
 from mapchete.validate import (
     validate_bounds,
     validate_bufferedtilepyramid,
@@ -44,7 +46,7 @@ from mapchete.validate import (
 
 logger = logging.getLogger(__name__)
 
-__all__ = [validate_bounds, validate_zooms, validate_values]
+__all__ = ["validate_bounds", "validate_zooms", "validate_values"]
 
 # TODO remove these
 # parameters for output configuration
@@ -86,25 +88,17 @@ class MapcheteConfig(object):
 
     """
 
-    parsed_config: ProcessConfig = None
+    parsed_config: ProcessConfig
     mode: ProcessingMode = ProcessingMode.CONTINUE
     preprocessing_tasks_finished: bool = False
-    config_dir: MPath = None
+    config_dir: MPath
     process: Union[ProcessFunc, None] = None
     process_pyramid: BufferedTilePyramid
     output_pyramid: BufferedTilePyramid
-    baselevels: Union[dict, None]
     area: BaseGeometry
     bounds: Bounds
-    zoom_levels: ZoomLevels
     init_area: BaseGeometry
     init_bounds: Bounds
-    init_zoom_levels: ZoomLevels
-    effective_area: BaseGeometry
-    effective_bounds: Bounds
-    input: OrderedDict
-    output: "OutputDataWriter"
-    output_reader: "OutputDataReader"
 
     def __init__(
         self,
@@ -191,7 +185,7 @@ class MapcheteConfig(object):
                 self.mode == "readonly"
                 or (
                     not len(
-                        set(self.baselevels["zooms"]).intersection(
+                        set(self.baselevels.zooms).intersection(
                             set(self.init_zoom_levels)
                         )
                     )
@@ -231,7 +225,6 @@ class MapcheteConfig(object):
             area=self.parsed_config.area,
             bounds=self.parsed_config.bounds,
             area_fallback=box(*self.process_pyramid.bounds),
-            bounds_fallback=self.process_pyramid.bounds,
             area_crs=area_crs,
             bounds_crs=bounds_crs,
         )
@@ -242,7 +235,6 @@ class MapcheteConfig(object):
             area=self._init_area,
             bounds=self._init_bounds,
             area_fallback=self.area,
-            bounds_fallback=self.bounds,
             area_crs=area_crs,
             bounds_crs=bounds_crs,
         )
@@ -266,17 +258,16 @@ class MapcheteConfig(object):
         # (10) some output drivers such as the GeoTIFF single file driver also needs the
         # process area to prepare
         logger.debug("prepare output")
-        self.output.prepare(process_area=self.area_at_zoom())
+        if hasattr(self.output, "prepare"):
+            self.output.prepare(process_area=self.area_at_zoom())  # type: ignore
 
     def __repr__(self):  # pragma: no cover
-        return f"<MapcheteConfig init_zoom_levels={self.init_zoom_levels}, init_bounds={self.init_bounds}>"
+        return f"<MapcheteConfig process={self.process}, mode={self.mode}>"
 
-    def input_at_zoom(self, key=None, zoom=None):
-        if zoom is None:  # pragma: no cover
-            raise ValueError("zoom not provided")
+    def input_at_zoom(self, key: str, zoom: int) -> Union[InputDataProtocol, None]:
         return self.input[get_input_key(self._params_at_zoom[zoom]["input"][key])]
 
-    def preprocessing_tasks_per_input(self):
+    def preprocessing_tasks_per_input(self) -> Dict[str, Any]:
         """Get all preprocessing tasks defined by the input drivers."""
         return {
             k: inp.preprocessing_tasks
@@ -284,7 +275,9 @@ class MapcheteConfig(object):
             if inp is not None
         }
 
-    def preprocessing_tasks(self):
+    def preprocessing_tasks(
+        self,
+    ) -> Dict[str, Any]:  # TODO: get the proper Task type instead of Any
         """Get mapping of all preprocessing tasks."""
         return {
             task_key: task
@@ -292,29 +285,32 @@ class MapcheteConfig(object):
             for task_key, task in inp_preprocessing_tasks.items()
         }
 
-    def preprocessing_tasks_count(self):
+    def preprocessing_tasks_count(self) -> int:
         """Return number of preprocessing tasks."""
         return len(self.preprocessing_tasks())
 
-    def preprocessing_task_finished(self, task_key):
+    def preprocessing_task_finished(self, task_key: str) -> bool:
         """Return True if task of given key has already been run."""
         inp_key, task_key = task_key.split(":")[0], ":".join(task_key.split(":")[1:])
         try:
             inp = self.input[inp_key]
         except KeyError:  # pragma: no cover
             raise KeyError(f"input {inp_key} not found")
-        return inp.preprocessing_task_finished(task_key)
+        if inp:
+            return inp.preprocessing_task_finished(task_key)
+        else:  # pragma: no cover
+            raise ValueError("input is None")
 
-    def set_preprocessing_task_result(self, task_key, result):
+    def set_preprocessing_task_result(self, task_key: str, result: Any) -> None:
         """Append preprocessing task result to input."""
         if ":" in task_key:
             inp_key = task_key.split(":")[0]
-        else:
+        else:  # pragma: no cover
             raise KeyError(
                 f"preprocessing task cannot be assigned to an input: {task_key}"
             )
         for inp in self.input.values():
-            if inp_key == inp.input_key:
+            if inp and inp_key == inp.input_key:
                 break
         else:  # pragma: no cover
             raise KeyError(
@@ -323,12 +319,12 @@ class MapcheteConfig(object):
         inp.set_preprocessing_task_result(task_key, result)
 
     @cached_property
-    def zoom_levels(self):
+    def zoom_levels(self) -> ZoomLevels:
         """Process zoom levels as defined in the configuration."""
         return validate_zooms(self.parsed_config.zoom_levels)
 
     @cached_property
-    def init_zoom_levels(self):
+    def init_zoom_levels(self) -> ZoomLevels:
         """
         Zoom levels this process is currently initialized with.
 
@@ -337,15 +333,15 @@ class MapcheteConfig(object):
         """
         try:
             return get_zoom_levels(
-                process_zoom_levels=self.parsed_config.zoom_levels,
+                self.parsed_config.zoom_levels,
                 init_zoom_levels=self._init_zoom_levels,
             )
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.exception(e)
             raise MapcheteConfigError(e)
 
     @cached_property
-    def effective_bounds(self):
+    def effective_bounds(self) -> Bounds:
         """
         Effective process bounds required to initialize inputs.
 
@@ -354,7 +350,7 @@ class MapcheteConfig(object):
         """
         # highest process (i.e. non-overview) zoom level
         zoom = (
-            min(self.baselevels["zooms"])
+            min(self.baselevels.zooms)
             if self.baselevels
             else min(self.init_zoom_levels)
         )
@@ -367,7 +363,7 @@ class MapcheteConfig(object):
         )
 
     @cached_property
-    def effective_area(self):
+    def effective_area(self) -> Geometry:
         """
         Effective process area required to initialize inputs.
 
@@ -376,7 +372,7 @@ class MapcheteConfig(object):
         with Timer() as timer:
             # highest process (i.e. non-overview) zoom level
             zoom = (
-                min(self.baselevels["zooms"])
+                min(self.baselevels.zooms)
                 if self.baselevels
                 else min(self.init_zoom_levels)
             )
@@ -411,7 +407,7 @@ class MapcheteConfig(object):
             output_params.update(
                 path=MPath.from_inp(output_params).absolute_path(
                     base_dir=self.config_dir
-                )
+                )  # type: ignore
             )
 
         if "format" not in output_params:
@@ -449,7 +445,7 @@ class MapcheteConfig(object):
             return self.output
 
     @cached_property
-    def input(self):
+    def input(self) -> Dict[str, Union[InputDataProtocol, None]]:
         """
         Input items used for process stored in a dictionary.
 
@@ -490,7 +486,7 @@ class MapcheteConfig(object):
             return OrderedDict([(k, None) for k in raw_inputs.keys()])
 
     @cached_property
-    def baselevels(self):
+    def baselevels(self) -> Union[OverviewSettings, None]:
         """
         Base levels are zoom levels which are processed but not generated by other zoom levels.
 
@@ -503,7 +499,7 @@ class MapcheteConfig(object):
             higher: <resampling method>
         """
         if self.parsed_config.baselevels is None:
-            return {}
+            return
         baselevels = self.parsed_config.baselevels
         minmax = {k: v for k, v in baselevels.items() if k in ["min", "max"]}
 
@@ -525,21 +521,21 @@ class MapcheteConfig(object):
         if not set(self.zoom_levels).difference(set(zooms)):
             raise MapcheteConfigError("baselevels zooms fully cover process zooms")
 
-        return dict(
+        return OverviewSettings.parse(
             zooms=zooms,
-            lower=baselevels.get("lower", "nearest"),
-            higher=baselevels.get("higher", "nearest"),
             tile_pyramid=BufferedTilePyramid(
                 self.output_pyramid.grid,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
                 metatiling=self.process_pyramid.metatiling,
             ),
+            lower=baselevels.get("lower", "nearest"),
+            higher=baselevels.get("higher", "nearest"),
         )
 
     @cached_property
     def overview_levels(self) -> Union[ZoomLevels, None]:
         if self.baselevels:
-            return self.zoom_levels.difference(self.baselevels["zooms"])
+            return self.zoom_levels.difference(self.baselevels.zooms)
         else:
             return None
 
@@ -550,17 +546,20 @@ class MapcheteConfig(object):
         else:
             return self.zoom_levels
 
-    def get_process_func_params(self, zoom):
+    def get_process_func_params(self, zoom) -> dict:
         """Return function kwargs."""
-        return self.process.filter_parameters(
-            self.params_at_zoom(zoom).get("process_parameters", {})
-        )
+        if self.process:
+            return self.process.filter_parameters(
+                self.params_at_zoom(zoom).get("process_parameters", {})
+            )
+        else:
+            return {}
 
     def get_inputs_for_tile(self, tile):
         """Get and open all inputs for given tile."""
 
         return OrderedDict(
-            list(open_inputs(self.params_at_zoom(tile.zoom)["input"], tile))
+            list(open_inputs(self.params_at_zoom(tile.zoom)["input"], tile))  # type: ignore
         )
 
     def params_at_zoom(self, zoom):
@@ -635,7 +634,7 @@ class MapcheteConfig(object):
             if "input" in self._params_at_zoom[zoom]:
                 input_union = unary_union(
                     [
-                        self.input[get_input_key(v)].bbox(self.process_pyramid.crs)
+                        self.input[get_input_key(v)].bbox(self.process_pyramid.crs)  # type: ignore
                         for k, v in _flatten_tree(self._params_at_zoom[zoom]["input"])
                         if v is not None
                     ]
@@ -672,12 +671,11 @@ class MapcheteConfig(object):
 
     def _get_process_area(
         self,
-        area=None,
-        bounds=None,
-        area_fallback=None,
-        bounds_fallback=None,
-        area_crs=None,
-        bounds_crs=None,
+        area: Optional[Union[MPathLike, dict, str, Geometry]] = None,
+        bounds: Optional[BoundsLike] = None,
+        area_fallback: Optional[Geometry] = None,
+        area_crs: Optional[CRSLike] = None,
+        bounds_crs: Optional[CRSLike] = None,
     ):
         """
         Determine process area by combining configuration with instantiation arguments.
@@ -695,7 +693,7 @@ class MapcheteConfig(object):
         try:
             dst_crs = self.process_pyramid.crs
 
-            if bounds is None and area is None:
+            if bounds is None and area is None and area_fallback:
                 return area_fallback
 
             elif bounds is None:
@@ -709,7 +707,7 @@ class MapcheteConfig(object):
 
             elif area is None:
                 return reproject_geometry(
-                    box(*Bounds.from_inp(bounds)),
+                    Bounds.from_inp(bounds).geometry,
                     src_crs=bounds_crs or dst_crs,
                     dst_crs=dst_crs,
                 )
@@ -726,7 +724,7 @@ class MapcheteConfig(object):
                     area, src_crs=area_crs or dst_crs, dst_crs=dst_crs
                 ).intersection(
                     reproject_geometry(
-                        box(*Bounds.from_inp(bounds)),
+                        Bounds.from_inp(bounds).geometry,
                         src_crs=bounds_crs or dst_crs,
                         dst_crs=dst_crs,
                     ),
@@ -804,9 +802,7 @@ def get_hash(some_object: Any, length: int = 16) -> str:
         return hashlib.sha224(str(some_object).encode()).hexdigest()[:length]
 
 
-def snap_bounds(
-    bounds: BoundsLike = None, pyramid: BufferedTilePyramid = None, zoom: int = None
-) -> Bounds:
+def snap_bounds(bounds: BoundsLike, pyramid: BufferedTilePyramid, zoom: int) -> Bounds:
     """
     Snap bounds to tiles boundaries of specific zoom level.
 
@@ -827,7 +823,7 @@ def snap_bounds(
     return Bounds(lb.left, lb.bottom, rt.right, rt.top)
 
 
-def clip_bounds(bounds: BoundsLike = None, clip: BoundsLike = None) -> Bounds:
+def clip_bounds(bounds: BoundsLike, clip: BoundsLike) -> Bounds:
     """
     Clip bounds by clip.
 
@@ -852,9 +848,9 @@ def clip_bounds(bounds: BoundsLike = None, clip: BoundsLike = None) -> Bounds:
 
 def initialize_inputs(
     raw_inputs: dict,
-    config_dir: Optional[MPathLike] = None,
-    pyramid: BufferedTilePyramid = None,
-    delimiters: dict = None,
+    config_dir: MPathLike,
+    pyramid: BufferedTilePyramid,
+    delimiters: dict,
     readonly: bool = False,
 ) -> OrderedDict:
     initalized_inputs = OrderedDict()

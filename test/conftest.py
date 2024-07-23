@@ -21,6 +21,7 @@ from shapely.geometry import (
 )
 from tilematrix import Bounds, GridDefinition
 
+import mapchete
 from mapchete.cli.default.serve import create_app
 from mapchete.executor import (
     ConcurrentFuturesExecutor,
@@ -1067,6 +1068,16 @@ def tile_path_schema(mp_tmpdir):
 
 
 @pytest.fixture
+def example_process_py():
+    return SCRIPT_DIR / "example_process.py"
+
+
+@pytest.fixture
+def example_process_text(example_process_py):
+    return example_process_py.read_text().split("\n")
+
+
+@pytest.fixture
 def s3_example_tile(gtiff_s3):
     """Example tile for fixture."""
     return (5, 15, 32)
@@ -1204,3 +1215,15 @@ def antimeridian_polygon2() -> Polygon:
 @pytest.fixture
 def antimeridian_polygon3(antimeridian_polygon2) -> MultiPolygon:
     return MultiPolygon([antimeridian_polygon2, box(170, 0, 171, 5)])
+
+
+@pytest.fixture
+def local_tiledirectory(cleantopo_br, testdata_dir):
+    # generate TileDirectory
+    with mapchete.open(
+        cleantopo_br.dict, bounds=[169.19251592399996, -90, 180, -80.18582802550002]
+    ) as mp:
+        list(mp.execute(zoom=5))
+    out_dir = testdata_dir / cleantopo_br.dict["output"]["path"]
+    yield out_dir
+    out_dir.rm(recursive=True)

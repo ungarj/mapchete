@@ -16,7 +16,7 @@ from mapchete.tile import BufferedTilePyramid
 def test_mapchete_init():
     """Raise TypeError if not MapcheteConfig object is passed."""
     with pytest.raises(TypeError):
-        mapchete.Mapchete("wrong_type")
+        mapchete.Mapchete("wrong_type")  # type: ignore
 
 
 def test_config_modes(example_mapchete):
@@ -29,13 +29,13 @@ def test_config_modes(example_mapchete):
 def test_execute(example_mapchete):
     """Mapchete execute() errors."""
     # in readonly mode
-    with mapchete.open(example_mapchete.dict, mode="readonly") as mp:
-        with pytest.raises(AttributeError):
+    with pytest.raises(ValueError):
+        with mapchete.open(example_mapchete.dict, mode="readonly") as mp:
             mp.execute_tile(next(mp.get_process_tiles()))
     # wrong tile type
-    with mapchete.open(example_mapchete.dict) as mp:
-        with pytest.raises(TypeError):
-            mp.execute_tile("invalid")
+    with pytest.raises(TypeError):
+        with mapchete.open(example_mapchete.dict) as mp:
+            mp.execute_tile("invalid")  # type: ignore
 
 
 def test_read(example_mapchete):
@@ -47,7 +47,7 @@ def test_read(example_mapchete):
     # wrong tile type
     with mapchete.open(example_mapchete.dict) as mp:
         with pytest.raises(TypeError):
-            mp.read("invalid")
+            mp.read("invalid")  # type: ignore
 
 
 def test_write(cleantopo_tl):
@@ -55,7 +55,7 @@ def test_write(cleantopo_tl):
     with mapchete.open(cleantopo_tl.dict) as mp:
         # process and save
         with pytest.raises(TypeError):
-            mp.write("invalid tile", None)
+            mp.write("invalid tile", None)  # type: ignore
 
 
 def test_get_raw_output(example_mapchete):
@@ -63,7 +63,7 @@ def test_get_raw_output(example_mapchete):
     with mapchete.open(example_mapchete.dict) as mp:
         # wrong tile type
         with pytest.raises(TypeError):
-            mp.get_raw_output("invalid")
+            mp.get_raw_output("invalid")  # type: ignore
         # not matching CRSes
         tile = BufferedTilePyramid("mercator").tile(7, 1, 1)
         with pytest.raises(NotImplementedError):
@@ -278,7 +278,7 @@ def test_process_exception(mp_tmpdir, cleantopo_br, process_error_py):
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(AssertionError):
-            mp.execute_tile((5, 0, 0))
+            mp.execute_tile((5, 0, 0))  # type: ignore
 
 
 def test_output_error(mp_tmpdir, cleantopo_br, output_error_py):
@@ -287,12 +287,12 @@ def test_output_error(mp_tmpdir, cleantopo_br, output_error_py):
     config.update(process=output_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(errors.MapcheteProcessOutputError):
-            mp.execute_tile((5, 0, 0))
+            mp.execute_tile((5, 0, 0))  # type: ignore
 
 
 def _raise_error(i):
     """Helper function for test_finished_task()"""
-    1 / 0
+    1 / 0  # type: ignore
 
 
 def test_finished_task():
