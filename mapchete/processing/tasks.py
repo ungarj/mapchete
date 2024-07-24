@@ -120,7 +120,7 @@ class Task(ABC):
             raise NoTaskGeometry(f"{self} has no geo information assigned")
 
 
-def _execute_task_wrapper(task, **kwargs) -> Any:
+def _execute_task_wrapper(task, **kwargs) -> Any:  # pragma: no cover
     return task.execute(**kwargs)
 
 
@@ -201,7 +201,7 @@ class InterpolateFrom(str, Enum):
     higher = "higher"
 
 
-def _execute_tile_task_wrapper(task, **kwargs) -> Any:
+def _execute_tile_task_wrapper(task, **kwargs) -> Any:  # pragma: no cover
     return task.execute(**kwargs)
 
 
