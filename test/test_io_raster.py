@@ -1073,13 +1073,13 @@ def test_read_raster(path):
     [
         lazy_fixture("raster_4band_s3"),
         lazy_fixture("raster_4band_http"),
-        lazy_fixture("raster_4band_secure_http")
+        lazy_fixture("raster_4band_secure_http"),
     ],
 )
 def test_read_remote_raster(path):
     rr = read_raster(path)
     assert isinstance(rr, ReferencedRaster)
-    assert not rr.data.mask.all()    
+    assert not rr.data.mask.all()
 
 
 @pytest.mark.parametrize("masked", [True, False])
