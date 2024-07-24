@@ -106,7 +106,7 @@ def test_tile_task_batch(dem_to_hillshade):
         tile_task_batch.intersection("invalid")
 
 
-def test_task_batches_to_dask_graph(dem_to_hillshade):
+def test_task_batches_to_dask_graph(dem_to_hillshade, dask_executor):
     preprocessing_batch = TaskBatch(
         (Task(func=str, fargs=(i,), bounds=(0, 1, 2, 3)) for i in range(10))
     )
@@ -123,11 +123,9 @@ def test_task_batches_to_dask_graph(dem_to_hillshade):
         for zoom in dem_to_hillshade.mp().config.zoom_levels.descending()
     )
     collection = Tasks((preprocessing_batch, *zoom_batches)).to_dask_graph()
+    import dask
 
-    assert collection
-    # import dask
-
-    # dask.compute(collection)
+    dask.compute(collection, scheduler=dask_executor._executor_client)
 
 
 def test_task_batches_mixed_geometries():
@@ -189,7 +187,7 @@ def task_batches_generator(process: ProcessFixture, preprocessing_tasks_count=10
         )
 
 
-def test_task_batches_as_dask_graph(dem_to_hillshade):
+def test_task_batches_as_dask_graph(dem_to_hillshade, dask_executor):
     task_batches = Tasks(task_batches_generator(dem_to_hillshade))
     assert len(task_batches.preprocessing_batches) == 1
     assert len(task_batches.tile_batches) == len(
@@ -198,9 +196,9 @@ def test_task_batches_as_dask_graph(dem_to_hillshade):
     graph = task_batches.to_dask_graph()
     assert graph
 
-    # import dask
+    import dask
 
-    # dask.compute(graph)
+    dask.compute(graph, scheduler=dask_executor._executor_client)
 
 
 def test_task_batches_as_layered_batches(dem_to_hillshade):
