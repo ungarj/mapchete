@@ -45,7 +45,7 @@ jobs:
           sudo apt-add-repository -y ppa:ubuntugis/ubuntugis-unstable
           sudo apt-get -y update
           sudo apt-get install -y gdal-bin python-tk libgdal-dev libproj-dev libgeos-dev
-          GDAL_VERSION=`gdalinfo --version | grep -Eo '[0-9]\.[0-9]\.[0-9]+'
+          GDAL_VERSION=`gdalinfo --version | grep -Eo "[0-9]\.[0-9]\.[0-9]+"`
           python -m pip install --upgrade pip wheel
           pip install -r test/requirements.txt
           pip install gdal==${GDAL_VERSION} -e .[complete]
