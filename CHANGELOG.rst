@@ -2,6 +2,21 @@
 Changelog
 #########
 
+---------------------
+2024.7.1 - 2024-07-TBD
+---------------------
+
+* core
+
+  * fix annotation of `test/test_io_raster.py::test_read_raster` and split it into `test/test_io_raster.py::test_read_raster` and `test/test_io_raster.py::test_read_remote_raster``
+
+
+* packaging
+
+  * align dependencies `requirements.txt`, `requirements-dev.txt` with `pyproject.toml` with `hatch` package
+    * `hatch dep show requirements --all`
+    * `hatch dep show requirements --all >> requirements.txt`
+  * `requrements-dev.txt` still need to be managed manually when required
 
 ---------------------
 2024.7.0 - 2024-07-24
