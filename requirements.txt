@@ -1,5 +1,6 @@
 aiobotocore>=1.1.2
 aiohttp
+aioitertools>=0.7.0
 boto3>=1.14.44
 cachetools
 click-plugins
@@ -14,6 +15,7 @@ fsspec
 fsspec[http,s3]>=2023.12.0
 fsspec[http]
 fsspec[s3]
+gdal>=3.6.4
 importlib-metadata
 importlib-resources
 lxml
