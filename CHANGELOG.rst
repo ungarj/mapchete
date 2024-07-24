@@ -4,6 +4,26 @@ Changelog
 
 
 ---------------------
+2024.7.0 - 2024-07-24
+---------------------
+
+* core
+
+  * add `mapchete.geometry` module (move relevant geometry operations from `io.vector` to `geometry` module) (#630)
+  * fixed bug where configuration was not properly passed if an element had only one subitem (#635)
+  * fix memray deprecation (#637)
+
+* packaging
+
+  * fix pystac version limit (#633)
+
+* CI
+
+  * remove coveralls and use GitHub actions to report on test coverage
+  * remove support for Python 3.8 and 3.9
+  * add tests for Python 3.12 and `ubuntu-latest`
+
+---------------------
 2024.6.0 - 2024-06-03
 ---------------------
 
