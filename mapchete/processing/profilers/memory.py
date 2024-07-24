@@ -1,7 +1,6 @@
 import logging
 import os
 import uuid
-from contextlib import ExitStack
 from dataclasses import dataclass
 from tempfile import TemporaryDirectory
 from typing import Any, Callable, Optional, Tuple, Union
@@ -76,21 +75,14 @@ class MemoryTracker:
             import memray
         except ImportError:  # pragma: no cover
             raise ImportError("please install memray if you want to use this feature.")
+
         self.output_file = MPath.from_inp(output_file) if output_file else None
-        self._exit_stack = ExitStack()
-        self._temp_dir = self._exit_stack.enter_context(TemporaryDirectory())
+        self.raise_exc_multiple_trackers = raise_exc_multiple_trackers
+        self._temp_dir = TemporaryDirectory()
         self._temp_file = str(
-            MPath(self._temp_dir) / f"{os.getpid()}-{uuid.uuid4().hex}.bin"
+            MPath(self._temp_dir.name) / f"{os.getpid()}-{uuid.uuid4().hex}.bin"
         )
-        try:
-            self._memray_tracker = self._exit_stack.enter_context(
-                memray.Tracker(self._temp_file, follow_fork=True)
-            )
-        except RuntimeError as exc:  # pragma: no cover
-            if raise_exc_multiple_trackers:
-                raise
-            self._memray_tracker = None
-            logger.exception(exc)
+        self.memray_tracker = memray.Tracker(self._temp_file, follow_fork=True)
 
     def __str__(self):  # pragma: no cover
         return f"<MemoryTracker max_allocated={pretty_bytes(self.max_allocated)}, total_allocated={pretty_bytes(self.total_allocated)}, allocations={self.allocations}>"
@@ -99,19 +91,23 @@ class MemoryTracker:
         return repr(str(self))
 
     def __enter__(self):
+        self._temp_dir.__enter__()
+        try:
+            if self.memray_tracker:
+                self.memray_tracker.__enter__()
+        except RuntimeError as exc:  # pragma: no cover
+            if self.raise_exc_multiple_trackers:
+                raise
+            logger.exception(exc)
         return self
 
     def __exit__(self, *args):
         try:
-            try:
-                from memray import FileReader
-            except ImportError:  # pragma: no cover
-                raise ImportError(
-                    "please install memray if you want to use this feature."
-                )
+            from memray import FileReader
+
             # close memray.Tracker before attempting to read file
-            if self._memray_tracker:
-                self._memray_tracker.__exit__(*args)
+            if self.memray_tracker:
+                self.memray_tracker.__exit__(*args)
             allocations = list(
                 FileReader(self._temp_file).get_high_watermark_allocation_records(
                     merge_threads=True
@@ -123,6 +119,6 @@ class MemoryTracker:
             if self.output_file:
                 copy(self._temp_file, self.output_file, overwrite=True)
         finally:
-            self._exit_stack.__exit__(*args)
+            self._temp_dir.__exit__(*args)
             # we need to set this to None, so MemoryTracker can be serialized
-            self._memray_tracker = None
+            self.memray_tracker = None
