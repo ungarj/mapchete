@@ -12,7 +12,6 @@ from mapchete.processing.profilers.requests import MeasuredRequests, measure_req
 from mapchete.processing.profilers.time import MeasuredTime, measure_time
 
 
-@pytest.mark.skip(reason="tests stall on GitHub action")
 def test_memory_return_result(raster_4band):
     @measure_memory()
     def _decorated(path):
@@ -26,7 +25,6 @@ def test_memory_return_result(raster_4band):
     assert result.total_allocated > 0
 
 
-@pytest.mark.skip(reason="tests stall on GitHub action")
 def test_memory_not_return_result(raster_4band):
     @measure_memory(add_to_return=False)
     def _decorated(path):
@@ -36,7 +34,6 @@ def test_memory_not_return_result(raster_4band):
     assert isinstance(retval, ma.MaskedArray)
 
 
-@pytest.mark.skip(reason="tests stall on GitHub action")
 def test_memory_context_manager(raster_4band, mp_tmpdir):
     result_file = mp_tmpdir / "memtracker_result.bin"
 
