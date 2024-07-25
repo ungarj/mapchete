@@ -1056,14 +1056,26 @@ def test_read_raster_window_aws_s3(path, grid, pixelbuffer, zoom):
 @pytest.mark.parametrize(
     "path",
     [
-        lazy_fixture("raster_4band_s3"),
-        lazy_fixture("raster_4band_http"),
-        lazy_fixture("raster_4band_secure_http"),
         lazy_fixture("raster_4band"),
         lazy_fixture("stacta"),
     ],
 )
 def test_read_raster(path):
+    rr = read_raster(path)
+    assert isinstance(rr, ReferencedRaster)
+    assert not rr.data.mask.all()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        lazy_fixture("raster_4band_s3"),
+        lazy_fixture("raster_4band_http"),
+        lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+def test_read_remote_raster(path):
     rr = read_raster(path)
     assert isinstance(rr, ReferencedRaster)
     assert not rr.data.mask.all()

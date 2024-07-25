@@ -9,7 +9,7 @@ from typing import (
     runtime_checkable,
 )
 
-from pydantic_geojson import GeometryType as GeoJSONGeometryType
+from geojson_pydantic import FeatureCollection as GeoJSONGeometryType
 from shapely.geometry import (
     GeometryCollection,
     LinearRing,
