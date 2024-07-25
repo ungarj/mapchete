@@ -29,13 +29,12 @@ dependencies = [
     "distributed",
     "fiona>=1.8.13.post1",
     "fsspec",
-    "gdal>=3.6.4",
+    "geojson-pydantic",    
     "importlib-metadata",
     "importlib-resources",
     "numpy>=1.16",
     "oyaml",
     "pydantic>=2.3.0",
-    "pydantic-geojson",
     "pydantic_settings>=2.0.0",
     "pyproj",
     "python-dateutil",
@@ -80,7 +79,6 @@ profiling = [
 ]
 s3 = [
     "aiobotocore>=1.1.2",
-    "aioitertools>=0.7.0",
     "boto3>=1.14.44",
     "fsspec[s3]",
     "s3fs!=2023.9.0",
