@@ -1066,7 +1066,6 @@ def test_read_raster(path):
     assert not rr.data.mask.all()
 
 
-@pytest.mark.aws_s3
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "path",
