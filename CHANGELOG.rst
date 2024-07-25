@@ -8,12 +8,15 @@ Changelog
 
 * core
 
+  * use `geojson-pydantic` in `mapchete.geometry.types`
+
+* tests
+
   * fix annotation of `test/test_io_raster.py::test_read_raster` and split it into `test/test_io_raster.py::test_read_raster` and `test/test_io_raster.py::test_read_remote_raster`
-  * in `mapchete.geometry.types` try using `geojson-pydantic`
 
 * packaging
-  * replace `pydantic-geojson` with `geojson-pydantic`
 
+  * replace `pydantic-geojson` with `geojson-pydantic`
   * align dependencies `requirements.txt`, `requirements-dev.txt` with `pyproject.toml` with `hatch` package
 
     * `hatch dep show requirements --all`
