@@ -68,16 +68,27 @@ def fiona_read(path, mode="r", **kwargs):
             logger.debug("reading %s with GDAL options %s", str(path), env.options)
             with fiona.open(str(path), mode=mode, **kwargs) as src:
                 yield src
-    except DriverError as exc:
+    except DriverError as fiona_exception:
+        # look for hints from Fiona that the file does not exist
         for i in (
             "does not exist in the file system",
             "No such file or directory",
             "specified key does not exist.",
         ):
-            if i in str(repr(exc)):
-                raise FileNotFoundError(f"path {str(path)} does not exist")
-        else:  # pragma: no cover
-            raise
+            if i in str(repr(fiona_exception)):  # pragma: no cover
+                break
+        # if there are no hints, investigate further
+        else:
+            # if file exists or exists check fails, raise original Fiona exception
+            try:
+                exists = path.exists()
+            except Exception:  # pragma: no cover
+                raise fiona_exception
+            if exists:
+                raise fiona_exception
+
+        # file does not exist
+        raise FileNotFoundError(f"path {str(path)} does not exist")
 
 
 @contextmanager
