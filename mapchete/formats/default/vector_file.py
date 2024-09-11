@@ -289,9 +289,11 @@ class InputTile(base.InputTile, VectorInput):
         if checked not in self._cache:
             self._cache[checked] = list(
                 read_vector_window(
-                    self._in_memory_features
-                    if self._memory_cache_active
-                    else self.path,
+                    (
+                        self._in_memory_features
+                        if self._memory_cache_active
+                        else self.path
+                    ),
                     self.tile,
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,

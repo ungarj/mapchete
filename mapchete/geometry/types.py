@@ -53,7 +53,7 @@ GeometryLike = Union[Geometry, GeoJSONGeometryType, GeoInterface]
 CoordArrays = Tuple[Iterable[float], Iterable[float]]
 
 
-def get_multipart_type(geometry: Geometry) -> MultipartGeometry:
+def get_multipart_type(geometry_type: Union[Type[Geometry], str]) -> MultipartGeometry:
     try:
         return {
             Point: MultiPoint,
@@ -62,14 +62,38 @@ def get_multipart_type(geometry: Geometry) -> MultipartGeometry:
             MultiPoint: MultiPoint,
             MultiLineString: MultiLineString,
             MultiPolygon: MultiPolygon,
-        }[geometry]
+        }[
+            get_geometry_type(geometry_type)
+        ]  # type: ignore
     except KeyError:
         raise GeometryTypeError(
-            f"geometry type {geometry.type} has no corresponding multipart type"
+            f"geometry type {geometry_type} has no corresponding multipart type"
         )
 
 
-def get_geometry_type(geometry_type: Union[Type[Geometry], str]) -> Type[Geometry]:
+def get_singlepart_type(
+    geometry_type: Union[Type[Geometry], str]
+) -> SinglepartGeometry:
+    try:
+        return {
+            Point: Point,
+            LineString: LineString,
+            Polygon: Polygon,
+            MultiPoint: Point,
+            MultiLineString: LineString,
+            MultiPolygon: Polygon,
+        }[
+            get_geometry_type(geometry_type)
+        ]  # type: ignore
+    except KeyError:  # pragma: no cover
+        raise GeometryTypeError(
+            f"geometry type {geometry_type} has no corresponding multipart type"
+        )
+
+
+def get_geometry_type(
+    geometry_type: Union[Type[Geometry], str, dict, Geometry]
+) -> Geometry:
     if isinstance(geometry_type, str):
         try:
             return {
@@ -87,5 +111,5 @@ def get_geometry_type(geometry_type: Union[Type[Geometry], str]) -> Type[Geometr
                 f"geometry type cannot be determined from {geometry_type}"
             )
     elif issubclass(geometry_type, Geometry):
-        return geometry_type
+        return geometry_type  # type: ignore
     raise GeometryTypeError(f"geometry type cannot be determined from {geometry_type}")
