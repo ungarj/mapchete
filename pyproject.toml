@@ -32,7 +32,7 @@ dependencies = [
     "geojson-pydantic",    
     "importlib-metadata",
     "importlib-resources",
-    "numpy>=1.16",
+    "numpy>=1.16,<=2.0.1",
     "oyaml",
     "pydantic>=2.3.0",
     "pydantic_settings>=2.0.0",

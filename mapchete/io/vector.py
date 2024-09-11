@@ -25,7 +25,7 @@ from mapchete.geometry import (
     segmentize_geometry,
     to_shape,
 )
-from mapchete.geometry.types import get_geometry_type
+from mapchete.geometry.types import get_geometry_type, get_singlepart_type
 from mapchete.io import copy
 from mapchete.path import MPath, fs_from_path
 from mapchete.settings import IORetrySettings
@@ -323,7 +323,7 @@ def _get_reprojected_features(
                 clipped_geom = original_geom.intersection(dst_bbox)
                 for checked_geom in filter_by_geometry_type(
                     clipped_geom,
-                    original_geom.geom_type,
+                    get_singlepart_type(original_geom.geom_type),
                 ):
                     # reproject each feature to tile CRS
                     reprojected_geom = reproject_geometry(
