@@ -6,7 +6,6 @@ import click
 from mapchete.cli import options
 from mapchete.io import copy
 from mapchete.path import MPath
-from mapchete.pretty import pretty_bytes
 
 opt_recursive = click.option("--recursive", "-r", is_flag=True)
 
@@ -79,9 +78,11 @@ def ls(
                     columns=[
                         "",
                         "",
-                        f"{str(subpath)}/"
-                        if absolute_paths
-                        else f"{subpath.relative_to(path)}/",
+                        (
+                            f"{str(subpath)}/"
+                            if absolute_paths
+                            else f"{subpath.relative_to(path)}/"
+                        ),
                     ],
                     widths=[last_modified_column_width, size_column_width, None],
                     spacing=spacing,
@@ -92,7 +93,7 @@ def ls(
                 _row(
                     columns=[
                         subpath.last_modified().strftime(date_format),
-                        pretty_bytes(subpath.size()),
+                        subpath.pretty_size(),
                         str(subpath) if absolute_paths else subpath.relative_to(path),
                     ],
                     widths=[last_modified_column_width, size_column_width, None],

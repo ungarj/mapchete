@@ -293,6 +293,16 @@ def test_size_remote(path):
         lazy_fixture("metadata_json"),
     ],
 )
+def test_pretty_size(path):
+    assert path.pretty_size()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        lazy_fixture("metadata_json"),
+    ],
+)
 def test_last_modified(path):
     assert isinstance(path.last_modified(), datetime)
 

@@ -22,6 +22,7 @@ from rasterio.session import Session as RioSession
 from retry import retry
 
 from mapchete.executor import Executor
+from mapchete.pretty import pretty_bytes
 from mapchete.settings import GDALHTTPOptions, IORetrySettings, mapchete_options
 from mapchete.tile import BufferedTile
 from mapchete.types import MPathLike
@@ -441,6 +442,9 @@ class MPath(os.PathLike):
 
     def size(self) -> int:
         return self.info().get("size", self.info().get("Size"))
+
+    def pretty_size(self) -> str:
+        return pretty_bytes(self.size())
 
     def last_modified(self) -> datetime:
         # for S3 objects
