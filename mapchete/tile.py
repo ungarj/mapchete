@@ -1,4 +1,5 @@
 """Mapchtete handling tiles."""
+
 from __future__ import annotations
 
 import logging
@@ -9,9 +10,11 @@ import numpy as np
 from affine import Affine
 from rasterio.enums import Resampling
 from rasterio.features import rasterize, shapes
+from rasterio.transform import from_bounds
 from rasterio.warp import reproject
 from shapely import clip_by_rect
 from shapely.geometry import box, shape
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from tilematrix import Tile, TilePyramid
 from tilematrix._conf import ROUND
@@ -527,7 +530,9 @@ def _count_cells(pyramid, geometry, minzoom, maxzoom):
     return int(count)
 
 
-def snap_geometry_to_tiles(geometry=None, pyramid=None, zoom=None):
+def snap_geometry_to_tiles(
+    geometry: BaseGeometry, pyramid: BufferedTilePyramid, zoom: int
+) -> BaseGeometry:
     if geometry.is_empty:
         return geometry
     # calculate everything using an unbuffered pyramid, because otherwise the Affine
@@ -535,13 +540,36 @@ def snap_geometry_to_tiles(geometry=None, pyramid=None, zoom=None):
     unbuffered_pyramid = BufferedTilePyramid.from_dict(
         dict(pyramid.to_dict(), pixelbuffer=0)
     )
-    transform = unbuffered_pyramid.matrix_affine(zoom)
+
+    # use subset because otherwise memory usage can crash the program
+    left, bottom, right, top = geometry.bounds
+    # clip geometry bounds to pyramid bounds
+    left = max([left, unbuffered_pyramid.bounds.left])
+    bottom = max([bottom, unbuffered_pyramid.bounds.bottom])
+    right = min([right, unbuffered_pyramid.bounds.right])
+    top = min([top, unbuffered_pyramid.bounds.top])
+    lb_tile = unbuffered_pyramid.tile_from_xy(left, bottom, zoom, on_edge_use="rt")
+    rt_tile = unbuffered_pyramid.tile_from_xy(right, top, zoom, on_edge_use="lb")
+    snapped_left, snapped_south, snapped_east, snapped_north = (
+        lb_tile.bounds.left,
+        lb_tile.bounds.bottom,
+        rt_tile.bounds.right,
+        rt_tile.bounds.top,
+    )
+    width = abs(rt_tile.col - lb_tile.col) + 1
+    height = abs(rt_tile.row - lb_tile.row) + 1
+    out_shape = (height, width)
+    transform = from_bounds(
+        west=snapped_left,
+        south=snapped_south,
+        east=snapped_east,
+        north=snapped_north,
+        width=width,
+        height=height,
+    )
     raster = rasterize(
         [(geometry, 1)],
-        out_shape=(
-            unbuffered_pyramid.matrix_height(zoom),
-            unbuffered_pyramid.matrix_width(zoom),
-        ),
+        out_shape=out_shape,
         fill=0,
         transform=transform,
         dtype=np.uint8,
