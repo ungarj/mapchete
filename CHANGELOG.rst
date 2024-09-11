@@ -3,6 +3,23 @@ Changelog
 #########
 
 ---------------------
+2024.9.0 - 2024-09-11
+---------------------
+
+* core
+
+  * `static/index.html`: fixed deprecated WMTS endpoints and added recent S2Cloudless versions (#643)
+  * `mapchete.tile.snap_geometry_to_tiles()`: use spatial subset when rasterizing to avoid memory errors (#644)
+  * `mapchete.io.vector.read_vector_window()`: on windowed read, don't filter out respective singlepart types if requiret geometry type is a multipart type (#645)
+  * `mapchete.io.vector.fiona_read()`: adapt to Fiona changing error messages when raising `FileNotFoundError` (#646)
+  * `mapchete.path.MPath`: add `pretty_size()` method (#647)
+
+* CI
+
+  * use `docker compose` instead of deprecated `docker-compose` (#641)
+
+
+---------------------
 2024.7.1 - 2024-07-25
 ---------------------
 
