@@ -76,7 +76,9 @@ def fiona_read(path, mode="r", **kwargs):
         ):
             if i in str(repr(exc)):
                 raise FileNotFoundError(f"path {str(path)} does not exist")
-        else:  # pragma: no cover
+        else:
+            if not path.exists():
+                raise FileNotFoundError(f"path {str(path)} does not exist")
             raise
 
 
