@@ -16,7 +16,7 @@ from mapchete.geometry import (
     is_type,
     multipart_to_singleparts,
 )
-from mapchete.geometry.types import Geometry, SinglepartGeometry
+from mapchete.geometry.types import SinglepartGeometry
 
 
 @pytest.mark.parametrize(

@@ -123,10 +123,10 @@ def tile_to_zoom_level(
             )
             if geom.is_empty:  # Shapely>=2.0
                 raise ValueError("geometry empty after reprojection")
-            l, b, r, t = geom.bounds
+            left, bottom, right, top = geom.bounds
         except ValueError:  # pragma: no cover
             raise TopologicalError("bounds cannot be translated into target CRS")
-        return r - l, t - b
+        return right - left, top - bottom
 
     if tile.tp.crs == dst_pyramid.crs:
         return tile.zoom
@@ -143,19 +143,19 @@ def tile_to_zoom_level(
                 tile_resolution = round(transform[0], precision)
         elif matching_method == MatchingMethod.min:
             # calculate the minimum pixel size from the four tile corner pixels
-            l, b, r, t = tile.bounds
-            x = tile.pixel_x_size
-            y = tile.pixel_y_size
+            left, bottom, right, top = tile.bounds
+            x_size = tile.pixel_x_size
+            y_size = tile.pixel_y_size
             res = []
             for bounds in [
-                (l, t - y, l + x, t),  # left top
-                (l, b, l + x, b + y),  # left bottom
-                (r - x, b, r, b + y),  # right bottom
-                (r - x, t - y, r, t),  # right top
+                (left, top - y_size, left + x_size, top),  # left top
+                (left, bottom, left + x_size, bottom + y_size),  # left bottom
+                (right - x_size, bottom, right, bottom + y_size),  # right bottom
+                (right - x_size, top - y_size, right, top),  # right top
             ]:
                 try:
-                    w, h = width_height(bounds)
-                    res.extend([w, h])
+                    width, height = width_height(bounds)
+                    res.extend([width, height])
                 except TopologicalError:
                     logger.debug("pixel outside of destination pyramid")
             if res:

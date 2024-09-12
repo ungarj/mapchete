@@ -3,18 +3,17 @@ from typing import Iterable, Optional, Tuple, Union
 
 from rasterio.crs import CRS
 from shapely import wkt
-from shapely.geometry import Point, box, shape
+from shapely.geometry import Point, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from mapchete.config.models import ProcessConfig, ZoomParameters
-from mapchete.errors import GeometryTypeError, MapcheteConfigError
+from mapchete.errors import GeometryTypeError
 from mapchete.geometry import is_type, reproject_geometry
 from mapchete.io.vector import fiona_open
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
-from mapchete.validate import validate_values
 
 
 def parse_config(

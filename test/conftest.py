@@ -8,7 +8,6 @@ from tempfile import TemporaryDirectory
 import pytest
 from aiohttp.client_exceptions import ClientConnectorError
 from minio import Minio
-from shapely import wkt
 from shapely.geometry import (
     GeometryCollection,
     LineString,

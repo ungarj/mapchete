@@ -143,18 +143,5 @@ include = [
     "/mapchete",
 ]
 
-[tool.black]
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-)/
-'''
+[tool.ruff]
+exclude = ["test/testdata/syntax_error.py"]

@@ -103,8 +103,8 @@ class MapcheteConfig(object):
     effective_area: BaseGeometry
     effective_bounds: Bounds
     input: OrderedDict
-    output: "OutputDataWriter"
-    output_reader: "OutputDataReader"
+    output: "OutputDataWriter"  # noqa: F821
+    output_reader: "OutputDataReader"  # noqa: F821
 
     def __init__(
         self,

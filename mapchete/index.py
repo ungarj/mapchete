@@ -300,13 +300,13 @@ class TextFileWriter:
         self.fs = fs_from_path(out_path)
         if path_exists(self.path):
             with self.fs.open(self.path, "r") as src:
-                self._existing = {l for l in src.readlines()}
+                self._existing = {line for line in src.readlines()}
         else:
             self._existing = {}
         self.new_entries = 0
         self.sink = self.fs.open(self.path, "w")
-        for l in self._existing:
-            self._write_line(l)
+        for line in self._existing:
+            self._write_line(line)
 
     def __repr__(self):
         return "TextFileWriter(%s)" % self.path
@@ -423,9 +423,13 @@ class VRTFileWriter:
                     *[
                         E.ComplexSource(
                             E.SourceFilename(
-                                _tile_path(orig_path=path, for_gdal=True)
-                                if path.is_remote()
-                                else str(path.relative_path(start=self.path.dirname)),
+                                (
+                                    _tile_path(orig_path=path, for_gdal=True)
+                                    if path.is_remote()
+                                    else str(
+                                        path.relative_path(start=self.path.dirname)
+                                    )
+                                ),
                                 relativeToVRT="0" if path.is_remote() else "1",
                             ),
                             E.SourceBand(str(b_idx)),
