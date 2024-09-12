@@ -47,6 +47,7 @@ class Status(str, Enum):
                    |
                   done
     """
+
     # just waiting
     pending = "pending"
 

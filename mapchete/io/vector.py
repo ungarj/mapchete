@@ -1,5 +1,6 @@
 """Functions handling vector data."""
 
+from importlib.util import find_spec
 import logging
 import warnings
 from contextlib import ExitStack, contextmanager
@@ -119,11 +120,8 @@ def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
 
     try:
         if path.is_remote():
-            if "s3" in path.protocols:  # pragma: no cover
-                try:
-                    import boto3
-                except ImportError:
-                    raise ImportError("please install [s3] extra to write remote files")
+            if "s3" in path.protocols and not find_spec("boto3"):  # pragma: no cover
+                raise ImportError("please install [s3] extra to write remote files")
             with FionaRemoteWriter(
                 path, fs=fs, in_memory=in_memory, *args, **kwargs
             ) as dst:

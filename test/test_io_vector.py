@@ -4,11 +4,10 @@ import pytest
 from fiona.errors import DriverError
 from pytest_lazyfixture import lazy_fixture
 from rasterio.crs import CRS
-from shapely import wkt
-from shapely.geometry import MultiPolygon, Point, Polygon, box, mapping, shape
+from shapely.geometry import box, mapping, shape
 
 from mapchete.config import MapcheteConfig
-from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError, ReprojectionFailed
+from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError
 from mapchete.geometry import reproject_geometry
 from mapchete.io.vector import (
     IndexedFeatures,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from importlib.util import find_spec
 import logging
 import warnings
 from contextlib import contextmanager
@@ -36,11 +37,8 @@ def rasterio_write(
 
     try:
         if path.is_remote():
-            if "s3" in path.protocols:  # pragma: no cover
-                try:
-                    import boto3
-                except ImportError:
-                    raise ImportError("please install [s3] extra to write remote files")
+            if "s3" in path.protocols and not find_spec("boto3"):  # pragma: no cover
+                raise ImportError("please install [s3] extra to write remote files")
             with RasterioRemoteWriter(
                 path, in_memory=in_memory, *args, **kwargs
             ) as dst:

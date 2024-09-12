@@ -62,9 +62,7 @@ def get_multipart_type(geometry_type: Union[Type[Geometry], str]) -> MultipartGe
             MultiPoint: MultiPoint,
             MultiLineString: MultiLineString,
             MultiPolygon: MultiPolygon,
-        }[
-            get_geometry_type(geometry_type)
-        ]  # type: ignore
+        }[get_geometry_type(geometry_type)]  # type: ignore
     except KeyError:
         raise GeometryTypeError(
             f"geometry type {geometry_type} has no corresponding multipart type"
@@ -72,7 +70,7 @@ def get_multipart_type(geometry_type: Union[Type[Geometry], str]) -> MultipartGe
 
 
 def get_singlepart_type(
-    geometry_type: Union[Type[Geometry], str]
+    geometry_type: Union[Type[Geometry], str],
 ) -> SinglepartGeometry:
     try:
         return {
@@ -82,9 +80,7 @@ def get_singlepart_type(
             MultiPoint: Point,
             MultiLineString: LineString,
             MultiPolygon: Polygon,
-        }[
-            get_geometry_type(geometry_type)
-        ]  # type: ignore
+        }[get_geometry_type(geometry_type)]  # type: ignore
     except KeyError:  # pragma: no cover
         raise GeometryTypeError(
             f"geometry type {geometry_type} has no corresponding multipart type"
@@ -92,7 +88,7 @@ def get_singlepart_type(
 
 
 def get_geometry_type(
-    geometry_type: Union[Type[Geometry], str, dict, Geometry]
+    geometry_type: Union[Type[Geometry], str, dict, Geometry],
 ) -> Geometry:
     if isinstance(geometry_type, str):
         try:

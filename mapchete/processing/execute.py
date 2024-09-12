@@ -213,7 +213,7 @@ def execute_and_write_wrapper(
     output_writer: Optional[OutputDataWriter] = None,
     dependencies: Optional[dict] = None,
     append_data: bool = False,
-    **_
+    **_,
 ) -> TaskInfo:
     """
     Execute tile task and write output in one step.

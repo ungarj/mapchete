@@ -7,6 +7,6 @@ from mapchete.geometry import repair
 
 def test_repair_geometry():
     # invalid LineString
-    l = LineString([(0, 0), (0, 0), (0, 0)])
+    line = LineString([(0, 0), (0, 0), (0, 0)])
     with pytest.raises(TopologicalError):
-        repair(l)
+        repair(line)

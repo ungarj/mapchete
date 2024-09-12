@@ -17,8 +17,8 @@ def test_index_geojson(cleantopo_br):
         assert len(files) == 4
         assert "3.geojson" in files
     with fiona_open(mp.config.output.path / "3.geojson") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -37,8 +37,8 @@ def test_index_geojson_fieldname(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "3.geojson" in files
     with fiona_open(mp.config.output.path / "3.geojson") as src:
-        for f in src:
-            assert "new_fieldname" in f["properties"]
+        for feature in src:
+            assert "new_fieldname" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -54,8 +54,8 @@ def test_index_geojson_basepath(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "3.geojson" in files
     with fiona_open(mp.config.output.path / "3.geojson") as src:
-        for f in src:
-            assert f["properties"]["location"].startswith(basepath)
+        for feature in src:
+            assert feature["properties"]["location"].startswith(basepath)
         assert len(list(src)) == 1
 
 
@@ -71,8 +71,8 @@ def test_index_geojson_for_gdal(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "3.geojson" in files
     with fiona_open(mp.config.output.path / "3.geojson") as src:
-        for f in src:
-            assert f["properties"]["location"].startswith("/vsicurl/" + basepath)
+        for feature in src:
+            assert feature["properties"]["location"].startswith("/vsicurl/" + basepath)
         assert len(list(src)) == 1
 
 
@@ -115,8 +115,8 @@ def test_index_gpkg(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.gpkg" in files
     with fiona_open(mp.config.output.path / "5.gpkg") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
@@ -126,8 +126,8 @@ def test_index_gpkg(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.gpkg" in files
     with fiona_open(mp.config.output.path / "5.gpkg") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -142,8 +142,8 @@ def test_index_shp(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.shp" in files
     with fiona_open(mp.config.output.path / "5.shp") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
@@ -153,8 +153,8 @@ def test_index_shp(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.shp" in files
     with fiona_open(mp.config.output.path / "5.shp") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -169,8 +169,8 @@ def test_index_fgb(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.fgb" in files
     with fiona_open(mp.config.output.path / "5.fgb") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
@@ -180,8 +180,8 @@ def test_index_fgb(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.fgb" in files
     with fiona_open(mp.config.output.path / "5.fgb") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -198,8 +198,8 @@ def test_index_text(cleantopo_br):
     with open(mp.config.output.path / "5.txt") as src:
         lines = list(src)
         assert len(lines) == 1
-        for l in lines:
-            assert l.endswith("7.tif\n")
+        for line in lines:
+            assert line.endswith("7.tif\n")
 
     # write again and assert there is no new entry because there is already one
     index(cleantopo_br.dict, zoom=5, txt=True)
@@ -210,8 +210,8 @@ def test_index_text(cleantopo_br):
     with open(mp.config.output.path / "5.txt") as src:
         lines = list(src)
         assert len(lines) == 1
-        for l in lines:
-            assert l.endswith("7.tif\n")
+        for line in lines:
+            assert line.endswith("7.tif\n")
 
 
 def test_index_tiledir(cleantopo_br):
@@ -225,8 +225,8 @@ def test_index_tiledir(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.gpkg" in files
     with fiona_open(mp.config.output.path / "5.gpkg") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
@@ -236,8 +236,8 @@ def test_index_tiledir(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.txt" in files
     with fiona_open(mp.config.output.path / "5.gpkg") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 

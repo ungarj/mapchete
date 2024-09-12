@@ -4,12 +4,11 @@ import pytest
 from shapely.geometry import box
 from tilematrix import TilePyramid
 
-import mapchete
-from mapchete.commands import convert, cp, execute, index, rm
+from mapchete.commands import convert, execute
 from mapchete.config import DaskSettings
 from mapchete.enums import Concurrency, Status
 from mapchete.errors import JobCancelledError
-from mapchete.io import fiona_open, rasterio_open
+from mapchete.io import rasterio_open
 from mapchete.processing.types import TaskInfo
 from mapchete.protocols import ObserverProtocol
 
@@ -198,7 +197,7 @@ def test_execute_profiling(cleantopo_br_metatiling_1, concurrency, process_graph
         zoom=zoom,
         profiling=True,
         observers=[TaskResultObserver()],
-        **execute_kwargs
+        **execute_kwargs,
     )
 
 

@@ -18,8 +18,8 @@ def test_geojson(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert len(files) == 4
     with fiona_open(mp.config.output.path / "3.geojson") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -44,8 +44,8 @@ def test_geojson_fieldname(cleantopo_br):
     )
     with mapchete.open(cleantopo_br.dict) as mp:
         with fiona_open(mp.config.output.path / "3.geojson") as src:
-            for f in src:
-                assert "new_fieldname" in f["properties"]
+            for feature in src:
+                assert "new_fieldname" in feature["properties"]
             assert len(list(src)) == 1
 
 
@@ -71,8 +71,8 @@ def test_geojson_basepath(cleantopo_br):
     )
     with mapchete.open(cleantopo_br.dict) as mp:
         with fiona_open(mp.config.output.path / "3.geojson") as src:
-            for f in src:
-                assert f["properties"]["location"].startswith(basepath)
+            for feature in src:
+                assert feature["properties"]["location"].startswith(basepath)
             assert len(list(src)) == 1
 
 
@@ -97,8 +97,10 @@ def test_geojson_for_gdal(cleantopo_br):
     )
     with mapchete.open(cleantopo_br.dict) as mp:
         with fiona_open(mp.config.output.path / "3.geojson") as src:
-            for f in src:
-                assert f["properties"]["location"].startswith("/vsicurl/" + basepath)
+            for feature in src:
+                assert feature["properties"]["location"].startswith(
+                    "/vsicurl/" + basepath
+                )
             assert len(list(src)) == 1
 
 
@@ -161,8 +163,8 @@ def test_gpkg(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.gpkg" in files
     with fiona_open(mp.config.output.path / "5.gpkg") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
@@ -171,8 +173,8 @@ def test_gpkg(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.gpkg" in files
     with fiona_open(mp.config.output.path / "5.gpkg") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -188,8 +190,8 @@ def test_shp(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.shp" in files
     with fiona_open(mp.config.output.path / "5.shp") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
@@ -198,8 +200,8 @@ def test_shp(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.shp" in files
     with fiona_open(mp.config.output.path / "5.shp") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -215,8 +217,8 @@ def test_fgb(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.fgb" in files
     with fiona_open(mp.config.output.path / "5.fgb") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
     # write again and assert there is no new entry because there is already one
@@ -225,8 +227,8 @@ def test_fgb(cleantopo_br):
         files = mp.config.output.path.ls(absolute_paths=False)
         assert "5.fgb" in files
     with fiona_open(mp.config.output.path / "5.fgb") as src:
-        for f in src:
-            assert "location" in f["properties"]
+        for feature in src:
+            assert "location" in feature["properties"]
         assert len(list(src)) == 1
 
 
@@ -244,8 +246,8 @@ def test_text(cleantopo_br):
     with open(mp.config.output.path / "5.txt") as src:
         lines = list(src)
         assert len(lines) == 1
-        for l in lines:
-            assert l.endswith("7.tif\n")
+        for line in lines:
+            assert line.endswith("7.tif\n")
 
     # write again and assert there is no new entry because there is already one
     run_cli(["index", cleantopo_br.path, "-z", "5", "--txt", "--debug"])
@@ -255,8 +257,8 @@ def test_text(cleantopo_br):
     with open(mp.config.output.path / "5.txt") as src:
         lines = list(src)
         assert len(lines) == 1
-        for l in lines:
-            assert l.endswith("7.tif\n")
+        for line in lines:
+            assert line.endswith("7.tif\n")
 
 
 def test_errors(cleantopo_br):

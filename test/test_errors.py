@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Test custom Mapchete errors."""
 
-
 from copy import deepcopy
 
 import pytest
