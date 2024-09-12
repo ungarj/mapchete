@@ -5,6 +5,7 @@ This is necessary because if using the logging module directly, the namespace
 is not assigned properly and log levels & log handlers cannot be assigned
 correctly.
 """
+
 import logging
 import sys
 from itertools import chain

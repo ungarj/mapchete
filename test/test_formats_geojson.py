@@ -1,4 +1,5 @@
 """Test GeoJSON as process output."""
+
 import pytest
 from shapely.geometry import shape
 

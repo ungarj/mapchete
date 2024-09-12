@@ -33,7 +33,7 @@ def custom_transform(geometry: Geometry, func: Callable) -> Geometry:
         )
 
     def _linearring(linearring: LinearRing) -> LinearRing:
-        return LinearRing(((x, y) for x, y, in zip(*func(linearring.xy))))
+        return LinearRing(((x, y) for x, y in zip(*func(linearring.xy))))
 
     def _polygon(polygon: Polygon) -> Polygon:
         return Polygon(

@@ -337,8 +337,9 @@ class TileTask(Task):
                         if isinstance(task_result, TaskInfo):
                             task_result = task_result.output
                         if not task_key.startswith("tile_task"):
-                            inp_key, task_key = task_key.split(":")[0], ":".join(
-                                task_key.split(":")[1:]
+                            inp_key, task_key = (
+                                task_key.split(":")[0],
+                                ":".join(task_key.split(":")[1:]),
                             )
                             if task_key in [None, ""]:  # pragma: no cover
                                 raise KeyError(f"malformed task key: {inp_key}")

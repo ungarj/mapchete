@@ -1,6 +1,7 @@
 """
 Combine default values with environment variable values.
 """
+
 from typing import Tuple, Type
 
 from aiohttp.client_exceptions import ServerDisconnectedError

@@ -1,4 +1,5 @@
 """Test FlatGeobuf as process output."""
+
 import pytest
 
 import mapchete

@@ -226,7 +226,7 @@ def test_tile_path_schema_metadata_json(tile_path_schema):
     output_params = dict(
         output_metadata["driver"],
         path=mp.config.output_reader.path,
-        **output_metadata["pyramid"].to_dict()
+        **output_metadata["pyramid"].to_dict(),
     )
     output_reader = load_output_reader(output_params)
     assert mp.config.output_reader.tile_path_schema == output_reader.tile_path_schema
