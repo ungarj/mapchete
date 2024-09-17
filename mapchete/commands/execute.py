@@ -42,7 +42,7 @@ def execute(
     executor_getter: AbstractContextManager = Executor,
     profiling: bool = False,
     observers: Optional[List[ObserverProtocol]] = None,
-    retry_on_exception: Tuple[Type[Exception], Type[Exception]] = Exception,
+    retry_on_exception: Union[Tuple[Type[Exception], ...], Type[Exception]] = Exception,
     cancel_on_exception: Type[Exception] = JobCancelledError,
     retries: int = 0,
 ):

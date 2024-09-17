@@ -12,6 +12,7 @@ from functools import cached_property
 from io import TextIOWrapper
 from typing import IO, Generator, List, Optional, Set, TextIO, Tuple, Union
 
+from aiohttp import BasicAuth
 import fiona
 import fsspec
 import oyaml as yaml
@@ -175,8 +176,6 @@ class MPath(os.PathLike):
         elif self._path_str.startswith(("http://", "https://")):
             username = self._storage_options.get("username")
             if username:
-                from aiohttp import BasicAuth
-
                 auth = BasicAuth(
                     login=username,
                     password=self._storage_options.get("password", ""),
