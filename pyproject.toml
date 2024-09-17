@@ -21,6 +21,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: GIS",
 ]
 dependencies = [
+    "aiohttp",
     "cachetools",
     "click-plugins",
     "click-spinner",
