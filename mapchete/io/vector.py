@@ -6,7 +6,7 @@ import warnings
 from contextlib import ExitStack, contextmanager
 from itertools import chain
 from tempfile import NamedTemporaryFile
-from typing import Any, Union
+from typing import Any, Union, Optional
 
 import fiona
 from fiona.errors import DriverError
@@ -372,7 +372,13 @@ class IndexedFeatures:
         Spatial index to use. Can either be "rtree" (if installed) or None.
     """
 
-    def __init__(self, features, index="rtree", allow_non_geo_objects=False, crs=None):
+    def __init__(
+        self,
+        features,
+        index: Optional[str] = "rtree",
+        allow_non_geo_objects=False,
+        crs=None,
+    ):
         if index == "rtree":
             try:
                 from rtree import index
