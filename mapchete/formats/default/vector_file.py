@@ -313,7 +313,9 @@ class InputTile(base.InputTile, VectorInput):
     ) -> BaseGeometry:
         """Read union of reprojected and clipped vector features."""
         features = self.read(
-            validity_check=validity_check, clip_to_crs_bounds=clip_to_crs_bounds
+            validity_check=validity_check,
+            clip_to_crs_bounds=clip_to_crs_bounds,
+            **kwargs,
         )
         if features:
             return unary_union(
@@ -329,6 +331,7 @@ class InputTile(base.InputTile, VectorInput):
         clip_to_crs_bounds: bool = False,
         pixelbuffer: int = 0,
         band_count: Optional[int] = None,
+        **kwargs,
     ) -> np.ndarray:
         """Read rasterized vector input."""
         if pixelbuffer:
@@ -337,14 +340,18 @@ class InputTile(base.InputTile, VectorInput):
                     shape(feature["geometry"]).buffer(pixelbuffer * self.transform[0])
                 )
                 for feature in self.read(
-                    validity_check=validity_check, clip_to_crs_bounds=clip_to_crs_bounds
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
+                    **kwargs,
                 )
             ]
         else:
             features = [
                 feature["geometry"]
                 for feature in self.read(
-                    validity_check=validity_check, clip_to_crs_bounds=clip_to_crs_bounds
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
+                    **kwargs,
                 )
             ]
 
