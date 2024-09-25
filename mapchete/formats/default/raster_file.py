@@ -24,7 +24,7 @@ from mapchete.io.raster import (
     read_raster_window,
     resample_from_array,
 )
-from mapchete.io.vector import reproject_geometry, segmentize_geometry
+from mapchete.geometry import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
 
 logger = logging.getLogger(__name__)

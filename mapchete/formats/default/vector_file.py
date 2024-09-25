@@ -6,25 +6,25 @@ Currently limited by extensions .shp and .geojson but could be extended easily.
 
 import logging
 from functools import cached_property
-from typing import Optional
+from typing import Optional, List
 
 from affine import Affine
 import numpy as np
 from rasterio.crs import CRS
 from rasterio.features import geometry_mask
 from shapely import unary_union
-from shapely.geometry import Point, box, GeometryCollection, shape, mapping
-from shapely.geometry.base import BaseGeometry
+from shapely.geometry import Point, box, GeometryCollection, mapping
 
 from mapchete.formats import base
 from mapchete.formats.protocols import VectorInput
+from mapchete.geometry.types import Geometry
+from mapchete.geometry import to_shape, reproject_geometry
 from mapchete.io import fiona_open
 from mapchete.io.vector import (
     IndexedFeatures,
     convert_vector,
     read_vector,
     read_vector_window,
-    reproject_geometry,
 )
 from mapchete.path import MPath
 from mapchete.tile import BufferedTile
@@ -257,7 +257,9 @@ class InputTile(base.InputTile, VectorInput):
         )
         return f"vector_file.InputTile(tile={self.tile.id}, source={source})"
 
-    def read(self, validity_check=True, clip_to_crs_bounds=False, **kwargs):
+    def read(
+        self, validity_check: bool = True, clip_to_crs_bounds: bool = False, **kwargs
+    ) -> List[dict]:
         """
         Read reprojected & resampled input data.
 
@@ -292,7 +294,7 @@ class InputTile(base.InputTile, VectorInput):
             )
         )
 
-    def is_empty(self):
+    def is_empty(self) -> bool:
         """
         Check if there is data within this tile.
 
@@ -310,7 +312,7 @@ class InputTile(base.InputTile, VectorInput):
         clip_to_crs_bounds: bool = False,
         pixelbuffer: int = 0,
         **kwargs,
-    ) -> BaseGeometry:
+    ) -> Geometry:
         """Read union of reprojected and clipped vector features."""
         features = self.read(
             validity_check=validity_check,
@@ -318,9 +320,9 @@ class InputTile(base.InputTile, VectorInput):
             **kwargs,
         )
         if features:
-            return unary_union(
-                [shape(feature["geometry"]) for feature in features]
-            ).buffer(pixelbuffer * self.transform[0])
+            return unary_union([to_shape(feature) for feature in features]).buffer(
+                pixelbuffer * self.transform[0]
+            )
         return GeometryCollection()
 
     def read_as_raster_mask(
@@ -336,9 +338,7 @@ class InputTile(base.InputTile, VectorInput):
         """Read rasterized vector input."""
         if pixelbuffer:
             features = [
-                mapping(
-                    shape(feature["geometry"]).buffer(pixelbuffer * self.transform[0])
-                )
+                mapping(to_shape(feature).buffer(pixelbuffer * self.transform[0]))
                 for feature in self.read(
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,

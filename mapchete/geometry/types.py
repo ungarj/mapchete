@@ -7,9 +7,10 @@ from typing import (
     Type,
     Union,
     runtime_checkable,
+    TypedDict,
 )
 
-from geojson_pydantic import FeatureCollection as GeoJSONGeometryType
+from geojson_pydantic import Feature, FeatureCollection as GeoJSONGeometryType
 from shapely.geometry import (
     GeometryCollection,
     LinearRing,
@@ -48,9 +49,14 @@ class GeoInterface(Protocol):
     ]
 
 
-GeometryLike = Union[Geometry, GeoJSONGeometryType, GeoInterface]
+GeometryLike = Union[Geometry, GeoJSONGeometryType, GeoInterface, Feature, Dict]
 
 CoordArrays = Tuple[Iterable[float], Iterable[float]]
+
+
+GeoJSONLikeFeature = TypedDict(
+    "GeoJSONLikeFeature", {"geometry": dict, "properties": dict}
+)
 
 
 def get_multipart_type(geometry_type: Union[Type[Geometry], str]) -> MultipartGeometry:

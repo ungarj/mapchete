@@ -27,7 +27,7 @@ from mapchete.executor import (
     SequentialExecutor,
 )
 from mapchete.io import MPath, copy, rasterio_open
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 from mapchete.testing import ProcessFixture
 from mapchete.tile import BufferedTilePyramid
 

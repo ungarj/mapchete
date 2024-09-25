@@ -11,14 +11,12 @@ from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError
 from mapchete.geometry import reproject_geometry
 from mapchete.io.vector import (
     IndexedFeatures,
-    bounds_intersect,
     convert_vector,
     fiona_open,
-    object_bounds,
-    object_crs,
     read_vector_window,
     write_vector_window,
 )
+from mapchete.io.vector.read import bounds_intersect, object_bounds, object_crs
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import Bounds
 

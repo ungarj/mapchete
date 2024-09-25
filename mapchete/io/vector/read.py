@@ -1,16 +1,13 @@
 """Functions handling vector data."""
 
-from importlib.util import find_spec
 import logging
 import warnings
 from contextlib import ExitStack, contextmanager
 from itertools import chain
-from tempfile import NamedTemporaryFile
-from typing import Any, Union, Optional
+from typing import Any, Generator, Union, Optional
 
 import fiona
 from fiona.errors import DriverError
-from fiona.io import MemoryFile
 from rasterio.crs import CRS
 from retry import retry
 from shapely.errors import TopologicalError
@@ -26,11 +23,12 @@ from mapchete.geometry import (
     segmentize_geometry,
     to_shape,
 )
-from mapchete.geometry.types import get_geometry_type, get_singlepart_type
+from mapchete.geometry.types import get_singlepart_type
 from mapchete.io import copy
+from mapchete.io.vector.write import fiona_write
 from mapchete.path import MPath, fs_from_path
 from mapchete.settings import IORetrySettings
-from mapchete.types import Bounds
+from mapchete.types import Bounds, MPathLike
 from mapchete.validate import validate_bounds
 
 __all__ = [
@@ -44,21 +42,9 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def fiona_open(path, mode="r", **kwargs):
-    """Call fiona.open but set environment correctly and return custom writer if needed."""
-    path = MPath.from_inp(path)
-
-    if "w" in mode:
-        with fiona_write(path, mode=mode, **kwargs) as dst:
-            yield dst
-
-    else:
-        with fiona_read(path, mode=mode, **kwargs) as src:
-            yield src
-
-
-@contextmanager
-def fiona_read(path, mode="r", **kwargs):
+def fiona_read(
+    path: MPathLike, mode: str = "r", **kwargs
+) -> Generator[fiona.Collection, None, None]:
     """
     Wrapper around fiona.open but fiona.Env is set according to path properties.
     """
@@ -90,53 +76,6 @@ def fiona_read(path, mode="r", **kwargs):
 
         # file does not exist
         raise FileNotFoundError(f"path {str(path)} does not exist")
-
-
-@contextmanager
-def fiona_write(path, mode="w", fs=None, in_memory=True, *args, **kwargs):
-    """
-    Wrap fiona.open() but handle bucket upload if path is remote.
-
-    Parameters
-    ----------
-    path : str or MPath
-        Path to write to.
-    mode : str
-        One of the fiona.open() modes.
-    fs : fsspec.FileSystem
-        Target filesystem.
-    in_memory : bool
-        On remote output store an in-memory file instead of writing to a tempfile.
-    args : list
-        Arguments to be passed on to fiona.open()
-    kwargs : dict
-        Keyword arguments to be passed on to fiona.open()
-
-    Returns
-    -------
-    FionaRemoteWriter if target is remote, otherwise return fiona.open().
-    """
-    path = MPath.from_inp(path)
-
-    try:
-        if path.is_remote():
-            if "s3" in path.protocols and not find_spec("boto3"):  # pragma: no cover
-                raise ImportError("please install [s3] extra to write remote files")
-            with FionaRemoteWriter(
-                path, fs=fs, in_memory=in_memory, *args, **kwargs
-            ) as dst:
-                yield dst
-        else:
-            with path.fio_env() as env:
-                logger.debug("writing %s with GDAL options %s", str(path), env.options)
-                path.parent.makedirs(exist_ok=True)
-                with fiona.open(str(path), mode=mode, *args, **kwargs) as dst:
-                    yield dst
-    except Exception as exc:  # pragma: no cover
-        logger.exception(exc)
-        logger.debug("remove %s ...", str(path))
-        path.rm(ignore_errors=True)
-        raise
 
 
 def read_vector_window(
@@ -218,71 +157,6 @@ def _read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False
         raise IOError(f"failed to read {inp}") from exc
 
 
-def write_vector_window(
-    in_data=None,
-    out_driver="GeoJSON",
-    out_schema=None,
-    out_tile=None,
-    out_path=None,
-    allow_multipart_geometries=True,
-    **kwargs,
-):
-    """
-    Write features to file.
-
-    Parameters
-    ----------
-    in_data : features
-    out_driver : string
-    out_schema : dictionary
-        output schema for fiona
-    out_tile : ``BufferedTile``
-        tile used for output extent
-    out_path : string
-        output path for file
-    """
-    # Delete existing file.
-    out_path = MPath.from_inp(out_path)
-    out_path.rm(ignore_errors=True)
-    out_features = []
-    for feature in in_data:
-        try:
-            # clip feature geometry to tile bounding box and append for writing
-            for out_geom in filter_by_geometry_type(
-                to_shape(feature["geometry"]).intersection(out_tile.bbox),
-                get_geometry_type(out_schema["geometry"]),
-                allow_multipart=allow_multipart_geometries,
-            ):
-                if out_geom.is_empty:
-                    continue
-
-                out_features.append(
-                    {"geometry": mapping(out_geom), "properties": feature["properties"]}
-                )
-        except Exception as e:
-            logger.warning("failed to prepare geometry for writing: %s", e)
-            continue
-
-    # write if there are output features
-    if out_features:
-        try:
-            with fiona_open(
-                out_path,
-                "w",
-                schema=out_schema,
-                driver=out_driver,
-                crs=out_tile.crs.to_dict(),
-            ) as dst:
-                logger.debug((out_tile.id, "write tile", out_path))
-                dst.writerecords(out_features)
-        except Exception as e:
-            logger.error("error while writing file %s: %s", out_path, e)
-            raise
-
-    else:
-        logger.debug((out_tile.id, "nothing to write", out_path))
-
-
 @retry(
     logger=logger,
     **dict(IORetrySettings()),
@@ -297,7 +171,7 @@ def _get_reprojected_features(
     logger.debug("reading %s", inp)
     with ExitStack() as exit_stack:
         if isinstance(inp, (str, MPath)):
-            src = exit_stack.enter_context(fiona_open(inp, "r"))
+            src = exit_stack.enter_context(fiona_read(inp))
             src_crs = CRS(src.crs)
         else:
             src = inp
@@ -381,9 +255,9 @@ class IndexedFeatures:
     ):
         if index == "rtree":
             try:
-                from rtree import index
+                import rtree
 
-                self._index = index.Index()
+                self._index = rtree.index.Index()
             except ImportError:  # pragma: no cover
                 warnings.warn(
                     "It is recommended to install rtree in order to significantly speed up spatial indexes."
@@ -579,8 +453,8 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
     kwargs = kwargs or {}
     if kwargs:
         logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
-        with fiona_open(inp, "r") as src:
-            with fiona_open(out, mode="w", **{**src.meta, **kwargs}) as dst:
+        with fiona_read(inp) as src:
+            with fiona_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
                 dst.writerecords(src)
     else:
         logger.debug("copy %s to %s", str(inp), str(out))
@@ -589,64 +463,5 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
 
 
 def read_vector(inp, index="rtree"):
-    with fiona_open(inp, "r") as src:
+    with fiona_read(inp) as src:
         return IndexedFeatures(src, index=index)
-
-
-class FionaRemoteMemoryWriter:
-    def __init__(self, path, *args, **kwargs):
-        logger.debug("open FionaRemoteMemoryWriter for path %s", path)
-        self.path = path
-        self._dst = MemoryFile()
-        self._open_args = args
-        self._open_kwargs = kwargs
-        self._sink = None
-
-    def __enter__(self):
-        self._sink = self._dst.open(*self._open_args, **self._open_kwargs)
-        return self._sink
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        try:
-            self._sink.close()
-            if exc_value is None:
-                logger.debug("upload fiona MemoryFile to %s", self.path)
-                with self.path.open("wb") as dst:
-                    dst.write(self._dst.getbuffer())
-        finally:
-            logger.debug("close fiona MemoryFile")
-            self._dst.close()
-
-
-class FionaRemoteTempFileWriter:
-    def __init__(self, path, *args, **kwargs):
-        logger.debug("open FionaRemoteTempFileWriter for path %s", path)
-        self.path = path
-        self._dst = NamedTemporaryFile(suffix=self.path.suffix)
-        self._open_args = args
-        self._open_kwargs = kwargs
-        self._sink = None
-
-    def __enter__(self):
-        self._sink = fiona.open(
-            self._dst.name, "w", *self._open_args, **self._open_kwargs
-        )
-        return self._sink
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        try:
-            self._sink.close()
-            if exc_value is None:
-                logger.debug("upload TempFile %s to %s", self._dst.name, self.path)
-                self.path.fs.put_file(self._dst.name, self.path)
-        finally:
-            logger.debug("close and remove tempfile")
-            self._dst.close()
-
-
-class FionaRemoteWriter:
-    def __new__(self, path, *args, in_memory=True, **kwargs):
-        if in_memory:
-            return FionaRemoteMemoryWriter(path, *args, **kwargs)
-        else:
-            return FionaRemoteTempFileWriter(path, *args, **kwargs)

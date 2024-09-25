@@ -31,7 +31,7 @@ from mapchete.formats import (
     load_output_writer,
 )
 from mapchete.io import MPath, absolute_path
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 from mapchete.tile import BufferedTile, BufferedTilePyramid, snap_geometry_to_tiles
 from mapchete.timer import Timer
 from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels
