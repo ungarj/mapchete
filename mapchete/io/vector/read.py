@@ -1,20 +1,18 @@
 """Functions handling vector data."""
 
 import logging
-import warnings
 from contextlib import ExitStack, contextmanager
 from itertools import chain
-from typing import Any, Generator, Union, Optional
+from typing import Generator, List, Literal, Union, Optional
 
 import fiona
 from fiona.errors import DriverError
 from rasterio.crs import CRS
 from retry import retry
 from shapely.errors import TopologicalError
-from shapely.geometry import base, box, mapping, shape
-from tilematrix import clip_geometry_to_srs_bounds
+from shapely.geometry import mapping, shape
 
-from mapchete.errors import MapcheteIOError, NoCRSError, NoGeoError
+from mapchete.errors import MapcheteIOError
 from mapchete.geometry import (
     filter_by_geometry_type,
     multipart_to_singleparts,
@@ -23,13 +21,19 @@ from mapchete.geometry import (
     segmentize_geometry,
     to_shape,
 )
-from mapchete.geometry.types import get_singlepart_type
+from mapchete.geometry.clip import clip_geometry_to_pyramid_bounds
+from mapchete.geometry.types import (
+    GeoJSONLikeFeature,
+    MultipartGeometry,
+    get_singlepart_type,
+)
 from mapchete.io import copy
+from mapchete.io.vector.indexed_features import IndexedFeatures
 from mapchete.io.vector.write import fiona_write
 from mapchete.path import MPath, fs_from_path
 from mapchete.settings import IORetrySettings
-from mapchete.types import Bounds, MPathLike
-from mapchete.validate import validate_bounds
+from mapchete.tile import BufferedTile
+from mapchete.types import Bounds, CRSLike, MPathLike
 
 __all__ = [
     "reproject_geometry",
@@ -79,8 +83,12 @@ def fiona_read(
 
 
 def read_vector_window(
-    inp, tile, validity_check=True, clip_to_crs_bounds=False, skip_missing_files=False
-):
+    inp: Union[MPathLike, IndexedFeatures, List[MPathLike], List[IndexedFeatures]],
+    tile: BufferedTile,
+    validity_check: bool = True,
+    clip_to_crs_bounds: bool = False,
+    skip_missing_files: bool = False,
+) -> List[GeoJSONLikeFeature]:
     """
     Read a window of an input vector dataset.
 
@@ -104,7 +112,7 @@ def read_vector_window(
       a list of reprojected GeoJSON-like features
     """
 
-    def _gen_features():
+    def _gen_features() -> Generator[GeoJSONLikeFeature, None, None]:
         for path in inp if isinstance(inp, list) else [inp]:
             try:
                 yield from _read_vector_window(
@@ -127,25 +135,33 @@ def read_vector_window(
         raise MapcheteIOError(e)
 
 
-def _read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False):
+def _read_vector_window(
+    inp: Union[MPathLike, IndexedFeatures],
+    tile: BufferedTile,
+    validity_check: bool = True,
+    clip_to_crs_bounds: bool = False,
+):
     try:
         if tile.pixelbuffer and tile.is_on_edge():
+            clipped = clip_geometry_to_pyramid_bounds(tile.bbox, tile.tile_pyramid)
+            if isinstance(clipped, MultipartGeometry):
+                bboxes = [geom for geom in clipped.geoms]
+            else:
+                bboxes = [clipped]
             return chain.from_iterable(
                 _get_reprojected_features(
                     inp=inp,
-                    dst_bounds=bbox.bounds,
+                    dst_bounds=Bounds.from_inp(bbox.bounds),
                     dst_crs=tile.crs,
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,
                 )
-                for bbox in clip_geometry_to_srs_bounds(
-                    tile.bbox, tile.tile_pyramid, multipart=True
-                )
+                for bbox in bboxes
             )
         else:
             features = _get_reprojected_features(
                 inp=inp,
-                dst_bounds=tile.bounds,
+                dst_bounds=Bounds.from_inp(tile.bounds),
                 dst_crs=tile.crs,
                 validity_check=validity_check,
                 clip_to_crs_bounds=clip_to_crs_bounds,
@@ -162,26 +178,28 @@ def _read_vector_window(inp, tile, validity_check=True, clip_to_crs_bounds=False
     **dict(IORetrySettings()),
 )
 def _get_reprojected_features(
-    inp=None,
-    dst_bounds=None,
-    dst_crs=None,
-    validity_check=False,
-    clip_to_crs_bounds=False,
-):
+    inp: Union[MPathLike, IndexedFeatures],
+    dst_bounds: Bounds,
+    dst_crs: CRSLike,
+    validity_check: bool = False,
+    clip_to_crs_bounds: bool = False,
+) -> Generator[GeoJSONLikeFeature, None, None]:
     logger.debug("reading %s", inp)
     with ExitStack() as exit_stack:
         if isinstance(inp, (str, MPath)):
             src = exit_stack.enter_context(fiona_read(inp))
             src_crs = CRS(src.crs)
-        else:
+        elif isinstance(inp, IndexedFeatures):
             src = inp
             src_crs = inp.crs
+        else:  # pragma: no cover
+            raise TypeError(f"input must be either a path or IndexedFeatures: {inp}")
         # reproject tile bounding box to source file CRS for filter
         if src_crs == dst_crs:
-            dst_bbox = box(*dst_bounds)
+            dst_bbox = shape(dst_bounds)
         else:
             dst_bbox = reproject_geometry(
-                box(*dst_bounds),
+                shape(dst_bounds),
                 src_crs=dst_crs,
                 dst_crs=src_crs,
                 validity_check=True,
@@ -215,209 +233,8 @@ def _get_reprojected_features(
                 logger.warning("feature omitted: %s", e)
 
 
-def bounds_intersect(bounds1, bounds2):
+def bounds_intersect(bounds1: Bounds, bounds2: Bounds) -> bool:
     return Bounds.from_inp(bounds1).intersects(bounds2)
-
-
-class FakeIndex:
-    """Provides a fake spatial index in case rtree is not installed."""
-
-    def __init__(self):
-        self._items = []
-
-    def insert(self, id, bounds):
-        self._items.append((id, bounds))
-
-    def intersection(self, bounds):
-        return [
-            id for id, i_bounds in self._items if bounds_intersect(i_bounds, bounds)
-        ]
-
-
-class IndexedFeatures:
-    """
-    Behaves like a mapping of GeoJSON-like objects but has a filter() method.
-
-    Parameters
-    ----------
-    features : iterable
-        Features to be indexed
-    index : string
-        Spatial index to use. Can either be "rtree" (if installed) or None.
-    """
-
-    def __init__(
-        self,
-        features,
-        index: Optional[str] = "rtree",
-        allow_non_geo_objects=False,
-        crs=None,
-    ):
-        if index == "rtree":
-            try:
-                import rtree
-
-                self._index = rtree.index.Index()
-            except ImportError:  # pragma: no cover
-                warnings.warn(
-                    "It is recommended to install rtree in order to significantly speed up spatial indexes."
-                )
-                self._index = FakeIndex()
-        else:
-            self._index = FakeIndex()
-
-        self.crs = features.crs if hasattr(features, "crs") else crs
-        self._items = {}
-        self._non_geo_items = set()
-        self.bounds = (None, None, None, None)
-        for feature in features:
-            if isinstance(feature, tuple):
-                id_, feature = feature
-            else:
-                id_ = self._get_feature_id(feature)
-            self._items[id_] = feature
-            try:
-                try:
-                    bounds = object_bounds(feature, dst_crs=crs)
-                except NoCRSError as exc:
-                    logger.warning(str(exc))
-                    bounds = object_bounds(feature)
-            except NoGeoError:
-                if allow_non_geo_objects:
-                    bounds = None
-                else:
-                    raise
-            if bounds is None:
-                self._non_geo_items.add(id_)
-            else:
-                self._update_bounds(bounds)
-                self._index.insert(id_, bounds)
-
-    def __repr__(self):  # pragma: no cover
-        return f"IndexedFeatures(features={len(self)}, index={self._index.__repr__()}, bounds={self.bounds})"
-
-    def __len__(self):
-        return len(self._items)
-
-    def __str__(self):  # pragma: no cover
-        return "IndexedFeatures([%s])" % (", ".join([str(f) for f in self]))
-
-    def __getitem__(self, key):
-        try:
-            return self._items[hash(key)]
-        except KeyError:
-            raise KeyError(f"no feature with id {key} exists")
-
-    def __iter__(self):
-        return iter(self._items.values())
-
-    def items(self):
-        return self._items.items()
-
-    def keys(self):
-        return self._items.keys()
-
-    def values(self):
-        return self._items.values()
-
-    def filter(self, bounds=None, bbox=None):
-        """
-        Return features intersecting with bounds.
-
-        Parameters
-        ----------
-        bounds : list or tuple
-            Bounding coordinates (left, bottom, right, top).
-
-        Returns
-        -------
-        features : list
-            List of features.
-        """
-        bounds = bounds or bbox
-        return [
-            self._items[id_]
-            for id_ in chain(self._index.intersection(bounds), self._non_geo_items)
-        ]
-
-    def _update_bounds(self, bounds):
-        left, bottom, right, top = self.bounds
-        self.bounds = (
-            bounds.left if left is None else min(left, bounds.left),
-            bounds.bottom if bottom is None else min(bottom, bounds.bottom),
-            bounds.right if right is None else max(right, bounds.right),
-            bounds.top if top is None else max(top, bounds.top),
-        )
-
-    def _get_feature_id(self, feature):
-        if hasattr(feature, "id"):
-            return hash(feature.id)
-        elif isinstance(feature, dict) and "id" in feature:
-            return hash(feature["id"])
-        else:
-            try:
-                return hash(feature)
-            except TypeError:
-                raise TypeError("features need to have an id or have to be hashable")
-
-
-def object_geometry(obj) -> base.BaseGeometry:
-    """
-    Determine geometry from object if available.
-    """
-    try:
-        if hasattr(obj, "__geo_interface__"):
-            return to_shape(obj)
-        elif hasattr(obj, "geometry"):
-            return to_shape(obj.geometry)
-        elif hasattr(obj, "get") and obj.get("geometry"):
-            return to_shape(obj["geometry"])
-        else:
-            raise TypeError("no geometry")
-    except Exception as exc:
-        logger.exception(exc)
-        raise NoGeoError(f"cannot determine geometry from object: {obj}") from exc
-
-
-def object_bounds(obj: Any, dst_crs: Union[CRS, None] = None) -> Bounds:
-    """
-    Determine geographic bounds from object if available.
-
-    If dst_crs is defined, bounds will be reprojected in case the object holds CRS information.
-    """
-    try:
-        if hasattr(obj, "bounds"):
-            bounds = validate_bounds(obj.bounds)
-        elif hasattr(obj, "bbox"):
-            bounds = validate_bounds(obj.bbox)
-        elif hasattr(obj, "get") and obj.get("bounds"):
-            bounds = validate_bounds(obj["bounds"])
-        else:
-            bounds = validate_bounds(object_geometry(obj).bounds)
-    except Exception as exc:
-        logger.exception(exc)
-        raise NoGeoError(f"cannot determine bounds from object: {obj}") from exc
-
-    if dst_crs:
-        return Bounds.from_inp(
-            reproject_geometry(shape(bounds), src_crs=object_crs(obj), dst_crs=dst_crs)
-        )
-
-    return bounds
-
-
-def object_crs(obj: Any) -> CRS:
-    """Determine CRS from an object."""
-    try:
-        if hasattr(obj, "crs"):
-            return CRS.from_user_input(obj.crs)
-        elif hasattr(obj, "get") and obj.get("crs"):
-            return CRS.from_user_input(obj["crs"])
-        else:
-            raise AttributeError(f"no crs attribute or key found in object: {obj}")
-    except Exception as exc:
-        logger.exception(exc)
-        raise NoCRSError(f"cannot determine CRS from object: {obj}") from exc
 
 
 def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
@@ -462,6 +279,9 @@ def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
         copy(inp, out, overwrite=overwrite)
 
 
-def read_vector(inp, index="rtree"):
+def read_vector(
+    inp: MPathLike,
+    index: Optional[Literal["rtree"]] = "rtree",
+) -> IndexedFeatures:
     with fiona_read(inp) as src:
         return IndexedFeatures(src, index=index)

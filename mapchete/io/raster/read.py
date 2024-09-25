@@ -19,9 +19,10 @@ from rasterio.profiles import Profile
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from retry import retry
-from tilematrix import Shape, clip_geometry_to_srs_bounds
+from tilematrix import Shape
 
 from mapchete.errors import MapcheteIOError
+from mapchete.geometry.clip import clip_geometry_to_pyramid_bounds
 from mapchete.io.raster.array import extract_from_array, prepare_masked_array
 from mapchete.io.raster.write import _write_tags
 from mapchete.path import MPath
@@ -216,9 +217,7 @@ def _get_warped_edge_array(
     dst_nodata: NodataVal = None,
     full_dst_shape: Optional[Tuple[int, int, int]] = None,
 ) -> ma.MaskedArray:
-    tile_boxes = clip_geometry_to_srs_bounds(
-        tile.bbox, tile.tile_pyramid, multipart=True
-    )
+    tile_boxes = clip_geometry_to_pyramid_bounds(tile.bbox, tile.tile_pyramid)
     parts_metadata = dict(left=None, middle=None, right=None, none=None)
     # Split bounding box into multiple parts & request each numpy array
     # separately.

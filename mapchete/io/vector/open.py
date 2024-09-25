@@ -1,12 +1,10 @@
 from contextlib import contextmanager
-from typing import Generator, Union
+from typing import Generator
 
 import fiona
 
 from mapchete.io.vector.read import fiona_read
 from mapchete.io.vector.write import (
-    FionaRemoteMemoryWriter,
-    FionaRemoteTempFileWriter,
     fiona_write,
 )
 from mapchete.path import MPath
@@ -17,7 +15,7 @@ from mapchete.types import MPathLike
 def fiona_open(
     path: MPathLike, mode: str = "r", **kwargs
 ) -> Generator[
-    Union[fiona.Collection, FionaRemoteMemoryWriter, FionaRemoteTempFileWriter],
+    fiona.Collection,
     None,
     None,
 ]:

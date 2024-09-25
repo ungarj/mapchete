@@ -77,7 +77,7 @@ def get_multipart_type(geometry_type: Union[Type[Geometry], str]) -> MultipartGe
 
 def get_singlepart_type(
     geometry_type: Union[Type[Geometry], str],
-) -> SinglepartGeometry:
+) -> Type[SinglepartGeometry]:
     try:
         return {
             Point: Point,
@@ -95,7 +95,7 @@ def get_singlepart_type(
 
 def get_geometry_type(
     geometry_type: Union[Type[Geometry], str, dict, Geometry],
-) -> Geometry:
+) -> Type[Geometry]:
     if isinstance(geometry_type, str):
         try:
             return {

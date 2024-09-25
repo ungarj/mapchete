@@ -80,7 +80,7 @@ class FionaRemoteTempFileWriter:
 @contextmanager
 def fiona_write(
     path: MPathLike, mode: str = "w", in_memory: bool = True, *args, **kwargs
-) -> Generator[Union[FionaRemoteMemoryWriter, FionaRemoteTempFileWriter], None, None]:
+) -> Generator[fiona.Collection, None, None]:
     """
     Wrap fiona.open() but handle bucket upload if path is remote.
 
