@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from itertools import chain
 import logging
 from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
@@ -76,7 +78,7 @@ class IndexedFeatures:
             if isinstance(feature, tuple):
                 id_, feature = feature
             else:
-                id_ = self._get_feature_id(feature)
+                id_ = object_id(feature)
             self._items[id_] = feature
             try:
                 try:
@@ -154,16 +156,17 @@ class IndexedFeatures:
         else:
             self.bounds += bounds
 
-    def _get_feature_id(self, feature: Any) -> int:
-        if hasattr(feature, "id"):
-            return hash(feature.id)
-        elif isinstance(feature, dict) and "id" in feature:
-            return hash(feature["id"])
-        else:
-            try:
-                return hash(feature)
-            except TypeError:
-                raise TypeError("features need to have an id or have to be hashable")
+
+def object_id(obj: Any) -> int:
+    if hasattr(obj, "id"):
+        return hash(obj.id)
+    elif isinstance(obj, dict) and "id" in obj:
+        return hash(obj["id"])
+    else:
+        try:
+            return hash(obj)
+        except TypeError:
+            raise TypeError("object need to have an id or have to be hashable")
 
 
 def object_geometry(obj: Any) -> Geometry:
