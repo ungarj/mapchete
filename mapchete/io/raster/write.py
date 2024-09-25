@@ -10,7 +10,7 @@ from typing import Generator, Optional, Union
 import numpy as np
 import numpy.ma as ma
 import rasterio
-from rasterio.io import DatasetWriter, MemoryFile
+from rasterio.io import DatasetWriter, MemoryFile, BufferedDatasetWriter
 from rasterio.profiles import Profile
 
 from mapchete.io.raster.array import extract_from_array
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def rasterio_write(
     path: MPathLike, mode: str = "w", in_memory: bool = True, *args, **kwargs
 ) -> Generator[
-    Union[DatasetWriter, RasterioRemoteTempFileWriter, RasterioRemoteMemoryWriter],
+    Union[BufferedDatasetWriter, DatasetWriter],
     None,
     None,
 ]:
@@ -62,6 +62,7 @@ def rasterio_write(
 
 class RasterioRemoteMemoryWriter:
     path: MPath
+    _sink: Union[BufferedDatasetWriter, DatasetWriter]
 
     def __init__(self, path: MPathLike, *args, **kwargs):
         logger.debug("open RasterioRemoteMemoryWriter for path %s", path)
@@ -90,6 +91,7 @@ class RasterioRemoteMemoryWriter:
 
 class RasterioRemoteTempFileWriter:
     path: MPath
+    _sink: Union[BufferedDatasetWriter, DatasetWriter]
 
     def __init__(self, path: MPathLike, *args, **kwargs):
         logger.debug("open RasterioTempFileWriter for path %s", path)
@@ -121,7 +123,7 @@ class RasterioRemoteWriter:
     path: MPath
 
     def __new__(
-        self, path: MPathLike, *args, in_memory: bool = True, **kwargs
+        cls, path: MPathLike, *args, in_memory: bool = True, **kwargs
     ) -> Union[RasterioRemoteMemoryWriter, RasterioRemoteTempFileWriter]:
         path = MPath.from_inp(path)
         if in_memory:
@@ -135,7 +137,7 @@ def write_raster_window(
     in_data: np.ndarray,
     out_profile: Union[Profile, dict],
     out_path: MPathLike,
-    out_grid: Optional[GridProtocol] = None,
+    out_grid: Optional[Union[GridProtocol, BufferedTile]] = None,
     out_tile: Optional[BufferedTile] = None,
     tags: Optional[dict] = None,
     write_empty: bool = False,

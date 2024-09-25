@@ -1,12 +1,10 @@
 from contextlib import contextmanager
 from typing import Generator, Union
 
-from rasterio.io import DatasetReader, DatasetWriter
+from rasterio.io import DatasetReader, DatasetWriter, BufferedDatasetWriter
 
 from mapchete.io.raster.read import rasterio_read
 from mapchete.io.raster.write import (
-    RasterioRemoteMemoryWriter,
-    RasterioRemoteTempFileWriter,
     rasterio_write,
 )
 from mapchete.path import MPath, MPathLike
@@ -16,12 +14,7 @@ from mapchete.path import MPath, MPathLike
 def rasterio_open(
     path: MPathLike, mode: str = "r", **kwargs
 ) -> Generator[
-    Union[
-        DatasetReader,
-        DatasetWriter,
-        RasterioRemoteMemoryWriter,
-        RasterioRemoteTempFileWriter,
-    ],
+    Union[DatasetReader, DatasetWriter, BufferedDatasetWriter],
     None,
     None,
 ]:

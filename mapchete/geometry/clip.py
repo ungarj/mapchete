@@ -1,4 +1,5 @@
-from shapely import GeometryCollection, box
+from typing import List
+from shapely import box
 from shapely.affinity import translate
 from mapchete.geometry.types import MultipartGeometry
 from mapchete.tile import BufferedTilePyramid
@@ -7,7 +8,7 @@ from mapchete.types import Bounds, Geometry
 
 def clip_geometry_to_pyramid_bounds(
     geometry: Geometry, pyramid: BufferedTilePyramid
-) -> Geometry:
+) -> List[Geometry]:
     """
     Clip input geometry to SRS bounds of given TilePyramid.
 
@@ -41,7 +42,7 @@ def clip_geometry_to_pyramid_bounds(
             elif geom_bounds.right > pyramid.right:
                 geom = translate(geom, xoff=-2 * pyramid.right)
             all_geoms.append(geom)
-        return GeometryCollection(all_geoms)
+        return all_geoms
 
     else:
-        return geometry
+        return [geometry]

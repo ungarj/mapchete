@@ -217,11 +217,10 @@ def _get_warped_edge_array(
     dst_nodata: NodataVal = None,
     full_dst_shape: Optional[Tuple[int, int, int]] = None,
 ) -> ma.MaskedArray:
-    tile_boxes = clip_geometry_to_pyramid_bounds(tile.bbox, tile.tile_pyramid)
     parts_metadata = dict(left=None, middle=None, right=None, none=None)
     # Split bounding box into multiple parts & request each numpy array
     # separately.
-    for polygon in tile_boxes:
+    for polygon in clip_geometry_to_pyramid_bounds(tile.bbox, tile.tile_pyramid):
         # Check on which side the antimeridian is touched by the polygon:
         # "left", "middle", "right"
         # "none" means, the tile touches the edge just on the top and/or

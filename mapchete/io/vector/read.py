@@ -24,7 +24,6 @@ from mapchete.geometry import (
 from mapchete.geometry.clip import clip_geometry_to_pyramid_bounds
 from mapchete.geometry.types import (
     GeoJSONLikeFeature,
-    MultipartGeometry,
     get_singlepart_type,
 )
 from mapchete.io import copy
@@ -143,11 +142,6 @@ def _read_vector_window(
 ):
     try:
         if tile.pixelbuffer and tile.is_on_edge():
-            clipped = clip_geometry_to_pyramid_bounds(tile.bbox, tile.tile_pyramid)
-            if isinstance(clipped, MultipartGeometry):
-                bboxes = [geom for geom in clipped.geoms]
-            else:
-                bboxes = [clipped]
             return chain.from_iterable(
                 _get_reprojected_features(
                     inp=inp,
@@ -156,7 +150,9 @@ def _read_vector_window(
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,
                 )
-                for bbox in bboxes
+                for bbox in clip_geometry_to_pyramid_bounds(
+                    tile.bbox, tile.tile_pyramid
+                )
             )
         else:
             features = _get_reprojected_features(
@@ -231,10 +227,6 @@ def _get_reprojected_features(
             # this can be handled quietly
             except TopologicalError as e:  # pragma: no cover
                 logger.warning("feature omitted: %s", e)
-
-
-def bounds_intersect(bounds1: Bounds, bounds2: Bounds) -> bool:
-    return Bounds.from_inp(bounds1).intersects(bounds2)
 
 
 def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):

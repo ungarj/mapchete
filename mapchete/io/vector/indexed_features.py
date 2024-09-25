@@ -1,15 +1,14 @@
 from itertools import chain
 import logging
-from typing import Any, Literal, Optional, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
 import warnings
 
 from rasterio.crs import CRS
 from mapchete.errors import NoCRSError, NoGeoError
 from mapchete.geometry.reproject import reproject_geometry
 from mapchete.geometry.shape import to_shape
-from mapchete.io.vector.read import bounds_intersect
 from mapchete.geometry.types import Geometry
-from mapchete.types import Bounds, CRSLike
+from mapchete.types import Bounds, BoundsLike, CRSLike
 
 
 logger = logging.getLogger(__name__)
@@ -18,15 +17,19 @@ logger = logging.getLogger(__name__)
 class FakeIndex:
     """Provides a fake spatial index in case rtree is not installed."""
 
+    _items: List[Tuple[int, Bounds]]
+
     def __init__(self):
         self._items = []
 
-    def insert(self, id, bounds):
-        self._items.append((id, bounds))
+    def insert(self, id: int, bounds: BoundsLike):
+        self._items.append((id, Bounds.from_inp(bounds)))
 
-    def intersection(self, bounds):
+    def intersection(self, bounds: BoundsLike) -> List[int]:
         return [
-            id for id, i_bounds in self._items if bounds_intersect(i_bounds, bounds)
+            id
+            for id, i_bounds in self._items
+            if Bounds.from_inp(i_bounds).intersects(bounds)
         ]
 
 
@@ -42,9 +45,13 @@ class IndexedFeatures:
         Spatial index to use. Can either be "rtree" (if installed) or None.
     """
 
+    crs: Optional[CRSLike]
+    bounds: Optional[Bounds]
+    _items: Dict[int, Any]
+
     def __init__(
         self,
-        features,
+        features: Iterable[Any],
         index: Optional[Literal["rtree"]] = "rtree",
         allow_non_geo_objects: bool = False,
         crs: Optional[CRSLike] = None,
@@ -61,11 +68,10 @@ class IndexedFeatures:
                 self._index = FakeIndex()
         else:
             self._index = FakeIndex()
-
-        self.crs = features.crs if hasattr(features, "crs") else crs
+        self.crs = getattr(features, "crs", None)
         self._items = {}
         self._non_geo_items = set()
-        self.bounds = (None, None, None, None)
+        self.bounds = None
         for feature in features:
             if isinstance(feature, tuple):
                 id_, feature = feature
@@ -98,7 +104,7 @@ class IndexedFeatures:
     def __str__(self):  # pragma: no cover
         return "IndexedFeatures([%s])" % (", ".join([str(f) for f in self]))
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int):
         try:
             return self._items[hash(key)]
         except KeyError:
@@ -110,13 +116,15 @@ class IndexedFeatures:
     def items(self):
         return self._items.items()
 
-    def keys(self):
+    def keys(self) -> Iterable[int]:
         return self._items.keys()
 
-    def values(self):
+    def values(self) -> Iterable[Any]:
         return self._items.values()
 
-    def filter(self, bounds=None, bbox=None):
+    def filter(
+        self, bounds: Optional[BoundsLike] = None, bbox: Optional[BoundsLike] = None
+    ) -> Iterable[Any]:
         """
         Return features intersecting with bounds.
 
@@ -130,22 +138,23 @@ class IndexedFeatures:
         features : list
             List of features.
         """
-        bounds = bounds or bbox
-        return [
-            self._items[id_]
-            for id_ in chain(self._index.intersection(bounds), self._non_geo_items)
-        ]
+        filter_bounds = bounds or bbox
+        if filter_bounds:
+            bounds = Bounds.from_inp(filter_bounds)
+            return [
+                self._items[id_]
+                for id_ in chain(self._index.intersection(bounds), self._non_geo_items)
+            ]
+        return self.values()
 
-    def _update_bounds(self, bounds):
-        left, bottom, right, top = self.bounds
-        self.bounds = (
-            bounds.left if left is None else min(left, bounds.left),
-            bounds.bottom if bottom is None else min(bottom, bounds.bottom),
-            bounds.right if right is None else max(right, bounds.right),
-            bounds.top if top is None else max(top, bounds.top),
-        )
+    def _update_bounds(self, bounds: BoundsLike):
+        bounds = Bounds.from_inp(bounds)
+        if self.bounds is None:
+            self.bounds = bounds
+        else:
+            self.bounds += bounds
 
-    def _get_feature_id(self, feature):
+    def _get_feature_id(self, feature: Any) -> int:
         if hasattr(feature, "id"):
             return hash(feature.id)
         elif isinstance(feature, dict) and "id" in feature:
@@ -157,7 +166,7 @@ class IndexedFeatures:
                 raise TypeError("features need to have an id or have to be hashable")
 
 
-def object_geometry(obj) -> Geometry:
+def object_geometry(obj: Any) -> Geometry:
     """
     Determine geometry from object if available.
     """
@@ -175,7 +184,7 @@ def object_geometry(obj) -> Geometry:
         raise NoGeoError(f"cannot determine geometry from object: {obj}") from exc
 
 
-def object_bounds(obj: Any, dst_crs: Union[CRSLike, None] = None) -> Bounds:
+def object_bounds(obj: Any, dst_crs: Optional[CRSLike] = None) -> Bounds:
     """
     Determine geographic bounds from object if available.
 

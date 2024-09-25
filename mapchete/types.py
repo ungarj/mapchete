@@ -129,6 +129,15 @@ class Bounds(list):
     def __ne__(self, other):
         return not self == other
 
+    def __add__(self, other: BoundsLike) -> Bounds:
+        other = Bounds.from_inp(other)
+        return Bounds(
+            left=min([self.left, other.left]),
+            bottom=min([self.bottom, other.bottom]),
+            right=max([self.right, other.right]),
+            top=max([self.top, other.top]),
+        )
+
     @property
     def __geo_interface__(self):
         return {

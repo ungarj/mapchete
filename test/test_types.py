@@ -178,6 +178,13 @@ def test_bounds_str_repr():
     assert str(bounds) == repr(bounds)
 
 
+def test_bounds_add():
+    bounds1 = Bounds(0, 0, 1, 1)
+    bounds2 = Bounds(2, 2, 3, 3)
+    combined = bounds1 + bounds2
+    assert combined == (0, 0, 3, 3)
+
+
 def test_zoom_levels_from_int():
     zoom_levels = ZoomLevels.from_int(4)
     assert len(zoom_levels) == 1
