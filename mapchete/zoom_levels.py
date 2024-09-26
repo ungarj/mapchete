@@ -68,25 +68,25 @@ class ZoomLevels(list):
             self.max = max(zoom_list)
         elif maxlevel is not None:
             self.min, self.max = minlevel, maxlevel
-        else:
+        else:  # pragma: no cover
             raise TypeError(f"cannot determine zoomlevels with {(minlevel, maxlevel)}")
 
-    @classmethod
+    @staticmethod
     def from_inp(
-        cls, min: ZoomLevelsLike, max: Optional[int] = None, descending: bool = False
+        min: ZoomLevelsLike, max: Optional[int] = None, descending: bool = False
     ) -> ZoomLevels:
         """Constructs ZoomLevels from various input forms"""
         if isinstance(min, int) and max is None:
-            return cls.from_int(min, descending=descending)
+            return ZoomLevels.from_int(min, descending=descending)
         elif isinstance(min, ZoomLevels) and max is None:
             if min.is_descending == descending:
                 return min
             else:
                 return ZoomLevels(min=min.min, max=min.max, descending=descending)
         elif isinstance(min, list) and max is None:
-            return cls.from_list(min, descending=descending)
+            return ZoomLevels.from_list(min, descending=descending)
         elif isinstance(min, dict) and max is None:
-            return cls.from_dict(min, descending=descending)
+            return ZoomLevels.from_dict(min, descending=descending)
         else:
             raise TypeError(f"cannot create ZoomLevels with min={min}, max={max}")
 

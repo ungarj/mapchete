@@ -13,11 +13,11 @@ def test_zoom_levels_from_int():
 
 
 def test_zoom_levels_from_list():
-    zoom_levels = ZoomLevels.from_list([2, 4])
-    assert len(zoom_levels) == 3
-    assert list(zoom_levels) == [2, 3, 4]
-    assert zoom_levels.min == 2
-    assert zoom_levels.max == 4
+    for zoom_levels in [ZoomLevels.from_list([2, 4]), ZoomLevels([2, 4])]:
+        assert len(zoom_levels) == 3
+        assert list(zoom_levels) == [2, 3, 4]
+        assert zoom_levels.min == 2
+        assert zoom_levels.max == 4
 
 
 def test_zoom_levels_from_inverted_list():

@@ -4,6 +4,7 @@ from typing import Tuple
 
 from affine import Affine
 from rasterio.transform import array_bounds, from_bounds
+from shapely.geometry import mapping, shape
 from tilematrix import Shape
 
 from mapchete.bounds import Bounds
@@ -25,6 +26,7 @@ class Grid:
         self.crs = crs
         self.bounds = Bounds(*array_bounds(self.height, self.width, self.transform))
         self.shape = Shape(self.height, self.width)
+        self.__geo_interface__ = mapping(shape(self.bounds))
 
     @staticmethod
     def from_obj(obj):  # pragma: no cover

@@ -25,13 +25,25 @@ from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.raster.mosaic import _shift_required, create_mosaic
 from mapchete.processing.types import TaskInfo
-from mapchete.tile import BufferedTilePyramid, count_tiles
+from mapchete.tile import BufferedTile, BufferedTilePyramid, count_tiles
 
 
 def test_empty_execute(cleantopo_br):
     """Execute process outside of defined zoom levels."""
     with mapchete.open(cleantopo_br.dict) as mp:
         assert mp.execute_tile((6, 0, 0)).mask.all()
+
+
+@pytest.mark.parametrize(
+    "zoom",
+    [0, None],
+)
+def test_process_tiles_batches(cleantopo_br, zoom):
+    """Execute process outside of defined zoom levels."""
+    with mapchete.open(cleantopo_br.dict) as mp:
+        for batch in mp.get_process_tiles_batches(zoom=zoom):
+            for tile in batch:
+                assert isinstance(tile, BufferedTile)
 
 
 def test_read_existing_output(cleantopo_tl):

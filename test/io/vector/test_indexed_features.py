@@ -84,6 +84,27 @@ def test_indexed_features_filter(aoi_br_geojson):
     assert len(index.filter()) == count
 
 
+def test_indexed_features_read(aoi_br_geojson):
+    with fiona_open(str(aoi_br_geojson)) as src:
+        count = len(src)
+        index = IndexedFeatures(src)
+    assert len(index.read()) == count
+
+
+def test_indexed_features_from_file(aoi_br_geojson):
+    index = IndexedFeatures.from_file(aoi_br_geojson)
+    assert index.read()
+
+
+def test_indexed_features_from_file_grid(aoi_br_geojson):
+    with fiona_open(aoi_br_geojson) as src:
+        bounds = src.bounds
+    tp = BufferedTilePyramid("geodetic")
+    tile = next(tp.tiles_from_bounds(bounds=bounds, zoom=5))
+    index = IndexedFeatures.from_file(aoi_br_geojson, grid=tile)
+    assert not index.read()
+
+
 def test_object_bounds_attr_bounds():
     control = (0, 1, 2, 3)
 

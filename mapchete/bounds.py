@@ -31,7 +31,7 @@ class Bounds(list):
     ):
         self._set_attributes(left, bottom, right, top)
         for value in self:
-            if not isinstance(value, (int, float)):
+            if not isinstance(value, (int, float)):  # pragma: no cover
                 raise TypeError(
                     f"all bounds values must be integers or floats: {list(self)}"
                 )

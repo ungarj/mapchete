@@ -278,7 +278,7 @@ class BufferedTile:
         self.pixel_x_size = tile.pixel_x_size
         self.pixel_y_size = tile.pixel_y_size
 
-    def is_valid(self) -> bool:
+    def is_valid(self) -> bool:  # pragma: no cover
         return self._tile.is_valid()
 
     def get_children(self) -> List[BufferedTile]:
