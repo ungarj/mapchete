@@ -26,10 +26,8 @@ from mapchete.geometry.types import (
     GeoJSONLikeFeature,
     get_singlepart_type,
 )
-from mapchete.io import copy
 from mapchete.io.vector.indexed_features import IndexedFeatures
-from mapchete.io.vector.write import fiona_write
-from mapchete.path import MPath, fs_from_path
+from mapchete.path import MPath
 from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile
 from mapchete.types import Bounds, CRSLike, MPathLike
@@ -186,6 +184,7 @@ def _get_reprojected_features(
             src = exit_stack.enter_context(fiona_read(inp))
             src_crs = CRS(src.crs)
         elif isinstance(inp, IndexedFeatures):
+            raise NotImplementedError()
             src = inp
             src_crs = inp.crs
         else:  # pragma: no cover
@@ -227,48 +226,6 @@ def _get_reprojected_features(
             # this can be handled quietly
             except TopologicalError as e:  # pragma: no cover
                 logger.warning("feature omitted: %s", e)
-
-
-def convert_vector(inp, out, overwrite=False, exists_ok=True, **kwargs):
-    """
-    Convert vector file to a differernt format.
-
-    When kwargs are given, the operation will be conducted by Fiona, without kwargs,
-    the file is simply copied to the destination using fsspec.
-
-    Parameters
-    ----------
-    inp : str
-        Path to input file.
-    out : str
-        Path to output file.
-    overwrite : bool
-        Overwrite output file. (default: False)
-    skip_exists : bool
-        Skip conversion if outpu already exists. (default: True)
-    kwargs : mapping
-        Creation parameters passed on to output file.
-    """
-    inp = MPath.from_inp(inp)
-    out = MPath.from_inp(out)
-    if out.exists():
-        if not exists_ok:
-            raise IOError(f"{out} already exists")
-        elif not overwrite:
-            logger.debug("output %s already exists and will not be overwritten")
-            return
-        else:
-            fs_from_path(out).rm(out)
-    kwargs = kwargs or {}
-    if kwargs:
-        logger.debug("convert vector file %s to %s using %s", str(inp), out, kwargs)
-        with fiona_read(inp) as src:
-            with fiona_write(out, mode="w", **{**src.meta, **kwargs}) as dst:
-                dst.writerecords(src)
-    else:
-        logger.debug("copy %s to %s", str(inp), str(out))
-        out.parent.makedirs()
-        copy(inp, out, overwrite=overwrite)
 
 
 def read_vector(

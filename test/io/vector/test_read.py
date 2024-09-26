@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from pytest_lazyfixture import lazy_fixture
 from shapely.geometry import shape
@@ -8,7 +6,6 @@ from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteIOError
 from mapchete.geometry import reproject_geometry
 from mapchete.io.vector import (
-    convert_vector,
     fiona_open,
     read_vector_window,
 )
@@ -93,59 +90,3 @@ def test_read_vector_window_errors(invalid_geojson):
         read_vector_window(
             invalid_geojson, BufferedTilePyramid("geodetic").tile(0, 0, 0)
         )
-
-
-def test_convert_vector_copy(aoi_br_geojson, tmpdir):
-    out = os.path.join(tmpdir, "copied.geojson")
-
-    # copy
-    convert_vector(aoi_br_geojson, out)
-    with fiona_open(str(out)) as src:
-        assert list(iter(src))
-
-    # raise error if output exists
-    with pytest.raises(IOError):
-        convert_vector(aoi_br_geojson, out, exists_ok=False)
-
-    # do nothing if output exists
-    convert_vector(aoi_br_geojson, out)
-    with fiona_open(str(out)) as src:
-        assert list(iter(src))
-
-
-def test_convert_vector_overwrite(aoi_br_geojson, tmpdir):
-    out = os.path.join(tmpdir, "copied.geojson")
-
-    # write an invalid file
-    with open(out, "w") as dst:
-        dst.write("invalid")
-
-    # overwrite
-    convert_vector(aoi_br_geojson, out, overwrite=True)
-    with fiona_open(str(out)) as src:
-        assert list(iter(src))
-
-
-def test_convert_vector_other_format_copy(aoi_br_geojson, tmpdir):
-    out = os.path.join(tmpdir, "copied.gpkg")
-
-    convert_vector(aoi_br_geojson, out, driver="GPKG")
-    with fiona_open(str(out)) as src:
-        assert list(iter(src))
-
-    # raise error if output exists
-    with pytest.raises(IOError):
-        convert_vector(aoi_br_geojson, out, exists_ok=False)
-
-
-def test_convert_vector_other_format_overwrite(aoi_br_geojson, tmpdir):
-    out = os.path.join(tmpdir, "copied.gkpk")
-
-    # write an invalid file
-    with open(out, "w") as dst:
-        dst.write("invalid")
-
-    # overwrite
-    convert_vector(aoi_br_geojson, out, driver="GPKG", overwrite=True)
-    with fiona_open(str(out)) as src:
-        assert list(iter(src))
