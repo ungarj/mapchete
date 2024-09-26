@@ -8,6 +8,7 @@ import warnings
 from fiona import Collection
 from rasterio.crs import CRS
 from retry import retry
+from shapely import GeometryCollection, prepare, unary_union
 from mapchete.bounds import Bounds
 from mapchete.errors import NoCRSError, NoGeoError
 from mapchete.geometry.reproject import reproject_geometry
@@ -163,6 +164,26 @@ class IndexedFeatures(FeatureCollectionProtocol):
         if grid:
             return list(reprojected_features(self, grid=grid))
         return list(self.values())
+
+    def read_union_geometry(
+        self, bounds: Optional[BoundsLike] = None, clip: bool = False
+    ) -> Geometry:
+        def _geoms():
+            if bounds and clip:
+                bounds_geom = to_shape(Bounds.from_inp(bounds))
+                prepare(bounds_geom)
+                for feature in self.filter(bounds=bounds):
+                    geom = bounds_geom.intersection(to_shape(feature))
+                    if not geom.is_empty:
+                        yield geom
+            else:
+                for feature in self.filter(bounds=bounds):
+                    yield to_shape(feature)
+
+        geoms = list(_geoms())
+        if geoms:
+            return unary_union(geoms)
+        return GeometryCollection()
 
     def _update_bounds(self, bounds: BoundsLike):
         bounds = Bounds.from_inp(bounds)

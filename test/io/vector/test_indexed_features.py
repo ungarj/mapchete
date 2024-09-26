@@ -105,6 +105,15 @@ def test_indexed_features_from_file_grid(aoi_br_geojson):
     assert not index.read()
 
 
+def test_indexed_features_read_union_geometry(aoi_br_geojson):
+    features = IndexedFeatures.from_file(aoi_br_geojson)
+    assert features.read_union_geometry().is_valid
+
+    tp = BufferedTilePyramid("geodetic")
+    tile = next(tp.tiles_from_bounds(bounds=features.bounds, zoom=5))
+    assert features.read_union_geometry(bounds=tile.bounds, clip=True).is_empty
+
+
 def test_object_bounds_attr_bounds():
     control = (0, 1, 2, 3)
 
