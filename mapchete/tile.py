@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from enum import Enum
 import logging
-from functools import cached_property
 from itertools import product
-from typing import Literal, Union
+from typing import Generator, List, Literal, TypedDict, Union
 
 import numpy as np
 from affine import Affine
@@ -15,40 +15,53 @@ from rasterio.features import rasterize, shapes
 from rasterio.transform import from_bounds
 from rasterio.warp import reproject
 from shapely import clip_by_rect
-from shapely.geometry import box, shape, mapping
-from shapely.geometry.base import BaseGeometry
+from shapely.geometry import shape, mapping
 from shapely.ops import unary_union
-from tilematrix import Tile, TilePyramid, GridDefinition
+from tilematrix import Shape, Tile, TilePyramid, GridDefinition
 from tilematrix._conf import ROUND
 
-from mapchete.types import BoundsLike
+from mapchete.bounds import Bounds
+from mapchete.types import (
+    BoundsLike,
+    CRSLike,
+    Geometry,
+    ShapeLike,
+    Polygon,
+    MultiPolygon,
+)
 
 logger = logging.getLogger(__name__)
 
+GridDefinitionDict = TypedDict(
+    "GridDefinitionDict",
+    {
+        "grid": Literal["custom", "geodetic", "mercator"],
+        "shape": ShapeLike,
+        "bounds": BoundsLike,
+        "srs": CRSLike,
+        "is_global": bool,
+    },
+)
 MetatilingValue = Literal[1, 2, 4, 8, 16, 32, 64, 128, 256]
+PyramidDefinitionDict = TypedDict(
+    "PyramidDefinitionDict",
+    {
+        "grid": GridDefinitionDict,
+        "metatiling": MetatilingValue,
+        "tile_size": NonNegativeInt,
+        "pixelbuffer": NonNegativeInt,
+    },
+)
+
+
+class BatchBy(Enum, str):
+    row = "row"
+    col = "col"
 
 
 class BufferedTilePyramid(TilePyramid):
     """
-    A special tile pyramid with fixed pixelbuffer and metatiling.
-
-    Parameters
-    ----------
-    pyramid_type : string
-        pyramid projection type (``geodetic`` or ``mercator``)
-    metatiling : integer
-        metatile size (default: 1)
-    pixelbuffer : integer
-        buffer around tiles in pixel (default: 0)
-
-    Attributes
-    ----------
-    tile_pyramid : ``TilePyramid``
-        underlying ``TilePyramid``
-    metatiling : integer
-        metatile size
-    pixelbuffer : integer
-        tile buffer size in pixels
+    A tile pyramid with fixed pixelbuffer and metatiling.
     """
 
     metatiling: MetatilingValue
@@ -56,12 +69,13 @@ class BufferedTilePyramid(TilePyramid):
 
     def __init__(
         self,
-        grid: Union[Literal["geodetic"], Literal["mercator"], dict, GridDefinition],
+        grid: Union[
+            Literal["geodetic", "mercator"], GridDefinitionDict, GridDefinition
+        ],
         metatiling: MetatilingValue = 1,
         tile_size: NonNegativeInt = 256,
         pixelbuffer: NonNegativeInt = 0,
     ):
-        """Initialize."""
         TilePyramid.__init__(self, grid, metatiling=metatiling, tile_size=tile_size)
         self.tile_pyramid = TilePyramid(
             grid, metatiling=metatiling, tile_size=tile_size
@@ -75,123 +89,92 @@ class BufferedTilePyramid(TilePyramid):
     def tile(self, zoom: int, row: int, col: int) -> BufferedTile:
         """
         Return ``BufferedTile`` object of this ``BufferedTilePyramid``.
-
-        Parameters
-        ----------
-        zoom : integer
-            zoom level
-        row : integer
-            tile matrix row
-        col : integer
-            tile matrix column
-
-        Returns
-        -------
-        buffered tile : ``BufferedTile``
         """
         return BufferedTile(
             self.tile_pyramid.tile(zoom, row, col), pixelbuffer=self.pixelbuffer
         )
 
-    def tiles_from_bounds(self, bounds: BoundsLike, zoom: int, batch_by=None):
+    def tiles_from_bounds(
+        self, bounds: BoundsLike, zoom: int
+    ) -> Generator[BufferedTile, None, None]:
         """
-        Return all tiles intersecting with bounds.
-
-        Bounds values will be cleaned if they cross the antimeridian or are
-        outside of the Northern or Southern tile pyramid bounds.
-
-        Parameters
-        ----------
-        bounds : tuple
-            (left, bottom, right, top) bounding values in tile pyramid CRS
-        zoom : integer
-            zoom level
-
-        Yields
-        ------
-        intersecting tiles : generator
-            generates ``BufferedTiles``
+        Yield BufferedTiles intersecting with bounds.
         """
-        batch_by = "column" if batch_by == "col" else batch_by
-        yield from self.tiles_from_bbox(box(*bounds), zoom=zoom, batch_by=batch_by)
+        yield from self.tiles_from_bbox(Bounds.from_inp(bounds).geometry, zoom=zoom)  # type: ignore
 
-    def tiles_from_bounds_batches(self, bounds: BoundsLike, zoom: int, batch_by=None):
-        batch_by = "column" if batch_by == "col" else batch_by
-        yield from self.tiles_from_bbox(box(*bounds), zoom=zoom, batch_by=batch_by)
-
-    def tiles_from_bbox(self, geometry, zoom=None, batch_by=None):
+    def tiles_from_bounds_batches(
+        self, bounds: BoundsLike, zoom: int, batch_by: BatchBy = BatchBy.row
+    ) -> Generator[Generator[BufferedTile, None, None], None, None]:
         """
-        All metatiles intersecting with given bounding box.
-
-        Parameters
-        ----------
-        geometry : ``shapely.geometry``
-        zoom : integer
-            zoom level
-
-        Yields
-        ------
-        intersecting tiles : generator
-            generates ``BufferedTiles``
+        Yield batches of BufferedTiles intersecting with bounds.
         """
-        batch_by = "column" if batch_by == "col" else batch_by
-        if batch_by:  # pragma: no cover
-            for batch in self.tile_pyramid.tiles_from_bbox(
-                geometry, zoom=zoom, batch_by=batch_by
-            ):
-                yield (self.tile(*tile.id) for tile in batch)
-        else:
-            for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom=zoom):
+        yield from self.tiles_from_bbox_batches(
+            Bounds.from_inp(bounds).geometry, zoom=zoom, batch_by=batch_by
+        )
+
+    def tiles_from_bbox(
+        self, geometry: Geometry, zoom: int
+    ) -> Generator[BufferedTile, None, None]:
+        """
+        Yield BufferedTiles intersecting with geometry bounds.
+        """
+        for tile in self.tile_pyramid.tiles_from_bbox(geometry, zoom=zoom):
+            if isinstance(tile, Tile):
                 yield self.tile(*tile.id)
 
-    def tiles_from_geom(self, geometry, zoom=None, batch_by=None, exact=False):
+    def tiles_from_bbox_batches(
+        self, geometry: Geometry, zoom: int, batch_by: BatchBy = BatchBy.row
+    ) -> Generator[Generator[BufferedTile, None, None], None, None]:
         """
-        Return all tiles intersecting with input geometry.
-
-        Parameters
-        ----------
-        geometry : ``shapely.geometry``
-        zoom : integer
-            zoom level
-
-        Yields
-        ------
-        intersecting tiles : ``BufferedTile``
+        Yield batches of BufferedTiles intersecting with geometry bounds.
         """
-        batch_by = "column" if batch_by == "col" else batch_by
-        if batch_by:
-            for batch in self.tile_pyramid.tiles_from_geom(
-                geometry, zoom=zoom, batch_by=batch_by, exact=exact
-            ):
-                yield (self.tile(*tile.id) for tile in batch)
-        else:
-            for tile in self.tile_pyramid.tiles_from_geom(
-                geometry, zoom=zoom, batch_by=batch_by, exact=exact
-            ):
+        for batch in self.tile_pyramid.tiles_from_bbox(
+            geometry,
+            zoom=zoom,
+            batch_by="column" if batch_by.value == "col" else batch_by.value,
+        ):
+            yield (self.tile(*tile.id) for tile in batch if isinstance(tile, Tile))
+
+    def tiles_from_geom(
+        self, geometry: Geometry, zoom: int, exact: bool = False
+    ) -> Generator[BufferedTile, None, None]:
+        """
+        Yield BufferedTiles intersecting with geometry.
+        """
+        for tile in self.tile_pyramid.tiles_from_geom(geometry, zoom=zoom, exact=exact):
+            if isinstance(tile, Tile):
                 yield self.tile(*tile.id)
 
-    def intersecting(self, tile):
+    def tiles_from_geom_batches(
+        self,
+        geometry: Geometry,
+        zoom: int,
+        batch_by: BatchBy = BatchBy.row,
+        exact: bool = False,
+    ) -> Generator[Generator[BufferedTile, None, None], None, None]:
+        """
+        Yield batches of BufferedTiles intersecting with geometry.
+        """
+        for batch in self.tile_pyramid.tiles_from_geom(
+            geometry,
+            zoom=zoom,
+            batch_by="column" if batch_by.value == "col" else batch_by.value,
+            exact=exact,
+        ):
+            yield (self.tile(*tile.id) for tile in batch if isinstance(tile, Tile))
+
+    def intersecting(self, tile: BufferedTile) -> List[BufferedTile]:
         """
         Return all BufferedTiles intersecting with tile.
-
-        Parameters
-        ----------
-        tile : ``BufferedTile``
-            another tile
         """
         return [
             self.tile(*intersecting_tile.id)
             for intersecting_tile in self.tile_pyramid.intersecting(tile)
         ]
 
-    def matrix_affine(self, zoom):
+    def matrix_affine(self, zoom: int) -> Affine:
         """
         Return Affine object for zoom level assuming tiles are cells.
-
-        Parameters
-        ----------
-        zoom : integer
-            zoom level
         """
         if self.pixelbuffer:  # pragma: no cover
             raise ValueError(
@@ -206,7 +189,7 @@ class BufferedTilePyramid(TilePyramid):
             self.bounds.top,
         )
 
-    def to_dict(self):
+    def to_dict(self) -> PyramidDefinitionDict:
         """
         Return dictionary representation of pyramid parameters.
         """
@@ -215,7 +198,7 @@ class BufferedTilePyramid(TilePyramid):
             metatiling=self.metatiling,
             tile_size=self.tile_size,
             pixelbuffer=self.pixelbuffer,
-        )
+        )  # type: ignore
 
     def without_pixelbuffer(self) -> BufferedTilePyramid:
         config_dict = self.to_dict()
@@ -223,7 +206,7 @@ class BufferedTilePyramid(TilePyramid):
         return BufferedTilePyramid(**config_dict)
 
     @staticmethod
-    def from_dict(config_dict):
+    def from_dict(config_dict) -> BufferedTilePyramid:
         """
         Initialize TilePyramid from configuration dictionary.
         """
@@ -266,7 +249,20 @@ class BufferedTile(Tile):
         rasterio metadata profile
     """
 
-    def __init__(self, tile: Tile, pixelbuffer=0):
+    pixelbuffer: NonNegativeInt
+    bounds: Bounds
+    bbox: Union[Polygon, MultiPolygon]
+    left: float
+    bottom: float
+    right: float
+    top: float
+    shape: Shape
+    height: int
+    width: int
+    affine: Affine
+    transform: Affine
+
+    def __init__(self, tile: Tile, pixelbuffer: NonNegativeInt = 0):
         """Initialize."""
         if isinstance(tile, BufferedTile):
             tile = TilePyramid(
@@ -278,81 +274,32 @@ class BufferedTile(Tile):
         self.buffered_tp = BufferedTilePyramid(
             tile.tp.to_dict(), pixelbuffer=pixelbuffer
         )
+        self.bounds = Bounds.from_inp(self._tile.bounds(pixelbuffer=self.pixelbuffer))
+        self.left = self.bounds.left
+        self.bottom = self.bounds.bottom
+        self.right = self.bounds.right
+        self.top = self.bounds.top
+        self.bbox = self._tile.bbox(pixelbuffer=self.pixelbuffer)
         self.__geo_interface__ = mapping(self.bbox)
+        self.shape = self._tile.shape(pixelbuffer=self.pixelbuffer)
+        self.height = self.shape.height
+        self.width = self.shape.width
+        self.affine = self._tile.affine(pixelbuffer=self.pixelbuffer)
+        self.transform = self._tile.affine(pixelbuffer=self.pixelbuffer)
 
-    @cached_property
-    def left(self):
-        return self.bounds.left
-
-    @cached_property
-    def bottom(self):
-        return self.bounds.bottom
-
-    @cached_property
-    def right(self):
-        return self.bounds.right
-
-    @cached_property
-    def top(self):
-        return self.bounds.top
-
-    @cached_property
-    def height(self):
-        """Return buffered height."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer).height
-
-    @cached_property
-    def width(self):
-        """Return buffered width."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer).width
-
-    @cached_property
-    def shape(self):
-        """Return buffered shape."""
-        return self._tile.shape(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def affine(self):
-        """Return buffered Affine."""
-        return self._tile.affine(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def transform(self):
-        """Return buffered Affine."""
-        return self._tile.affine(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def bounds(self):
-        """Return buffered bounds."""
-        return self._tile.bounds(pixelbuffer=self.pixelbuffer)
-
-    @cached_property
-    def bbox(self):
-        """Return buffered bounding box."""
-        return self._tile.bbox(pixelbuffer=self.pixelbuffer)
-
-    def get_children(self):
+    def get_children(self) -> List[BufferedTile]:
         """
         Get tile children (intersecting tiles in next zoom level).
-
-        Returns
-        -------
-        children : list
-            a list of ``BufferedTiles``
         """
         return [BufferedTile(t, self.pixelbuffer) for t in self._tile.get_children()]
 
-    def get_parent(self):
+    def get_parent(self) -> BufferedTile:
         """
         Get tile parent (intersecting tile in previous zoom level).
-
-        Returns
-        -------
-        parent : ``BufferedTile``
         """
-        return BufferedTile(self._tile.get_parent(), self.pixelbuffer)
+        return BufferedTile(self._tile.get_parent(), self.pixelbuffer)  # type: ignore
 
-    def get_neighbors(self, connectedness=8):
+    def get_neighbors(self, connectedness: Literal[4, 8] = 8) -> List[BufferedTile]:
         """
         Return tile neighbors.
 
@@ -361,29 +308,23 @@ class BufferedTile(Tile):
         neighbors ouside the northern and southern TilePyramid boundaries are
         excluded, because they are invalid.
 
-        # -------------
+        connectedness : int
+            [4 or 8] return four direct neighbors or all eight.
+
+                    # -------------
         # | 8 | 1 | 5 |
         # -------------
         # | 4 | x | 2 |
         # -------------
         # | 7 | 3 | 6 |
         # -------------
-
-        Parameters
-        ----------
-        connectedness : int
-            [4 or 8] return four direct neighbors or all eight.
-
-        Returns
-        -------
-        list of BufferedTiles
         """
         return [
             BufferedTile(t, self.pixelbuffer)
             for t in self._tile.get_neighbors(connectedness=connectedness)
         ]
 
-    def is_on_edge(self):
+    def is_on_edge(self) -> bool:
         """Determine whether tile touches or goes over pyramid edge."""
         return (
             self.left <= self.tile_pyramid.left
@@ -392,7 +333,7 @@ class BufferedTile(Tile):
             or self.top >= self.tile_pyramid.top  # touches_right  # touches_top
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: BufferedTile):
         return (
             isinstance(other, self.__class__)
             and self.pixelbuffer == other.pixelbuffer
@@ -400,7 +341,7 @@ class BufferedTile(Tile):
             and self.id == other.id
         )
 
-    def __ne__(self, other):
+    def __ne__(self, other: BufferedTile):
         return not self.__eq__(other)
 
     def __repr__(self):
@@ -411,23 +352,112 @@ class BufferedTile(Tile):
 
 
 def count_tiles(
-    geometry, pyramid, minzoom, maxzoom, init_zoom=0, rasterize_threshold=0
-):
+    geometry: Geometry,
+    pyramid: BufferedTilePyramid,
+    minzoom: int,
+    maxzoom: int,
+    init_zoom: int = 0,
+    rasterize_threshold: int = 0,
+) -> int:
     """
     Count number of tiles intersecting with geometry.
-
-    Parameters
-    ----------
-    geometry : shapely geometry
-    pyramid : TilePyramid
-    minzoom : int
-    maxzoom : int
-    init_zoom : int
-
-    Returns
-    -------
-    number of tiles
     """
+
+    def _count_tiles(tiles, geometry, minzoom, maxzoom):
+        count = 0
+        for tile in tiles:
+            # determine data covered by tile
+            tile_intersection = geometry.intersection(tile.bbox)
+
+            # skip if there is no intersection
+            if not tile_intersection.area:
+                continue
+
+            # increase counter as tile contains data
+            if tile.zoom >= minzoom:
+                count += 1
+
+            # if there are further zoom levels, analyze descendants
+            if tile.zoom < maxzoom:
+                # if tile is half full, analyze each descendant
+                # also do this if the tile children are not four in which case we cannot use
+                # the count formula below
+                if (
+                    tile_intersection.area < tile.bbox.area
+                    or len(tile.get_children()) != 4
+                ):
+                    count += _count_tiles(
+                        tile.get_children(), tile_intersection, minzoom, maxzoom
+                    )
+
+                # if tile is full, all of its descendants will be full as well
+                else:
+                    # sum up tiles for each remaining zoom level
+                    count += sum(
+                        [
+                            4**z
+                            for z in range(
+                                # only count zoom levels which are greater than minzoom or
+                                # count all zoom levels from tile zoom level to maxzoom
+                                minzoom - tile.zoom if tile.zoom < minzoom else 1,
+                                maxzoom - tile.zoom + 1,
+                            )
+                        ]
+                    )
+
+        return count
+
+    def _count_cells(pyramid, geometry, minzoom, maxzoom):
+        if geometry.is_empty:  # pragma: no cover
+            return 0
+
+        # for the rasterization algorithm we need to keep the all_touched flag True
+        # but slightly reduce the geometry area in order to get the same results as
+        # with the tiles/vector algorithm.
+        left, bottom, right, top = geometry.bounds
+        width = right - left
+        height = top - bottom
+        buffer_distance = ((width + height) / 2) * -0.0000001
+        # geometry will be reduced by a tiny fraction of the average from bounds width & height
+        geometry_reduced = geometry.buffer(buffer_distance)
+
+        logger.debug(
+            "rasterize polygon on %s x %s cells",
+            pyramid.matrix_height(maxzoom),
+            pyramid.matrix_width(maxzoom),
+        )
+        transform = pyramid.matrix_affine(maxzoom)
+        raster = rasterize(
+            [(geometry_reduced, 1)],
+            out_shape=(pyramid.matrix_height(maxzoom), pyramid.matrix_width(maxzoom)),
+            fill=0,
+            transform=transform,
+            dtype=np.uint8,
+            all_touched=True,
+        )
+
+        # count cells
+        count = raster.sum()
+
+        # resample raster up until minzoom using "max" resampling and count cells
+        for zoom in reversed(range(minzoom, maxzoom)):
+            raster, transform = reproject(
+                raster,
+                np.zeros(
+                    (pyramid.matrix_height(zoom), pyramid.matrix_width(zoom)),
+                    dtype=np.uint8,
+                ),
+                src_transform=transform,
+                src_crs=pyramid.crs,
+                dst_transform=pyramid.matrix_affine(zoom),
+                dst_crs=pyramid.crs,
+                resampling=Resampling.max,
+            )
+            count += raster.sum()
+
+        # return cell sum
+        return int(count)
+
     if not 0 <= init_zoom <= minzoom <= maxzoom:  # pragma: no cover
         raise ValueError("invalid zoom levels given")
     # tile buffers are not being taken into account
@@ -457,103 +487,9 @@ def count_tiles(
     )
 
 
-def _count_tiles(tiles, geometry, minzoom, maxzoom):
-    count = 0
-    for tile in tiles:
-        # determine data covered by tile
-        tile_intersection = geometry.intersection(tile.bbox)
-
-        # skip if there is no intersection
-        if not tile_intersection.area:
-            continue
-
-        # increase counter as tile contains data
-        if tile.zoom >= minzoom:
-            count += 1
-
-        # if there are further zoom levels, analyze descendants
-        if tile.zoom < maxzoom:
-            # if tile is half full, analyze each descendant
-            # also do this if the tile children are not four in which case we cannot use
-            # the count formula below
-            if tile_intersection.area < tile.bbox.area or len(tile.get_children()) != 4:
-                count += _count_tiles(
-                    tile.get_children(), tile_intersection, minzoom, maxzoom
-                )
-
-            # if tile is full, all of its descendants will be full as well
-            else:
-                # sum up tiles for each remaining zoom level
-                count += sum(
-                    [
-                        4**z
-                        for z in range(
-                            # only count zoom levels which are greater than minzoom or
-                            # count all zoom levels from tile zoom level to maxzoom
-                            minzoom - tile.zoom if tile.zoom < minzoom else 1,
-                            maxzoom - tile.zoom + 1,
-                        )
-                    ]
-                )
-
-    return count
-
-
-def _count_cells(pyramid, geometry, minzoom, maxzoom):
-    if geometry.is_empty:  # pragma: no cover
-        return 0
-
-    # for the rasterization algorithm we need to keep the all_touched flag True
-    # but slightly reduce the geometry area in order to get the same results as
-    # with the tiles/vector algorithm.
-    left, bottom, right, top = geometry.bounds
-    width = right - left
-    height = top - bottom
-    buffer_distance = ((width + height) / 2) * -0.0000001
-    # geometry will be reduced by a tiny fraction of the average from bounds width & height
-    geometry_reduced = geometry.buffer(buffer_distance)
-
-    logger.debug(
-        "rasterize polygon on %s x %s cells",
-        pyramid.matrix_height(maxzoom),
-        pyramid.matrix_width(maxzoom),
-    )
-    transform = pyramid.matrix_affine(maxzoom)
-    raster = rasterize(
-        [(geometry_reduced, 1)],
-        out_shape=(pyramid.matrix_height(maxzoom), pyramid.matrix_width(maxzoom)),
-        fill=0,
-        transform=transform,
-        dtype=np.uint8,
-        all_touched=True,
-    )
-
-    # count cells
-    count = raster.sum()
-
-    # resample raster up until minzoom using "max" resampling and count cells
-    for zoom in reversed(range(minzoom, maxzoom)):
-        raster, transform = reproject(
-            raster,
-            np.zeros(
-                (pyramid.matrix_height(zoom), pyramid.matrix_width(zoom)),
-                dtype=np.uint8,
-            ),
-            src_transform=transform,
-            src_crs=pyramid.crs,
-            dst_transform=pyramid.matrix_affine(zoom),
-            dst_crs=pyramid.crs,
-            resampling=Resampling.max,
-        )
-        count += raster.sum()
-
-    # return cell sum
-    return int(count)
-
-
 def snap_geometry_to_tiles(
-    geometry: BaseGeometry, pyramid: BufferedTilePyramid, zoom: int
-) -> BaseGeometry:
+    geometry: Geometry, pyramid: BufferedTilePyramid, zoom: int
+) -> Geometry:
     if geometry.is_empty:
         return geometry
     # calculate everything using an unbuffered pyramid, because otherwise the Affine
