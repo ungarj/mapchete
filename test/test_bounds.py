@@ -1,9 +1,12 @@
 import json
 
 import pytest
+from pytest_lazyfixture import lazy_fixture
 from shapely.geometry import shape
 
 from mapchete.bounds import Bounds
+from mapchete.geometry.latlon import latlon_to_utm_crs
+from mapchete.geometry.reproject import reproject_geometry
 
 
 def test_bounds_cls():
@@ -183,3 +186,18 @@ def test_bounds_add():
     bounds2 = Bounds(2, 2, 3, 3)
     combined = bounds1 + bounds2
     assert combined == (0, 0, 3, 3)
+
+
+@pytest.mark.parametrize(
+    "polygon",
+    [
+        lazy_fixture("antimeridian_polygon1"),
+        lazy_fixture("antimeridian_polygon2"),
+        lazy_fixture("antimeridian_polygon3"),
+    ],
+)
+def test_bounds_latlon_geometry(polygon):
+    utm_crs = latlon_to_utm_crs(polygon.centroid.y, polygon.centroid.x)
+    utm_geometry = reproject_geometry(polygon, src_crs="EPSG:4326", dst_crs=utm_crs)
+    utm_bounds = Bounds.from_inp(utm_geometry.bounds, crs=utm_crs)
+    assert utm_bounds.latlon_geometry().is_valid
