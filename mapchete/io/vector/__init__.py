@@ -1,5 +1,9 @@
 from mapchete.io.vector.convert import convert_vector
-from mapchete.io.vector.indexed_features import IndexedFeatures, read_vector
+from mapchete.io.vector.indexed_features import (
+    IndexedFeatures,
+    read_vector,
+    read_union_geometry,
+)
 from mapchete.io.vector.open import fiona_open
 from mapchete.io.vector.read import (
     fiona_read,
@@ -16,4 +20,5 @@ __all__ = [
     "IndexedFeatures",
     "convert_vector",
     "read_vector",
+    "read_union_geometry",
 ]

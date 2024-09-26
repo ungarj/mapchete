@@ -223,10 +223,20 @@ class IndexedFeatures(FeatureCollectionProtocol):
 
 
 def read_vector(
-    inp: MPathLike,
+    path: MPathLike,
     index: Optional[Literal["rtree"]] = "rtree",
 ) -> IndexedFeatures:
-    return IndexedFeatures.from_file(inp, index=index)
+    return IndexedFeatures.from_file(path, index=index)
+
+
+def read_union_geometry(
+    path: MPathLike,
+    bounds: Optional[BoundsLike] = None,
+    clip: bool = False,
+) -> Geometry:
+    return IndexedFeatures.from_file(path, index=None).read_union_geometry(
+        bounds=bounds, clip=clip
+    )
 
 
 def object_id(obj: Any) -> int:
