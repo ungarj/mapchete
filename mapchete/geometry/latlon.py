@@ -5,7 +5,7 @@ from fiona.transform import transform as fiona_transform
 from rasterio.crs import CRS
 
 from mapchete.geometry.transform import custom_transform
-from mapchete.geometry.types import CoordArrays, Geometry
+from mapchete.types import CoordArrays, Geometry
 from mapchete.types import CRSLike
 
 LATLON_CRS = CRS.from_epsg(4326)

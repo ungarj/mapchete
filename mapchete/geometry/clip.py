@@ -1,9 +1,10 @@
 from typing import List
 from shapely import box
 from shapely.affinity import translate
+from mapchete.bounds import Bounds
 from mapchete.geometry.types import MultipartGeometry
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import Bounds, Geometry
+from mapchete.geometry.types import Geometry
 
 
 def clip_geometry_to_pyramid_bounds(

@@ -10,11 +10,11 @@ from shapely.geometry import mapping
 
 from mapchete.geometry.filter import filter_by_geometry_type
 from mapchete.geometry.shape import to_shape
-from mapchete.geometry.types import GeoJSONLikeFeature, get_geometry_type
+from mapchete.geometry.types import get_geometry_type
 from mapchete.io.vector.types import VectorFileSchema
 from mapchete.path import MPath
 from mapchete.tile import BufferedTile
-from mapchete.types import MPathLike
+from mapchete.types import MPathLike, GeoJSONLikeFeature
 
 
 logger = logging.getLogger(__name__)

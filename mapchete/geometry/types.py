@@ -1,16 +1,8 @@
 from typing import (
-    Dict,
-    Iterable,
-    Literal,
-    Protocol,
-    Tuple,
     Type,
     Union,
-    runtime_checkable,
-    TypedDict,
 )
 
-from geojson_pydantic import Feature, FeatureCollection as GeoJSONGeometryType
 from shapely.geometry import (
     GeometryCollection,
     LinearRing,
@@ -21,42 +13,9 @@ from shapely.geometry import (
     Point,
     Polygon,
 )
-from shapely.geometry.base import BaseGeometry
 
 from mapchete.errors import GeometryTypeError
-
-SinglepartGeometry = Union[
-    Point,
-    LineString,
-    LinearRing,
-    Polygon,
-]
-
-MultipartGeometry = Union[
-    MultiPoint,
-    MultiLineString,
-    MultiPolygon,
-    GeometryCollection,
-]
-
-Geometry = Union[SinglepartGeometry, MultipartGeometry, BaseGeometry]
-
-
-@runtime_checkable
-class GeoInterface(Protocol):
-    __geo_interface__: Union[
-        GeoJSONGeometryType, Dict[Literal["geometry"], GeoJSONGeometryType]
-    ]
-
-
-GeometryLike = Union[Geometry, GeoJSONGeometryType, GeoInterface, Feature, Dict]
-
-CoordArrays = Tuple[Iterable[float], Iterable[float]]
-
-
-GeoJSONLikeFeature = TypedDict(
-    "GeoJSONLikeFeature", {"geometry": dict, "properties": dict}
-)
+from mapchete.types import Geometry, MultipartGeometry, SinglepartGeometry
 
 
 def get_multipart_type(geometry_type: Union[Type[Geometry], str]) -> MultipartGeometry:

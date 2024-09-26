@@ -478,7 +478,7 @@ def test_process_template(dummy1_tif, mp_tmpdir):
     )
     mp = mapchete.open(
         dict(
-            process=process_template,
+            process=str(process_template),
             pyramid=dict(grid="geodetic"),
             input=dict(file1=dummy1_tif),
             output=dict(format="GTiff", path=mp_tmpdir, bands=1, dtype="uint8"),

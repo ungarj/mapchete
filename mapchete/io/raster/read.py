@@ -23,6 +23,7 @@ from tilematrix import Shape
 
 from mapchete.errors import MapcheteIOError
 from mapchete.geometry.clip import clip_geometry_to_pyramid_bounds
+from mapchete.grid import Grid
 from mapchete.io.raster.array import extract_from_array, prepare_masked_array
 from mapchete.io.raster.write import _write_tags
 from mapchete.path import MPath
@@ -30,7 +31,7 @@ from mapchete.protocols import GridProtocol
 from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile
 from mapchete.timer import Timer
-from mapchete.types import Grid, MPathLike, NodataVal
+from mapchete.types import MPathLike, NodataVal
 from mapchete.validate import validate_write_window_params
 
 logger = logging.getLogger(__name__)

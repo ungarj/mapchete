@@ -10,7 +10,7 @@ from mapchete.io.vector import (
     read_vector_window,
 )
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import Bounds
+from mapchete.bounds import Bounds
 
 
 @pytest.mark.parametrize(

@@ -7,6 +7,7 @@ from typing import Optional, Union
 from rasterio.crs import CRS
 from rasterio.vrt import WarpedVRT
 
+from mapchete.bounds import Bounds
 from mapchete.config.base import MapcheteConfig
 from mapchete.config.parse import raw_conf, raw_conf_output_pyramid
 from mapchete.enums import DataType, InputType, OutputType
@@ -18,7 +19,8 @@ from mapchete.formats import (
 from mapchete.io import fiona_open, rasterio_open
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import Bounds, CRSLike, MPathLike, ZoomLevels
+from mapchete.types import CRSLike, MPathLike
+from mapchete.zoom_levels import ZoomLevels
 
 logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()

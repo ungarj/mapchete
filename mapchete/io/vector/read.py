@@ -1,16 +1,16 @@
 """Functions handling vector data."""
 
 import logging
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from itertools import chain
-from typing import Generator, List, Literal, Union, Optional
+from typing import Generator, List, Union
 
 import fiona
 from fiona.errors import DriverError
-from rasterio.crs import CRS
 from retry import retry
+from shapely import prepare
 from shapely.errors import TopologicalError
-from shapely.geometry import mapping, shape
+from shapely.geometry import mapping
 
 from mapchete.errors import MapcheteIOError
 from mapchete.geometry import (
@@ -23,14 +23,14 @@ from mapchete.geometry import (
 )
 from mapchete.geometry.clip import clip_geometry_to_pyramid_bounds
 from mapchete.geometry.types import (
-    GeoJSONLikeFeature,
     get_singlepart_type,
 )
-from mapchete.io.vector.indexed_features import IndexedFeatures
+from mapchete.io.vector.types import FeatureCollectionProtocol
 from mapchete.path import MPath
+from mapchete.protocols import GridProtocol
 from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile
-from mapchete.types import Bounds, CRSLike, MPathLike
+from mapchete.types import GeoJSONLikeFeature, MPathLike
 
 __all__ = [
     "reproject_geometry",
@@ -80,8 +80,8 @@ def fiona_read(
 
 
 def read_vector_window(
-    inp: Union[MPathLike, IndexedFeatures, List[MPathLike], List[IndexedFeatures]],
-    tile: BufferedTile,
+    inp: Union[MPathLike, List[MPathLike]],
+    grid: GridProtocol,
     validity_check: bool = True,
     clip_to_crs_bounds: bool = False,
     skip_missing_files: bool = False,
@@ -111,10 +111,11 @@ def read_vector_window(
 
     def _gen_features() -> Generator[GeoJSONLikeFeature, None, None]:
         for path in inp if isinstance(inp, list) else [inp]:
+            path = MPath.from_inp(path)
             try:
                 yield from _read_vector_window(
                     path,
-                    tile,
+                    grid,
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,
                 )
@@ -133,30 +134,28 @@ def read_vector_window(
 
 
 def _read_vector_window(
-    inp: Union[MPathLike, IndexedFeatures],
-    tile: BufferedTile,
+    inp: MPath,
+    grid: GridProtocol,
     validity_check: bool = True,
     clip_to_crs_bounds: bool = False,
 ):
     try:
-        if tile.pixelbuffer and tile.is_on_edge():
+        if isinstance(grid, BufferedTile) and grid.pixelbuffer and grid.is_on_edge():
             return chain.from_iterable(
-                _get_reprojected_features(
+                _get_reprojected_features_from_file(
                     inp=inp,
-                    dst_bounds=Bounds.from_inp(bbox.bounds),
-                    dst_crs=tile.crs,
+                    grid=grid,
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,
                 )
                 for bbox in clip_geometry_to_pyramid_bounds(
-                    tile.bbox, tile.tile_pyramid
+                    grid.bbox, grid.tile_pyramid
                 )
             )
         else:
-            features = _get_reprojected_features(
+            features = _get_reprojected_features_from_file(
                 inp=inp,
-                dst_bounds=Bounds.from_inp(tile.bounds),
-                dst_crs=tile.crs,
+                grid=grid,
                 validity_check=validity_check,
                 clip_to_crs_bounds=clip_to_crs_bounds,
             )
@@ -171,66 +170,63 @@ def _read_vector_window(
     logger=logger,
     **dict(IORetrySettings()),
 )
-def _get_reprojected_features(
-    inp: Union[MPathLike, IndexedFeatures],
-    dst_bounds: Bounds,
-    dst_crs: CRSLike,
+def _get_reprojected_features_from_file(
+    inp: MPath,
+    grid: GridProtocol,
     validity_check: bool = False,
     clip_to_crs_bounds: bool = False,
 ) -> Generator[GeoJSONLikeFeature, None, None]:
     logger.debug("reading %s", inp)
-    with ExitStack() as exit_stack:
-        if isinstance(inp, (str, MPath)):
-            src = exit_stack.enter_context(fiona_read(inp))
-            src_crs = CRS(src.crs)
-        elif isinstance(inp, IndexedFeatures):
-            raise NotImplementedError()
-            src = inp
-            src_crs = inp.crs
-        else:  # pragma: no cover
-            raise TypeError(f"input must be either a path or IndexedFeatures: {inp}")
-        # reproject tile bounding box to source file CRS for filter
-        if src_crs == dst_crs:
-            dst_bbox = shape(dst_bounds)
-        else:
-            dst_bbox = reproject_geometry(
-                shape(dst_bounds),
-                src_crs=dst_crs,
-                dst_crs=src_crs,
-                validity_check=True,
-            )
-        for feature in src.filter(bbox=dst_bbox.bounds):
-            try:
-                # check validity
-                original_geom = repair(to_shape(feature["geometry"]))
-
-                # clip with bounds and omit if clipped geometry is empty
-                clipped_geom = original_geom.intersection(dst_bbox)
-                for checked_geom in filter_by_geometry_type(
-                    clipped_geom,
-                    get_singlepart_type(original_geom.geom_type),
-                ):
-                    # reproject each feature to tile CRS
-                    reprojected_geom = reproject_geometry(
-                        checked_geom,
-                        src_crs=src_crs,
-                        dst_crs=dst_crs,
-                        validity_check=validity_check,
-                        clip_to_crs_bounds=False,
-                    )
-                    if not reprojected_geom.is_empty:
-                        yield {
-                            "properties": feature["properties"],
-                            "geometry": mapping(reprojected_geom),
-                        }
-            # this can be handled quietly
-            except TopologicalError as e:  # pragma: no cover
-                logger.warning("feature omitted: %s", e)
-
-
-def read_vector(
-    inp: MPathLike,
-    index: Optional[Literal["rtree"]] = "rtree",
-) -> IndexedFeatures:
     with fiona_read(inp) as src:
-        return IndexedFeatures(src, index=index, crs=src.crs)
+        # reproject tile bounding box to source file CRS for filter
+        yield from reprojected_features(
+            src,
+            grid,
+            validity_check=validity_check,
+            clip_to_crs_bounds=clip_to_crs_bounds,
+        )
+
+
+def reprojected_features(
+    src: FeatureCollectionProtocol,
+    grid: GridProtocol,
+    validity_check: bool = False,
+    clip_to_crs_bounds: bool = False,
+) -> Generator[GeoJSONLikeFeature, None, None]:
+    if src.crs == grid.crs:
+        dst_bbox = to_shape(grid)
+    else:
+        dst_bbox = reproject_geometry(
+            to_shape(grid),
+            src_crs=grid.crs,
+            dst_crs=src.crs,
+            validity_check=True,
+        )
+    prepare(dst_bbox)
+    for feature in src.filter(bbox=dst_bbox.bounds):
+        try:
+            # check validity
+            original_geom = repair(to_shape(feature["geometry"]))
+
+            # clip with bounds and omit if clipped geometry is empty
+            clipped_geom = dst_bbox.intersection(original_geom)
+            for checked_geom in filter_by_geometry_type(
+                clipped_geom,
+                get_singlepart_type(original_geom.geom_type),
+            ):
+                # reproject each feature to tile CRS
+                reprojected_geom = reproject_geometry(
+                    checked_geom,
+                    src_crs=src.crs,
+                    dst_crs=grid.crs,
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=False,
+                )
+                if not reprojected_geom.is_empty:
+                    yield {
+                        "properties": feature["properties"],
+                        "geometry": mapping(reprojected_geom),
+                    }
+        # this can be handled quietly
+        except TopologicalError as e:  # pragma: no cover
+            logger.warning("feature omitted: %s", e)

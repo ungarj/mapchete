@@ -6,10 +6,11 @@ import numpy as np
 import numpy.ma as ma
 from affine import Affine
 
+from mapchete.bounds import Bounds
 from mapchete.io.raster.array import bounds_to_ranges, prepare_array
 from mapchete.io.raster.referenced_raster import ReferencedRaster
 from mapchete.tile import BufferedTile
-from mapchete.types import Bounds, NodataVal
+from mapchete.types import NodataVal
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,9 @@ from rasterio.profiles import Profile
 
 from mapchete.protocols import GridProtocol
 from mapchete.tile import BufferedTile, BufferedTilePyramid
-from mapchete.types import Bounds, CRSLike, ZoomLevels
+from mapchete.bounds import Bounds
+from mapchete.types import CRSLike
+from mapchete.zoom_levels import ZoomLevels
 
 ########################
 # validator functionrs #

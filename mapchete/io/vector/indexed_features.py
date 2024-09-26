@@ -2,15 +2,23 @@ from __future__ import annotations
 
 from itertools import chain
 import logging
-from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union
 import warnings
 
+from fiona import Collection
 from rasterio.crs import CRS
+from retry import retry
+from mapchete.bounds import Bounds
 from mapchete.errors import NoCRSError, NoGeoError
 from mapchete.geometry.reproject import reproject_geometry
 from mapchete.geometry.shape import to_shape
-from mapchete.geometry.types import Geometry
-from mapchete.types import Bounds, BoundsLike, CRSLike
+from mapchete.grid import Grid
+from mapchete.io.vector.open import fiona_open
+from mapchete.io.vector.read import read_vector_window, reprojected_features
+from mapchete.io.vector.types import FeatureCollectionProtocol
+from mapchete.protocols import GridProtocol
+from mapchete.settings import IORetrySettings
+from mapchete.types import BoundsLike, CRSLike, MPathLike, GeoJSONLikeFeature, Geometry
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +43,7 @@ class FakeIndex:
         ]
 
 
-class IndexedFeatures:
+class IndexedFeatures(FeatureCollectionProtocol):
     """
     Behaves like a mapping of GeoJSON-like objects but has a filter() method.
 
@@ -149,12 +157,55 @@ class IndexedFeatures:
             ]
         return list(self.values())
 
+    def read(
+        self, grid: Optional[Union[Grid, GridProtocol]] = None
+    ) -> List[GeoJSONLikeFeature]:
+        if grid:
+            return list(reprojected_features(self, grid=grid))
+        return list(self.values())
+
     def _update_bounds(self, bounds: BoundsLike):
         bounds = Bounds.from_inp(bounds)
         if self.bounds is None:
             self.bounds = bounds
         else:
             self.bounds += bounds
+
+    @staticmethod
+    def from_fiona(
+        src: Collection,
+        index: Optional[Literal["rtree"]] = "rtree",
+    ) -> IndexedFeatures:
+        return IndexedFeatures(src, index=index, crs=src.crs)
+
+    @staticmethod
+    def from_file(
+        path: MPathLike,
+        grid: Optional[Union[Grid, GridProtocol]] = None,
+        index: Optional[Literal["rtree"]] = "rtree",
+        **kwargs,
+    ) -> IndexedFeatures:
+        logger.debug(f"reading {str(path)} into memory")
+        if grid:
+            return IndexedFeatures(
+                features=read_vector_window(path, grid=Grid.from_obj(grid), **kwargs),
+                index=index,
+                crs=grid.crs,
+            )
+
+        @retry(logger=logger, **dict(IORetrySettings()))
+        def _read_vector():
+            with fiona_open(path, "r") as src:
+                return IndexedFeatures.from_fiona(src, index=index)
+
+        return _read_vector()
+
+
+def read_vector(
+    inp: MPathLike,
+    index: Optional[Literal["rtree"]] = "rtree",
+) -> IndexedFeatures:
+    return IndexedFeatures.from_file(inp, index=index)
 
 
 def object_id(obj: Any) -> int:

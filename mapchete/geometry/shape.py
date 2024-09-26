@@ -1,7 +1,7 @@
 from typing import Any
 from shapely.geometry import shape
 
-from mapchete.geometry.types import GeoInterface, Geometry
+from mapchete.types import GeoInterface, Geometry
 
 
 def to_shape(geometry: Any) -> Geometry:

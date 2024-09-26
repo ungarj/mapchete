@@ -5,21 +5,27 @@ from __future__ import annotations
 import logging
 from functools import cached_property
 from itertools import product
+from typing import Literal, Union
 
 import numpy as np
 from affine import Affine
+from pydantic import NonNegativeInt
 from rasterio.enums import Resampling
 from rasterio.features import rasterize, shapes
 from rasterio.transform import from_bounds
 from rasterio.warp import reproject
 from shapely import clip_by_rect
-from shapely.geometry import box, shape
+from shapely.geometry import box, shape, mapping
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
-from tilematrix import Tile, TilePyramid
+from tilematrix import Tile, TilePyramid, GridDefinition
 from tilematrix._conf import ROUND
 
+from mapchete.types import BoundsLike
+
 logger = logging.getLogger(__name__)
+
+MetatilingValue = Literal[1, 2, 4, 8, 16, 32, 64, 128, 256]
 
 
 class BufferedTilePyramid(TilePyramid):
@@ -45,7 +51,16 @@ class BufferedTilePyramid(TilePyramid):
         tile buffer size in pixels
     """
 
-    def __init__(self, grid=None, metatiling=1, tile_size=256, pixelbuffer=0):
+    metatiling: MetatilingValue
+    pixelbuffer: NonNegativeInt
+
+    def __init__(
+        self,
+        grid: Union[Literal["geodetic"], Literal["mercator"], dict, GridDefinition],
+        metatiling: MetatilingValue = 1,
+        tile_size: NonNegativeInt = 256,
+        pixelbuffer: NonNegativeInt = 0,
+    ):
         """Initialize."""
         TilePyramid.__init__(self, grid, metatiling=metatiling, tile_size=tile_size)
         self.tile_pyramid = TilePyramid(
@@ -57,7 +72,7 @@ class BufferedTilePyramid(TilePyramid):
         else:  # pragma: no cover
             raise ValueError("pixelbuffer has to be a non-negative int")
 
-    def tile(self, zoom, row, col):
+    def tile(self, zoom: int, row: int, col: int) -> BufferedTile:
         """
         Return ``BufferedTile`` object of this ``BufferedTilePyramid``.
 
@@ -74,10 +89,11 @@ class BufferedTilePyramid(TilePyramid):
         -------
         buffered tile : ``BufferedTile``
         """
-        tile = self.tile_pyramid.tile(zoom, row, col)
-        return BufferedTile(tile, pixelbuffer=self.pixelbuffer)
+        return BufferedTile(
+            self.tile_pyramid.tile(zoom, row, col), pixelbuffer=self.pixelbuffer
+        )
 
-    def tiles_from_bounds(self, bounds=None, zoom=None, batch_by=None):
+    def tiles_from_bounds(self, bounds: BoundsLike, zoom: int, batch_by=None):
         """
         Return all tiles intersecting with bounds.
 
@@ -96,6 +112,10 @@ class BufferedTilePyramid(TilePyramid):
         intersecting tiles : generator
             generates ``BufferedTiles``
         """
+        batch_by = "column" if batch_by == "col" else batch_by
+        yield from self.tiles_from_bbox(box(*bounds), zoom=zoom, batch_by=batch_by)
+
+    def tiles_from_bounds_batches(self, bounds: BoundsLike, zoom: int, batch_by=None):
         batch_by = "column" if batch_by == "col" else batch_by
         yield from self.tiles_from_bbox(box(*bounds), zoom=zoom, batch_by=batch_by)
 
@@ -246,7 +266,7 @@ class BufferedTile(Tile):
         rasterio metadata profile
     """
 
-    def __init__(self, tile, pixelbuffer=0):
+    def __init__(self, tile: Tile, pixelbuffer=0):
         """Initialize."""
         if isinstance(tile, BufferedTile):
             tile = TilePyramid(
@@ -258,6 +278,7 @@ class BufferedTile(Tile):
         self.buffered_tp = BufferedTilePyramid(
             tile.tp.to_dict(), pixelbuffer=pixelbuffer
         )
+        self.__geo_interface__ = mapping(self.bbox)
 
     @cached_property
     def left(self):

@@ -28,8 +28,10 @@ from mapchete.processing.tasks import (
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
 from mapchete.tile import BufferedTile, count_tiles
 from mapchete.timer import Timer
-from mapchete.types import TileLike, ZoomLevels, ZoomLevelsLike
+from mapchete.types import TileLike, ZoomLevelsLike
 from mapchete.validate import validate_tile
+from mapchete.zoom_levels import ZoomLevels
+
 
 logger = logging.getLogger(__name__)
 

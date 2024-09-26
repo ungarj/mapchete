@@ -15,6 +15,7 @@ from rasterio.features import geometry_mask
 from shapely import unary_union
 from shapely.geometry import Point, box, GeometryCollection, mapping
 
+from mapchete.bounds import Bounds
 from mapchete.formats import base
 from mapchete.formats.protocols import VectorInput
 from mapchete.geometry.types import Geometry
@@ -28,7 +29,7 @@ from mapchete.io.vector import (
 )
 from mapchete.path import MPath
 from mapchete.tile import BufferedTile
-from mapchete.types import CRSLike, ShapeLike, Bounds
+from mapchete.types import CRSLike, ShapeLike
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ class InputData(base.InputData):
                 )
 
     @cached_property
-    def in_memory_features(self):
+    def in_memory_features(self) -> IndexedFeatures:
         """This property can be accessed once the preprocessing task is finished."""
         return IndexedFeatures(self.get_preprocessing_task_result(f"cache_{self.path}"))
 
@@ -223,7 +224,7 @@ class InputTile(base.InputTile, VectorInput):
     """
 
     _memory_cache_active = False
-    _in_memory_features = None
+    _in_memory_features: Optional[IndexedFeatures] = None
     transform: Affine
     width: int
     height: int
@@ -232,7 +233,12 @@ class InputTile(base.InputTile, VectorInput):
     crs: CRSLike
 
     def __init__(
-        self, tile, input_data, in_memory_features=None, cache_task_key=None, **kwargs
+        self,
+        tile: BufferedTile,
+        input_data: InputData,
+        cache_task_key: str,
+        in_memory_features: Optional[IndexedFeatures] = None,
+        **kwargs,
     ):
         """Initialize."""
         super().__init__(tile, input_key=input_data.input_key, **kwargs)
@@ -248,7 +254,7 @@ class InputTile(base.InputTile, VectorInput):
         self.width = tile.width
         self.height = tile.height
         self.shape = tile.shape
-        self.bounds = tile.bounds
+        self.bounds = Bounds.from_inp(tile.bounds)
         self.crs = tile.crs
 
     def __repr__(self):  # pragma: no cover
@@ -377,12 +383,10 @@ class InputTile(base.InputTile, VectorInput):
         checked = "checked" if validity_check else "not_checked"
         if checked not in self._cache:
             self._cache[checked] = list(
-                read_vector_window(
-                    (
-                        self._in_memory_features
-                        if self._memory_cache_active
-                        else self.path
-                    ),
+                self._in_memory_features.read(self.tile)
+                if self._memory_cache_active and self._in_memory_features is not None
+                else read_vector_window(
+                    self.path,
                     self.tile,
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,

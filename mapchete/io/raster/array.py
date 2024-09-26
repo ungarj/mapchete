@@ -14,8 +14,9 @@ from rasterio.windows import from_bounds
 from shapely.ops import unary_union
 
 from mapchete.geometry.shape import to_shape
+from mapchete.grid import Grid
 from mapchete.protocols import GridProtocol
-from mapchete.types import BoundsLike, CRSLike, Grid, NodataVal
+from mapchete.types import BoundsLike, CRSLike, NodataVal
 
 logger = logging.getLogger(__name__)
 

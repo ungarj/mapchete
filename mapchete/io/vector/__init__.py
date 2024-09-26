@@ -1,9 +1,8 @@
 from mapchete.io.vector.convert import convert_vector
-from mapchete.io.vector.indexed_features import IndexedFeatures
+from mapchete.io.vector.indexed_features import IndexedFeatures, read_vector
 from mapchete.io.vector.open import fiona_open
 from mapchete.io.vector.read import (
     fiona_read,
-    read_vector,
     read_vector_window,
 )
 from mapchete.io.vector.write import fiona_write, write_vector_window
