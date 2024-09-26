@@ -17,7 +17,7 @@ from rasterio.warp import reproject
 from shapely import clip_by_rect
 from shapely.geometry import shape, mapping
 from shapely.ops import unary_union
-from tilematrix import Shape, Tile, TilePyramid, GridDefinition
+from tilematrix import Shape, Tile, TileIndex, TilePyramid, GridDefinition
 from tilematrix._conf import ROUND
 
 from mapchete.bounds import Bounds
@@ -54,7 +54,7 @@ PyramidDefinitionDict = TypedDict(
 )
 
 
-class BatchBy(Enum, str):
+class BatchBy(str, Enum):
     row = "row"
     col = "col"
 
@@ -219,11 +219,15 @@ class BufferedTilePyramid(TilePyramid):
         )
 
 
-class BufferedTile(Tile):
+class BufferedTile:
     """
     A Tile member of a BufferedTilePyramid.
     """
 
+    zoom: int
+    row: int
+    col: int
+    id: TileIndex
     pixelbuffer: NonNegativeInt
     bounds: Bounds
     bbox: Union[Polygon, MultiPolygon]
@@ -236,6 +240,10 @@ class BufferedTile(Tile):
     width: int
     affine: Affine
     transform: Affine
+    crs: CRSLike
+    tp: TilePyramid
+    pixel_x_size: float
+    pixel_y_size: float
 
     def __init__(self, tile: Tile, pixelbuffer: NonNegativeInt = 0):
         """Initialize."""
@@ -243,17 +251,17 @@ class BufferedTile(Tile):
             tile = TilePyramid(
                 tile.tp.grid, tile_size=tile.tp.tile_size, metatiling=tile.tp.metatiling
             ).tile(*tile.id)
-        Tile.__init__(self, tile.tile_pyramid, tile.zoom, tile.row, tile.col)
         self._tile = tile
         self.pixelbuffer = pixelbuffer
         self.buffered_tp = BufferedTilePyramid(
             tile.tp.to_dict(), pixelbuffer=pixelbuffer
         )
-        self.bounds = Bounds.from_inp(self._tile.bounds(pixelbuffer=self.pixelbuffer))
-        self.left = self.bounds.left
-        self.bottom = self.bounds.bottom
-        self.right = self.bounds.right
-        self.top = self.bounds.top
+        bounds = Bounds.from_inp(self._tile.bounds(pixelbuffer=self.pixelbuffer))
+        self.left = bounds.left
+        self.bottom = bounds.bottom
+        self.right = bounds.right
+        self.top = bounds.top
+        self.bounds = bounds
         self.bbox = self._tile.bbox(pixelbuffer=self.pixelbuffer)
         self.__geo_interface__ = mapping(self.bbox)
         self.shape = self._tile.shape(pixelbuffer=self.pixelbuffer)
@@ -261,6 +269,17 @@ class BufferedTile(Tile):
         self.width = self.shape.width
         self.affine = self._tile.affine(pixelbuffer=self.pixelbuffer)
         self.transform = self._tile.affine(pixelbuffer=self.pixelbuffer)
+        self.zoom = tile.zoom
+        self.row = tile.row
+        self.col = tile.col
+        self.id = tile.id
+        self.crs = tile.crs
+        self.tp = self.tile_pyramid = tile.tp
+        self.pixel_x_size = tile.pixel_x_size
+        self.pixel_y_size = tile.pixel_y_size
+
+    def is_valid(self) -> bool:
+        return self._tile.is_valid()
 
     def get_children(self) -> List[BufferedTile]:
         """
@@ -324,6 +343,11 @@ class BufferedTile(Tile):
 
     def __hash__(self):
         return hash(repr(self))
+
+    def __iter__(self):
+        yield self.zoom
+        yield self.row
+        yield self.col
 
 
 def count_tiles(

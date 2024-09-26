@@ -3,7 +3,12 @@ from typing import (
     Union,
 )
 
-from shapely.geometry import (
+
+from mapchete.errors import GeometryTypeError
+from mapchete.types import (
+    Geometry,
+    MultipartGeometry,
+    SinglepartGeometry,
     GeometryCollection,
     LinearRing,
     LineString,
@@ -13,9 +18,6 @@ from shapely.geometry import (
     Point,
     Polygon,
 )
-
-from mapchete.errors import GeometryTypeError
-from mapchete.types import Geometry, MultipartGeometry, SinglepartGeometry
 
 
 def get_multipart_type(geometry_type: Union[Type[Geometry], str]) -> MultipartGeometry:

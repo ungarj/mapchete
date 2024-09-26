@@ -26,7 +26,7 @@ from mapchete.processing.tasks import (
     TileTaskBatch,
 )
 from mapchete.stac import tile_direcotry_item_to_dict, update_tile_directory_stac_item
-from mapchete.tile import BufferedTile, count_tiles
+from mapchete.tile import BatchBy, BufferedTile, count_tiles
 from mapchete.timer import Timer
 from mapchete.types import TileLike, ZoomLevelsLike
 from mapchete.validate import validate_tile
@@ -86,7 +86,7 @@ class Mapchete(object):
         self._count_tiles_cache = {}
 
     def get_process_tiles(
-        self, zoom: Optional[int] = None, batch_by: Optional[str] = None
+        self, zoom: Optional[int] = None
     ) -> Generator[BufferedTile, None, None]:
         """
         Yield process tiles.
@@ -114,16 +114,55 @@ class Mapchete(object):
             for tile in self.config.process_pyramid.tiles_from_geom(
                 self.config.area_at_zoom(zoom),
                 zoom=zoom,
-                batch_by=batch_by,
                 exact=True,
             ):
                 yield tile
         else:
             for i in self.config.init_zoom_levels.descending():
                 for tile in self.config.process_pyramid.tiles_from_geom(
-                    self.config.area_at_zoom(i), zoom=i, batch_by=batch_by, exact=True
+                    self.config.area_at_zoom(i), zoom=i, exact=True
                 ):
                     yield tile
+
+    def get_process_tiles_batches(
+        self, zoom: Optional[int] = None, batch_by: BatchBy = BatchBy.row
+    ) -> Generator[Generator[BufferedTile, None, None], None, None]:
+        """
+        Yield process tiles.
+
+        Tiles intersecting with the input data bounding boxes as well as
+        process bounds, if provided, are considered process tiles. This is to
+        avoid iterating through empty tiles.
+
+        Parameters
+        ----------
+        zoom : integer
+            zoom level process tiles should be returned from; if none is given,
+            return all process tiles
+        batch_by : str
+            if not None, tiles can be yielded in batches either by "row" or "column".
+
+        yields
+        ------
+        BufferedTile objects
+        """
+        logger.debug("get process tiles...")
+        # if batch_by is None and hasattr(self.config.output_reader, "tile_path_schema"):
+        #     batch_by = batch_sort_property(self.config.output_reader.tile_path_schema)
+        if zoom or zoom == 0:
+            for batch in self.config.process_pyramid.tiles_from_geom_batches(
+                self.config.area_at_zoom(zoom),
+                zoom=zoom,
+                batch_by=batch_by,
+                exact=True,
+            ):
+                yield batch
+        else:
+            for i in self.config.init_zoom_levels.descending():
+                for batch in self.config.process_pyramid.tiles_from_geom_batches(
+                    self.config.area_at_zoom(i), zoom=i, batch_by=batch_by, exact=True
+                ):
+                    yield batch
 
     def skip_tiles(
         self,
@@ -778,7 +817,9 @@ def _tile_task_batches(
                     batch_by = "row"
                 for tile in _filter_skipable(
                     process=process,
-                    tiles_batches=process.get_process_tiles(zoom, batch_by=batch_by),
+                    tiles_batches=process.get_process_tiles_batches(
+                        zoom, batch_by=BatchBy[batch_by]
+                    ),
                     overview_tiles=(
                         overview_parents if process.config.baselevels and i else None
                     ),
