@@ -147,7 +147,7 @@ class IndexedFeatures:
                 self._items[id_]
                 for id_ in chain(self._index.intersection(bounds), self._non_geo_items)
             ]
-        return self.values()
+        return list(self.values())
 
     def _update_bounds(self, bounds: BoundsLike):
         bounds = Bounds.from_inp(bounds)
@@ -180,6 +180,12 @@ def object_geometry(obj: Any) -> Geometry:
             return to_shape(obj.geometry)
         elif hasattr(obj, "get") and obj.get("geometry"):
             return to_shape(obj["geometry"])
+        elif hasattr(obj, "bounds"):
+            return to_shape(Bounds.from_inp(obj.bounds))
+        elif hasattr(obj, "bbox"):
+            return to_shape(Bounds.from_inp(obj.bbox))
+        elif hasattr(obj, "get") and obj.get("bounds"):
+            return to_shape(Bounds.from_inp(obj["bounds"]))
         else:
             raise TypeError("no geometry")
     except Exception as exc:
