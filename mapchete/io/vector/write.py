@@ -140,7 +140,7 @@ def write_vector_window(
     out_tile: BufferedTile,
     out_path: MPathLike,
     out_driver: str = "GeoJSON",
-    allow_multipart_geometries=True,
+    allow_multipart_geometries: bool = True,
     **kwargs,
 ):
     """

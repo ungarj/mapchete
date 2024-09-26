@@ -175,7 +175,7 @@ def test_indexed_features(landpoly):
 
     assert features[some_id]
     with pytest.raises(KeyError):
-        features["invalid_key"]
+        features[-999]
 
     assert features.items()
     assert features.keys()
@@ -227,6 +227,16 @@ def test_indexed_features_polygon(aoi_br_geojson):
     tp = BufferedTilePyramid("geodetic")
     for tile in tp.tiles_from_bounds(bounds=index.bounds, zoom=5):
         assert len(index.filter(tile.bounds)) == 1
+
+
+def test_indexed_features_filter(aoi_br_geojson):
+    with fiona_open(str(aoi_br_geojson)) as src:
+        count = len(src)
+        index = IndexedFeatures(src)
+    tp = BufferedTilePyramid("geodetic")
+    for tile in tp.tiles_from_bounds(bounds=index.bounds, zoom=5):
+        assert len(index.filter(bounds=tile.bounds)) == 1
+    assert len(index.filter()) == count
 
 
 def test_object_bounds_attr_bounds():

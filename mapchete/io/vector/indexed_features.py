@@ -70,7 +70,7 @@ class IndexedFeatures:
                 self._index = FakeIndex()
         else:
             self._index = FakeIndex()
-        self.crs = getattr(features, "crs", None)
+        self.crs = crs or getattr(features, "crs", None)
         self._items = {}
         self._non_geo_items = set()
         self.bounds = None
@@ -126,7 +126,7 @@ class IndexedFeatures:
 
     def filter(
         self, bounds: Optional[BoundsLike] = None, bbox: Optional[BoundsLike] = None
-    ) -> Iterable[Any]:
+    ) -> List[Any]:
         """
         Return features intersecting with bounds.
 
@@ -187,7 +187,9 @@ def object_geometry(obj: Any) -> Geometry:
         raise NoGeoError(f"cannot determine geometry from object: {obj}") from exc
 
 
-def object_bounds(obj: Any, dst_crs: Optional[CRSLike] = None) -> Bounds:
+def object_bounds(
+    obj: Any, obj_crs: Optional[CRSLike] = None, dst_crs: Optional[CRSLike] = None
+) -> Bounds:
     """
     Determine geographic bounds from object if available.
 
@@ -209,7 +211,7 @@ def object_bounds(obj: Any, dst_crs: Optional[CRSLike] = None) -> Bounds:
     if dst_crs:
         return Bounds.from_inp(
             reproject_geometry(
-                to_shape(bounds), src_crs=object_crs(obj), dst_crs=dst_crs
+                to_shape(bounds), src_crs=obj_crs or object_crs(obj), dst_crs=dst_crs
             ).bounds
         )
 
@@ -223,8 +225,7 @@ def object_crs(obj: Any) -> CRS:
             return CRS.from_user_input(obj.crs)
         elif hasattr(obj, "get") and obj.get("crs"):
             return CRS.from_user_input(obj["crs"])
-        else:
-            raise AttributeError(f"no crs attribute or key found in object: {obj}")
+        raise AttributeError(f"no crs attribute or key found in object: {obj}")
     except Exception as exc:
         logger.exception(exc)
         raise NoCRSError(f"cannot determine CRS from object: {obj}") from exc

@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from importlib.util import find_spec
 import logging
-import warnings
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from typing import Generator, Optional, Union
 
-import numpy as np
 import numpy.ma as ma
 import rasterio
 from rasterio.io import DatasetWriter, MemoryFile, BufferedDatasetWriter
@@ -16,7 +14,6 @@ from rasterio.profiles import Profile
 from mapchete.io.raster.array import extract_from_array
 from mapchete.path import MPath, MPathLike
 from mapchete.protocols import GridProtocol
-from mapchete.tile import BufferedTile
 from mapchete.validate import validate_write_window_params
 
 logger = logging.getLogger(__name__)
@@ -134,11 +131,10 @@ class RasterioRemoteWriter:
 
 def write_raster_window(
     in_grid: GridProtocol,
-    in_data: np.ndarray,
+    in_data: ma.MaskedArray,
     out_profile: Union[Profile, dict],
     out_path: MPathLike,
-    out_grid: Optional[Union[GridProtocol, BufferedTile]] = None,
-    out_tile: Optional[BufferedTile] = None,
+    out_grid: Optional[GridProtocol] = None,
     tags: Optional[dict] = None,
     write_empty: bool = False,
     **kwargs,
@@ -148,11 +144,9 @@ def write_raster_window(
     """
     out_path = MPath.from_inp(out_path)
     logger.debug("write %s", out_path)
-    if out_tile:  # pragma: no cover
-        warnings.warn(
-            DeprecationWarning("'out_tile' is deprecated and should be 'grid'")
-        )
-        out_grid = out_grid or out_tile
+
+    if kwargs.get("out_tile"):  # pragma: no cover
+        raise DeprecationWarning("'out_tile' is deprecated and should be 'grid'")
 
     out_grid = out_grid or in_grid
 

@@ -276,4 +276,4 @@ def read_vector(
     index: Optional[Literal["rtree"]] = "rtree",
 ) -> IndexedFeatures:
     with fiona_read(inp) as src:
-        return IndexedFeatures(src, index=index)
+        return IndexedFeatures(src, index=index, crs=src.crs)

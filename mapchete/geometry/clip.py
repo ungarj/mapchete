@@ -20,7 +20,7 @@ def clip_geometry_to_pyramid_bounds(
     - pyramid: a TilePyramid object
     - multipart: return list of geometries instead of a GeometryCollection
     """
-    if not geometry.is_valid:
+    if not geometry.is_valid:  # pragma: no cover
         raise ValueError("invalid geometry given")
     pyramid_bbox = box(*pyramid.bounds)
 
