@@ -100,7 +100,7 @@ class BufferedTilePyramid(TilePyramid):
         """
         Yield BufferedTiles intersecting with bounds.
         """
-        yield from self.tiles_from_bbox(Bounds.from_inp(bounds).geometry, zoom=zoom)  # type: ignore
+        yield from self.tiles_from_bbox(Bounds.from_inp(bounds).geometry, zoom=zoom)
 
     def tiles_from_bounds_batches(
         self, bounds: BoundsLike, zoom: int, batch_by: BatchBy = BatchBy.row
@@ -221,32 +221,7 @@ class BufferedTilePyramid(TilePyramid):
 
 class BufferedTile(Tile):
     """
-    A special tile with fixed pixelbuffer.
-
-    Parameters
-    ----------
-    tile : ``Tile``
-    pixelbuffer : integer
-        tile buffer in pixels
-
-    Attributes
-    ----------
-    height : integer
-        tile height in pixels
-    width : integer
-        tile width in pixels
-    shape : tuple
-        tile width and height in pixels
-    affine : ``Affine``
-        ``Affine`` object describing tile extent and pixel size
-    bounds : tuple
-        left, bottom, right, top values of tile boundaries
-    bbox : ``shapely.geometry``
-        tile bounding box as shapely geometry
-    pixelbuffer : integer
-        pixelbuffer used to create tile
-    profile : dictionary
-        rasterio metadata profile
+    A Tile member of a BufferedTilePyramid.
     """
 
     pixelbuffer: NonNegativeInt
