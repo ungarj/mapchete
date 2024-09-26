@@ -5,9 +5,9 @@ import os
 import shutil
 from itertools import chain
 
+import importlib_resources
 import numpy as np
 import numpy.ma as ma
-import pkg_resources
 import pytest
 from rasterio import windows
 
@@ -473,8 +473,8 @@ def test_write_empty(cleantopo_tl):
 
 def test_process_template(dummy1_tif, mp_tmpdir):
     """Template used to create an empty process."""
-    process_template = pkg_resources.resource_filename(
-        "mapchete.static", "process_template.py"
+    process_template = (
+        importlib_resources.files("mapchete.static") / "process_template.py"
     )
     mp = mapchete.open(
         dict(
