@@ -30,9 +30,7 @@ def test_read_vector_window(path, grid, pixelbuffer, zoom):
             shape(Bounds.from_inp(src.bounds)), src.crs, tile_pyramid.crs
         )
 
-    tiles = list(tile_pyramid.tiles_from_geom(bbox, zoom))
-
-    for tile in tiles:
+    for tile in tile_pyramid.tiles_from_geom(bbox, zoom):
         features = read_vector_window(path, tile)
         if features:
             for feature in features:

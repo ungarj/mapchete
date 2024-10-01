@@ -119,7 +119,7 @@ class InputData(base.InputData):
                 self.add_preprocessing_task(
                     read_vector,
                     key=f"cache_{self.path}",
-                    fkwargs=dict(inp=self.path, index=None),
+                    fkwargs=dict(path=self.path, index=None),
                     geometry=self.bbox(),
                 )
             else:  # pragma: no cover

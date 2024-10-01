@@ -21,6 +21,7 @@ from tilematrix import Shape, Tile, TileIndex, TilePyramid, GridDefinition
 from tilematrix._conf import ROUND
 
 from mapchete.bounds import Bounds
+from mapchete.protocols import GridProtocol
 from mapchete.types import (
     BoundsLike,
     CRSLike,
@@ -219,7 +220,7 @@ class BufferedTilePyramid(TilePyramid):
         )
 
 
-class BufferedTile:
+class BufferedTile(GridProtocol):
     """
     A Tile member of a BufferedTilePyramid.
     """

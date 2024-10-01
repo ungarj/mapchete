@@ -167,7 +167,7 @@ def write_vector_window(
             for out_geom in filter_by_geometry_type(
                 to_shape(feature["geometry"]).intersection(out_tile.bbox),
                 get_geometry_type(out_schema["geometry"]),
-                allow_multipart=allow_multipart_geometries,
+                singlepart_matches_multipart=allow_multipart_geometries,
             ):
                 if out_geom.is_empty:
                     continue
