@@ -4,7 +4,7 @@ from mapchete import Mapchete
 from mapchete.config import MapcheteConfig
 from mapchete.formats import base
 from mapchete.formats.protocols import InputTileProtocol
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 
 METADATA = {
     "driver_name": "Mapchete",

@@ -6,8 +6,8 @@ from mapchete.geometry.footprints import (
     buffer_antimeridian_safe,
     repair_antimeridian_geometry,
 )
-from mapchete.geometry.types import MultipartGeometry
-from mapchete.types import Bounds
+from mapchete.types import MultipartGeometry
+from mapchete.bounds import Bounds
 
 
 @pytest.mark.parametrize(

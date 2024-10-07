@@ -7,39 +7,28 @@ from collections import OrderedDict
 from typing import Any, List, Optional, Tuple, Type, Union
 
 from distributed import Client
-from pydantic import BaseModel, Field, NonNegativeInt, field_validator
+from pydantic import BaseModel, Field, NonNegativeInt
 from shapely.geometry.base import BaseGeometry
 
+from mapchete.bounds import Bounds
 from mapchete.errors import MapcheteConfigError
 from mapchete.path import MPath
-from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
+from mapchete.types import BoundsLike, MPathLike, ZoomLevelsLike
 from mapchete.validate import validate_values
+from mapchete.zoom_levels import ZoomLevels
+from mapchete.tile import MetatilingValue
 
 
 class OutputConfigBase(BaseModel):
     format: str
-    metatiling: Optional[int] = 1
-    pixelbuffer: Optional[NonNegativeInt] = 0
-
-    @field_validator("metatiling", mode="before")
-    def _metatiling(cls, value: int) -> int:  # pragma: no cover
-        _metatiling_opts = [2**x for x in range(10)]
-        if value not in _metatiling_opts:
-            raise ValueError(f"metatling must be one of {_metatiling_opts}")
-        return value
+    metatiling: MetatilingValue = 1
+    pixelbuffer: NonNegativeInt = 0
 
 
 class PyramidConfig(BaseModel):
     grid: Union[str, dict]
-    metatiling: Optional[int] = 1
-    pixelbuffer: Optional[NonNegativeInt] = 0
-
-    @field_validator("metatiling", mode="before")
-    def _metatiling(cls, value: int) -> int:  # pragma: no cover
-        _metatiling_opts = [2**x for x in range(10)]
-        if value not in _metatiling_opts:
-            raise ValueError(f"metatling must be one of {_metatiling_opts}")
-        return value
+    metatiling: MetatilingValue = 1
+    pixelbuffer: NonNegativeInt = 0
 
 
 class DaskAdaptOptions(BaseModel):

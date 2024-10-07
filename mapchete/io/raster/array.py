@@ -13,9 +13,10 @@ from rasterio.warp import reproject
 from rasterio.windows import from_bounds
 from shapely.ops import unary_union
 
-from mapchete.io.vector import to_shape
+from mapchete.geometry.shape import to_shape
+from mapchete.grid import Grid
 from mapchete.protocols import GridProtocol
-from mapchete.types import BoundsLike, CRSLike, Grid, NodataVal
+from mapchete.types import BoundsLike, CRSLike, NodataVal
 
 logger = logging.getLogger(__name__)
 
@@ -127,11 +128,11 @@ def resample_from_array(
     elif hasattr(array, "affine") and hasattr(array, "data"):  # pragma: no cover
         array_transform = getattr(array, "affine")
         in_crs = array.crs
-        array = array.data
+        array: np.ndarray = getattr(array, "data")
     elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover
         array_transform = array.transform
         in_crs = array.crs
-        array = array.data
+        array: np.ndarray = getattr(array, "data")
     elif isinstance(array, tuple):
         array = ma.MaskedArray(
             data=np.stack(array),
@@ -158,7 +159,7 @@ def resample_from_array(
     else:
         raise TypeError("input array must have 2 or 3 dimensions")
 
-    if hasattr(array, "fill_value") and array.fill_value != nodata:
+    if hasattr(array, "fill_value") and getattr(array, "fill_value") != nodata:
         ma.set_fill_value(array, nodata)
         array = array.filled()
 

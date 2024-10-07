@@ -5,7 +5,7 @@ from typing import Protocol, Tuple, runtime_checkable
 from affine import Affine
 from rasterio.crs import CRS
 
-from mapchete.types import Bounds
+from mapchete.bounds import Bounds
 
 
 class ObserverProtocol(Protocol):

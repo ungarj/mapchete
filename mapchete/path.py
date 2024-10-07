@@ -25,7 +25,7 @@ from retry import retry
 from mapchete.executor import Executor
 from mapchete.pretty import pretty_bytes
 from mapchete.settings import GDALHTTPOptions, IORetrySettings, mapchete_options
-from mapchete.tile import BufferedTile
+from mapchete.tile import BatchBy, BufferedTile
 from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
@@ -1010,7 +1010,7 @@ def fs_from_path(path: MPathLike, **kwargs) -> fsspec.AbstractFileSystem:
     return path.fs if isinstance(path, MPath) else MPath(path, **kwargs).fs
 
 
-def batch_sort_property(tile_path_schema: str) -> str:
+def batch_sort_property(tile_path_schema: str) -> BatchBy:
     """
     Determine by which property according to the schema batches should be sorted.
 
@@ -1029,4 +1029,4 @@ def batch_sort_property(tile_path_schema: str) -> str:
     for element in elements:
         if element in ["{row}", "{col}"]:
             out = element
-    return out.lstrip("{").rstrip("}")
+    return BatchBy[out.lstrip("{").rstrip("}")]
