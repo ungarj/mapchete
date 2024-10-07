@@ -28,6 +28,7 @@ TO_MULTIPART: Dict[Type[Geometry], Type[MultipartGeometry]] = {
     MultiPoint: MultiPoint,
     MultiLineString: MultiLineString,
     MultiPolygon: MultiPolygon,
+    GeometryCollection: GeometryCollection,
 }
 
 
@@ -59,7 +60,7 @@ def get_singlepart_type(
         return TO_SINGLEPART[get_geometry_type(geometry_type)]
     except KeyError:
         raise GeometryTypeError(
-            f"geometry type {geometry_type} has no corresponding multipart type"
+            f"geometry type {geometry_type} has no corresponding singlepart type"
         )
 
 

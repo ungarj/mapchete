@@ -54,16 +54,24 @@ def is_type(
             ]
         )
 
-    if isinstance(geometry, get_geometry_type(target_type)):
+    geometry_type = get_geometry_type(geometry.geom_type)
+
+    if geometry_type == get_geometry_type(target_type):
         return True
 
-    # SinglePart is MultiPart
-    elif singlepart_matches_multipart:
-        return isinstance(geometry, get_multipart_type(target_type))
+    # a single-part geometry matches its multi-part relative
+    elif (
+        singlepart_matches_multipart
+        and get_multipart_type(geometry_type) == target_type
+    ):
+        return True
 
-    # MultiPart is SinglePart
-    elif multipart_matches_singlepart:
-        return isinstance(geometry, get_singlepart_type(target_type))
+    # a multi-part geometry matches its single-part relative
+    elif (
+        multipart_matches_singlepart
+        and get_singlepart_type(geometry_type) == target_type
+    ):
+        return True
 
     return False
 
