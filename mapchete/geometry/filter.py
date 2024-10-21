@@ -36,8 +36,8 @@ def omit_empty_geometries(geometry: Geometry) -> Generator[Geometry, None, None]
 def is_type(
     geometry: Geometry,
     target_type: Union[GeometryTypeLike, Tuple[GeometryTypeLike]],
-    singlepart_matches_multipart: bool = True,
-    multipart_matches_singlepart: bool = True,
+    singlepart_equivalent_matches: bool = True,
+    multipart_equivalent_matches: bool = True,
 ) -> bool:
     """
     Checks whether geometry type is in alignment with target type.
@@ -48,7 +48,7 @@ def is_type(
                 is_type(
                     geometry,
                     target_type=geom_type,
-                    singlepart_matches_multipart=singlepart_matches_multipart,
+                    singlepart_equivalent_matches=singlepart_equivalent_matches,
                 )
                 for geom_type in target_type
             ]
@@ -56,20 +56,25 @@ def is_type(
 
     geometry_type = get_geometry_type(geometry.geom_type)
 
+    # simple match
     if geometry_type == get_geometry_type(target_type):
+        return True
+
+    # GeometryCollections don't have a corresponding singlepart or multipart type
+    elif geometry_type == GeometryCollection:
+        return False
+
+    # a multi-part geometry matches its single-part relative
+    elif (
+        singlepart_equivalent_matches
+        and get_singlepart_type(geometry_type) == target_type
+    ):
         return True
 
     # a single-part geometry matches its multi-part relative
     elif (
-        singlepart_matches_multipart
+        multipart_equivalent_matches
         and get_multipart_type(geometry_type) == target_type
-    ):
-        return True
-
-    # a multi-part geometry matches its single-part relative
-    elif (
-        multipart_matches_singlepart
-        and get_singlepart_type(geometry_type) == target_type
     ):
         return True
 
@@ -79,8 +84,8 @@ def is_type(
 def filter_by_geometry_type(
     geometry: Geometry,
     target_type: Union[GeometryTypeLike, Tuple[GeometryTypeLike]],
-    singlepart_matches_multipart: bool = True,
-    multipart_matches_singlepart: bool = True,
+    singlepart_equivalent_matches: bool = True,
+    multipart_equivalent_matches: bool = True,
     resolve_multipart_geometry: bool = True,
     resolve_geometrycollection: bool = True,
 ) -> Generator[Geometry, None, None]:
@@ -90,8 +95,8 @@ def filter_by_geometry_type(
     if is_type(
         geometry,
         target_type=target_type,
-        singlepart_matches_multipart=singlepart_matches_multipart,
-        multipart_matches_singlepart=multipart_matches_singlepart,
+        singlepart_equivalent_matches=singlepart_equivalent_matches,
+        multipart_equivalent_matches=multipart_equivalent_matches,
     ):
         yield geometry
 
@@ -100,8 +105,8 @@ def filter_by_geometry_type(
             yield from filter_by_geometry_type(
                 subgeometry,
                 target_type=target_type,
-                singlepart_matches_multipart=singlepart_matches_multipart,
-                multipart_matches_singlepart=multipart_matches_singlepart,
+                singlepart_equivalent_matches=singlepart_equivalent_matches,
+                multipart_equivalent_matches=multipart_equivalent_matches,
                 resolve_multipart_geometry=False,
             )
 
@@ -110,6 +115,6 @@ def filter_by_geometry_type(
             yield from filter_by_geometry_type(
                 subgeometry,
                 target_type=target_type,
-                singlepart_matches_multipart=singlepart_matches_multipart,
-                multipart_matches_singlepart=multipart_matches_singlepart,
+                singlepart_equivalent_matches=singlepart_equivalent_matches,
+                multipart_equivalent_matches=multipart_equivalent_matches,
             )

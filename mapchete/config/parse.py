@@ -226,7 +226,7 @@ def guess_geometry(
         )
     if not geom.is_valid:  # pragma: no cover
         raise TypeError("area is not a valid geometry")
-    if not is_type(geom, "Polygon", singlepart_matches_multipart=True):
+    if not is_type(geom, "Polygon", singlepart_equivalent_matches=True):
         raise GeometryTypeError(
             f"area must either be a Polygon or a MultiPolygon, not {geom.geom_type}"
         )
