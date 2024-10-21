@@ -25,7 +25,6 @@ from mapchete.geometry.clip import clip_geometry_to_pyramid_bounds
 from mapchete.geometry.filter import omit_empty_geometries
 from mapchete.geometry.types import (
     GeometryTypeLike,
-    get_singlepart_type,
 )
 from mapchete.io.vector.types import FeatureCollectionProtocol
 from mapchete.path import MPath
@@ -228,17 +227,15 @@ def reprojected_features(
         try:
             # check validity
             original_geom = repair(to_shape(feature["geometry"]))
-            target_geometry_type = target_geometry_type or get_singlepart_type(
-                original_geom.geom_type
-            )
+            target_geometry_type = target_geometry_type or original_geom.geom_type
 
             # clip with bounds and omit if clipped geometry is empty
             for checked_geom in filter_by_geometry_type(
                 dst_bbox.intersection(original_geom),
                 target_geometry_type,
             ):
-                # reproject each feature to tile CRS
-                for geom in omit_empty_geometries(
+                # reproject each feature to grid CRS
+                for reprojected_geom in omit_empty_geometries(
                     reproject_geometry(
                         checked_geom,
                         src_crs=src.crs,
@@ -247,10 +244,12 @@ def reprojected_features(
                         clip_to_crs_bounds=clip_to_crs_bounds,
                     )
                 ):
-                    for geom in filter_by_geometry_type(geom, target_geometry_type):
+                    for filtered_geom in filter_by_geometry_type(
+                        reprojected_geom, target_geometry_type
+                    ):
                         yield {
                             "properties": feature["properties"],
-                            "geometry": mapping(geom),
+                            "geometry": mapping(filtered_geom),
                         }
         # this can be handled quietly
         except TopologicalError as e:  # pragma: no cover

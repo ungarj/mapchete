@@ -321,7 +321,7 @@ def test_convert_geojson(landpoly, mp_tmpdir):
         concurrency=Concurrency.none,
         bounds=(-101.25, 67.5, -90.0, 90.0),
     )
-    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [14, 42]):
+    for (zoom, row, col), control in zip([(4, 0, 7), (4, 1, 7)], [9, 32]):
         out_file = mp_tmpdir / str(zoom) / str(row) / str(col) + ".geojson"
         with fiona_open(out_file, "r") as src:
             assert len(src) == control
