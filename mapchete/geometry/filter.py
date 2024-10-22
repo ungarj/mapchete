@@ -24,7 +24,7 @@ def multipart_to_singleparts(
             yield from multipart_to_singleparts(subgeometry)
     elif isinstance(geometry, SinglepartGeometry):
         yield geometry
-    else:
+    else:  # pragma: no cover
         raise GeometryTypeError(f"invalid geometry: {geometry}")
 
 

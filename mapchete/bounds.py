@@ -145,7 +145,7 @@ class Bounds(list):
         from mapchete.geometry.latlon import transform_to_latlon
 
         crs = crs or self.crs
-        if crs is None:
+        if crs is None:  # pragma: no cover
             raise ValueError(
                 "crs or Bounds.crs must be set in order to generate latlon_geometry."
             )

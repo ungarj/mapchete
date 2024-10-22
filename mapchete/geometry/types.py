@@ -47,7 +47,7 @@ GeometryTypeLike = Union[Type[Geometry], str]
 def get_multipart_type(geometry_type: GeometryTypeLike) -> Type[MultipartGeometry]:
     try:
         return TO_MULTIPART[get_geometry_type(geometry_type)]
-    except KeyError:
+    except KeyError:  # pragma: no cover
         raise GeometryTypeError(
             f"geometry type {geometry_type} has no corresponding multipart type"
         )
@@ -58,7 +58,7 @@ def get_singlepart_type(
 ) -> Type[SinglepartGeometry]:
     try:
         return TO_SINGLEPART[get_geometry_type(geometry_type)]
-    except KeyError:
+    except KeyError:  # pragma: no cover
         raise GeometryTypeError(
             f"geometry type {geometry_type} has no corresponding singlepart type"
         )

@@ -169,6 +169,33 @@ def test_is_type_multiparts(geometry, target_type, multipart_equivalent_matches)
         MultiPolygon,
     ],
 )
+def test_is_type_tuple(geometry, target_type):
+    assert is_type(geometry, (target_type, geometry.geom_type))
+
+
+@pytest.mark.parametrize(
+    "geometry",
+    [
+        lazy_fixture("point"),
+        lazy_fixture("multipoint"),
+        lazy_fixture("linestring"),
+        lazy_fixture("multilinestring"),
+        lazy_fixture("polygon"),
+        lazy_fixture("multipolygon"),
+        lazy_fixture("geometrycollection"),
+    ],
+)
+@pytest.mark.parametrize(
+    "target_type",
+    [
+        Point,
+        MultiPoint,
+        LineString,
+        MultiLineString,
+        Polygon,
+        MultiPolygon,
+    ],
+)
 @pytest.mark.parametrize(
     "singlepart_equivalent_matches",
     [True, False],

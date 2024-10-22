@@ -113,6 +113,9 @@ def test_indexed_features_read_union_geometry(aoi_br_geojson):
     tp = BufferedTilePyramid("geodetic")
     tile = next(tp.tiles_from_bounds(bounds=features.bounds, zoom=5))
     assert features.read_union_geometry(bounds=tile.bounds, clip=True).is_empty
+    assert not features.read_union_geometry(
+        bounds=(-180, -90, 180, 90), clip=True
+    ).is_empty
 
 
 def test_read_union_geometry(aoi_br_geojson):
@@ -123,6 +126,9 @@ def test_read_union_geometry(aoi_br_geojson):
     tile = next(tp.tiles_from_bounds(bounds=features.bounds, zoom=5))
 
     assert read_union_geometry(aoi_br_geojson, bounds=tile.bounds, clip=True).is_empty
+    assert not read_union_geometry(
+        aoi_br_geojson, bounds=(-180, -90, 180, 90), clip=True
+    ).is_empty
 
 
 def test_object_bounds_attr_bounds():

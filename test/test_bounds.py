@@ -2,6 +2,7 @@ import json
 
 import pytest
 from pytest_lazyfixture import lazy_fixture
+from shapely import box
 from shapely.geometry import shape
 
 from mapchete.bounds import Bounds
@@ -194,6 +195,7 @@ def test_bounds_add():
         lazy_fixture("antimeridian_polygon1"),
         lazy_fixture("antimeridian_polygon2"),
         lazy_fixture("antimeridian_polygon3"),
+        box(-181, 0, 0, 90),
     ],
 )
 def test_bounds_latlon_geometry(polygon):
