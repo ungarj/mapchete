@@ -5,9 +5,9 @@ import os
 import shutil
 from itertools import chain
 
+import importlib_resources
 import numpy as np
 import numpy.ma as ma
-import pkg_resources
 import pytest
 from rasterio import windows
 
@@ -25,13 +25,25 @@ from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import fs_from_path, rasterio_open
 from mapchete.io.raster.mosaic import _shift_required, create_mosaic
 from mapchete.processing.types import TaskInfo
-from mapchete.tile import BufferedTilePyramid, count_tiles
+from mapchete.tile import BufferedTile, BufferedTilePyramid, count_tiles
 
 
 def test_empty_execute(cleantopo_br):
     """Execute process outside of defined zoom levels."""
     with mapchete.open(cleantopo_br.dict) as mp:
         assert mp.execute_tile((6, 0, 0)).mask.all()
+
+
+@pytest.mark.parametrize(
+    "zoom",
+    [0, None],
+)
+def test_process_tiles_batches(cleantopo_br, zoom):
+    """Execute process outside of defined zoom levels."""
+    with mapchete.open(cleantopo_br.dict) as mp:
+        for batch in mp.get_process_tiles_batches(zoom=zoom):
+            for tile in batch:
+                assert isinstance(tile, BufferedTile)
 
 
 def test_read_existing_output(cleantopo_tl):
@@ -473,12 +485,12 @@ def test_write_empty(cleantopo_tl):
 
 def test_process_template(dummy1_tif, mp_tmpdir):
     """Template used to create an empty process."""
-    process_template = pkg_resources.resource_filename(
-        "mapchete.static", "process_template.py"
+    process_template = (
+        importlib_resources.files("mapchete.static") / "process_template.py"
     )
     mp = mapchete.open(
         dict(
-            process=process_template,
+            process=str(process_template),
             pyramid=dict(grid="geodetic"),
             input=dict(file1=dummy1_tif),
             output=dict(format="GTiff", path=mp_tmpdir, bands=1, dtype="uint8"),

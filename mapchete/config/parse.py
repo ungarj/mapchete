@@ -7,13 +7,15 @@ from shapely.geometry import Point, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from mapchete.bounds import Bounds
 from mapchete.config.models import ProcessConfig, ZoomParameters
 from mapchete.errors import GeometryTypeError
 from mapchete.geometry import is_type, reproject_geometry
 from mapchete.io.vector import fiona_open
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels, ZoomLevelsLike
+from mapchete.types import BoundsLike, MPathLike, ZoomLevelsLike
+from mapchete.zoom_levels import ZoomLevels
 
 
 def parse_config(
@@ -224,7 +226,7 @@ def guess_geometry(
         )
     if not geom.is_valid:  # pragma: no cover
         raise TypeError("area is not a valid geometry")
-    if not is_type(geom, "Polygon", allow_multipart=True):
+    if not is_type(geom, "Polygon", singlepart_equivalent_matches=True):
         raise GeometryTypeError(
             f"area must either be a Polygon or a MultiPolygon, not {geom.geom_type}"
         )

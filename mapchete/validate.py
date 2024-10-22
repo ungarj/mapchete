@@ -1,15 +1,17 @@
 """Convenience validator functions for core and extension packages."""
 
 import warnings
-from collections.abc import Iterable
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Union
 
 import numpy.ma as ma
 from rasterio.crs import CRS
+from rasterio.profiles import Profile
 
 from mapchete.protocols import GridProtocol
 from mapchete.tile import BufferedTile, BufferedTilePyramid
-from mapchete.types import Bounds, CRSLike, ZoomLevels
+from mapchete.bounds import Bounds
+from mapchete.types import CRSLike
+from mapchete.zoom_levels import ZoomLevels
 
 ########################
 # validator functionrs #
@@ -44,7 +46,7 @@ def validate_zooms(
     return ZoomLevels.from_inp(zooms)
 
 
-def validate_bounds(bounds: Iterable) -> Bounds:
+def validate_bounds(bounds: Any) -> Bounds:
     """
     Return validated bounds.
 
@@ -187,7 +189,7 @@ def validate_write_window_params(
     in_grid: GridProtocol,
     out_grid: GridProtocol,
     in_data: ma.MaskedArray,
-    out_profile: dict,
+    out_profile: Union[dict, Profile],
 ):
     """Raise Exception if write window parameters are invalid."""
     if any([not isinstance(t, GridProtocol) for t in [in_grid, out_grid]]):

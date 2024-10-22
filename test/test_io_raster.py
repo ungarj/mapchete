@@ -30,7 +30,7 @@ from mapchete.io.raster import (
     write_raster_window,
 )
 from mapchete.io.raster.array import clip_array_with_vector
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 
 

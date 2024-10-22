@@ -13,7 +13,7 @@ from mapchete.commands.observer import ObserverProtocol, Observers
 from mapchete.enums import Concurrency
 from mapchete.executor import Executor
 from mapchete.io import MPath, copy, tiles_exist
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 from mapchete.types import BoundsLike, CRSLike, Progress, ZoomLevelsLike
 
 logger = logging.getLogger(__name__)

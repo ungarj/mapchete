@@ -4,9 +4,9 @@ from mapchete.protocols import ObserverProtocol
 
 
 class Observers:
-    observers = List[ObserverProtocol]
+    observers: List[ObserverProtocol]
 
-    def __init__(self, observers: Optional[List[ObserverProtocol]]):
+    def __init__(self, observers: Optional[List[ObserverProtocol]] = None):
         self.observers = observers or []
 
     def notify(self, *args, **kwargs) -> None:

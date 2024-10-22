@@ -6,11 +6,12 @@ import click
 import tilematrix
 from rasterio.enums import Resampling
 
+from mapchete.bounds import Bounds
 from mapchete.config import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.formats import available_output_formats
 from mapchete.io import MPath
 from mapchete.log import set_log_level, setup_logfile
-from mapchete.types import Bounds, ZoomLevels
+from mapchete.zoom_levels import ZoomLevels
 from mapchete.validate import validate_crs
 
 logger = logging.getLogger(__name__)

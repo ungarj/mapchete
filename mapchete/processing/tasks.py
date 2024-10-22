@@ -20,6 +20,7 @@ from dask.delayed import Delayed, DelayedLeaf, delayed
 from shapely.geometry import Polygon, base, box, mapping, shape
 from shapely.ops import unary_union
 
+from mapchete.bounds import Bounds
 from mapchete.config import MapcheteConfig
 from mapchete.config.process_func import ProcessFunc
 from mapchete.errors import (
@@ -36,8 +37,9 @@ from mapchete.processing.mp import MapcheteProcess
 from mapchete.processing.types import TaskInfo, default_tile_task_id
 from mapchete.tile import BufferedTile
 from mapchete.timer import Timer
-from mapchete.types import Bounds, BoundsLike, TileLike, ZoomLevels
+from mapchete.types import BoundsLike, TileLike
 from mapchete.validate import validate_bounds
+from mapchete.zoom_levels import ZoomLevels
 
 logger = logging.getLogger(__name__)
 

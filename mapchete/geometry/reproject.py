@@ -7,13 +7,14 @@ from fiona.transform import transform_geom
 from rasterio.crs import CRS
 from shapely.geometry import mapping, shape
 
+from mapchete.bounds import Bounds
 from mapchete.errors import GeometryTypeError, ReprojectionFailed
 from mapchete.geometry.latlon import LATLON_CRS
 from mapchete.geometry.repair import repair
 from mapchete.geometry.segmentize import get_segmentize_value, segmentize_geometry
 from mapchete.geometry.shape import to_shape
-from mapchete.geometry.types import Geometry, GeometryLike
-from mapchete.types import Bounds, CRSLike
+from mapchete.types import Geometry, GeometryLike
+from mapchete.types import CRSLike
 from mapchete.validate import validate_crs
 
 logger = logging.getLogger(__name__)

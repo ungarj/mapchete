@@ -11,6 +11,7 @@ from mapchete.geometry.types import (
     Polygon,
     get_geometry_type,
     get_multipart_type,
+    get_singlepart_type,
 )
 
 
@@ -23,15 +24,31 @@ from mapchete.geometry.types import (
         (MultiPoint, MultiPoint),
         (MultiLineString, MultiLineString),
         (MultiPolygon, MultiPolygon),
+        (GeometryCollection, GeometryCollection),
     ],
 )
 def test_get_multipart_type(geom_type, control):
     assert get_multipart_type(geom_type) == control
 
 
-def test_get_multipart_type_error():
+@pytest.mark.parametrize(
+    "geom_type,control",
+    [
+        (Point, Point),
+        (LineString, LineString),
+        (Polygon, Polygon),
+        (MultiPoint, Point),
+        (MultiLineString, LineString),
+        (MultiPolygon, Polygon),
+    ],
+)
+def test_get_singlepart_type(geom_type, control):
+    assert get_singlepart_type(geom_type) == control
+
+
+def test_get_singlepart_type_goemetrycollection():
     with pytest.raises(GeometryTypeError):
-        assert get_multipart_type(GeometryCollection)
+        get_singlepart_type(GeometryCollection)
 
 
 @pytest.mark.parametrize(

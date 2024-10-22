@@ -15,7 +15,7 @@ from mapchete.formats import (
 )
 from mapchete.formats.protocols import RasterInput
 from mapchete.io import MPath, tile_to_zoom_level
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
 from mapchete.validate import validate_values
 

@@ -12,7 +12,7 @@ from mapchete.geometry.latlon import (
 from mapchete.geometry.repair import repair
 from mapchete.geometry.reproject import reproject_geometry
 from mapchete.geometry.types import Geometry
-from mapchete.types import Bounds
+from mapchete.bounds import Bounds
 
 logger = logging.getLogger(__name__)
 
