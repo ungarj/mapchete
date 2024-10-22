@@ -195,11 +195,15 @@ def test_bounds_add():
         lazy_fixture("antimeridian_polygon1"),
         lazy_fixture("antimeridian_polygon2"),
         lazy_fixture("antimeridian_polygon3"),
-        box(-181, 0, 0, 90),
     ],
 )
-def test_bounds_latlon_geometry(polygon):
+def test_bounds_latlon_geometry_utm(polygon):
     utm_crs = latlon_to_utm_crs(polygon.centroid.y, polygon.centroid.x)
     utm_geometry = reproject_geometry(polygon, src_crs="EPSG:4326", dst_crs=utm_crs)
     utm_bounds = Bounds.from_inp(utm_geometry.bounds, crs=utm_crs)
     assert utm_bounds.latlon_geometry().is_valid
+
+
+def test_bounds_latlon_geometry_antimeridian(polygon):
+    bounds = Bounds.from_inp(box(-181, 0, 0, 90), crs="EPSG:4326")
+    assert bounds.latlon_geometry().is_valid

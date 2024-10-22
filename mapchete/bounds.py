@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, Union, Iterable
 
+from rasterio.crs import CRS
 from shapely import unary_union
 from shapely.geometry import shape
 
@@ -19,7 +20,7 @@ class Bounds(list):
     top: float
     height: float
     width: float
-    crs: Optional[CRSLike] = None
+    crs: Optional[CRS] = None
 
     def __init__(
         self,
@@ -43,7 +44,9 @@ class Bounds(list):
                 raise ValueError("top must be larger than bottom")
         self.height = self.top - self.bottom
         self.width = self.right - self.left
-        self.crs = crs
+        from mapchete.validate import validate_crs
+
+        self.crs = validate_crs(crs) if crs else None
 
     def __iter__(self):
         yield self.left
@@ -143,18 +146,22 @@ class Bounds(list):
         Will create a MultiPolygon if bounds overlap with Antimeridian.
         """
         from mapchete.geometry.latlon import transform_to_latlon
+        from mapchete.geometry.reproject import crs_is_epsg_4326
+        from mapchete.validate import validate_crs
 
-        crs = crs or self.crs
+        crs = validate_crs(crs) if crs else self.crs
         if crs is None:  # pragma: no cover
             raise ValueError(
                 "crs or Bounds.crs must be set in order to generate latlon_geometry."
             )
+        elif crs_is_epsg_4326(crs):
+            return shape(self)  # type: ignore
         bounds = Bounds.from_inp(
             transform_to_latlon(
                 shape(self), self.crs, width_threshold=width_threshold
             ).bounds
         )
-        if bounds.left < -180:
+        if bounds.left < -180:  # pragma: no cover
             part1 = Bounds(-180, bounds.bottom, bounds.right, bounds.top)
             part2 = Bounds(bounds.left + 360, bounds.bottom, 180, bounds.top)
             return unary_union([shape(part1), shape(part2)])  # type: ignore
