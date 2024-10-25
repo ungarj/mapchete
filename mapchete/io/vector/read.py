@@ -26,6 +26,7 @@ from mapchete.geometry.filter import omit_empty_geometries
 from mapchete.geometry.types import (
     GeometryTypeLike,
 )
+from mapchete.grid import Grid
 from mapchete.io.vector.types import FeatureCollectionProtocol
 from mapchete.path import MPath
 from mapchete.protocols import GridProtocol
@@ -153,7 +154,7 @@ def _read_vector_window_from_file(
                 chain.from_iterable(
                     _get_reprojected_features_from_file(
                         inp=inp,
-                        grid=grid,
+                        grid=Grid.from_bounds(bbox.bounds, shape=tuple(), crs=grid.crs),
                         validity_check=validity_check,
                         clip_to_crs_bounds=clip_to_crs_bounds,
                         target_geometry_type=target_geometry_type,

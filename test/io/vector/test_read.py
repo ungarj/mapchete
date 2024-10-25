@@ -5,6 +5,7 @@ from shapely.geometry import shape
 from mapchete.config import MapcheteConfig
 from mapchete.errors import MapcheteIOError
 from mapchete.geometry import reproject_geometry
+from mapchete.geometry.filter import is_type
 from mapchete.io.vector import (
     fiona_open,
     read_vector_window,
@@ -88,3 +89,35 @@ def test_read_vector_window_errors(invalid_geojson):
         read_vector_window(
             invalid_geojson, BufferedTilePyramid("geodetic").tile(0, 0, 0)
         )
+
+
+@pytest.mark.parametrize(
+    "geom_type",
+    [
+        "Point",
+        "MultiPoint",
+        "LineString",
+        "MultiLineString",
+        "Polygon",
+        "MultiPolygon",
+    ],
+)
+def test_read_vector_window_target_geometry_type(landpoly, geom_type):
+    """Read vector data from read_vector_window."""
+    tile_pyramid = BufferedTilePyramid("geodetic")
+    with fiona_open(landpoly) as src:
+        bbox = reproject_geometry(
+            shape(Bounds.from_inp(src.bounds)), src.crs, tile_pyramid.crs
+        )
+    for tile in tile_pyramid.tiles_from_geom(bbox, 2):
+        features = read_vector_window(landpoly, tile, target_geometry_type=geom_type)
+        if features:
+            for feature in features:
+                assert "properties" in feature
+                geometry = shape(feature["geometry"])
+                assert geometry.is_valid
+                assert is_type(geometry, geom_type)
+            break
+    else:
+        if geom_type == "Polygon":
+            raise RuntimeError("no features read!")

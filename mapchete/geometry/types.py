@@ -87,6 +87,9 @@ def get_geometry_type(
 ) -> Type[Geometry]:
     if isinstance(geometry, str):
         return str_to_geometry_type(geometry)
-    elif issubclass(geometry, Geometry):
-        return geometry
+    try:
+        if issubclass(geometry, Geometry):
+            return geometry
+    except TypeError:  # pragma: no cover
+        pass
     raise GeometryTypeError(f"geometry type cannot be determined from {geometry}")
