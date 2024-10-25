@@ -6,7 +6,7 @@ Currently limited by extensions .shp and .geojson but could be extended easily.
 
 import logging
 from functools import cached_property
-from typing import Optional, List
+from typing import Optional, List, Tuple, Union
 
 from affine import Affine
 import numpy as np
@@ -18,7 +18,8 @@ from shapely.geometry import Point, box, GeometryCollection, mapping
 from mapchete.bounds import Bounds
 from mapchete.formats import base
 from mapchete.formats.protocols import VectorInput
-from mapchete.geometry.types import Geometry
+from mapchete.geometry.filter import is_type
+from mapchete.geometry.types import Geometry, GeometryTypeLike
 from mapchete.geometry import to_shape, reproject_geometry
 from mapchete.io import fiona_open
 from mapchete.io.vector import (
@@ -27,6 +28,7 @@ from mapchete.io.vector import (
     read_vector,
     read_vector_window,
 )
+from mapchete.io.vector.indexed_features import object_geometry
 from mapchete.path import MPath
 from mapchete.tile import BufferedTile
 from mapchete.types import CRSLike, ShapeLike
@@ -264,7 +266,13 @@ class InputTile(base.InputTile, VectorInput):
         return f"vector_file.InputTile(tile={self.tile.id}, source={source})"
 
     def read(
-        self, validity_check: bool = True, clip_to_crs_bounds: bool = False, **kwargs
+        self,
+        validity_check: bool = True,
+        clip_to_crs_bounds: bool = False,
+        target_geometry_type: Optional[
+            Union[GeometryTypeLike, Tuple[GeometryTypeLike]]
+        ] = None,
+        **kwargs,
     ) -> List[dict]:
         """
         Read reprojected & resampled input data.
@@ -296,7 +304,9 @@ class InputTile(base.InputTile, VectorInput):
             []
             if self.is_empty()
             else self._read_from_cache(
-                validity_check=validity_check, clip_to_crs_bounds=clip_to_crs_bounds
+                validity_check=validity_check,
+                clip_to_crs_bounds=clip_to_crs_bounds,
+                target_geometry_type=target_geometry_type,
             )
         )
 
@@ -379,7 +389,14 @@ class InputTile(base.InputTile, VectorInput):
         else:
             return np.zeros(shape=out_shape, dtype=bool)
 
-    def _read_from_cache(self, validity_check=True, clip_to_crs_bounds=False):
+    def _read_from_cache(
+        self,
+        validity_check=True,
+        clip_to_crs_bounds=False,
+        target_geometry_type: Optional[
+            Union[GeometryTypeLike, Tuple[GeometryTypeLike]]
+        ] = None,
+    ):
         checked = "checked" if validity_check else "not_checked"
         if checked not in self._cache:
             self._cache[checked] = list(
@@ -392,4 +409,10 @@ class InputTile(base.InputTile, VectorInput):
                     clip_to_crs_bounds=clip_to_crs_bounds,
                 )
             )
+        if target_geometry_type:
+            return [
+                feature
+                for feature in self._cache[checked]
+                if is_type(object_geometry(feature), target_geometry_type)
+            ]
         return self._cache[checked]
