@@ -11,8 +11,10 @@ from retry import retry
 from shapely import GeometryCollection, prepare, unary_union
 from mapchete.bounds import Bounds
 from mapchete.errors import NoCRSError, NoGeoError
+from mapchete.geometry.filter import is_type
 from mapchete.geometry.reproject import reproject_geometry
 from mapchete.geometry.shape import to_shape
+from mapchete.geometry.types import GeometryTypeLike
 from mapchete.grid import Grid
 from mapchete.io.vector.open import fiona_open
 from mapchete.io.vector.read import read_vector_window, reprojected_features
@@ -134,7 +136,12 @@ class IndexedFeatures(FeatureCollectionProtocol):
         return self._items.values()
 
     def filter(
-        self, bounds: Optional[BoundsLike] = None, bbox: Optional[BoundsLike] = None
+        self,
+        bounds: Optional[BoundsLike] = None,
+        bbox: Optional[BoundsLike] = None,
+        target_geometry_type: Optional[
+            Union[GeometryTypeLike, Tuple[GeometryTypeLike]]
+        ] = None,
     ) -> List[Any]:
         """
         Return features intersecting with bounds.
@@ -150,34 +157,58 @@ class IndexedFeatures(FeatureCollectionProtocol):
             List of features.
         """
         filter_bounds = bounds or bbox
+        out_features = self.values()
         if filter_bounds:
             bounds = Bounds.from_inp(filter_bounds)
-            return [
+            out_features = (
                 self._items[id_]
                 for id_ in chain(self._index.intersection(bounds), self._non_geo_items)
-            ]
-        return list(self.values())
+            )
+        if target_geometry_type is not None:
+            out_features = (
+                feature
+                for feature in out_features
+                if is_type(object_geometry(feature), target_geometry_type)
+            )
+        return list(out_features)
 
     def read(
-        self, grid: Optional[Union[Grid, GridProtocol]] = None
+        self,
+        grid: Optional[Union[Grid, GridProtocol]] = None,
+        target_geometry_type: Optional[
+            Union[GeometryTypeLike, Tuple[GeometryTypeLike]]
+        ] = None,
     ) -> List[GeoJSONLikeFeature]:
         if grid:
-            return list(reprojected_features(self, grid=grid))
-        return list(self.values())
+            return list(
+                reprojected_features(
+                    self, grid=grid, target_geometry_type=target_geometry_type
+                )
+            )
+        return self.filter(target_geometry_type=target_geometry_type)
 
     def read_union_geometry(
-        self, bounds: Optional[BoundsLike] = None, clip: bool = False
+        self,
+        bounds: Optional[BoundsLike] = None,
+        clip: bool = False,
+        target_geometry_type: Optional[
+            Union[GeometryTypeLike, Tuple[GeometryTypeLike]]
+        ] = None,
     ) -> Geometry:
         def _geoms():
             if bounds and clip:
                 bounds_geom = to_shape(Bounds.from_inp(bounds))
                 prepare(bounds_geom)
-                for feature in self.filter(bounds=bounds):
+                for feature in self.filter(
+                    bounds=bounds, target_geometry_type=target_geometry_type
+                ):
                     geom = bounds_geom.intersection(to_shape(feature))
                     if not geom.is_empty:
                         yield geom
             else:
-                for feature in self.filter(bounds=bounds):
+                for feature in self.filter(
+                    bounds=bounds, target_geometry_type=target_geometry_type
+                ):
                     yield to_shape(feature)
 
         geoms = list(_geoms())

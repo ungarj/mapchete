@@ -106,9 +106,10 @@ def test_read_vector_window_target_geometry_type(landpoly, geom_type):
     """Read vector data from read_vector_window."""
     tile_pyramid = BufferedTilePyramid("geodetic")
     with fiona_open(landpoly) as src:
-        bbox = reproject_geometry(
-            shape(Bounds.from_inp(src.bounds)), src.crs, tile_pyramid.crs
-        )
+        if src.bounds:
+            bbox = reproject_geometry(
+                shape(Bounds.from_inp(src.bounds)), src.crs, tile_pyramid.crs
+            )
     for tile in tile_pyramid.tiles_from_geom(bbox, 2):
         features = read_vector_window(landpoly, tile, target_geometry_type=geom_type)
         if features:

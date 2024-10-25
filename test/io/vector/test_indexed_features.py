@@ -85,6 +85,15 @@ def test_indexed_features_filter(aoi_br_geojson):
     assert len(index.filter()) == count
 
 
+def test_indexed_features_filter_geom_type(aoi_br_geojson):
+    with fiona_open(str(aoi_br_geojson)) as src:
+        count = len(src)
+        index = IndexedFeatures(src)
+        geom_type = src.schema["geometry"]
+    assert len(index.filter(target_geometry_type=geom_type)) == count
+    assert len(index.filter(target_geometry_type="Point")) == 0
+
+
 def test_indexed_features_read(aoi_br_geojson):
     with fiona_open(str(aoi_br_geojson)) as src:
         count = len(src)
