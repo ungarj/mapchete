@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Tuple
 
 from affine import Affine
-from rasterio.transform import array_bounds, from_bounds
+from rasterio.transform import array_bounds, from_bounds, rowcol
 from shapely.geometry import mapping, shape
 from tilematrix import Shape
 
@@ -27,6 +27,18 @@ class Grid:
         self.bounds = Bounds(*array_bounds(self.height, self.width, self.transform))
         self.shape = Shape(self.height, self.width)
         self.__geo_interface__ = mapping(shape(self.bounds))
+
+    def extract(self, bounds: BoundsLike) -> Grid:
+        bounds = Bounds.from_inp(bounds)
+        # I <3 axis orders!
+        (minrow, maxrow), (mincol, maxcol) = rowcol(
+            self.transform, [bounds.left, bounds.right], [bounds.top, bounds.bottom]
+        )
+        width = maxcol - mincol
+        height = maxrow - minrow
+        if width < 0 or height < 0:  # pragma: no cover
+            raise ValueError(f"bounds {bounds} are outside of source grid")
+        return Grid.from_bounds(bounds, Shape(height, width), self.crs)
 
     @staticmethod
     def from_obj(obj):  # pragma: no cover

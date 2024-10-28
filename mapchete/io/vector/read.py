@@ -21,7 +21,7 @@ from mapchete.geometry import (
     segmentize_geometry,
     to_shape,
 )
-from mapchete.geometry.clip import clip_geometry_to_pyramid_bounds
+from mapchete.geometry.clip import clip_grid_to_pyramid_bounds
 from mapchete.geometry.filter import omit_empty_geometries
 from mapchete.geometry.types import (
     GeometryTypeLike,
@@ -154,13 +154,13 @@ def _read_vector_window_from_file(
                 chain.from_iterable(
                     _get_reprojected_features_from_file(
                         inp=inp,
-                        grid=Grid.from_bounds(bbox.bounds, shape=tuple(), crs=grid.crs),
+                        grid=grid_part,
                         validity_check=validity_check,
                         clip_to_crs_bounds=clip_to_crs_bounds,
                         target_geometry_type=target_geometry_type,
                     )
-                    for bbox in clip_geometry_to_pyramid_bounds(
-                        grid.bbox, grid.tile_pyramid
+                    for grid_part in clip_grid_to_pyramid_bounds(
+                        Grid.from_obj(grid), grid.tile_pyramid
                     )
                 )
             )
