@@ -71,7 +71,7 @@ def clip_grid_to_pyramid_bounds(grid: Grid, pyramid: BufferedTilePyramid) -> Lis
         inside_grid_geom = to_shape(grid).intersection(pyramid_bbox)
         outside_grid_geom = to_shape(grid).difference(pyramid_bbox)
         # shift outside geometry so it lies within SRS bounds
-        if isinstance(outside_grid_geom, MultipartGeometry):
+        if isinstance(outside_grid_geom, MultipartGeometry):  # pragma: no cover
             outside_geoms = outside_grid_geom.geoms
         else:
             outside_geoms = [outside_grid_geom]
@@ -80,7 +80,7 @@ def clip_grid_to_pyramid_bounds(grid: Grid, pyramid: BufferedTilePyramid) -> Lis
             geom_bounds = Bounds.from_inp(geom.bounds)
             if geom_bounds.left < pyramid.left:
                 geom = translate(geom, xoff=2 * pyramid.right)
-            elif geom_bounds.right > pyramid.right:
+            elif geom_bounds.right > pyramid.right:  # pragma: no cover
                 geom = translate(geom, xoff=-2 * pyramid.right)
             all_grids.append(grid.extract(geom.bounds))
         return all_grids

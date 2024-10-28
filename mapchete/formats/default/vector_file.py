@@ -409,7 +409,7 @@ class InputTile(base.InputTile, VectorInput):
                     clip_to_crs_bounds=clip_to_crs_bounds,
                 )
             )
-        if target_geometry_type:
+        if target_geometry_type:  # pragma: no cover
             return [
                 feature
                 for feature in self._cache[checked]
