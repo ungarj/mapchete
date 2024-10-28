@@ -2,6 +2,31 @@
 Changelog
 #########
 
+----------------------
+2024.10.0 - 2024-10-28
+----------------------
+
+* core
+
+  * move `mapchete.types.Bounds` to new `mapchete.bounds` module (#652)
+  * move `mapchete.types.ZoomLevels` to new `mapchete.zoom_levels` module (#652)
+  * move `mapchete.io.vector.reproject_geometry` to `mapchete.geometry.reproject_geometry` (#652)
+  * `mapchete.commands.observers.Observers`: fix typing issue (#652)
+  * `mapchete.formats.default.vector_file.InputTile`: implement Grid protocol (#652)
+  * `mapchete.formats.default.vector_file.InputTile.read()`: add `target_geometry_type` argument (#652)
+  * `mapchete.formats.default.vector_file.InputTile`: add `read_union_geometry` and `read_raster_mask` methods (#652)
+  * add `mapchete.geometry.clip` module (#652)
+  * add `mapchete.geometry.filter` module with reimplementations of `is_type()` and `filter_by_geometry_type()` functions (#652)
+  * add `read_union_geometry()` and `read_as_raster_mask()` methods to `VectorInput` (#652)
+  * add various geometry types to `mapchete.types` (#652)
+  * create `mapchete.grid` module (#652)
+  * added typing where possible (#652)
+  * split up `mapchete.io.vector` module in submodules (#652)
+  * `mapchete.io.vector.indexed_features.IndexedFeatures.read()`: add `target_geometry_type` argument (#652)
+  * `mapchete.io.vector.indexed_features.IndexedFeatures`: add `read_union_geometry` and `read_raster_mask` methods (#652)
+  * `mapchete.tile`: added typing (#652)
+
+
 ---------------------
 2024.9.0 - 2024-09-11
 ---------------------
