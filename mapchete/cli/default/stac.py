@@ -15,7 +15,7 @@ from mapchete.stac import (
     tile_direcotry_item_to_dict,
     tile_directory_stac_item,
 )
-from mapchete.types import ZoomLevels
+from mapchete.zoom_levels import ZoomLevels
 
 logger = logging.getLogger(__name__)
 

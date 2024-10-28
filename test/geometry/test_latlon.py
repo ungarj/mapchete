@@ -7,7 +7,7 @@ from mapchete.geometry.latlon import (
     longitudinal_shift,
     transform_to_latlon,
 )
-from mapchete.types import Bounds
+from mapchete.bounds import Bounds
 
 
 @pytest.mark.parametrize(

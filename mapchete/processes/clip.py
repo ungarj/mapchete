@@ -5,7 +5,6 @@ import numpy.ma as ma
 
 from mapchete import Empty, RasterInput, VectorInput
 from mapchete.io import MatchingMethod
-from mapchete.io.raster.array import clip_array_with_vector
 from mapchete.types import BandIndexes, ResamplingLike
 
 logger = logging.getLogger(__name__)
@@ -44,6 +43,12 @@ def execute(
     )
     logger.debug("clipping output with geometry")
     # apply original nodata mask and clip
-    return clip_array_with_vector(
-        input_data, inp.tile.affine, clip.read(), clip_buffer=clip_pixelbuffer
+    return ma.MaskedArray(
+        input_data,
+        mask=input_data.mask
+        | clip.read_as_raster_mask(
+            pixelbuffer=clip_pixelbuffer, band_count=input_data.shape[0]
+        ),
+        dtype=input_data.dtype,
+        fill_value=input_data.fill_value,
     )

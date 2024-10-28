@@ -6,21 +6,32 @@ Currently limited by extensions .shp and .geojson but could be extended easily.
 
 import logging
 from functools import cached_property
+from typing import Optional, List, Tuple, Union
 
+from affine import Affine
+import numpy as np
 from rasterio.crs import CRS
-from shapely.geometry import Point, box
+from rasterio.features import geometry_mask
+from shapely import unary_union
+from shapely.geometry import Point, box, GeometryCollection, mapping
 
+from mapchete.bounds import Bounds
 from mapchete.formats import base
 from mapchete.formats.protocols import VectorInput
+from mapchete.geometry.filter import is_type
+from mapchete.geometry.types import Geometry, GeometryTypeLike
+from mapchete.geometry import to_shape, reproject_geometry
 from mapchete.io import fiona_open
 from mapchete.io.vector import (
     IndexedFeatures,
     convert_vector,
     read_vector,
     read_vector_window,
-    reproject_geometry,
 )
+from mapchete.io.vector.indexed_features import object_geometry
 from mapchete.path import MPath
+from mapchete.tile import BufferedTile
+from mapchete.types import CRSLike, ShapeLike
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +121,7 @@ class InputData(base.InputData):
                 self.add_preprocessing_task(
                     read_vector,
                     key=f"cache_{self.path}",
-                    fkwargs=dict(inp=self.path, index=None),
+                    fkwargs=dict(path=self.path, index=None),
                     geometry=self.bbox(),
                 )
             else:  # pragma: no cover
@@ -119,11 +130,11 @@ class InputData(base.InputData):
                 )
 
     @cached_property
-    def in_memory_features(self):
+    def in_memory_features(self) -> IndexedFeatures:
         """This property can be accessed once the preprocessing task is finished."""
         return IndexedFeatures(self.get_preprocessing_task_result(f"cache_{self.path}"))
 
-    def open(self, tile, **kwargs):
+    def open(self, tile: BufferedTile, **kwargs):
         """
         Return InputTile object.
 
@@ -179,7 +190,7 @@ class InputData(base.InputData):
             with fiona_open(self.path) as inp:
                 self._bbox_cache = (
                     CRS(inp.crs),
-                    tuple(inp.bounds) if len(inp) else None,
+                    tuple(inp.bounds) if len(inp) else None,  # type: ignore
                 )
         inp_crs, bounds = self._bbox_cache
         if bounds is None:
@@ -215,10 +226,21 @@ class InputTile(base.InputTile, VectorInput):
     """
 
     _memory_cache_active = False
-    _in_memory_features = None
+    _in_memory_features: Optional[IndexedFeatures] = None
+    transform: Affine
+    width: int
+    height: int
+    shape: ShapeLike
+    bounds: Bounds
+    crs: CRSLike
 
     def __init__(
-        self, tile, input_data, in_memory_features=None, cache_task_key=None, **kwargs
+        self,
+        tile: BufferedTile,
+        input_data: InputData,
+        cache_task_key: str,
+        in_memory_features: Optional[IndexedFeatures] = None,
+        **kwargs,
     ):
         """Initialize."""
         super().__init__(tile, input_key=input_data.input_key, **kwargs)
@@ -230,6 +252,12 @@ class InputTile(base.InputTile, VectorInput):
             self._in_memory_features = in_memory_features
         else:
             self.path = input_data._cached_path or input_data.path
+        self.transform = tile.transform
+        self.width = tile.width
+        self.height = tile.height
+        self.shape = tile.shape
+        self.bounds = Bounds.from_inp(tile.bounds)
+        self.crs = tile.crs
 
     def __repr__(self):  # pragma: no cover
         source = (
@@ -237,7 +265,15 @@ class InputTile(base.InputTile, VectorInput):
         )
         return f"vector_file.InputTile(tile={self.tile.id}, source={source})"
 
-    def read(self, validity_check=True, clip_to_crs_bounds=False, **kwargs):
+    def read(
+        self,
+        validity_check: bool = True,
+        clip_to_crs_bounds: bool = False,
+        target_geometry_type: Optional[
+            Union[GeometryTypeLike, Tuple[GeometryTypeLike]]
+        ] = None,
+        **kwargs,
+    ) -> List[dict]:
         """
         Read reprojected & resampled input data.
 
@@ -268,11 +304,13 @@ class InputTile(base.InputTile, VectorInput):
             []
             if self.is_empty()
             else self._read_from_cache(
-                validity_check=validity_check, clip_to_crs_bounds=clip_to_crs_bounds
+                validity_check=validity_check,
+                clip_to_crs_bounds=clip_to_crs_bounds,
+                target_geometry_type=target_geometry_type,
             )
         )
 
-    def is_empty(self):
+    def is_empty(self) -> bool:
         """
         Check if there is data within this tile.
 
@@ -284,19 +322,97 @@ class InputTile(base.InputTile, VectorInput):
             return True
         return len(self._read_from_cache(True)) == 0
 
-    def _read_from_cache(self, validity_check=True, clip_to_crs_bounds=False):
+    def read_union_geometry(
+        self,
+        validity_check: bool = True,
+        clip_to_crs_bounds: bool = False,
+        pixelbuffer: int = 0,
+        **kwargs,
+    ) -> Geometry:
+        """Read union of reprojected and clipped vector features."""
+        features = self.read(
+            validity_check=validity_check,
+            clip_to_crs_bounds=clip_to_crs_bounds,
+            **kwargs,
+        )
+        if features:
+            return unary_union([to_shape(feature) for feature in features]).buffer(
+                pixelbuffer * self.transform[0]
+            )
+        return GeometryCollection()
+
+    def read_as_raster_mask(
+        self,
+        all_touched: bool = False,
+        invert: bool = False,
+        validity_check: bool = True,
+        clip_to_crs_bounds: bool = False,
+        pixelbuffer: int = 0,
+        band_count: Optional[int] = None,
+        **kwargs,
+    ) -> np.ndarray:
+        """Read rasterized vector input."""
+        if pixelbuffer:
+            features = [
+                mapping(to_shape(feature).buffer(pixelbuffer * self.transform[0]))
+                for feature in self.read(
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
+                    **kwargs,
+                )
+            ]
+        else:
+            features = [
+                feature["geometry"]
+                for feature in self.read(
+                    validity_check=validity_check,
+                    clip_to_crs_bounds=clip_to_crs_bounds,
+                    **kwargs,
+                )
+            ]
+
+        if features:
+            mask = geometry_mask(
+                geometries=features,
+                out_shape=self.shape,
+                transform=self.transform,
+                all_touched=all_touched,
+                invert=invert,
+            )
+            if band_count is not None:
+                return np.stack([mask for _ in range(band_count)])
+            return mask
+
+        out_shape = self.shape if band_count is None else (band_count, *self.shape)
+        if invert:
+            return np.ones(shape=out_shape, dtype=bool)
+        else:
+            return np.zeros(shape=out_shape, dtype=bool)
+
+    def _read_from_cache(
+        self,
+        validity_check=True,
+        clip_to_crs_bounds=False,
+        target_geometry_type: Optional[
+            Union[GeometryTypeLike, Tuple[GeometryTypeLike]]
+        ] = None,
+    ):
         checked = "checked" if validity_check else "not_checked"
         if checked not in self._cache:
             self._cache[checked] = list(
-                read_vector_window(
-                    (
-                        self._in_memory_features
-                        if self._memory_cache_active
-                        else self.path
-                    ),
+                self._in_memory_features.read(self.tile)
+                if self._memory_cache_active and self._in_memory_features is not None
+                else read_vector_window(
+                    self.path,
                     self.tile,
                     validity_check=validity_check,
                     clip_to_crs_bounds=clip_to_crs_bounds,
                 )
             )
+        if target_geometry_type:  # pragma: no cover
+            return [
+                feature
+                for feature in self._cache[checked]
+                if is_type(object_geometry(feature), target_geometry_type)
+            ]
         return self._cache[checked]

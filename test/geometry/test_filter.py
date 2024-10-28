@@ -10,13 +10,18 @@ from shapely.geometry import (
     Polygon,
 )
 
+from mapchete.errors import GeometryTypeError
 from mapchete.geometry import (
     filter_by_geometry_type,
     get_multipart_type,
     is_type,
     multipart_to_singleparts,
 )
-from mapchete.geometry.types import SinglepartGeometry
+from mapchete.geometry.types import (
+    SinglepartGeometry,
+    get_geometry_type,
+    get_singlepart_type,
+)
 
 
 @pytest.mark.parametrize(
@@ -42,8 +47,16 @@ def test_multiparts_to_singleparts(geometry):
 
 
 @pytest.mark.parametrize(
-    "allow_multipart",
-    [True, False],
+    "geometry",
+    [
+        lazy_fixture("point"),
+        lazy_fixture("multipoint"),
+        lazy_fixture("linestring"),
+        lazy_fixture("multilinestring"),
+        lazy_fixture("polygon"),
+        lazy_fixture("multipolygon"),
+        lazy_fixture("geometrycollection"),
+    ],
 )
 @pytest.mark.parametrize(
     "target_type",
@@ -57,73 +70,159 @@ def test_multiparts_to_singleparts(geometry):
     ],
 )
 @pytest.mark.parametrize(
-    "geometry",
-    [
-        lazy_fixture("point"),
-        lazy_fixture("multipoint"),
-        lazy_fixture("linestring"),
-        lazy_fixture("multilinestring"),
-        lazy_fixture("polygon"),
-        lazy_fixture("multipolygon"),
-        lazy_fixture("geometrycollection"),
-    ],
+    "singlepart_equivalent_matches",
+    [True, False],
 )
-def test_is_type(geometry, target_type, allow_multipart):
-    if isinstance(geometry, target_type):
-        assert is_type(geometry, target_type, allow_multipart=allow_multipart)
-
-    elif allow_multipart and (isinstance(geometry, get_multipart_type(target_type))):
-        assert is_type(geometry, target_type, allow_multipart=allow_multipart)
-
+def test_is_type_singleparts(geometry, target_type, singlepart_equivalent_matches):
+    geometry_type = get_geometry_type(geometry.geom_type)
+    if singlepart_equivalent_matches:
+        try:
+            control = (
+                geometry_type == target_type
+                or get_singlepart_type(geometry_type) == target_type
+            )
+        except GeometryTypeError:
+            control = geometry_type == target_type
     else:
-        assert not is_type(geometry, target_type, allow_multipart=allow_multipart)
-
-
-@pytest.mark.parametrize(
-    "allow_multipart",
-    [True, False],
-)
-@pytest.mark.parametrize(
-    "target_type",
-    [
-        Point,
-        MultiPoint,
-        LineString,
-        MultiLineString,
-        Polygon,
-        MultiPolygon,
-    ],
-)
-@pytest.mark.parametrize(
-    "geometry",
-    [
-        lazy_fixture("point"),
-        lazy_fixture("multipoint"),
-        lazy_fixture("linestring"),
-        lazy_fixture("multilinestring"),
-        lazy_fixture("polygon"),
-        lazy_fixture("multipolygon"),
-        lazy_fixture("geometrycollection"),
-    ],
-)
-def test_filter_by_geometry_type(geometry, target_type, allow_multipart):
-    geometries = list(
-        filter_by_geometry_type(
-            geometry, target_type=target_type, allow_multipart=allow_multipart
+        control = geometry_type == target_type
+    assert (
+        is_type(
+            geometry,
+            target_type,
+            singlepart_equivalent_matches=singlepart_equivalent_matches,
+            multipart_equivalent_matches=False,
         )
+        == control
     )
 
-    if isinstance(
-        geometry, (target_type, get_multipart_type(target_type))
-    ) or isinstance(geometry, GeometryCollection):
-        assert geometries
-        for geometry in geometries:
-            if allow_multipart:
-                assert get_multipart_type(type(geometry)) == get_multipart_type(
-                    target_type
-                )
-            else:
-                assert isinstance(geometry, target_type)
 
+@pytest.mark.parametrize(
+    "geometry",
+    [
+        lazy_fixture("point"),
+        lazy_fixture("multipoint"),
+        lazy_fixture("linestring"),
+        lazy_fixture("multilinestring"),
+        lazy_fixture("polygon"),
+        lazy_fixture("multipolygon"),
+        lazy_fixture("geometrycollection"),
+    ],
+)
+@pytest.mark.parametrize(
+    "target_type",
+    [
+        Point,
+        MultiPoint,
+        LineString,
+        MultiLineString,
+        Polygon,
+        MultiPolygon,
+    ],
+)
+@pytest.mark.parametrize(
+    "multipart_equivalent_matches",
+    [True, False],
+)
+def test_is_type_multiparts(geometry, target_type, multipart_equivalent_matches):
+    geometry_type = get_geometry_type(geometry.geom_type)
+    if multipart_equivalent_matches:
+        try:
+            control = (
+                geometry_type == target_type
+                or get_multipart_type(geometry_type) == target_type
+            )
+        except GeometryTypeError:
+            control = geometry_type == target_type
     else:
-        assert not geometries
+        control = geometry_type == target_type
+    assert (
+        is_type(
+            geometry,
+            target_type,
+            multipart_equivalent_matches=multipart_equivalent_matches,
+            singlepart_equivalent_matches=False,
+        )
+        == control
+    )
+
+
+@pytest.mark.parametrize(
+    "geometry",
+    [
+        lazy_fixture("point"),
+        lazy_fixture("multipoint"),
+        lazy_fixture("linestring"),
+        lazy_fixture("multilinestring"),
+        lazy_fixture("polygon"),
+        lazy_fixture("multipolygon"),
+        lazy_fixture("geometrycollection"),
+    ],
+)
+@pytest.mark.parametrize(
+    "target_type",
+    [
+        Point,
+        MultiPoint,
+        LineString,
+        MultiLineString,
+        Polygon,
+        MultiPolygon,
+    ],
+)
+def test_is_type_tuple(geometry, target_type):
+    assert is_type(geometry, (target_type, geometry.geom_type))
+
+
+@pytest.mark.parametrize(
+    "geometry",
+    [
+        lazy_fixture("point"),
+        lazy_fixture("multipoint"),
+        lazy_fixture("linestring"),
+        lazy_fixture("multilinestring"),
+        lazy_fixture("polygon"),
+        lazy_fixture("multipolygon"),
+        lazy_fixture("geometrycollection"),
+    ],
+)
+@pytest.mark.parametrize(
+    "target_type",
+    [
+        Point,
+        MultiPoint,
+        LineString,
+        MultiLineString,
+        Polygon,
+        MultiPolygon,
+    ],
+)
+@pytest.mark.parametrize(
+    "singlepart_equivalent_matches",
+    [True, False],
+)
+@pytest.mark.parametrize(
+    "multipart_equivalent_matches",
+    [True, False],
+)
+def test_filter_by_geometry_type(
+    geometry, target_type, singlepart_equivalent_matches, multipart_equivalent_matches
+):
+    filtered_geometries = list(
+        filter_by_geometry_type(
+            geometry,
+            target_type=target_type,
+            singlepart_equivalent_matches=singlepart_equivalent_matches,
+            multipart_equivalent_matches=multipart_equivalent_matches,
+        )
+    )
+    if is_type(
+        geometry,
+        target_type=target_type,
+        singlepart_equivalent_matches=True,
+        multipart_equivalent_matches=multipart_equivalent_matches,
+    ) or is_type(geometry, GeometryCollection):
+        assert filtered_geometries
+    else:
+        assert not filtered_geometries
+    for filtered_geometry in filtered_geometries:
+        assert is_type(filtered_geometry, target_type)

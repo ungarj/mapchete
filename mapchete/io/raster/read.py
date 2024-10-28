@@ -19,9 +19,11 @@ from rasterio.profiles import Profile
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import reproject
 from retry import retry
-from tilematrix import Shape, clip_geometry_to_srs_bounds
+from tilematrix import Shape
 
 from mapchete.errors import MapcheteIOError
+from mapchete.geometry.clip import clip_geometry_to_pyramid_bounds
+from mapchete.grid import Grid
 from mapchete.io.raster.array import extract_from_array, prepare_masked_array
 from mapchete.io.raster.write import _write_tags
 from mapchete.path import MPath
@@ -29,7 +31,7 @@ from mapchete.protocols import GridProtocol
 from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile
 from mapchete.timer import Timer
-from mapchete.types import Grid, MPathLike, NodataVal
+from mapchete.types import MPathLike, NodataVal
 from mapchete.validate import validate_write_window_params
 
 logger = logging.getLogger(__name__)
@@ -216,13 +218,10 @@ def _get_warped_edge_array(
     dst_nodata: NodataVal = None,
     full_dst_shape: Optional[Tuple[int, int, int]] = None,
 ) -> ma.MaskedArray:
-    tile_boxes = clip_geometry_to_srs_bounds(
-        tile.bbox, tile.tile_pyramid, multipart=True
-    )
     parts_metadata = dict(left=None, middle=None, right=None, none=None)
     # Split bounding box into multiple parts & request each numpy array
     # separately.
-    for polygon in tile_boxes:
+    for polygon in clip_geometry_to_pyramid_bounds(tile.bbox, tile.tile_pyramid):
         # Check on which side the antimeridian is touched by the polygon:
         # "left", "middle", "right"
         # "none" means, the tile touches the edge just on the top and/or

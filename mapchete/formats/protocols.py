@@ -55,6 +55,28 @@ class VectorInput(InputTileProtocol):  # pragma: no cover
         """Read reprojected and clipped vector features from input."""
         ...
 
+    def read_union_geometry(
+        self,
+        validity_check: bool = True,
+        clip_to_crs_bounds: bool = False,
+        pixelbuffer: int = 0,
+        **kwargs,
+    ) -> BaseGeometry:
+        """Read union of reprojected and clipped vector features."""
+        ...
+
+    def read_as_raster_mask(
+        self,
+        all_touched: bool = False,
+        invert: bool = False,
+        validity_check: bool = True,
+        clip_to_crs_bounds: bool = False,
+        pixelbuffer: int = 0,
+        band_count: Optional[int] = None,
+    ) -> np.ndarray:
+        """Read rasterized vector input."""
+        ...
+
 
 RasterInputGroup = List[Tuple[str, RasterInput]]
 VectorInputGroup = List[Tuple[str, VectorInput]]

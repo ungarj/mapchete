@@ -10,9 +10,9 @@ from shapely.geometry import box, mapping
 from mapchete.errors import ReprojectionFailed
 from mapchete.io import MPath
 from mapchete.io.raster import write_raster_window
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 from mapchete.tile import BufferedTilePyramid
-from mapchete.types import Bounds
+from mapchete.bounds import Bounds
 
 logger = logging.getLogger(__name__)
 

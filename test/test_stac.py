@@ -8,7 +8,7 @@ from shapely.geometry import box, shape
 
 from mapchete.commands import execute
 from mapchete.io import rasterio_open
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 from mapchete.stac import (
     create_prototype_files,
     tile_directory_stac_item,

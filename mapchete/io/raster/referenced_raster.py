@@ -10,13 +10,15 @@ from rasterio.transform import array_bounds
 from retry import retry
 from shapely.geometry import mapping, shape
 
+from mapchete.bounds import Bounds
+from mapchete.grid import Grid
 from mapchete.io.raster.array import resample_from_array
 from mapchete.io.raster.open import rasterio_open
 from mapchete.io.raster.read import read_raster_window
 from mapchete.path import MPath
 from mapchete.protocols import GridProtocol
 from mapchete.settings import IORetrySettings
-from mapchete.types import Bounds, BoundsLike, CRSLike, Grid, MPathLike, NodataVal
+from mapchete.types import BoundsLike, CRSLike, MPathLike, NodataVal
 
 logger = logging.getLogger(__name__)
 

@@ -13,6 +13,7 @@ from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
+from mapchete.bounds import Bounds
 from mapchete.config.models import ProcessConfig
 from mapchete.config.parse import (
     get_zoom_levels,
@@ -31,20 +32,21 @@ from mapchete.formats import (
     load_output_writer,
 )
 from mapchete.io import MPath, absolute_path
-from mapchete.io.vector import reproject_geometry
+from mapchete.geometry import reproject_geometry
 from mapchete.tile import BufferedTile, BufferedTilePyramid, snap_geometry_to_tiles
 from mapchete.timer import Timer
-from mapchete.types import Bounds, BoundsLike, MPathLike, ZoomLevels
+from mapchete.types import BoundsLike, MPathLike
 from mapchete.validate import (
     validate_bounds,
     validate_bufferedtilepyramid,
     validate_values,
     validate_zooms,
 )
+from mapchete.zoom_levels import ZoomLevels
 
 logger = logging.getLogger(__name__)
 
-__all__ = [validate_bounds, validate_zooms, validate_values]
+__all__ = ["validate_bounds", "validate_zooms", "validate_values"]
 
 # TODO remove these
 # parameters for output configuration

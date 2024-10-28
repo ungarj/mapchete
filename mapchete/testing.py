@@ -3,6 +3,7 @@ Useful tools to facilitate testing.
 """
 
 import logging
+from typing import Optional
 import uuid
 from collections import OrderedDict
 
@@ -14,12 +15,13 @@ from mapchete.config.base import initialize_inputs, open_inputs
 from mapchete.executor import SequentialExecutor
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
+from mapchete.types import MPathLike, TileLike
 
 logger = logging.getLogger(__name__)
 
 
 # helper functions
-def dict_from_mapchete(path):
+def dict_from_mapchete(path: MPathLike) -> dict:
     """
     Read mapchete configuration from file and return as dictionary.
     """
@@ -33,7 +35,7 @@ def dict_from_mapchete(path):
     return out
 
 
-def clear_dict(dictionary) -> dict:
+def clear_dict(dictionary: dict) -> dict:
     def _convert(vv):
         out = OrderedDict()
         for k, v in vv.items():
@@ -48,16 +50,19 @@ def clear_dict(dictionary) -> dict:
 
 
 class ProcessFixture:
+    path: MPath
+    basepath: MPath
+
     def __init__(
         self,
-        path=None,
-        tempdir=None,
-        inp_cache_tempdir=None,
-        output_suffix="",
+        path: MPathLike,
+        tempdir: Optional[MPathLike] = None,
+        inp_cache_tempdir: Optional[MPathLike] = None,
+        output_suffix: str = "",
         **kwargs,
     ):
         self.path = MPath.from_inp(path)
-        self.basepath = MPath.parent
+        self.basepath = MPath.parent  # type: ignore
         self.output_path = None
         self.dict = None
         tempdir = tempdir or kwargs.get("output_tempdir")
@@ -66,10 +71,11 @@ class ProcessFixture:
         else:  # pragma: no cover
             self._tempdir = None
         if inp_cache_tempdir:
-            self._inp_cache_tempdir = inp_cache_tempdir / uuid.uuid4().hex
+            self._inp_cache_tempdir = (
+                MPath.from_inp(inp_cache_tempdir) / uuid.uuid4().hex
+            )
         else:
             self._inp_cache_tempdir = None
-        self._out_fs = None
         self._mp = None
 
     def __enter__(self, *args):
@@ -123,7 +129,12 @@ class ProcessFixture:
         )
         out_dir.rm(recursive=True, ignore_errors=True)
 
-    def process_mp(self, tile=None, tile_zoom=None, batch_preprocess=True):
+    def process_mp(
+        self,
+        tile: Optional[TileLike] = None,
+        tile_zoom: Optional[int] = None,
+        batch_preprocess: bool = True,
+    ):
         """
         Return MapcheteProcess object used to test processes.
         """

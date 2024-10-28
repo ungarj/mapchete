@@ -141,15 +141,17 @@ def zoom_index_gen(
             logger.debug("use the following index writers: %s", index_writers)
 
             if tile:
-                output_tiles_batches = mp.config.output_pyramid.tiles_from_bounds(
-                    mp.config.process_pyramid.tile(*tile).bounds,
-                    zoom,
-                    batch_by=batch_sort_property(
-                        mp.config.output_reader.tile_path_schema
-                    ),
+                output_tiles_batches = (
+                    mp.config.output_pyramid.tiles_from_bounds_batches(
+                        mp.config.process_pyramid.tile(*tile).bounds,
+                        zoom,
+                        batch_by=batch_sort_property(
+                            mp.config.output_reader.tile_path_schema
+                        ),
+                    )
                 )
             else:
-                output_tiles_batches = mp.config.output_pyramid.tiles_from_geom(
+                output_tiles_batches = mp.config.output_pyramid.tiles_from_geom_batches(
                     mp.config.area_at_zoom(zoom),
                     zoom,
                     batch_by=batch_sort_property(

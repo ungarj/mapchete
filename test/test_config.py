@@ -19,7 +19,7 @@ from mapchete.config.process_func import ProcessFunc
 from mapchete.errors import MapcheteConfigError
 from mapchete.io import fiona_open, rasterio_open
 from mapchete.path import MPath
-from mapchete.types import Bounds
+from mapchete.bounds import Bounds
 
 SCRIPT_DIR = MPath(os.path.dirname(os.path.realpath(__file__)))
 TESTDATA_DIR = MPath(os.path.join(SCRIPT_DIR, "testdata/"))

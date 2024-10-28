@@ -3,7 +3,7 @@ from typing import Union
 
 from mapchete.errors import GeometryTypeError
 from mapchete.geometry.transform import custom_transform
-from mapchete.geometry.types import (
+from mapchete.types import (
     CoordArrays,
     Geometry,
     LinearRing,
@@ -11,7 +11,7 @@ from mapchete.geometry.types import (
     MultiPolygon,
     Polygon,
 )
-from mapchete.types import Bounds
+from mapchete.bounds import Bounds
 
 
 def segmentize_geometry(
