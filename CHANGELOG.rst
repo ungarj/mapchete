@@ -2,6 +2,16 @@
 Changelog
 #########
 
+
+----------------------
+2024.10.1 - 2024-10-29
+----------------------
+
+* core
+
+  * add deprecation warnings for moved objects introduced in 2024.10.0 and try to keep backwards compatibility (#654)
+
+
 ----------------------
 2024.10.0 - 2024-10-28
 ----------------------
