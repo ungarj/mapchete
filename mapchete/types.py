@@ -14,6 +14,8 @@ from typing import (
     runtime_checkable,
 )
 
+from mapchete._deprecated import deprecated
+
 from fiona.crs import CRS as FionaCRS  # type: ignore
 from geojson_pydantic import Feature, FeatureCollection as GeoJSONGeometryType
 from pydantic import BaseModel
@@ -86,3 +88,85 @@ def to_resampling(resampling: ResamplingLike) -> Resampling:
 class Progress(BaseModel):
     current: int = 0
     total: Optional[int] = None
+
+
+# below are deprecated classes once sitting in this module:
+@deprecated("mapchete.types.Bounds has been moved to mapchete.bounds.Bounds")
+class Bounds:  # pragma: no cover
+    def __new__(cls, *args, **kwargs):
+        from mapchete.bounds import Bounds
+
+        # Redirect instantiation to the new class
+        return Bounds(*args, **kwargs)
+
+    @staticmethod
+    def from_inp(
+        inp: BoundsLike, strict: bool = True, crs: Optional[CRSLike] = None
+    ):  # pragma: no cover
+        from mapchete.bounds import Bounds
+
+        return Bounds.from_inp(inp=inp, strict=strict, crs=crs)
+
+    @staticmethod
+    def from_dict(
+        inp: dict, strict: bool = True, crs: Optional[CRSLike] = None
+    ):  # pragma: no cover
+        return Bounds(**inp, strict=strict, crs=crs)
+
+
+@deprecated("mapchete.types.Grid has been moved to mapchete.grid.Grid")
+class Grid:  # pragma: no cover
+    def __new__(cls, *args, **kwargs):
+        from mapchete.grid import Grid
+
+        return Grid(*args, **kwargs)
+
+    @staticmethod
+    def from_obj(obj):  # pragma: no cover
+        from mapchete.grid import Grid
+
+        return Grid.from_obj(obj)
+
+    @staticmethod
+    def from_bounds(
+        bounds: BoundsLike, shape: ShapeLike, crs: CRSLike
+    ):  # pragma: no cover
+        from mapchete.grid import Grid
+
+        return Grid.from_bounds(bounds=bounds, shape=shape, crs=crs)
+
+
+@deprecated(
+    "mapchete.types.ZoomLevels has been moved to mapchete.zoom_levels.ZoomLevels"
+)
+class ZoomLevels:  # pragma: no cover
+    def __new__(cls, *args, **kwargs):  # pragma: no cover
+        from mapchete.zoom_levels import ZoomLevels
+
+        return ZoomLevels(*args, **kwargs)
+
+    @staticmethod
+    def from_inp(
+        min: ZoomLevelsLike, max: Optional[int] = None, descending: bool = False
+    ):  # pragma: no cover
+        from mapchete.zoom_levels import ZoomLevels
+
+        return ZoomLevels.from_inp(min=min, max=max, descending=descending)
+
+    @staticmethod
+    def from_int(inp: int, **kwargs):  # pragma: no cover
+        from mapchete.zoom_levels import ZoomLevels
+
+        return ZoomLevels.from_int(inp=inp, **kwargs)
+
+    @staticmethod
+    def from_list(inp: List[int], **kwargs):  # pragma: no cover
+        from mapchete.zoom_levels import ZoomLevels
+
+        return ZoomLevels.from_list(inp=inp, **kwargs)
+
+    @staticmethod
+    def from_dict(inp: dict, **kwargs):  # pragma: no cover
+        from mapchete.zoom_levels import ZoomLevels
+
+        return ZoomLevels.from_dict(inp=inp, **kwargs)

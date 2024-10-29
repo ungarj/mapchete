@@ -224,3 +224,9 @@ class Bounds(list):
             or self.bottom <= other.bottom < other.top <= self.top
         )
         return horizontal and vertical
+
+
+def bounds_intersect(
+    bounds1: BoundsLike, bounds2: BoundsLike
+) -> bool:  # pragma: no cover
+    return Bounds.from_inp(bounds1).intersects(bounds2)

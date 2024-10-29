@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Union
 
+from mapchete.bounds import Bounds
 from mapchete.config import MapcheteConfig
 from mapchete.errors import Empty, MapcheteNodataTile
 from mapchete.executor import Executor, MFuture
@@ -12,14 +13,18 @@ from mapchete.formats.protocols import (
     VectorInput,
     VectorInputGroup,
 )
+from mapchete.grid import Grid
 from mapchete.path import MPath
 from mapchete.processing import Mapchete, MapcheteProcess
 from mapchete.tile import count_tiles
 from mapchete.timer import Timer
 from mapchete.types import MPathLike
+from mapchete.zoom_levels import ZoomLevels
 
 __all__ = [
+    "Bounds",
     "count_tiles",
+    "Grid",
     "Mapchete",
     "MapcheteProcess",
     "Timer",
@@ -31,6 +36,7 @@ __all__ = [
     "RasterInputGroup",
     "VectorInput",
     "VectorInputGroup",
+    "ZoomLevels",
 ]
 __version__ = "2024.10.0"
 
