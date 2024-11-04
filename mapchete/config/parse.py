@@ -5,14 +5,13 @@ from rasterio.crs import CRS
 from shapely import wkt
 from shapely.geometry import Point, shape
 from shapely.geometry.base import BaseGeometry
-from shapely.ops import unary_union
 
 from mapchete.bounds import Bounds
 from mapchete.config.models import ProcessConfig, ZoomParameters
 from mapchete.errors import GeometryTypeError
 from mapchete.geometry import is_type, reproject_geometry
 from mapchete.geometry.types import Polygon, MultiPolygon
-from mapchete.io.vector import fiona_open
+from mapchete.io.vector.indexed_features import IndexedFeatures
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import BoundsLike, MPathLike, ZoomLevelsLike
@@ -223,11 +222,11 @@ def guess_geometry(
         ):
             geom = wkt.loads(str(some_input))
         else:
-            with fiona_open(
-                str(MPath.from_inp(some_input).absolute_path(base_dir))
-            ) as src:
-                geom = unary_union([shape(f["geometry"]) for f in src])
-                crs = src.crs
+            features = IndexedFeatures.from_file(
+                MPath.from_inp(some_input).absolute_path(base_dir)
+            )
+            geom = features.read_union_geometry()
+            crs = features.crs
     # GeoJSON mapping
     elif isinstance(some_input, dict):
         geom = shape(some_input)
