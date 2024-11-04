@@ -3,17 +3,25 @@ from typing import Optional
 
 import fiona
 import pyproj
+from pyproj.exceptions import CRSError
 from fiona.transform import transform_geom
 from rasterio.crs import CRS
 from shapely.geometry import mapping, shape
 
 from mapchete.bounds import Bounds
-from mapchete.errors import GeometryTypeError, ReprojectionFailed
+from mapchete.errors import ReprojectionFailed
 from mapchete.geometry.latlon import LATLON_CRS
 from mapchete.geometry.repair import repair
 from mapchete.geometry.segmentize import get_segmentize_value, segmentize_geometry
 from mapchete.geometry.shape import to_shape
-from mapchete.types import Geometry, GeometryLike
+from mapchete.types import (
+    Geometry,
+    GeometryLike,
+    Polygon,
+    LinearRing,
+    LineString,
+    MultiPolygon,
+)
 from mapchete.types import CRSLike
 from mapchete.validate import validate_crs
 
@@ -22,29 +30,39 @@ logger = logging.getLogger(__name__)
 
 CRS_BOUNDS = {
     # http://spatialreference.org/ref/epsg/wgs-84/
-    "epsg:4326": Bounds(-180.0, -90.0, 180.0, 90.0),
+    CRS.from_epsg(4326): Bounds(-180.0, -90.0, 180.0, 90.0, crs=LATLON_CRS),
     # unknown source
-    "epsg:3857": Bounds(-180.0, -85.0511, 180.0, 85.0511),
+    CRS.from_epsg(3857): Bounds(-180.0, -85.0511, 180.0, 85.0511, crs=LATLON_CRS),
     # http://spatialreference.org/ref/epsg/3035/
-    "epsg:3035": Bounds(-10.6700, 34.5000, 31.5500, 71.0500),
+    CRS.from_epsg(3035): Bounds(-10.6700, 34.5000, 31.5500, 71.0500, crs=LATLON_CRS),
 }
 
 
 def get_crs_bounds(crs: CRS) -> Bounds:
-    if crs.is_epsg_code:
+    try:
+        # get bounds from known CRSes
+        return CRS_BOUNDS[crs]
+    except KeyError:
+        logger.debug("try to determine CRS bounds using pyproj ...")
+        # try to get bounds using pyproj
         try:
-            # get bounds from known CRSes
-            return CRS_BOUNDS[crs.get("init")]
-        except KeyError:
-            # try to get bounds using pyproj
-            area_of_use = pyproj.CRS(crs.to_epsg()).area_of_use
-            if area_of_use:
-                return Bounds.from_inp(area_of_use.bounds)
+            # on UTM CRS, the area_of_use is None if pyproj.CRS is initialized with CRS.to_proj4(), thus
+            # prefer using CRS.to_epsg() and only use CRS.to_proj4() as backup
+            pyproj_crs = (
+                pyproj.CRS(crs.to_epsg())
+                if crs.is_epsg_code
+                else pyproj.CRS(crs.to_proj4())
+            )
+            if pyproj_crs.area_of_use:
+                return Bounds.from_inp(pyproj_crs.area_of_use.bounds, crs=LATLON_CRS)
+        except CRSError as exc:  # pragma: no cover
+            logger.debug(exc)
+            pass
     raise ValueError(f"bounds of CRS {crs} could not be determined")
 
 
 def crs_is_epsg_4326(crs: CRS) -> bool:
-    return crs.is_epsg_code and crs.get("init") == "epsg:4326"
+    return crs == LATLON_CRS
 
 
 def reproject_geometry(
@@ -127,14 +145,13 @@ def reproject_geometry(
 
         # segmentize clipped geometry using one 100th of with or height depending on
         # which is shorter
-        if segmentize_on_clip or segmentize:
-            try:
-                clipped_latlon = segmentize_geometry(
-                    clipped_latlon,
-                    get_segmentize_value(clipped_latlon, segmentize_fraction),
-                )
-            except GeometryTypeError:
-                pass
+        if (segmentize_on_clip or segmentize) and isinstance(
+            clipped_latlon, (Polygon, LinearRing, LineString, MultiPolygon)
+        ):
+            clipped_latlon = segmentize_geometry(
+                clipped_latlon,
+                get_segmentize_value(clipped_latlon, segmentize_fraction),
+            )
 
         # clip geometry dst_crs boundaries and return
         return _reproject_geom(
@@ -148,21 +165,20 @@ def reproject_geometry(
 
     # return without clipping if destination CRS does not have defined bounds
     try:
-        if segmentize:
-            try:
-                return _reproject_geom(
-                    segmentize_geometry(
-                        geometry,
-                        get_segmentize_value(geometry, segmentize_fraction),
-                    ),
-                    src_crs,
-                    dst_crs,
-                    validity_check,
-                    antimeridian_cutting,
-                    fiona_env,
-                )
-            except GeometryTypeError:
-                pass
+        if segmentize and isinstance(
+            geometry, (Polygon, LinearRing, LineString, MultiPolygon)
+        ):
+            return _reproject_geom(
+                segmentize_geometry(
+                    geometry,
+                    get_segmentize_value(geometry, segmentize_fraction),
+                ),
+                src_crs,
+                dst_crs,
+                validity_check,
+                antimeridian_cutting,
+                fiona_env,
+            )
         return _reproject_geom(
             geometry,
             src_crs,
