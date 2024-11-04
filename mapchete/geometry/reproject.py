@@ -55,7 +55,7 @@ def get_crs_bounds(crs: CRS) -> Bounds:
             )
             if pyproj_crs.area_of_use:
                 return Bounds.from_inp(pyproj_crs.area_of_use.bounds, crs=LATLON_CRS)
-        except CRSError as exc:
+        except CRSError as exc:  # pragma: no cover
             logger.debug(exc)
             pass
     raise ValueError(f"bounds of CRS {crs} could not be determined")
