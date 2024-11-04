@@ -11,6 +11,7 @@ from mapchete.bounds import Bounds
 from mapchete.config.models import ProcessConfig, ZoomParameters
 from mapchete.errors import GeometryTypeError
 from mapchete.geometry import is_type, reproject_geometry
+from mapchete.geometry.types import Polygon, MultiPolygon
 from mapchete.io.vector import fiona_open
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
@@ -205,7 +206,21 @@ def guess_geometry(
     crs = None
     # WKT or path:
     if isinstance(some_input, (str, MPath)):
-        if str(some_input).upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
+        if (
+            str(some_input)
+            .upper()
+            .startswith(
+                (
+                    "POINT ",
+                    "MULTIPOINT ",
+                    "LINESTRING ",
+                    "MULTILINESTRING ",
+                    "POLYGON ",
+                    "MULTIPOLYGON ",
+                    "GEOMETRYCOLLECTION ",
+                )
+            )
+        ):
             geom = wkt.loads(some_input)
         else:
             path = MPath.from_inp(some_input)
@@ -226,7 +241,7 @@ def guess_geometry(
         )
     if not geom.is_valid:  # pragma: no cover
         raise TypeError("area is not a valid geometry")
-    if not is_type(geom, "Polygon", singlepart_equivalent_matches=True):
+    if not is_type(geom, target_type=(Polygon, MultiPolygon)):
         raise GeometryTypeError(
             f"area must either be a Polygon or a MultiPolygon, not {geom.geom_type}"
         )
