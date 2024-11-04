@@ -149,8 +149,8 @@ def bounds_from_opts(
                 reproj = reproject_geometry(
                     Point(x, y), src_crs=point_crs, dst_crs=tp.crs
                 )
-                x = reproj.x
-                y = reproj.y
+                x = reproj.x  # type: ignore
+                y = reproj.y  # type: ignore
             zoom_levels = get_zoom_levels(
                 process_zoom_levels=raw_conf["zoom_levels"], init_zoom_levels=zoom
             )
@@ -221,13 +221,13 @@ def guess_geometry(
                 )
             )
         ):
-            geom = wkt.loads(some_input)
+            geom = wkt.loads(str(some_input))
         else:
-            path = MPath.from_inp(some_input)
-            with path.fio_env():
-                with fiona_open(str(path.absolute_path(base_dir))) as src:
-                    geom = unary_union([shape(f["geometry"]) for f in src])
-                    crs = src.crs
+            with fiona_open(
+                str(MPath.from_inp(some_input).absolute_path(base_dir))
+            ) as src:
+                geom = unary_union([shape(f["geometry"]) for f in src])
+                crs = src.crs
     # GeoJSON mapping
     elif isinstance(some_input, dict):
         geom = shape(some_input)
