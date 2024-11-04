@@ -16,7 +16,7 @@ from mapchete.config import MapcheteConfig, ProcessConfig, snap_bounds
 from mapchete.config.models import DaskAdaptOptions, DaskSpecs
 from mapchete.config.parse import bounds_from_opts, guess_geometry
 from mapchete.config.process_func import ProcessFunc
-from mapchete.errors import MapcheteConfigError
+from mapchete.errors import GeometryTypeError, MapcheteConfigError
 from mapchete.io import fiona_open, rasterio_open
 from mapchete.path import MPath
 from mapchete.bounds import Bounds
@@ -410,6 +410,32 @@ def test_guess_geometry(aoi_br_geojson):
     # wrong geometry type
     with pytest.raises(TypeError):
         guess_geometry(area.centroid)
+
+
+@pytest.mark.parametrize(
+    "geometry",
+    [
+        lazy_fixture("polygon"),
+        lazy_fixture("multipolygon"),
+    ],
+)
+def test_guess_geometry_types(geometry):
+    assert guess_geometry(geometry.wkt)[0].is_valid
+
+
+@pytest.mark.parametrize(
+    "geometry",
+    [
+        lazy_fixture("point"),
+        lazy_fixture("multipoint"),
+        lazy_fixture("linestring"),
+        lazy_fixture("multilinestring"),
+        lazy_fixture("geometrycollection"),
+    ],
+)
+def test_guess_geometry_types_errors(geometry):
+    with pytest.raises(GeometryTypeError):
+        guess_geometry(geometry.wkt)
 
 
 def test_bounds_from_opts_wkt(wkt_geom):

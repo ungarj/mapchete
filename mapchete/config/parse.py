@@ -5,13 +5,13 @@ from rasterio.crs import CRS
 from shapely import wkt
 from shapely.geometry import Point, shape
 from shapely.geometry.base import BaseGeometry
-from shapely.ops import unary_union
 
 from mapchete.bounds import Bounds
 from mapchete.config.models import ProcessConfig, ZoomParameters
 from mapchete.errors import GeometryTypeError
 from mapchete.geometry import is_type, reproject_geometry
-from mapchete.io.vector import fiona_open
+from mapchete.geometry.types import Polygon, MultiPolygon
+from mapchete.io.vector.indexed_features import IndexedFeatures
 from mapchete.path import MPath
 from mapchete.tile import BufferedTilePyramid
 from mapchete.types import BoundsLike, MPathLike, ZoomLevelsLike
@@ -148,8 +148,8 @@ def bounds_from_opts(
                 reproj = reproject_geometry(
                     Point(x, y), src_crs=point_crs, dst_crs=tp.crs
                 )
-                x = reproj.x
-                y = reproj.y
+                x = reproj.x  # type: ignore
+                y = reproj.y  # type: ignore
             zoom_levels = get_zoom_levels(
                 process_zoom_levels=raw_conf["zoom_levels"], init_zoom_levels=zoom
             )
@@ -205,14 +205,28 @@ def guess_geometry(
     crs = None
     # WKT or path:
     if isinstance(some_input, (str, MPath)):
-        if str(some_input).upper().startswith(("POLYGON ", "MULTIPOLYGON ")):
-            geom = wkt.loads(some_input)
+        if (
+            str(some_input)
+            .upper()
+            .startswith(
+                (
+                    "POINT ",
+                    "MULTIPOINT ",
+                    "LINESTRING ",
+                    "MULTILINESTRING ",
+                    "POLYGON ",
+                    "MULTIPOLYGON ",
+                    "GEOMETRYCOLLECTION ",
+                )
+            )
+        ):
+            geom = wkt.loads(str(some_input))
         else:
-            path = MPath.from_inp(some_input)
-            with path.fio_env():
-                with fiona_open(str(path.absolute_path(base_dir))) as src:
-                    geom = unary_union([shape(f["geometry"]) for f in src])
-                    crs = src.crs
+            features = IndexedFeatures.from_file(
+                MPath.from_inp(some_input).absolute_path(base_dir)
+            )
+            geom = features.read_union_geometry()
+            crs = features.crs
     # GeoJSON mapping
     elif isinstance(some_input, dict):
         geom = shape(some_input)
@@ -226,7 +240,7 @@ def guess_geometry(
         )
     if not geom.is_valid:  # pragma: no cover
         raise TypeError("area is not a valid geometry")
-    if not is_type(geom, "Polygon", singlepart_equivalent_matches=True):
+    if not is_type(geom, target_type=(Polygon, MultiPolygon)):
         raise GeometryTypeError(
             f"area must either be a Polygon or a MultiPolygon, not {geom.geom_type}"
         )

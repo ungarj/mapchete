@@ -35,7 +35,7 @@ def omit_empty_geometries(geometry: Geometry) -> Generator[Geometry, None, None]
 
 def is_type(
     geometry: Geometry,
-    target_type: Union[GeometryTypeLike, Tuple[GeometryTypeLike]],
+    target_type: Union[GeometryTypeLike, Tuple[GeometryTypeLike, ...]],
     singlepart_equivalent_matches: bool = True,
     multipart_equivalent_matches: bool = True,
 ) -> bool:
