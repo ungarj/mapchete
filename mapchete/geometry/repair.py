@@ -4,16 +4,18 @@ from shapely.validation import explain_validity
 from mapchete.geometry.types import Geometry, MultiPolygon, Polygon
 
 
-def repair(geometry: Geometry) -> Geometry:
-    repaired = (
-        geometry.buffer(0)
-        if isinstance(geometry, (Polygon, MultiPolygon))
-        else geometry
-    )
-    if repaired.is_valid:
-        return repaired
+def repair(geometry: Geometry, normalize: bool = True) -> Geometry:
+    if isinstance(geometry, (Polygon, MultiPolygon)):
+        out = geometry.buffer(0)
+    else:
+        out = geometry
+
+    if normalize:
+        out = out.normalize()
+
+    if out.is_valid:
+        return out
     else:
         raise TopologicalError(
-            "geometry is invalid (%s) and cannot be repaired"
-            % explain_validity(repaired)
+            f"geometry is invalid ({explain_validity(out)}) and cannot be repaired"
         )
