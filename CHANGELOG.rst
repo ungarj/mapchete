@@ -4,6 +4,16 @@ Changelog
 
 
 ----------------------
+2024.11.0 - 2024-11-05
+----------------------
+
+* core
+
+  * fix error where guess_geometry fails on multipolygons (#656)
+  * adapt to new rasterio.crs.CRS behavior (#657)
+
+
+----------------------
 2024.10.1 - 2024-10-29
 ----------------------
 
