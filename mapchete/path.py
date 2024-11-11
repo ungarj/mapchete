@@ -22,7 +22,7 @@ from fsspec.spec import AbstractBufferedFile, AbstractFileSystem
 from rasterio.session import Session as RioSession
 from retry import retry
 
-from mapchete.executor import Executor
+from mapchete.executor import get_executor
 from mapchete.pretty import pretty_bytes
 from mapchete.settings import GDALHTTPOptions, IORetrySettings, mapchete_options
 from mapchete.tile import BatchBy, BufferedTile
@@ -109,6 +109,10 @@ class MPath(os.PathLike):
             return MPath(inp.__fspath__(), **kwargs)
         else:  # pragma: no cover
             raise TypeError(f"cannot construct MPath object from {inp}")
+
+    @staticmethod
+    def cwd() -> MPath:
+        return MPath.from_inp(os.getcwd())
 
     def info(self, refresh: bool = False) -> dict:
         if refresh or self._info is None:
@@ -896,7 +900,7 @@ def _output_tiles_batches_exist(
     config,
     is_https_without_ls,
 ):
-    with Executor(concurrency=mapchete_options.tiles_exist_concurrency) as executor:
+    with get_executor(concurrency=mapchete_options.tiles_exist_concurrency) as executor:
         for batch in executor.as_completed(
             _output_tiles_batch_exists,
             (list(b) for b in output_tiles_batches),
@@ -927,7 +931,7 @@ def _output_tiles_batch_exists(tiles, config, is_https_without_ls):
 
 
 def _process_tiles_batches_exist(process_tiles_batches, config, is_https_without_ls):
-    with Executor(concurrency=mapchete_options.tiles_exist_concurrency) as executor:
+    with get_executor(concurrency=mapchete_options.tiles_exist_concurrency) as executor:
         for batch in executor.as_completed(
             _process_tiles_batch_exists,
             (list(b) for b in process_tiles_batches),

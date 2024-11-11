@@ -1,12 +1,8 @@
 import logging
-import os
-from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
 from pprint import pformat
-from typing import List, Optional, Tuple, Type, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
-import tilematrix
-from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
@@ -17,12 +13,20 @@ from mapchete.commands.parser import InputInfo, OutputInfo
 from mapchete.config import DaskSettings
 from mapchete.enums import Concurrency, DataType, ProcessingMode
 from mapchete.errors import JobCancelledError
-from mapchete.executor import Executor
+from mapchete.executor import get_executor
+from mapchete.executor.base import ExecutorBase
 from mapchete.formats import available_output_formats
 from mapchete.io import MPath, fiona_open, get_best_zoom_level
 from mapchete.geometry import reproject_geometry
-from mapchete.tile import BufferedTilePyramid
-from mapchete.types import MPathLike, ResamplingLike, to_resampling
+from mapchete.tile import BufferedTilePyramid, MetatilingValue
+from mapchete.types import (
+    MPathLike,
+    ResamplingLike,
+    to_resampling,
+    ZoomLevelsLike,
+    BoundsLike,
+    CRSLike,
+)
 
 logger = logging.getLogger(__name__)
 OUTPUT_FORMATS = available_output_formats()
@@ -31,11 +35,11 @@ OUTPUT_FORMATS = available_output_formats()
 def convert(
     input_path: MPathLike,
     output_path: MPathLike,
-    zoom: Optional[Union[int, List[int]]] = None,
+    zoom: Optional[ZoomLevelsLike] = None,
     area: Optional[Union[BaseGeometry, str, dict]] = None,
-    area_crs: Optional[Union[CRS, str]] = None,
-    bounds: Optional[Tuple[float, float, float, float]] = None,
-    bounds_crs: Optional[Union[CRS, str]] = None,
+    area_crs: Optional[CRSLike] = None,
+    bounds: Optional[BoundsLike] = None,
+    bounds_crs: Optional[CRSLike] = None,
     point: Optional[Tuple[float, float]] = None,
     point_crs: Optional[Tuple[float, float]] = None,
     overwrite: bool = False,
@@ -45,7 +49,7 @@ def convert(
     clip_geometry: Optional[str] = None,
     bidx: Optional[Union[List[int], int]] = None,
     output_pyramid: Optional[Union[str, dict, MPathLike]] = None,
-    output_metatiling: Optional[int] = None,
+    output_metatiling: Optional[MetatilingValue] = None,
     output_format: Optional[str] = None,
     output_dtype: Optional[str] = None,
     output_geometry_type: Optional[str] = None,
@@ -58,9 +62,9 @@ def convert(
     cog: bool = False,
     src_fs_opts: Optional[dict] = None,
     dst_fs_opts: Optional[dict] = None,
-    executor_getter: AbstractContextManager = Executor,
+    executor_getter: Callable[..., ExecutorBase] = get_executor,
     observers: Optional[List[ObserverProtocol]] = None,
-    retry_on_exception: Tuple[Type[Exception], Type[Exception]] = Exception,
+    retry_on_exception: Union[Tuple[Type[Exception], ...], Type[Exception]] = Exception,
     cancel_on_exception: Type[Exception] = JobCancelledError,
     retries: int = 0,
 ) -> None:
@@ -90,15 +94,86 @@ def convert(
     except Exception as e:
         raise ValueError(e)
 
-        # try to read output grid definition from a file
-    if not (
-        isinstance(output_pyramid, str)
-        and output_pyramid in tilematrix._conf.PYRAMID_PARAMS.keys()
-    ):
-        try:
-            output_pyramid = MPath.from_inp(output_pyramid).read_json()  # type: ignore
-        except Exception:  # pragma: no cover
-            pass
+    # process = "mapchete.processes.convert"
+    # input = dict(inp=input_path, clip=clip_geometry)
+
+    # if output_pyramid:
+    #     # try to read output grid definition from a file
+    #     if isinstance(output_pyramid, dict):
+    #         _params = output_pyramid
+    #     elif (
+    #         isinstance(output_pyramid, str)
+    #         and output_pyramid in tilematrix._conf.PYRAMID_PARAMS.keys()
+    #     ):
+    #         _params = output_pyramid
+    #     else:
+    #         _params = MPath.from_inp(output_pyramid).read_json()
+
+    #     pyramid_config = PyramidConfig(
+    #         grid=_params,
+    #         metatiling=(
+    #             output_metatiling
+    #             or (
+    #                 input_info.output_pyramid.metatiling
+    #                 if input_info.output_pyramid
+    #                 else 1
+    #             )
+    #         ),
+    #         pixelbuffer=(
+    #             input_info.output_pyramid.pixelbuffer
+    #             if input_info.output_pyramid
+    #             else 0
+    #         ),
+    #     )
+    # elif input_info.output_pyramid:
+    #     pyramid_config = input_info.output_pyramid.to_config()
+    # else:
+    #     raise ValueError("Output pyramid required.")
+
+    # output = dict(
+    #     {
+    #         k: v
+    #         for k, v in input_info.output_params.items()
+    #         if k not in ["delimiters", "bounds", "mode"]
+    #     },
+    #     path=output_path,
+    #     format=(
+    #         output_format or output_info.driver or input_info.output_params["format"]
+    #     ),
+    #     dtype=output_dtype or input_info.output_params.get("dtype"),
+    #     **creation_options,
+    #     **(
+    #         dict(overviews=True, overviews_resampling=overviews_resampling_method)
+    #         if overviews
+    #         else dict()
+    #     ),
+    # )
+    # config_dir = MPath.cwd()
+    # zoom_levels = (
+    #     zoom
+    #     or input_info.zoom_levels
+    #     or dict(
+    #         min=0,
+    #         max=get_best_zoom_level(input_path, pyramid_config.grid),
+    #     )
+    # )
+
+    # process_parameters = dict(
+    #     scale_ratio=scale_ratio,
+    #     scale_offset=scale_offset,
+    #     resampling=resampling_method,
+    #     band_indexes=bidx,
+    # )
+
+    # process_config = ProcessConfig(
+    #     process=process,
+    #     input=input,
+    #     output=output,
+    #     pyramid=pyramid_config,
+    #     config_dir=config_dir,
+    #     zoom_levels=zoom_levels,
+    #     process_parameters=process_parameters,
+    # )
 
     # collect mapchete configuration
     mapchete_config = dict(
@@ -148,7 +223,7 @@ def convert(
                 else dict()
             ),
         ),
-        config_dir=os.getcwd(),
+        config_dir=MPath.cwd(),
         zoom_levels=zoom or input_info.zoom_levels,
         process_parameters=dict(
             scale_ratio=scale_ratio,
@@ -169,8 +244,10 @@ def convert(
     ]
     if bidx is not None:
         mapchete_config["output"].update(bands=len(bidx))
+
     if mapchete_config["pyramid"] is None:
         raise ValueError("Output pyramid required.")
+
     elif mapchete_config["zoom_levels"] is None:
         try:
             mapchete_config.update(

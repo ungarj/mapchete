@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Tuple, Union
+
+from mapchete.pretty import pretty_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +14,14 @@ class MeasuredRequests:
     head_count: int = 0
     get_count: int = 0
     get_bytes: int = 0
+
+    @staticmethod
+    def from_results(results: dict) -> MeasuredRequests:
+        return MeasuredRequests(
+            head_count=results["HEAD"]["count"],
+            get_count=results["GET"]["count"],
+            get_bytes=results["GET"]["bytes"],
+        )
 
 
 def measure_requests(add_to_return: bool = True) -> Callable:
@@ -31,21 +43,17 @@ def measure_requests(add_to_return: bool = True) -> Callable:
                 return func(*fargs, **fkwargs)
 
             retval, raw_results = _decorated(func, args, kwargs)
-            results = MeasuredRequests(
-                head_count=raw_results["HEAD"]["count"],
-                get_count=raw_results["GET"]["count"],
-                get_bytes=raw_results["GET"]["bytes"],
-            )
+            results = MeasuredRequests.from_results(raw_results)
 
             if add_to_return:
                 return retval, results
 
             logger.info(
-                "function %s caused %s HEAD requests, %s GET requests and retreived %sMB of data",
+                "function %s caused %s HEAD requests, %s GET requests and retreived %s of data",
                 func,
                 results.head_count,
                 results.get_count,
-                round(results.get_bytes / 1024 / 1024, 2),
+                pretty_bytes(results.get_bytes),
             )
             return retval
 

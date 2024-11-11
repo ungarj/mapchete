@@ -73,6 +73,7 @@ class ReferencedRaster:
             bounds or array_bounds(self.height, self.width, self.transform)
         )
         self.__geo_interface__ = mapping(shape(self.bounds))
+        # logger.debug("%s array has %s", self, pretty_bytes(self.array.size))
 
     @property
     def meta(self) -> dict:

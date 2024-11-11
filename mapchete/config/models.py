@@ -16,17 +16,11 @@ from mapchete.path import MPath
 from mapchete.types import BoundsLike, MPathLike, ZoomLevelsLike
 from mapchete.validate import validate_values
 from mapchete.zoom_levels import ZoomLevels
-from mapchete.tile import MetatilingValue
+from mapchete.tile import MetatilingValue, PyramidConfig
 
 
 class OutputConfigBase(BaseModel):
     format: str
-    metatiling: MetatilingValue = 1
-    pixelbuffer: NonNegativeInt = 0
-
-
-class PyramidConfig(BaseModel):
-    grid: Union[str, dict]
     metatiling: MetatilingValue = 1
     pixelbuffer: NonNegativeInt = 0
 

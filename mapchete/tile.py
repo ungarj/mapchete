@@ -9,7 +9,7 @@ from typing import Generator, List, Literal, TypedDict, Union
 
 import numpy as np
 from affine import Affine
-from pydantic import NonNegativeInt
+from pydantic import NonNegativeInt, BaseModel
 from rasterio.enums import Resampling
 from rasterio.features import rasterize, shapes
 from rasterio.transform import from_bounds
@@ -33,6 +33,7 @@ from mapchete.types import (
 
 logger = logging.getLogger(__name__)
 
+
 GridDefinitionDict = TypedDict(
     "GridDefinitionDict",
     {
@@ -53,6 +54,13 @@ PyramidDefinitionDict = TypedDict(
         "pixelbuffer": NonNegativeInt,
     },
 )
+
+
+class PyramidConfig(BaseModel):
+    grid: Union[str, dict]
+    metatiling: MetatilingValue = 1
+    pixelbuffer: NonNegativeInt = 0
+    tile_size: NonNegativeInt = 256
 
 
 class BatchBy(str, Enum):
@@ -194,12 +202,19 @@ class BufferedTilePyramid(TilePyramid):
         """
         Return dictionary representation of pyramid parameters.
         """
-        return dict(
+        return {
+            "grid": self.grid.to_dict(),  # type: ignore
+            "metatiling": self.metatiling,
+            "tile_size": self.tile_size,
+            "pixelbuffer": self.pixelbuffer,
+        }
+
+    def to_config(self) -> PyramidConfig:
+        return PyramidConfig(
             grid=self.grid.to_dict(),
             metatiling=self.metatiling,
-            tile_size=self.tile_size,
             pixelbuffer=self.pixelbuffer,
-        )  # type: ignore
+        )
 
     def without_pixelbuffer(self) -> BufferedTilePyramid:
         config_dict = self.to_dict()
