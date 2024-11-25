@@ -3,6 +3,7 @@
 import logging
 from contextlib import contextmanager
 from itertools import chain
+import sys
 from typing import Generator, List, Optional, Tuple, Union
 
 import fiona
@@ -135,8 +136,9 @@ def read_vector_window(
         return list(_gen_features())
     except FileNotFoundError:  # pragma: no cover
         raise
-    except Exception as e:  # pragma: no cover
-        raise MapcheteIOError(e)
+    except Exception as exception:  # pragma: no cover
+        _, _, exc_traceback = sys.exc_info()
+        raise MapcheteIOError(exception).with_traceback(exc_traceback) from exception
 
 
 def _read_vector_window_from_file(
