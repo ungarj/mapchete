@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import warnings
 from contextlib import contextmanager
 from typing import Generator, Iterable, List, Optional, Tuple, Union
@@ -205,8 +206,11 @@ def _read_raster_window(
                 return _empty_array()
             else:
                 raise
-        except Exception as exc:  # pragma: no cover
-            raise MapcheteIOError(f"failed to read {input_file}") from exc
+        except Exception as exception:  # pragma: no cover
+            _, _, exc_traceback = sys.exc_info()
+            raise MapcheteIOError(f"failed to read {input_file}").with_traceback(
+                exc_traceback
+            ) from exception
 
 
 def _get_warped_edge_array(
