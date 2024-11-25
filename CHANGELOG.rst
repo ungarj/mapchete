@@ -4,6 +4,16 @@ Changelog
 
 
 ----------------------
+2024.11.1 - 2024-11-25
+----------------------
+
+* core
+
+  * `settings.IORetrySettings`: add `aiohttp.ClientPayloadError` and `aiohttp.ClientResponseError` to retryable exceptions (#660)
+  * `io.raster.read.read_raster_window` and `io.vector.read.read_vector_window`: add traceback of original exception when raising `MapcheteIOError` (#660)
+
+
+----------------------
 2024.11.0 - 2024-11-05
 ----------------------
 
