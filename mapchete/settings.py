@@ -4,7 +4,7 @@ Combine default values with environment variable values.
 
 from typing import Tuple, Type
 
-from aiohttp import ClientResponseError
+from aiohttp import ClientPayloadError, ClientResponseError
 from aiohttp.client_exceptions import ServerDisconnectedError
 from fiona.errors import FionaError
 from fsspec.exceptions import FSTimeoutError
@@ -68,6 +68,7 @@ class IORetrySettings(BaseSettings):
         FSTimeoutError,
         ServerDisconnectedError,
         ClientResponseError,
+        ClientPayloadError,
     )
     # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_IO_RETRY_")
