@@ -95,7 +95,7 @@ class IndexedFeatures(FeatureCollectionProtocol):
                 try:
                     bounds = object_bounds(feature, dst_crs=crs)
                 except NoCRSError as exc:
-                    logger.warning(str(exc))
+                    logger.debug(str(exc))
                     bounds = object_bounds(feature)
             except NoGeoError:
                 if allow_non_geo_objects:
@@ -302,7 +302,6 @@ def object_geometry(obj: Any) -> Geometry:
         else:
             raise TypeError("no geometry")
     except Exception as exc:
-        logger.exception(exc)
         raise NoGeoError(f"cannot determine geometry from object: {obj}") from exc
 
 
@@ -324,7 +323,6 @@ def object_bounds(
         else:
             bounds = Bounds.from_inp(object_geometry(obj).bounds)
     except Exception as exc:
-        logger.exception(exc)
         raise NoGeoError(f"cannot determine bounds from object: {obj}") from exc
 
     if dst_crs:
@@ -346,5 +344,4 @@ def object_crs(obj: Any) -> CRS:
             return CRS.from_user_input(obj["crs"])
         raise AttributeError(f"no crs attribute or key found in object: {obj}")
     except Exception as exc:
-        logger.exception(exc)
         raise NoCRSError(f"cannot determine CRS from object: {obj}") from exc
