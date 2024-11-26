@@ -208,9 +208,9 @@ def _read_raster_window(
                 raise
         except Exception as exception:  # pragma: no cover
             _, _, exc_traceback = sys.exc_info()
-            raise MapcheteIOError(f"failed to read {input_file}").with_traceback(
-                exc_traceback
-            ) from exception
+            raise MapcheteIOError(
+                f"failed to read {input_file} due to a {str(exception)}"
+            ).with_traceback(exc_traceback) from exception
 
 
 def _get_warped_edge_array(

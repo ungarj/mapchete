@@ -138,7 +138,9 @@ def read_vector_window(
         raise
     except Exception as exception:  # pragma: no cover
         _, _, exc_traceback = sys.exc_info()
-        raise MapcheteIOError(exception).with_traceback(exc_traceback) from exception
+        raise MapcheteIOError(
+            f"failed to read {inp} due to a {str(exception)}"
+        ).with_traceback(exc_traceback) from exception
 
 
 def _read_vector_window_from_file(
