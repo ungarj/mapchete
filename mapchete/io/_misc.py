@@ -196,14 +196,24 @@ def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
     # create parent directories on local filesystems
     dst_path.parent.makedirs()
 
-    # copy either within a filesystem or between filesystems
-    if src_path.fs == dst_path.fs:
-        src_path.fs.copy(str(src_path), str(dst_path))
-    else:
-        # read source data first
-        with src_path.open("rb") as src:
-            content = src.read()
-        # only write to destination if reading source data didn't raise errors,
-        # otherwise we can end up with empty objects on an object store
-        with dst_path.open("wb") as dst:
-            dst.write(content)
+    try:
+        # copy either within a filesystem or between filesystems
+        if src_path.fs == dst_path.fs:
+            src_path.fs.copy(str(src_path), str(dst_path))
+        else:
+            # read source data first
+            with src_path.open("rb") as src:
+                content = src.read()
+            # only write to destination if reading source data didn't raise errors,
+            # otherwise we can end up with empty objects on an object store
+            with dst_path.open("wb") as dst:
+                dst.write(content)
+    except Exception as exception:  # pragma: no cover
+        # This is a hack because some tool using aiohttp does not raise a
+        # ClientResponseError directly but masks it as a generic Exception and thus
+        # preventing our retry mechanism to kick in.
+        if repr(exception).startswith('Exception("ClientResponseError'):
+            raise ConnectionError(repr(exception)).with_traceback(
+                exception.__traceback__
+            ) from exception
+        raise
