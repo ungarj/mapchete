@@ -1,7 +1,6 @@
 import logging
 from enum import Enum
 
-from aiohttp import ClientResponseError
 import rasterio
 from rasterio.warp import calculate_default_transform
 from shapely.errors import TopologicalError
@@ -216,5 +215,7 @@ def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
         if repr(exception).startswith(
             'Exception("ClientResponseError'
         ):  # pragma: no cover
-            raise ClientResponseError(exception) from exception
+            raise ConnectionError(repr(exception)).with_traceback(
+                exception.__traceback__
+            ) from exception
         raise

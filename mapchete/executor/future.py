@@ -123,6 +123,7 @@ class MFuture:
     def from_func(
         func: Callable, fargs: Optional[Tuple] = None, fkwargs: Optional[Dict] = None
     ) -> MFuture:
+        fkwargs = fkwargs or {}
         try:
             return MFuture(result=func(*fargs, **fkwargs))
         except Exception as exc:  # pragma: no cover
