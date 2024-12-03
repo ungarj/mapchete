@@ -208,13 +208,11 @@ def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
             # otherwise we can end up with empty objects on an object store
             with dst_path.open("wb") as dst:
                 dst.write(content)
-    except Exception as exception:
+    except Exception as exception:  # pragma: no cover
         # This is a hack because some tool using aiohttp does not raise a
         # ClientResponseError directly but masks it as a generic Exception and thus
         # preventing our retry mechanism to kick in.
-        if repr(exception).startswith(
-            'Exception("ClientResponseError'
-        ):  # pragma: no cover
+        if repr(exception).startswith('Exception("ClientResponseError'):
             raise ConnectionError(repr(exception)).with_traceback(
                 exception.__traceback__
             ) from exception
