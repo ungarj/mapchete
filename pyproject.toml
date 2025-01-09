@@ -57,7 +57,7 @@ complete = [
     "Flask-RangeRequest",
     "fsspec[http,s3]>=2023.12.0",
     "lxml",
-    "matplotlib",
+    "matplotlib<3.10",
     "memray",
     "pystac[urllib3]>=1.8.2",
     "requests",
@@ -67,7 +67,7 @@ complete = [
     "werkzeug>=0.15",
 ]
 contours = [
-    "matplotlib",
+    "matplotlib<3.10",
 ]
 http = [
     "aiohttp",
