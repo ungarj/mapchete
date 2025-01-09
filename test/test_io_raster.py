@@ -412,7 +412,12 @@ def test_resample_from_array():
     out_array = resample_from_array(in_data, in_tile.affine, out_tile, keep_2d=False)
     assert out_array.shape == (1, 256, 256)
     # Test ma.MaskedArray input
-    in_data = (ma.MaskedArray(data=np.ones(in_tile.shape[1:])),)
+    in_data = (
+        ma.MaskedArray(
+            data=np.ones(in_tile.shape[1:]),
+            mask=np.invert(np.ones(in_tile.shape[1:]), dtype="bool", casting="unsafe"),
+        ),
+    )
     out_tile = BufferedTilePyramid("geodetic").tile(6, 10, 10)
     out_array = resample_from_array(in_data, in_tile.affine, out_tile)
     assert out_array.shape == (1, 256, 256)
