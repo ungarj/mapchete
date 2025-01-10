@@ -169,6 +169,9 @@ def resample_from_array(
 
     dst_data = np.empty(dst_shape, array.dtype)
 
+    if isinstance(array, ma.MaskedArray):
+        array = array.data
+
     reproject(
         array,
         dst_data,
