@@ -3,8 +3,21 @@ Changelog
 #########
 
 
+---------------------
+2025.1.0 - 2025-01-14
+---------------------
+
+* core
+
+  * `io.raster.array.resample_from_array()`: fix regression caused by new behavior of `rasterio.warp.reproject()` (#663)
+
+* packaging
+
+  * limit `matplotlib` below version `3.10`
+
+
 ----------------------
-2024.11.1 - 2024-11-25
+2024.12.0 - 2024-12-03
 ----------------------
 
 * core
