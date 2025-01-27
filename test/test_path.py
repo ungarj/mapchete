@@ -527,3 +527,11 @@ def test_with_protocol_http():
 def test_with_protocol_relative():
     path = MPath("foo/bar")
     assert path.with_protocol("https") == "https://foo/bar"
+
+
+def test_s3_region_name():
+    path = MPath("s3://foo", storage_options=dict(region_name="bar"))
+    # trigger a rewrite of storage options to fit with S3FS
+    path.fs
+    # not an ideal way to test this, but the storage_options are passed on to S3FS that way
+    assert path._storage_options.get("client_kwargs", {}).get("region_name") == "bar"
