@@ -158,6 +158,13 @@ class MPath(os.PathLike):
         if self._fs is not None:
             return self._fs
         elif self._path_str.startswith("s3://"):
+            # move 'region_name' up to client_kwargs in order to have effect
+            if self._storage_options.get("region_name"):
+                client_kwargs = self._storage_options.get("client_kwargs", {})
+                client_kwargs.update(
+                    region_name=self._storage_options.pop("region_name")
+                )
+                self._storage_options.update(client_kwargs=client_kwargs)
             return fsspec.filesystem(
                 "s3",
                 requester_pays=self._storage_options.get(
