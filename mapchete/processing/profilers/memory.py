@@ -32,7 +32,8 @@ def measure_memory(
 
         def wrapped_f(*args, **kwargs) -> Union[Any, Tuple[Any, MeasuredMemory]]:
             with MemoryTracker(
-                output_file=output_file,
+                output_file=output_file
+                or str(MPath.cwd() / f"{os.getpid()}-{uuid.uuid4().hex}.bin"),
                 raise_exc_multiple_trackers=raise_exc_multiple_trackers,
             ) as tracker:
                 retval = func(*args, **kwargs)
