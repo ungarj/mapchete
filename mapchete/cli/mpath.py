@@ -1,7 +1,9 @@
 import json
+import os
 from typing import List, Optional, Union
 
 import click
+import tqdm
 
 from mapchete.cli import options
 from mapchete.io import copy
@@ -24,30 +26,67 @@ def exists(path: MPath):
 @mpath.command(help="copy path.")
 @options.arg_path
 @options.arg_out_path
+@options.opt_src_fs_opts
+@options.opt_dst_fs_opts
 @options.opt_overwrite
-def cp(path: MPath, out_path: MPath, overwrite: bool = False):
+@opt_recursive
+@click.option("--skip-existing", is_flag=True)
+@options.opt_debug
+def cp(
+    path: MPath,
+    out_path: MPath,
+    overwrite: bool = False,
+    recursive: bool = False,
+    skip_existing: bool = False,
+    debug: bool = False,
+    **_,
+):
     try:
-        copy(path, out_path, overwrite=overwrite)
+        if path.is_directory():
+            if not recursive:  # pragma: no cover
+                raise click.UsageError(
+                    "source path is directory, --recursive flag required"
+                )
+            for _, __, files in tqdm.tqdm(path.walk(), disable=debug):
+                for src_file in tqdm.tqdm(
+                    [file for file in files if not file.is_directory()],
+                    leave=False,
+                    disable=debug,
+                ):
+                    dst_file = out_path / os.path.relpath(
+                        str(src_file.without_protocol()),
+                        start=str(path.without_protocol()),
+                    )
+                    tqdm.tqdm.write(f"copy {str(src_file)} to {str(dst_file)} ...")
+                    copy(
+                        src_file, dst_file, overwrite=overwrite, exists_ok=skip_existing
+                    )
+        else:
+            copy(path, out_path, overwrite=overwrite, exists_ok=skip_existing)
     except Exception as exc:  # pragma: no cover
-        raise click.ClickException(exc)
+        if debug:
+            raise
+        raise click.ClickException(str(exc))
 
 
 @mpath.command(help="Remove path.")
 @options.arg_path
+@options.opt_src_fs_opts
 @opt_recursive
 @options.opt_force
-def rm(path: MPath, recursive: bool = False, force: bool = False):
+def rm(path: MPath, recursive: bool = False, force: bool = False, **_):
     try:
         if force or click.confirm(
             f"do you really want to permanently delete {str(path)}?"
         ):
             path.rm(recursive=recursive)
     except Exception as exc:  # pragma: no cover
-        raise click.ClickException(exc)
+        raise click.ClickException(str(exc))
 
 
 @mpath.command(help="List path contents.")
 @options.arg_path
+@options.opt_src_fs_opts
 @click.option(
     "--date-format", type=click.STRING, default="%y-%m-%d %H:%M:%S", show_default=True
 )
@@ -62,6 +101,7 @@ def ls(
     spacing: int = 4,
     recursive: bool = False,
     max_depth: Optional[int] = None,
+    **_,
 ):
     size_column_width = 10
 
@@ -114,8 +154,8 @@ def ls(
         if recursive:
             for root, _, files in path.walk(absolute_paths=True, maxdepth=max_depth):
                 _print_rows(
-                    [root],
-                    files,
+                    [root],  # type: ignore
+                    files,  # type: ignore
                     last_modified_column_width=last_modified_column_width,
                     spacing=spacing,
                 )
@@ -123,7 +163,7 @@ def ls(
             directories = []
             files = []
             for subpath in path.ls(absolute_paths=True):
-                if subpath.is_directory():
+                if subpath.is_directory():  # type: ignore
                     directories.append(subpath)
                 else:
                     files.append(subpath)
@@ -135,7 +175,7 @@ def ls(
             )
 
     except Exception as exc:  # pragma: no cover
-        raise click.ClickException(exc)
+        raise click.ClickException(str(exc))
 
 
 def _row(
@@ -149,7 +189,7 @@ def _row(
             width = len(text)
         return text + " " * (width - len(text))
 
-    def _column_underline(text: str = "", width: int = 4, symbol: str = "-"):
+    def _column_underline(text: str = "", width: int = 4, symbol: str = "-") -> str:
         if width is None or len(text) > width:
             width = len(text)
         return symbol * len(text) + " " * (width - len(text))
@@ -161,7 +201,7 @@ def _row(
     if underlines:
         out += "\n"
         out += space.join(
-            [_column_underline(column, width) for column, width in zip(columns, widths)]
+            [_column_underline(column, width) for column, width in zip(columns, widths)]  # type: ignore
         )
 
     return out
@@ -173,7 +213,7 @@ def read_text(path: MPath):
     try:
         click.echo(path.read_text())
     except Exception as exc:  # pragma: no cover
-        raise click.ClickException(exc)
+        raise click.ClickException(str(exc))
 
 
 @mpath.command(help="Print contents of file as JSON.")
@@ -183,4 +223,4 @@ def read_json(path: MPath, indent: int = 4):
     try:
         click.echo(json.dumps(path.read_json(), indent=indent))
     except Exception as exc:  # pragma: no cover
-        raise click.ClickException(exc)
+        raise click.ClickException(str(exc))

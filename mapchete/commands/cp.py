@@ -49,6 +49,7 @@ def cp(
 
     src_tiledir = MPath.from_inp(src_tiledir, storage_options=src_fs_opts)
     dst_tiledir = MPath.from_inp(dst_tiledir, storage_options=dst_fs_opts)
+
     all_observers = Observers(observers)
 
     # open source tile directory

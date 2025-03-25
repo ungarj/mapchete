@@ -185,13 +185,21 @@ def get_boto3_bucket(bucket_name):  # pragma: no cover
     raise DeprecationWarning("get_boto3_bucket() is deprecated")
 
 
-def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
+def copy(
+    src_path,
+    dst_path,
+    src_fs=None,
+    dst_fs=None,
+    overwrite=False,
+    exists_ok: bool = False,
+):
     """Copy path from one place to the other."""
     src_path = MPath.from_inp(src_path, fs=src_fs)
     dst_path = MPath.from_inp(dst_path, fs=dst_fs)
 
-    if not overwrite and dst_path.fs.exists(dst_path):
-        raise IOError(f"{dst_path} already exists")
+    if dst_path.fs.exists(dst_path):
+        if not overwrite and not exists_ok:
+            raise IOError(f"{dst_path} already exists")
 
     # create parent directories on local filesystems
     dst_path.parent.makedirs()

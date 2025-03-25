@@ -35,6 +35,12 @@ def test_cp(metadata_json, mp_tmpdir):
     assert run_cli(["cp", str(metadata_json), out_file], cli=mpath)
 
 
+def test_cp_directory(local_tiledir, mp_tmpdir):
+    out_path = mp_tmpdir / local_tiledir.name
+    assert run_cli(["cp", str(local_tiledir), str(out_path), "--recursive"], cli=mpath)
+    assert out_path.ls()
+
+
 def test_rm(metadata_json, mp_tmpdir):
     out_file = mp_tmpdir / metadata_json.name
     assert run_cli(["cp", str(metadata_json), out_file], cli=mpath)

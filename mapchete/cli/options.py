@@ -110,6 +110,20 @@ def _cb_none_concurrency(ctx, param, value):
     return None if value == "none" else value
 
 
+def _cb_mpath(ctx, param, value) -> MPath:
+    if param.name in ("path", "tiledir", "src_tiledir"):
+        return MPath(
+            value,
+            storage_options=ctx.params.get("src_fs_opts"),
+        )
+    elif param.name in ("out_path", "dst_tiledir", "output"):
+        return MPath(
+            value,
+            storage_options=ctx.params.get("dst_fs_opts"),
+        )
+    return MPath(value)  # pragma: no cover
+
+
 # click arguments #
 ###################
 arg_mapchete_file = click.argument("mapchete_file", type=click.Path())
@@ -127,12 +141,12 @@ arg_out_format = click.argument(
 arg_input_raster = click.argument("input_raster", type=click.Path())
 arg_out_dir = click.argument("output_dir", type=click.Path())
 arg_input = click.argument("input_", metavar="INPUT", type=click.STRING)
-arg_output = click.argument("output", type=click.STRING)
-arg_src_tiledir = click.argument("src_tiledir", type=click.STRING)
-arg_dst_tiledir = click.argument("dst_tiledir", type=click.STRING)
-arg_tiledir = click.argument("tiledir", type=click.STRING)
-arg_path = click.argument("path", type=click.Path(path_type=MPath))
-arg_out_path = click.argument("out_path", type=click.Path(path_type=MPath))
+arg_output = click.argument("output", type=click.STRING, callback=_cb_mpath)
+arg_src_tiledir = click.argument("src_tiledir", type=click.STRING, callback=_cb_mpath)
+arg_dst_tiledir = click.argument("dst_tiledir", type=click.STRING, callback=_cb_mpath)
+arg_tiledir = click.argument("tiledir", type=click.STRING, callback=_cb_mpath)
+arg_path = click.argument("path", type=click.STRING, callback=_cb_mpath)
+arg_out_path = click.argument("out_path", type=click.STRING, callback=_cb_mpath)
 
 
 # click options #
