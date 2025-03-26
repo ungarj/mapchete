@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import List, Optional, Union
 
@@ -8,6 +9,8 @@ import tqdm
 from mapchete.cli import options
 from mapchete.io import copy
 from mapchete.path import MPath
+
+logger = logging.getLogger(__name__)
 
 opt_recursive = click.option("--recursive", "-r", is_flag=True)
 
@@ -57,7 +60,11 @@ def cp(
                         str(src_file.without_protocol()),
                         start=str(path.without_protocol()),
                     )
-                    tqdm.tqdm.write(f"copy {str(src_file)} to {str(dst_file)} ...")
+                    message = f"copy {str(src_file)} to {str(dst_file)} ..."
+                    if debug:
+                        logger.debug(message)
+                    else:
+                        tqdm.tqdm.write(message)
                     copy(
                         src_file, dst_file, overwrite=overwrite, exists_ok=skip_existing
                     )

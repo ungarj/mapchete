@@ -1,13 +1,16 @@
 import logging
 from enum import Enum
 
+from fsspec import FSTimeoutError
 import rasterio
 from rasterio.warp import calculate_default_transform
+from retry import retry
 from shapely.errors import TopologicalError
 from shapely.geometry import box
 
 from mapchete.geometry import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
+from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile, BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
@@ -185,6 +188,10 @@ def get_boto3_bucket(bucket_name):  # pragma: no cover
     raise DeprecationWarning("get_boto3_bucket() is deprecated")
 
 
+@retry(
+    logger=logger,
+    **dict(IORetrySettings(exceptions=(OSError, FSTimeoutError, TimeoutError))),
+)
 def copy(
     src_path,
     dst_path,
@@ -200,6 +207,8 @@ def copy(
     if dst_path.fs.exists(dst_path):
         if not overwrite and not exists_ok:
             raise IOError(f"{dst_path} already exists")
+        logger.debug("%s already exists", str(dst_path))
+        return
 
     # create parent directories on local filesystems
     dst_path.parent.makedirs()
