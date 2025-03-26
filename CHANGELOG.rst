@@ -4,12 +4,26 @@ Changelog
 
 
 ---------------------
+2025.3.0 - 2025-03-26
+---------------------
+
+* CLI
+
+  * `mapchete serve`: Fix Content-Type of MemoryFile tiles (#670)
+  * `mpath`: enable extended fs-options & allow mpath cp to copy directories (#673)
+
+* core
+
+  * `io.copy`: add retry; add `exists_ok` flag to skip copy if destination exists (#673)
+
+
+---------------------
 2025.1.1 - 2025-01-27
 ---------------------
 
 * core
 
-  * `path.MPath`: properly handle `region_name` for S3 paths #667
+  * `path.MPath`: properly handle `region_name` for S3 paths (#667)
 
 
 ---------------------
