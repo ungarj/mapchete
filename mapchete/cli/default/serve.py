@@ -174,7 +174,7 @@ def _valid_tile_response(mp, data):
     out_data, mime_type = mp.config.output.for_web(data)
     logger.debug("create tile response %s", mime_type)
     if isinstance(out_data, MemoryFile):
-        return RangeRequest(out_data).make_response()
+        response = RangeRequest(out_data).make_response()
     elif isinstance(out_data, list):
         response = make_response(jsonify(data))
     else:  # pragma: no cover
