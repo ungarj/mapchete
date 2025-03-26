@@ -307,7 +307,6 @@ class MPath(os.PathLike):
         relative path
         """
         start = start or base_dir
-        breakpoint()
         if self.is_remote() or self.is_absolute():
             return self
         else:
