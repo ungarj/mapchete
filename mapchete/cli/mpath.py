@@ -61,7 +61,7 @@ def cp(
                         start=str(path.without_protocol()),
                     )
                     message = f"copy {str(src_file)} to {str(dst_file)} ..."
-                    if debug:
+                    if debug:  # pragma: no cover
                         logger.debug(message)
                     else:
                         tqdm.tqdm.write(message)

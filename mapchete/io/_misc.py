@@ -205,10 +205,13 @@ def copy(
     dst_path = MPath.from_inp(dst_path, fs=dst_fs)
 
     if dst_path.fs.exists(dst_path):
-        if not overwrite and not exists_ok:
+        if overwrite:
+            pass
+        elif exists_ok:
+            logger.debug("%s already exists", str(dst_path))
+            return
+        else:
             raise IOError(f"{dst_path} already exists")
-        logger.debug("%s already exists", str(dst_path))
-        return
 
     # create parent directories on local filesystems
     dst_path.parent.makedirs()
