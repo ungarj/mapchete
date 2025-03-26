@@ -332,6 +332,11 @@ def test_copy(cleantopo_br_tif, tmpdir):
     with rasterio_open(out) as src:
         assert not src.read(masked=True).mask.all()
 
+    # copy again but skip if file exists
+    copy(cleantopo_br_tif, out, exists_ok=True)
+    with rasterio_open(out) as src:
+        assert not src.read(masked=True).mask.all()
+
 
 def test_custom_grid_points(custom_grid_points):
     mp = custom_grid_points.process_mp(tile=(3, 1245, 37))

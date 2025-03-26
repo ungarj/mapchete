@@ -1,13 +1,16 @@
 import logging
 from enum import Enum
 
+from fsspec import FSTimeoutError
 import rasterio
 from rasterio.warp import calculate_default_transform
+from retry import retry
 from shapely.errors import TopologicalError
 from shapely.geometry import box
 
 from mapchete.geometry import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
+from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile, BufferedTilePyramid
 
 logger = logging.getLogger(__name__)
@@ -185,13 +188,30 @@ def get_boto3_bucket(bucket_name):  # pragma: no cover
     raise DeprecationWarning("get_boto3_bucket() is deprecated")
 
 
-def copy(src_path, dst_path, src_fs=None, dst_fs=None, overwrite=False):
+@retry(
+    logger=logger,
+    **dict(IORetrySettings(exceptions=(OSError, FSTimeoutError, TimeoutError))),
+)
+def copy(
+    src_path,
+    dst_path,
+    src_fs=None,
+    dst_fs=None,
+    overwrite=False,
+    exists_ok: bool = False,
+):
     """Copy path from one place to the other."""
     src_path = MPath.from_inp(src_path, fs=src_fs)
     dst_path = MPath.from_inp(dst_path, fs=dst_fs)
 
-    if not overwrite and dst_path.fs.exists(dst_path):
-        raise IOError(f"{dst_path} already exists")
+    if dst_path.fs.exists(dst_path):
+        if overwrite:
+            pass
+        elif exists_ok:
+            logger.debug("%s already exists", str(dst_path))
+            return
+        else:
+            raise IOError(f"{dst_path} already exists")
 
     # create parent directories on local filesystems
     dst_path.parent.makedirs()

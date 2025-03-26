@@ -205,6 +205,12 @@ def secure_http_raster(secure_http_testdata_dir):
 
 
 @pytest.fixture
+def local_tiledir():
+    """Fixture for a local TileDirectory."""
+    return TESTDATA_DIR / "cleantopo"
+
+
+@pytest.fixture
 def http_tiledir(http_testdata_dir):
     """Fixture for HTTP TileDirectory."""
     return http_testdata_dir / "cleantopo"

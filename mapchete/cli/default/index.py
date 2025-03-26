@@ -1,6 +1,7 @@
 """Create index for process output."""
 
 import logging
+from typing import Dict, Optional
 
 import click
 import tqdm
@@ -8,6 +9,7 @@ import tqdm
 from mapchete import commands
 from mapchete.cli import options
 from mapchete.cli.progress_bar import PBar
+from mapchete.path import MPath
 
 # workaround for https://github.com/tqdm/tqdm/issues/481
 tqdm.monitor_interval = 0
@@ -42,7 +44,16 @@ logger = logging.getLogger(__name__)
 @options.opt_no_pbar
 @options.opt_debug
 @options.opt_logfile
-def index(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwargs):
+def index(
+    tiledir: MPath,
+    fs_opts: Optional[Dict] = None,
+    *args,
+    debug=False,
+    no_pbar=False,
+    verbose=False,
+    logfile=None,
+    **kwargs,
+):
     """Create various index files from process output."""
     # handle deprecated options
     for x in ["password", "username"]:
@@ -56,10 +67,10 @@ def index(*args, debug=False, no_pbar=False, verbose=False, logfile=None, **kwar
     with PBar(
         total=100, desc="tiles", disable=debug or no_pbar, print_messages=verbose
     ) as pbar:
-        kwargs.update(some_input=kwargs.pop("tiledir"))
         commands.index(
+            MPath(tiledir, storage_options=fs_opts),
             *args,
             observers=[pbar],
             **kwargs,
         )
-    tqdm.tqdm.write(f"index(es) creation for {kwargs.get('tiledir')} finished")
+    tqdm.tqdm.write(f"index(es) creation for {str(tiledir)} finished")

@@ -10,6 +10,7 @@ from mapchete.cli import options
 from mapchete.cli.progress_bar import PBar
 from mapchete.config import DaskSettings
 from mapchete.formats import available_output_formats
+from mapchete.path import MPath
 
 OUTPUT_FORMATS = available_output_formats()
 
@@ -114,6 +115,7 @@ def convert(
     no_pbar=False,
     verbose=False,
     dask_no_task_graph=False,
+    src_fs_opts=None,
     logfile=None,
     **kwargs,
 ):
@@ -122,7 +124,7 @@ def convert(
             total=100, desc="tasks", disable=debug or no_pbar, print_messages=verbose
         ) as pbar:
             commands.convert(
-                tiledir,
+                MPath(tiledir, storage_options=src_fs_opts),
                 output,
                 *args,
                 dask_settings=DaskSettings(process_graph=not dask_no_task_graph),
