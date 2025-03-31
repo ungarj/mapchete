@@ -200,12 +200,6 @@ class MPath(os.PathLike):
         else:
             return fsspec.filesystem("file", **self.storage_options)
 
-    def fs_session(self):
-        if hasattr(self.fs, "session"):
-            return getattr(self.fs, "session")
-        else:
-            return None
-
     @cached_property
     def protocols(self) -> Set[str]:
         """Return set of filesystem protocols."""
