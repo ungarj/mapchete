@@ -4,6 +4,15 @@ Changelog
 
 
 ---------------------
+2025.3.1 - 2025-03-31
+---------------------
+
+* core
+
+  * `path.MPath`: rename `_storage_options` to `storage_options` public; remove `fs_session`; don't create `Session` objects from `fs`` (#675)
+
+
+---------------------
 2025.3.0 - 2025-03-26
 ---------------------
 
