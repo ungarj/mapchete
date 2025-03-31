@@ -30,7 +30,6 @@ from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_STORAGE_OPTIONS = {"asynchronous": False, "timeout": None}
 UNALLOWED_S3_KWARGS = ["timeout"]
 UNALLOWED_HTTP_KWARGS = ["username", "password"]
 
@@ -40,7 +39,7 @@ class MPath(os.PathLike):
     Partially replicates pathlib.Path but with remote file support.
     """
 
-    _storage_options: dict
+    storage_options: dict = {"asynchronous": False, "timeout": None}
     _gdal_options: dict
 
     def __init__(
@@ -75,10 +74,10 @@ class MPath(os.PathLike):
             storage_options = kwargs.get("fs_options")
         if storage_options:
             self._kwargs.update(storage_options=storage_options)
-        self._fs = fs
-        self._storage_options = dict(
-            DEFAULT_STORAGE_OPTIONS, **self._kwargs.get("storage_options") or {}
+        self.storage_options = dict(
+            self.storage_options, **self._kwargs.get("storage_options") or {}
         )
+        self._fs = fs
         self._info = _info
         self._gdal_options = dict()
 
@@ -118,7 +117,7 @@ class MPath(os.PathLike):
     def to_dict(self) -> dict:
         return dict(
             path=self._path_str,
-            storage_options=self._storage_options,
+            storage_options=self.storage_options,
             fs=self.fs,
         )
 
@@ -159,33 +158,33 @@ class MPath(os.PathLike):
             return self._fs
         elif self._path_str.startswith("s3://"):
             # move 'region_name' up to client_kwargs in order to have effect
-            if self._storage_options.get("region_name"):
-                client_kwargs = self._storage_options.get("client_kwargs", {})
+            if self.storage_options.get("region_name"):
+                client_kwargs = self.storage_options.get("client_kwargs", {})
                 client_kwargs.update(
-                    region_name=self._storage_options.pop("region_name")
+                    region_name=self.storage_options.pop("region_name")
                 )
-                self._storage_options.update(client_kwargs=client_kwargs)
+                self.storage_options.update(client_kwargs=client_kwargs)
             return fsspec.filesystem(
                 "s3",
-                requester_pays=self._storage_options.get(
+                requester_pays=self.storage_options.get(
                     "requester_pays", os.environ.get("AWS_REQUEST_PAYER") == "requester"
                 ),
                 config_kwargs=dict(
-                    connect_timeout=self._storage_options.get("timeout"),
-                    read_timeout=self._storage_options.get("timeout"),
+                    connect_timeout=self.storage_options.get("timeout"),
+                    read_timeout=self.storage_options.get("timeout"),
                 ),
                 **{
                     k: v
-                    for k, v in self._storage_options.items()
+                    for k, v in self.storage_options.items()
                     if k not in UNALLOWED_S3_KWARGS
                 },
             )
         elif self._path_str.startswith(("http://", "https://")):
-            username = self._storage_options.get("username")
+            username = self.storage_options.get("username")
             if username:
                 auth = BasicAuth(
                     login=username,
-                    password=self._storage_options.get("password", ""),
+                    password=self.storage_options.get("password", ""),
                 )
             else:
                 auth = None
@@ -194,18 +193,12 @@ class MPath(os.PathLike):
                 auth=auth,
                 **{
                     k: v
-                    for k, v in self._storage_options.items()
+                    for k, v in self.storage_options.items()
                     if k not in UNALLOWED_HTTP_KWARGS
                 },
             )
         else:
-            return fsspec.filesystem("file", **self._storage_options)
-
-    def fs_session(self):
-        if hasattr(self.fs, "session"):
-            return getattr(self.fs, "session")
-        else:
-            return None
+            return fsspec.filesystem("file", **self.storage_options)
 
     @cached_property
     def protocols(self) -> Set[str]:
@@ -569,20 +562,13 @@ class MPath(os.PathLike):
             return None
 
     def rio_session(self) -> RioSession:
-        if self.fs_session():
-            # rasterio accepts a Session object but only a boto3.session.Session
-            # object and not a aiobotocore.session.AioSession which we get from fsspec
-            return RioSession.from_path(
-                self._path_str,
-                aws_access_key_id=getattr(self.fs, "key"),
-                aws_secret_access_key=getattr(self.fs, "secret"),
-                endpoint_url=self._endpoint_url,
-                requester_pays=getattr(self.fs, "storage_options", {}).get(
-                    "requester_pays", False
-                ),
-            )
-        else:
-            return RioSession.from_path(self._path_str)
+        return RioSession.from_path(
+            self._path_str,
+            aws_access_key_id=self.storage_options.get("key", None),
+            aws_secret_access_key=self.storage_options.get("secret", None),
+            endpoint_url=self._endpoint_url,
+            requester_pays=self.storage_options.get("requester_pays", False),
+        )
 
     def rio_env_config(
         self,
@@ -611,20 +597,13 @@ class MPath(os.PathLike):
         )
 
     def fio_session(self) -> FioSession:
-        if self.fs_session():
-            # fiona accepts a Session object but only a boto3.session.Session
-            # object and not a aiobotocore.session.AioSession which we get from fsspec
-            return FioSession.from_path(
-                self._path_str,
-                aws_access_key_id=getattr(self.fs, "key"),
-                aws_secret_access_key=getattr(self.fs, "secret"),
-                endpoint_url=self._endpoint_url,
-                requester_pays=getattr(self.fs, "storage_options", {}).get(
-                    "requester_pays", False
-                ),
-            )
-        else:
-            return FioSession.from_path(self._path_str)
+        return FioSession.from_path(
+            self._path_str,
+            aws_access_key_id=self.storage_options.get("key", None),
+            aws_secret_access_key=self.storage_options.get("secret", None),
+            endpoint_url=self._endpoint_url,
+            requester_pays=self.storage_options.get("requester_pays", False),
+        )
 
     def fio_env_config(
         self,
@@ -679,7 +658,7 @@ class MPath(os.PathLike):
         return str(self) <= str(MPath(other))
 
     def __repr__(self):
-        return f"<mapchete.io.MPath object: {self._path_str}, storage_options={self._storage_options}>"
+        return f"<mapchete.io.MPath object: {self._path_str}, storage_options={self.storage_options}>"
 
     def __hash__(self):
         return hash(repr(self))

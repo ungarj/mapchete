@@ -1,3 +1,4 @@
+from concurrent.futures import ProcessPoolExecutor, wait
 import shutil
 import tempfile
 from itertools import product
@@ -1099,6 +1100,22 @@ def test_read_remote_raster(path):
     rr = read_raster(path)
     assert isinstance(rr, ReferencedRaster)
     assert not rr.data.mask.all()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        lazy_fixture("raster_4band_s3"),
+        lazy_fixture("raster_4band_http"),
+        lazy_fixture("raster_4band_secure_http"),
+    ],
+)
+def test_read_remote_raster_subprocess(path):
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(read_raster_no_crs, path)
+        wait([future])
+    assert not future.result().mask.all()
 
 
 @pytest.mark.parametrize("masked", [True, False])
