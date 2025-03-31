@@ -534,4 +534,4 @@ def test_s3_region_name():
     # trigger a rewrite of storage options to fit with S3FS
     path.fs
     # not an ideal way to test this, but the storage_options are passed on to S3FS that way
-    assert path._storage_options.get("client_kwargs", {}).get("region_name") == "bar"
+    assert path.storage_options.get("client_kwargs", {}).get("region_name") == "bar"
