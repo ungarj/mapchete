@@ -332,6 +332,9 @@ class GTiffTileDirectoryOutputReader(
             dst_metadata.update(predictor=self.output_params["predictor"])
         except KeyError:
             pass
+        # skip these to prevent GDAL warnings
+        for k in ["bands", "storage_options"]:
+            dst_metadata.pop(k, None)
         return dst_metadata
 
 

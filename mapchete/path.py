@@ -569,20 +569,13 @@ class MPath(os.PathLike):
             return None
 
     def rio_session(self) -> RioSession:
-        if self.fs_session():
-            # rasterio accepts a Session object but only a boto3.session.Session
-            # object and not a aiobotocore.session.AioSession which we get from fsspec
-            return RioSession.from_path(
-                self._path_str,
-                aws_access_key_id=getattr(self.fs, "key"),
-                aws_secret_access_key=getattr(self.fs, "secret"),
-                endpoint_url=self._endpoint_url,
-                requester_pays=getattr(self.fs, "storage_options", {}).get(
-                    "requester_pays", False
-                ),
-            )
-        else:
-            return RioSession.from_path(self._path_str)
+        return RioSession.from_path(
+            self._path_str,
+            aws_access_key_id=self._storage_options.get("key", None),
+            aws_secret_access_key=self._storage_options.get("secret", None),
+            endpoint_url=self._endpoint_url,
+            requester_pays=self._storage_options.get("requester_pays", False),
+        )
 
     def rio_env_config(
         self,
@@ -611,20 +604,13 @@ class MPath(os.PathLike):
         )
 
     def fio_session(self) -> FioSession:
-        if self.fs_session():
-            # fiona accepts a Session object but only a boto3.session.Session
-            # object and not a aiobotocore.session.AioSession which we get from fsspec
-            return FioSession.from_path(
-                self._path_str,
-                aws_access_key_id=getattr(self.fs, "key"),
-                aws_secret_access_key=getattr(self.fs, "secret"),
-                endpoint_url=self._endpoint_url,
-                requester_pays=getattr(self.fs, "storage_options", {}).get(
-                    "requester_pays", False
-                ),
-            )
-        else:
-            return FioSession.from_path(self._path_str)
+        return FioSession.from_path(
+            self._path_str,
+            aws_access_key_id=self._storage_options.get("key", None),
+            aws_secret_access_key=self._storage_options.get("secret", None),
+            endpoint_url=self._endpoint_url,
+            requester_pays=self._storage_options.get("requester_pays", False),
+        )
 
     def fio_env_config(
         self,
