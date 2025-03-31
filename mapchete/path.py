@@ -74,7 +74,9 @@ class MPath(os.PathLike):
             storage_options = kwargs.get("fs_options")
         if storage_options:
             self._kwargs.update(storage_options=storage_options)
-        self.storage_options.update(**self._kwargs.get("storage_options", {}))
+        self.storage_options = dict(
+            self.storage_options, **self._kwargs.get("storage_options") or {}
+        )
         self._fs = fs
         self._info = _info
         self._gdal_options = dict()
