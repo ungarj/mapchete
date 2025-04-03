@@ -313,10 +313,10 @@ class MPath(os.PathLike):
         )
 
     def open(
-        self, mode: str = "r"
+        self, mode: str = "r", **kwargs
     ) -> Union[IO, TextIO, TextIOWrapper, AbstractBufferedFile]:
         """Open file."""
-        return self.fs.open(self._path_str, mode)
+        return self.fs.open(self._path_str, mode, **kwargs)
 
     @retry(logger=logger, **dict(IORetrySettings()))
     def read_text(self) -> str:

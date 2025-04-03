@@ -12,6 +12,7 @@ from mapchete.geometry import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
 from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile, BufferedTilePyramid
+from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
 
@@ -193,18 +194,18 @@ def get_boto3_bucket(bucket_name):  # pragma: no cover
     **dict(IORetrySettings(exceptions=(OSError, FSTimeoutError, TimeoutError))),
 )
 def copy(
-    src_path,
-    dst_path,
-    src_fs=None,
-    dst_fs=None,
-    overwrite=False,
+    src_path: MPathLike,
+    dst_path: MPathLike,
+    overwrite: bool = False,
     exists_ok: bool = False,
+    read_blocksize: int = 0,
+    read_chunksize: int = 1024 * 1024,
 ):
     """Copy path from one place to the other."""
-    src_path = MPath.from_inp(src_path, fs=src_fs)
-    dst_path = MPath.from_inp(dst_path, fs=dst_fs)
+    src_path = MPath.from_inp(src_path)
+    dst_path = MPath.from_inp(dst_path)
 
-    if dst_path.fs.exists(dst_path):
+    if dst_path.exists():
         if overwrite:
             pass
         elif exists_ok:
@@ -221,14 +222,17 @@ def copy(
         if src_path.fs == dst_path.fs:
             src_path.fs.copy(str(src_path), str(dst_path))
         else:
-            # read source data first
-            with src_path.open("rb") as src:
-                content = src.read()
-            # only write to destination if reading source data didn't raise errors,
-            # otherwise we can end up with empty objects on an object store
-            with dst_path.open("wb") as dst:
-                dst.write(content)
+            with src_path.open("rb", blocksize=read_blocksize) as src:
+                with dst_path.open("wb") as dst:
+                    for chunk in iter(
+                        lambda: src.read(read_chunksize), b""
+                    ):  # Read in 1MB chunks
+                        dst.write(chunk)  # type: ignore
     except Exception as exception:  # pragma: no cover
+        # delete file if something failed
+        # dst_path should either not even exist and if, the overwrite flag is active anyways
+        dst_path.rm(ignore_errors=True)
+
         # This is a hack because some tool using aiohttp does not raise a
         # ClientResponseError directly but masks it as a generic Exception and thus
         # preventing our retry mechanism to kick in.
