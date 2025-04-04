@@ -7,11 +7,13 @@ from rasterio.warp import calculate_default_transform
 from retry import retry
 from shapely.errors import TopologicalError
 from shapely.geometry import box
+from tilematrix import TilePyramid
 
 from mapchete.geometry import reproject_geometry, segmentize_geometry
 from mapchete.path import MPath
 from mapchete.settings import IORetrySettings
 from mapchete.tile import BufferedTile, BufferedTilePyramid
+from mapchete.types import MPathLike
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +57,7 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
             return max([0, zoom - 1])
 
 
-def get_segmentize_value(input_file=None, tile_pyramid=None):
+def get_segmentize_value(input_file: MPathLike, tile_pyramid: TilePyramid):
     """
     Return the recommended segmentation value in input file units.
 
@@ -193,47 +195,18 @@ def get_boto3_bucket(bucket_name):  # pragma: no cover
     **dict(IORetrySettings(exceptions=(OSError, FSTimeoutError, TimeoutError))),
 )
 def copy(
-    src_path,
-    dst_path,
-    src_fs=None,
-    dst_fs=None,
-    overwrite=False,
+    src_path: MPathLike,
+    dst_path: MPathLike,
+    overwrite: bool = False,
     exists_ok: bool = False,
+    read_blocksize: int = 0,
+    read_chunksize: int = 1024 * 1024,
 ):
     """Copy path from one place to the other."""
-    src_path = MPath.from_inp(src_path, fs=src_fs)
-    dst_path = MPath.from_inp(dst_path, fs=dst_fs)
-
-    if dst_path.fs.exists(dst_path):
-        if overwrite:
-            pass
-        elif exists_ok:
-            logger.debug("%s already exists", str(dst_path))
-            return
-        else:
-            raise IOError(f"{dst_path} already exists")
-
-    # create parent directories on local filesystems
-    dst_path.parent.makedirs()
-
-    try:
-        # copy either within a filesystem or between filesystems
-        if src_path.fs == dst_path.fs:
-            src_path.fs.copy(str(src_path), str(dst_path))
-        else:
-            # read source data first
-            with src_path.open("rb") as src:
-                content = src.read()
-            # only write to destination if reading source data didn't raise errors,
-            # otherwise we can end up with empty objects on an object store
-            with dst_path.open("wb") as dst:
-                dst.write(content)
-    except Exception as exception:  # pragma: no cover
-        # This is a hack because some tool using aiohttp does not raise a
-        # ClientResponseError directly but masks it as a generic Exception and thus
-        # preventing our retry mechanism to kick in.
-        if repr(exception).startswith('Exception("ClientResponseError'):
-            raise ConnectionError(repr(exception)).with_traceback(
-                exception.__traceback__
-            ) from exception
-        raise
+    MPath.from_inp(src_path).cp(
+        dst_path,
+        overwrite=overwrite,
+        exists_ok=exists_ok,
+        read_block_size=read_blocksize,
+        chunksize=read_chunksize,
+    )

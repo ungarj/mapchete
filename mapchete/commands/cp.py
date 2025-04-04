@@ -139,8 +139,6 @@ def cp(
                                 dst_mp,
                                 src_tiles_exist,
                                 dst_tiles_exist,
-                                src_tiledir.fs,
-                                dst_tiledir.fs,
                                 overwrite,
                             ),
                         ),
@@ -156,9 +154,7 @@ def cp(
                     all_observers.notify(message=f"{total_copied} tiles copied")
 
 
-def _copy_tile(
-    tile, src_mp, dst_mp, src_tiles_exist, dst_tiles_exist, src_fs, dst_fs, overwrite
-):
+def _copy_tile(tile, src_mp, dst_mp, src_tiles_exist, dst_tiles_exist, overwrite):
     src_path = src_mp.config.output_reader.get_path(tile)
     # only copy if source tile exists
     if src_tiles_exist[tile]:
@@ -170,7 +166,7 @@ def _copy_tile(
 
         # copy from source to target
         dst_path = dst_mp.config.output_reader.get_path(tile)
-        copy(src_path, dst_path, src_fs=src_fs, dst_fs=dst_fs, overwrite=overwrite)
+        copy(src_path, dst_path, overwrite=overwrite)
         msg = f"{tile}: copy {src_path} to {dst_path}"
         logger.debug(msg)
         return 1, msg
