@@ -5,6 +5,7 @@ import pytest
 from pytest_lazyfixture import lazy_fixture
 
 from mapchete.config import get_hash
+from mapchete.io.raster.referenced_raster import ReferencedRaster
 from mapchete.path import MPath, batch_sort_property
 
 
@@ -535,3 +536,32 @@ def test_s3_region_name():
     path.fs
     # not an ideal way to test this, but the storage_options are passed on to S3FS that way
     assert path.storage_options.get("client_kwargs", {}).get("region_name") == "bar"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "src_path",
+    [
+        lazy_fixture("raster_4band"),
+        lazy_fixture("raster_4band_s3"),
+        lazy_fixture("raster_4band_http"),
+        lazy_fixture("raster_4band_secure_http"),
+        lazy_fixture("raster_4band_aws_s3"),
+    ],
+)
+@pytest.mark.parametrize(
+    "dst_dir",
+    [
+        lazy_fixture("mp_s3_tmpdir"),
+        lazy_fixture("mp_tmpdir"),
+    ],
+)
+def test_cp(src_path: MPath, dst_dir: MPath):
+    tempdir = dst_dir / "temp/"
+    dst_path = tempdir / src_path.name
+    try:
+        src_path.cp(tempdir)
+        assert dst_path.exists()
+        assert not ReferencedRaster.from_file(dst_path).data.mask.all()
+    finally:
+        dst_path.rm(ignore_errors=True)

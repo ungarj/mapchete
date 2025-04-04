@@ -15,6 +15,8 @@ from typing import IO, Generator, List, Optional, Set, TextIO, Tuple, Union
 from aiohttp import BasicAuth
 import fiona
 import fsspec
+import fsspec.implementations
+import fsspec.implementations.http
 import oyaml as yaml
 import rasterio
 from fiona.session import Session as FioSession
@@ -439,8 +441,58 @@ class MPath(os.PathLike):
             else:  # pragma: no cover
                 raise
 
+    def cp(
+        self,
+        destination: MPathLike,
+        overwrite: bool = False,
+        exists_ok: bool = False,
+        read_block_size: int = 0,
+        chunksize: int = 1024 * 1024,  # 1MB
+    ) -> None:
+        """
+        Copy file contents to destination.
+        """
+        dst_path = MPath.from_inp(destination)
+        if dst_path.endswith("/") or dst_path.is_directory():
+            dst_path = dst_path / self.name
+
+        if dst_path.exists():
+            if overwrite:
+                pass
+            elif exists_ok:
+                logger.debug("%s already exists", str(dst_path))
+                return
+            else:
+                raise IOError(f"{dst_path} already exists")
+
+        # create parent directories on local filesystems
+        dst_path.parent.makedirs()
+
+        try:
+            # copy either within a filesystem or between filesystems
+            if self.fs == dst_path.fs:
+                self.fs.copy(str(self), str(dst_path))
+            else:
+                with self.open("rb", block_size=read_block_size) as src:
+                    with dst_path.open("wb") as dst:
+                        for chunk in iter(lambda: src.read(chunksize), b""):
+                            dst.write(chunk)  # type: ignore
+        except Exception as exception:  # pragma: no cover
+            # delete file if something failed
+            # dst_path should either not even exist and if, the overwrite flag is active anyways
+            dst_path.rm(ignore_errors=True)
+
+            # This is a hack because some tool using aiohttp does not raise a
+            # ClientResponseError directly but masks it as a generic Exception and thus
+            # preventing our retry mechanism to kick in.
+            if repr(exception).startswith('Exception("ClientResponseError'):
+                raise ConnectionError(repr(exception)).with_traceback(
+                    exception.__traceback__
+                ) from exception
+            raise
+
     def size(self) -> int:
-        return self.info().get("size", self.info().get("Size"))
+        return self.info().get("size", self.info().get("Size"))  # type: ignore
 
     def pretty_size(self) -> str:
         return pretty_bytes(self.size())
