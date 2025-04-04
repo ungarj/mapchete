@@ -453,8 +453,11 @@ class MPath(os.PathLike):
         Copy file contents to destination.
         """
         dst_path = MPath.from_inp(destination)
-        if dst_path.endswith("/") or dst_path.is_directory():
-            dst_path = dst_path / self.name
+        try:
+            if dst_path.endswith("/") or dst_path.is_directory():
+                dst_path = dst_path / self.name
+        except FileNotFoundError:
+            pass
 
         if dst_path.exists():
             if overwrite:
