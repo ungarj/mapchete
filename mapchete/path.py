@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -28,6 +29,7 @@ from mapchete.pretty import pretty_bytes
 from mapchete.protocols import ObserverProtocol
 from mapchete.settings import GDALHTTPOptions, IORetrySettings, mapchete_options
 from mapchete.tile import BatchBy, BufferedTile
+from mapchete.timer import Timer
 from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
@@ -121,6 +123,16 @@ class MPath(os.PathLike):
         if refresh or self._info is None:
             self._info = self.fs.info(self._path_str)
         return self._info
+
+    def checksum(self, algo="sha256", block_size=1024 * 1024) -> str:
+        """Stream a file and compute its checksum."""
+        hasher = hashlib.new(algo)
+
+        with self.open("rb") as src:
+            for chunk in iter(lambda: src.read(block_size), b""):
+                hasher.update(chunk)  # type: ignore
+
+        return hasher.hexdigest()
 
     def to_dict(self) -> dict:
         return dict(
@@ -490,20 +502,24 @@ class MPath(os.PathLike):
 
         try:
             # copy either within a filesystem or between filesystems
-            if self.fs == dst_path.fs:
-                self.fs.copy(str(self), str(dst_path))
-            else:
-                with self.open("rb", block_size=read_block_size) as src:
-                    with dst_path.open("wb") as dst:
-                        chunks = math.ceil(self.size() / chunksize)
-                        all_observers.notify(progress=Progress(current=0, total=chunks))
-                        for counter, chunk in enumerate(
-                            iter(lambda: src.read(chunksize), b""), 1
-                        ):
-                            dst.write(chunk)  # type: ignore
+            with Timer() as duration:
+                if self.fs == dst_path.fs:
+                    self.fs.copy(str(self), str(dst_path))
+                else:
+                    with self.open("rb", block_size=read_block_size) as src:
+                        with dst_path.open("wb") as dst:
+                            chunks = math.ceil(self.size() / chunksize)
                             all_observers.notify(
-                                progress=Progress(current=counter, total=chunks)
+                                progress=Progress(current=0, total=chunks)
                             )
+                            for counter, chunk in enumerate(
+                                iter(lambda: src.read(chunksize), b""), 1
+                            ):
+                                dst.write(chunk)  # type: ignore
+                                all_observers.notify(
+                                    progress=Progress(current=counter, total=chunks)
+                                )
+            all_observers.notify(message=f"copied in {duration}")
         except Exception as exception:  # pragma: no cover
             # delete file if something failed
             # dst_path should either not even exist and if, the overwrite flag is active anyways
