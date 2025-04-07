@@ -161,8 +161,7 @@ def test_ls(path):
     for p in path.ls():
         assert isinstance(p, MPath)
         assert p.is_remote() == dir_is_remote
-    for p in path.ls(detail=True):
-        assert isinstance(p.get("name"), MPath)
+        assert p._info
 
 
 @pytest.mark.integration

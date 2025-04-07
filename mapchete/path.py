@@ -11,7 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property
 from io import TextIOWrapper
-from typing import IO, Generator, List, Optional, Set, TextIO, Tuple, Union
+from typing import IO, Generator, List, Optional, Set, TextIO, NamedTuple, Union
 
 from aiohttp import BasicAuth
 import fiona
@@ -34,6 +34,12 @@ logger = logging.getLogger(__name__)
 
 UNALLOWED_S3_KWARGS = ["timeout"]
 UNALLOWED_HTTP_KWARGS = ["username", "password"]
+
+
+class DirectoryContent(NamedTuple):
+    root: MPath
+    subdirs: List[MPath]
+    files: List[MPath]
 
 
 class MPath(os.PathLike):
@@ -243,9 +249,9 @@ class MPath(os.PathLike):
     def crop(self, elements: int) -> MPath:
         return self.new("/".join(self.elements[elements:]))
 
-    def new(self, path: MPathLike) -> "MPath":
+    def new(self, path: MPathLike, **kwargs) -> "MPath":
         """Create a new MPath instance with given path."""
-        return MPath(path, **self._kwargs)
+        return MPath(path, **self._kwargs, **kwargs)
 
     def exists(self) -> bool:
         """Check if path exists."""
@@ -365,37 +371,39 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
-    def _create_full_path(self, path: str, absolute_path: bool = True):
+    def _create_full_path(
+        self, path: Union[MPath, str, dict], absolute_path: bool = True
+    ):
+        if isinstance(path, str):
+            path_info = None
+            path_str = path
+        elif isinstance(path, dict):
+            path_info = path
+            path_str: str = path["name"]
+        elif isinstance(path, MPath):
+            path_info = path._info
+            path_str = path._path_str
+        else:  # pragma: no cover
+            raise TypeError(f"invalid path type: {path}")
         if "s3" in self.protocols:
             # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
-            return self.new(path).with_protocol("s3")
+            out_path = self.new(path_str, _info=path_info).with_protocol("s3")
         elif absolute_path:
-            return self.new(path)
-        return self.new(os.path.relpath(path, start=self))
+            out_path = self.new(path_str, _info=path_info)
+        else:
+            out_path = self.new(os.path.relpath(path_str, start=self), _info=path_info)
+        out_path._info = path_info
+        return out_path
 
     def ls(
-        self,
-        detail: bool = False,
-        absolute_paths: bool = True,
-    ) -> List[Union[MPath, dict]]:
-        if detail:
-            # return as is but convert "name" from string to MPath instead
-            return [
-                {
-                    k: (
-                        self._create_full_path(v, absolute_path=absolute_paths)
-                        if k == "name"
-                        else v
-                    )
-                    for k, v in path_info.items()
-                }
-                for path_info in self.fs.ls(self._path_str, detail=detail)
-            ]
-        else:
-            return [
-                self._create_full_path(path, absolute_path=absolute_paths)
-                for path in self.fs.ls(self._path_str, detail=detail)
-            ]
+        self, absolute_paths: bool = True, detail: Optional[bool] = None
+    ) -> List[MPath]:
+        if detail is not None:  # pragma: no cover
+            warnings.warn(DeprecationWarning("'detail' kwarg is deprecated."))
+        return [
+            self._create_full_path(path_info, absolute_path=absolute_paths)
+            for path_info in self.fs.ls(self._path_str, detail=True)
+        ]
 
     def walk(
         self,
@@ -404,7 +412,7 @@ class MPath(os.PathLike):
         absolute_paths: bool = True,
         **kwargs,
     ) -> Generator[
-        Tuple[Union[MPath, dict], List[Union[MPath, dict]], List[Union[MPath, dict]]],
+        DirectoryContent,
         None,
         None,
     ]:
@@ -412,17 +420,17 @@ class MPath(os.PathLike):
             str(self), maxdepth=maxdepth, topdown=topdown, **kwargs
         ):
             if isinstance(root, str):
-                yield (
-                    self._create_full_path(root, absolute_path=absolute_paths),
-                    [
+                yield DirectoryContent(
+                    root=self._create_full_path(root, absolute_path=absolute_paths),
+                    subdirs=[
                         self._create_full_path(
-                            MPath(root) / subpath, absolute_path=absolute_paths
+                            self.new(root) / subpath, absolute_path=absolute_paths
                         )
                         for subpath in subpaths
                     ],
-                    [
+                    files=[
                         self._create_full_path(
-                            MPath(root) / file, absolute_path=absolute_paths
+                            self.new(root) / file, absolute_path=absolute_paths
                         )
                         for file in files
                     ],
