@@ -7,7 +7,7 @@ import click
 import tqdm
 
 from mapchete.cli import options
-from mapchete.io import copy
+from mapchete.cli.progress_bar import PBar
 from mapchete.path import MPath
 
 logger = logging.getLogger(__name__)
@@ -65,11 +65,31 @@ def cp(
                         logger.debug(message)
                     else:
                         tqdm.tqdm.write(message)
-                    copy(
-                        src_file, dst_file, overwrite=overwrite, exists_ok=skip_existing
-                    )
+                    with PBar(
+                        total=100,
+                        desc="chunks",
+                        disable=debug,
+                        leave=False,
+                        bar_format="{percentage:3.0f}%|{bar}|{elapsed}<{remaining}",
+                    ) as pbar:
+                        src_file.cp(
+                            dst_file,
+                            overwrite=overwrite,
+                            exists_ok=skip_existing,
+                            observers=[pbar],
+                        )
         else:
-            copy(path, out_path, overwrite=overwrite, exists_ok=skip_existing)
+            with PBar(
+                total=100,
+                disable=debug,
+                bar_format="{percentage:3.0f}%|{bar}|{elapsed}<{remaining}",
+            ) as pbar:
+                path.cp(
+                    out_path,
+                    overwrite=overwrite,
+                    exists_ok=skip_existing,
+                    observers=[pbar],
+                )
     except Exception as exc:  # pragma: no cover
         if debug:
             raise

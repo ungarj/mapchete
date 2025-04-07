@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import warnings
 from collections import defaultdict
@@ -15,8 +16,6 @@ from typing import IO, Generator, List, Optional, Set, TextIO, Tuple, Union
 from aiohttp import BasicAuth
 import fiona
 import fsspec
-import fsspec.implementations
-import fsspec.implementations.http
 import oyaml as yaml
 import rasterio
 from fiona.session import Session as FioSession
@@ -26,9 +25,10 @@ from retry import retry
 
 from mapchete.executor import Executor
 from mapchete.pretty import pretty_bytes
+from mapchete.protocols import ObserverProtocol
 from mapchete.settings import GDALHTTPOptions, IORetrySettings, mapchete_options
 from mapchete.tile import BatchBy, BufferedTile
-from mapchete.types import MPathLike
+from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
 
@@ -448,10 +448,14 @@ class MPath(os.PathLike):
         exists_ok: bool = False,
         read_block_size: int = 0,
         chunksize: int = 1024 * 1024,  # 1MB
+        observers: Optional[List[ObserverProtocol]] = None,
     ) -> None:
         """
         Copy file contents to destination.
         """
+        from mapchete.commands.observer import Observers
+
+        all_observers = Observers(observers)
         dst_path = MPath.from_inp(destination)
         try:
             if dst_path.endswith("/") or dst_path.is_directory():
@@ -461,9 +465,14 @@ class MPath(os.PathLike):
 
         if dst_path.exists():
             if overwrite:
+                msg = "overwrite existing file"
+                all_observers.notify(message=msg)
+                logger.debug(msg)
                 pass
             elif exists_ok:
-                logger.debug("%s already exists", str(dst_path))
+                msg = f"{str(dst_path)} already exists"
+                all_observers.notify(message=msg)
+                logger.debug(msg)
                 return
             else:
                 raise IOError(f"{dst_path} already exists")
@@ -478,8 +487,15 @@ class MPath(os.PathLike):
             else:
                 with self.open("rb", block_size=read_block_size) as src:
                     with dst_path.open("wb") as dst:
-                        for chunk in iter(lambda: src.read(chunksize), b""):
+                        chunks = math.ceil(self.size() / chunksize)
+                        all_observers.notify(progress=Progress(current=0, total=chunks))
+                        for counter, chunk in enumerate(
+                            iter(lambda: src.read(chunksize), b""), 1
+                        ):
                             dst.write(chunk)  # type: ignore
+                            all_observers.notify(
+                                progress=Progress(current=counter, total=chunks)
+                            )
         except Exception as exception:  # pragma: no cover
             # delete file if something failed
             # dst_path should either not even exist and if, the overwrite flag is active anyways
