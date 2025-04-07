@@ -12,7 +12,12 @@ from mapchete.path import MPath
 
 logger = logging.getLogger(__name__)
 
-opt_recursive = click.option("--recursive", "-r", is_flag=True)
+opt_recursive = click.option(
+    "--recursive",
+    "-r",
+    is_flag=True,
+    help="Recursively copy all files within a directory.",
+)
 
 
 @click.group()
@@ -33,7 +38,14 @@ def exists(path: MPath):
 @options.opt_dst_fs_opts
 @options.opt_overwrite
 @opt_recursive
-@click.option("--skip-existing", is_flag=True)
+@click.option("--skip-existing", is_flag=True, help="Skip file if already exists.")
+@click.option(
+    "--chunksize",
+    type=click.INT,
+    default=1024 * 1024,
+    show_default=True,
+    help="Read and write chunk size in bytes.",
+)
 @options.opt_debug
 def cp(
     path: MPath,
@@ -42,6 +54,7 @@ def cp(
     recursive: bool = False,
     skip_existing: bool = False,
     debug: bool = False,
+    chunksize: int = 1024 * 1024,
     **_,
 ):
     try:
@@ -77,6 +90,7 @@ def cp(
                             overwrite=overwrite,
                             exists_ok=skip_existing,
                             observers=[pbar],
+                            chunksize=chunksize,
                         )
         else:
             with PBar(
@@ -89,6 +103,7 @@ def cp(
                     overwrite=overwrite,
                     exists_ok=skip_existing,
                     observers=[pbar],
+                    chunksize=chunksize,
                 )
     except Exception as exc:  # pragma: no cover
         if debug:
