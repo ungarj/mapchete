@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import math
 import os
 import warnings
 from collections import defaultdict
@@ -485,9 +484,6 @@ class MPath(os.PathLike):
 
         if dst_path.exists():
             if overwrite:
-                msg = "overwrite existing file"
-                all_observers.notify(message=msg)
-                logger.debug(msg)
                 pass
             elif exists_ok:
                 msg = f"{str(dst_path)} already exists"
@@ -502,22 +498,28 @@ class MPath(os.PathLike):
 
         try:
             # copy either within a filesystem or between filesystems
+            msg = f"copy {self} to {dst_path} {'(overwrite)' if overwrite else ''}..."
+            all_observers.notify(message=msg)
+            logger.debug(msg)
             with Timer() as duration:
                 if self.fs == dst_path.fs:
                     self.fs.copy(str(self), str(dst_path))
                 else:
                     with self.open("rb", block_size=read_block_size) as src:
                         with dst_path.open("wb") as dst:
-                            chunks = math.ceil(self.size() / chunksize)
+                            total_size = self.size()
+                            transferred = 0
                             all_observers.notify(
-                                progress=Progress(current=0, total=chunks)
+                                progress=Progress(current=transferred, total=total_size)
                             )
-                            for counter, chunk in enumerate(
-                                iter(lambda: src.read(chunksize), b""), 1
-                            ):
+                            for chunk in iter(lambda: src.read(chunksize), b""):
+                                transferred += chunksize
                                 dst.write(chunk)  # type: ignore
                                 all_observers.notify(
-                                    progress=Progress(current=counter, total=chunks)
+                                    progress=Progress(
+                                        current=min([transferred, total_size]),
+                                        total=total_size,
+                                    )
                                 )
             all_observers.notify(message=f"copied in {duration}")
         except Exception as exception:  # pragma: no cover

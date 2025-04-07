@@ -63,9 +63,9 @@ def cp(
                 raise click.UsageError(
                     "source path is directory, --recursive flag required"
                 )
-            for _, __, files in tqdm.tqdm(path.walk(), disable=debug):
+            for contents in tqdm.tqdm(path.walk(), disable=debug):
                 for src_file in tqdm.tqdm(
-                    [file for file in files if not file.is_directory()],
+                    contents.files,
                     leave=False,
                     disable=debug,
                 ):
@@ -139,12 +139,12 @@ def sync(
 ):
     try:
         if path.is_directory():
+            tqdm.tqdm.write(f"sync {path} to {out_path} ...")
             for contents in path.walk(absolute_paths=False):
                 dst_root = out_path / os.path.relpath(
                     str(contents.root.without_protocol()),
                     start=str(path.without_protocol()),
                 )
-                click.echo(f"syncing {contents.root} to {dst_root} ...")
                 try:
                     dst_files = set([file.name for file in dst_root.ls()])
                 except FileNotFoundError:
@@ -154,16 +154,23 @@ def sync(
                         str(src_file.without_protocol()),
                         start=str(path.without_protocol()),
                     )
-                    if src_file.name not in dst_files or (
-                        src_file.checksum() != dst_file.checksum()
-                        if compare_checksums
-                        else src_file.size() != dst_file.size()
+                    if (
+                        src_file.name not in dst_files
+                        or (  # file does not exist on destination
+                            src_file.checksum()
+                            != dst_file.checksum()  # file contents are not identical
+                            if compare_checksums
+                            else src_file.size() != dst_file.size()  # file sizes differ
+                        )
                     ):
-                        tqdm.tqdm.write(f"copy {src_file} to {dst_file} ...")
                         with PBar(
                             total=100,
                             disable=debug,
-                            bar_format="{percentage:3.0f}%|{bar}|{elapsed}<{remaining}",
+                            unit="B",
+                            unit_scale=True,
+                            unit_divisor=1024,
+                            # bar_format="{percentage:3.0f}%|{bar}|{n_fmt}/{total_fmt}|{elapsed}<{remaining}",
+                            desc=src_file.name,
                         ) as pbar:
                             src_file.cp(
                                 dst_file,
