@@ -140,7 +140,7 @@ def sync(
     try:
         if path.is_directory():
             tqdm.tqdm.write(f"sync {path} to {out_path} ...")
-            for contents in path.walk(absolute_paths=False):
+            for contents in path.walk(absolute_paths=True):
                 dst_root = out_path / os.path.relpath(
                     str(contents.root.without_protocol()),
                     start=str(path.without_protocol()),
@@ -178,7 +178,7 @@ def sync(
                                 chunksize=chunksize,
                                 observers=[pbar],
                             )
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError()
     except Exception as exc:  # pragma: no cover
         if debug:

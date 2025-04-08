@@ -1,6 +1,7 @@
 from test.cli.default import run_cli
 
 import pytest
+from pytest_lazyfixture import lazy_fixture
 
 from mapchete.cli.mpath import mpath
 
@@ -53,3 +54,18 @@ def test_read_json(metadata_json):
 
 def test_read_text(metadata_json):
     assert run_cli(["read-text", str(metadata_json)], cli=mpath)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "tiledir",
+    [
+        lazy_fixture("local_tiledir"),
+        # lazy_fixture("http_tiledir"),
+        # lazy_fixture("secure_http_tiledir"),
+    ],
+)
+def test_sync_dir(tiledir, mp_tmpdir):
+    assert not mp_tmpdir.ls()
+    assert run_cli(["sync", str(tiledir), str(mp_tmpdir), "--debug"], cli=mpath)
+    assert mp_tmpdir.ls()

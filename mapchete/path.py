@@ -123,7 +123,7 @@ class MPath(os.PathLike):
             self._info = self.fs.info(self._path_str)
         return self._info
 
-    def checksum(self, algo="sha256", block_size=1024 * 1024) -> str:
+    def checksum(self, algo: str = "sha256", block_size: int = 1024 * 1024) -> str:
         """Stream a file and compute its checksum."""
         hasher = hashlib.new(algo)
 
@@ -479,7 +479,7 @@ class MPath(os.PathLike):
         try:
             if dst_path.endswith("/") or dst_path.is_directory():
                 dst_path = dst_path / self.name
-        except FileNotFoundError:
+        except FileNotFoundError:  # pragma: no cover
             pass
 
         if dst_path.exists():
@@ -555,11 +555,13 @@ class MPath(os.PathLike):
             raise ValueError("Object timestamp could not be determined.")
 
     def is_directory(self) -> bool:
-        # for S3 objects use the possible cached info directory
-        if "StorageClass" in self.info():  # pragma: no cover
-            return self.info().get("StorageClass") == "DIRECTORY"
-        else:
-            return self.fs.isdir(self._path_str)
+        try:
+            # for S3 objects use the possible cached info directory
+            if "StorageClass" in self.info():  # pragma: no cover
+                return self.info().get("StorageClass") == "DIRECTORY"
+        except FileNotFoundError:
+            pass
+        return self.fs.isdir(self._path_str)
 
     def joinpath(self, *other: Union[MPathLike, List[MPathLike]]) -> MPath:
         """Join path with other."""

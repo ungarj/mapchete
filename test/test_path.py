@@ -564,3 +564,21 @@ def test_cp(src_path: MPath, dst_dir: MPath):
         assert not ReferencedRaster.from_file(dst_path).data.mask.all()
     finally:
         dst_path.rm(ignore_errors=True)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "src_path",
+    [
+        lazy_fixture("raster_4band"),
+        lazy_fixture("raster_4band_s3"),
+        lazy_fixture("raster_4band_http"),
+        lazy_fixture("raster_4band_secure_http"),
+        lazy_fixture("raster_4band_aws_s3"),
+    ],
+)
+def test_checksum(src_path: MPath):
+    assert (
+        src_path.checksum()
+        == "fff06260d08965a898021b9513dc9226f6c3b964d755734357603c21fb2359ad"
+    )

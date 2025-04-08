@@ -36,7 +36,7 @@ class PBar(ObserverProtocol):
     ):
         if progress:
             if self._pbar.total is None or self._pbar.total != progress.total:
-                self._pbar.reset(progress.total)
+                self._pbar.reset(progress.total)  # type: ignore
 
             self._pbar.update(progress.current - self._pbar.n)
 
