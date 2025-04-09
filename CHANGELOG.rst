@@ -4,6 +4,26 @@ Changelog
 
 
 ---------------------
+2025.4.0 - 2025-04-09
+---------------------
+
+* CLI
+
+  * `mpath`: add `sync` subcommand (#676)
+  * `mpath cp`: add progress bars (#676)
+
+* core
+
+  * `io.copy()`: remove `src_fs` and `dst_fs` kwargs (#676)
+  * `io.copy()`: data is not being read fully into memory but read in chunks (#676)
+  * `path.MPath.walk()`: now returns a `DirectoryContent` named tuple (#676)
+  * `path.MPath`: add `checksum()` method (#676)
+  * `path.MPath`: `ls()` and `walk()` methods now always return `MPath` instances (#676)
+  * `path.MPath`: add `cp()` method (#676)
+  * `path.MPath.is_directory()`: doesn't raise `FileNotFoundError` on HTTP based file systems (#676)
+
+
+---------------------
 2025.3.1 - 2025-03-31
 ---------------------
 
