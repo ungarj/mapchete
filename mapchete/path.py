@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -10,7 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property
 from io import TextIOWrapper
-from typing import IO, Generator, List, Optional, Set, TextIO, Tuple, Union
+from typing import IO, Generator, List, Optional, Set, TextIO, NamedTuple, Union
 
 from aiohttp import BasicAuth
 import fiona
@@ -24,14 +25,22 @@ from retry import retry
 
 from mapchete.executor import Executor
 from mapchete.pretty import pretty_bytes
+from mapchete.protocols import ObserverProtocol
 from mapchete.settings import GDALHTTPOptions, IORetrySettings, mapchete_options
 from mapchete.tile import BatchBy, BufferedTile
-from mapchete.types import MPathLike
+from mapchete.timer import Timer
+from mapchete.types import MPathLike, Progress
 
 logger = logging.getLogger(__name__)
 
 UNALLOWED_S3_KWARGS = ["timeout"]
 UNALLOWED_HTTP_KWARGS = ["username", "password"]
+
+
+class DirectoryContent(NamedTuple):
+    root: MPath
+    subdirs: List[MPath]
+    files: List[MPath]
 
 
 class MPath(os.PathLike):
@@ -113,6 +122,16 @@ class MPath(os.PathLike):
         if refresh or self._info is None:
             self._info = self.fs.info(self._path_str)
         return self._info
+
+    def checksum(self, algo: str = "sha256", block_size: int = 1024 * 1024) -> str:
+        """Stream a file and compute its checksum."""
+        hasher = hashlib.new(algo)
+
+        with self.open("rb") as src:
+            for chunk in iter(lambda: src.read(block_size), b""):
+                hasher.update(chunk)  # type: ignore
+
+        return hasher.hexdigest()
 
     def to_dict(self) -> dict:
         return dict(
@@ -241,9 +260,9 @@ class MPath(os.PathLike):
     def crop(self, elements: int) -> MPath:
         return self.new("/".join(self.elements[elements:]))
 
-    def new(self, path: MPathLike) -> "MPath":
+    def new(self, path: MPathLike, **kwargs) -> "MPath":
         """Create a new MPath instance with given path."""
-        return MPath(path, **self._kwargs)
+        return MPath(path, **self._kwargs, **kwargs)
 
     def exists(self) -> bool:
         """Check if path exists."""
@@ -313,10 +332,10 @@ class MPath(os.PathLike):
         )
 
     def open(
-        self, mode: str = "r"
+        self, mode: str = "r", **kwargs
     ) -> Union[IO, TextIO, TextIOWrapper, AbstractBufferedFile]:
         """Open file."""
-        return self.fs.open(self._path_str, mode)
+        return self.fs.open(self._path_str, mode, **kwargs)
 
     @retry(logger=logger, **dict(IORetrySettings()))
     def read_text(self) -> str:
@@ -363,37 +382,39 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
-    def _create_full_path(self, path: str, absolute_path: bool = True):
+    def _create_full_path(
+        self, path: Union[MPath, str, dict], absolute_path: bool = True
+    ):
+        if isinstance(path, str):
+            path_info = None
+            path_str = path
+        elif isinstance(path, dict):
+            path_info = path
+            path_str: str = path["name"]
+        elif isinstance(path, MPath):
+            path_info = path._info
+            path_str = path._path_str
+        else:  # pragma: no cover
+            raise TypeError(f"invalid path type: {path}")
         if "s3" in self.protocols:
             # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
-            return self.new(path).with_protocol("s3")
+            out_path = self.new(path_str, _info=path_info).with_protocol("s3")
         elif absolute_path:
-            return self.new(path)
-        return self.new(os.path.relpath(path, start=self))
+            out_path = self.new(path_str, _info=path_info)
+        else:
+            out_path = self.new(os.path.relpath(path_str, start=self), _info=path_info)
+        out_path._info = path_info
+        return out_path
 
     def ls(
-        self,
-        detail: bool = False,
-        absolute_paths: bool = True,
-    ) -> List[Union[MPath, dict]]:
-        if detail:
-            # return as is but convert "name" from string to MPath instead
-            return [
-                {
-                    k: (
-                        self._create_full_path(v, absolute_path=absolute_paths)
-                        if k == "name"
-                        else v
-                    )
-                    for k, v in path_info.items()
-                }
-                for path_info in self.fs.ls(self._path_str, detail=detail)
-            ]
-        else:
-            return [
-                self._create_full_path(path, absolute_path=absolute_paths)
-                for path in self.fs.ls(self._path_str, detail=detail)
-            ]
+        self, absolute_paths: bool = True, detail: Optional[bool] = None
+    ) -> List[MPath]:
+        if detail is not None:  # pragma: no cover
+            warnings.warn(DeprecationWarning("'detail' kwarg is deprecated."))
+        return [
+            self._create_full_path(path_info, absolute_path=absolute_paths)
+            for path_info in self.fs.ls(self._path_str, detail=True)
+        ]
 
     def walk(
         self,
@@ -402,7 +423,7 @@ class MPath(os.PathLike):
         absolute_paths: bool = True,
         **kwargs,
     ) -> Generator[
-        Tuple[Union[MPath, dict], List[Union[MPath, dict]], List[Union[MPath, dict]]],
+        DirectoryContent,
         None,
         None,
     ]:
@@ -410,17 +431,17 @@ class MPath(os.PathLike):
             str(self), maxdepth=maxdepth, topdown=topdown, **kwargs
         ):
             if isinstance(root, str):
-                yield (
-                    self._create_full_path(root, absolute_path=absolute_paths),
-                    [
+                yield DirectoryContent(
+                    root=self._create_full_path(root, absolute_path=absolute_paths),
+                    subdirs=[
                         self._create_full_path(
-                            MPath(root) / subpath, absolute_path=absolute_paths
+                            self.new(root) / subpath, absolute_path=absolute_paths
                         )
                         for subpath in subpaths
                     ],
-                    [
+                    files=[
                         self._create_full_path(
-                            MPath(root) / file, absolute_path=absolute_paths
+                            self.new(root) / file, absolute_path=absolute_paths
                         )
                         for file in files
                     ],
@@ -439,8 +460,84 @@ class MPath(os.PathLike):
             else:  # pragma: no cover
                 raise
 
+    def cp(
+        self,
+        destination: MPathLike,
+        overwrite: bool = False,
+        exists_ok: bool = False,
+        read_block_size: int = 0,
+        chunksize: int = 1024 * 1024,  # 1MB
+        observers: Optional[List[ObserverProtocol]] = None,
+    ) -> None:
+        """
+        Copy file contents to destination.
+        """
+        from mapchete.commands.observer import Observers
+
+        all_observers = Observers(observers)
+        dst_path = MPath.from_inp(destination)
+        try:
+            if dst_path.endswith("/") or dst_path.is_directory():
+                dst_path = dst_path / self.name
+        except FileNotFoundError:  # pragma: no cover
+            pass
+
+        if dst_path.exists():
+            if overwrite:
+                pass
+            elif exists_ok:
+                msg = f"{str(dst_path)} already exists"
+                all_observers.notify(message=msg)
+                logger.debug(msg)
+                return
+            else:
+                raise IOError(f"{dst_path} already exists")
+
+        # create parent directories on local filesystems
+        dst_path.parent.makedirs()
+
+        try:
+            # copy either within a filesystem or between filesystems
+            msg = f"copy {self} to {dst_path} {'(overwrite)' if overwrite else ''}..."
+            all_observers.notify(message=msg)
+            logger.debug(msg)
+            with Timer() as duration:
+                if self.fs == dst_path.fs:
+                    self.fs.copy(str(self), str(dst_path))
+                else:
+                    with self.open("rb", block_size=read_block_size) as src:
+                        with dst_path.open("wb") as dst:
+                            total_size = self.size()
+                            transferred = 0
+                            all_observers.notify(
+                                progress=Progress(current=transferred, total=total_size)
+                            )
+                            for chunk in iter(lambda: src.read(chunksize), b""):
+                                transferred += chunksize
+                                dst.write(chunk)  # type: ignore
+                                all_observers.notify(
+                                    progress=Progress(
+                                        current=min([transferred, total_size]),
+                                        total=total_size,
+                                    )
+                                )
+            all_observers.notify(message=f"copied in {duration}")
+        except Exception as exception:  # pragma: no cover
+            # delete file if something failed
+            # dst_path should either not even exist and if, the overwrite flag is active anyways
+            dst_path.rm(ignore_errors=True)
+
+            # This is a hack because some tool using aiohttp does not raise a
+            # ClientResponseError directly but masks it as a generic Exception and thus
+            # preventing our retry mechanism to kick in.
+            if repr(exception).startswith('Exception("ClientResponseError'):
+                raise ConnectionError(repr(exception)).with_traceback(
+                    exception.__traceback__
+                ) from exception
+            raise
+
     def size(self) -> int:
-        return self.info().get("size", self.info().get("Size"))
+        return self.info().get("size", self.info().get("Size"))  # type: ignore
 
     def pretty_size(self) -> str:
         return pretty_bytes(self.size())
@@ -458,11 +555,13 @@ class MPath(os.PathLike):
             raise ValueError("Object timestamp could not be determined.")
 
     def is_directory(self) -> bool:
-        # for S3 objects use the possible cached info directory
-        if "StorageClass" in self.info():  # pragma: no cover
-            return self.info().get("StorageClass") == "DIRECTORY"
-        else:
-            return self.fs.isdir(self._path_str)
+        try:
+            # for S3 objects use the possible cached info directory
+            if "StorageClass" in self.info():  # pragma: no cover
+                return self.info().get("StorageClass") == "DIRECTORY"
+        except FileNotFoundError:
+            pass
+        return self.fs.isdir(self._path_str)
 
     def joinpath(self, *other: Union[MPathLike, List[MPathLike]]) -> MPath:
         """Join path with other."""
