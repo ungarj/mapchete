@@ -1,11 +1,9 @@
 """Execute a process."""
 
 import logging
-from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
-from typing import List, Optional, Tuple, Type, Union
+from typing import Callable, List, Literal, Optional, Tuple, Type, Union
 
-from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
 
 import mapchete
@@ -14,32 +12,36 @@ from mapchete.config import DaskSettings
 from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
 from mapchete.enums import Concurrency, ProcessingMode, Status
 from mapchete.errors import JobCancelledError
-from mapchete.executor import Executor
+from mapchete.executor import get_executor
+from mapchete.executor.base import ExecutorBase
+from mapchete.executor.concurrent_futures import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.executor.types import Profiler
 from mapchete.processing.profilers import preconfigured_profilers
 from mapchete.processing.profilers.time import measure_time
-from mapchete.types import MPathLike, Progress
+from mapchete.types import MPathLike, Progress, BoundsLike, CRSLike, ZoomLevelsLike
 
 logger = logging.getLogger(__name__)
 
 
 def execute(
     mapchete_config: Union[dict, MPathLike],
-    zoom: Optional[Union[int, List[int]]] = None,
+    zoom: Optional[ZoomLevelsLike] = None,
     area: Optional[Union[BaseGeometry, str, dict]] = None,
-    area_crs: Optional[Union[CRS, str]] = None,
-    bounds: Optional[Tuple[float]] = None,
-    bounds_crs: Optional[Union[CRS, str]] = None,
+    area_crs: Optional[CRSLike] = None,
+    bounds: Optional[BoundsLike] = None,
+    bounds_crs: Optional[CRSLike] = None,
     point: Optional[Tuple[float, float]] = None,
     point_crs: Optional[Tuple[float, float]] = None,
     tile: Optional[Tuple[int, int, int]] = None,
     overwrite: bool = False,
     mode: ProcessingMode = ProcessingMode.CONTINUE,
     concurrency: Concurrency = Concurrency.none,
-    workers: int = None,
-    multiprocessing_start_method: str = None,
+    workers: Optional[int] = None,
+    multiprocessing_start_method: Literal[
+        "fork", "forkserver", "spawn"
+    ] = MULTIPROCESSING_DEFAULT_START_METHOD,
     dask_settings: DaskSettings = DaskSettings(),
-    executor_getter: AbstractContextManager = Executor,
+    executor_getter: Callable[..., ExecutorBase] = get_executor,
     profiling: bool = False,
     observers: Optional[List[ObserverProtocol]] = None,
     retry_on_exception: Union[Tuple[Type[Exception], ...], Type[Exception]] = Exception,
@@ -85,7 +87,7 @@ def execute(
         Reusable Client instance if required. Otherwise a new client will be created.
     """
     try:
-        mode = "overwrite" if overwrite else mode
+        mode = ProcessingMode.OVERWRITE if overwrite else mode
         all_observers = Observers(observers)
 
         if not isinstance(retry_on_exception, tuple):
@@ -95,9 +97,11 @@ def execute(
         all_observers.notify(status=Status.parsing)
 
         if tile:
-            tile = raw_conf_process_pyramid(raw_conf(mapchete_config)).tile(*tile)
-            bounds = tile.bounds
-            zoom = tile.zoom
+            buffered_tile = raw_conf_process_pyramid(raw_conf(mapchete_config)).tile(
+                *tile
+            )
+            bounds = buffered_tile.bounds
+            zoom = buffered_tile.zoom
         else:
             try:
                 bounds = bounds_from_opts(
@@ -109,6 +113,7 @@ def execute(
                 )
             except ValueError:
                 bounds = None
+            buffered_tile = None
 
         # be careful opening mapchete not as context manager
         with mapchete.open(
@@ -138,7 +143,7 @@ def execute(
                 all_observers.notify(status=Status.initializing)
 
                 # determine tasks
-                tasks = mp.tasks(zoom=zoom, tile=tile)
+                tasks = mp.tasks(zoom=zoom, tile=buffered_tile)
 
                 if len(tasks) == 0:
                     all_observers.notify(
@@ -163,10 +168,10 @@ def execute(
                     ) as executor:
                         if profiling:
                             for profiler in preconfigured_profilers:
-                                executor.add_profiler(profiler)
+                                executor.add_profiler(profiler=profiler)
                         else:
                             executor.add_profiler(
-                                Profiler(name="time", decorator=measure_time)
+                                profiler=Profiler(name="time", decorator=measure_time)
                             )
                         all_observers.notify(
                             status=Status.running,
