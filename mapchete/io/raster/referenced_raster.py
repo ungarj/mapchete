@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.ma as ma
@@ -12,7 +12,7 @@ from shapely.geometry import mapping, shape
 
 from mapchete.bounds import Bounds
 from mapchete.grid import Grid
-from mapchete.io.raster.array import resample_from_array
+from mapchete.io.raster.array import prepare_array, resample_from_array
 from mapchete.io.raster.open import rasterio_open
 from mapchete.io.raster.read import read_raster_window
 from mapchete.path import MPath
@@ -23,7 +23,7 @@ from mapchete.types import BoundsLike, CRSLike, MPathLike, NodataVal
 logger = logging.getLogger(__name__)
 
 
-class ReferencedRaster:
+class ReferencedRaster(GridProtocol):
     """
     A loose in-memory representation of a rasterio dataset.
 
@@ -33,6 +33,7 @@ class ReferencedRaster:
     data: Union[np.ndarray, ma.masked_array]
     array: Union[np.ndarray, ma.masked_array]
     transform: Affine
+    shape: Tuple[int, int]
     bounds: Bounds
     crs: CRSLike
     nodata: Optional[NodataVal] = None
@@ -72,6 +73,7 @@ class ReferencedRaster:
         self.bounds = Bounds.from_inp(
             bounds or array_bounds(self.height, self.width, self.transform)
         )
+        self.shape = (self.height, self.width)
         self.__geo_interface__ = mapping(shape(self.bounds))
 
     @property
@@ -86,6 +88,11 @@ class ReferencedRaster:
             "crs": self.crs,
             "transform": self.transform,
         }
+
+    def masked_array(self) -> ma.MaskedArray:
+        return prepare_array(
+            self.data, masked=True, nodata=self.nodata, dtype=self.dtype
+        )  # type: ignore
 
     def read(
         self,
@@ -107,7 +114,7 @@ class ReferencedRaster:
             return band_selection
         else:
             return resample_from_array(
-                array=band_selection,
+                array_or_raster=band_selection,
                 in_affine=self.transform,
                 in_crs=self.crs,
                 nodataval=self.nodata,
