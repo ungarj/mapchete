@@ -44,7 +44,7 @@ def test_create_mosaic_errors():
         create_mosaic([(geo_tile, geo_tile_data), (diff_type, diff_type_data)])  # type: ignore
     # no tiles
     with pytest.raises(ValueError):
-        create_mosaic(tiles=[])  # type: ignore
+        create_mosaic(tiles_arrays=[])  # type: ignore
 
 
 @pytest.mark.parametrize("pixelbuffer", [0, 10])

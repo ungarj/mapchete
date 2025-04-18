@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_mosaic(
-    tiles: Iterable[Tuple[BufferedTile, np.ndarray]], nodata: NodataVal = 0
+    tiles_arrays: Iterable[Tuple[BufferedTile, np.ndarray]], nodata: NodataVal = 0
 ) -> ReferencedRaster:
     """
     Create a mosaic from tiles.
@@ -35,40 +35,43 @@ def create_mosaic(
     -------
     mosaic : ReferencedRaster
     """
-    if isinstance(tiles, GeneratorType):
-        tiles = list(tiles)
-    elif not isinstance(tiles, list):
+    if isinstance(tiles_arrays, GeneratorType):
+        tiles_arrays_list = list(tiles_arrays)
+    elif isinstance(tiles_arrays, list):
+        tiles_arrays_list = tiles_arrays
+    else:
         raise TypeError("tiles must be either a list or generator")
-    if not all([isinstance(pair, tuple) for pair in tiles]):
+    if not all([isinstance(pair, tuple) for pair in tiles_arrays_list]):
         raise TypeError("tiles items must be tuples")
     if not all(
         [
             all([isinstance(tile, BufferedTile), isinstance(data, np.ndarray)])
-            for tile, data in tiles
+            for tile, data in tiles_arrays_list
         ]
     ):
         raise TypeError("tuples must be pairs of BufferedTile and array")
-    if len(tiles) == 0:
+    if len(tiles_arrays_list) == 0:
         raise ValueError("tiles list is empty")
 
-    logger.debug("create mosaic from %s tile(s)", len(tiles))
+    logger.debug("create mosaic from %s tile(s)", len(tiles_arrays_list))
     # quick return if there is just one tile
-    if len(tiles) == 1:
-        tile, data = tiles[0]
+    if len(tiles_arrays_list) == 1:
+        tile, data = tiles_arrays_list[0]
         return ReferencedRaster(
             data=data, transform=tile.affine, bounds=tile.bounds, crs=tile.crs
         )
 
     # assert all tiles have same properties
-    pyramid, resolution, dtype = _get_tiles_properties(tiles)
+    pyramid, resolution, dtype = _get_tiles_properties(tiles_arrays_list)
     # just handle antimeridian on global pyramid types
-    shift = _shift_required(tiles)
+    shift = _shift_required(tiles_arrays_list)
     logger.debug("shift: %s" % shift)
-    # determine mosaic shape and reference
-    m_left, m_bottom, m_right, m_top = None, None, None, None
-    for tile, data in tiles:
-        num_bands = data.shape[0] if data.ndim > 2 else 1
-        left, bottom, right, top = tile.bounds
+
+    tiles_arrays_iter = iter(tiles_arrays_list)
+    tile, data = next(tiles_arrays_iter)
+    num_bands = data.shape[0] if data.ndim > 2 else 1
+
+    def _shift(left, bottom, right, top) -> Tuple[float, float, float, float]:
         if shift:
             # shift by half of the grid width
             left += pyramid.x_size / 2
@@ -77,30 +80,29 @@ def create_mosaic(
             if right > pyramid.right:
                 right -= pyramid.x_size
                 left -= pyramid.x_size
-        m_left = min([left, m_left]) if m_left is not None else left
-        m_bottom = min([bottom, m_bottom]) if m_bottom is not None else bottom
-        m_right = max([right, m_right]) if m_right is not None else right
-        m_top = max([top, m_top]) if m_top is not None else top
-    height = int(round((m_top - m_bottom) / resolution))
-    width = int(round((m_right - m_left) / resolution))
+        return (left, bottom, right, top)
+
+    mosaic_left, mosaic_bottom, mosaic_right, mosaic_top = _shift(*tile.bounds)
+
+    for tile, data in tiles_arrays_iter:
+        left, bottom, right, top = _shift(*tile.bounds)
+        mosaic_left = min([left, mosaic_left])
+        mosaic_bottom = min([bottom, mosaic_bottom])
+        mosaic_right = max([right, mosaic_right])
+        mosaic_top = max([top, mosaic_top])
+    height = int(round((mosaic_top - mosaic_bottom) / resolution))
+    width = int(round((mosaic_right - mosaic_left) / resolution))
     # initialize empty mosaic
     mosaic = ma.MaskedArray(
         data=np.full((num_bands, height, width), dtype=dtype, fill_value=nodata),
         mask=np.ones((num_bands, height, width)),
     )
     # create Affine
-    affine = Affine(resolution, 0, m_left, 0, -resolution, m_top)
+    affine = Affine(resolution, 0, mosaic_left, 0, -resolution, mosaic_top)
     # fill mosaic array with tile data
-    for tile, data in tiles:
-        data = prepare_array(data, nodata=nodata, dtype=dtype)
-        t_left, t_bottom, t_right, t_top = tile.bounds
-        if shift:
-            t_left += pyramid.x_size / 2
-            t_right += pyramid.x_size / 2
-            # if tile is now shifted outside pyramid bounds, move within
-            if t_right > pyramid.right:
-                t_right -= pyramid.x_size
-                t_left -= pyramid.x_size
+    for tile, data in tiles_arrays_list:
+        masked_data: ma.MaskedArray = prepare_array(data, nodata=nodata, dtype=dtype)  # type: ignore
+        t_left, t_bottom, t_right, t_top = _shift(*tile.bounds)
         minrow, maxrow, mincol, maxcol = bounds_to_ranges(
             bounds=(t_left, t_bottom, t_right, t_top),
             transform=affine,
@@ -108,35 +110,35 @@ def create_mosaic(
         existing_data = mosaic[:, minrow:maxrow, mincol:maxcol]
         existing_mask = mosaic.mask[:, minrow:maxrow, mincol:maxcol]
         mosaic[:, minrow:maxrow, mincol:maxcol] = np.where(
-            data.mask, existing_data, data
+            masked_data.mask, existing_data, masked_data
         )
         mosaic.mask[:, minrow:maxrow, mincol:maxcol] = np.where(
-            data.mask, existing_mask, data.mask
+            masked_data.mask, existing_mask, masked_data.mask
         )
 
     if shift:
         # shift back output mosaic
-        m_left -= pyramid.x_size / 2
-        m_right -= pyramid.x_size / 2
+        mosaic_left -= pyramid.x_size / 2
+        mosaic_right -= pyramid.x_size / 2
 
     # if mosaic crosses Antimeridian, make sure the mosaic output bounds are based on the
     # hemisphere of the Antimeridian with the larger mosaic intersection
-    if m_left < pyramid.left or m_right > pyramid.right:
+    if mosaic_left < pyramid.left or mosaic_right > pyramid.right:
         # mosaic crosses Antimeridian
         logger.debug("mosaic crosses Antimeridian")
-        left_distance = abs(pyramid.left - m_left)
-        right_distance = abs(pyramid.left - m_right)
+        left_distance = abs(pyramid.left - mosaic_left)
+        right_distance = abs(pyramid.left - mosaic_right)
         # per default, the mosaic is placed on the right side of the Antimeridian, so we
         # only need to move the bounds in case the larger part of the mosaic is on the
         # left side
         if left_distance > right_distance:
-            m_left += pyramid.x_size
-            m_right += pyramid.x_size
-    logger.debug(Bounds(m_left, m_bottom, m_right, m_top))
+            mosaic_left += pyramid.x_size
+            mosaic_right += pyramid.x_size
+
     return ReferencedRaster(
         data=mosaic,
-        transform=Affine(resolution, 0, m_left, 0, -resolution, m_top),
-        bounds=Bounds(m_left, m_bottom, m_right, m_top),
+        transform=Affine(resolution, 0, mosaic_left, 0, -resolution, mosaic_top),
+        bounds=Bounds(mosaic_left, mosaic_bottom, mosaic_right, mosaic_top),
         crs=tile.crs,
     )
 
