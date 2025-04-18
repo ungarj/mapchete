@@ -11,8 +11,10 @@ from rasterio.enums import Resampling
 from rasterio.features import geometry_mask
 from rasterio.warp import reproject
 from rasterio.windows import from_bounds
+from shapely import GeometryCollection
 from shapely.ops import unary_union
 
+from mapchete.bounds import Bounds
 from mapchete.geometry.shape import to_shape
 from mapchete.grid import Grid
 from mapchete.protocols import GridProtocol
@@ -80,7 +82,7 @@ def extract_from_array(
 
 
 def resample_from_array(
-    array: Union[np.ndarray, ma.MaskedArray, GridProtocol],
+    array_or_raster: Union[np.ndarray, ma.MaskedArray, GridProtocol, Tuple[np.ndarray]],
     array_transform: Optional[Affine] = None,
     out_grid: Optional[Union[Grid, GridProtocol]] = None,
     in_affine: Optional[Affine] = None,
@@ -121,21 +123,25 @@ def resample_from_array(
         warnings.warn("'nodataval' is deprecated, please use 'nodata'")
         nodata = nodata or nodataval
 
-    if isinstance(array, ma.MaskedArray):
-        pass
-    elif isinstance(array, np.ndarray):
-        array = ma.MaskedArray(array, mask=array == nodata)
-    elif hasattr(array, "affine") and hasattr(array, "data"):  # pragma: no cover
-        array_transform = getattr(array, "affine")
-        in_crs = array.crs
-        array: np.ndarray = getattr(array, "data")
-    elif hasattr(array, "transform") and hasattr(array, "data"):  # pragma: no cover
-        array_transform = array.transform
-        in_crs = array.crs
-        array: np.ndarray = getattr(array, "data")
-    elif isinstance(array, tuple):
+    if isinstance(array_or_raster, ma.MaskedArray):
+        array = array_or_raster
+    elif isinstance(array_or_raster, np.ndarray):
+        array = ma.MaskedArray(array_or_raster, mask=array_or_raster == nodata)
+    elif hasattr(array_or_raster, "affine") and hasattr(
+        array_or_raster, "data"
+    ):  # pragma: no cover
+        array_transform = getattr(array_or_raster, "affine")
+        in_crs = getattr(array_or_raster, "crs")
+        array = getattr(array_or_raster, "data")
+    elif hasattr(array_or_raster, "transform") and hasattr(
+        array_or_raster, "data"
+    ):  # pragma: no cover
+        array_transform = getattr(array_or_raster, "transform")
+        in_crs = getattr(array_or_raster, "crs")
+        array = getattr(array_or_raster, "data")
+    elif isinstance(array_or_raster, tuple):
         array = ma.MaskedArray(
-            data=np.stack(array),
+            data=np.stack(array_or_raster),
             mask=np.stack(
                 [
                     (
@@ -143,13 +149,13 @@ def resample_from_array(
                         if isinstance(band, ma.masked_array)
                         else np.where(band == nodata, True, False)
                     )
-                    for band in array
+                    for band in array_or_raster
                 ]
             ),
             fill_value=nodata,
         )
     else:
-        raise TypeError("wrong input data type: %s" % type(array))
+        raise TypeError("wrong input data type: %s" % type(array_or_raster))
 
     if array.ndim == 2:
         if not keep_2d:
@@ -159,7 +165,7 @@ def resample_from_array(
     else:
         raise TypeError("input array must have 2 or 3 dimensions")
 
-    if hasattr(array, "fill_value") and getattr(array, "fill_value") != nodata:
+    if isinstance(array, ma.MaskedArray) and array.fill_value != nodata:
         ma.set_fill_value(array, nodata)
         array = array.filled()
 
@@ -198,7 +204,7 @@ def bounds_to_ranges(
     """
     return tuple(
         itertools.chain(
-            *from_bounds(*bounds, transform=transform)
+            *from_bounds(*Bounds.from_inp(bounds), transform=transform)
             .round_lengths(pixel_precision=0)
             .round_offsets(pixel_precision=0)
             .toranges()
@@ -334,7 +340,7 @@ def clip_array_with_vector(
         feature_geom = to_shape(feature["geometry"])
         if feature_geom.is_empty:
             continue
-        if feature_geom.geom_type == "GeometryCollection":
+        if isinstance(feature_geom, GeometryCollection):
             # for GeometryCollections apply buffer to every subgeometry
             # and make union
             buffered_geom = unary_union(

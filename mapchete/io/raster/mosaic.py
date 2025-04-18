@@ -1,6 +1,6 @@
 import logging
 from types import GeneratorType
-from typing import Iterator, Tuple
+from typing import Iterable, Tuple
 
 import numpy as np
 import numpy.ma as ma
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_mosaic(
-    tiles: Iterator[Tuple[BufferedTile, np.ndarray]], nodata: NodataVal = 0
+    tiles: Iterable[Tuple[BufferedTile, np.ndarray]], nodata: NodataVal = 0
 ) -> ReferencedRaster:
     """
     Create a mosaic from tiles.
