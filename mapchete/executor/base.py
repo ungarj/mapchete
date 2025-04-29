@@ -17,9 +17,9 @@ class ExecutorBase(ABC):
     """Define base methods and properties of executors."""
 
     cancelled: bool = False
-    running_futures: set = None
-    finished_futures: set = None
-    profilers: list = None
+    running_futures: set
+    finished_futures: set
+    profilers: List[Profiler]
     _executor_cls = None
     _executor_args = ()
     _executor_kwargs = {}
@@ -63,12 +63,14 @@ class ExecutorBase(ABC):
             self.profilers.append(profiler)
         elif isinstance(name, Profiler):
             self.profilers.append(name)
-        else:
+        elif name and decorator:
             self.profilers.append(
                 Profiler(
                     name=name, decorator=decorator, args=args or (), kwargs=kwargs or {}
                 )
             )
+        else:
+            raise ValueError("no Profiler, name or decorator given")
 
     def _ready(self) -> List[MFuture]:
         return list(self.finished_futures)
@@ -133,7 +135,9 @@ class ExecutorBase(ABC):
 
     @cached_property
     def _executor(self):
-        return self._executor_cls(*self._executor_args, **self._executor_kwargs)
+        if self._executor_cls:
+            return self._executor_cls(*self._executor_args, **self._executor_kwargs)
+        raise TypeError("no Executor Class given")
 
     def __enter__(self):
         """Enter context manager."""
@@ -157,7 +161,7 @@ def run_func_with_profilers(
     *args,
     fargs: Optional[tuple] = None,
     fkwargs: Optional[dict] = None,
-    profilers: Optional[Iterator[Profiler]] = None,
+    profilers: Optional[List[Profiler]] = None,
     **kwargs,
 ) -> Result:
     """Run function but wrap execution in provided profiler context managers."""
@@ -187,7 +191,7 @@ def func_partial(
     func: Callable,
     fargs: Optional[tuple] = None,
     fkwargs: Optional[dict] = None,
-    profilers: Optional[Iterator[Profiler]] = None,
+    profilers: Optional[List[Profiler]] = None,
 ) -> Callable:
     """Return function parial with activated profilers."""
     return partial(
