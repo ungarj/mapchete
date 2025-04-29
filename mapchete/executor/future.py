@@ -33,10 +33,10 @@ class MFuture:
     """
 
     skipped: bool = False
+    name: str
+    profiling: Dict[str, Any]
     skip_info: Optional[Any] = None
     status: Optional[str] = None
-    name: Optional[str] = None
-    profiling: Optional[dict] = None
 
     def __init__(
         self,

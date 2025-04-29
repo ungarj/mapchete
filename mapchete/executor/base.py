@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from concurrent.futures._base import CancelledError
 from functools import cached_property, partial
-from typing import Any, Callable, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
 from mapchete.executor.future import FutureProtocol, MFuture
 from mapchete.executor.types import Profiler, Result
@@ -24,7 +24,7 @@ class ExecutorBase(ABC):
     _executor_args = ()
     _executor_kwargs = {}
 
-    def __init__(self, *args, profilers=None, **kwargs):
+    def __init__(self, *_, profilers=None, **__):
         self.running_futures = set()
         self.finished_futures = set()
         self.profilers = profilers or []
@@ -32,12 +32,12 @@ class ExecutorBase(ABC):
     @abstractmethod
     def as_completed(
         self,
-        func,
-        iterable,
-        fargs=None,
-        fkwargs=None,
-        max_submitted_tasks=500,
-        item_skip_bool=False,
+        func: Callable,
+        iterable: Iterable,
+        fargs: Optional[Tuple] = None,
+        fkwargs: Optional[Dict[str, Any]] = None,
+        max_submitted_tasks: int = 500,
+        item_skip_bool: bool = False,
         **kwargs,
     ) -> Iterator[MFuture]:  # pragma: no cover
         """Submit tasks to executor and start yielding finished futures."""
@@ -75,7 +75,7 @@ class ExecutorBase(ABC):
     def _ready(self) -> List[MFuture]:
         return list(self.finished_futures)
 
-    def _add_to_finished(self, future) -> None:
+    def _add_to_finished(self, future: MFuture) -> None:
         self.finished_futures.add(future)
 
     def cancel(self) -> None:
@@ -88,7 +88,7 @@ class ExecutorBase(ABC):
         # reset so futures won't linger here for next call
         self.running_futures = set()
 
-    def wait(self, raise_exc=False) -> None:
+    def wait(self, raise_exc: bool = False) -> None:
         logger.debug("wait for running futures to finish...")
         try:  # pragma: no cover
             self._wait()
