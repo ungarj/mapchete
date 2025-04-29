@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from concurrent.futures._base import CancelledError
 from functools import cached_property, partial
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple
 
 from mapchete.executor.future import FutureProtocol, MFuture
 from mapchete.executor.types import Profiler, Result
@@ -39,12 +39,12 @@ class ExecutorBase(ABC):
         max_submitted_tasks: int = 500,
         item_skip_bool: bool = False,
         **kwargs,
-    ) -> Iterator[MFuture]:  # pragma: no cover
+    ) -> Generator[MFuture, None, None]:  # pragma: no cover
         """Submit tasks to executor and start yielding finished futures."""
         ...
 
     @abstractmethod
-    def map(self, *args, **kwargs) -> Iterator[Any]:  # pragma: no cover
+    def map(self, *args, **kwargs) -> Iterable[Any]:  # pragma: no cover
         ...
 
     @abstractmethod
@@ -121,8 +121,8 @@ class ExecutorBase(ABC):
         """
         Release future from cluster explicitly and wrap result around MFuture object.
         """
-        if not _dask:
-            self.running_futures.discard(future)
+        # if not _dask:
+        self.running_futures.discard(future)
         self.finished_futures.discard(future)
 
         # create minimal Future-like object with no references to the cluster

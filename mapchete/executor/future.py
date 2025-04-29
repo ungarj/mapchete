@@ -52,7 +52,7 @@ class MFuture:
     ):
         self._future = future
         self._set_result(result)
-        self.profiling = self.profiling or profiling or dict()
+        self.profiling = profiling or dict()
         self._exception = exception
         self._cancelled = cancelled
         self.skipped = skipped
