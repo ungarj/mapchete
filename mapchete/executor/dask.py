@@ -182,11 +182,14 @@ class DaskExecutor(ExecutorBase):
                 logger.debug(
                     "waiting for %s running futures ...", len(self._ac_iterator.futures)
                 )
+
                 for batch in self._ac_iterator.batches():
                     logger.debug("%s future(s) done", len(batch))
+
                     for future, result in batch:
                         if self.cancel_signal:  # pragma: no cover
                             raise JobCancelledError("cancel signal caught")
+
                         finished_future = self._finished_future(
                             cast(FutureProtocol, future), result=result
                         )
@@ -209,7 +212,7 @@ class DaskExecutor(ExecutorBase):
                 if self.cancel_signal:  # pragma: no cover
                     raise JobCancelledError("cancel signal caught")
 
-                # submit final tasks
+                # submit remaining tasks
                 tasks_chunk.submit()
 
         except JobCancelledError as exception:  # pragma: no cover

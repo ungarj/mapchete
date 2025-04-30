@@ -149,7 +149,6 @@ class ConcurrentFuturesExecutor(ExecutorBase):
 
         except CancelledError:  # pragma: no cover
             logger.debug("executor cancelled")
-            return
 
     def map(self, func, iterable, fargs=None, fkwargs=None) -> Iterable[Any]:
         return [
