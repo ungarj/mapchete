@@ -99,15 +99,16 @@ class ExecutorBase(ABC):
         self.futures = set()
 
     def wait(self, raise_exc: bool = False) -> None:
-        logger.debug("wait for running futures to finish...")
-        try:  # pragma: no cover
-            self._wait()
-        except CancelledError:  # pragma: no cover
-            pass
-        except Exception as exc:  # pragma: no cover
-            logger.error("exception caught when waiting for futures: %s", str(exc))
-            if raise_exc:
-                raise exc
+        if self.futures:
+            logger.debug("wait for %s running futures to finish...", len(self.futures))
+            try:  # pragma: no cover
+                self._wait()
+            except CancelledError:  # pragma: no cover
+                pass
+            except Exception as exc:  # pragma: no cover
+                logger.error("exception caught when waiting for futures: %s", str(exc))
+                if raise_exc:
+                    raise exc
 
     def close(self):  # pragma: no cover
         self.__exit__(None, None, None)

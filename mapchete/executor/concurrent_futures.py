@@ -174,7 +174,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         return_when: Literal["FIRST_COMPLETED", "ALL_COMPLETED"] = "ALL_COMPLETED",
     ) -> None:
         concurrent.futures.wait(
-            self.futures,
+            self.futures,  # type: ignore
             timeout=timeout,
-            return_when=return_when,  # type: ignore
+            return_when=return_when,
         )
