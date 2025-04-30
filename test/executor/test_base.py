@@ -34,7 +34,7 @@ def test_as_completed(executor_fixture, request, items=10):
         count += 1
         assert future.result()
     assert items == count
-    assert not executor.running_futures
+    assert not executor.futures
 
 
 @pytest.mark.parametrize(
@@ -48,7 +48,7 @@ def test_as_completed_cancel(executor_fixture, request, items=10):
     for future in executor.as_completed(_dummy_process, range(items)):
         assert future.result()
         executor.cancel()
-    assert not executor.running_futures
+    assert not executor.futures
 
 
 @pytest.mark.parametrize(
@@ -69,7 +69,7 @@ def test_as_completed_skip(executor_fixture, request, items=10):
         assert future.skipped
         assert future.skip_info == skip_info
         count += 1
-    assert not executor.running_futures
+    assert not executor.futures
     assert items == count
 
 
@@ -97,7 +97,7 @@ def test_as_completed_max_tasks(
         count += 1
 
     assert count == items
-    assert not executor.running_futures
+    assert not executor.futures
 
 
 @pytest.mark.parametrize(

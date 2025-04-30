@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterator, List
+from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple
 
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
@@ -19,12 +19,15 @@ class SequentialExecutor(ExecutorBase):
         return "<SequentialExecutor>"
 
     def as_completed(
-        self, func, iterable, fargs=None, fkwargs=None, item_skip_bool=False, **kwargs
-    ) -> Iterator[MFuture]:
+        self,
+        func: Callable,
+        iterable: Iterable[Any],
+        fargs: Optional[Tuple] = None,
+        fkwargs: Optional[Dict[str, Any]] = None,
+        item_skip_bool: bool = False,
+        **__,
+    ) -> Generator[MFuture, None, None]:
         """Yield finished tasks."""
-        fargs = fargs or []
-        fkwargs = fkwargs or {}
-
         # before running, make sure cancel signal is False
         self.cancel_signal = False
 
@@ -46,9 +49,13 @@ class SequentialExecutor(ExecutorBase):
                 )
             )
 
-    def map(self, func, iterable, fargs=None, fkwargs=None) -> List[Any]:
-        fargs = fargs or []
-        fkwargs = fkwargs or {}
+    def map(
+        self,
+        func: Callable,
+        iterable: Iterable[Any],
+        fargs: Optional[Tuple] = None,
+        fkwargs: Optional[Dict[str, Any]] = None,
+    ) -> List[Any]:
         return [
             result.output
             for result in map(

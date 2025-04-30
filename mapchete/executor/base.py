@@ -5,7 +5,18 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from concurrent.futures._base import CancelledError
 from functools import cached_property, partial
-from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+)
 
 from mapchete.executor.future import FutureProtocol, MFuture
 from mapchete.executor.types import Profiler, Result
@@ -17,17 +28,17 @@ class ExecutorBase(ABC):
     """Define base methods and properties of executors."""
 
     cancelled: bool = False
-    running_futures: set
-    finished_futures: set
+    futures: Set[FutureProtocol]
     profilers: List[Profiler]
     _executor_cls = None
-    _executor_args = ()
-    _executor_kwargs = {}
+    _executor_args: Tuple
+    _executor_kwargs: Dict[str, Any]
 
     def __init__(self, *_, profilers=None, **__):
-        self.running_futures = set()
-        self.finished_futures = set()
+        self.futures = set()
         self.profilers = profilers or []
+        self._executor_args = ()
+        self._executor_kwargs = dict()
 
     @abstractmethod
     def as_completed(
@@ -48,7 +59,11 @@ class ExecutorBase(ABC):
         ...
 
     @abstractmethod
-    def _wait(self, *args, **kwargs) -> None:  # pragma: no cover
+    def _wait(
+        self,
+        timeout: Optional[float] = None,
+        return_when: Literal["FIRST_COMPLETED", "ALL_COMPLETED"] = "ALL_COMPLETED",
+    ) -> None:  # pragma: no cover
         ...
 
     def add_profiler(
@@ -72,21 +87,16 @@ class ExecutorBase(ABC):
         else:
             raise ValueError("no Profiler, name or decorator given")
 
-    def _ready(self) -> List[MFuture]:
-        return list(self.finished_futures)
-
-    def _add_to_finished(self, future: MFuture) -> None:
-        self.finished_futures.add(future)
-
     def cancel(self) -> None:
         self.cancel_signal = True
-        logger.debug("cancel %s futures...", len(self.running_futures))
-        for future in self.running_futures:
-            future.cancel()
-        logger.debug("%s futures cancelled", len(self.running_futures))
+        logger.debug("cancel %s futures...", len(self.futures))
+        for future in self.futures:
+            if hasattr(future, "cancel"):
+                future.cancel()  # type: ignore
+        logger.debug("%s futures cancelled", len(self.futures))
         self.wait()
         # reset so futures won't linger here for next call
-        self.running_futures = set()
+        self.futures = set()
 
     def wait(self, raise_exc: bool = False) -> None:
         logger.debug("wait for running futures to finish...")
@@ -121,9 +131,7 @@ class ExecutorBase(ABC):
         """
         Release future from cluster explicitly and wrap result around MFuture object.
         """
-        # if not _dask:
-        self.running_futures.discard(future)
-        self.finished_futures.discard(future)
+        self.futures.discard(future)
 
         # create minimal Future-like object with no references to the cluster
         mfuture = MFuture.from_future(future, lazy=True, result=result)

@@ -26,6 +26,9 @@ class FutureProtocol(Protocol):
     def cancelled(self) -> bool:  # pragma: no cover
         ...
 
+    # def cancel(self):  # pragma: no cover
+    #     ...
+
 
 class MFuture:
     """
