@@ -1,4 +1,3 @@
-from itertools import islice
 import logging
 import os
 from functools import cached_property
@@ -9,7 +8,6 @@ from typing import (
     Dict,
     Generator,
     Iterable,
-    Iterator,
     List,
     Literal,
     Optional,
@@ -35,7 +33,6 @@ logger = logging.getLogger(__name__)
 class DaskExecutor(ExecutorBase):
     """Execute tasks using dask cluster."""
 
-    _submit_queue: List[Tuple[Callable, Any]]
     _executor_args: Tuple
     _executor_kwargs: Dict[str, Any]
 
@@ -64,11 +61,6 @@ class DaskExecutor(ExecutorBase):
             logger.debug(
                 "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
-        self._ac_iterator = as_completed(
-            loop=self._executor.loop, with_results=True, raise_errors=False
-        )
-        self._submitted = 0
-        _submit_queue = []
         super().__init__(*args, **kwargs)
 
     def __str__(self) -> str:
@@ -107,7 +99,7 @@ class DaskExecutor(ExecutorBase):
         max_submitted_tasks: int = 500,
         item_skip_bool: bool = False,
         chunksize: int = 100,
-        **kwargs,
+        **__,
     ) -> Generator[MFuture, None, None]:
         """
         Submit tasks to executor and start yielding finished futures.
@@ -141,81 +133,82 @@ class DaskExecutor(ExecutorBase):
         """
         # before running, make sure cancel signal is False
         self.cancel_signal = False
-        # collect tasks to automatically submit them in chunks
-        tasks_chunk = TaskChunk(
-            executor=self,
-            chunksize=chunksize,
-            func=func,
-            fargs=fargs or (),
-            fkwargs=fkwargs or {},
+
+        # extract item skip tuples and make a generator
+        item_skip_tuples = (
+            ((item, skip_item, skip_info) for item, skip_item, skip_info in iterable)
+            if item_skip_bool
+            else ((item, False, None) for item in iterable)
         )
+
         try:
-            # create an iterator
-            iter_todo = iter(iterable)
+            # collect tasks to automatically submit them in chunks
+            with TaskManager(
+                executor=self,
+                submit_chunksize=chunksize,
+                func=func,
+                fargs=fargs,
+                fkwargs=fkwargs,
+            ) as task_manager:
+                # (1) submit first x tasks
+                with Timer() as duration:
+                    for item, skip_item, skip_info in item_skip_tuples:
+                        self.raise_if_cancelled()
 
-            # submit first x tasks
-            with Timer() as duration:
-                for item in islice(iter_todo, max_submitted_tasks):
-                    if self.cancel_signal:  # pragma: no cover
-                        raise JobCancelledError("cancel signal caught")
-
-                    # skip task submission if option is activated
-                    if item_skip_bool:
-                        item, skip, skip_info = item
-                        if skip:
+                        if skip_item:
                             yield MFuture.skip(skip_info=skip_info, result=item)
-                            continue
-                    # add processing item to chunk
-                    tasks_chunk.add(item)
 
-                # submit remainder of tasks until maximum tasks limit is reached
-                tasks_chunk.submit()
+                        else:
+                            # add processing item to chunk
+                            task_manager.add_to_items(item)
 
-            logger.debug(
-                "first %s tasks submitted in %s",
-                len(self._ac_iterator.futures),
-                duration,
-            )
+                            # if enough tasks are scheduled to be submitted, quit loop
+                            if task_manager.total_futures_count == max_submitted_tasks:
+                                break
 
-            # now wait for the first tasks to finish until submitting the next ones
-            while not (self._ac_iterator.is_empty() or self.cancel_signal):
+                    # submit remaining tasks until maximum tasks limit is reached
+                    task_manager.submit_items()
+
                 logger.debug(
-                    "waiting for %s running futures ...", len(self._ac_iterator.futures)
+                    "first %s tasks submitted in %s",
+                    task_manager.remote_futures_count,
+                    duration,
+                )
+                # TODO: remove this later
+                assert (
+                    task_manager.remote_futures_count
+                    == task_manager.total_futures_count
                 )
 
-                for batch in self._ac_iterator.batches():
-                    logger.debug("%s future(s) done", len(batch))
+                # (2) now wait for the first tasks to finish until submitting the next ones
+                while task_manager.remote_futures_count:
+                    logger.debug(
+                        "waiting for %s running futures ...",
+                        task_manager.remote_futures_count,
+                    )
 
-                    for future, result in batch:
-                        if self.cancel_signal:  # pragma: no cover
-                            raise JobCancelledError("cancel signal caught")
-
-                        finished_future = self._finished_future(
-                            cast(FutureProtocol, future), result=result
-                        )
-                        yield finished_future
+                    for future in task_manager.finished_futures():
+                        yield future
 
                         # for each finished task, schedule another one
                         try:
-                            item = next(iter_todo)
-                            if item_skip_bool:
-                                item, skip, skip_info = item
-                                if skip:
-                                    yield MFuture.skip(skip_info=skip_info, result=item)
-                                    continue
-
-                            # add processing item to chunk
-                            tasks_chunk.add(item)
+                            item, skip_item, skip_info = next(item_skip_tuples)
+                            if skip_item:
+                                yield MFuture.skip(skip_info=skip_info, result=item)
+                            else:
+                                # add another processing item to chunk
+                                task_manager.add_to_items(item)
                         except StopIteration:
                             pass
 
-                if self.cancel_signal:  # pragma: no cover
-                    raise JobCancelledError("cancel signal caught")
+                    # submit remaining tasks
+                    task_manager.submit_items()
 
-                # submit remaining tasks
-                tasks_chunk.submit()
+                logger.debug(
+                    "%s tasks submitted in total", task_manager.total_futures_count
+                )
 
-        except JobCancelledError as exception:  # pragma: no cover
+        except JobCancelledError as exception:
             logger.debug("%s", str(exception))
 
     def compute_task_graph(
@@ -223,55 +216,18 @@ class DaskExecutor(ExecutorBase):
         dask_collection: List[Union[Delayed, DelayedLeaf]],
         with_results: bool = False,
         raise_errors: bool = False,
-    ) -> Iterator[MFuture]:
+    ) -> Generator[MFuture, None, None]:
         # send to scheduler
-        logger.debug("task graph has %s", pretty_bytes(getsizeof(dask_collection)))
+        with TaskManager(
+            self, with_results=with_results, raise_errors=raise_errors
+        ) as task_manager:
+            task_manager.submit_graph(dask_collection=dask_collection)
+            for future in task_manager.finished_futures():
+                yield future
 
-        logger.debug(
-            "sending %s tasks to cluster and wait for them to finish...",
-            len(dask_collection),
-        )
-        for batch in as_completed(
-            self._executor.compute(dask_collection, optimize_graph=True, traverse=True),
-            with_results=with_results,
-            raise_errors=raise_errors,
-            loop=self._executor.loop,
-        ).batches():
-            for item in batch:
-                if with_results:  # pragma: no cover
-                    future, result = item
-                else:
-                    future, result = item, None
-                if self.cancel_signal:  # pragma: no cover
-                    logger.debug("executor cancelled")
-                    raise JobCancelledError()
-                yield self._finished_future(future, result, _dask=True)
-
-    def _submit_chunk(
-        self,
-        chunk: List[Any],
-        func: Callable,
-        fargs: Optional[tuple] = None,
-        fkwargs: Optional[dict] = None,
-    ) -> Set[Future]:
-        if chunk:
-            logger.debug("submit chunk of %s items to cluster", len(chunk))
-            futures = set(
-                self._executor.map(
-                    self.func_partial(func, fargs=fargs, fkwargs=fkwargs), chunk
-                )
-            )
-            self._ac_iterator.update(futures)
-            self.futures.update(futures)  # type: ignore
-            return futures
-        return set()
-
-    def _yield_from_batch(self, batch):
-        for future, result in batch:
-            if self.cancel_signal:  # pragma: no cover
-                logger.debug("executor cancelled")
-                raise JobCancelledError()
-            yield self._finished_future(future, result, _dask=True)
+    def raise_if_cancelled(self):
+        if self.cancel_signal:  # pragma: no cover
+            raise JobCancelledError("cancel signal caught")
 
     @cached_property
     def _executor(self):
@@ -302,10 +258,10 @@ class DaskExecutor(ExecutorBase):
         wait(self.futures, timeout=timeout, return_when=return_when)
 
 
-class TaskChunk:
+class TaskManager:
     executor: DaskExecutor
-    chunksize: int
-    func: Callable
+    submit_chunksize: int = 100
+    func: Optional[Callable] = None
     fargs: Optional[tuple] = None
     fkwargs: Optional[dict] = None
     items: List[Any]
@@ -313,30 +269,110 @@ class TaskChunk:
     def __init__(
         self,
         executor: DaskExecutor,
-        chunksize: int,
-        func: Callable,
+        submit_chunksize: int = 100,
+        func: Optional[Callable] = None,
         fargs: Optional[tuple] = None,
         fkwargs: Optional[dict] = None,
+        with_results: bool = True,
+        raise_errors: bool = False,
     ):
         self.executor = executor
-        self.chunksize = chunksize
+        self.submit_chunksize = submit_chunksize
         self.func = func
         self.fargs = fargs or ()
         self.fkwargs = fkwargs or {}
         self.items = []
+        self.total_futures_count = 0
+        self.remote_futures_count = 0
+        self.with_results = with_results
+        self.raise_errors = raise_errors
 
     def __len__(self) -> int:
         return len(self.items)
 
-    def add(self, item: Any):
-        self.items.append(item)
-        if len(self) % self.chunksize == 0:
-            logger.debug("chunk is full (%s), submit to cluster", len(self))
-            self.submit()
-
-    def submit(self):
-        logger.debug("submit %s tasks to cluster", len(self))
-        self.executor._submit_chunk(
-            chunk=self.items, func=self.func, fargs=self.fargs, fkwargs=self.fkwargs
+    def __enter__(self):
+        """Enter context manager."""
+        self.as_completed_iterator = as_completed(
+            loop=self.executor._executor.loop,
+            with_results=self.with_results,
+            raise_errors=self.raise_errors,
         )
-        self.items = []
+        return self
+
+    def __exit__(self, *_):
+        """Clean up."""
+        self.as_completed_iterator.clear()
+        self.executor.wait()
+
+    def add_to_items(self, item: Any, submit: bool = False):
+        self.executor.raise_if_cancelled()
+
+        self.items.append(item)
+        self.total_futures_count += 1
+        if submit or len(self) == self.submit_chunksize:
+            self.submit_items()
+
+    def submit_items(self) -> Set[Future]:
+        self.executor.raise_if_cancelled()
+
+        if self.items:
+            if self.func is None:  # pragma: no cover
+                raise ValueError("func not provided")
+
+            logger.debug("submit %s tasks to cluster", len(self))
+
+            futures = set(
+                self.executor._executor.map(
+                    self.executor.func_partial(
+                        self.func, fargs=self.fargs, fkwargs=self.fkwargs
+                    ),
+                    self.items,
+                )
+            )
+            self.as_completed_iterator.update(futures)
+            self.remote_futures_count += len(futures)
+            self.items = []
+            return futures
+
+        return set()
+
+    def submit_graph(
+        self,
+        dask_collection: List[Union[Delayed, DelayedLeaf]],
+        optimize_graph: bool = True,
+        traverse: bool = True,
+    ):
+        logger.debug("task graph has %s", pretty_bytes(getsizeof(dask_collection)))
+
+        if dask_collection:
+            logger.debug(
+                "sending %s tasks to cluster and wait for them to finish...",
+                len(dask_collection),
+            )
+            futures: List[Future] = self.executor._executor.compute(
+                dask_collection, optimize_graph=optimize_graph, traverse=traverse
+            )  # type: ignore
+            self.executor.raise_if_cancelled()
+
+            self.as_completed_iterator.update(futures)
+            self.remote_futures_count += len(futures)
+            self.total_futures_count += len(futures)
+
+    def finished_futures(self) -> Generator[MFuture, None, None]:
+        self.executor.raise_if_cancelled()
+
+        for batch in self.as_completed_iterator.batches():
+            logger.debug("%s future(s) done", len(batch))
+
+            for future in batch:
+                self.executor.raise_if_cancelled()
+
+                if self.with_results:
+                    future, result = future
+                else:
+                    result = None
+                self.remote_futures_count -= 1
+
+                yield self.executor._finished_future(
+                    cast(FutureProtocol, future), result=result
+                )

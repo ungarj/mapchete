@@ -1,5 +1,6 @@
 from concurrent.futures._base import CancelledError
 
+from dask.delayed import delayed
 import pytest
 
 import mapchete
@@ -46,3 +47,10 @@ def test_dask_cancellederror(dask_executor, items=10):
 
     with pytest.raises(CancelledError):
         list(dask_executor.as_completed(raise_cancellederror, range(items)))
+
+
+def test_compute_task_graph(dask_executor):
+    for future in dask_executor.compute_task_graph(
+        dask_collection=[delayed(str)(number) for number in range(10)]
+    ):
+        assert future.result()
