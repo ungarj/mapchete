@@ -17,6 +17,7 @@ from typing import (
     Dict,
     Generator,
     Iterable,
+    List,
     Literal,
     Optional,
     Tuple,
@@ -176,11 +177,10 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         except JobCancelledError as exception:  # pragma: no cover
             logger.debug("%s", str(exception))
 
-    def map(self, func, iterable, fargs=None, fkwargs=None) -> Iterable[Any]:
-        # TODO: this is not running concurrently, is it? :)
+    def map(self, func, iterable, fargs=None, fkwargs=None) -> List[Any]:
         return [
-            result.output
-            for result in map(
+            result.output  # type: ignore
+            for result in self._executor.map(
                 self.func_partial(func, fargs=fargs, fkwargs=fkwargs), iterable
             )
         ]
@@ -189,8 +189,8 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         future = self._executor.submit(
             self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
         )
-        self.futures.add(future)
-        return future
+        self.futures.add(future)  # type: ignore
+        return future  # type: ignore
 
     def _wait(
         self,

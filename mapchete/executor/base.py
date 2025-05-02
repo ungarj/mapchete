@@ -1,5 +1,6 @@
 """Abstraction classes for multiprocessing and distributed processing."""
 
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -16,7 +17,10 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Union,
 )
+
+from distributed import Client
 
 from mapchete.executor.future import FutureProtocol, MFuture
 from mapchete.executor.types import Profiler, Result
@@ -146,7 +150,7 @@ class ExecutorBase(ABC):
         return mfuture
 
     @cached_property
-    def _executor(self):
+    def _executor(self) -> Union[ThreadPoolExecutor, ProcessPoolExecutor, Client]:
         if self._executor_cls:
             return self._executor_cls(*self._executor_args, **self._executor_kwargs)
         raise TypeError("no Executor Class given")
