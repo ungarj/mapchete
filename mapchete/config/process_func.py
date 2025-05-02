@@ -3,6 +3,7 @@ import inspect
 import logging
 import py_compile
 import sys
+from types import ModuleType
 import warnings
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict
@@ -109,7 +110,7 @@ class ProcessFunc:
         except ImportError as e:
             raise MapcheteProcessImportError(e)
 
-    def _load_module(self):
+    def _load_module(self) -> ModuleType:
         # path to python file or python module path
         if self.path:
             return self._import_module_from_path(self.path)
@@ -124,14 +125,17 @@ class ProcessFunc:
                     MPath.from_inp(tmpfile.name),
                 )
 
-    def _import_module_from_path(self, path):
+    def _import_module_from_path(self, path: str) -> ModuleType:
         if path.endswith(".py"):
             module_path = absolute_path(path=path, base_dir=self._root_dir)
             if not module_path.exists():
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
                 if self._run_compile:
-                    py_compile.compile(module_path, doraise=True)
+                    try:
+                        py_compile.compile(module_path, doraise=True)
+                    except FileExistsError:
+                        pass
                 module_name = module_path.stem
                 # load module
                 spec = importlib.util.spec_from_file_location(

@@ -189,8 +189,12 @@ def run_func_with_profilers(
     for profiler in profilers:
         func = profiler.decorator(*profiler.args, **profiler.kwargs)(func)
 
-    # actually run function
-    func_output = func(*fargs, **fkwargs)
+    try:
+        # actually run function
+        func_output = func(*fargs, **fkwargs)
+    except Exception as exception:
+        logger.exception(exception)
+        raise
 
     # extract profiler results from output
     for idx in list(reversed(range(len(profilers)))):

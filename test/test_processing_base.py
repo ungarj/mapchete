@@ -11,8 +11,6 @@ import numpy.ma as ma
 import pytest
 from rasterio import windows
 
-from mapchete.path import MPath
-
 try:
     from cPickle import dumps as pickle_dumps  # type: ignore
 except ImportError:
@@ -26,6 +24,7 @@ from mapchete.config import DaskSettings
 from mapchete.errors import MapcheteProcessOutputError
 from mapchete.io import rasterio_open
 from mapchete.io.raster.mosaic import _shift_required, create_mosaic
+from mapchete.path import MPath
 from mapchete.processing.types import TaskInfo
 from mapchete.tile import BufferedTile, BufferedTilePyramid, count_tiles
 
