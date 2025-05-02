@@ -96,9 +96,9 @@ class DaskExecutor(ExecutorBase):
         iterable: Iterable,
         fargs: Optional[tuple] = None,
         fkwargs: Optional[dict] = None,
-        max_submitted_tasks: int = 500,
         item_skip_bool: bool = False,
         chunksize: int = 100,
+        max_submitted_tasks: int = 500,
         **__,
     ) -> Generator[MFuture, None, None]:
         """
@@ -230,7 +230,7 @@ class DaskExecutor(ExecutorBase):
             raise JobCancelledError("cancel signal caught")
 
     @cached_property
-    def _executor(self):
+    def _executor(self):  # type: ignore
         return self._executor_client or self._executor_cls(
             *self._executor_args, **self._executor_kwargs
         )
@@ -373,6 +373,6 @@ class TaskManager:
                     result = None
                 self.remote_futures_count -= 1
 
-                yield self.executor._finished_future(
+                yield self.executor.to_mfuture(
                     cast(FutureProtocol, future), result=result
                 )

@@ -79,7 +79,7 @@ class MFuture:
         name = getattr(future, "key", None)
         name = name.rstrip("_finished") if name else str(future)
 
-        profiling = getattr(future, "profiling", {})
+        profiling = getattr(future, "profiling", getattr(result, "profiling", {}))
 
         if lazy:
             # keep around Future for later and don't call Future.result()
@@ -197,7 +197,7 @@ class MFuture:
         # Let's directly re-raise these to be more transparent.
         keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
 
-        if self.cancelled():  # pragma: no cover
+        if self.cancelled():
             try:
                 exception = self.exception(timeout=mapchete_options.future_timeout)
                 if exception is None:
@@ -224,9 +224,11 @@ class MFuture:
 
             # keep some exceptions as they are
             if isinstance(exception, keep_exceptions):
+                logger.exception(exception)
                 raise exception
 
             # wrap all other exceptions in a MapcheteTaskFailed
+            logger.exception(exception)
             raise MapcheteTaskFailed(
                 f"{self.name} raised a {repr(exception)}"
             ).with_traceback(exception.__traceback__)

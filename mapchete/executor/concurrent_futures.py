@@ -1,11 +1,16 @@
-import concurrent.futures
+from concurrent.futures import (
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    Future,
+    wait,
+    FIRST_COMPLETED,
+)
 from itertools import islice
 import logging
 import multiprocessing
 import os
 import sys
 import warnings
-from concurrent.futures import CancelledError
 from typing import (
     Any,
     Callable,
@@ -18,6 +23,7 @@ from typing import (
     cast,
 )
 
+from mapchete.errors import JobCancelledError
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import FutureProtocol, MFuture
 from mapchete.log import set_log_level
@@ -44,7 +50,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         start_method = (
             multiprocessing_start_method or MULTIPROCESSING_DEFAULT_START_METHOD
         )
-        self.max_workers = max_workers or os.cpu_count()
+        self.max_workers = max_workers or kwargs.get("workers", os.cpu_count())
         self._executor_kwargs = dict(
             max_workers=self.max_workers,
         )
@@ -56,7 +62,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         else:  # pragma: no cover
             warnings.warn(UserWarning("worker logs are not available on python<3.7"))
         if concurrency == "processes":
-            self._executor_cls = concurrent.futures.ProcessPoolExecutor
+            self._executor_cls = ProcessPoolExecutor
             if sys.version_info >= (3, 7):
                 self._executor_kwargs.update(
                     mp_context=multiprocessing.get_context(method=start_method)
@@ -74,7 +80,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
                     )
                 )
         elif concurrency == "threads":
-            self._executor_cls = concurrent.futures.ThreadPoolExecutor
+            self._executor_cls = ThreadPoolExecutor
         else:  # pragma: no cover
             raise ValueError("concurrency must either be 'processes' or 'threads'")
         logger.debug(
@@ -93,64 +99,85 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         iterable: Iterable,
         fargs: Optional[Tuple] = None,
         fkwargs: Optional[Dict[str, Any]] = None,
-        max_submitted_tasks: int = 500,
         item_skip_bool: bool = False,
+        max_submitted_tasks: int = 500,
         **__,
     ) -> Generator[MFuture, None, None]:
         """Submit tasks to executor and start yielding finished futures."""
+        fargs = fargs or ()
+        fkwargs = fkwargs or {}
 
         # before running, make sure cancel signal is False
         self.cancel_signal = False
-        fargs = fargs or ()
-        fkwargs = fkwargs or {}
-        # create an iterator
-        iter_todo = iter(iterable)
-        # submit first x tasks
+
+        # extract item skip tuples and make a generator
+        item_skip_tuples = iter(
+            ((item, skip_item, skip_info) for item, skip_item, skip_info in iterable)
+            if item_skip_bool
+            else ((item, False, None) for item in iterable)
+        )
         futures = set()
 
         logger.debug("submitting tasks to executor")
 
         try:
             with Timer() as duration:
-                for item in islice(iter_todo, max_submitted_tasks):
+                for item, skip_item, skip_info in islice(
+                    item_skip_tuples, max_submitted_tasks
+                ):
                     if self.cancel_signal:  # pragma: no cover
-                        raise CancelledError("cancel signal caught")
+                        raise JobCancelledError("cancel signal caught")
 
                     # skip task submission if option is activated
-                    if item_skip_bool:
-                        item, skip, skip_info = item
-                        if skip:
-                            yield MFuture.skip(skip_info=skip_info, result=item)
-                            continue
-                    future = self._submit(func, item, fargs, fkwargs)
-                    futures.add(future)
+                    if skip_item:
+                        yield MFuture.skip(skip_info=skip_info, result=item)
+
+                    # submit to executor
+                    else:
+                        futures.add(self._submit(func, item, fargs, fkwargs))
             logger.debug("first %s tasks submitted in %s", len(futures), duration)
 
-            while futures and not self.cancel_signal:
+            while futures:
+                if self.cancel_signal:  # pragma: no cover
+                    raise JobCancelledError("cancel signal caught")
+
                 logger.debug("waiting for %s futures ...", len(futures))
-                done, _ = concurrent.futures.wait(
-                    futures, return_when=concurrent.futures.FIRST_COMPLETED
-                )
+                done, _ = wait(futures, return_when=FIRST_COMPLETED)
                 logger.debug("%s future(s) done", len(done))
+
                 for future in done:
-                    yield self._finished_future(cast(FutureProtocol, future))
+                    if self.cancel_signal:  # pragma: no cover
+                        raise JobCancelledError("cancel signal caught")
+
+                    yield self.to_mfuture(cast(FutureProtocol, future))
+
                     # we don't need this future anymore
                     futures.remove(future)
+
                     # immediately submit next task from iterator
                     try:
-                        new_future = self._submit(func, next(iter_todo), fargs, fkwargs)
-                        futures.add(new_future)
+                        item, skip_item, skip_info = next(item_skip_tuples)
+
+                        # skip task submission if option is activated
+                        if skip_item:
+                            yield MFuture.skip(skip_info=skip_info, result=item)
+
+                        # submit to executor
+                        else:
+                            futures.add(self._submit(func, item, fargs, fkwargs))
+
                     except StopIteration:
                         # nothing left to submit
                         pass
 
             if self.cancel_signal:  # pragma: no cover
-                raise CancelledError("cancel signal caught")
+                raise JobCancelledError("cancel signal caught")
 
-        except CancelledError:  # pragma: no cover
-            logger.debug("executor cancelled")
+        except JobCancelledError as exception:  # pragma: no cover
+            logger.debug("%s", str(exception))
 
     def map(self, func, iterable, fargs=None, fkwargs=None) -> Iterable[Any]:
+        # TODO: this is not running concurrently, is it? :)
         return [
             result.output
             for result in map(
@@ -158,9 +185,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
             )
         ]
 
-    def _submit(
-        self, func: Callable, item: Any, fargs: tuple, fkwargs: dict
-    ) -> concurrent.futures.Future:
+    def _submit(self, func: Callable, item: Any, fargs: tuple, fkwargs: dict) -> Future:
         future = self._executor.submit(
             self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
         )
@@ -172,7 +197,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         timeout: Optional[float] = None,
         return_when: Literal["FIRST_COMPLETED", "ALL_COMPLETED"] = "ALL_COMPLETED",
     ) -> None:
-        concurrent.futures.wait(
+        wait(
             self.futures,  # type: ignore
             timeout=timeout,
             return_when=return_when,

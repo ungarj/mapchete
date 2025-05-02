@@ -47,7 +47,6 @@ class ExecutorBase(ABC):
         iterable: Iterable,
         fargs: Optional[Tuple] = None,
         fkwargs: Optional[Dict[str, Any]] = None,
-        max_submitted_tasks: int = 500,
         item_skip_bool: bool = False,
         **kwargs,
     ) -> Generator[MFuture, None, None]:  # pragma: no cover
@@ -70,15 +69,15 @@ class ExecutorBase(ABC):
         self,
         name: Optional[str] = None,
         decorator: Optional[Callable] = None,
-        args: Optional[tuple] = None,
-        kwargs: Optional[dict] = None,
+        args: Optional[Tuple] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
         profiler: Optional[Profiler] = None,
     ) -> None:
         if profiler:  # pragma: no cover
             self.profilers.append(profiler)
         elif isinstance(name, Profiler):
             self.profilers.append(name)
-        elif name and decorator:
+        elif name is not None and decorator is not None:
             self.profilers.append(
                 Profiler(
                     name=name, decorator=decorator, args=args or (), kwargs=kwargs or {}
@@ -126,8 +125,11 @@ class ExecutorBase(ABC):
             profilers=self.profilers,
         )
 
-    def _finished_future(
-        self, future: FutureProtocol, result: Any = None, _dask: bool = False
+    def to_mfuture(
+        self,
+        future: FutureProtocol,
+        result: Optional[Any] = None,
+        raise_if_failed: bool = True,
     ) -> MFuture:
         """
         Release future from cluster explicitly and wrap result around MFuture object.
@@ -137,8 +139,9 @@ class ExecutorBase(ABC):
         # create minimal Future-like object with no references to the cluster
         mfuture = MFuture.from_future(future, lazy=True, result=result)
 
-        # raise exception if future errored or was cancelled
-        mfuture.raise_if_failed()
+        if raise_if_failed:
+            # raise exception if future errored or was cancelled
+            mfuture.raise_if_failed()
 
         return mfuture
 
@@ -158,6 +161,8 @@ class ExecutorBase(ABC):
         try:
             self._executor.close()
         except Exception:
+            pass
+        finally:
             self._executor.__exit__(*args)
         logger.debug("closed executor %s", self._executor)
 

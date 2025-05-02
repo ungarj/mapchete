@@ -400,9 +400,7 @@ class Mapchete(object):
             logger.debug("tiles counted in %s", t)
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
-    def execute_tile(
-        self, process_tile: BufferedTile, raise_nodata: bool = False
-    ) -> Any:
+    def execute_tile(self, process_tile: TileLike, raise_nodata: bool = False) -> Any:
         """
         Run Mapchete process on a tile.
 

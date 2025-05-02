@@ -21,7 +21,7 @@ class SequentialExecutor(ExecutorBase):
     def as_completed(
         self,
         func: Callable,
-        iterable: Iterable[Any],
+        iterable: Iterable,
         fargs: Optional[Tuple] = None,
         fkwargs: Optional[Dict[str, Any]] = None,
         item_skip_bool: bool = False,
@@ -31,19 +31,24 @@ class SequentialExecutor(ExecutorBase):
         # before running, make sure cancel signal is False
         self.cancel_signal = False
 
-        for item in iterable:
+        # extract item skip tuples and make a generator
+        item_skip_tuples = (
+            ((item, skip_item, skip_info) for item, skip_item, skip_info in iterable)
+            if item_skip_bool
+            else ((item, False, None) for item in iterable)
+        )
+
+        for item, skip_item, skip_info in item_skip_tuples:
             if self.cancel_signal:
                 logger.debug("executor cancelled")
                 return
-            # skip task submission if option is activated
-            if item_skip_bool:
-                item, skip, skip_info = item
-                if skip:
-                    yield MFuture.skip(skip_info=skip_info, result=item)
-                    continue
+
+            if skip_item:
+                yield MFuture.skip(skip_info=skip_info, result=item)
+                continue
 
             # run task and yield future
-            yield self._finished_future(
+            yield self.to_mfuture(
                 MFuture.from_func_partial(
                     self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
                 )
@@ -66,10 +71,10 @@ class SequentialExecutor(ExecutorBase):
     def cancel(self):
         self.cancel_signal = True
 
-    def _wait(self):  # pragma: no cover
+    def _wait(self, *_, **__):  # pragma: no cover
         return
 
-    def __exit__(self, *args):
+    def __exit__(self, *_):
         """Exit context manager."""
         logger.debug("SequentialExecutor closed")
 
