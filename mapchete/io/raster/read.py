@@ -317,7 +317,7 @@ def _rasterio_read(
         if src.transform.is_identity and src.gcps:
             # no idea why when reading a source referenced using GCPs requires using reproject()
             # instead of WarpedVRT
-            return prepare_masked_array(
+            out_array = prepare_masked_array(
                 reproject(
                     source=rasterio.band(src, indexes),
                     destination=np.zeros(dst_array_shape, dtype=src.meta.get("dtype")),
@@ -331,7 +331,10 @@ def _rasterio_read(
                 )[0],
                 masked=True,
                 nodata=dst_nodata,
-            )  # type: ignore
+            )
+            if isinstance(indexes, int):
+                return out_array[0]
+            return out_array  # type: ignore
         else:
             with WarpedVRT(
                 src,

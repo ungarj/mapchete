@@ -7,7 +7,7 @@ import numpy.ma as ma
 import pytest
 from pytest_lazyfixture import lazy_fixture
 from rasterio.enums import Compression
-from shapely import box
+from shapely import MultiPoint, box, convex_hull
 
 import mapchete
 from mapchete.errors import MapcheteIOError
@@ -327,9 +327,7 @@ def test_read_raster_no_crs_aws_s3(path):
 
 @pytest.mark.parametrize(
     "path",
-    [
-        lazy_fixture("raster_4band"),
-    ],
+    [lazy_fixture("raster_4band"), lazy_fixture("gcps_tif")],
 )
 @pytest.mark.parametrize("grid", ["geodetic", "mercator"])
 @pytest.mark.parametrize("pixelbuffer", [0, 10, 500])
@@ -338,7 +336,12 @@ def test_read_raster_window(path, grid, pixelbuffer, zoom):
     """Read array with read_raster_window."""
     tile_pyramid = BufferedTilePyramid(grid, pixelbuffer=pixelbuffer)
     with rasterio_open(path) as src:
-        bbox = reproject_geometry(box(*src.bounds), src.crs, tile_pyramid.crs)
+        if src.transform.is_identity and src.gcps:
+            bbox = convex_hull(
+                MultiPoint([(point.x, point.y) for point in src.gcps[0]])
+            ).envelope
+        else:
+            bbox = reproject_geometry(box(*src.bounds), src.crs, tile_pyramid.crs)
         bands = src.count
 
     tiles = list(tile_pyramid.tiles_from_geom(bbox, zoom))
@@ -349,12 +352,14 @@ def test_read_raster_window(path, grid, pixelbuffer, zoom):
     for tile in tiles:
         width, height = tile.shape
 
+        # iterate through bands of output array
         for band in read_raster_window(path, tile):
             assert isinstance(band, ma.MaskedArray)
             assert band.shape == (width, height)
             if tile.row != 0 and tile.col != 0:
                 assert not band.mask.all()
 
+        # iterate through indexes
         for index in range(1, bands + 1):
             band = read_raster_window(path, tile, index)
             assert isinstance(band, ma.MaskedArray)
@@ -362,6 +367,7 @@ def test_read_raster_window(path, grid, pixelbuffer, zoom):
             if tile.row != 0 and tile.col != 0:
                 assert not band.mask.all()
 
+        # make sure None index is the same as list of indexes
         for index in [None, list(range(1, bands + 1))]:
             band = read_raster_window(path, tile, index)
             assert isinstance(band, ma.MaskedArray)
