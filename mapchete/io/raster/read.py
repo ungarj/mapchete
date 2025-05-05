@@ -6,7 +6,7 @@ import logging
 import sys
 import warnings
 from contextlib import contextmanager
-from typing import Generator, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import numpy.ma as ma
@@ -102,6 +102,18 @@ def read_raster_window(
         )
 
 
+def _array_shape(
+    grid: GridProtocol, indexes: Optional[Union[int, List[int]]] = None
+) -> Union[Tuple[int, int], Tuple[Union[int, None], int, int]]:
+    dst_shape = grid.shape
+    if not isinstance(indexes, int):
+        if indexes is None:
+            dst_shape = (None,) + dst_shape
+        elif isinstance(indexes, list):
+            dst_shape = (len(indexes),) + dst_shape
+    return dst_shape
+
+
 def _read_raster_window(
     input_files: List[MPath],
     grid: GridProtocol,
@@ -165,12 +177,6 @@ def _read_raster_window(
     else:
         input_file = input_files[0]
         try:
-            dst_shape = grid.shape
-            if not isinstance(indexes, int):
-                if indexes is None:
-                    dst_shape = (None,) + dst_shape
-                elif isinstance(indexes, list):
-                    dst_shape = (len(indexes),) + dst_shape
             # Check if potentially tile boundaries exceed tile matrix boundaries on
             # the antimeridian, the northern or the southern boundary.
             if (
@@ -186,7 +192,6 @@ def _read_raster_window(
                     resampling=resampling,
                     src_nodata=src_nodata,
                     dst_nodata=dst_nodata,
-                    full_dst_shape=dst_shape,
                 )
 
             # If grid id not a tile or tile boundaries don't exceed pyramid boundaries,
@@ -220,9 +225,8 @@ def _get_warped_edge_array(
     resampling: Resampling = Resampling.nearest,
     src_nodata: NodataVal = None,
     dst_nodata: NodataVal = None,
-    full_dst_shape: Optional[Tuple[int, int, int]] = None,
 ) -> ma.MaskedArray:
-    parts_metadata = dict(left=None, middle=None, right=None, none=None)
+    parts_metadata = dict()
     # Split bounding box into multiple parts & request each numpy array
     # separately.
     for polygon in clip_geometry_to_pyramid_bounds(tile.bbox, tile.tile_pyramid):
@@ -236,15 +240,8 @@ def _get_warped_edge_array(
         touches_both = touches_left and touches_right
         height = int(round((top - bottom) / tile.pixel_y_size))
         width = int(round((right - left) / tile.pixel_x_size))
-        # if indexes is None:
-        #     dst_shape = (None, height, width)
-        # elif isinstance(indexes, int):
-        #     dst_shape = (height, width)
-        # else:
-        #     dst_shape = (dst_shape[0], height, width)
-        dst_shape = (height, width)
         part_grid = Grid.from_bounds(
-            bounds=polygon.bounds, shape=dst_shape, crs=tile.crs
+            bounds=polygon.bounds, shape=(height, width), crs=tile.crs
         )
         if touches_both:
             parts_metadata.update(middle=part_grid)
@@ -267,7 +264,7 @@ def _get_warped_edge_array(
                 dst_nodata=dst_nodata,
             )
             for part in ["none", "left", "middle", "right"]
-            if parts_metadata[part]
+            if parts_metadata.get(part)
         ],
         axis=-1,
     )
@@ -426,7 +423,12 @@ class RasterWindowMemoryFile:
     """Context manager around rasterio.io.MemoryFile."""
 
     def __init__(
-        self, in_tile=None, in_data=None, out_profile=None, out_tile=None, tags=None
+        self,
+        in_tile: BufferedTile,
+        in_data: ma.MaskedArray,
+        out_profile: Profile,
+        out_tile: Optional[BufferedTile] = None,
+        tags: Optional[Dict[str, Any]] = None,
     ):
         """Prepare data & profile."""
         out_tile = out_tile or in_tile
@@ -466,15 +468,18 @@ def tiles_to_affine_shape(tiles: Iterable[BufferedTile]) -> Tuple[Affine, Shape]
     -------
     Affine, Shape
     """
-    if not tiles:  # pragma: no cover
+    tiles_iter = iter(tiles)
+    try:
+        tile = next(tiles_iter)
+    except StopIteration:  # pragma: no cover
         raise TypeError("no tiles provided")
-    pixel_size = tiles[0].pixel_x_size
-    left, bottom, right, top = (
-        min([t.left for t in tiles]),
-        min([t.bottom for t in tiles]),
-        max([t.right for t in tiles]),
-        max([t.top for t in tiles]),
-    )
+    pixel_size = tile.pixel_x_size
+    left, bottom, right, top = tile.bounds
+    for tile in tiles_iter:
+        left = min([left, tile.left])
+        bottom = min([bottom, tile.bottom])
+        right = max([right, tile.right])
+        top = max([top, tile.top])
     return (
         Affine(pixel_size, 0, left, 0, -pixel_size, top),
         Shape(
@@ -498,11 +503,10 @@ def memory_file(
         rasterio profile for MemoryFile
     """
     profile = profile or Profile()
+    profile.update(width=data.shape[-2], height=data.shape[-1])
     memfile = MemoryFile()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        with memfile.open(
-            **dict(profile, width=data.shape[-2], height=data.shape[-1])
-        ) as dataset:
+        with memfile.open(**profile) as dataset:
             dataset.write(data)
         return memfile
