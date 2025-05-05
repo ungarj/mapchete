@@ -1,8 +1,9 @@
 import logging
-from typing import Optional
+from typing import Literal, Optional
 
 import fiona
 import pyproj
+from pyproj import Transformer
 from pyproj.exceptions import CRSError
 from fiona.transform import transform_geom
 from rasterio.crs import CRS
@@ -14,7 +15,10 @@ from mapchete.geometry.latlon import LATLON_CRS
 from mapchete.geometry.repair import repair
 from mapchete.geometry.segmentize import get_segmentize_value, segmentize_geometry
 from mapchete.geometry.shape import to_shape
+from mapchete.geometry.transform import custom_transform
+from mapchete.timer import Timer
 from mapchete.types import (
+    CoordArrays,
     Geometry,
     GeometryLike,
     Polygon,
@@ -54,9 +58,11 @@ def get_crs_bounds(crs: CRS) -> Bounds:
                 else pyproj.CRS(crs.to_proj4())
             )
             if pyproj_crs.area_of_use:
-                return Bounds.from_inp(pyproj_crs.area_of_use.bounds, crs=LATLON_CRS)
+                bounds = Bounds.from_inp(pyproj_crs.area_of_use.bounds, crs=LATLON_CRS)
+                CRS_BOUNDS[crs] = bounds
+                return bounds
         except CRSError as exc:  # pragma: no cover
-            logger.debug(exc)
+            logger.exception(exc)
             pass
     raise ValueError(f"bounds of CRS {crs} could not be determined")
 
@@ -78,6 +84,7 @@ def reproject_geometry(
     antimeridian_cutting: bool = False,
     retry_with_clip: bool = True,
     fiona_env: Optional[dict] = None,
+    engine: Literal["fiona", "pyproj"] = "pyproj",
 ) -> Geometry:
     """
     Reproject a geometry to target CRS.
@@ -136,6 +143,7 @@ def reproject_geometry(
             validity_check,
             antimeridian_cutting,
             fiona_env,
+            engine=engine,
         )
         # raise error if geometry has to be clipped
         if error_on_clip and not geometry_latlon.within(shape(crs_bounds)):
@@ -161,6 +169,7 @@ def reproject_geometry(
             validity_check,
             antimeridian_cutting,
             fiona_env,
+            engine=engine,
         )
 
     # return without clipping if destination CRS does not have defined bounds
@@ -178,6 +187,7 @@ def reproject_geometry(
                 validity_check,
                 antimeridian_cutting,
                 fiona_env,
+                engine=engine,
             )
         return _reproject_geom(
             geometry,
@@ -186,6 +196,7 @@ def reproject_geometry(
             validity_check,
             antimeridian_cutting,
             fiona_env,
+            engine=engine,
         )
     except ValueError as exc:  # pragma: no cover
         if retry_with_clip:
@@ -209,6 +220,7 @@ def reproject_geometry(
                     validity_check=validity_check,
                     antimeridian_cutting=antimeridian_cutting,
                     retry_with_clip=False,
+                    engine=engine,
                 )
             except Exception as exc:
                 raise ReprojectionFailed(f"geometry cannot be reprojected: {str(exc)}")
@@ -223,26 +235,52 @@ def _reproject_geom(
     validity_check: bool,
     antimeridian_cutting: bool,
     fiona_env: dict,
+    engine: Literal["fiona", "pyproj"] = "pyproj",
 ) -> Geometry:
     if geometry.is_empty:
         return geometry
+    match engine:
+        case "fiona":
+            logger.debug("using fiona transform")
+            with fiona.Env(**fiona_env):
+                try:
+                    transformed = transform_geom(
+                        src_crs.to_dict(),
+                        dst_crs.to_dict(),
+                        mapping(geometry),
+                        antimeridian_cutting=antimeridian_cutting,
+                    )
+                except Exception as exc:
+                    raise ReprojectionFailed(
+                        f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
+                    ) from exc
+            # Fiona >1.9 returns None if transformation errored
+            if transformed is None:  # pragma: no cover
+                raise ReprojectionFailed(
+                    f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
+                )
+            out_geom = to_shape(transformed)
+        case "pyproj":
+            logger.debug("using pyproj transformer")
 
-    with fiona.Env(**fiona_env):
-        try:
-            transformed = transform_geom(
-                src_crs.to_dict(),
-                dst_crs.to_dict(),
-                mapping(geometry),
-                antimeridian_cutting=antimeridian_cutting,
-            )
-        except Exception as exc:
-            raise ReprojectionFailed(
-                f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
-            ) from exc
-    # Fiona >1.9 returns None if transformation errored
-    if transformed is None:  # pragma: no cover
-        raise ReprojectionFailed(
-            f"fiona.transform.transform_geom could not transform geometry from {src_crs} to {dst_crs}"
-        )
-    out_geom = to_shape(transformed)
+            def _transformer_wrapper(coords: CoordArrays) -> CoordArrays:
+                return get_transformer(src_crs, dst_crs).transform(*coords)
+
+            with Timer() as duration:
+                out_geom = custom_transform(geometry, _transformer_wrapper)
+            logger.debug("geometry transformed in %s", duration)
     return repair(out_geom) if validity_check else out_geom
+
+
+TRANSFORMERS = dict()
+
+
+def get_transformer(src_crs: CRS, dst_crs: CRS) -> Transformer:
+    try:
+        return TRANSFORMERS[(src_crs, dst_crs)]
+    except KeyError:
+        with Timer() as duration:
+            transformer = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
+        logger.debug("tansformer created in %s", duration)
+        TRANSFORMERS[(src_crs, dst_crs)] = transformer
+        return transformer

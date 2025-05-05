@@ -1,5 +1,5 @@
 import pytest
-from pytest import lazy_fixture
+from pytest_lazyfixture import lazy_fixture
 
 from mapchete.enums import Concurrency
 from mapchete.testing import ProcessFixture
@@ -20,6 +20,7 @@ def test_example(process_fixture: ProcessFixture):
     with process_fixture.mp() as mp:
         assert list(
             mp.execute(
-                tile=process_fixture.first_process_tile(), concurrency=Concurrency.none
+                tile=process_fixture.first_process_tile().id,
+                concurrency=Concurrency.none,
             )
         )

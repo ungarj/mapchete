@@ -41,8 +41,10 @@ from mapchete.tile import BufferedTilePyramid
         lazy_fixture("geometrycollection"),
     ],
 )
+@pytest.mark.parametrize("engine", ["fiona", "pyproj"])
 def test_reproject_geometry(
     geometry,
+    engine,
     dst_crs,
     segmentize,
     clip_to_crs_bounds,
@@ -59,6 +61,7 @@ def test_reproject_geometry(
         clip_to_crs_bounds=clip_to_crs_bounds,
         validity_check=validity_check,
         antimeridian_cutting=antimeridian_cutting,
+        engine=engine,
     )
     assert out_geom.is_valid
 
@@ -76,6 +79,7 @@ def test_reproject_from_crs_wkt(enable_partial_reprojection):
             src_crs,
             dst_crs,
             fiona_env={"OGR_ENABLE_PARTIAL_REPROJECTION": enable_partial_reprojection},
+            engine="fiona",
         ).is_valid
 
 
