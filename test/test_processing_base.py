@@ -1,6 +1,5 @@
 """Test Mapchete main module and processing."""
 
-import json
 import os
 import shutil
 from itertools import chain
@@ -8,6 +7,7 @@ from itertools import chain
 import importlib_resources
 import numpy as np
 import numpy.ma as ma
+from pystac import Item
 import pytest
 from rasterio import windows
 
@@ -864,8 +864,7 @@ def test_write_stac(stac_metadata):
         out_path.read_json()
 
     mp.write_stac()
-    item = json.loads(out_path.read_json())
-
+    item = Item.from_dict(out_path.read_json())
     assert item
 
 
