@@ -160,7 +160,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
                         item, skip_item, skip_info = next(item_skip_tuples)
 
                         # skip task submission if option is activated
-                        if skip_item:
+                        if skip_item:  # pragma: no cover
                             yield MFuture.skip(skip_info=skip_info, result=item)
 
                         # submit to executor

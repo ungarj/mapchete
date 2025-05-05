@@ -193,7 +193,7 @@ class DaskExecutor(ExecutorBase):
                         # for each finished task, schedule another one
                         try:
                             item, skip_item, skip_info = next(item_skip_tuples)
-                            if skip_item:
+                            if skip_item:  # pragma: no cover
                                 yield MFuture.skip(skip_info=skip_info, result=item)
                             else:
                                 # add another processing item to chunk
@@ -254,7 +254,7 @@ class DaskExecutor(ExecutorBase):
         self,
         timeout: Optional[float] = None,
         return_when: Literal["FIRST_COMPLETED", "ALL_COMPLETED"] = "ALL_COMPLETED",
-    ) -> None:
+    ) -> None:  # pragma: no cover
         wait(self.futures, timeout=timeout, return_when=return_when)
 
 

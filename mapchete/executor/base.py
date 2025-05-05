@@ -87,7 +87,7 @@ class ExecutorBase(ABC):
                     name=name, decorator=decorator, args=args or (), kwargs=kwargs or {}
                 )
             )
-        else:
+        else:  # pragma: no cover
             raise ValueError("no Profiler, name or decorator given")
 
     def cancel(self) -> None:
@@ -106,15 +106,12 @@ class ExecutorBase(ABC):
             logger.debug("wait for %s running futures to finish...", len(self.futures))
             try:
                 self._wait()
-            except CancelledError:
+            except CancelledError:  # pragma: no cover
                 pass
             except Exception as exc:  # pragma: no cover
                 logger.error("exception caught when waiting for futures: %s", str(exc))
                 if raise_exc:
                     raise exc
-
-    def close(self):
-        self.__exit__(None, None, None)
 
     def func_partial(
         self,
@@ -163,7 +160,7 @@ class ExecutorBase(ABC):
         """Exit context manager."""
         logger.debug("closing executor %s...", self._executor)
         try:
-            self._executor.close()
+            self._executor.close()  # type: ignore
         except Exception:
             pass
         finally:

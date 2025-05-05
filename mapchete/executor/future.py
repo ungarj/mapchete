@@ -197,7 +197,7 @@ class MFuture:
         # Let's directly re-raise these to be more transparent.
         keep_exceptions = (CancelledError, TimeoutError, CommClosedError)
 
-        if self.cancelled():
+        if self.cancelled():  # pragma: no cover
             try:
                 exception = self.exception(timeout=mapchete_options.future_timeout)
                 if exception is None:

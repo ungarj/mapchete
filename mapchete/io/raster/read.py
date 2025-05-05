@@ -331,7 +331,7 @@ def _rasterio_read(
                 )[0],
                 masked=True,
                 nodata=dst_nodata,
-            )
+            )  # type: ignore
         else:
             with WarpedVRT(
                 src,
