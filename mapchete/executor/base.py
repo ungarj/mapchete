@@ -150,7 +150,7 @@ class ExecutorBase(ABC):
     def _executor(self) -> Union[ThreadPoolExecutor, ProcessPoolExecutor, Client]:
         if self._executor_cls:
             return self._executor_cls(*self._executor_args, **self._executor_kwargs)
-        raise TypeError("no Executor Class given")
+        raise TypeError("no Executor Class given")  # pragma: no cover
 
     def __enter__(self):
         """Enter context manager."""
