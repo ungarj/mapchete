@@ -2,7 +2,7 @@
 Combine default values with environment variable values.
 """
 
-from typing import Tuple, Type
+from typing import Literal, Tuple, Type
 
 from aiohttp import ClientPayloadError, ClientResponseError
 from aiohttp.client_exceptions import ServerDisconnectedError
@@ -37,6 +37,7 @@ class GDALHTTPOptions(BaseSettings):
     VSI_CACHE: bool = True
     # 5MB cache per file
     VSI_CACHE_SIZE: int = 5_000_000
+
     # read from environment
     model_config = SettingsConfigDict()
 
@@ -70,6 +71,7 @@ class IORetrySettings(BaseSettings):
         ClientResponseError,
         ClientPayloadError,
     )
+
     # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_IO_RETRY_")
 
@@ -78,6 +80,7 @@ class MapcheteOptions(BaseSettings):
     # timeout granted when fetching future results or exceptions
     future_timeout: int = 10
     tiles_exist_concurrency: Concurrency = Concurrency.threads
+    reproject_geometry_engine: Literal["pyproj", "fiona"] = "pyproj"
 
     # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_")

@@ -16,6 +16,7 @@ from mapchete.geometry.repair import repair
 from mapchete.geometry.segmentize import get_segmentize_value, segmentize_geometry
 from mapchete.geometry.shape import to_shape
 from mapchete.geometry.transform import custom_transform
+from mapchete.settings import mapchete_options
 from mapchete.timer import Timer
 from mapchete.types import (
     CoordArrays,
@@ -84,7 +85,7 @@ def reproject_geometry(
     antimeridian_cutting: bool = False,
     retry_with_clip: bool = True,
     fiona_env: Optional[dict] = None,
-    engine: Literal["fiona", "pyproj"] = "pyproj",
+    engine: Literal["fiona", "pyproj"] = mapchete_options.reproject_geometry_engine,
 ) -> Geometry:
     """
     Reproject a geometry to target CRS.
