@@ -108,7 +108,7 @@ def tile_directory_stac_item(
     timestamp = (
         item_metadata.get("properties", {}).get("start_datetime")
         or item_metadata.get("properties", {}).get("end_datetime")
-        or str(datetime.datetime.utcnow())
+        or str(datetime.datetime.now(datetime.timezone.utc))
     )
     tp_grid = tile_pyramid.grid.type
 
