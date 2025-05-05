@@ -331,7 +331,7 @@ def test_read_raster_no_crs_aws_s3(path):
 )
 @pytest.mark.parametrize("grid", ["geodetic", "mercator"])
 @pytest.mark.parametrize("pixelbuffer", [0, 10, 500])
-@pytest.mark.parametrize("zoom", [8, 5])
+@pytest.mark.parametrize("zoom", [4, 5])
 def test_read_raster_window(path, grid, pixelbuffer, zoom):
     """Read array with read_raster_window."""
     tile_pyramid = BufferedTilePyramid(grid, pixelbuffer=pixelbuffer)
