@@ -101,7 +101,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         fargs: Optional[Tuple] = None,
         fkwargs: Optional[Dict[str, Any]] = None,
         item_skip_bool: bool = False,
-        max_submitted_tasks: int = 500,
+        max_submitted_tasks: int = 100,
         **__,
     ) -> Generator[MFuture, None, None]:
         """Submit tasks to executor and start yielding finished futures."""
