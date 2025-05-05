@@ -102,18 +102,6 @@ def read_raster_window(
         )
 
 
-def _array_shape(
-    grid: GridProtocol, indexes: Optional[Union[int, List[int]]] = None
-) -> Union[Tuple[int, int], Tuple[Union[int, None], int, int]]:
-    dst_shape = grid.shape
-    if not isinstance(indexes, int):
-        if indexes is None:
-            dst_shape = (None,) + dst_shape
-        elif isinstance(indexes, list):
-            dst_shape = (len(indexes),) + dst_shape
-    return dst_shape
-
-
 def _read_raster_window(
     input_files: List[MPath],
     grid: GridProtocol,
