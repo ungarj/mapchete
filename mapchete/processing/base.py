@@ -611,7 +611,7 @@ class Mapchete(object):
             self.config.output.stac_path.parent.makedirs()
             with self.config.output.stac_path.open("w") as dst:
                 dst.write(json.dumps(tile_direcotry_item_to_dict(item), indent=indent))
-        except ReprojectionFailed:
+        except ReprojectionFailed:  # pragma: no cover
             logger.warning(
                 "cannot create STAC item because footprint cannot be reprojected into EPSG:4326"
             )
