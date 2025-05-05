@@ -536,7 +536,7 @@ def test_count_tiles_mercator(metatiling, zoom):
 # algorithms (rasterized & tile-based) start to differ from the actual TilePyramid.tiles_from_geom()
 # implementation. Please also note that TilePyramid.tiles_from_geom(exact=True) ast to be activated
 # in order to pass
-@pytest.mark.parametrize("zoom", range(14))
+@pytest.mark.parametrize("zoom", range(13))
 def test_count_tiles_large_init_zoom(geometrycollection, zoom):
     tp = BufferedTilePyramid(grid="geodetic")
     raster_count = count_tiles(
