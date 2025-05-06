@@ -1084,7 +1084,7 @@ def sequential_executor():
         yield executor
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="session")
 def dask_executor():
     """DaskExecutor()"""
     with DaskExecutor() as executor:

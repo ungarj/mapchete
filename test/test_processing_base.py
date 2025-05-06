@@ -283,6 +283,7 @@ def test_update_overviews(overviews, concurrency, process_graph, dask_executor):
     """Baselevel interpolation."""
     if concurrency == "dask":
         execute_kwargs = dict(
+            concurrency=concurrency,
             executor=dask_executor,
             dask_settings=DaskSettings(process_graph=process_graph),
         )
@@ -324,7 +325,7 @@ def test_update_overviews(overviews, concurrency, process_graph, dask_executor):
     # the overview tiles
     with overviews.mp() as mp:
         # process data before getting baselevels
-        list(mp.execute(concurrency=concurrency))
+        list(mp.execute(**execute_kwargs))
 
     assert baselevel_tile_path.exists()
     with rasterio_open(

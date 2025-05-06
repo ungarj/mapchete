@@ -54,6 +54,7 @@ class DaskExecutor(ExecutorBase):
         else:
             self._executor_cls = Client
             if dask_scheduler is None:
+                logger.debug("start LocalCluster")
                 self._local_cluster = LocalCluster(
                     n_workers=max_workers, threads_per_worker=1
                 )
