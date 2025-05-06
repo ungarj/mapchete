@@ -3,6 +3,7 @@
 import logging
 from multiprocessing import cpu_count
 import os
+import time
 from typing import Callable, List, Optional, Tuple, Type, Union
 
 from rasterio.crs import CRS
@@ -20,6 +21,7 @@ from mapchete.executor.concurrent_futures import MULTIPROCESSING_DEFAULT_START_M
 from mapchete.executor.types import Profiler
 from mapchete.processing.profilers import preconfigured_profilers
 from mapchete.processing.profilers.time import measure_time
+from mapchete.settings import mapchete_options
 from mapchete.tile import BufferedTile
 from mapchete.types import BoundsLike, MPathLike, Progress, TileLike
 
@@ -47,7 +49,8 @@ def execute(
     observers: Optional[List[ObserverProtocol]] = None,
     retry_on_exception: Union[Tuple[Type[Exception], ...], Type[Exception]] = Exception,
     cancel_on_exception: Type[Exception] = JobCancelledError,
-    retries: int = 0,
+    retries: int = mapchete_options.execute_retries,
+    retry_delay: float = mapchete_options.execute_delay,
 ):
     """
     Execute a Mapchete process.
@@ -165,10 +168,10 @@ def execute(
                     ) as executor:
                         if profiling:
                             for profiler in preconfigured_profilers:
-                                executor.add_profiler(profiler=profiler)
+                                executor.add_profiler(profiler)
                         else:
                             executor.add_profiler(
-                                profiler=Profiler(name="time", decorator=measure_time)
+                                Profiler(name="time", decorator=measure_time)
                             )
                         all_observers.notify(
                             status=Status.running,
@@ -204,6 +207,7 @@ def execute(
                             status=Status.retrying,
                             message=f"run failed due to {repr(exception)} (remaining retries: {retries})",
                         )
+                        time.sleep(retry_delay)
                     else:
                         raise
 

@@ -81,6 +81,8 @@ class MapcheteOptions(BaseSettings):
     future_timeout: int = 10
     tiles_exist_concurrency: Concurrency = Concurrency.threads
     reproject_geometry_engine: Literal["pyproj", "fiona"] = "pyproj"
+    execute_retries: int = 0
+    execute_delay: float = 0
 
     # read from environment
     model_config = SettingsConfigDict(env_prefix="MAPCHETE_")
