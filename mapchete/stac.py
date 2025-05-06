@@ -108,7 +108,7 @@ def tile_directory_stac_item(
     timestamp = (
         item_metadata.get("properties", {}).get("start_datetime")
         or item_metadata.get("properties", {}).get("end_datetime")
-        or str(datetime.datetime.utcnow())
+        or str(datetime.datetime.now(datetime.timezone.utc))
     )
     tp_grid = tile_pyramid.grid.type
 
@@ -148,7 +148,7 @@ def tile_directory_stac_item(
         geometry_4326 = reproject_geometry(
             box(*bounds), src_crs=bounds_crs, dst_crs="EPSG:4326"
         )
-    except ReprojectionFailed as exc:
+    except ReprojectionFailed as exc:  # pragma: no cover
         raise ReprojectionFailed(
             f"cannot reproject geometry to EPSG:4326 required by STAC: {str(exc)}"
         )

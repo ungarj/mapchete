@@ -19,7 +19,7 @@ def custom_transform(geometry: Geometry, func: Callable) -> Geometry:
     # todo: shapely.transform.transform maybe can make this code more simple
     # https://shapely.readthedocs.io/en/stable/reference/shapely.transform.html#shapely.transform
     def _point(point: Point) -> Point:
-        return Point(zip(*func(point.xy)))
+        return Point(zip(*func(point.xy)))  # type: ignore
 
     def _multipoint(multipoint: MultiPoint) -> MultiPoint:
         return MultiPoint([_point(point) for point in multipoint.geoms])

@@ -1,11 +1,26 @@
 """Abstraction classes for multiprocessing and distributed processing."""
 
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from concurrent.futures._base import CancelledError
 from functools import cached_property, partial
-from typing import Any, Callable, Iterator, List, Optional
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
+
+from distributed import Client
 
 from mapchete.executor.future import FutureProtocol, MFuture
 from mapchete.executor.types import Profiler, Result
@@ -17,88 +32,86 @@ class ExecutorBase(ABC):
     """Define base methods and properties of executors."""
 
     cancelled: bool = False
-    running_futures: set = None
-    finished_futures: set = None
-    profilers: list = None
+    futures: Set[FutureProtocol]
+    profilers: List[Profiler]
     _executor_cls = None
-    _executor_args = ()
-    _executor_kwargs = {}
+    _executor_args: Tuple
+    _executor_kwargs: Dict[str, Any]
 
-    def __init__(self, *args, profilers=None, **kwargs):
-        self.running_futures = set()
-        self.finished_futures = set()
+    def __init__(self, *_, profilers=None, **__):
+        self.futures = set()
         self.profilers = profilers or []
+        self._executor_args = ()
+        self._executor_kwargs = dict()
 
     @abstractmethod
     def as_completed(
         self,
-        func,
-        iterable,
-        fargs=None,
-        fkwargs=None,
-        max_submitted_tasks=500,
-        item_skip_bool=False,
+        func: Callable,
+        iterable: Iterable,
+        fargs: Optional[Tuple] = None,
+        fkwargs: Optional[Dict[str, Any]] = None,
+        item_skip_bool: bool = False,
         **kwargs,
-    ) -> Iterator[MFuture]:  # pragma: no cover
+    ) -> Generator[MFuture, None, None]:  # pragma: no cover
         """Submit tasks to executor and start yielding finished futures."""
         ...
 
     @abstractmethod
-    def map(self, *args, **kwargs) -> Iterator[Any]:  # pragma: no cover
+    def map(self, *args, **kwargs) -> Iterable[Any]:  # pragma: no cover
         ...
 
     @abstractmethod
-    def _wait(self, *args, **kwargs) -> None:  # pragma: no cover
+    def _wait(
+        self,
+        timeout: Optional[float] = None,
+        return_when: Literal["FIRST_COMPLETED", "ALL_COMPLETED"] = "ALL_COMPLETED",
+    ) -> None:  # pragma: no cover
         ...
 
     def add_profiler(
         self,
         name: Optional[str] = None,
         decorator: Optional[Callable] = None,
-        args: Optional[tuple] = None,
-        kwargs: Optional[dict] = None,
+        args: Optional[Tuple] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
         profiler: Optional[Profiler] = None,
     ) -> None:
         if profiler:  # pragma: no cover
             self.profilers.append(profiler)
         elif isinstance(name, Profiler):
             self.profilers.append(name)
-        else:
+        elif name is not None and decorator is not None:
             self.profilers.append(
                 Profiler(
                     name=name, decorator=decorator, args=args or (), kwargs=kwargs or {}
                 )
             )
-
-    def _ready(self) -> List[MFuture]:
-        return list(self.finished_futures)
-
-    def _add_to_finished(self, future) -> None:
-        self.finished_futures.add(future)
+        else:  # pragma: no cover
+            raise ValueError("no Profiler, name or decorator given")
 
     def cancel(self) -> None:
         self.cancel_signal = True
-        logger.debug("cancel %s futures...", len(self.running_futures))
-        for future in self.running_futures:
-            future.cancel()
-        logger.debug("%s futures cancelled", len(self.running_futures))
+        logger.debug("cancel %s futures...", len(self.futures))
+        for future in self.futures:
+            if hasattr(future, "cancel"):
+                future.cancel()  # type: ignore
+        logger.debug("%s futures cancelled", len(self.futures))
         self.wait()
         # reset so futures won't linger here for next call
-        self.running_futures = set()
+        self.futures = set()
 
-    def wait(self, raise_exc=False) -> None:
-        logger.debug("wait for running futures to finish...")
-        try:  # pragma: no cover
-            self._wait()
-        except CancelledError:  # pragma: no cover
-            pass
-        except Exception as exc:  # pragma: no cover
-            logger.error("exception caught when waiting for futures: %s", str(exc))
-            if raise_exc:
-                raise exc
-
-    def close(self):  # pragma: no cover
-        self.__exit__(None, None, None)
+    def wait(self, raise_exc: bool = False) -> None:
+        if self.futures:
+            logger.debug("wait for %s running futures to finish...", len(self.futures))
+            try:
+                self._wait()
+            except CancelledError:  # pragma: no cover
+                pass
+            except Exception as exc:  # pragma: no cover
+                logger.error("exception caught when waiting for futures: %s", str(exc))
+                if raise_exc:
+                    raise exc
 
     def func_partial(
         self,
@@ -113,27 +126,31 @@ class ExecutorBase(ABC):
             profilers=self.profilers,
         )
 
-    def _finished_future(
-        self, future: FutureProtocol, result: Any = None, _dask: bool = False
+    def to_mfuture(
+        self,
+        future: FutureProtocol,
+        result: Optional[Any] = None,
+        raise_if_failed: bool = True,
     ) -> MFuture:
         """
         Release future from cluster explicitly and wrap result around MFuture object.
         """
-        if not _dask:
-            self.running_futures.discard(future)
-        self.finished_futures.discard(future)
+        self.futures.discard(future)
 
         # create minimal Future-like object with no references to the cluster
         mfuture = MFuture.from_future(future, lazy=True, result=result)
 
-        # raise exception if future errored or was cancelled
-        mfuture.raise_if_failed()
+        if raise_if_failed:
+            # raise exception if future errored or was cancelled
+            mfuture.raise_if_failed()
 
         return mfuture
 
     @cached_property
-    def _executor(self):
-        return self._executor_cls(*self._executor_args, **self._executor_kwargs)
+    def _executor(self) -> Union[ThreadPoolExecutor, ProcessPoolExecutor, Client]:
+        if self._executor_cls:
+            return self._executor_cls(*self._executor_args, **self._executor_kwargs)
+        raise TypeError("no Executor Class given")  # pragma: no cover
 
     def __enter__(self):
         """Enter context manager."""
@@ -143,8 +160,10 @@ class ExecutorBase(ABC):
         """Exit context manager."""
         logger.debug("closing executor %s...", self._executor)
         try:
-            self._executor.close()
+            self._executor.close()  # type: ignore
         except Exception:
+            pass
+        finally:
             self._executor.__exit__(*args)
         logger.debug("closed executor %s", self._executor)
 
@@ -157,7 +176,7 @@ def run_func_with_profilers(
     *args,
     fargs: Optional[tuple] = None,
     fkwargs: Optional[dict] = None,
-    profilers: Optional[Iterator[Profiler]] = None,
+    profilers: Optional[List[Profiler]] = None,
     **kwargs,
 ) -> Result:
     """Run function but wrap execution in provided profiler context managers."""
@@ -171,8 +190,12 @@ def run_func_with_profilers(
     for profiler in profilers:
         func = profiler.decorator(*profiler.args, **profiler.kwargs)(func)
 
-    # actually run function
-    func_output = func(*fargs, **fkwargs)
+    try:
+        # actually run function
+        func_output = func(*fargs, **fkwargs)
+    except Exception as exception:
+        logger.exception(exception)
+        raise
 
     # extract profiler results from output
     for idx in list(reversed(range(len(profilers)))):
@@ -187,7 +210,7 @@ def func_partial(
     func: Callable,
     fargs: Optional[tuple] = None,
     fkwargs: Optional[dict] = None,
-    profilers: Optional[Iterator[Profiler]] = None,
+    profilers: Optional[List[Profiler]] = None,
 ) -> Callable:
     """Return function parial with activated profilers."""
     return partial(

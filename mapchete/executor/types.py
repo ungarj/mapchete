@@ -1,17 +1,18 @@
-from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
-@dataclass
-class Profiler:
+class Profiler(BaseModel):
     name: str
     decorator: Callable
-    args: tuple = field(default_factory=tuple)
-    kwargs: dict = field(default_factory=dict)
+    args: Tuple = Field(default_factory=tuple)
+    kwargs: Dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass
-class Result:
+class Result(BaseModel):
     output: Any
-    profiling: dict = field(default_factory=dict)
+    profiling: Dict = Field(default_factory=dict)
     exception: Optional[Exception] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)

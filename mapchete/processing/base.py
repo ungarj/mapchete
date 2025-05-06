@@ -400,9 +400,7 @@ class Mapchete(object):
             logger.debug("tiles counted in %s", t)
         return self._count_tiles_cache[(minzoom, maxzoom)]
 
-    def execute_tile(
-        self, process_tile: BufferedTile, raise_nodata: bool = False
-    ) -> Any:
+    def execute_tile(self, process_tile: TileLike, raise_nodata: bool = False) -> Any:
         """
         Run Mapchete process on a tile.
 
@@ -613,7 +611,7 @@ class Mapchete(object):
             self.config.output.stac_path.parent.makedirs()
             with self.config.output.stac_path.open("w") as dst:
                 dst.write(json.dumps(tile_direcotry_item_to_dict(item), indent=indent))
-        except ReprojectionFailed:
+        except ReprojectionFailed:  # pragma: no cover
             logger.warning(
                 "cannot create STAC item because footprint cannot be reprojected into EPSG:4326"
             )

@@ -1,11 +1,13 @@
-import importlib
+from importlib import import_module
+from importlib.util import spec_from_file_location, module_from_spec
 import inspect
 import logging
 import py_compile
 import sys
+from types import ModuleType
 import warnings
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Union
 
 from mapchete.config.models import ZoomParameters
 from mapchete.errors import (
@@ -14,7 +16,7 @@ from mapchete.errors import (
     MapcheteProcessSyntaxError,
 )
 from mapchete.log import add_module_logger
-from mapchete.path import MPath, MPathLike, absolute_path
+from mapchete.path import MPath, absolute_path
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,8 @@ class ProcessFunc:
     or the source code as a list of strings.
     """
 
-    path: MPathLike = None
-    name: str = None
+    path: Optional[Union[MPath, str]]
+    name: str
 
     def __init__(self, src, config_dir=None, run_compile=True):
         self._src = src
@@ -42,6 +44,7 @@ class ProcessFunc:
 
         # for process code within configuration
         else:
+            self.path = None
             self.name = "custom_process"
 
         self._run_compile = run_compile
@@ -109,7 +112,7 @@ class ProcessFunc:
         except ImportError as e:
             raise MapcheteProcessImportError(e)
 
-    def _load_module(self):
+    def _load_module(self) -> ModuleType:
         # path to python file or python module path
         if self.path:
             return self._import_module_from_path(self.path)
@@ -124,20 +127,25 @@ class ProcessFunc:
                     MPath.from_inp(tmpfile.name),
                 )
 
-    def _import_module_from_path(self, path):
+    def _import_module_from_path(self, path: Union[MPath, str]) -> ModuleType:
         if path.endswith(".py"):
             module_path = absolute_path(path=path, base_dir=self._root_dir)
             if not module_path.exists():
                 raise MapcheteConfigError(f"{module_path} is not available")
             try:
                 if self._run_compile:
-                    py_compile.compile(module_path, doraise=True)
+                    try:
+                        py_compile.compile(str(module_path), doraise=True)
+                    except FileExistsError:  # pragma: no cover
+                        pass
                 module_name = module_path.stem
                 # load module
-                spec = importlib.util.spec_from_file_location(
-                    module_name, str(module_path)
-                )
-                module = importlib.util.module_from_spec(spec)
+                spec = spec_from_file_location(module_name, str(module_path))
+                if spec is None or spec.loader is None:  # pragma: no cover
+                    raise ImportError(
+                        f"cannot import module spec from {str(module_path)}"
+                    )
+                module = module_from_spec(spec)
                 spec.loader.exec_module(module)
                 # required to make imported module available using multiprocessing
                 sys.modules[module_name] = module
@@ -149,7 +157,7 @@ class ProcessFunc:
                 raise MapcheteProcessImportError(e)
         else:
             try:
-                module = importlib.import_module(str(path))
+                module = import_module(str(path))
             except ImportError as e:
                 raise MapcheteProcessImportError(e)
 

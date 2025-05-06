@@ -1077,28 +1077,28 @@ def s3_example_tile(gtiff_s3):
     return (5, 15, 32)
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="session")
 def sequential_executor():
     """SequentialExecutor()"""
     with SequentialExecutor() as executor:
         yield executor
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="session")
 def dask_executor():
     """DaskExecutor()"""
     with DaskExecutor() as executor:
         yield executor
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="session")
 def processes_executor():
     """ConcurrentFuturesExecutor()"""
     with ConcurrentFuturesExecutor(concurrency="processes") as executor:
         yield executor
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="session")
 def threads_executor():
     """ConcurrentFuturesExecutor()"""
     with ConcurrentFuturesExecutor(concurrency="threads") as executor:

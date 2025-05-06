@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterator, List
+from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple
 
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
@@ -19,36 +19,48 @@ class SequentialExecutor(ExecutorBase):
         return "<SequentialExecutor>"
 
     def as_completed(
-        self, func, iterable, fargs=None, fkwargs=None, item_skip_bool=False, **kwargs
-    ) -> Iterator[MFuture]:
+        self,
+        func: Callable,
+        iterable: Iterable,
+        fargs: Optional[Tuple] = None,
+        fkwargs: Optional[Dict[str, Any]] = None,
+        item_skip_bool: bool = False,
+        **__,
+    ) -> Generator[MFuture, None, None]:
         """Yield finished tasks."""
-        fargs = fargs or []
-        fkwargs = fkwargs or {}
-
         # before running, make sure cancel signal is False
         self.cancel_signal = False
 
-        for item in iterable:
+        # extract item skip tuples and make a generator
+        item_skip_tuples = (
+            ((item, skip_item, skip_info) for item, skip_item, skip_info in iterable)
+            if item_skip_bool
+            else ((item, False, None) for item in iterable)
+        )
+
+        for item, skip_item, skip_info in item_skip_tuples:
             if self.cancel_signal:
                 logger.debug("executor cancelled")
                 return
-            # skip task submission if option is activated
-            if item_skip_bool:
-                item, skip, skip_info = item
-                if skip:
-                    yield MFuture.skip(skip_info=skip_info, result=item)
-                    continue
+
+            if skip_item:
+                yield MFuture.skip(skip_info=skip_info, result=item)
+                continue
 
             # run task and yield future
-            yield self._finished_future(
+            yield self.to_mfuture(
                 MFuture.from_func_partial(
                     self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
                 )
             )
 
-    def map(self, func, iterable, fargs=None, fkwargs=None) -> List[Any]:
-        fargs = fargs or []
-        fkwargs = fkwargs or {}
+    def map(
+        self,
+        func: Callable,
+        iterable: Iterable[Any],
+        fargs: Optional[Tuple] = None,
+        fkwargs: Optional[Dict[str, Any]] = None,
+    ) -> List[Any]:
         return [
             result.output
             for result in map(
@@ -59,10 +71,10 @@ class SequentialExecutor(ExecutorBase):
     def cancel(self):
         self.cancel_signal = True
 
-    def _wait(self):  # pragma: no cover
+    def _wait(self, *_, **__):  # pragma: no cover
         return
 
-    def __exit__(self, *args):
+    def __exit__(self, *_):
         """Exit context manager."""
         logger.debug("SequentialExecutor closed")
 

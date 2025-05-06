@@ -33,10 +33,10 @@ class MFuture:
     """
 
     skipped: bool = False
+    name: str
+    profiling: Dict[str, Any]
     skip_info: Optional[Any] = None
     status: Optional[str] = None
-    name: Optional[str] = None
-    profiling: Optional[dict] = None
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class MFuture:
     ):
         self._future = future
         self._set_result(result)
-        self.profiling = self.profiling or profiling or dict()
+        self.profiling = profiling or dict()
         self._exception = exception
         self._cancelled = cancelled
         self.skipped = skipped
@@ -72,20 +72,14 @@ class MFuture:
         timeout: int = mapchete_options.future_timeout,
     ) -> MFuture:
         # get status and name if possible
-        # distributed.Future
-        if hasattr(future, "status"):
-            status = future.status
-        # concurrent.futures.Future
-        else:
-            status = None
-        # distributed.Future
-        if hasattr(future, "key"):
-            name = future.key.rstrip("_finished")
-        # concurrent.futures.Future
-        else:
-            name = str(future)
+        # get distributed.Future.status or None
+        status = getattr(future, "status", None)
 
-        profiling = future.profiling if hasattr(future, "profiling") else {}
+        # distributed.Future.key or str(concurrent.futures.Future)
+        name = getattr(future, "key", None)
+        name = name.rstrip("_finished") if name else str(future)
+
+        profiling = getattr(future, "profiling", getattr(result, "profiling", {}))
 
         if lazy:
             # keep around Future for later and don't call Future.result()
@@ -123,6 +117,7 @@ class MFuture:
     def from_func(
         func: Callable, fargs: Optional[Tuple] = None, fkwargs: Optional[Dict] = None
     ) -> MFuture:
+        fargs = fargs or ()
         fkwargs = fkwargs or {}
         try:
             return MFuture(result=func(*fargs, **fkwargs))
@@ -204,8 +199,11 @@ class MFuture:
 
         if self.cancelled():  # pragma: no cover
             try:
-                raise self.exception(timeout=mapchete_options.future_timeout)
-            except Exception as exc:  # pragma: no cover
+                exception = self.exception(timeout=mapchete_options.future_timeout)
+                if exception is None:
+                    raise ValueError("No Exception was passed on")
+                raise exception
+            except Exception as exc:
                 raise CancelledError(
                     f"{self.name} got cancelled (status: {self.status}) but original "
                     f"exception could not be recovered due to {exc}"
@@ -226,9 +224,11 @@ class MFuture:
 
             # keep some exceptions as they are
             if isinstance(exception, keep_exceptions):
+                logger.exception(exception)
                 raise exception
 
             # wrap all other exceptions in a MapcheteTaskFailed
+            logger.exception(exception)
             raise MapcheteTaskFailed(
                 f"{self.name} raised a {repr(exception)}"
             ).with_traceback(exception.__traceback__)

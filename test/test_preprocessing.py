@@ -1,4 +1,5 @@
 import pytest
+from pytest_lazyfixture import lazy_fixture
 
 import mapchete
 from mapchete.io import fs_from_path, rasterio_open
@@ -36,20 +37,28 @@ def test_add_preprocessing_task(example_mapchete):
         inp = mp.config.input_at_zoom("file1", 10)
         tasks = mp.count_tasks()
         # add a preprocessing task and make sure it is registered
-        inp.add_preprocessing_task(_trivial_func, fargs=("foo"))
+        inp.add_preprocessing_task(_trivial_func, fargs=("foo"))  # type: ignore
         assert len(mp.config.preprocessing_tasks()) == 1
         assert mp.config.preprocessing_tasks_count() == 1
         assert mp.count_tasks() == tasks + 1
 
 
-@pytest.mark.parametrize("concurrency", ["threads", "processes", "dask", None])
-def test_run_preprocessing_task(cleantopo_br, concurrency):
+@pytest.mark.parametrize(
+    "executor",
+    [
+        lazy_fixture("sequential_executor"),
+        lazy_fixture("dask_executor"),
+        lazy_fixture("threads_executor"),
+        lazy_fixture("processes_executor"),
+    ],
+)
+def test_run_preprocessing_task(cleantopo_br, executor):
     zoom = 5
     with mapchete.open(cleantopo_br.dict) as mp:
         # get input object
         inp = mp.config.input_at_zoom("file1", zoom)
         with pytest.raises(KeyError):
-            inp.get_preprocessing_task_result("test_task")
+            inp.get_preprocessing_task_result("test_task")  # type: ignore
         # add a preprocessing task and make sure it is registered
         inp.add_preprocessing_task(
             _trivial_func, key="test_task", fargs="foo", fkwargs={"kwarg": "foo"}
@@ -58,14 +67,22 @@ def test_run_preprocessing_task(cleantopo_br, concurrency):
             inp.get_preprocessing_task_result("test_task")
         list(
             mp.execute(
-                concurrency=concurrency, zoom=zoom, remember_preprocessing_results=True
+                executor=executor, zoom=zoom, remember_preprocessing_results=True
             )
         )
         assert inp.get_preprocessing_task_result("test_task") == "foofoobar"
 
 
-@pytest.mark.parametrize("concurrency", ["threads", "processes", "dask", None])
-def test_run_preprocessing_tasks(cleantopo_br, concurrency):
+@pytest.mark.parametrize(
+    "executor",
+    [
+        lazy_fixture("sequential_executor"),
+        lazy_fixture("dask_executor"),
+        lazy_fixture("threads_executor"),
+        lazy_fixture("processes_executor"),
+    ],
+)
+def test_run_preprocessing_tasks(cleantopo_br, executor):
     zoom = 3
     with mapchete.open(cleantopo_br.dict) as mp:
         inp1 = mp.config.input_at_zoom("file1", zoom)
@@ -90,7 +107,7 @@ def test_run_preprocessing_tasks(cleantopo_br, concurrency):
 
         list(
             mp.execute(
-                concurrency=concurrency, zoom=zoom, remember_preprocessing_results=True
+                executor=executor, zoom=zoom, remember_preprocessing_results=True
             )
         )
         assert mp.config.preprocessing_task_finished(f"{inp1.input_key}:test_task")
@@ -151,7 +168,7 @@ def test_preprocessing_tasks_dependencies(preprocess_cache_memory):
         assert total_tifs == 9
 
 
-def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory):
+def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory, dask_executor):
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         for i in ["clip", "inp"]:
             input_data = mp.config.input_at_zoom(key=i, zoom=5)
@@ -159,7 +176,7 @@ def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory):
                 assert isinstance(task, Task)
                 assert task.has_geometry()
 
-        list(mp.execute(concurrency="dask"))
+        list(mp.execute(executor=dask_executor))
 
         out_path = mp.config.output_reader.path
         total_tifs = [
@@ -171,9 +188,17 @@ def test_preprocessing_tasks_dependencies_dask(preprocess_cache_memory):
         assert len(total_tifs) == 9
 
 
-@pytest.mark.parametrize("concurrency", ["threads", "processes", "dask", None])
+@pytest.mark.parametrize(
+    "executor",
+    [
+        lazy_fixture("sequential_executor"),
+        lazy_fixture("dask_executor"),
+        lazy_fixture("threads_executor"),
+        lazy_fixture("processes_executor"),
+    ],
+)
 def test_preprocessing_tasks_dependencies_single_tile(
-    preprocess_cache_memory, concurrency
+    preprocess_cache_memory, executor
 ):
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         for i in ["clip", "inp"]:
@@ -184,7 +209,7 @@ def test_preprocessing_tasks_dependencies_single_tile(
 
         tile = (5, 31, 63)
         for task_info in mp.execute(
-            tile=tile, concurrency=concurrency, remember_preprocessing_results=True
+            tile=tile, remember_preprocessing_results=True, executor=executor
         ):
             pass
 

@@ -170,6 +170,10 @@ class ReferencedRaster(GridProtocol):
         src,
         masked: bool = True,
     ) -> ReferencedRaster:
+        if src.transform.is_identity and src.gcps:  # pragma: no cover
+            raise NotImplementedError(
+                "ReferencedRaster cannot be created from a GCPS georeferenced source"
+            )
         return ReferencedRaster(
             data=src.read(masked=masked).copy(),
             transform=src.transform,

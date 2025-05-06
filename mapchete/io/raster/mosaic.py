@@ -1,6 +1,6 @@
 import logging
 from types import GeneratorType
-from typing import Iterable, Tuple
+from typing import Iterable, List, Tuple
 
 import numpy as np
 import numpy.ma as ma
@@ -143,18 +143,25 @@ def create_mosaic(
     )
 
 
-def _get_tiles_properties(tiles):
-    for tile, data in tiles:
-        if tile.zoom != tiles[0][0].zoom:
+def _get_tiles_properties(tiles_arrays_list: List[Tuple[BufferedTile, np.ndarray]]):
+    tiles_data_iter = iter(tiles_arrays_list)
+
+    first_tile, first_array = next(tiles_data_iter)
+    tile_pyramid = first_tile.tile_pyramid
+    pixel_x_size = first_tile.pixel_x_size
+    dtype = first_array[0].dtype
+
+    for tile, data in tiles_data_iter:
+        if tile.zoom != tiles_arrays_list[0][0].zoom:
             raise ValueError("all tiles must be from same zoom level")
-        if tile.crs != tiles[0][0].crs:
+        if tile.crs != tiles_arrays_list[0][0].crs:
             raise ValueError("all tiles must have the same CRS")
         if isinstance(data, np.ndarray):
-            if data[0].dtype != tiles[0][1][0].dtype:
+            if data[0].dtype != tiles_arrays_list[0][1][0].dtype:
                 raise TypeError(
-                    f"all tile data must have the same dtype: {data[0].dtype} != {tiles[0][1][0].dtype}"
+                    f"all tile data must have the same dtype: {data[0].dtype} != {tiles_arrays_list[0][1][0].dtype}"
                 )
-    return tile.tile_pyramid, tile.pixel_x_size, data[0].dtype
+    return tile_pyramid, pixel_x_size, dtype
 
 
 def _shift_required(tiles):

@@ -1,16 +1,18 @@
 import time
-from concurrent.futures._base import CancelledError
 
 import numpy.ma as ma
 import pytest
 
 import mapchete
-from mapchete.config import DaskSettings
+from mapchete.enums import Concurrency
 from mapchete.errors import MapcheteTaskFailed
-from mapchete.executor import MFuture
-from mapchete.executor.base import Profiler, Result, run_func_with_profilers
-from mapchete.io.raster import read_raster_no_crs
-from mapchete.processing.profilers import measure_memory, measure_requests, measure_time
+from mapchete.executor.base import run_func_with_profilers
+from mapchete.executor.future import MFuture
+from mapchete.executor.types import Profiler, Result
+from mapchete.io.raster.read import read_raster_no_crs
+from mapchete.processing.profilers.memory import measure_memory
+from mapchete.processing.profilers.requests import measure_requests
+from mapchete.processing.profilers.time import measure_time
 
 
 def _dummy_process(i, sleep=0):
@@ -32,7 +34,7 @@ def test_as_completed(executor_fixture, request, items=10):
         count += 1
         assert future.result()
     assert items == count
-    assert not executor.running_futures
+    assert not executor.futures
 
 
 @pytest.mark.parametrize(
@@ -46,7 +48,7 @@ def test_as_completed_cancel(executor_fixture, request, items=10):
     for future in executor.as_completed(_dummy_process, range(items)):
         assert future.result()
         executor.cancel()
-    assert not executor.running_futures
+    assert not executor.futures
 
 
 @pytest.mark.parametrize(
@@ -67,7 +69,7 @@ def test_as_completed_skip(executor_fixture, request, items=10):
         assert future.skipped
         assert future.skip_info == skip_info
         count += 1
-    assert not executor.running_futures
+    assert not executor.futures
     assert items == count
 
 
@@ -95,7 +97,7 @@ def test_as_completed_max_tasks(
         count += 1
 
     assert count == items
-    assert not executor.running_futures
+    assert not executor.futures
 
 
 @pytest.mark.parametrize(
@@ -110,79 +112,13 @@ def test_map(executor_fixture, request):
     assert [i + 1 for i in items] == result
 
 
-def test_mfuture():
-    def task(*args, **kwargs):
-        return True
-
-    def failing_task(*args, **kwargs):
-        raise RuntimeError()
-
-    future = MFuture.from_func(task, fargs=[1, True], fkwargs=dict(foo="bar"))
-    assert future.result()
-    assert not future.exception()
-
-    future = MFuture.from_func(failing_task, fargs=[1, True], fkwargs=dict(foo="bar"))
-    with pytest.raises(RuntimeError):
-        future.result()
-    assert future.exception()
-
-
 def test_process_exception_tile(mp_tmpdir, cleantopo_br, process_error_py):
     """Assert process exception is raised."""
     config = cleantopo_br.dict
     config.update(process=process_error_py)
     with mapchete.open(config) as mp:
         with pytest.raises(MapcheteTaskFailed):
-            list(mp.execute(tile=(5, 0, 0), concurrency="processes"))
-
-
-@pytest.mark.parametrize("process_graph", [True, False])
-def test_process_exception_tile_dask(cleantopo_br, process_error_py, process_graph):
-    """Assert process exception is raised."""
-    config = cleantopo_br.dict
-    config.update(process=process_error_py)
-    with mapchete.open(config) as mp:
-        with pytest.raises(MapcheteTaskFailed):
-            list(
-                mp.execute(
-                    tile=(5, 0, 0),
-                    concurrency="dask",
-                    dask_settings=DaskSettings(process_graph=process_graph),
-                )
-            )
-
-
-def test_process_exception_zoom(mp_tmpdir, cleantopo_br, process_error_py):
-    """Assert process exception is raised."""
-    config = cleantopo_br.dict
-    config.update(process=process_error_py)
-    with mapchete.open(config) as mp:
-        with pytest.raises(MapcheteTaskFailed):
-            list(mp.execute(zoom=5, concurrency="processes"))
-
-
-@pytest.mark.parametrize("process_graph", [True, False])
-def test_process_exception_zoom_dask(cleantopo_br, process_error_py, process_graph):
-    """Assert process exception is raised."""
-    config = cleantopo_br.dict
-    config.update(process=process_error_py)
-    with mapchete.open(config) as mp:
-        with pytest.raises(MapcheteTaskFailed):
-            list(
-                mp.execute(
-                    zoom=5,
-                    concurrency="dask",
-                    dask_settings=DaskSettings(process_graph=process_graph),
-                )
-            )
-
-
-def test_dask_cancellederror(dask_executor, items=10):
-    def raise_cancellederror(*args, **kwargs):
-        raise CancelledError()
-
-    with pytest.raises(CancelledError):
-        list(dask_executor.as_completed(raise_cancellederror, range(items)))
+            list(mp.execute(tile=(5, 0, 0), concurrency=Concurrency.processes))
 
 
 @pytest.mark.parametrize(
