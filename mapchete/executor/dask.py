@@ -346,18 +346,17 @@ class TaskManager:
 
         if dask_collection:
             logger.debug(
-                "sending tasks to cluster and wait for them to finish...",
+                "sending %s tasks to cluster and wait for them to finish...",
+                len(dask_collection),
             )
-            with Timer() as duration:
-                futures: List[Future] = self.executor._executor.compute(
-                    dask_collection, optimize_graph=optimize_graph, traverse=traverse
-                )  # type: ignore
-                self.executor.raise_if_cancelled()
+            futures: List[Future] = self.executor._executor.compute(
+                dask_collection, optimize_graph=optimize_graph, traverse=traverse
+            )  # type: ignore
+            self.executor.raise_if_cancelled()
 
-                self.as_completed_iterator.update(futures)
-                self.remote_futures_count += len(futures)
-                self.total_futures_count += len(futures)
-            logger.debug("task graph submitted in %s", duration)
+            self.as_completed_iterator.update(futures)
+            self.remote_futures_count += len(futures)
+            self.total_futures_count += len(futures)
 
     def finished_futures(self) -> Generator[MFuture, None, None]:
         self.executor.raise_if_cancelled()
