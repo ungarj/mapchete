@@ -78,7 +78,7 @@ class ExecutorBase(ABC):
         args: Optional[Tuple] = None,
         kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
-        if profiler:  # pragma: no cover
+        if profiler:
             self.profilers.append(profiler)
         elif name is not None and decorator is not None:
             self.profilers.append(
