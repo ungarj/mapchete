@@ -9,6 +9,7 @@ import numpy as np
 import numpy.ma as ma
 from pystac import Item
 import pytest
+from pytest_lazyfixture import lazy_fixture
 from rasterio import windows
 
 try:
@@ -270,25 +271,21 @@ def test_baselevels_custom_nodata(baselevels_custom_nodata):
 
 
 @pytest.mark.parametrize(
-    "concurrency,process_graph",
+    "executor,process_graph",
     [
-        ("threads", None),
-        ("dask", True),
-        ("dask", False),
-        ("processes", None),
-        (None, None),
+        (lazy_fixture("sequential_executor"), False),
+        (lazy_fixture("dask_executor"), False),
+        (lazy_fixture("dask_executor"), True),
+        (lazy_fixture("threads_executor"), False),
+        (lazy_fixture("processes_executor"), False),
     ],
 )
-def test_update_overviews(overviews, concurrency, process_graph, dask_executor):
+def test_update_overviews(overviews, executor, process_graph):
     """Baselevel interpolation."""
-    if concurrency == "dask":
-        execute_kwargs = dict(
-            concurrency=concurrency,
-            executor=dask_executor,
-            dask_settings=DaskSettings(process_graph=process_graph),
-        )
-    else:
-        execute_kwargs = dict(concurrency=concurrency)
+    execute_kwargs = dict(
+        executor=executor,
+        dask_settings=DaskSettings(process_graph=process_graph),
+    )
     # process everything and make sure output was written
     with overviews.mp() as mp:
         baselevel_tile = overviews.first_process_tile()
@@ -664,23 +661,20 @@ def test_bufferedtiles():
 
 
 @pytest.mark.parametrize(
-    "concurrency,process_graph",
+    "executor,process_graph",
     [
-        ("threads", None),
-        ("dask", True),
-        ("dask", False),
-        ("processes", None),
-        (None, None),
+        (lazy_fixture("sequential_executor"), False),
+        (lazy_fixture("dask_executor"), False),
+        (lazy_fixture("dask_executor"), True),
+        (lazy_fixture("threads_executor"), False),
+        (lazy_fixture("processes_executor"), False),
     ],
 )
-def test_execute(preprocess_cache_memory, concurrency, process_graph, dask_executor):
-    if concurrency == "dask":
-        execute_kwargs = dict(
-            executor=dask_executor,
-            dask_settings=DaskSettings(process_graph=process_graph),
-        )
-    else:
-        execute_kwargs = dict(concurrency=concurrency)
+def test_execute(preprocess_cache_memory, executor, process_graph):
+    execute_kwargs = dict(
+        executor=executor,
+        dask_settings=DaskSettings(process_graph=process_graph),
+    )
 
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
@@ -697,29 +691,26 @@ def test_execute(preprocess_cache_memory, concurrency, process_graph, dask_execu
 
 
 @pytest.mark.parametrize(
-    "concurrency,process_graph",
+    "executor,process_graph",
     [
-        ("threads", None),
-        ("dask", True),
-        ("dask", False),
-        ("processes", None),
-        (None, None),
+        (lazy_fixture("sequential_executor"), False),
+        (lazy_fixture("dask_executor"), False),
+        (lazy_fixture("dask_executor"), True),
+        (lazy_fixture("threads_executor"), False),
+        (lazy_fixture("processes_executor"), False),
     ],
 )
 def test_execute_continue(
     # red_raster, green_raster, dask_executor, concurrency, process_graph
     red_raster,
     green_raster,
-    concurrency,
+    executor,
     process_graph,
 ):
-    if concurrency == "dask":
-        execute_kwargs = dict(
-            # executor=dask_executor,
-            dask_settings=DaskSettings(process_graph=process_graph),
-        )
-    else:
-        execute_kwargs = dict(concurrency=concurrency)
+    execute_kwargs = dict(
+        executor=executor,
+        dask_settings=DaskSettings(process_graph=process_graph),
+    )
 
     zoom = 3
 
@@ -784,23 +775,20 @@ def test_execute_continue(
 
 
 @pytest.mark.parametrize(
-    "concurrency,process_graph",
+    "executor,process_graph",
     [
-        ("threads", None),
-        ("dask", True),
-        ("dask", False),
-        ("processes", None),
-        (None, None),
+        (lazy_fixture("sequential_executor"), False),
+        (lazy_fixture("dask_executor"), False),
+        (lazy_fixture("dask_executor"), True),
+        (lazy_fixture("threads_executor"), False),
+        (lazy_fixture("processes_executor"), False),
     ],
 )
-def test_execute_without_results(baselevels, dask_executor, concurrency, process_graph):
-    if concurrency == "dask":
-        execute_kwargs = dict(
-            executor=dask_executor,
-            dask_settings=DaskSettings(process_graph=process_graph),
-        )
-    else:
-        execute_kwargs = dict(concurrency=concurrency)
+def test_execute_without_results(baselevels, executor, process_graph):
+    execute_kwargs = dict(
+        executor=executor,
+        dask_settings=DaskSettings(process_graph=process_graph),
+    )
 
     # make sure task results are appended to tasks
     with baselevels.mp() as mp:
@@ -820,27 +808,23 @@ def test_execute_without_results(baselevels, dask_executor, concurrency, process
 
 
 @pytest.mark.parametrize(
-    "concurrency,process_graph",
+    "executor,process_graph",
     [
-        ("threads", None),
-        ("dask", True),
-        ("dask", False),
-        ("processes", None),
-        (None, None),
+        (lazy_fixture("sequential_executor"), False),
+        (lazy_fixture("dask_executor"), False),
+        (lazy_fixture("dask_executor"), True),
+        (lazy_fixture("threads_executor"), False),
+        (lazy_fixture("processes_executor"), False),
     ],
 )
 def test_execute_single_file(
-    preprocess_cache_memory_single_file, concurrency, process_graph, dask_executor
+    preprocess_cache_memory_single_file, executor, process_graph, dask_executor
 ):
     """Baselevel interpolation."""
-    if concurrency == "dask":
-        execute_kwargs = dict(
-            executor=dask_executor,
-            dask_settings=DaskSettings(process_graph=process_graph),
-        )
-    else:
-        execute_kwargs = dict(concurrency=concurrency)
-
+    execute_kwargs = dict(
+        executor=executor,
+        dask_settings=DaskSettings(process_graph=process_graph),
+    )
     with preprocess_cache_memory_single_file.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0
@@ -870,25 +854,20 @@ def test_write_stac(stac_metadata):
 
 
 @pytest.mark.parametrize(
-    "concurrency,process_graph",
+    "executor,process_graph",
     [
-        # ("threads", None),  --> request count does not work on threads
-        ("dask", True),
-        ("dask", False),
-        ("processes", None),
-        (None, None),
+        (lazy_fixture("sequential_executor"), False),
+        (lazy_fixture("dask_executor"), False),
+        (lazy_fixture("dask_executor"), True),
+        # (lazy_fixture("threads_executor"), False),  --> request count does not work on threads
+        (lazy_fixture("processes_executor"), False),
     ],
 )
-def test_execute_request_count(
-    preprocess_cache_memory, concurrency, process_graph, dask_executor
-):
-    if concurrency == "dask":
-        execute_kwargs = dict(
-            executor=dask_executor,
-            dask_settings=DaskSettings(process_graph=process_graph),
-        )
-    else:
-        execute_kwargs = dict(concurrency=concurrency)
+def test_execute_request_count(preprocess_cache_memory, executor, process_graph):
+    execute_kwargs = dict(
+        executor=executor,
+        dask_settings=DaskSettings(process_graph=process_graph),
+    )
     with preprocess_cache_memory.mp(batch_preprocess=False) as mp:
         preprocessing_tasks = 0
         tile_tasks = 0

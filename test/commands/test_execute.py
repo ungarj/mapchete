@@ -1,6 +1,8 @@
+from contextlib import contextmanager
 from test.commands import TaskCounter
 
 import pytest
+from pytest_lazyfixture import lazy_fixture
 from shapely.geometry import box
 from tilematrix import TilePyramid
 
@@ -14,27 +16,30 @@ from mapchete.protocols import ObserverProtocol
 
 
 @pytest.mark.parametrize(
-    "concurrency,process_graph",
+    "executor,process_graph",
     [
-        ("threads", None),
-        ("dask", True),
-        ("dask", False),
-        ("processes", None),
-        (None, None),
+        (lazy_fixture("sequential_executor"), False),
+        (lazy_fixture("dask_executor"), False),
+        (lazy_fixture("dask_executor"), True),
+        (lazy_fixture("threads_executor"), False),
+        (lazy_fixture("processes_executor"), False),
     ],
 )
-def test_execute(
-    cleantopo_br_metatiling_1, cleantopo_br_tif, concurrency, process_graph
-):
-    execute_kwargs = dict(concurrency=concurrency)
-    if concurrency == "dask":
-        execute_kwargs.update(dask_settings=DaskSettings(process_graph=process_graph))
+def test_execute(cleantopo_br_metatiling_1, cleantopo_br_tif, executor, process_graph):
+    @contextmanager
+    def _executor_getter(*args, **kwargs):
+        yield executor
 
     zoom = 5
     tp = TilePyramid("geodetic")
     with rasterio_open(cleantopo_br_tif) as src:
         tiles = list(tp.tiles_from_bounds(src.bounds, zoom))
-    execute(cleantopo_br_metatiling_1.dict, zoom=zoom, **execute_kwargs)
+    execute(
+        cleantopo_br_metatiling_1.dict,
+        zoom=zoom,
+        executor_getter=_executor_getter,
+        dask_settings=DaskSettings(process_graph=process_graph),
+    )
     mp = cleantopo_br_metatiling_1.mp()
     for t in tiles:
         with rasterio_open(mp.config.output.get_path(t)) as src:
