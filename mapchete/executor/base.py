@@ -17,6 +17,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    TypeVar,
     Union,
 )
 
@@ -220,3 +221,7 @@ def func_partial(
         fkwargs=fkwargs,
         profilers=profilers,
     )
+
+
+# TypeVar for BaseClass or its subclasses
+ExecutorType = TypeVar("ExecutorType", bound=ExecutorBase)
