@@ -4,6 +4,29 @@ Changelog
 
 
 ---------------------
+2025.5.0 - 2025-05-07
+---------------------
+
+* core
+
+  * `io.raster.referenced_raster.ReferencedRaster.shape`: add attribute so class aligns with `GridProtocol` (#677)
+  * `io.raster.referenced_raster.ReferencedRaster.masked_array()`: add method to have an unambiguous way to return a masked array (#677)
+  * `config.process_func.ProcessFunc`: fix `FileExistsError` sometimes occuring when using multiprocessing (#678)
+  * `executor`: add proper typing and completely refactor `as_completed()` methods for all executors. (#678)
+  * `executor.concurrent_futures.ConcurrentFuturesExecutor.map()`: actually implement concurrency (#678)
+  * `geometry.reproject.reproject_geometry()`: add `engine` kwarg and implement `pyproj` transform (now default) alongside existing `fiona` which makes reprojecting much faster. Behavior can be configured using the `MAPCHETE_REPROJECT_GEOMETRY_ENGINE` environment variable ("pyproj" or "fiona") (#678)
+  * `io.raster`: fix typing smells in module (#678)
+  * `commands.execute.execute()`: add `retry_delay` option (#679)
+  * `executor`: fix typing smells around executor classes  (#679)
+
+* tests
+
+  * restructure tests for `io.raster` module (#677)
+  * restructure tests for `executor` submodule  (#678)
+  * make all processing related tests faster by properly reusing executor fixtures and reprojection improvements (test now run in ~13 minutes instead of ~16) (#678)
+
+
+---------------------
 2025.4.0 - 2025-04-09
 ---------------------
 
