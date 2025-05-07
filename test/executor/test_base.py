@@ -193,7 +193,7 @@ def test_profiling(executor_fixture, request):
     executor = request.getfixturevalue(executor_fixture)
 
     # add profiler
-    executor.add_profiler("time", measure_time)
+    executor.add_profiler(name="time", decorator=measure_time)
 
     items = list(range(10))
     for future in executor.as_completed(_dummy_process, items):

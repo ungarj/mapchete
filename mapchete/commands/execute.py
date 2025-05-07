@@ -1,9 +1,10 @@
 """Execute a process."""
 
 import logging
-from contextlib import AbstractContextManager
 from multiprocessing import cpu_count
-from typing import List, Optional, Tuple, Type, Union
+import os
+import time
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 from rasterio.crs import CRS
 from shapely.geometry.base import BaseGeometry
@@ -14,11 +15,15 @@ from mapchete.config import DaskSettings
 from mapchete.config.parse import bounds_from_opts, raw_conf, raw_conf_process_pyramid
 from mapchete.enums import Concurrency, ProcessingMode, Status
 from mapchete.errors import JobCancelledError
-from mapchete.executor import Executor
+from mapchete.executor import get_executor
+from mapchete.executor.base import ExecutorType
+from mapchete.executor.concurrent_futures import MULTIPROCESSING_DEFAULT_START_METHOD
 from mapchete.executor.types import Profiler
 from mapchete.processing.profilers import preconfigured_profilers
 from mapchete.processing.profilers.time import measure_time
-from mapchete.types import MPathLike, Progress
+from mapchete.settings import mapchete_options
+from mapchete.tile import BufferedTile
+from mapchete.types import BoundsLike, MPathLike, Progress, TileLike
 
 logger = logging.getLogger(__name__)
 
@@ -28,23 +33,24 @@ def execute(
     zoom: Optional[Union[int, List[int]]] = None,
     area: Optional[Union[BaseGeometry, str, dict]] = None,
     area_crs: Optional[Union[CRS, str]] = None,
-    bounds: Optional[Tuple[float]] = None,
+    bounds: Optional[BoundsLike] = None,
     bounds_crs: Optional[Union[CRS, str]] = None,
     point: Optional[Tuple[float, float]] = None,
     point_crs: Optional[Tuple[float, float]] = None,
-    tile: Optional[Tuple[int, int, int]] = None,
+    tile: Optional[Union[TileLike, BufferedTile]] = None,
     overwrite: bool = False,
     mode: ProcessingMode = ProcessingMode.CONTINUE,
     concurrency: Concurrency = Concurrency.none,
-    workers: int = None,
-    multiprocessing_start_method: str = None,
+    workers: int = os.cpu_count() or 8,
+    multiprocessing_start_method: str = MULTIPROCESSING_DEFAULT_START_METHOD,
     dask_settings: DaskSettings = DaskSettings(),
-    executor_getter: AbstractContextManager = Executor,
+    executor_getter: Callable[..., ExecutorType] = get_executor,
     profiling: bool = False,
     observers: Optional[List[ObserverProtocol]] = None,
     retry_on_exception: Union[Tuple[Type[Exception], ...], Type[Exception]] = Exception,
     cancel_on_exception: Type[Exception] = JobCancelledError,
-    retries: int = 0,
+    retries: int = mapchete_options.execute_retries,
+    retry_delay: float = mapchete_options.execute_delay,
 ):
     """
     Execute a Mapchete process.
@@ -84,10 +90,9 @@ def execute(
     dask_client : dask.distributed.Client
         Reusable Client instance if required. Otherwise a new client will be created.
     """
+    mode = ProcessingMode.OVERWRITE if overwrite else mode
+    all_observers = Observers(observers)
     try:
-        mode = "overwrite" if overwrite else mode
-        all_observers = Observers(observers)
-
         if not isinstance(retry_on_exception, tuple):
             retry_on_exception = (retry_on_exception,)
         workers = workers or cpu_count()
@@ -202,6 +207,7 @@ def execute(
                             status=Status.retrying,
                             message=f"run failed due to {repr(exception)} (remaining retries: {retries})",
                         )
+                        time.sleep(retry_delay)
                     else:
                         raise
 

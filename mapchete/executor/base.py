@@ -17,6 +17,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    TypeVar,
     Union,
 )
 
@@ -71,16 +72,14 @@ class ExecutorBase(ABC):
 
     def add_profiler(
         self,
+        profiler: Optional[Profiler] = None,
         name: Optional[str] = None,
         decorator: Optional[Callable] = None,
         args: Optional[Tuple] = None,
         kwargs: Optional[Dict[str, Any]] = None,
-        profiler: Optional[Profiler] = None,
     ) -> None:
-        if profiler:  # pragma: no cover
+        if profiler:
             self.profilers.append(profiler)
-        elif isinstance(name, Profiler):
-            self.profilers.append(name)
         elif name is not None and decorator is not None:
             self.profilers.append(
                 Profiler(
@@ -220,3 +219,7 @@ def func_partial(
         fkwargs=fkwargs,
         profilers=profilers,
     )
+
+
+# TypeVar for BaseClass or its subclasses
+ExecutorType = TypeVar("ExecutorType", bound=ExecutorBase)

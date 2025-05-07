@@ -206,7 +206,7 @@ class Mapchete(object):
     def tasks(
         self,
         zoom: Optional[ZoomLevelsLike] = None,
-        tile: Optional[TileLike] = None,
+        tile: Optional[Union[TileLike, BufferedTile]] = None,
         profilers: Optional[List[Profiler]] = None,
     ) -> Tasks:
         """
