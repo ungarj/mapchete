@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import math
 from typing import Tuple
 
 from affine import Affine
-from rasterio.transform import array_bounds, from_bounds, rowcol
+from rasterio.transform import array_bounds, from_bounds
+from rasterio.windows import from_bounds as window_from_bounds
+from rasterio.windows import bounds as window_bounds
+from rasterio.windows import Window
 from shapely.geometry import mapping, shape
 from tilematrix import Shape
 
@@ -30,15 +34,24 @@ class Grid:
 
     def extract(self, bounds: BoundsLike) -> Grid:
         bounds = Bounds.from_inp(bounds)
-        # I <3 axis orders!
-        (minrow, maxrow), (mincol, maxcol) = rowcol(
-            self.transform, [bounds.left, bounds.right], [bounds.top, bounds.bottom]
+
+        # use rasterio.window.Window to help with calculation
+        window = window_from_bounds(*bounds, transform=self.transform)
+
+        # now, properly round the window with the intention that every "touched"
+        # row or column is included and that height or width cannot be 0
+        window = Window(
+            col_off=math.floor(window.col_off),  # type: ignore
+            row_off=math.floor(window.row_off),  # type: ignore
+            width=math.ceil(window.width),  # type: ignore
+            height=math.ceil(window.height),  # type: ignore
         )
-        width = maxcol - mincol
-        height = maxrow - minrow
-        if width < 0 or height < 0:  # pragma: no cover
-            raise ValueError(f"bounds {bounds} are outside of source grid")
-        return Grid.from_bounds(bounds, Shape(height, width), self.crs)
+
+        return Grid.from_bounds(
+            window_bounds(window, self.transform),
+            Shape(window.height, window.width),
+            self.crs,
+        )
 
     @staticmethod
     def from_obj(obj):  # pragma: no cover
