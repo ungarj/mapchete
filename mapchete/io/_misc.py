@@ -33,7 +33,7 @@ def get_best_zoom_level(input_file, tile_pyramid_type, tile_size: int = 256):
     -------
     zoom : integer
     """
-    tile_pyramid = BufferedTilePyramid(tile_pyramid_type, tile_size=256)
+    tile_pyramid = BufferedTilePyramid(tile_pyramid_type, tile_size=tile_size)
     with rasterio.open(input_file, "r") as src:
         xmin, ymin, xmax, ymax = reproject_geometry(
             segmentize_geometry(
