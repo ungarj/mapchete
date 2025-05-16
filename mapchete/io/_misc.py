@@ -18,7 +18,7 @@ from mapchete.types import MPathLike
 logger = logging.getLogger(__name__)
 
 
-def get_best_zoom_level(input_file, tile_pyramid_type):
+def get_best_zoom_level(input_file, tile_pyramid_type, tile_size: int = 256):
     """
     Determine the best base zoom level for a raster.
 
@@ -33,7 +33,7 @@ def get_best_zoom_level(input_file, tile_pyramid_type):
     -------
     zoom : integer
     """
-    tile_pyramid = BufferedTilePyramid(tile_pyramid_type)
+    tile_pyramid = BufferedTilePyramid(tile_pyramid_type, tile_size=tile_size)
     with rasterio.open(input_file, "r") as src:
         xmin, ymin, xmax, ymax = reproject_geometry(
             segmentize_geometry(

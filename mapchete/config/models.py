@@ -7,7 +7,7 @@ from collections import OrderedDict
 from typing import Any, List, Optional, Tuple, Type, Union
 
 from distributed import Client
-from pydantic import BaseModel, Field, NonNegativeInt
+from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 from shapely.geometry.base import BaseGeometry
 
 from mapchete.bounds import Bounds
@@ -23,12 +23,14 @@ class OutputConfigBase(BaseModel):
     format: str
     metatiling: MetatilingValue = 1
     pixelbuffer: NonNegativeInt = 0
+    tile_size: PositiveInt = 256
 
 
 class PyramidConfig(BaseModel):
     grid: Union[str, dict]
     metatiling: MetatilingValue = 1
     pixelbuffer: NonNegativeInt = 0
+    tile_size: PositiveInt = 256
 
 
 class DaskAdaptOptions(BaseModel):

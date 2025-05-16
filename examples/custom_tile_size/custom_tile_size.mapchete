@@ -1,0 +1,15 @@
+process: mapchete.processes.convert
+zoom_levels:
+    min: 0
+    max: 8
+pyramid:
+    grid: geodetic
+    metatiling: 1
+    tile_size: 1000
+input:
+    inp: ../../test/testdata/cleantopo_tl.tif
+output:
+    path: output
+    format: GTiff
+    dtype: uint8
+    bands: 1

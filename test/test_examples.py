@@ -11,6 +11,7 @@ from mapchete.testing import ProcessFixture
         lazy_fixture("example_clip"),
         lazy_fixture("example_contours"),
         lazy_fixture("example_custom_grid"),
+        lazy_fixture("example_custom_tile_size"),
         lazy_fixture("example_file_groups"),
         lazy_fixture("example_hillshade"),
     ],

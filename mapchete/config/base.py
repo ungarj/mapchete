@@ -158,15 +158,17 @@ class MapcheteConfig(object):
         # (3) set process and output pyramids
         logger.debug("initializing pyramids")
         try:
-            process_metatiling = self.parsed_config.pyramid.metatiling
-            # output metatiling defaults to process metatiling if not set
-            # explicitly
+            # output metatiling and tile_size default to process metatiling and tile_size
+            # if not set explicitly
             output_metatiling = self.parsed_config.output.get(
-                "metatiling", process_metatiling
+                "metatiling", self.parsed_config.pyramid.metatiling
+            )
+            output_tile_size = self.parsed_config.output.get(
+                "tile_size", self.parsed_config.pyramid.tile_size
             )
             # we cannot properly handle output tiles which are bigger than
             # process tiles
-            if output_metatiling > process_metatiling:
+            if output_metatiling > self.parsed_config.pyramid.metatiling:
                 raise ValueError(
                     "output metatiles must be smaller than process metatiles"
                 )
@@ -176,9 +178,10 @@ class MapcheteConfig(object):
                 **dict(self.parsed_config.pyramid)
             )
             self.output_pyramid = BufferedTilePyramid(
-                self.parsed_config.pyramid.grid,
+                self.parsed_config.pyramid.grid,  # type: ignore
                 metatiling=output_metatiling,
                 pixelbuffer=self.parsed_config.output.get("pixelbuffer", 0),
+                tile_size=output_tile_size,
             )
         except Exception as e:
             logger.exception(e)
@@ -535,6 +538,7 @@ class MapcheteConfig(object):
                 self.output_pyramid.grid,
                 pixelbuffer=self.output_pyramid.pixelbuffer,
                 metatiling=self.process_pyramid.metatiling,
+                tile_size=self.output_pyramid.tile_size,
             ),
         )
 
