@@ -34,10 +34,14 @@ class Grid:
         (minrow, maxrow), (mincol, maxcol) = rowcol(
             self.transform, [bounds.left, bounds.right], [bounds.top, bounds.bottom]
         )
-        width = maxcol - mincol
-        height = maxrow - minrow
+
+        # in case the bounds are smaller than the Grid pixel size the output window:
+        width = (maxcol - mincol) or 1
+        height = (maxrow - minrow) or 1
+
         if width < 0 or height < 0:  # pragma: no cover
             raise ValueError(f"bounds {bounds} are outside of source grid")
+
         return Grid.from_bounds(bounds, Shape(height, width), self.crs)
 
     @staticmethod
