@@ -206,7 +206,7 @@ class OutputDataBase:
             grid=output_params["grid"],
             metatiling=output_params["metatiling"],
             pixelbuffer=output_params["pixelbuffer"],
-            tile_size=output_params["tile_size"],
+            tile_size=output_params.get("tile_size", 256),
         )
         self.crs = self.pyramid.crs
         self.storage_options = output_params.get("storage_options")
