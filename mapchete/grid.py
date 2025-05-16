@@ -35,9 +35,6 @@ class Grid:
     def extract(self, bounds: BoundsLike) -> Grid:
         bounds = Bounds.from_inp(bounds)
 
-        if not self.bounds.intersects(bounds):  # pragma: no cover
-            raise ValueError(f"bounds {bounds} are outside of source grid")
-
         # use rasterio.window.Window to help with calculation
         window = window_from_bounds(*bounds, transform=self.transform)
 
