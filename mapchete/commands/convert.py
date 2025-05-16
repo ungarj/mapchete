@@ -177,7 +177,9 @@ def convert(
                 zoom_levels=dict(
                     min=0,
                     max=get_best_zoom_level(
-                        input_path, mapchete_config["pyramid"]["grid"]
+                        input_path,
+                        mapchete_config["pyramid"]["grid"],
+                        mapchete_config["pyramid"].get("tile_size", 256),
                     ),
                 )
             )

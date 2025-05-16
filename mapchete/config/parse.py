@@ -65,6 +65,7 @@ def raw_conf_process_pyramid(
     return BufferedTilePyramid(
         raw_conf["pyramid"]["grid"],
         metatiling=raw_conf["pyramid"].get("metatiling", 1),
+        tile_size=raw_conf["pyramid"].get("tile_size", 256),
         pixelbuffer=pixelbuffer,
     )
 
@@ -89,6 +90,9 @@ def raw_conf_output_pyramid(raw_conf: dict) -> BufferedTilePyramid:
         ),
         pixelbuffer=raw_conf["pyramid"].get(
             "pixelbuffer", raw_conf["pyramid"].get("pixelbuffer", 0)
+        ),
+        tile_size=raw_conf["pyramid"].get(
+            "tile_size", raw_conf["pyramid"].get("tile_size", 256)
         ),
     )
 

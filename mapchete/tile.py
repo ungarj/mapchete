@@ -9,7 +9,7 @@ from typing import Generator, List, Literal, TypedDict, Union
 
 import numpy as np
 from affine import Affine
-from pydantic import NonNegativeInt
+from pydantic import NonNegativeInt, PositiveInt
 from rasterio.enums import Resampling
 from rasterio.features import rasterize, shapes
 from rasterio.transform import from_bounds
@@ -49,7 +49,7 @@ PyramidDefinitionDict = TypedDict(
     {
         "grid": GridDefinitionDict,
         "metatiling": MetatilingValue,
-        "tile_size": NonNegativeInt,
+        "tile_size": PositiveInt,
         "pixelbuffer": NonNegativeInt,
     },
 )
@@ -74,7 +74,7 @@ class BufferedTilePyramid(TilePyramid):
             Literal["geodetic", "mercator"], GridDefinitionDict, GridDefinition
         ],
         metatiling: MetatilingValue = 1,
-        tile_size: NonNegativeInt = 256,
+        tile_size: PositiveInt = 256,
         pixelbuffer: NonNegativeInt = 0,
     ):
         TilePyramid.__init__(self, grid, metatiling=metatiling, tile_size=tile_size)

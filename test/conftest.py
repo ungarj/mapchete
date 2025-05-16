@@ -1133,6 +1133,16 @@ def example_custom_grid(mp_tmpdir):
 
 
 @pytest.fixture
+def example_custom_tile_size(mp_tmpdir):
+    """Fixture for examples/custom_tile_size/custom_tile_size.mapchete."""
+    with ProcessFixture(
+        EXAMPLES_DIR / "custom_tile_size/custom_tile_size.mapchete",
+        output_tempdir=mp_tmpdir,
+    ) as example:
+        yield example
+
+
+@pytest.fixture
 def example_file_groups(mp_tmpdir):
     """Fixture for examples/file_groups/file_groups.mapchete."""
     with ProcessFixture(
