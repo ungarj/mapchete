@@ -1,12 +1,15 @@
 import logging
 import os
+from typing import Generator, Tuple
 
 import click
 import tqdm
 
 from mapchete.cli import options
 from mapchete.cli.progress_bar import PBar
+from mapchete.executor.concurrent_futures import ConcurrentFuturesExecutor
 from mapchete.path import MPath
+from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
 
@@ -39,48 +42,91 @@ def sync(
 ):
     try:
         if path.is_directory():
-            tqdm.tqdm.write(f"sync {path} to {out_path} ...")
-            for contents in path.walk(absolute_paths=True):
-                dst_root = out_path / os.path.relpath(
-                    str(contents.root.without_protocol()),
-                    start=str(path.without_protocol()),
-                )
-                try:
-                    dst_files = set([file.name for file in dst_root.ls()])
-                except FileNotFoundError:
-                    dst_files = set()
-                for src_file in tqdm.tqdm(contents.files, desc="files", leave=False):
-                    dst_file = out_path / os.path.relpath(
-                        str(src_file.without_protocol()),
-                        start=str(path.without_protocol()),
-                    )
-                    if (
-                        src_file.name not in dst_files
-                        or (  # file does not exist on destination
-                            src_file.checksum()
-                            != dst_file.checksum()  # file contents are not identical
-                            if compare_checksums
-                            else src_file.size() != dst_file.size()  # file sizes differ
+            out_path.makedirs()
+            counter = 0
+            with ConcurrentFuturesExecutor(concurrency="threads") as executor:
+                for future in tqdm.tqdm(
+                    executor.as_completed(
+                        sync_file,
+                        _files_skip(
+                            path, out_path, compare_checksums=compare_checksums
+                        ),
+                        fargs=None,
+                        fkwargs=dict(chunksize=chunksize, debug=debug),
+                        item_skip_bool=True,
+                        max_submitted_tasks=10,
+                    ),
+                    desc="files",
+                ):
+                    counter += 1
+                    if future.skipped:
+                        src, _ = future.result()
+                        tqdm.tqdm.write(f"[SKIPPED] {str(src)}: {future.skip_info}")
+                    else:
+                        (src, dst), duration = future.result()
+                        tqdm.tqdm.write(
+                            f"[OK] {str(src)}: copied to {str(dst)} in {duration}"
                         )
-                    ):
-                        with PBar(
-                            total=100,
-                            disable=debug,
-                            unit="B",
-                            unit_scale=True,
-                            unit_divisor=1024,
-                            # bar_format="{percentage:3.0f}%|{bar}|{n_fmt}/{total_fmt}|{elapsed}<{remaining}",
-                            desc=src_file.name,
-                        ) as pbar:
-                            src_file.cp(
-                                dst_file,
-                                overwrite=True,
-                                chunksize=chunksize,
-                                observers=[pbar],
-                            )
+            click.echo(counter)
         else:  # pragma: no cover
             raise NotImplementedError()
     except Exception as exc:  # pragma: no cover
         if debug:
             raise
         raise click.ClickException(str(exc))
+
+
+def _files_skip(
+    src_dir: MPath, dst_dir: MPath, compare_checksums: bool = False
+) -> Generator[Tuple[Tuple[MPath, MPath], bool, str], None, None]:
+    for contents in src_dir.walk(absolute_paths=True):
+        dst_root = dst_dir / os.path.relpath(
+            str(contents.root.without_protocol()),
+            start=str(src_dir.without_protocol()),
+        ).rstrip(".")
+        try:
+            dst_files = set([file.name for file in dst_root.ls()])
+        except FileNotFoundError:
+            dst_files = set()
+        for src_file in contents.files:
+            dst_file = dst_dir / os.path.relpath(
+                str(src_file.without_protocol()),
+                start=str(src_dir.without_protocol()),
+            )
+            if src_file.name in dst_files:
+                if (
+                    src_file.checksum()
+                    == dst_file.checksum()  # file contents are not identical
+                    if compare_checksums
+                    else src_file.size() == dst_file.size()  # file sizes differ
+                ):
+                    out = (src_file, dst_file), True, "already synced"
+                else:
+                    out = (src_file, dst_file), False, ""
+            else:
+                out = (src_file, dst_file), False, ""
+            yield out
+
+
+def sync_file(
+    paths: Tuple[MPath, MPath], chunksize: int = 1024 * 1024, debug: bool = False
+) -> Tuple[Tuple[MPath, MPath], str]:
+    src_file, dst_file = paths
+    with PBar(
+        total=100,
+        disable=debug,
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
+        desc=src_file.name,
+        leave=False,
+        print_messages=False,
+    ) as pbar:
+        with Timer() as duration:
+            src_file.cp(
+                dst_file,
+                overwrite=True,
+                chunksize=chunksize,
+                observers=[pbar],
+            )
+    return paths, f"copied in {duration}"
