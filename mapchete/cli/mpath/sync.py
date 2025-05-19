@@ -126,7 +126,7 @@ def sync_file(
         unit="B",
         unit_scale=True,
         unit_divisor=1024,
-        desc=str(dst_file),
+        desc=str(src_file),
         leave=False,
         print_messages=False,
     ) as pbar:
