@@ -10,6 +10,7 @@ from mapchete.cli.progress_bar import PBar
 from mapchete.enums import Concurrency
 from mapchete.executor import get_executor
 from mapchete.path import MPath
+from mapchete.pretty import pretty_bytes
 from mapchete.timer import Timer
 
 logger = logging.getLogger(__name__)
@@ -34,13 +35,15 @@ logger = logging.getLogger(__name__)
 )
 @options.opt_workers
 @options.opt_debug
+@options.opt_verbose
 def sync(
     path: MPath,
     out_path: MPath,
-    debug: bool = False,
     chunksize: int = 1024 * 1024,
     compare_checksums: bool = False,
     workers: int = 1,
+    debug: bool = False,
+    verbose: bool = False,
     **_,
 ):
     try:
@@ -65,12 +68,14 @@ def sync(
                 ):
                     if future.skipped:
                         src, _ = future.result()
-                        tqdm.tqdm.write(f"[SKIPPED] {str(src)}: {future.skip_info}")
+                        if verbose:
+                            tqdm.tqdm.write(f"[SKIPPED] {str(src)}: {future.skip_info}")
                     else:
                         (src, dst), duration = future.result()
-                        tqdm.tqdm.write(
-                            f"[OK] {str(src)}: copied to {str(dst)} in {duration}"
-                        )
+                        if verbose:
+                            tqdm.tqdm.write(
+                                f"[OK] {str(src)}: copied to {str(dst)} in {duration}"
+                            )
         else:  # pragma: no cover
             raise NotImplementedError()
     except Exception as exc:  # pragma: no cover
@@ -121,7 +126,7 @@ def sync_file(
         unit="B",
         unit_scale=True,
         unit_divisor=1024,
-        desc=src_file.name,
+        desc=str(dst_file),
         leave=False,
         print_messages=False,
     ) as pbar:
@@ -132,4 +137,4 @@ def sync_file(
                 chunksize=chunksize,
                 observers=[pbar],
             )
-    return paths, f"copied in {duration}"
+    return paths, f"{duration} ({pretty_bytes(src_file.size() / duration.elapsed)}/s)"
