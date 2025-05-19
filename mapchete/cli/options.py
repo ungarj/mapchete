@@ -155,6 +155,7 @@ opt_out_path = click.option(
     "--out-path",
     type=click.Path(),
     default=MPath.from_inp(os.getcwd()) / "output",
+    show_default=True,
     help="Output path.",
 )
 opt_idx_out_dir = click.option(
@@ -224,8 +225,10 @@ opt_overwrite = click.option(
 opt_workers = click.option(
     "--workers",
     "-w",
-    type=click.INT,
-    help="Number of workers when processing concurrently.",
+    type=click.IntRange(min=1),
+    default=os.cpu_count() or 1,
+    show_default=True,
+    help="Number of workers when using concurrency.",
 )
 opt_force = click.option(
     "--force", "-f", is_flag=True, help="Overwrite if files already exist."
@@ -275,6 +278,7 @@ opt_fieldname = click.option(
     "--fieldname",
     type=click.STRING,
     default="location",
+    show_default=True,
     help="Field to store tile paths in.",
 )
 opt_basepath = click.option(
@@ -292,6 +296,7 @@ opt_output_format = click.option(
     "-of",
     type=click.Choice(["GTiff", "PNG"]),
     default="GTiff",
+    show_default=True,
     help="Output data format (GTiff or PNG).",
 )
 opt_pyramid_type = click.option(
@@ -299,28 +304,32 @@ opt_pyramid_type = click.option(
     "-pt",
     type=click.Choice(tilematrix._conf.PYRAMID_PARAMS.keys()),
     default="geodetic",
-    help="Output pyramid type. (default: geodetic)",
+    show_default=True,
+    help="Output pyramid type.",
 )
 opt_resampling_method = click.option(
     "--resampling-method",
     "-r",
     type=click.Choice([it.name for it in Resampling if it.value in range(8)]),
     default="nearest",
-    help=("Resampling method used. (default: nearest)"),
+    show_default=True,
+    help=("Resampling method used."),
 )
 opt_port = click.option(
     "--port",
     "-p",
     type=click.INT,
     default=5000,
-    help="Port process is hosted on. (default: 5000)",
+    show_default=True,
+    help="Port process is hosted on.",
 )
 opt_internal_cache = click.option(
     "--internal-cache",
     "-c",
     type=click.INT,
     default=1024,
-    help="Number of web tiles to be cached in RAM. (default: 1024)",
+    show_default=True,
+    help="Number of web tiles to be cached in RAM.",
 )
 opt_readonly = click.option(
     "--readonly", "-ro", is_flag=True, help="Just read process output without writing."
@@ -366,6 +375,7 @@ opt_concurrency = click.option(
     "--concurrency",
     type=click.Choice(["processes", "threads", "dask", "none"]),
     default="processes",
+    show_default=True,
     callback=_cb_none_concurrency,
     help="Decide which Executor to use for concurrent processing.",
 )
