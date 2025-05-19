@@ -5,7 +5,6 @@ from concurrent.futures import (
     wait,
     FIRST_COMPLETED,
 )
-from itertools import islice
 import logging
 import multiprocessing
 import os
@@ -123,9 +122,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
 
         try:
             with Timer() as duration:
-                for item, skip_item, skip_info in islice(
-                    item_skip_tuples, max_submitted_tasks
-                ):
+                for item, skip_item, skip_info in item_skip_tuples:
                     if self.cancel_signal:  # pragma: no cover
                         raise JobCancelledError("cancel signal caught")
 
@@ -136,6 +133,11 @@ class ConcurrentFuturesExecutor(ExecutorBase):
                     # submit to executor
                     else:
                         futures.add(self._submit(func, item, fargs, fkwargs))
+
+                        # don't submit any more until there are finished futures
+                        if len(futures) == max_submitted_tasks:
+                            break
+
             logger.debug("first %s tasks submitted in %s", len(futures), duration)
 
             while futures:
