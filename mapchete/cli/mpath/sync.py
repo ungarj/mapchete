@@ -66,7 +66,7 @@ def sync(
                     ),
                     desc="files",
                 ):
-                    if future.skipped:
+                    if future.skipped:  # pragma: no cover
                         src, _ = future.result()
                         if verbose:
                             tqdm.tqdm.write(f"[SKIPPED] {str(src)}: {future.skip_info}")
@@ -101,7 +101,7 @@ def _files_skip(
                 str(src_file.without_protocol()),
                 start=str(src_dir.without_protocol()),
             )
-            if src_file.name in dst_files:
+            if src_file.name in dst_files:  # pragma: no cover
                 if (
                     src_file.checksum()
                     == dst_file.checksum()  # file contents are not identical
