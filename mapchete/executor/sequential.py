@@ -11,10 +11,11 @@ logger = logging.getLogger(__name__)
 class SequentialExecutor(ExecutorBase):
     """Execute tasks sequentially in single process."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *_, profilers: Optional[List[Profiler]] = None, **__):
         """Set attributes."""
         logger.debug("init SequentialExecutor")
-        super().__init__(*args, **kwargs)
+        self.profilers = profilers or []
+        self.futures = set()
 
     def __str__(self) -> str:
         return "<SequentialExecutor>"
@@ -26,11 +27,9 @@ class SequentialExecutor(ExecutorBase):
         fargs: Optional[Tuple] = None,
         fkwargs: Optional[Dict[str, Any]] = None,
         item_skip_bool: bool = False,
-        profilers: Optional[List[Profiler]] = None,
         **__,
     ) -> Generator[MFuture, None, None]:
         """Yield finished tasks."""
-        self.profilers = profilers or []
         # before running, make sure cancel signal is False
         self.cancel_signal = False
 
@@ -54,7 +53,7 @@ class SequentialExecutor(ExecutorBase):
             yield self.to_mfuture(
                 MFuture.from_func_partial(
                     self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
-                )
+                )  # type: ignore
             )
 
     def map(

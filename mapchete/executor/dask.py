@@ -33,12 +33,12 @@ class DaskExecutor(ExecutorBase):
 
     def __init__(
         self,
-        *args,
+        *_,
         dask_scheduler: Optional[str] = None,
         dask_client: Optional[Client] = None,
         max_workers: int = os.cpu_count() or 1,
         profilers: Optional[List[Profiler]] = None,
-        **kwargs,
+        **__,
     ):
         self.futures = set()
         self.profilers = profilers or []
@@ -60,7 +60,6 @@ class DaskExecutor(ExecutorBase):
             logger.debug(
                 "starting dask.distributed.Client with kwargs %s", self._executor_kwargs
             )
-        super().__init__(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"<DaskExecutor dashboard_link={self._executor.dashboard_link}>"
