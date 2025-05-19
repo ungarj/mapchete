@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tup
 
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
+from mapchete.executor.types import Profiler
 
 logger = logging.getLogger(__name__)
 
@@ -10,10 +11,11 @@ logger = logging.getLogger(__name__)
 class SequentialExecutor(ExecutorBase):
     """Execute tasks sequentially in single process."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *_, profilers: Optional[List[Profiler]] = None, **__):
         """Set attributes."""
         logger.debug("init SequentialExecutor")
-        super().__init__(*args, **kwargs)
+        self.profilers = profilers or []
+        self.futures = set()
 
     def __str__(self) -> str:
         return "<SequentialExecutor>"
@@ -51,7 +53,7 @@ class SequentialExecutor(ExecutorBase):
             yield self.to_mfuture(
                 MFuture.from_func_partial(
                     self.func_partial(func, fargs=fargs, fkwargs=fkwargs), item
-                )
+                )  # type: ignore
             )
 
     def map(

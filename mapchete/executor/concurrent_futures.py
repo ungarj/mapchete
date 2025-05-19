@@ -5,7 +5,6 @@ from concurrent.futures import (
     wait,
     FIRST_COMPLETED,
 )
-from itertools import islice
 import logging
 import multiprocessing
 import os
@@ -27,6 +26,7 @@ from typing import (
 from mapchete.errors import JobCancelledError
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import FutureProtocol, MFuture
+from mapchete.executor.types import Profiler
 from mapchete.log import set_log_level
 from mapchete.timer import Timer
 
@@ -45,9 +45,14 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         max_workers=None,
         concurrency="processes",
         multiprocessing_start_method=None,
+        profilers: Optional[List[Profiler]] = None,
         **kwargs,
     ):
         """Set attributes."""
+        self.futures = set()
+        self.profilers = profilers or []
+        self._executor_args = ()
+        self._executor_kwargs = dict()
         start_method = (
             multiprocessing_start_method or MULTIPROCESSING_DEFAULT_START_METHOD
         )
@@ -89,7 +94,6 @@ class ConcurrentFuturesExecutor(ExecutorBase):
             concurrency,
             self.max_workers,
         )
-        super().__init__(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"<ConcurrentFuturesExecutor max_workers={self.max_workers}, cls={self._executor_cls}>"
@@ -123,9 +127,7 @@ class ConcurrentFuturesExecutor(ExecutorBase):
 
         try:
             with Timer() as duration:
-                for item, skip_item, skip_info in islice(
-                    item_skip_tuples, max_submitted_tasks
-                ):
+                for item, skip_item, skip_info in item_skip_tuples:
                     if self.cancel_signal:  # pragma: no cover
                         raise JobCancelledError("cancel signal caught")
 
@@ -136,6 +138,11 @@ class ConcurrentFuturesExecutor(ExecutorBase):
                     # submit to executor
                     else:
                         futures.add(self._submit(func, item, fargs, fkwargs))
+
+                        # don't submit any more until there are finished futures
+                        if len(futures) == max_submitted_tasks:
+                            break
+
             logger.debug("first %s tasks submitted in %s", len(futures), duration)
 
             while futures:
