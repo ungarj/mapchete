@@ -101,20 +101,20 @@ vrt = [
 ]
 
 [project.scripts]
-mapchete = "mapchete.cli.main:main"
+mapchete = "mapchete.cli.main:mapchete"
 mpath = "mapchete.cli.mpath:mpath"
 
 [project.entry-points."mapchete.cli.commands"]
-convert = "mapchete.cli.default.convert:convert"
-cp = "mapchete.cli.default.cp:cp"
-create = "mapchete.cli.default.create:create"
-execute = "mapchete.cli.default.execute:execute"
-formats = "mapchete.cli.default.formats:formats"
-index = "mapchete.cli.default.index:index"
-processes = "mapchete.cli.default.processes:processes"
-rm = "mapchete.cli.default.rm:rm"
-serve = "mapchete.cli.default.serve:serve"
-stac = "mapchete.cli.default.stac:stac"
+convert = "mapchete.cli.mapchete.convert:convert"
+cp = "mapchete.cli.mapchete.cp:cp"
+create = "mapchete.cli.mapchete.create:create"
+execute = "mapchete.cli.mapchete.execute:execute"
+formats = "mapchete.cli.mapchete.formats:formats"
+index = "mapchete.cli.mapchete.index:index"
+processes = "mapchete.cli.mapchete.processes:processes"
+rm = "mapchete.cli.mapchete.rm:rm"
+serve = "mapchete.cli.mapchete.serve:serve"
+stac = "mapchete.cli.mapchete.stac:stac"
 
 [project.entry-points."mapchete.formats.drivers"]
 flatgeobuf = "mapchete.formats.default.flatgeobuf"
