@@ -1176,7 +1176,7 @@ def linestring() -> LineString:
 
 
 @pytest.fixture
-def multilinestring() -> LineString:
+def multilinestring() -> MultiLineString:
     return MultiLineString(
         [LineString([Point(0, 0), Point(1, 1)]), LineString([Point(2, 2), Point(3, 3)])]
     )
