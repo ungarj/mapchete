@@ -7,7 +7,8 @@ import tqdm
 
 from mapchete.cli import options
 from mapchete.cli.progress_bar import PBar
-from mapchete.executor.concurrent_futures import ConcurrentFuturesExecutor
+from mapchete.enums import Concurrency
+from mapchete.executor import get_executor
 from mapchete.path import MPath
 from mapchete.timer import Timer
 
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 @options.opt_dst_fs_opts
 @click.option(
     "--chunksize",
-    type=click.INT,
+    type=click.IntRange(min=1),
     default=1024 * 1024,
     show_default=True,
     help="Read and write chunk size in bytes.",
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
     is_flag=True,
     help="Calculate checksums of objects. WARNING: this will effectively read all of the data (source and destination)!",
 )
+@options.opt_workers
 @options.opt_debug
 def sync(
     path: MPath,
@@ -38,13 +40,16 @@ def sync(
     debug: bool = False,
     chunksize: int = 1024 * 1024,
     compare_checksums: bool = False,
+    workers: int = 1,
     **_,
 ):
     try:
         if path.is_directory():
             out_path.makedirs()
-            counter = 0
-            with ConcurrentFuturesExecutor(concurrency="threads") as executor:
+            with get_executor(
+                concurrency=Concurrency.none if workers == 1 else Concurrency.threads,
+                max_workers=workers,
+            ) as executor:
                 for future in tqdm.tqdm(
                     executor.as_completed(
                         sync_file,
@@ -54,11 +59,10 @@ def sync(
                         fargs=None,
                         fkwargs=dict(chunksize=chunksize, debug=debug),
                         item_skip_bool=True,
-                        max_submitted_tasks=10,
+                        max_submitted_tasks=workers * 10,
                     ),
                     desc="files",
                 ):
-                    counter += 1
                     if future.skipped:
                         src, _ = future.result()
                         tqdm.tqdm.write(f"[SKIPPED] {str(src)}: {future.skip_info}")
@@ -67,7 +71,6 @@ def sync(
                         tqdm.tqdm.write(
                             f"[OK] {str(src)}: copied to {str(dst)} in {duration}"
                         )
-            click.echo(counter)
         else:  # pragma: no cover
             raise NotImplementedError()
     except Exception as exc:  # pragma: no cover
