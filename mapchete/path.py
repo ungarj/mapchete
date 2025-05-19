@@ -427,7 +427,7 @@ class MPath(os.PathLike):
         None,
         None,
     ]:
-        for root, subpaths, files in self.fs.walk(
+        for root, subdirs, files in self.fs.walk(
             str(self), maxdepth=maxdepth, topdown=topdown, **kwargs
         ):
             if isinstance(root, str):
@@ -435,15 +435,16 @@ class MPath(os.PathLike):
                     root=self._create_full_path(root, absolute_path=absolute_paths),
                     subdirs=[
                         self._create_full_path(
-                            self.new(root) / subpath, absolute_path=absolute_paths
+                            self.new(root) / subdir, absolute_path=absolute_paths
                         )
-                        for subpath in subpaths
+                        for subdir in subdirs
                     ],
                     files=[
                         self._create_full_path(
                             self.new(root) / file, absolute_path=absolute_paths
                         )
                         for file in files
+                        if file  # walk() sometimes returns [''] as files
                     ],
                 )
 
