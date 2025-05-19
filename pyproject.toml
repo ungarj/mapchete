@@ -116,6 +116,15 @@ rm = "mapchete.cli.mapchete.rm:rm"
 serve = "mapchete.cli.mapchete.serve:serve"
 stac = "mapchete.cli.mapchete.stac:stac"
 
+[project.entry-points."mapchete.cli.mpath_commands"]
+exists = "mapchete.cli.mpath.exists:exists"
+cp = "mapchete.cli.mpath.cp:cp"
+sync = "mapchete.cli.mpath.sync:sync"
+rm = "mapchete.cli.mpath.rm:rm"
+ls = "mapchete.cli.mpath.ls:ls"
+read_text = "mapchete.cli.mpath.read_text:read_text"
+read_json = "mapchete.cli.mpath.read_json:read_json"
+
 [project.entry-points."mapchete.formats.drivers"]
 flatgeobuf = "mapchete.formats.default.flatgeobuf"
 geojson = "mapchete.formats.default.geojson"

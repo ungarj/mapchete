@@ -379,3 +379,9 @@ opt_profiling = click.option(
     is_flag=True,
     help="Add profiling information to executed tasks.",
 )
+opt_recursive = click.option(
+    "--recursive",
+    "-r",
+    is_flag=True,
+    help="Recursively handle subdirectories.",
+)
