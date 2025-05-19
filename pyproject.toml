@@ -101,7 +101,7 @@ vrt = [
 ]
 
 [project.scripts]
-mapchete = "mapchete.cli.main:mapchete"
+mapchete = "mapchete.cli.mapchete:main"
 mpath = "mapchete.cli.mpath:mpath"
 
 [project.entry-points."mapchete.cli.commands"]
