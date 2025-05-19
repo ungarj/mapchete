@@ -5,14 +5,12 @@ from sys import getsizeof
 from typing import (
     Any,
     Callable,
-    Dict,
     Generator,
     Iterable,
     List,
     Literal,
     Optional,
     Set,
-    Tuple,
     Union,
     cast,
 )
@@ -23,7 +21,7 @@ from dask.distributed import Client, LocalCluster, as_completed, wait, Future
 from mapchete.errors import JobCancelledError
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import FutureProtocol, MFuture
-from mapchete.executor.types import Result
+from mapchete.executor.types import Profiler, Result
 from mapchete.pretty import pretty_bytes
 from mapchete.timer import Timer
 
@@ -33,22 +31,22 @@ logger = logging.getLogger(__name__)
 class DaskExecutor(ExecutorBase):
     """Execute tasks using dask cluster."""
 
-    _executor_args: Tuple
-    _executor_kwargs: Dict[str, Any]
-
     def __init__(
         self,
         *args,
         dask_scheduler: Optional[str] = None,
         dask_client: Optional[Client] = None,
         max_workers: int = os.cpu_count() or 1,
+        profilers: Optional[List[Profiler]] = None,
         **kwargs,
     ):
+        self.futures = set()
+        self.profilers = profilers or []
+        self._executor_args = ()
+        self._executor_kwargs = dict()
         self.cancel_signal = False
         self._executor_client = dask_client
         self._local_cluster = None
-        self._executor_args = ()
-        self._executor_kwargs = dict()
         if self._executor_client:  # pragma: no cover
             logger.debug("using existing dask client: %s", dask_client)
         else:

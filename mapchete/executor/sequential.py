@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tup
 
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import MFuture
+from mapchete.executor.types import Profiler
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +26,11 @@ class SequentialExecutor(ExecutorBase):
         fargs: Optional[Tuple] = None,
         fkwargs: Optional[Dict[str, Any]] = None,
         item_skip_bool: bool = False,
+        profilers: Optional[List[Profiler]] = None,
         **__,
     ) -> Generator[MFuture, None, None]:
         """Yield finished tasks."""
+        self.profilers = profilers or []
         # before running, make sure cancel signal is False
         self.cancel_signal = False
 

@@ -26,6 +26,7 @@ from typing import (
 from mapchete.errors import JobCancelledError
 from mapchete.executor.base import ExecutorBase
 from mapchete.executor.future import FutureProtocol, MFuture
+from mapchete.executor.types import Profiler
 from mapchete.log import set_log_level
 from mapchete.timer import Timer
 
@@ -44,9 +45,14 @@ class ConcurrentFuturesExecutor(ExecutorBase):
         max_workers=None,
         concurrency="processes",
         multiprocessing_start_method=None,
+        profilers: Optional[List[Profiler]] = None,
         **kwargs,
     ):
         """Set attributes."""
+        self.futures = set()
+        self.profilers = profilers or []
+        self._executor_args = ()
+        self._executor_kwargs = dict()
         start_method = (
             multiprocessing_start_method or MULTIPROCESSING_DEFAULT_START_METHOD
         )
