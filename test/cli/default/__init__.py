@@ -2,14 +2,12 @@ import logging
 
 from click.testing import CliRunner
 
-from mapchete.cli.main import main as mapchete_cli
+from mapchete.cli.mapchete import main
 
 logger = logging.getLogger(__name__)
 
 
-def run_cli(
-    args, expected_exit_code=0, output_contains=None, raise_exc=True, cli=mapchete_cli
-):
+def run_cli(args, expected_exit_code=0, output_contains=None, raise_exc=True, cli=main):
     result = CliRunner(env=dict(MAPCHETE_TEST="TRUE")).invoke(
         cli, list(map(str, args)), catch_exceptions=True, standalone_mode=True
     )

@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from concurrent.futures._base import CancelledError
-from functools import cached_property, partial
+from functools import partial
 from typing import (
     Any,
     Callable,
@@ -35,15 +35,10 @@ class ExecutorBase(ABC):
     cancelled: bool = False
     futures: Set[FutureProtocol]
     profilers: List[Profiler]
+    _cached_executor = None
     _executor_cls = None
     _executor_args: Tuple
     _executor_kwargs: Dict[str, Any]
-
-    def __init__(self, *_, profilers=None, **__):
-        self.futures = set()
-        self.profilers = profilers or []
-        self._executor_args = ()
-        self._executor_kwargs = dict()
 
     @abstractmethod
     def as_completed(
@@ -145,11 +140,16 @@ class ExecutorBase(ABC):
 
         return mfuture
 
-    @cached_property
+    @property
     def _executor(self) -> Union[ThreadPoolExecutor, ProcessPoolExecutor, Client]:
-        if self._executor_cls:
-            return self._executor_cls(*self._executor_args, **self._executor_kwargs)
-        raise TypeError("no Executor Class given")  # pragma: no cover
+        if self._cached_executor is None:
+            if self._executor_cls:
+                self._cached_executor = self._executor_cls(
+                    *self._executor_args, **self._executor_kwargs
+                )
+            else:  # pragma: no cover
+                raise TypeError("no Executor Class given")
+        return self._cached_executor
 
     def __enter__(self):
         """Enter context manager."""
@@ -159,11 +159,13 @@ class ExecutorBase(ABC):
         """Exit context manager."""
         logger.debug("closing executor %s...", self._executor)
         try:
-            self._executor.close()  # type: ignore
+            if self._cached_executor:
+                self._executor.close()  # type: ignore
         except Exception:
             pass
         finally:
-            self._executor.__exit__(*args)
+            if self._cached_executor:
+                self._executor.__exit__(*args)
         logger.debug("closed executor %s", self._executor)
 
     def __repr__(self):  # pragma: no cover

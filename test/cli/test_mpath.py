@@ -67,5 +67,5 @@ def test_read_text(metadata_json):
 )
 def test_sync_dir(tiledir, mp_tmpdir):
     assert not mp_tmpdir.ls()
-    assert run_cli(["sync", str(tiledir), str(mp_tmpdir), "--debug"], cli=mpath)
+    assert run_cli(["sync", str(tiledir), str(mp_tmpdir), "--verbose"], cli=mpath)
     assert mp_tmpdir.ls()

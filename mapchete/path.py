@@ -331,13 +331,13 @@ class MPath(os.PathLike):
             )
         )
 
+    @retry(logger=logger, **dict(IORetrySettings()))
     def open(
         self, mode: str = "r", **kwargs
     ) -> Union[IO, TextIO, TextIOWrapper, AbstractBufferedFile]:
         """Open file."""
         return self.fs.open(self._path_str, mode, **kwargs)
 
-    @retry(logger=logger, **dict(IORetrySettings()))
     def read_text(self) -> str:
         """Open and return file content as text."""
         try:
@@ -427,7 +427,7 @@ class MPath(os.PathLike):
         None,
         None,
     ]:
-        for root, subpaths, files in self.fs.walk(
+        for root, subdirs, files in self.fs.walk(
             str(self), maxdepth=maxdepth, topdown=topdown, **kwargs
         ):
             if isinstance(root, str):
@@ -435,15 +435,16 @@ class MPath(os.PathLike):
                     root=self._create_full_path(root, absolute_path=absolute_paths),
                     subdirs=[
                         self._create_full_path(
-                            self.new(root) / subpath, absolute_path=absolute_paths
+                            self.new(root) / subdir, absolute_path=absolute_paths
                         )
-                        for subpath in subpaths
+                        for subdir in subdirs
                     ],
                     files=[
                         self._create_full_path(
                             self.new(root) / file, absolute_path=absolute_paths
                         )
                         for file in files
+                        if file  # walk() sometimes returns [''] as files
                     ],
                 )
 
@@ -738,7 +739,7 @@ class MPath(os.PathLike):
         """Short for self.joinpath()."""
         return self.new(str(self) + str(other))
 
-    def __eq__(self, other: MPathLike):
+    def __eq__(self, other):
         if isinstance(other, str):
             return str(self) == other
         else:

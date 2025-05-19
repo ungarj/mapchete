@@ -20,7 +20,7 @@ from shapely.geometry import (
 )
 from tilematrix import Bounds, GridDefinition
 
-from mapchete.cli.default.serve import create_app
+from mapchete.cli.mapchete.serve import create_app
 from mapchete.executor import (
     ConcurrentFuturesExecutor,
     DaskExecutor,
@@ -1176,7 +1176,7 @@ def linestring() -> LineString:
 
 
 @pytest.fixture
-def multilinestring() -> LineString:
+def multilinestring() -> MultiLineString:
     return MultiLineString(
         [LineString([Point(0, 0), Point(1, 1)]), LineString([Point(2, 2), Point(3, 3)])]
     )
