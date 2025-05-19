@@ -20,7 +20,7 @@ from shapely.geometry import (
 )
 from tilematrix import Bounds, GridDefinition
 
-from mapchete.cli.default.serve import create_app
+from mapchete.cli.mapchete.serve import create_app
 from mapchete.executor import (
     ConcurrentFuturesExecutor,
     DaskExecutor,
