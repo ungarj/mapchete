@@ -738,7 +738,7 @@ class MPath(os.PathLike):
         """Short for self.joinpath()."""
         return self.new(str(self) + str(other))
 
-    def __eq__(self, other: MPathLike):
+    def __eq__(self, other):
         if isinstance(other, str):
             return str(self) == other
         else:
