@@ -21,10 +21,10 @@ pyramid:
 
 
 input:
-    file1:
+    required_file: testdata/dummy2.tif
+    optional_file:
         zoom<9: testdata/dummy2.tif
         zoom>=10: testdata/dummy1.tif
-    file2: testdata/dummy2.tif
 output:
     path: testdata/tmp/example
     format: GTiff

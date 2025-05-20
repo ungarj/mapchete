@@ -77,7 +77,9 @@ class BufferedTilePyramid(TilePyramid):
         tile_size: PositiveInt = 256,
         pixelbuffer: NonNegativeInt = 0,
     ):
-        TilePyramid.__init__(self, grid, metatiling=metatiling, tile_size=tile_size)
+        TilePyramid.__init__(
+            self, GridDefinition(grid), metatiling=metatiling, tile_size=tile_size
+        )
         self.tile_pyramid = TilePyramid(
             grid, metatiling=metatiling, tile_size=tile_size
         )

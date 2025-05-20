@@ -330,7 +330,7 @@ class MapcheteConfig(object):
     @cached_property
     def zoom_levels(self):
         """Process zoom levels as defined in the configuration."""
-        return validate_zooms(self.parsed_config.zoom_levels)
+        return ZoomLevels.from_inp(self.parsed_config.zoom_levels)
 
     @cached_property
     def init_zoom_levels(self):
@@ -569,7 +569,7 @@ class MapcheteConfig(object):
             list(open_inputs(self.params_at_zoom(tile.zoom)["input"], tile))
         )
 
-    def params_at_zoom(self, zoom):
+    def params_at_zoom(self, zoom) -> OrderedDict[str, Any]:
         """
         Return configuration parameters snapshot for zoom as dictionary.
 

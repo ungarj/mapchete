@@ -5,9 +5,9 @@ zoom_levels:
 pyramid:
     grid: geodetic
 input:
-    file1:
+    required_file: dummy2.tif
+    optional_file:
         zoom>=10: dummy1.tif
-    file2: dummy2.tif
 output:
     path: tmp/files_bounds
     format: PNG_hillshade

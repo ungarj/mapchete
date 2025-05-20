@@ -4,7 +4,7 @@ pyramid:
     grid: geodetic
 bounds: [0.5, 1.5, 3.5, 3.5]
 input:
-    file1: dummy1.tif
+    required_file: dummy1.tif
 output:
     dtype: float32
     bands: 1

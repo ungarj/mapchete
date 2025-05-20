@@ -6,7 +6,7 @@ pyramid:
     grid: geodetic
 bounds: [-180, -90, 180, 90]
 input:
-    file1: dummy1.tif
+    required_file: dummy1.tif
 output:
     bands: 1
     path: tmp/minmax_zoom
