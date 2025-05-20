@@ -4,6 +4,29 @@ Changelog
 
 
 ---------------------
+2025.5.1 - 2025-05-20
+---------------------
+
+* core
+
+  * `grid.Grid.extract()`: snap bounds to existing `Grid` (#683)
+  * make sure `tile_size` is properly passed on when defined in Mapchete configuration (#685)
+  * `cli`: restructure `mapchete` and `mpath` subcommands into submodules (#686)
+  * `executor.concurrent_futures.ConcurrentFuturesExecutor.as_completed()`: fix bug where function prematurly exits if first items are skipped (#686)
+  * `path.MPath.open()`: add `retry` (#686)
+
+* CLI
+
+  * `mpath sync`: run copy command for multiple files in parallel (added `--workers` flag to configure) & add `--verbose` flag (#686)
+
+* packaging
+
+* CI
+
+  * remove deprecated flag in `CliRunner` (#684)
+
+
+---------------------
 2025.5.0 - 2025-05-07
 ---------------------
 

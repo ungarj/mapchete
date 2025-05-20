@@ -38,7 +38,7 @@ __all__ = [
     "VectorInputGroup",
     "ZoomLevels",
 ]
-__version__ = "2025.5.0"
+__version__ = "2025.5.1"
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -115,7 +115,7 @@ def open(
         and some_input.suffix == ".mapchete"
         or isinstance(some_input, MapcheteConfig)
     ):
-        return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)
+        return Mapchete(MapcheteConfig(some_input, **kwargs), with_cache=with_cache)  # type: ignore
     else:  # pragma: no cover
         raise TypeError(
             "can only open input in form of a mapchete file path, a TileDirectory path, "
