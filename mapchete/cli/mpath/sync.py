@@ -64,18 +64,18 @@ def sync(
                         item_skip_bool=True,
                         max_submitted_tasks=workers * 10,
                     ),
+                    disable=debug,
                     desc="files",
                 ):
                     if future.skipped:  # pragma: no cover
                         src, _ = future.result()
-                        if verbose:
-                            tqdm.tqdm.write(f"[SKIPPED] {str(src)}: {future.skip_info}")
+                        msg = f"[SKIPPED] {str(src)}: {future.skip_info}"
                     else:
                         (src, dst), duration = future.result()
-                        if verbose:
-                            tqdm.tqdm.write(
-                                f"[OK] {str(src)}: copied to {str(dst)} in {duration}"
-                            )
+                        msg = f"[OK] {str(src)}: copied to {str(dst)} in {duration}"
+                    if verbose:
+                        tqdm.tqdm.write(msg)
+                    logger.debug(msg)
         else:  # pragma: no cover
             raise NotImplementedError()
     except Exception as exc:  # pragma: no cover
