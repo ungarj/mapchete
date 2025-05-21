@@ -8,6 +8,7 @@ def test_create(mp_tmpdir, cleantopo_br_tif):
     """Run mapchete create and execute."""
     temp_mapchete = mp_tmpdir / "temp.mapchete"
     temp_process = mp_tmpdir / "temp.py"
+    temp_out_path = mp_tmpdir / "out"
     out_format = "GTiff"
     # create from template
     run_cli(
@@ -21,6 +22,8 @@ def test_create(mp_tmpdir, cleantopo_br_tif):
             out_format,
             "--pyramid-type",
             "geodetic",
+            "--out-path",
+            str(temp_out_path),
         ],
         expected_exit_code=0,
     )
@@ -36,6 +39,7 @@ def test_create_existing(mp_tmpdir):
     """Run mapchete create and execute."""
     temp_mapchete = mp_tmpdir / "temp.mapchete"
     temp_process = mp_tmpdir / "temp.py"
+    temp_out_path = mp_tmpdir / "out"
     out_format = "GTiff"
     # create files from template
     args = [
@@ -48,6 +52,8 @@ def test_create_existing(mp_tmpdir):
         out_format,
         "--pyramid-type",
         "geodetic",
+        "--out-path",
+        str(temp_out_path),
     ]
     run_cli(args)
     # try to create again
