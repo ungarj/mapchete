@@ -154,7 +154,7 @@ arg_out_path = click.argument("out_path", type=click.STRING, callback=_cb_mpath)
 opt_out_path = click.option(
     "--out-path",
     type=click.Path(),
-    default=MPath.from_inp(os.getcwd()) / "output",
+    default=MPath.cwd() / "output",
     show_default=True,
     help="Output path.",
 )
