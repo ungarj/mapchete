@@ -11,7 +11,18 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property
 from io import TextIOWrapper
-from typing import IO, Generator, List, Optional, Set, TextIO, NamedTuple, Union
+from typing import (
+    IO,
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    TextIO,
+    NamedTuple,
+    Union,
+)
 
 from aiohttp import BasicAuth
 import fiona
@@ -41,6 +52,48 @@ class DirectoryContent(NamedTuple):
     root: MPath
     subdirs: List[MPath]
     files: List[MPath]
+
+    @staticmethod
+    def from_walk(
+        src_path: MPath,
+        root: Union[MPath, str, dict],
+        subdirs: Union[List[Union[MPath, str, dict]], Dict[str, Dict[str, Any]]],
+        files: Union[List[Union[MPath, str, dict]], Dict[str, Dict[str, Any]]],
+        absolute_paths: bool = True,
+    ) -> DirectoryContent:
+        mpath_root = src_path.new(MPath.from_inp(root), absolute_path=absolute_paths)
+        if "s3" in src_path.protocols:
+            mpath_root = mpath_root.with_protocol("s3")
+        mpath_subdirs = []
+        if isinstance(subdirs, dict):
+            for subdir_str, subdir_info in subdirs.items():
+                mpath_subdirs.append(
+                    src_path.new(mpath_root / subdir_str, _info=subdir_info)
+                )
+        else:
+            for subdir in subdirs:
+                mpath_subdirs.append(
+                    src_path.new(
+                        mpath_root / MPath.from_inp(subdir),
+                        absolute_path=absolute_paths,
+                    )
+                )
+        mpath_files = []
+        if isinstance(files, dict):
+            for file_str, file_info in files.items():
+                mpath_files.append(src_path.new(mpath_root / file_str, _info=file_info))
+        else:
+            for file in files:
+                if file:  # walk() sometimes returns [''] as files
+                    mpath_files.append(
+                        src_path.new(
+                            mpath_root / MPath.from_inp(file),
+                            absolute_path=absolute_paths,
+                        )
+                    )
+        return DirectoryContent(
+            root=mpath_root, subdirs=mpath_subdirs, files=mpath_files
+        )
 
 
 class MPath(os.PathLike):
@@ -79,8 +132,9 @@ class MPath(os.PathLike):
             self._path_str = path_str
         if fs:
             self._kwargs.update(fs=fs)
-        if "fs_options" in kwargs:
-            storage_options = kwargs.get("fs_options")
+        for option in ["fs_options", "protocol"]:
+            if option in kwargs:
+                storage_options = kwargs.get(option)
         if storage_options:
             self._kwargs.update(storage_options=storage_options)
         self.storage_options = dict(
@@ -120,6 +174,7 @@ class MPath(os.PathLike):
 
     def info(self, refresh: bool = False) -> dict:
         if refresh or self._info is None:
+            logger.debug("%s: make self.fs.info() call ...", str(self))
             self._info = self.fs.info(self._path_str)
         return self._info
 
@@ -260,12 +315,16 @@ class MPath(os.PathLike):
     def crop(self, elements: int) -> MPath:
         return self.new("/".join(self.elements[elements:]))
 
-    def new(self, path: MPathLike, **kwargs) -> "MPath":
+    def new(self, path: MPathLike, **kwargs) -> MPath:
         """Create a new MPath instance with given path."""
         return MPath(path, **self._kwargs, **kwargs)
 
     def exists(self) -> bool:
         """Check if path exists."""
+        # avoid HEAD call if _info object is already there
+        if self._info is not None:
+            return True
+        logger.debug("%s: make self.fs.exists() call ...", str(self))
         return self.fs.exists(self._path_str)
 
     def is_remote(self) -> bool:
@@ -428,24 +487,11 @@ class MPath(os.PathLike):
         None,
     ]:
         for root, subdirs, files in self.fs.walk(
-            str(self), maxdepth=maxdepth, topdown=topdown, **kwargs
+            str(self), maxdepth=maxdepth, topdown=topdown, detail=True, **kwargs
         ):
             if isinstance(root, str):
-                yield DirectoryContent(
-                    root=self._create_full_path(root, absolute_path=absolute_paths),
-                    subdirs=[
-                        self._create_full_path(
-                            self.new(root) / subdir, absolute_path=absolute_paths
-                        )
-                        for subdir in subdirs
-                    ],
-                    files=[
-                        self._create_full_path(
-                            self.new(root) / file, absolute_path=absolute_paths
-                        )
-                        for file in files
-                        if file  # walk() sometimes returns [''] as files
-                    ],
+                yield DirectoryContent.from_walk(
+                    self, root, subdirs, files, absolute_paths=absolute_paths
                 )
 
     def paginate(
@@ -501,6 +547,8 @@ class MPath(os.PathLike):
                 pass
             else:  # pragma: no cover
                 raise
+        finally:
+            self._info = None
 
     def cp(
         self,
@@ -520,14 +568,15 @@ class MPath(os.PathLike):
         dst_path = MPath.from_inp(destination)
         try:
             if dst_path.endswith("/") or dst_path.is_directory():
+                raise NotImplementedError()
                 dst_path = dst_path / self.name
         except FileNotFoundError:  # pragma: no cover
             pass
 
-        if dst_path.exists():
-            if overwrite:
-                pass
-            elif exists_ok:
+        if overwrite:
+            pass
+        elif dst_path.exists():
+            if exists_ok:
                 msg = f"{str(dst_path)} already exists"
                 all_observers.notify(message=msg)
                 logger.debug(msg)

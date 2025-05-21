@@ -93,15 +93,14 @@ def _files_skip(
             start=str(src_dir.without_protocol()),
         ).rstrip(".")
         try:
-            dst_files = set([file.name for file in dst_root.ls()])
+            # make sure to keep destination MPath objects to avoid unnecessary
+            # HEAD calls
+            existing_dst_files = {file.name: file for file in dst_root.ls()}
         except FileNotFoundError:
-            dst_files = set()
+            existing_dst_files = dict()
         for src_file in contents.files:
-            dst_file = dst_dir / os.path.relpath(
-                str(src_file.without_protocol()),
-                start=str(src_dir.without_protocol()),
-            )
-            if src_file.name in dst_files:  # pragma: no cover
+            if src_file.name in existing_dst_files:  # pragma: no cover
+                dst_file = existing_dst_files[src_file.name]
                 if (
                     src_file.checksum()
                     == dst_file.checksum()  # file contents are not identical
@@ -112,6 +111,10 @@ def _files_skip(
                 else:
                     out = (src_file, dst_file), False, ""
             else:
+                dst_file = dst_dir / os.path.relpath(
+                    str(src_file.without_protocol()),
+                    start=str(src_dir.without_protocol()),
+                )
                 out = (src_file, dst_file), False, ""
             yield out
 
