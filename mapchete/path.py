@@ -620,7 +620,7 @@ class MPath(os.PathLike):
             # for S3 objects use the possible cached info directory
             if "StorageClass" in self.info():  # pragma: no cover
                 return self.info().get("StorageClass") == "DIRECTORY"
-        except FileNotFoundError:
+        except FileNotFoundError:  # pragma: no cover
             pass
         logger.debug("%s: make self.fs.isdir() call ...", str(self))
         return self.fs.isdir(self._path_str)
