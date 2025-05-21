@@ -591,7 +591,7 @@ def test_cp(src_path: MPath, dst_dir: MPath):
     tempdir = dst_dir / "temp/"
     dst_path = tempdir / src_path.name
     try:
-        src_path.cp(tempdir)
+        src_path.cp(dst_path)
         assert dst_path.exists()
         assert not ReferencedRaster.from_file(dst_path).masked_array().mask.all()
     finally:
