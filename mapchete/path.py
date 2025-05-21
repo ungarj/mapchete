@@ -53,50 +53,6 @@ class DirectoryContent(NamedTuple):
     subdirs: List[MPath]
     files: List[MPath]
 
-    @staticmethod
-    def from_walk(
-        src_path: MPath,
-        root: Union[MPath, str, dict],
-        subdirs: Union[List[Union[MPath, str, dict]], Dict[str, Dict[str, Any]]],
-        files: Union[List[Union[MPath, str, dict]], Dict[str, Dict[str, Any]]],
-        absolute_paths: bool = True,
-    ) -> DirectoryContent:
-        mpath_root = src_path.new(root, relative_to_self=not absolute_paths)
-        if "s3" in src_path.protocols:
-            mpath_root = mpath_root.with_protocol("s3")
-        mpath_subdirs = []
-        if isinstance(subdirs, dict):
-            for subdir_str, subdir_info in subdirs.items():
-                mpath_subdirs.append(
-                    src_path.new(mpath_root / subdir_str, info_dict=subdir_info)
-                )
-        else:
-            for subdir in subdirs:
-                mpath_subdirs.append(
-                    src_path.new(
-                        mpath_root / MPath.from_inp(subdir),
-                        relative_to_self=not absolute_paths,
-                    )
-                )
-        mpath_files = []
-        if isinstance(files, dict):
-            for file_str, file_info in files.items():
-                mpath_files.append(
-                    src_path.new(mpath_root / file_str, info_dict=file_info)
-                )
-        else:
-            for file in files:
-                if file:  # walk() sometimes returns [''] as files
-                    mpath_files.append(
-                        src_path.new(
-                            mpath_root / MPath.from_inp(file),
-                            relative_to_self=not absolute_paths,
-                        )
-                    )
-        return DirectoryContent(
-            root=mpath_root, subdirs=mpath_subdirs, files=mpath_files
-        )
-
 
 class MPath(os.PathLike):
     """
@@ -337,6 +293,7 @@ class MPath(os.PathLike):
             path_str = path_info.get("name", path_info.get("Key"))
             if path_str is None:  # pragma: no cover
                 raise ValueError(f"cannot create MPath from dictionary: {path_info}")
+            # S3 json does not return path information with protocol, so let's add it manually
             if "s3" in self.protocols:
                 path_str = f"s3://{path_str}"
         elif isinstance(path, MPath):
@@ -500,8 +457,19 @@ class MPath(os.PathLike):
             str(self), maxdepth=maxdepth, topdown=topdown, detail=True, **kwargs
         ):
             if isinstance(root, str):
-                yield DirectoryContent.from_walk(
-                    self, root, subdirs, files, absolute_paths=absolute_paths
+                mpath_root = self.new(root, relative_to_self=not absolute_paths)
+                if "s3" in self.protocols:
+                    mpath_root = mpath_root.with_protocol("s3")
+                yield DirectoryContent(
+                    root=mpath_root,
+                    subdirs=[
+                        self.new(mpath_root / subdir_str, info_dict=subdir_info)
+                        for subdir_str, subdir_info in subdirs.items()  # type: ignore
+                    ],
+                    files=[
+                        self.new(mpath_root / file_str, info_dict=file_info)
+                        for file_str, file_info in files.items()  # type: ignore
+                    ],
                 )
 
     def paginate(
