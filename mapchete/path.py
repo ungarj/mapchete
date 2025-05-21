@@ -307,10 +307,10 @@ class MPath(os.PathLike):
 
         return MPath(path_str, info_dict=path_info, **self._kwargs)
 
-    def exists(self) -> bool:
+    def exists(self, weak_check: bool = False) -> bool:
         """Check if path exists."""
         # avoid HEAD call if _info object is already there
-        if self._info is not None:
+        if weak_check and self._info is not None:  # pragma: no cover
             return True
         logger.debug("%s: make self.fs.exists() call ...", str(self))
         return self.fs.exists(self._path_str)
@@ -545,7 +545,7 @@ class MPath(os.PathLike):
 
         if overwrite:
             pass
-        elif dst_path.exists():
+        elif dst_path.exists(weak_check=True):
             if exists_ok:
                 msg = f"{str(dst_path)} already exists"
                 all_observers.notify(message=msg)
