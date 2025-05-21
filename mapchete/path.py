@@ -566,12 +566,6 @@ class MPath(os.PathLike):
 
         all_observers = Observers(observers)
         dst_path = MPath.from_inp(destination)
-        try:
-            if dst_path.endswith("/") or dst_path.is_directory():
-                raise NotImplementedError()
-                dst_path = dst_path / self.name
-        except FileNotFoundError:  # pragma: no cover
-            pass
 
         if overwrite:
             pass
