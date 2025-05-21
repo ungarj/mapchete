@@ -187,6 +187,8 @@ def test_ls_remote(path):
 def test_walk(path, absolute_paths):
     dir_is_remote = path.is_remote()
     assert list(path.ls())
+    subdirs_available = False
+    files_available = False
     for root, subdirs, files in path.walk(absolute_paths=absolute_paths):
         assert isinstance(root, MPath)
         if absolute_paths:
@@ -194,9 +196,15 @@ def test_walk(path, absolute_paths):
         assert isinstance(subdirs, list)
         assert isinstance(files, list)
         for subdir in subdirs:
+            subdirs_available = True
             assert isinstance(subdir, MPath)
+            assert subdir._info is not None
         for file in files:
+            files_available = True
             assert isinstance(file, MPath)
+            assert file._info is not None
+    assert subdirs_available
+    assert files_available
 
 
 @pytest.mark.integration
