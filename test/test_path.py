@@ -219,6 +219,38 @@ def test_walk_remote(path, absolute_paths):
         lazy_fixture("testdata_dir"),
     ],
 )
+@pytest.mark.parametrize("items_per_page", [1, 10])
+def test_paginate(path, items_per_page):
+    paginated = path.paginate(items_per_page=items_per_page)
+    assert paginated
+    for page in paginated:
+        assert len(page)
+        assert len(page) <= items_per_page
+        for item in page:
+            assert isinstance(item, MPath)
+            assert not item.is_directory()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        lazy_fixture("http_testdata_dir"),
+        lazy_fixture("secure_http_testdata_dir"),
+        lazy_fixture("s3_testdata_dir"),
+    ],
+)
+@pytest.mark.parametrize("items_per_page", [1, 10])
+def test_paginate_remote(path, items_per_page):
+    test_paginate(path, items_per_page=items_per_page)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        lazy_fixture("testdata_dir"),
+    ],
+)
 def test_is_directory(path):
     assert path.is_directory()
 
@@ -561,7 +593,7 @@ def test_cp(src_path: MPath, dst_dir: MPath):
     try:
         src_path.cp(tempdir)
         assert dst_path.exists()
-        assert not ReferencedRaster.from_file(dst_path).data.mask.all()
+        assert not ReferencedRaster.from_file(dst_path).masked_array().mask.all()
     finally:
         dst_path.rm(ignore_errors=True)
 

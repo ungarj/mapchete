@@ -448,6 +448,47 @@ class MPath(os.PathLike):
                     ],
                 )
 
+    def paginate(
+        self, items_per_page: int = 1000
+    ) -> Generator[List[MPath], None, None]:
+        """
+        List all files in directory and all subdirectories.
+
+        On S3 paths, this uses the 'list_objects_v2' paginator from boto3.
+
+        On other file systems, it replicates the behavior of the S3 paginator
+        """
+        if "s3" in self.protocols:
+            import boto3
+
+            bucket = self.without_protocol().elements[0]
+            prefix = "/".join(self.without_protocol().elements[1:])
+            s3_client = boto3.client(
+                "s3",
+                region_name=self.storage_options.get("region_name"),
+                endpoint_url=self.storage_options.get("endpoint_url"),
+                aws_access_key_id=self.storage_options.get("key"),
+                aws_secret_access_key=self.storage_options.get("secret"),
+            )
+            for page in s3_client.get_paginator("list_objects_v2").paginate(
+                Bucket=bucket, Prefix=prefix
+            ):
+                yield [
+                    self.new(obj_dict.get("Key"), _info=obj_dict)
+                    for obj_dict in page.get("Contents", [])
+                ]
+        else:
+            page = []
+            for directory_content in self.walk():
+                for file in directory_content.files:
+                    page.append(file)
+                    if len(page) == items_per_page:
+                        yield page
+                        page = []
+            # yield remaining files
+            if page:
+                yield page
+
     def rm(self, recursive: bool = False, ignore_errors: bool = False) -> None:
         if (
             not recursive and not ignore_errors and self.is_directory()
