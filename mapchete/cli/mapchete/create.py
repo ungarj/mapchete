@@ -1,6 +1,5 @@
 """Create dummy Mapchete and python process files."""
 
-import os
 from shutil import copyfile
 from string import Template
 
@@ -72,7 +71,7 @@ def create(
         if not force:
             raise IOError("file(s) already exists")
 
-    out_path = out_path if out_path else MPath.from_inp(os.getcwd()) / "output"
+    out_path = out_path or MPath.cwd() / "output"
 
     # copy file template to target directory
     # Reads contents with UTF-8 encoding and returns str.

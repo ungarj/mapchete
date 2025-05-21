@@ -61,34 +61,36 @@ class DirectoryContent(NamedTuple):
         files: Union[List[Union[MPath, str, dict]], Dict[str, Dict[str, Any]]],
         absolute_paths: bool = True,
     ) -> DirectoryContent:
-        mpath_root = src_path.new(MPath.from_inp(root), absolute_path=absolute_paths)
+        mpath_root = src_path.new(root, relative_to_self=not absolute_paths)
         if "s3" in src_path.protocols:
             mpath_root = mpath_root.with_protocol("s3")
         mpath_subdirs = []
         if isinstance(subdirs, dict):
             for subdir_str, subdir_info in subdirs.items():
                 mpath_subdirs.append(
-                    src_path.new(mpath_root / subdir_str, _info=subdir_info)
+                    src_path.new(mpath_root / subdir_str, info_dict=subdir_info)
                 )
         else:
             for subdir in subdirs:
                 mpath_subdirs.append(
                     src_path.new(
                         mpath_root / MPath.from_inp(subdir),
-                        absolute_path=absolute_paths,
+                        relative_to_self=not absolute_paths,
                     )
                 )
         mpath_files = []
         if isinstance(files, dict):
             for file_str, file_info in files.items():
-                mpath_files.append(src_path.new(mpath_root / file_str, _info=file_info))
+                mpath_files.append(
+                    src_path.new(mpath_root / file_str, info_dict=file_info)
+                )
         else:
             for file in files:
                 if file:  # walk() sometimes returns [''] as files
                     mpath_files.append(
                         src_path.new(
                             mpath_root / MPath.from_inp(file),
-                            absolute_path=absolute_paths,
+                            relative_to_self=not absolute_paths,
                         )
                     )
         return DirectoryContent(
@@ -109,7 +111,7 @@ class MPath(os.PathLike):
         path: Union[str, os.PathLike, MPath],
         fs: Optional[AbstractFileSystem] = None,
         storage_options: Union[dict, None] = None,
-        _info: Union[dict, None] = None,
+        info_dict: Union[dict, None] = None,
         **kwargs,
     ):
         self._kwargs = {}
@@ -141,7 +143,7 @@ class MPath(os.PathLike):
             self.storage_options, **self._kwargs.get("storage_options") or {}
         )
         self._fs = fs
-        self._info = _info
+        self._info = info_dict
         self._gdal_options = dict()
 
     @staticmethod
@@ -171,6 +173,10 @@ class MPath(os.PathLike):
             return MPath(inp.__fspath__(), **kwargs)
         else:  # pragma: no cover
             raise TypeError(f"cannot construct MPath object from {inp}")
+
+    @staticmethod
+    def cwd() -> MPath:
+        return MPath(os.getcwd())
 
     def info(self, refresh: bool = False) -> dict:
         if refresh or self._info is None:
@@ -315,9 +321,34 @@ class MPath(os.PathLike):
     def crop(self, elements: int) -> MPath:
         return self.new("/".join(self.elements[elements:]))
 
-    def new(self, path: MPathLike, **kwargs) -> MPath:
+    def new(
+        self,
+        path: Union[MPathLike, Dict[str, Any]],
+        relative_to_self: bool = False,
+        info_dict: Optional[Dict[str, Any]] = None,
+    ) -> MPath:
         """Create a new MPath instance with given path."""
-        return MPath(path, **self._kwargs, **kwargs)
+        if isinstance(path, str):
+            path_info = info_dict
+            path_str = path
+        elif isinstance(path, dict):
+            # this is for S3 object dictionaries
+            path_info = path
+            path_str = path_info.get("name", path_info.get("Key"))
+            if path_str is None:  # pragma: no cover
+                raise ValueError(f"cannot create MPath from dictionary: {path_info}")
+            if "s3" in self.protocols:
+                path_str = f"s3://{path_str}"
+        elif isinstance(path, MPath):
+            path_info = info_dict or path._info
+            path_str = path._path_str
+        else:  # pragma: no cover
+            raise TypeError(f"invalid path type: {path}")
+
+        if relative_to_self:
+            path_str = os.path.relpath(path_str, start=self)
+
+        return MPath(path_str, info_dict=path_info, **self._kwargs)
 
     def exists(self) -> bool:
         """Check if path exists."""
@@ -395,6 +426,7 @@ class MPath(os.PathLike):
         self, mode: str = "r", **kwargs
     ) -> Union[IO, TextIO, TextIOWrapper, AbstractBufferedFile]:
         """Open file."""
+        logger.debug("%s: make self.fs.open() call ...", str(self))
         return self.fs.open(self._path_str, mode, **kwargs)
 
     def read_text(self) -> str:
@@ -441,37 +473,14 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
-    def _create_full_path(
-        self, path: Union[MPath, str, dict], absolute_path: bool = True
-    ):
-        if isinstance(path, str):
-            path_info = None
-            path_str = path
-        elif isinstance(path, dict):
-            path_info = path
-            path_str: str = path["name"]
-        elif isinstance(path, MPath):
-            path_info = path._info
-            path_str = path._path_str
-        else:  # pragma: no cover
-            raise TypeError(f"invalid path type: {path}")
-        if "s3" in self.protocols:
-            # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
-            out_path = self.new(path_str, _info=path_info).with_protocol("s3")
-        elif absolute_path:
-            out_path = self.new(path_str, _info=path_info)
-        else:
-            out_path = self.new(os.path.relpath(path_str, start=self), _info=path_info)
-        out_path._info = path_info
-        return out_path
-
     def ls(
         self, absolute_paths: bool = True, detail: Optional[bool] = None
     ) -> List[MPath]:
         if detail is not None:  # pragma: no cover
             warnings.warn(DeprecationWarning("'detail' kwarg is deprecated."))
+        logger.debug("%s: make self.fs.ls() call ...", str(self))
         return [
-            self._create_full_path(path_info, absolute_path=absolute_paths)
+            self.new(path_info, relative_to_self=not absolute_paths)
             for path_info in self.fs.ls(self._path_str, detail=True)
         ]
 
@@ -486,6 +495,7 @@ class MPath(os.PathLike):
         None,
         None,
     ]:
+        logger.debug("%s: make self.fs.walk() call ...", str(self))
         for root, subdirs, files in self.fs.walk(
             str(self), maxdepth=maxdepth, topdown=topdown, detail=True, **kwargs
         ):
@@ -519,10 +529,7 @@ class MPath(os.PathLike):
             for page in s3_client.get_paginator("list_objects_v2").paginate(
                 Bucket=bucket, Prefix=prefix
             ):
-                yield [
-                    self.new(obj_dict.get("Key"), _info=obj_dict)
-                    for obj_dict in page.get("Contents", [])
-                ]
+                yield [self.new(obj_dict) for obj_dict in page.get("Contents", [])]
         else:
             page = []
             for directory_content in self.walk():
@@ -541,6 +548,7 @@ class MPath(os.PathLike):
         ):  # pragma: no cover
             warnings.warn(f"{self} is a directory, use 'recursive' flag to delete")
         try:
+            logger.debug("%s: make self.fs.rm() call ...", str(self))
             self.fs.rm(str(self), recursive=recursive)
         except FileNotFoundError:
             if ignore_errors:
@@ -646,6 +654,7 @@ class MPath(os.PathLike):
                 return self.info().get("StorageClass") == "DIRECTORY"
         except FileNotFoundError:
             pass
+        logger.debug("%s: make self.fs.isdir() call ...", str(self))
         return self.fs.isdir(self._path_str)
 
     def joinpath(self, *other: Union[MPathLike, List[MPathLike]]) -> MPath:
