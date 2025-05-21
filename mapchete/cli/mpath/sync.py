@@ -56,7 +56,7 @@ def sync(
                 for future in tqdm.tqdm(
                     executor.as_completed(
                         sync_file,
-                        _files_skip(
+                        check_files(
                             path, out_path, compare_checksums=compare_checksums
                         ),
                         fargs=None,
@@ -84,7 +84,7 @@ def sync(
         raise click.ClickException(str(exc))
 
 
-def _files_skip(
+def check_files(
     src_dir: MPath, dst_dir: MPath, compare_checksums: bool = False
 ) -> Generator[Tuple[Tuple[MPath, MPath], bool, str], None, None]:
     for contents in src_dir.walk(absolute_paths=True):
