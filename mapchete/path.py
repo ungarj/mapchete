@@ -591,7 +591,12 @@ class MPath(os.PathLike):
             # This is a hack because some tool using aiohttp does not raise a
             # ClientResponseError directly but masks it as a generic Exception and thus
             # preventing our retry mechanism to kick in.
-            if repr(exception).startswith('Exception("ClientResponseError'):
+            # Also, s3fs sometimes throws a generic OSError which we need to catch and convert here.
+            if repr(exception).startswith('Exception("ClientResponseError') or (
+                isinstance(exception, OSError)
+                and "An error occurred (BadRequest) when calling the PutObject operation: N/A"
+                in repr(exception)
+            ):
                 raise ConnectionError(repr(exception)).with_traceback(
                     exception.__traceback__
                 ) from exception
