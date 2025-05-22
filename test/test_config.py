@@ -1,13 +1,14 @@
 import os
 import pickle
 from copy import deepcopy
+import warnings
 
 import oyaml as yaml
 import pytest
 from pydantic import ValidationError
 from pytest_lazyfixture import lazy_fixture
 from shapely import wkt
-from shapely.errors import WKTReadingError
+from shapely.errors import ShapelyError
 from shapely.geometry import Polygon, box, mapping, shape
 from shapely.ops import unary_union
 
@@ -45,7 +46,9 @@ def test_config_errors(example_mapchete):
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
         config["output"].pop("bands")
-        MapcheteConfig(config)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            MapcheteConfig(config)
     # no baselevel params
     with pytest.raises(MapcheteConfigError):
         config = deepcopy(config_orig)
@@ -72,9 +75,11 @@ def test_config_errors(example_mapchete):
 
 def test_config_parse_dict(example_mapchete):
     raw_config = example_mapchete.dict.copy()
-    raw_config.update(process_parameters=dict(foo=dict(bar=1)))
-    config = MapcheteConfig(raw_config)
-    assert config.params_at_zoom(7)["process_parameters"]["foo"]["bar"] == 1
+    raw_config["process_parameters"].update(foo=dict(bar=1))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        config = MapcheteConfig(raw_config)
+    assert config.params_at_zoom(7)["process_parameters"]["foo"]["bar"] == 1  # type: ignore
 
 
 def test_config_parse_dict_zoom_overlaps_error(example_mapchete):
@@ -96,9 +101,9 @@ def test_config_zoom7(example_mapchete, dummy2_tif):
     config = MapcheteConfig(example_mapchete.dict)
     zoom7 = config.params_at_zoom(7)
     input_files = zoom7["input"]
-    assert input_files["file1"] is not None
-    assert str(input_files["file1"].path) == dummy2_tif
-    assert str(input_files["file2"].path) == dummy2_tif
+    assert input_files["required_file"] is not None
+    assert str(input_files["required_file"].path) == dummy2_tif
+    assert str(input_files["optional_file"].path) == dummy2_tif
     assert zoom7["process_parameters"]["some_integer_parameter"] == 12
     assert zoom7["process_parameters"]["some_float_parameter"] == 5.3
     assert zoom7["process_parameters"]["some_string_parameter"] == "string1"
@@ -110,8 +115,8 @@ def test_config_zoom11(example_mapchete, dummy2_tif, dummy1_tif):
     config = MapcheteConfig(example_mapchete.dict)
     zoom11 = config.params_at_zoom(11)
     input_files = zoom11["input"]
-    assert str(input_files["file1"].path) == dummy1_tif
-    assert str(input_files["file2"].path) == dummy2_tif
+    assert str(input_files["required_file"].path) == dummy2_tif
+    assert str(input_files["optional_file"].path) == dummy1_tif
     assert zoom11["process_parameters"]["some_integer_parameter"] == 12
     assert zoom11["process_parameters"]["some_float_parameter"] == 5.3
     assert zoom11["process_parameters"]["some_string_parameter"] == "string2"
@@ -266,7 +271,7 @@ def test_empty_input(file_groups):
 def test_input_name_process_params(example_mapchete):
     """Input has to be defined if required by process."""
     config = example_mapchete.dict
-    config.update(process_parameters=dict(file1="foo"))
+    config.update(process_parameters=dict(required_file="foo"))
     with pytest.raises(MapcheteConfigError):
         mapchete.open(config)
 
@@ -275,16 +280,16 @@ def test_read_input_groups(file_groups):
     """Read input data groups."""
     config = MapcheteConfig(file_groups.dict)
     input_files = config.params_at_zoom(0)["input"]
-    assert "file1" in input_files["group1"]
-    assert "file2" in input_files["group1"]
-    assert "file1" in input_files["group2"]
-    assert "file2" in input_files["group2"]
+    assert "required_file" in input_files["group1"]
+    assert "optional_file" in input_files["group1"]
+    assert "required_file" in input_files["group2"]
+    assert "optional_file" in input_files["group2"]
     assert "nested_group" in input_files
     assert "group1" in input_files["nested_group"]
-    assert "file1" in input_files["nested_group"]["group1"]
-    assert "file2" in input_files["nested_group"]["group1"]
-    assert "file1" in input_files["nested_group"]["group2"]
-    assert "file2" in input_files["nested_group"]["group2"]
+    assert "required_file" in input_files["nested_group"]["group1"]
+    assert "optional_file" in input_files["nested_group"]["group1"]
+    assert "required_file" in input_files["nested_group"]["group2"]
+    assert "optional_file" in input_files["nested_group"]["group2"]
     assert config.area_at_zoom()
 
 
@@ -396,7 +401,7 @@ def test_guess_geometry(aoi_br_geojson):
 
     # Errors
     # malformed WKT
-    with pytest.raises(WKTReadingError):
+    with pytest.raises(ShapelyError):
         guess_geometry(area.wkt.rstrip(")"))
     # non-existent path
     with pytest.raises(FileNotFoundError):
@@ -560,7 +565,7 @@ def test_custom_process(example_custom_process_mapchete):
 def test_env_storage_options(env_storage_options_mapchete):
     with mapchete.open(env_storage_options_mapchete.dict) as mp:
         inp = mp.config.params_at_zoom(5)
-        assert inp["input"]["file1"].storage_options.get("access_key") == "foo"
+        assert inp["input"]["required_file"].storage_options.get("access_key") == "foo"
         assert mp.config.output.storage_options.get("access_key") == "bar"
 
 
@@ -568,7 +573,7 @@ def test_env_storage_options(env_storage_options_mapchete):
 def test_env_params(env_input_path_mapchete):
     with mapchete.open(env_input_path_mapchete.dict) as mp:
         inp = mp.config.params_at_zoom(5)
-        assert inp["input"]["file1"].path.endswith("dummy2.tif")
+        assert inp["input"]["required_file"].path.endswith("dummy2.tif")
 
 
 def test_process_config_pyramid_settings():
