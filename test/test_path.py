@@ -235,6 +235,9 @@ def test_paginate(path, items_per_page):
         assert len(page)
         assert len(page) <= items_per_page
         for item in page:
+            assert item._info is not None
+            if "s3" in path.protocols:
+                assert item.startswith("s3://")
             assert isinstance(item, MPath)
             assert not item.is_directory()
 
