@@ -38,7 +38,7 @@ __all__ = [
     "VectorInputGroup",
     "ZoomLevels",
 ]
-__version__ = "2025.5.1"
+__version__ = "2025.5.2"
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

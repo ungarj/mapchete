@@ -2,6 +2,23 @@
 Changelog
 #########
 
+---------------------
+2025.5.2 - 2025-05-22
+---------------------
+
+* core
+
+  * `path.MPath.cwd()`: add constructor method (#688)
+  * `path.MPath.new()`: can now create `MPath` instances from object dictionaries from S3 endpoints (#688)
+  * `path.MPath.walk()`: make sure object information is passed on when constructing `MPath` instances (#688)
+  * `path.MPath.exists()`: add `weak_check` flag to avoid making HEAD requests by checking if internal `_info` dictionary is already set or not (#688)
+  * `path.MPath.paginate()`: add method to replicate `boto3` paginator. (#688)
+  * `path.MPath.cp()`: remove capability to automatically create destination file path if `dst_path` is a directory (#688)
+  * `path.MPath`: reraise specific `OSError` as `ConnectionError` raised by `s3fs` on some occasions to make it retryable. (#688)
+
+* CLI
+  * `mpath sync`: reduce requests by passing on path information when walking through directories (#688)
+
 
 ---------------------
 2025.5.1 - 2025-05-20
