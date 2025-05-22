@@ -64,10 +64,10 @@ def _retry(func):
                 and "An error occurred (BadRequest) when calling the PutObject operation: N/A"
                 in repr(exception)
             ):  # pragma: no cover
-                return ConnectionError(repr(exception)).with_traceback(
+                raise ConnectionError(repr(exception)).with_traceback(
                     exception.__traceback__
                 )
-            return exception
+            raise exception
 
     def wrapper(*args, **kwargs):
         return retry_call(
