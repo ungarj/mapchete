@@ -17,6 +17,7 @@ Changelog
   * `path.MPath`: reraise specific `OSError` as `ConnectionError` raised by `s3fs` on some occasions to make it retryable. (#688)
 
 * CLI
+
   * `mpath sync`: reduce requests by passing on path information when walking through directories (#688)
 
 
