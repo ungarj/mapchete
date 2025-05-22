@@ -383,8 +383,23 @@ class MPath(os.PathLike):
         self, mode: str = "r", **kwargs
     ) -> Union[IO, TextIO, TextIOWrapper, AbstractBufferedFile]:
         """Open file."""
-        logger.debug("%s: make self.fs.open() call ...", str(self))
-        return self.fs.open(self._path_str, mode, **kwargs)
+        try:
+            logger.debug("%s: make self.fs.open() call ...", str(self))
+            return self.fs.open(self._path_str, mode, **kwargs)
+        except Exception as exception:
+            # This is a hack because some tool using aiohttp does not raise a
+            # ClientResponseError directly but masks it as a generic Exception and thus
+            # preventing our retry mechanism to kick in.
+            # Also, s3fs sometimes throws a generic OSError which we need to catch and convert here.
+            if repr(exception).startswith('Exception("ClientResponseError') or (
+                isinstance(exception, OSError)
+                and "An error occurred (BadRequest) when calling the PutObject operation: N/A"
+                in repr(exception)
+            ):
+                raise ConnectionError(repr(exception)).with_traceback(
+                    exception.__traceback__
+                ) from exception
+            raise
 
     def read_text(self) -> str:
         """Open and return file content as text."""
@@ -583,23 +598,10 @@ class MPath(os.PathLike):
                                     )
                                 )
             all_observers.notify(message=f"copied in {duration}")
-        except Exception as exception:  # pragma: no cover
+        except Exception:  # pragma: no cover
             # delete file if something failed
             # dst_path should either not even exist and if, the overwrite flag is active anyways
             dst_path.rm(ignore_errors=True)
-
-            # This is a hack because some tool using aiohttp does not raise a
-            # ClientResponseError directly but masks it as a generic Exception and thus
-            # preventing our retry mechanism to kick in.
-            # Also, s3fs sometimes throws a generic OSError which we need to catch and convert here.
-            if repr(exception).startswith('Exception("ClientResponseError') or (
-                isinstance(exception, OSError)
-                and "An error occurred (BadRequest) when calling the PutObject operation: N/A"
-                in repr(exception)
-            ):
-                raise ConnectionError(repr(exception)).with_traceback(
-                    exception.__traceback__
-                ) from exception
             raise
 
     def size(self) -> int:
