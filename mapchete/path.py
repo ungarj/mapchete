@@ -32,7 +32,7 @@ import rasterio
 from fiona.session import Session as FioSession
 from fsspec.spec import AbstractBufferedFile, AbstractFileSystem
 from rasterio.session import Session as RioSession
-from retry import retry
+from retry.api import retry_call
 
 from mapchete.executor import Executor
 from mapchete.pretty import pretty_bytes
@@ -46,6 +46,35 @@ logger = logging.getLogger(__name__)
 
 UNALLOWED_S3_KWARGS = ["timeout"]
 UNALLOWED_HTTP_KWARGS = ["username", "password"]
+
+
+def _retry(func):
+    """Custom retry decorator for MPath methods."""
+
+    def _call_func(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as exception:  # pragma: no cover
+            # This is a hack because some tool using aiohttp does not raise a
+            # ClientResponseError directly but masks it as a generic Exception and thus
+            # preventing our retry mechanism to kick in.
+            # Also, s3fs sometimes throws a generic OSError which we need to catch and convert here.
+            if repr(exception).startswith('Exception("ClientResponseError') or (
+                isinstance(exception, OSError)
+                and "An error occurred (BadRequest) when calling the PutObject operation: N/A"
+                in repr(exception)
+            ):  # pragma: no cover
+                return ConnectionError(repr(exception)).with_traceback(
+                    exception.__traceback__
+                )
+            return exception
+
+    def wrapper(*args, **kwargs):
+        return retry_call(
+            _call_func, args, kwargs, logger=logger, **IORetrySettings().model_dump()
+        )
+
+    return wrapper
 
 
 class DirectoryContent(NamedTuple):
@@ -134,12 +163,14 @@ class MPath(os.PathLike):
     def cwd() -> MPath:
         return MPath(os.getcwd())
 
+    @_retry
     def info(self, refresh: bool = False) -> dict:
         if refresh or self._info is None:
             logger.debug("%s: make self.fs.info() call ...", str(self))
             self._info = self.fs.info(self._path_str)
         return self._info
 
+    @_retry
     def checksum(self, algo: str = "sha256", block_size: int = 1024 * 1024) -> str:
         """Stream a file and compute its checksum."""
         hasher = hashlib.new(algo)
@@ -307,6 +338,7 @@ class MPath(os.PathLike):
 
         return MPath(path_str, info_dict=path_info, **self._kwargs)
 
+    @_retry
     def exists(self, weak_check: bool = False) -> bool:
         """Check if path exists."""
         # avoid HEAD call if _info object is already there
@@ -378,29 +410,14 @@ class MPath(os.PathLike):
             )
         )
 
-    @retry(logger=logger, **dict(IORetrySettings()))
     def open(
         self, mode: str = "r", **kwargs
     ) -> Union[IO, TextIO, TextIOWrapper, AbstractBufferedFile]:
         """Open file."""
-        try:
-            logger.debug("%s: make self.fs.open() call ...", str(self))
-            return self.fs.open(self._path_str, mode, **kwargs)
-        except Exception as exception:
-            # This is a hack because some tool using aiohttp does not raise a
-            # ClientResponseError directly but masks it as a generic Exception and thus
-            # preventing our retry mechanism to kick in.
-            # Also, s3fs sometimes throws a generic OSError which we need to catch and convert here.
-            if repr(exception).startswith('Exception("ClientResponseError') or (
-                isinstance(exception, OSError)
-                and "An error occurred (BadRequest) when calling the PutObject operation: N/A"
-                in repr(exception)
-            ):  # pragma: no cover
-                raise ConnectionError(repr(exception)).with_traceback(
-                    exception.__traceback__
-                ) from exception
-            raise
+        logger.debug("%s: make self.fs.open() call ...", str(self))
+        return self.fs.open(self._path_str, mode, **kwargs)
 
+    @_retry
     def read_text(self) -> str:
         """Open and return file content as text."""
         try:
@@ -408,10 +425,10 @@ class MPath(os.PathLike):
                 return str(src.read())
         except FileNotFoundError:
             raise FileNotFoundError(f"{str(self)} not found")
-        except Exception as e:  # pragma: no cover
+        except Exception as exception:  # pragma: no cover
             if self.exists():
-                logger.exception(e)
-                raise e
+                logger.exception(exception)
+                raise exception
             else:
                 raise FileNotFoundError(f"{str(self)} not found")
 
@@ -419,6 +436,7 @@ class MPath(os.PathLike):
         """Read local or remote."""
         return json.loads(self.read_text())
 
+    @_retry
     def write_json(self, params: dict, sort_keys=True, indent=4) -> None:
         """Write local or remote."""
         logger.debug(f"write {params} to {self}")
@@ -430,6 +448,7 @@ class MPath(os.PathLike):
         """Read local or remote."""
         return yaml.safe_load(self.read_text())
 
+    @_retry
     def write_yaml(self, params: dict) -> None:
         """Write local or remote."""
         logger.debug(f"write {params} to {self}")
@@ -445,6 +464,7 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
+    @_retry
     def ls(
         self, absolute_paths: bool = True, detail: Optional[bool] = None
     ) -> List[MPath]:
@@ -525,6 +545,7 @@ class MPath(os.PathLike):
             if page:
                 yield page
 
+    @_retry
     def rm(self, recursive: bool = False, ignore_errors: bool = False) -> None:
         if (
             not recursive and not ignore_errors and self.is_directory()
@@ -541,6 +562,7 @@ class MPath(os.PathLike):
         finally:
             self._info = None
 
+    @_retry
     def cp(
         self,
         destination: MPathLike,
