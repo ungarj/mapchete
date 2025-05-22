@@ -395,7 +395,7 @@ class MPath(os.PathLike):
                 isinstance(exception, OSError)
                 and "An error occurred (BadRequest) when calling the PutObject operation: N/A"
                 in repr(exception)
-            ):
+            ):  # pragma: no cover
                 raise ConnectionError(repr(exception)).with_traceback(
                     exception.__traceback__
                 ) from exception
