@@ -187,6 +187,8 @@ def test_ls_remote(path):
 def test_walk(path, absolute_paths):
     dir_is_remote = path.is_remote()
     assert list(path.ls())
+    subdirs_available = False
+    files_available = False
     for root, subdirs, files in path.walk(absolute_paths=absolute_paths):
         assert isinstance(root, MPath)
         if absolute_paths:
@@ -194,9 +196,15 @@ def test_walk(path, absolute_paths):
         assert isinstance(subdirs, list)
         assert isinstance(files, list)
         for subdir in subdirs:
+            subdirs_available = True
             assert isinstance(subdir, MPath)
+            assert subdir._info is not None
         for file in files:
+            files_available = True
             assert isinstance(file, MPath)
+            assert file._info is not None
+    assert subdirs_available
+    assert files_available
 
 
 @pytest.mark.integration
@@ -211,6 +219,41 @@ def test_walk(path, absolute_paths):
 @pytest.mark.parametrize("absolute_paths", [True, False])
 def test_walk_remote(path, absolute_paths):
     test_walk(path, absolute_paths=absolute_paths)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        lazy_fixture("testdata_dir"),
+    ],
+)
+@pytest.mark.parametrize("items_per_page", [1, 10])
+def test_paginate(path, items_per_page):
+    paginated = path.paginate(items_per_page=items_per_page)
+    assert paginated
+    for page in paginated:
+        assert len(page)
+        assert len(page) <= items_per_page
+        for item in page:
+            assert item._info is not None
+            if "s3" in path.protocols:
+                assert item.startswith("s3://")
+            assert isinstance(item, MPath)
+            assert not item.is_directory()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "path",
+    [
+        lazy_fixture("http_testdata_dir"),
+        lazy_fixture("secure_http_testdata_dir"),
+        lazy_fixture("s3_testdata_dir"),
+    ],
+)
+@pytest.mark.parametrize("items_per_page", [1, 10])
+def test_paginate_remote(path, items_per_page):
+    test_paginate(path, items_per_page=items_per_page)
 
 
 @pytest.mark.parametrize(
@@ -559,9 +602,9 @@ def test_cp(src_path: MPath, dst_dir: MPath):
     tempdir = dst_dir / "temp/"
     dst_path = tempdir / src_path.name
     try:
-        src_path.cp(tempdir)
+        src_path.cp(dst_path)
         assert dst_path.exists()
-        assert not ReferencedRaster.from_file(dst_path).data.mask.all()
+        assert not ReferencedRaster.from_file(dst_path).masked_array().mask.all()
     finally:
         dst_path.rm(ignore_errors=True)
 

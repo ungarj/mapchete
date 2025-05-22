@@ -56,7 +56,7 @@ def sync(
                 for future in tqdm.tqdm(
                     executor.as_completed(
                         sync_file,
-                        _files_skip(
+                        check_files(
                             path, out_path, compare_checksums=compare_checksums
                         ),
                         fargs=None,
@@ -64,18 +64,18 @@ def sync(
                         item_skip_bool=True,
                         max_submitted_tasks=workers * 10,
                     ),
+                    disable=debug,
                     desc="files",
                 ):
                     if future.skipped:  # pragma: no cover
                         src, _ = future.result()
-                        if verbose:
-                            tqdm.tqdm.write(f"[SKIPPED] {str(src)}: {future.skip_info}")
+                        msg = f"[SKIPPED] {str(src)}: {future.skip_info}"
                     else:
                         (src, dst), duration = future.result()
-                        if verbose:
-                            tqdm.tqdm.write(
-                                f"[OK] {str(src)}: copied to {str(dst)} in {duration}"
-                            )
+                        msg = f"[OK] {str(src)}: copied to {str(dst)} in {duration}"
+                    if verbose:
+                        tqdm.tqdm.write(msg)
+                    logger.debug(msg)
         else:  # pragma: no cover
             raise NotImplementedError()
     except Exception as exc:  # pragma: no cover
@@ -84,7 +84,7 @@ def sync(
         raise click.ClickException(str(exc))
 
 
-def _files_skip(
+def check_files(
     src_dir: MPath, dst_dir: MPath, compare_checksums: bool = False
 ) -> Generator[Tuple[Tuple[MPath, MPath], bool, str], None, None]:
     for contents in src_dir.walk(absolute_paths=True):
@@ -93,15 +93,14 @@ def _files_skip(
             start=str(src_dir.without_protocol()),
         ).rstrip(".")
         try:
-            dst_files = set([file.name for file in dst_root.ls()])
+            # make sure to keep destination MPath objects to avoid unnecessary
+            # HEAD calls
+            existing_dst_files = {file.name: file for file in dst_root.ls()}
         except FileNotFoundError:
-            dst_files = set()
+            existing_dst_files = dict()
         for src_file in contents.files:
-            dst_file = dst_dir / os.path.relpath(
-                str(src_file.without_protocol()),
-                start=str(src_dir.without_protocol()),
-            )
-            if src_file.name in dst_files:  # pragma: no cover
+            if src_file.name in existing_dst_files:  # pragma: no cover
+                dst_file = existing_dst_files[src_file.name]
                 if (
                     src_file.checksum()
                     == dst_file.checksum()  # file contents are not identical
@@ -112,6 +111,10 @@ def _files_skip(
                 else:
                     out = (src_file, dst_file), False, ""
             else:
+                dst_file = dst_dir / os.path.relpath(
+                    str(src_file.without_protocol()),
+                    start=str(src_dir.without_protocol()),
+                )
                 out = (src_file, dst_file), False, ""
             yield out
 

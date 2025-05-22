@@ -57,7 +57,6 @@ class IORetrySettings(BaseSettings):
     # only retry the most common exceptions which do not hint to
     # a permanent issue (such as FileNotFoundError, ...).
     exceptions: Tuple[Type[Exception], ...] = (
-        AttributeError,
         BufferError,
         ConnectionError,
         InterruptedError,

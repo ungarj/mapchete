@@ -11,7 +11,18 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property
 from io import TextIOWrapper
-from typing import IO, Generator, List, Optional, Set, TextIO, NamedTuple, Union
+from typing import (
+    IO,
+    Any,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    TextIO,
+    NamedTuple,
+    Union,
+)
 
 from aiohttp import BasicAuth
 import fiona
@@ -21,7 +32,7 @@ import rasterio
 from fiona.session import Session as FioSession
 from fsspec.spec import AbstractBufferedFile, AbstractFileSystem
 from rasterio.session import Session as RioSession
-from retry import retry
+from retry.api import retry_call
 
 from mapchete.executor import Executor
 from mapchete.pretty import pretty_bytes
@@ -35,6 +46,35 @@ logger = logging.getLogger(__name__)
 
 UNALLOWED_S3_KWARGS = ["timeout"]
 UNALLOWED_HTTP_KWARGS = ["username", "password"]
+
+
+def _retry(func):
+    """Custom retry decorator for MPath methods."""
+
+    def _call_func(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as exception:  # pragma: no cover
+            # This is a hack because some tool using aiohttp does not raise a
+            # ClientResponseError directly but masks it as a generic Exception and thus
+            # preventing our retry mechanism to kick in.
+            # Also, s3fs sometimes throws a generic OSError which we need to catch and convert here.
+            if repr(exception).startswith('Exception("ClientResponseError') or (
+                isinstance(exception, OSError)
+                and "An error occurred (BadRequest) when calling the PutObject operation: N/A"
+                in repr(exception)
+            ):  # pragma: no cover
+                raise ConnectionError(repr(exception)).with_traceback(
+                    exception.__traceback__
+                )
+            raise exception
+
+    def wrapper(*args, **kwargs):
+        return retry_call(
+            _call_func, args, kwargs, logger=logger, **IORetrySettings().model_dump()
+        )
+
+    return wrapper
 
 
 class DirectoryContent(NamedTuple):
@@ -56,7 +96,7 @@ class MPath(os.PathLike):
         path: Union[str, os.PathLike, MPath],
         fs: Optional[AbstractFileSystem] = None,
         storage_options: Union[dict, None] = None,
-        _info: Union[dict, None] = None,
+        info_dict: Union[dict, None] = None,
         **kwargs,
     ):
         self._kwargs = {}
@@ -79,15 +119,16 @@ class MPath(os.PathLike):
             self._path_str = path_str
         if fs:
             self._kwargs.update(fs=fs)
-        if "fs_options" in kwargs:
-            storage_options = kwargs.get("fs_options")
+        for option in ["fs_options", "protocol"]:
+            if option in kwargs:
+                storage_options = kwargs.get(option)
         if storage_options:
             self._kwargs.update(storage_options=storage_options)
         self.storage_options = dict(
             self.storage_options, **self._kwargs.get("storage_options") or {}
         )
         self._fs = fs
-        self._info = _info
+        self._info = info_dict
         self._gdal_options = dict()
 
     @staticmethod
@@ -118,11 +159,18 @@ class MPath(os.PathLike):
         else:  # pragma: no cover
             raise TypeError(f"cannot construct MPath object from {inp}")
 
+    @staticmethod
+    def cwd() -> MPath:
+        return MPath(os.getcwd())
+
+    @_retry
     def info(self, refresh: bool = False) -> dict:
         if refresh or self._info is None:
+            logger.debug("%s: make self.fs.info() call ...", str(self))
             self._info = self.fs.info(self._path_str)
         return self._info
 
+    @_retry
     def checksum(self, algo: str = "sha256", block_size: int = 1024 * 1024) -> str:
         """Stream a file and compute its checksum."""
         hasher = hashlib.new(algo)
@@ -260,12 +308,43 @@ class MPath(os.PathLike):
     def crop(self, elements: int) -> MPath:
         return self.new("/".join(self.elements[elements:]))
 
-    def new(self, path: MPathLike, **kwargs) -> "MPath":
+    def new(
+        self,
+        path: Union[MPathLike, Dict[str, Any]],
+        relative_to_self: bool = False,
+        info_dict: Optional[Dict[str, Any]] = None,
+    ) -> MPath:
         """Create a new MPath instance with given path."""
-        return MPath(path, **self._kwargs, **kwargs)
+        if isinstance(path, str):
+            path_info = info_dict
+            path_str = path
+        elif isinstance(path, dict):
+            # this is for S3 object dictionaries
+            path_info = path
+            path_str = path_info.get("name", path_info.get("Key"))
+            if path_str is None:  # pragma: no cover
+                raise ValueError(f"cannot create MPath from dictionary: {path_info}")
+            # S3 json does not return path information with protocol, so let's add it manually
+            if "s3" in self.protocols:
+                path_str = f"s3://{path_str}"
+        elif isinstance(path, MPath):
+            path_info = info_dict or path._info
+            path_str = path._path_str
+        else:  # pragma: no cover
+            raise TypeError(f"invalid path type: {path}")
 
-    def exists(self) -> bool:
+        if relative_to_self:
+            path_str = os.path.relpath(path_str, start=self)
+
+        return MPath(path_str, info_dict=path_info, **self._kwargs)
+
+    @_retry
+    def exists(self, weak_check: bool = False) -> bool:
         """Check if path exists."""
+        # avoid HEAD call if _info object is already there
+        if weak_check and self._info is not None:  # pragma: no cover
+            return True
+        logger.debug("%s: make self.fs.exists() call ...", str(self))
         return self.fs.exists(self._path_str)
 
     def is_remote(self) -> bool:
@@ -331,13 +410,14 @@ class MPath(os.PathLike):
             )
         )
 
-    @retry(logger=logger, **dict(IORetrySettings()))
     def open(
         self, mode: str = "r", **kwargs
     ) -> Union[IO, TextIO, TextIOWrapper, AbstractBufferedFile]:
         """Open file."""
+        logger.debug("%s: make self.fs.open() call ...", str(self))
         return self.fs.open(self._path_str, mode, **kwargs)
 
+    @_retry
     def read_text(self) -> str:
         """Open and return file content as text."""
         try:
@@ -345,10 +425,10 @@ class MPath(os.PathLike):
                 return str(src.read())
         except FileNotFoundError:
             raise FileNotFoundError(f"{str(self)} not found")
-        except Exception as e:  # pragma: no cover
+        except Exception as exception:  # pragma: no cover
             if self.exists():
-                logger.exception(e)
-                raise e
+                logger.exception(exception)
+                raise exception
             else:
                 raise FileNotFoundError(f"{str(self)} not found")
 
@@ -356,6 +436,7 @@ class MPath(os.PathLike):
         """Read local or remote."""
         return json.loads(self.read_text())
 
+    @_retry
     def write_json(self, params: dict, sort_keys=True, indent=4) -> None:
         """Write local or remote."""
         logger.debug(f"write {params} to {self}")
@@ -367,6 +448,7 @@ class MPath(os.PathLike):
         """Read local or remote."""
         return yaml.safe_load(self.read_text())
 
+    @_retry
     def write_yaml(self, params: dict) -> None:
         """Write local or remote."""
         logger.debug(f"write {params} to {self}")
@@ -382,37 +464,15 @@ class MPath(os.PathLike):
             logger.debug("create directory %s", str(self))
             self.fs.makedirs(self, exist_ok=exist_ok)
 
-    def _create_full_path(
-        self, path: Union[MPath, str, dict], absolute_path: bool = True
-    ):
-        if isinstance(path, str):
-            path_info = None
-            path_str = path
-        elif isinstance(path, dict):
-            path_info = path
-            path_str: str = path["name"]
-        elif isinstance(path, MPath):
-            path_info = path._info
-            path_str = path._path_str
-        else:  # pragma: no cover
-            raise TypeError(f"invalid path type: {path}")
-        if "s3" in self.protocols:
-            # s3fs returns paths without protocol ("s3://"), therefore we have to append it again:
-            out_path = self.new(path_str, _info=path_info).with_protocol("s3")
-        elif absolute_path:
-            out_path = self.new(path_str, _info=path_info)
-        else:
-            out_path = self.new(os.path.relpath(path_str, start=self), _info=path_info)
-        out_path._info = path_info
-        return out_path
-
+    @_retry
     def ls(
         self, absolute_paths: bool = True, detail: Optional[bool] = None
     ) -> List[MPath]:
         if detail is not None:  # pragma: no cover
             warnings.warn(DeprecationWarning("'detail' kwarg is deprecated."))
+        logger.debug("%s: make self.fs.ls() call ...", str(self))
         return [
-            self._create_full_path(path_info, absolute_path=absolute_paths)
+            self.new(path_info, relative_to_self=not absolute_paths)
             for path_info in self.fs.ls(self._path_str, detail=True)
         ]
 
@@ -427,40 +487,82 @@ class MPath(os.PathLike):
         None,
         None,
     ]:
+        logger.debug("%s: make self.fs.walk() call ...", str(self))
         for root, subdirs, files in self.fs.walk(
-            str(self), maxdepth=maxdepth, topdown=topdown, **kwargs
+            str(self), maxdepth=maxdepth, topdown=topdown, detail=True, **kwargs
         ):
             if isinstance(root, str):
+                mpath_root = self.new(root, relative_to_self=not absolute_paths)
+                if "s3" in self.protocols:
+                    mpath_root = mpath_root.with_protocol("s3")
                 yield DirectoryContent(
-                    root=self._create_full_path(root, absolute_path=absolute_paths),
+                    root=mpath_root,
                     subdirs=[
-                        self._create_full_path(
-                            self.new(root) / subdir, absolute_path=absolute_paths
-                        )
-                        for subdir in subdirs
+                        self.new(mpath_root / subdir_str, info_dict=subdir_info)
+                        for subdir_str, subdir_info in subdirs.items()  # type: ignore
                     ],
                     files=[
-                        self._create_full_path(
-                            self.new(root) / file, absolute_path=absolute_paths
-                        )
-                        for file in files
-                        if file  # walk() sometimes returns [''] as files
+                        self.new(mpath_root / file_str, info_dict=file_info)
+                        for file_str, file_info in files.items()  # type: ignore
                     ],
                 )
 
+    def paginate(
+        self, items_per_page: int = 1000
+    ) -> Generator[List[MPath], None, None]:
+        """
+        List all files in directory and all subdirectories.
+
+        On S3 paths, this uses the 'list_objects_v2' paginator from boto3.
+
+        On other file systems, it replicates the behavior of the S3 paginator
+        """
+        if "s3" in self.protocols:
+            import boto3
+
+            bucket = self.without_protocol().elements[0]
+            prefix = "/".join(self.without_protocol().elements[1:])
+            s3_client = boto3.client(
+                "s3",
+                region_name=self.storage_options.get("region_name"),
+                endpoint_url=self.storage_options.get("endpoint_url"),
+                aws_access_key_id=self.storage_options.get("key"),
+                aws_secret_access_key=self.storage_options.get("secret"),
+            )
+            for page in s3_client.get_paginator("list_objects_v2").paginate(
+                Bucket=bucket, Prefix=prefix
+            ):
+                yield [self.new(obj_dict) for obj_dict in page.get("Contents", [])]
+        else:
+            page = []
+            for directory_content in self.walk():
+                for file in directory_content.files:
+                    page.append(file)
+                    if len(page) == items_per_page:
+                        yield page
+                        page = []
+            # yield remaining files
+            if page:
+                yield page
+
+    @_retry
     def rm(self, recursive: bool = False, ignore_errors: bool = False) -> None:
         if (
             not recursive and not ignore_errors and self.is_directory()
         ):  # pragma: no cover
             warnings.warn(f"{self} is a directory, use 'recursive' flag to delete")
         try:
+            logger.debug("%s: make self.fs.rm() call ...", str(self))
             self.fs.rm(str(self), recursive=recursive)
         except FileNotFoundError:
             if ignore_errors:
                 pass
             else:  # pragma: no cover
                 raise
+        finally:
+            self._info = None
 
+    @_retry
     def cp(
         self,
         destination: MPathLike,
@@ -477,16 +579,11 @@ class MPath(os.PathLike):
 
         all_observers = Observers(observers)
         dst_path = MPath.from_inp(destination)
-        try:
-            if dst_path.endswith("/") or dst_path.is_directory():
-                dst_path = dst_path / self.name
-        except FileNotFoundError:  # pragma: no cover
-            pass
 
-        if dst_path.exists():
-            if overwrite:
-                pass
-            elif exists_ok:
+        if overwrite:
+            pass
+        elif dst_path.exists(weak_check=True):
+            if exists_ok:
                 msg = f"{str(dst_path)} already exists"
                 all_observers.notify(message=msg)
                 logger.debug(msg)
@@ -523,18 +620,10 @@ class MPath(os.PathLike):
                                     )
                                 )
             all_observers.notify(message=f"copied in {duration}")
-        except Exception as exception:  # pragma: no cover
+        except Exception:  # pragma: no cover
             # delete file if something failed
             # dst_path should either not even exist and if, the overwrite flag is active anyways
             dst_path.rm(ignore_errors=True)
-
-            # This is a hack because some tool using aiohttp does not raise a
-            # ClientResponseError directly but masks it as a generic Exception and thus
-            # preventing our retry mechanism to kick in.
-            if repr(exception).startswith('Exception("ClientResponseError'):
-                raise ConnectionError(repr(exception)).with_traceback(
-                    exception.__traceback__
-                ) from exception
             raise
 
     def size(self) -> int:
@@ -560,8 +649,9 @@ class MPath(os.PathLike):
             # for S3 objects use the possible cached info directory
             if "StorageClass" in self.info():  # pragma: no cover
                 return self.info().get("StorageClass") == "DIRECTORY"
-        except FileNotFoundError:
+        except FileNotFoundError:  # pragma: no cover
             pass
+        logger.debug("%s: make self.fs.isdir() call ...", str(self))
         return self.fs.isdir(self._path_str)
 
     def joinpath(self, *other: Union[MPathLike, List[MPathLike]]) -> MPath:
