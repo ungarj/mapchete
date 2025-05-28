@@ -530,7 +530,9 @@ class MPath(os.PathLike):
                 aws_secret_access_key=self.storage_options.get("secret"),
             )
             for page in s3_client.get_paginator("list_objects_v2").paginate(
-                Bucket=bucket, Prefix=prefix
+                Bucket=bucket,
+                Prefix=prefix,
+                PaginationConfig={"PageSize": items_per_page},
             ):
                 yield [self.new(obj_dict) for obj_dict in page.get("Contents", [])]
         else:

@@ -3,6 +3,7 @@ import os
 from typing import Generator, Tuple
 
 import click
+import click_spinner
 import tqdm
 
 from mapchete.cli import options
@@ -33,6 +34,11 @@ logger = logging.getLogger(__name__)
     is_flag=True,
     help="Calculate checksums of objects. WARNING: this will effectively read all of the data (source and destination)!",
 )
+@click.option(
+    "--count",
+    is_flag=True,
+    help="Count all files from source path. WARNING: this will trigger more requests on S3.",
+)
 @options.opt_workers
 @options.opt_debug
 @options.opt_verbose
@@ -41,6 +47,7 @@ def sync(
     out_path: MPath,
     chunksize: int = 1024 * 1024,
     compare_checksums: bool = False,
+    count: bool = False,
     workers: int = 1,
     debug: bool = False,
     verbose: bool = False,
@@ -49,6 +56,22 @@ def sync(
     try:
         if path.is_directory():
             out_path.makedirs()
+            if count:
+                tqdm.tqdm.write("counting files ...")
+                with Timer() as duration:
+                    with click_spinner.Spinner(disable=debug):
+                        total = 0
+                        size = 0
+                        for page in path.paginate():
+                            total += len(page)
+                            for file in page:
+                                size += file.size()
+                msg = f"{str(path)}: contains {total} file(s) totalling {pretty_bytes(size)} and counted in {duration}"
+                tqdm.tqdm.write(msg)
+                logger.debug(msg)
+            else:
+                total = None
+
             with get_executor(
                 concurrency=Concurrency.none if workers == 1 else Concurrency.threads,
                 max_workers=workers,
@@ -66,6 +89,7 @@ def sync(
                     ),
                     disable=debug,
                     desc="files",
+                    total=total,
                 ):
                     if future.skipped:  # pragma: no cover
                         src, _ = future.result()
