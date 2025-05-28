@@ -35,6 +35,23 @@ def test_bounds_from_inp(args):
     assert bounds.top == 4
 
 
+def test_bounds_laton():
+    bounds = Bounds.latlon()
+    assert bounds == (-180.0, -90.0, 180.0, 90.0)
+    assert bounds.crs == "EPSG:4326"
+
+
+def test_bounds_mercator():
+    bounds = Bounds.mercator()
+    assert bounds == (
+        -20037508.3427892,
+        -20037508.3427892,
+        20037508.3427892,
+        20037508.3427892,
+    )
+    assert bounds.crs == "EPSG:3857"
+
+
 def test_bounds_subscriptable():
     bounds = Bounds(1, 2, 3, 4)
     assert bounds[0] == 1

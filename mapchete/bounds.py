@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Union, Iterable
+from typing import Any, Optional, Union, Iterable
 
 from rasterio.crs import CRS
 from shapely import unary_union
@@ -28,8 +28,8 @@ class Bounds(list):
         bottom: Optional[float],
         right: Optional[float],
         top: Optional[float],
-        strict: bool = True,
         crs: Optional[CRSLike] = None,
+        strict: bool = True,
     ):
         self._set_attributes(left, bottom, right, top)
         for value in self:
@@ -47,6 +47,41 @@ class Bounds(list):
         from mapchete.validate import validate_crs
 
         self.crs = validate_crs(crs) if crs else None
+
+    @staticmethod
+    def from_inp(
+        inp: BoundsLike, strict: bool = True, crs: Optional[CRSLike] = None
+    ) -> Bounds:
+        if isinstance(inp, (list, tuple)):
+            if len(inp) != 4:
+                raise ValueError("Bounds must be initialized with exactly four values.")
+            return Bounds(*inp, strict=strict, crs=crs)
+        elif isinstance(inp, dict):
+            return Bounds.from_dict(inp, strict=strict, crs=crs)
+        elif hasattr(inp, "bounds"):
+            return Bounds(*inp.bounds, strict=strict, crs=crs)
+        else:
+            raise TypeError(f"cannot create Bounds using {inp}")
+
+    @staticmethod
+    def from_dict(
+        inp: dict, strict: bool = True, crs: Optional[CRSLike] = None
+    ) -> Bounds:
+        return Bounds(**inp, strict=strict, crs=crs)
+
+    @staticmethod
+    def latlon() -> Bounds:
+        return Bounds(-180.0, -90.0, 180.0, 90.0, crs="EPSG:4326")
+
+    @staticmethod
+    def mercator() -> Bounds:
+        return Bounds(
+            -20037508.3427892,
+            -20037508.3427892,
+            20037508.3427892,
+            20037508.3427892,
+            crs="EPSG:3857",
+        )
 
     def __iter__(self):
         yield self.left
@@ -86,7 +121,7 @@ class Bounds(list):
     def __ne__(self, other):
         return not self == other
 
-    def __add__(self, other: BoundsLike) -> Bounds:
+    def __add__(self, other: Any) -> Bounds:
         other = Bounds.from_inp(other)
         return Bounds(
             left=min([self.left, other.left]),
@@ -171,27 +206,6 @@ class Bounds(list):
             return unary_union([shape(part1), shape(part2)])  # type: ignore
         else:
             return shape(bounds)  # type: ignore
-
-    @staticmethod
-    def from_inp(
-        inp: BoundsLike, strict: bool = True, crs: Optional[CRSLike] = None
-    ) -> Bounds:
-        if isinstance(inp, (list, tuple)):
-            if len(inp) != 4:
-                raise ValueError("Bounds must be initialized with exactly four values.")
-            return Bounds(*inp, strict=strict, crs=crs)
-        elif isinstance(inp, dict):
-            return Bounds.from_dict(inp, strict=strict, crs=crs)
-        elif isinstance(inp, Geometry):
-            return Bounds(*inp.bounds, strict=strict, crs=crs)
-        else:
-            raise TypeError(f"cannot create Bounds using {inp}")
-
-    @staticmethod
-    def from_dict(
-        inp: dict, strict: bool = True, crs: Optional[CRSLike] = None
-    ) -> Bounds:
-        return Bounds(**inp, strict=strict, crs=crs)
 
     def to_dict(self) -> dict:
         """Return dictionary representation."""
