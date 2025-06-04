@@ -124,6 +124,7 @@ rm = "mapchete.cli.mpath.rm:rm"
 ls = "mapchete.cli.mpath.ls:ls"
 read_text = "mapchete.cli.mpath.read_text:read_text"
 read_json = "mapchete.cli.mpath.read_json:read_json"
+read_yaml = "mapchete.cli.mpath.read_yaml:read_yaml"
 
 [project.entry-points."mapchete.formats.drivers"]
 flatgeobuf = "mapchete.formats.default.flatgeobuf"

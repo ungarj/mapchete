@@ -6,5 +6,6 @@ from mapchete.path import MPath
 
 @click.command(help="Check whether path exists.")
 @options.arg_path
-def exists(path: MPath):
+@options.opt_src_fs_opts
+def exists(path: MPath, **_):
     click.echo(path.exists())
