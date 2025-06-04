@@ -69,3 +69,18 @@ def test_sync_dir(tiledir, mp_tmpdir):
     assert not mp_tmpdir.ls()
     assert run_cli(["sync", str(tiledir), str(mp_tmpdir), "--verbose"], cli=mpath)
     assert mp_tmpdir.ls()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "tiledir",
+    [
+        lazy_fixture("local_tiledir"),
+        # lazy_fixture("http_tiledir"),
+        # lazy_fixture("secure_http_tiledir"),
+    ],
+)
+def test_sync_dir_count(tiledir, mp_tmpdir):
+    assert not mp_tmpdir.ls()
+    assert run_cli(["sync", str(tiledir), str(mp_tmpdir), "--count"], cli=mpath)
+    assert mp_tmpdir.ls()
