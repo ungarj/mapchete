@@ -4,6 +4,7 @@ import pytest
 from pytest_lazyfixture import lazy_fixture
 
 from mapchete.cli.mpath import mpath
+from mapchete.testing import ProcessFixture
 
 
 @pytest.mark.integration
@@ -54,6 +55,10 @@ def test_read_json(metadata_json):
 
 def test_read_text(metadata_json):
     assert run_cli(["read-text", str(metadata_json)], cli=mpath)
+
+
+def test_read_yaml(example_mapchete: ProcessFixture):
+    assert run_cli(["read-yaml", str(example_mapchete.path)], cli=mpath)
 
 
 @pytest.mark.integration

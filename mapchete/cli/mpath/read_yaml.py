@@ -4,11 +4,11 @@ from mapchete.cli import options
 from mapchete.path import MPath
 
 
-@click.command(help="Print contents of file as text.")
+@click.command(help="Print contents of file as YAML.")
 @options.arg_path
 @options.opt_src_fs_opts
-def read_text(path: MPath, **_):
+def read_yaml(path: MPath, **_):
     try:
-        click.echo(path.read_text())
+        click.echo(path.read_yaml())
     except Exception as exc:  # pragma: no cover
         raise click.ClickException(str(exc))

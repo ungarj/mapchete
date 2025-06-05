@@ -7,8 +7,9 @@ from mapchete.path import MPath
 
 @click.command(help="Print contents of file as JSON.")
 @options.arg_path
+@options.opt_src_fs_opts
 @click.option("--indent", "-i", type=click.INT, default=4)
-def read_json(path: MPath, indent: int = 4):
+def read_json(path: MPath, indent: int = 4, **_):
     try:
         click.echo(json.dumps(path.read_json(), indent=indent))
     except Exception as exc:  # pragma: no cover
