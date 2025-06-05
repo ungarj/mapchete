@@ -3,6 +3,22 @@ Changelog
 #########
 
 ---------------------
+2025.6.0 - 2025-06-05
+---------------------
+
+* core
+
+  * `bounds.Bounds`: add `Bounds.latlon()` and `Bounds.mercator()` constructor methods (#690)
+
+* CLI
+
+  * `mpath sync`: add `--count` flag to have a total number the progress bar can work with (#689)
+  * `mpath read-yaml`: add subcommand (#691)
+  * `mpath read-json`: enable `--src-fs-opts` flags (#691)
+  * `mpath read-text`: enable `--src-fs-opts` flags (#691)
+
+
+---------------------
 2025.5.2 - 2025-05-22
 ---------------------
 
